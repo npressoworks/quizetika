@@ -30,9 +30,11 @@ export default function NotificationsPage() {
       return;
     }
 
+    const currentUserId = currentUser.id;
+
     async function loadNotifications() {
       try {
-        const list = await getNotifications(currentUser.id);
+        const list = await getNotifications(currentUserId);
         setNotifications(list);
       } catch (err) {
         console.error('Failed to fetch notifications:', err);

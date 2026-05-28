@@ -1,0 +1,116 @@
+/* 弱点克服画面スタイル定義 (review.module.css) */
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* ジャンル選択パネル */
+.setupPanel {
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.panelTitle {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-main);
+  text-align: center;
+  background: linear-gradient(135deg, var(--text-main), var(--color-primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.panelDesc {
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.genreSelector {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.genreCard {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.genreCard:hover {
+  border-color: var(--color-primary);
+  background: rgba(157, 78, 221, 0.05);
+  transform: translateY(-4px);
+}
+
+.genreSelected {
+  border-color: var(--color-primary);
+  background: linear-gradient(135deg, rgba(157, 78, 221, 0.15), rgba(0, 245, 212, 0.05));
+  box-shadow: 0 0 12px rgba(157, 78, 221, 0.2);
+}
+
+.genreIcon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.genreLabel {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.startBtn {
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* 復習完了画面 */
+.completedCard {
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.completedTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.completedDesc {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

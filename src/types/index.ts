@@ -123,6 +123,7 @@ export interface QuizList {
   authorAvatar: string;   // 作成者のアバターURL (非正規化)
   title: string;
   description: string;
+  coverImageUrl?: string; // カバー画像URL
   quizIds: string[];      // 含まれるクイズIDの配列
   isPublished: boolean;   // 公開フラグ
   bookmarksCount: number; // ブックマークされている数
