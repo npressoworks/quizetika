@@ -43,8 +43,8 @@ export async function toggleBookmark(
 
   // 対象オブジェクトのドキュメント参照を取得
   const targetDocRef = targetType === 'quiz'
-    ? doc(quizzesRef, targetId)
-    : doc(quizListsRef, targetId);
+    ? (doc(quizzesRef, targetId) as any)
+    : (doc(quizListsRef, targetId) as any);
 
   return await runTransaction(db, async (transaction) => {
     const bookmarkSnap = await transaction.get(bookmarkDocRef);
@@ -54,7 +54,7 @@ export async function toggleBookmark(
       throw new Error('Target document does not exist.');
     }
 
-    const currentCount = targetSnap.data().bookmarksCount || 0;
+    const currentCount = (targetSnap.data() as any)?.bookmarksCount || 0;
     const isAlreadyBookmarked = bookmarkSnap.exists();
 
     if (isAlreadyBookmarked) {

@@ -51,6 +51,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               avatarUrl: fUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fUser.uid}`,
               bio: 'クイズ大好き！よろしくお願いします。',
               followedGenres: [],
+              badges: [],
+              createdQuizzesCount: 0,
+              totalPlayCount: 0,
+              followersCount: 0,
+              followingCount: 0,
+              reputationScore: 0,
+              moderationTier: 'newcomer',
+              reputationHistory: [],
+              lastReputationCalculatedAt: null,
+              totalFailedQuestionsCount: 0,
+              deleteStatus: 'active',
             };
             await createUser(tempUser);
             dbUser = await getUser(fUser.uid);
