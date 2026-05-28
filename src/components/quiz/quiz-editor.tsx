@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { saveQuiz, getQuiz } from '@/services/quiz';
+import { saveQuiz, getQuiz, updateQuiz } from '@/services/quiz';
 import { validateQuizForPublish, normalizeTag, QuizPublishValidationError } from '@/services/quiz-validation';
 import { Quiz, Question, Choice } from '@/types';
 import styles from '@/app/quiz/create/create.module.css';
@@ -348,6 +348,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       questions,
       questionCount: questions.length,
       status,
+      playCount: 0,
+      bookmarksCount: 0,
       flagsCount: 0,
       positiveCount: 0,
       negativeCount: 0,
@@ -390,7 +392,6 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         // もしくは updateQuiz を呼び出します。今回は saveQuiz に寄せています。)
         // ※ saveQuiz は内部で addDoc を行うため、編集のときは updateQuiz または saveQuiz を呼ぶように調整。
         // ここでは QuizService から updateQuiz / saveQuiz の両方が使えるので、新規と編集で使い分けます。
-        const { updateQuiz } = require('@/services/quiz');
         await updateQuiz(quizId, {
           title,
           description,
