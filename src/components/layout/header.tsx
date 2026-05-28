@@ -49,7 +49,7 @@ export const Header: React.FC = () => {
         {/* Logo */}
         <Link href="/" className={styles.logo}>
           <span className="text-neon-primary">Quiz</span>
-          <span className="text-neon-accent">Hub</span>
+          <span className="text-neon-accent">eum</span>
         </Link>
 
         {/* Desktop Navigation */}
