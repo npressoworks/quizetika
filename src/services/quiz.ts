@@ -10,9 +10,12 @@ import {
   limit,
   getDocs,
   increment,
+  writeBatch,
 } from 'firebase/firestore';
-import { quizzesRef, followsRef } from '../lib/firebase/firestore';
+import { db } from '../lib/firebase/config';
+import { quizzesRef, followsRef, bookmarksRef } from '../lib/firebase/firestore';
 import { Quiz } from '../types';
+import { validateQuizForPublish, normalizeTag } from './quiz-validation';
 
 /**
  * 新規クイズを作成・投稿する
@@ -54,10 +57,93 @@ export async function updateQuiz(quizId: string, data: Partial<Omit<Quiz, 'id' |
 
 /**
  * クイズを削除する
+ * 関連するブックマークを非同期でクリーンアップする
  */
 export async function deleteQuiz(quizId: string): Promise<void> {
   const docRef = doc(quizzesRef, quizId);
-  await deleteDoc(docRef);
+  // Firestore の writeBatch で関連ブックマークをまとめて削除 (最大500件)
+  const bmQuery = query(bookmarksRef, where('targetId', '==', quizId));
+  const bmSnap = await getDocs(bmQuery);
+  const batch = writeBatch(db);
+  bmSnap.docs.forEach((bmDoc) => batch.delete(bmDoc.ref));
+  batch.delete(docRef);
+  await batch.commit();
+}
+
+/* ==========================================================================
+   クイズ保存・公開 (バリデーション付き)
+   ========================================================================== */
+
+/**
+ * クイズの保存エクスポート型
+ */
+export interface QuizExportPackage {
+  exportedAt: string;
+  quizzes: Quiz[];
+}
+
+/**
+ * クイズを下書き保存、または公開する統合関数。
+ * - status = 'draft': タイトルのみ必須でバリデーションを最小限に抑える
+ * - status = 'published': validateQuizForPublish による完全バリデーションを実行
+ *
+ * @param quizData クイズデータ（id/playCount/bookmarksCount/createdAt/updatedAt を除く）
+ * @param status 'draft' | 'published'
+ * @returns 作成または更新されたクイズのID
+ * @throws 公開時バリデーションエラー、またはNGワード検出時
+ */
+export async function saveQuiz(
+  quizData: Omit<Quiz, 'id' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>,
+  status: 'draft' | 'published'
+): Promise<string> {
+  const now = new Date();
+
+  // タグを正規化（常に適用）
+  const normalizedTags = quizData.tags.map(normalizeTag).filter(Boolean);
+
+  const payload: Omit<Quiz, 'id'> = {
+    ...quizData,
+    tags: normalizedTags,
+    status,
+    playCount: 0,
+    bookmarksCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  // 公開時のみ完全バリデーションを実行
+  if (status === 'published') {
+    const tempQuiz = { id: '', ...payload } as Quiz;
+    const errors = validateQuizForPublish(tempQuiz);
+    if (errors.length > 0) {
+      throw new Error(
+        `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`
+      );
+    }
+  } else {
+    // 下書きはタイトル必須のみ
+    if (!quizData.title.trim()) {
+      throw new Error('クイズのタイトルは必須です');
+    }
+  }
+
+  const docRef = await addDoc(quizzesRef, payload as any);
+  return docRef.id;
+}
+
+/**
+ * 作成者の全クイズ（下書き含む）をエクスポート用パッケージとして返す
+ * @param uid 作成者のユーザーID
+ * @returns QuizExportPackage（JSONダウンロード用）
+ */
+export async function exportQuizzes(uid: string): Promise<QuizExportPackage> {
+  const q = query(quizzesRef, where('authorId', '==', uid), orderBy('createdAt', 'desc'));
+  const snap = await getDocs(q);
+  const quizzes = snap.docs.map((d) => d.data());
+  return {
+    exportedAt: new Date().toISOString(),
+    quizzes,
+  };
 }
 
 /**

@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { quizListsRef, quizzesRef } from '../lib/firebase/firestore';
 import { QuizList, Quiz } from '../types';
+import { reorderQuizIds, buildListExportPackage, QuizListExportPackage } from './quiz-list-utils';
 
 /**
  * 新しいクイズリスト（問題集）を作成する
@@ -154,4 +155,50 @@ export async function getQuizzesInList(listId: string): Promise<Quiz[]> {
   return quizIds
     .map((id) => quizMap.get(id))
     .filter((q): q is Quiz => !!q);
+}
+
+/* ==========================================================================
+   リストの並び替えおよびエクスポート
+   ========================================================================== */
+
+/**
+ * クイズリスト内のクイズID順序を並び替える（ドラッグ&ドロップ対応）
+ * @param listId 対象のリストID
+ * @param newOrder 新しい順序のクイズID配列
+ */
+export async function reorderQuizList(listId: string, newOrder: string[]): Promise<void> {
+  const list = await getQuizList(listId);
+  if (!list) throw new Error(`リストが見つかりません: listId=${listId}`);
+
+  const reordered = reorderQuizIds(list.quizIds, newOrder);
+  const docRef = doc(quizListsRef, listId);
+  await updateDoc(docRef, {
+    quizIds: reordered,
+    updatedAt: new Date(),
+  });
+}
+
+/**
+ * クイズリストをエクスポートする
+ * - 作成者自身のクイズ: フルデータを含む
+ * - 他者のクイズ: IDのみを参照
+ *
+ * @param listId リストID
+ * @param authorId リスト作成者のユーザーID
+ * @returns QuizListExportPackage
+ */
+export async function exportQuizList(
+  listId: string,
+  authorId: string
+): Promise<QuizListExportPackage> {
+  const list = await getQuizList(listId);
+  if (!list) throw new Error(`リストが見つかりません: listId=${listId}`);
+
+  const allQuizzes = await getQuizzesInList(listId);
+  const ownedQuizzes = allQuizzes.filter((q) => q.authorId === authorId);
+  const externalQuizIds = allQuizzes
+    .filter((q) => q.authorId !== authorId)
+    .map((q) => q.id);
+
+  return buildListExportPackage(list, ownedQuizzes, externalQuizIds);
 }
