@@ -12,7 +12,6 @@ import { saveAttempt, updateFailedQuestionsCount } from '@/services/attempt';
 import { addPendingSyncAttempt, generateLocalId } from '@/services/attempt-session';
 import { Quiz, Attempt, Question } from '@/types';
 import styles from './play.module.css';
-import { Header } from '@/components/layout/header';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -578,11 +577,8 @@ function QuizPlayPageContent({ params }: PageProps) {
 
 export default function QuizPlayPage(props: PageProps) {
   return (
-    <>
-      <Header />
-      <React.Suspense fallback={<div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}><p style={{ color: 'var(--text-muted)' }}>プレイ環境を準備中...</p></div>}>
-        <QuizPlayPageContent {...props} />
-      </React.Suspense>
-    </>
+    <React.Suspense fallback={<div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}><p style={{ color: 'var(--text-muted)' }}>プレイ環境を準備中...</p></div>}>
+      <QuizPlayPageContent {...props} />
+    </React.Suspense>
   );
 }

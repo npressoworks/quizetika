@@ -9,7 +9,6 @@ import {
   validateProfileData, 
   ProfileValidationError 
 } from '@/services/user';
-import { Header } from '@/components/layout/header';
 import { AlertCircle, Save, ArrowLeft } from 'lucide-react';
 import styles from './edit.module.css';
 
@@ -88,102 +87,99 @@ export default function ProfileEditPage() {
   const hasErrors = errors.length > 0;
 
   return (
-    <>
-      <Header />
-      <main className={styles.main}>
-        <div className={styles.container}>
-          {/* Back link */}
-          <button 
-            onClick={() => router.push(`/profile/${currentUser?.id}`)} 
-            className={styles.backButton}
-          >
-            <ArrowLeft size={16} />
-            <span>プロフィールに戻る</span>
-          </button>
+    <main className={styles.main}>
+      <div className={styles.container}>
+        {/* Back link */}
+        <button 
+          onClick={() => router.push(`/profile/${currentUser?.id}`)} 
+          className={styles.backButton}
+        >
+          <ArrowLeft size={16} />
+          <span>プロフィールに戻る</span>
+        </button>
 
-          {/* Edit Card */}
-          <div className={`${styles.editCard} glass-card animate-fade-in`}>
-            <h1 className={styles.title}>プロフィールの編集</h1>
-            
-            {submitError && (
-              <div className={styles.errorAlert}>
-                <AlertCircle size={18} />
-                <span>{submitError}</span>
-              </div>
-            )}
+        {/* Edit Card */}
+        <div className={`${styles.editCard} glass-card animate-fade-in`}>
+          <h1 className={styles.title}>プロフィールの編集</h1>
+          
+          {submitError && (
+            <div className={styles.errorAlert}>
+              <AlertCircle size={18} />
+              <span>{submitError}</span>
+            </div>
+          )}
 
-            <form onSubmit={handleSubmit} className={styles.form}>
-              {/* Display Name Input */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="displayName">表示名</label>
-                <input
-                  id="displayName"
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className={`form-input ${getFieldError('displayName') ? styles.inputError : ''}`}
-                  placeholder="ユーザー名を入力してください"
-                  disabled={submitting}
-                />
-                <div className={styles.inputFooter}>
-                  {getFieldError('displayName') ? (
-                    <span className={styles.errorText}>{getFieldError('displayName')}</span>
-                  ) : (
-                    <span />
-                  )}
-                  <span className={`${styles.charCount} ${displayName.length > 30 ? styles.countOver : ''}`}>
-                    {displayName.length} / 30
-                  </span>
-                </div>
+          <form onSubmit={handleSubmit} className={styles.form}>
+            {/* Display Name Input */}
+            <div className="form-group">
+              <label className="form-label" htmlFor="displayName">表示名</label>
+              <input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className={`form-input ${getFieldError('displayName') ? styles.inputError : ''}`}
+                placeholder="ユーザー名を入力してください"
+                disabled={submitting}
+              />
+              <div className={styles.inputFooter}>
+                {getFieldError('displayName') ? (
+                  <span className={styles.errorText}>{getFieldError('displayName')}</span>
+                ) : (
+                  <span />
+                )}
+                <span className={`${styles.charCount} ${displayName.length > 30 ? styles.countOver : ''}`}>
+                  {displayName.length} / 30
+                </span>
               </div>
+            </div>
 
-              {/* Biography TextArea */}
-              <div className="form-group">
-                <label className="form-label" htmlFor="bio">自己紹介</label>
-                <textarea
-                  id="bio"
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  className={`form-input ${styles.textarea} ${getFieldError('bio') ? styles.inputError : ''}`}
-                  placeholder="自己紹介を書いてみましょう（好きなジャンルや関心など）"
-                  disabled={submitting}
-                  rows={5}
-                />
-                <div className={styles.inputFooter}>
-                  {getFieldError('bio') ? (
-                    <span className={styles.errorText}>{getFieldError('bio')}</span>
-                  ) : (
-                    <span />
-                  )}
-                  <span className={`${styles.charCount} ${bio.length > 200 ? styles.countOver : ''}`}>
-                    {bio.length} / 200
-                  </span>
-                </div>
+            {/* Biography TextArea */}
+            <div className="form-group">
+              <label className="form-label" htmlFor="bio">自己紹介</label>
+              <textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                className={`form-input ${styles.textarea} ${getFieldError('bio') ? styles.inputError : ''}`}
+                placeholder="自己紹介を書いてみましょう（好きなジャンルや関心など）"
+                disabled={submitting}
+                rows={5}
+              />
+              <div className={styles.inputFooter}>
+                {getFieldError('bio') ? (
+                  <span className={styles.errorText}>{getFieldError('bio')}</span>
+                ) : (
+                  <span />
+                )}
+                <span className={`${styles.charCount} ${bio.length > 200 ? styles.countOver : ''}`}>
+                  {bio.length} / 200
+                </span>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className={styles.formActions}>
-                <button
-                  type="button"
-                  onClick={() => router.push(`/profile/${currentUser?.id}`)}
-                  className="btn btn-secondary"
-                  disabled={submitting}
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="submit"
-                  className={`btn btn-primary ${hasErrors || submitting ? 'btn-disabled' : ''}`}
-                  disabled={hasErrors || submitting}
-                >
-                  <Save size={18} />
-                  <span>{submitting ? '保存中...' : '変更を保存する'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
+            {/* Action Buttons */}
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                onClick={() => router.push(`/profile/${currentUser?.id}`)}
+                className="btn btn-secondary"
+                disabled={submitting}
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                className={`btn btn-primary ${hasErrors || submitting ? 'btn-disabled' : ''}`}
+                disabled={hasErrors || submitting}
+              >
+                <Save size={18} />
+                <span>{submitting ? '保存中...' : '変更を保存する'}</span>
+              </button>
+            </div>
+          </form>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

@@ -8,7 +8,6 @@ import { db } from '@/lib/firebase/config';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { User as DBUser, Quiz } from '@/types';
 import styles from './leaderboard.module.css';
-import { Header } from '@/components/layout/header';
 
 interface LeaderboardUser {
   id: string;
@@ -81,9 +80,7 @@ export default function LeaderboardPage() {
   }, [activeTab]);
 
   return (
-    <>
-      <Header />
-      <div className={styles.container}>
+    <div className={styles.container}>
       <div className={styles.titleSection}>
         <h1 className={styles.title}>
           <Trophy size={36} style={{ color: '#ffd700', verticalAlign: 'text-bottom' }} />
@@ -180,6 +177,5 @@ export default function LeaderboardPage() {
         )}
       </div>
     </div>
-    </>
   );
 }

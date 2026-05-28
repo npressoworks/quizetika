@@ -13,7 +13,6 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getPendingSyncAttempts } from '@/services/attempt-session';
 import { Quiz, Attempt, FeedbackReport } from '@/types';
 import styles from './result.module.css';
-import { Header } from '@/components/layout/header';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -412,11 +411,8 @@ function QuizResultPageContent({ params }: PageProps) {
 
 export default function QuizResultPage(props: PageProps) {
   return (
-    <>
-      <Header />
-      <React.Suspense fallback={<div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}><p style={{ color: 'var(--text-muted)' }}>結果データをロード中...</p></div>}>
-        <QuizResultPageContent {...props} />
-      </React.Suspense>
-    </>
+    <React.Suspense fallback={<div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}><p style={{ color: 'var(--text-muted)' }}>結果データをロード中...</p></div>}>
+      <QuizResultPageContent {...props} />
+    </React.Suspense>
   );
 }

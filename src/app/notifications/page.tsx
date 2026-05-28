@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { getNotifications, markNotificationAsRead, Notification } from '@/services/notification';
-import { Header } from '@/components/layout/header';
 import { 
   UserPlus, 
   CheckCircle, 
@@ -102,86 +101,83 @@ export default function NotificationsPage() {
   const hasUnread = notifications.some(n => !n.isRead);
 
   return (
-    <>
-      <Header />
-      <main className={styles.main}>
-        <div className={styles.container}>
-          {/* Back link */}
-          <button 
-            onClick={() => router.push(`/profile/${currentUser?.id}`)} 
-            className={styles.backButton}
-          >
-            <ArrowLeft size={16} />
-            <span>プロフィールに戻る</span>
-          </button>
+    <main className={styles.main}>
+      <div className={styles.container}>
+        {/* Back link */}
+        <button 
+          onClick={() => router.push(`/profile/${currentUser?.id}`)} 
+          className={styles.backButton}
+        >
+          <ArrowLeft size={16} />
+          <span>プロフィールに戻る</span>
+        </button>
 
-          {/* Notifications Card */}
-          <div className={`${styles.notificationsCard} glass-card animate-fade-in`}>
-            <div className={styles.cardHeader}>
-              <div className={styles.titleWrapper}>
-                <Bell size={24} className={styles.bellIcon} />
-                <h1 className={styles.title}>通知一覧</h1>
+        {/* Notifications Card */}
+        <div className={`${styles.notificationsCard} glass-card animate-fade-in`}>
+          <div className={styles.cardHeader}>
+            <div className={styles.titleWrapper}>
+              <Bell size={24} className={styles.bellIcon} />
+              <h1 className={styles.title}>通知一覧</h1>
+            </div>
+            
+            {hasUnread && (
+              <button onClick={handleAllRead} className={styles.allReadBtn}>
+                <Check size={16} />
+                <span>すべて既読にする</span>
+              </button>
+            )}
+          </div>
+
+          {/* List */}
+          <div className={styles.listContainer}>
+            {notifications.length === 0 ? (
+              <div className={styles.emptyState}>
+                <Bell size={40} className={styles.emptyIcon} />
+                <p>届いている通知はありません。</p>
               </div>
-              
-              {hasUnread && (
-                <button onClick={handleAllRead} className={styles.allReadBtn}>
-                  <Check size={16} />
-                  <span>すべて既読にする</span>
-                </button>
-              )}
-            </div>
-
-            {/* List */}
-            <div className={styles.listContainer}>
-              {notifications.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Bell size={40} className={styles.emptyIcon} />
-                  <p>届いている通知はありません。</p>
-                </div>
-              ) : (
-                <div className={styles.notificationList}>
-                  {notifications.map((notif) => (
-                    <div 
-                      key={notif.id} 
-                      onClick={() => handleNotificationClick(notif)}
-                      className={`${styles.notificationCard} ${!notif.isRead ? styles.unreadCard : ''}`}
-                    >
-                      <div className={styles.iconWrapper}>
-                        {notif.senderAvatar ? (
-                          <img 
-                            src={notif.senderAvatar} 
-                            alt={notif.senderName || 'Sender'} 
-                            className={styles.senderAvatar}
-                          />
-                        ) : (
-                          <div className={styles.fallbackIcon}>
-                            {getNotificationIcon(notif.type)}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className={styles.contentWrapper}>
-                        <p className={styles.message}>{notif.message}</p>
-                        <span className={styles.timestamp}>
-                          {new Date(notif.createdAt).toLocaleDateString('ja-JP', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </span>
-                      </div>
-
-                      {!notif.isRead && <div className={styles.unreadDot} />}
+            ) : (
+              <div className={styles.notificationList}>
+                {notifications.map((notif) => (
+                  <div 
+                    key={notif.id} 
+                    onClick={() => handleNotificationClick(notif)}
+                    className={`${styles.notificationCard} ${!notif.isRead ? styles.unreadCard : ''}`}
+                  >
+                    <div className={styles.iconWrapper}>
+                      {notif.senderAvatar ? (
+                        <img 
+                          src={notif.senderAvatar} 
+                          alt={notif.senderName || 'Sender'} 
+                          className={styles.senderAvatar}
+                        />
+                      ) : (
+                        <div className={styles.fallbackIcon}>
+                          {getNotificationIcon(notif.type)}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
+                    <div className={styles.contentWrapper}>
+                      <p className={styles.message}>{notif.message}</p>
+                      <span className={styles.timestamp}>
+                        {new Date(notif.createdAt).toLocaleDateString('ja-JP', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+
+                    {!notif.isRead && <div className={styles.unreadDot} />}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

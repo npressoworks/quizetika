@@ -12,7 +12,6 @@ import {
   unfollowUser, 
   isFollowing 
 } from '@/services/user';
-import { Header } from '@/components/layout/header';
 import { ArrowLeft, UserPlus, UserMinus, UserCheck, Users, Search } from 'lucide-react';
 import { User } from '@/types';
 import styles from './connections.module.css';
@@ -111,116 +110,110 @@ export default function ConnectionsPage() {
 
   if (!profileUser) {
     return (
-      <>
-        <Header />
-        <div className={styles.errorContainer}>
-          <h2>ユーザーが見つかりません</h2>
-          <p>お探しのユーザーのつながり情報は存在しません。</p>
-          <Link href="/" className="btn btn-primary">ホームに戻る</Link>
-        </div>
-      </>
+      <div className={styles.errorContainer}>
+        <h2>ユーザーが見つかりません</h2>
+        <p>お探しのユーザーのつながり情報は存在しません。</p>
+        <Link href="/" className="btn btn-primary">ホームに戻る</Link>
+      </div>
     );
   }
 
   const currentList = activeTab === 'following' ? followingList : followersList;
 
   return (
-    <>
-      <Header />
-      <main className={styles.main}>
-        <div className={styles.container}>
-          {/* Back to Profile */}
-          <button 
-            onClick={() => router.push(`/profile/${uid}`)} 
-            className={styles.backButton}
-          >
-            <ArrowLeft size={16} />
-            <span>{profileUser.displayName} のプロフィール</span>
-          </button>
+    <main className={styles.main}>
+      <div className={styles.container}>
+        {/* Back to Profile */}
+        <button 
+          onClick={() => router.push(`/profile/${uid}`)} 
+          className={styles.backButton}
+        >
+          <ArrowLeft size={16} />
+          <span>{profileUser.displayName} のプロフィール</span>
+        </button>
 
-          {/* Connections Card */}
-          <div className={`${styles.connectionsCard} glass-card animate-fade-in`}>
-            <div className={styles.cardHeader}>
-              <h1 className={styles.title}>つながり一覧</h1>
-            </div>
+        {/* Connections Card */}
+        <div className={`${styles.connectionsCard} glass-card animate-fade-in`}>
+          <div className={styles.cardHeader}>
+            <h1 className={styles.title}>つながり一覧</h1>
+          </div>
 
-            {/* Tabs */}
-            <div className={styles.tabsContainer}>
-              <button
-                className={`${styles.tabButton} ${activeTab === 'following' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('following')}
-              >
-                <span>フォロー中 ({followingList.length})</span>
-              </button>
-              <button
-                className={`${styles.tabButton} ${activeTab === 'followers' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('followers')}
-              >
-                <span>フォロワー ({followersList.length})</span>
-              </button>
-            </div>
+          {/* Tabs */}
+          <div className={styles.tabsContainer}>
+            <button
+              className={`${styles.tabButton} ${activeTab === 'following' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('following')}
+            >
+              <span>フォロー中 ({followingList.length})</span>
+            </button>
+            <button
+              className={`${styles.tabButton} ${activeTab === 'followers' ? styles.activeTab : ''}`}
+              onClick={() => setActiveTab('followers')}
+            >
+              <span>フォロワー ({followersList.length})</span>
+            </button>
+          </div>
 
-            {/* User List */}
-            <div className={styles.listContainer}>
-              {currentList.length === 0 ? (
-                <div className={styles.emptyState}>
-                  <Users size={40} className={styles.emptyIcon} />
-                  <p>
-                    {activeTab === 'following' 
-                      ? 'フォローしているユーザーはまだいません。' 
-                      : 'フォロワーはまだいません。'}
-                  </p>
-                </div>
-              ) : (
-                <div className={styles.userList}>
-                  {currentList.map((targetUser) => {
-                    const isMe = currentUser?.id === targetUser.id;
-                    const isFollowedByMe = !!myFollowingMap[targetUser.id];
-                    const isBtnToggling = togglingId === targetUser.id;
+          {/* User List */}
+          <div className={styles.listContainer}>
+            {currentList.length === 0 ? (
+              <div className={styles.emptyState}>
+                <Users size={40} className={styles.emptyIcon} />
+                <p>
+                  {activeTab === 'following' 
+                    ? 'フォローしているユーザーはまだいません。' 
+                    : 'フォロワーはまだいません。'}
+                </p>
+              </div>
+            ) : (
+              <div className={styles.userList}>
+                {currentList.map((targetUser) => {
+                  const isMe = currentUser?.id === targetUser.id;
+                  const isFollowedByMe = !!myFollowingMap[targetUser.id];
+                  const isBtnToggling = togglingId === targetUser.id;
 
-                    return (
-                      <div key={targetUser.id} className={styles.userCard}>
-                        <Link href={`/profile/${targetUser.id}`} className={styles.userInfoLink}>
-                          <img 
-                            src={targetUser.avatarUrl || '/default-avatar.png'} 
-                            alt={targetUser.displayName} 
-                            className={styles.avatar} 
-                          />
-                          <div className={styles.userInfo}>
-                            <h3 className={styles.displayName}>{targetUser.displayName}</h3>
-                            <p className={styles.bio}>{targetUser.bio || '自己紹介はまだ登録されていません。'}</p>
-                          </div>
-                        </Link>
+                  return (
+                    <div key={targetUser.id} className={styles.userCard}>
+                      <Link href={`/profile/${targetUser.id}`} className={styles.userInfoLink}>
+                        <img 
+                          src={targetUser.avatarUrl || '/default-avatar.png'} 
+                          alt={targetUser.displayName} 
+                          className={styles.avatar} 
+                        />
+                        <div className={styles.userInfo}>
+                          <h3 className={styles.displayName}>{targetUser.displayName}</h3>
+                          <p className={styles.bio}>{targetUser.bio || '自己紹介はまだ登録されていません。'}</p>
+                        </div>
+                      </Link>
 
-                        {/* フォロートグルボタン (自分以外のユーザーカードにのみ表示) */}
-                        {!isMe && currentUser && (
-                          <button
-                            onClick={() => handleFollowToggle(targetUser.id)}
-                            disabled={isBtnToggling}
-                            className={`btn ${isFollowedByMe ? 'btn-secondary' : 'btn-accent'} ${styles.followBtn}`}
-                          >
-                            {isFollowedByMe ? (
-                              <>
-                                <UserCheck size={16} />
-                                <span className={styles.btnText}>フォロー中</span>
-                              </>
-                            ) : (
-                              <>
-                                <UserPlus size={16} />
-                                <span className={styles.btnText}>フォロー</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                      {/* フォロートグルボタン (自分以外のユーザーカードにのみ表示) */}
+                      {!isMe && currentUser && (
+                        <button
+                          onClick={() => handleFollowToggle(targetUser.id)}
+                          disabled={isBtnToggling}
+                          className={`btn ${isFollowedByMe ? 'btn-secondary' : 'btn-accent'} ${styles.followBtn}`}
+                        >
+                          {isFollowedByMe ? (
+                            <>
+                              <UserCheck size={16} />
+                              <span className={styles.btnText}>フォロー中</span>
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus size={16} />
+                              <span className={styles.btnText}>フォロー</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }

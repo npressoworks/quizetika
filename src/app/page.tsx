@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import styles from './page.module.css';
-import { Header } from '@/components/layout/header';
 import {
   getLatestQuizzes,
   getPopularQuizzes,
@@ -19,8 +18,8 @@ import { Book, Code, Globe, History, Palette, Trophy, Search, SlidersHorizontal,
 // 主要ジャンルナビゲーション用データ
 const GENRES = [
   { id: '', label: 'すべて', icon: '✨' },
-  { id: 'programming', label: '開発・プログラミング', icon: '💻' },
-  { id: 'history', label: '歴史・世界史', icon: '📜' },
+  { id: 'programming', label: 'コンピュータ・プログラミング', icon: '💻' },
+  { id: 'history', label: '歴史', icon: '📜' },
   { id: 'science', label: '科学・宇宙', icon: '🌌' },
   { id: 'art', label: 'アート・デザイン', icon: '🎨' },
   { id: 'sports', label: 'スポーツ', icon: '⚽' },
@@ -162,9 +161,7 @@ export default function Home() {
   };
 
   return (
-    <>
-      <Header />
-      <div className={styles.container}>
+    <div className={styles.container}>
       {/* ヒーローセクション */}
       <section className={styles.hero}>
         <h1>知的探求を、もっとクリエイティブに。</h1>
@@ -179,9 +176,8 @@ export default function Home() {
         {GENRES.map((genre) => (
           <button
             key={genre.id}
-            className={`${styles.genreButton} ${
-              selectedGenre === genre.id ? styles.genreButtonActive : ''
-            }`}
+            className={`${styles.genreButton} ${selectedGenre === genre.id ? styles.genreButtonActive : ''
+              }`}
             onClick={() => setSelectedGenre(genre.id)}
           >
             <span className={styles.genreIcon}>{genre.icon}</span>
@@ -369,9 +365,8 @@ export default function Home() {
                       <span>👤 {quiz.authorName}</span>
                     </div>
                     <button
-                      className={`${styles.bookmarkBtn} ${
-                        bookmarkedIds.has(quiz.id) ? styles.bookmarked : ''
-                      }`}
+                      className={`${styles.bookmarkBtn} ${bookmarkedIds.has(quiz.id) ? styles.bookmarked : ''
+                        }`}
                       onClick={(e) => handleBookmarkClick(e, quiz.id)}
                     >
                       <Star size={18} fill={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'none'} />
@@ -384,6 +379,5 @@ export default function Home() {
         )}
       </section>
     </div>
-    </>
   );
 }

@@ -9,7 +9,6 @@ import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { useAuth } from '@/context/auth-context';
 import { Quiz } from '@/types';
 import styles from '../../page.module.css';
-import { Header } from '@/components/layout/header';
 
 interface PageProps {
   params: Promise<{ genreName: string }>;
@@ -65,9 +64,7 @@ export default function GenreExplorePage({ params }: PageProps) {
   };
 
   return (
-    <>
-      <Header />
-      <div className={styles.container}>
+    <div className={styles.container}>
       <Link href="/" className={styles.backBtn} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
         <ArrowLeft size={16} /> 戻る
       </Link>
@@ -125,6 +122,5 @@ export default function GenreExplorePage({ params }: PageProps) {
         </div>
       )}
     </div>
-    </>
   );
 }

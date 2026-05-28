@@ -10,7 +10,6 @@ import { getBookmarkedQuizzes, toggleBookmark } from '@/services/bookmark';
 import { Quiz } from '@/types';
 import styles from './bookmarks.module.css';
 import cardStyles from '../page.module.css';
-import { Header } from '@/components/layout/header';
 
 export default function BookmarksPage() {
   const router = useRouter();
@@ -67,9 +66,7 @@ export default function BookmarksPage() {
   }
 
   return (
-    <>
-      <Header />
-      <div className={styles.container}>
+    <div className={styles.container}>
       <Link href="/" className={cardStyles.backBtn} style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
         <ArrowLeft size={16} /> ホームに戻る
       </Link>
@@ -135,6 +132,5 @@ export default function BookmarksPage() {
         </div>
       )}
     </div>
-    </>
   );
 }

@@ -26,6 +26,11 @@ export const Header: React.FC = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // クイズプレイ画面では共通ヘッダーを表示しない
+  if (pathname && pathname.includes('/play')) {
+    return null;
+  }
+
   const handleLogout = async () => {
     try {
       await signOut(auth);

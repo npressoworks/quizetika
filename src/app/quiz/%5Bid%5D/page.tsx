@@ -10,7 +10,6 @@ import { getQuiz } from '@/services/quiz';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { Quiz } from '@/types';
 import styles from './page.module.css';
-import { Header } from '@/components/layout/header';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -115,9 +114,7 @@ export default function QuizDetailPage({ params }: PageProps) {
     : [];
 
   return (
-    <>
-      <Header />
-      <div className={styles.container}>
+    <div className={styles.container}>
       <Link href="/" className={styles.backBtn}>
         <ArrowLeft size={16} />
         探索に戻る
@@ -317,6 +314,5 @@ export default function QuizDetailPage({ params }: PageProps) {
         )}
       </section>
     </div>
-    </>
   );
 }

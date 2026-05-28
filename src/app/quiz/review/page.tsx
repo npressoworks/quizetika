@@ -10,7 +10,6 @@ import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firesto
 import { updateFailedQuestionsCount } from '@/services/attempt';
 import { Question, Quiz } from '@/types';
 import styles from './review.module.css';
-import { Header } from '@/components/layout/header';
 
 // 復習ジャンルリスト
 const REVIEW_GENRES = [
@@ -160,9 +159,7 @@ export default function ReviewPage() {
   }
 
   return (
-    <>
-      <Header />
-      <div className={styles.container}>
+    <div className={styles.container}>
       <Link href="/" className={styles.backBtn}>
         <ArrowLeft size={16} />
         ホームに戻る
@@ -301,6 +298,5 @@ export default function ReviewPage() {
         </div>
       )}
     </div>
-    </>
   );
 }
