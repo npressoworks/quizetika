@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { saveQuiz, getQuiz } from '@/services/quiz';
 import { validateQuizForPublish, normalizeTag, QuizPublishValidationError } from '@/services/quiz-validation';
@@ -32,8 +32,9 @@ const CANONICAL_TAGS = [
   'Git'
 ];
 
-export const QuizEditor: React.FC<QuizEditorProps> = ({ quizId }) => {
+export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   
   const [loading, setLoading] = useState(false);
@@ -89,6 +90,27 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({ quizId }) => {
 
     fetchQuiz();
   }, [quizId]);
+
+  // 修正指摘からのスクロール連動 (要件 2.4)
+  useEffect(() => {
+    if (questions.length > 0) {
+      const questionIdxParam = searchParams.get('questionIdx');
+      if (questionIdxParam !== null) {
+        const idx = parseInt(questionIdxParam);
+        if (!isNaN(idx) && idx >= 0 && idx < questions.length) {
+          // 少し待ってレンダリング後にスクロール
+          setTimeout(() => {
+            const element = document.getElementById(`question-card-${idx}`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              element.style.borderColor = 'var(--color-accent)';
+              element.style.boxShadow = '0 0 15px var(--color-accent-glow)';
+            }
+          }, 300);
+        }
+      }
+    }
+  }, [questions, searchParams]);
 
   // デフォルト設問の追加
   const addDefaultQuestion = () => {
@@ -493,7 +515,7 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({ quizId }) => {
 
             <div className={styles.questionList}>
               {questions.map((q, qIdx) => (
-                <div key={q.id || qIdx} className={styles.questionCard}>
+                <div key={q.id || qIdx} id={`question-card-${qIdx}`} className={styles.questionCard}>
                   <div className={styles.questionCardHeader}>
                     <span className={styles.questionNumber}>第 {qIdx + 1} 問</span>
                     <button
@@ -725,5 +747,13 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({ quizId }) => {
         </button>
       </div>
     </div>
+  );
+};
+
+export const QuizEditor: React.FC<QuizEditorProps> = (props) => {
+  return (
+    <Suspense fallback={<div>エディタを読み込み中...</div>}>
+      <QuizEditorContent {...props} />
+    </Suspense>
   );
 };
