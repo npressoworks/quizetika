@@ -1,0 +1,231 @@
+.loadingContainer {
+  min-height: calc(100vh - 72px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-main);
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(157, 78, 221, 0.2);
+  border-radius: 50%;
+  border-top-color: var(--color-primary);
+  animation: spin 1s ease-in-out infinite;
+  box-shadow: 0 0 15px var(--color-primary-glow);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.main {
+  min-height: calc(100vh - 72px);
+  padding: 40px 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  max-width: 720px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: var(--transition-fast);
+}
+
+.backButton:hover {
+  color: var(--color-accent);
+}
+
+.notificationsCard {
+  padding: 30px;
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 576px) {
+  .notificationsCard {
+    padding: 20px;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.titleWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bellIcon {
+  color: var(--color-primary);
+  filter: drop-shadow(0 0 8px var(--color-primary-glow));
+}
+
+.title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.allReadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-light);
+}
+
+.allReadBtn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent-glow);
+  background: rgba(0, 245, 212, 0.04);
+}
+
+/* List Container */
+.listContainer {
+  width: 100%;
+}
+
+.emptyState {
+  padding: 60px 40px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-light);
+}
+
+.emptyIcon {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.notificationList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notificationCard {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  position: relative;
+}
+
+.notificationCard:hover {
+  border-color: var(--border-glow);
+  background: rgba(157, 78, 221, 0.03);
+  transform: translateX(4px);
+}
+
+.unreadCard {
+  background: rgba(157, 78, 221, 0.04);
+  border-color: rgba(157, 78, 221, 0.2);
+}
+
+.iconWrapper {
+  flex-shrink: 0;
+}
+
+.senderAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-light);
+}
+
+.fallbackIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-light);
+}
+
+.iconFollow {
+  color: var(--color-accent);
+}
+
+.iconSuccess {
+  color: var(--color-success);
+}
+
+.iconHeart {
+  color: var(--color-danger);
+}
+
+.iconWarning {
+  color: var(--color-warning);
+}
+
+.contentWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.message {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.unreadDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}

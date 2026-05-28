@@ -76,7 +76,7 @@ export const Header: React.FC = () => {
           ) : user ? (
             <div className={styles.userWrapper}>
               {/* クイズ作成ボタン */}
-              <Link href="/dashboard/quiz/new" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
+              <Link href="/quiz/create" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '0.85rem' }}>
                 <PlusCircle size={16} />
                 <span>作問する</span>
               </Link>
@@ -105,7 +105,7 @@ export const Header: React.FC = () => {
                       </div>
                       <hr className={styles.divider} />
                       <Link 
-                        href={`/users/${user.id}`} 
+                        href={`/profile/${user.id}`} 
                         className={styles.dropdownItem}
                         onClick={() => setDropdownOpen(false)}
                       >
@@ -113,7 +113,7 @@ export const Header: React.FC = () => {
                         <span>マイページ</span>
                       </Link>
                       <Link 
-                        href="/dashboard" 
+                        href="/creator/dashboard" 
                         className={styles.dropdownItem}
                         onClick={() => setDropdownOpen(false)}
                       >
@@ -181,7 +181,7 @@ export const Header: React.FC = () => {
                 </div>
                 
                 <Link 
-                  href="/dashboard/quiz/new" 
+                  href="/quiz/create" 
                   className="btn btn-primary"
                   style={{ width: '100%', marginTop: '10px' }}
                   onClick={() => setMobileMenuOpen(false)}
@@ -191,7 +191,7 @@ export const Header: React.FC = () => {
                 </Link>
                 
                 <Link 
-                  href={`/users/${user.id}`} 
+                  href={`/profile/${user.id}`} 
                   className={styles.mobileDropdownItem}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -200,7 +200,7 @@ export const Header: React.FC = () => {
                 </Link>
                 
                 <Link 
-                  href="/dashboard" 
+                  href="/creator/dashboard" 
                   className={styles.mobileDropdownItem}
                   onClick={() => setMobileMenuOpen(false)}
                 >

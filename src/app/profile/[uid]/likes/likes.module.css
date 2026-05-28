@@ -1,0 +1,221 @@
+.loadingContainer {
+  min-height: calc(100vh - 72px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-main);
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(157, 78, 221, 0.2);
+  border-radius: 50%;
+  border-top-color: var(--color-primary);
+  animation: spin 1s ease-in-out infinite;
+  box-shadow: 0 0 15px var(--color-primary-glow);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.main {
+  min-height: calc(100vh - 72px);
+  padding: 40px 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  max-width: 720px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: var(--transition-fast);
+}
+
+.backButton:hover {
+  color: var(--color-accent);
+}
+
+.likesCard {
+  padding: 30px;
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 576px) {
+  .likesCard {
+    padding: 20px;
+  }
+}
+
+.cardHeader {
+  margin-bottom: 24px;
+}
+
+.titleWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.heartIcon {
+  color: var(--color-danger);
+  filter: drop-shadow(0 0 8px rgba(255, 0, 84, 0.3));
+}
+
+.title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+/* Tabs */
+.tabsContainer {
+  display: flex;
+  border-bottom: 1px solid var(--border-light);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.tabButton {
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.tabButton:hover {
+  color: var(--text-main);
+}
+
+.activeTab {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  text-shadow: 0 0 8px var(--color-primary-glow);
+}
+
+/* List Container */
+.listContainer {
+  width: 100%;
+}
+
+.emptyState {
+  padding: 60px 40px;
+  text-align: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-light);
+}
+
+.emptyIcon {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.reactionList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reactionCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  transition: var(--transition-smooth);
+}
+
+.reactionCard:hover {
+  border-color: var(--border-glow);
+  background: rgba(157, 78, 221, 0.03);
+  transform: translateY(-2px);
+}
+
+.reactionCard:hover .linkIcon {
+  color: var(--color-accent);
+  transform: translateX(4px);
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.quizInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: rgba(157, 78, 221, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.quizTitle {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.message {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.timestamp {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.linkIcon {
+  color: var(--text-muted);
+  transition: var(--transition-smooth);
+  flex-shrink: 0;
+  margin-left: 16px;
+}
+
+.errorContainer {
+  min-height: calc(100vh - 72px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+  padding: 24px;
+}
