@@ -149,8 +149,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     setQuestions(nextQuestions);
   };
 
-  // 設問タイプの切り替え (選択式 / 短答文字入力式)
-  const handleToggleQuestionType = (idx: number, type: 'multiple-choice' | 'text-input') => {
+  // 設問タイプの切り替え (選択式 / 短答文字入力式 / ウミガメのスープ)
+  const handleToggleQuestionType = (idx: number, type: 'multiple-choice' | 'text-input' | 'lateral-thinking') => {
     const nextQuestions = [...questions];
     nextQuestions[idx].type = type;
     
@@ -162,9 +162,15 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         { id: '4', choiceText: '選択肢 4', isCorrect: false, selectedCount: 0 },
       ];
       nextQuestions[idx].correctTextAnswerList = undefined;
+      nextQuestions[idx].aiContextDetails = undefined;
     } else if (type === 'text-input' && !nextQuestions[idx].correctTextAnswerList) {
       nextQuestions[idx].correctTextAnswerList = ['正解テキスト'];
       nextQuestions[idx].choices = undefined;
+      nextQuestions[idx].aiContextDetails = undefined;
+    } else if (type === 'lateral-thinking') {
+      nextQuestions[idx].aiContextDetails = '';
+      nextQuestions[idx].choices = undefined;
+      nextQuestions[idx].correctTextAnswerList = undefined;
     }
     
     setQuestions(nextQuestions);
@@ -545,6 +551,13 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                     >
                       短答文字入力式
                     </button>
+                    <button
+                      type="button"
+                      className={`${styles.toggleBtn} ${q.type === 'lateral-thinking' ? styles.toggleBtnActive : ''}`}
+                      onClick={() => handleToggleQuestionType(qIdx, 'lateral-thinking')}
+                    >
+                      ウミガメのスープ (GM型AI)
+                    </button>
                   </div>
 
                   <div className={styles.formGroup}>
@@ -611,6 +624,27 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                       >
                         <Plus size={14} /> 正解候補を追加する
                       </button>
+                    </div>
+                  )}
+
+                  {/* ウミガメスープ専用の真相（裏設定）入力エリア */}
+                  {q.type === 'lateral-thinking' && (
+                    <div className={styles.formGroup} style={{ marginTop: '20px' }}>
+                      <label className={styles.label}>
+                        真相（ゲームマスター用の裏設定・解決情報）
+                        <span style={{ color: 'var(--color-danger)' }}> *</span>
+                      </label>
+                      <textarea
+                        className={styles.textarea}
+                        placeholder="AIがプレイヤーからの自由な質問に答える基準となる「真相（裏設定）」を、20文字以上2000文字以内で詳しく記述してください。"
+                        value={q.aiContextDetails || ''}
+                        onChange={(e) => {
+                          const nextQuestions = [...questions];
+                          nextQuestions[qIdx].aiContextDetails = e.target.value;
+                          setQuestions(nextQuestions);
+                        }}
+                        style={{ minHeight: '120px' }}
+                      />
                     </div>
                   )}
 
