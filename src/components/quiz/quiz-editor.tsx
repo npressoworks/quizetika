@@ -562,12 +562,12 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
                   <div className={styles.formGroup}>
                     <label className={styles.label}>問題文</label>
-                    <input
-                      type="text"
-                      className={styles.input}
+                    <textarea
+                      className={styles.textarea}
                       placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"
                       value={q.questionText}
                       onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
+                      style={{ minHeight: '80px', resize: 'vertical' }}
                     />
                   </div>
 
