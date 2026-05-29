@@ -17,13 +17,15 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-function QuizPlayPageContent({ params }: PageProps) {
+interface ContentProps {
+  quizId: string;
+}
+
+function QuizPlayPageContent({ quizId }: ContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   
-  const resolvedParams = use(params);
-  const quizId = resolvedParams.id;
   const rawMode = searchParams.get('mode') || 'normal';
   const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral';
 
@@ -575,10 +577,11 @@ function QuizPlayPageContent({ params }: PageProps) {
   );
 }
 
-export default function QuizPlayPage(props: PageProps) {
+export default function QuizPlayPage({ params }: PageProps) {
+  const resolvedParams = use(params);
   return (
     <React.Suspense fallback={<div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}><p style={{ color: 'var(--text-muted)' }}>プレイ環境を準備中...</p></div>}>
-      <QuizPlayPageContent {...props} />
+      <QuizPlayPageContent quizId={resolvedParams.id} />
     </React.Suspense>
   );
 }

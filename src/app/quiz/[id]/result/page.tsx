@@ -18,13 +18,15 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-function QuizResultPageContent({ params }: PageProps) {
+interface ContentProps {
+  quizId: string;
+}
+
+function QuizResultPageContent({ quizId }: ContentProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   
-  const resolvedParams = use(params);
-  const quizId = resolvedParams.id;
   const attemptId = searchParams.get('attemptId');
   const localId = searchParams.get('localId');
 
@@ -134,7 +136,7 @@ function QuizResultPageContent({ params }: PageProps) {
   const handleSendReaction = async () => {
     if (!user || !quiz || reactionSent || !online) return;
     try {
-      await sendReaction(user.id, quiz.authorId, quiz.id, quiz.title);
+      await sendReaction(user.id, quiz.authorId, quiz.id, 'thank');
       setReactionSent(true);
     } catch (e) {
       console.error('[QuizResult] リアクション送信失敗:', e);
@@ -409,10 +411,11 @@ function QuizResultPageContent({ params }: PageProps) {
   );
 }
 
-export default function QuizResultPage(props: PageProps) {
+export default function QuizResultPage({ params }: PageProps) {
+  const resolvedParams = use(params);
   return (
     <React.Suspense fallback={<div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}><p style={{ color: 'var(--text-muted)' }}>結果データをロード中...</p></div>}>
-      <QuizResultPageContent {...props} />
+      <QuizResultPageContent quizId={resolvedParams.id} />
     </React.Suspense>
   );
 }

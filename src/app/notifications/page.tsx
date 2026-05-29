@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { getNotifications, markNotificationAsRead, Notification } from '@/services/notification';
+import { getNotifications, markAsRead, Notification } from '@/services/notification';
 import { 
   UserPlus, 
   CheckCircle, 
@@ -49,7 +49,7 @@ export default function NotificationsPage() {
     try {
       // 既読に更新
       if (!notif.isRead) {
-        await markNotificationAsRead(notif.id);
+        await markAsRead(notif.id);
         setNotifications(prev => 
           prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n)
         );
@@ -58,8 +58,12 @@ export default function NotificationsPage() {
       // タイプ別遷移
       if (notif.type === 'follow' && notif.senderId) {
         router.push(`/profile/${notif.senderId}`);
-      } else if (notif.type === 'issue_resolved' && notif.quizId) {
-        router.push(`/quiz/${notif.quizId}`);
+      } else if (notif.type === 'correction_resolved' && notif.targetId) {
+        router.push(`/quiz/${notif.targetId}`);
+      } else if (notif.type === 'bookmark' && notif.targetId) {
+        router.push(`/quiz/${notif.targetId}`);
+      } else if (notif.type === 'quiz_review_warning' && notif.targetId) {
+        router.push(`/quiz/${notif.targetId}`);
       }
     } catch (err) {
       console.error('Failed to process notification click:', err);
@@ -69,7 +73,7 @@ export default function NotificationsPage() {
   const handleAllRead = async () => {
     try {
       const unreadList = notifications.filter(n => !n.isRead);
-      await Promise.all(unreadList.map(n => markNotificationAsRead(n.id)));
+      await Promise.all(unreadList.map(n => markAsRead(n.id)));
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     } catch (err) {
       console.error('Failed to mark all as read:', err);
@@ -84,17 +88,36 @@ export default function NotificationsPage() {
     );
   }
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'follow':
         return <UserPlus size={20} className={styles.iconFollow} />;
-      case 'issue_resolved':
+      case 'correction_resolved':
         return <CheckCircle size={20} className={styles.iconSuccess} />;
       case 'bookmark':
         return <Heart size={20} className={styles.iconHeart} />;
-      case 'content_deleted':
+      case 'badge_unlocked':
+        return <Bell size={20} className={styles.iconSuccess} />;
+      case 'quiz_review_warning':
       default:
         return <AlertTriangle size={20} className={styles.iconWarning} />;
+    }
+  };
+
+  const getNotificationMessage = (notif: Notification) => {
+    switch (notif.type) {
+      case 'follow':
+        return `${notif.senderName}さんがあなたをフォローしました。`;
+      case 'bookmark':
+        return `${notif.senderName}さんがあなたのクイズ『${notif.targetTitle || 'クイズ'}』をブックマークしました。`;
+      case 'correction_resolved':
+        return `${notif.senderName}さんがクイズ『${notif.targetTitle || 'クイズ'}』の指摘を修正しました。`;
+      case 'badge_unlocked':
+        return `新しいバッジ「${notif.targetTitle || 'バッジ'}」を獲得しました！`;
+      case 'quiz_review_warning':
+        return `クイズ『${notif.targetTitle || 'クイズ'}』の評価が低下しています。内容の改善を検討してください。`;
+      default:
+        return '新しい通知があります。';
     }
   };
 
@@ -158,7 +181,7 @@ export default function NotificationsPage() {
                     </div>
 
                     <div className={styles.contentWrapper}>
-                      <p className={styles.message}>{notif.message}</p>
+                      <p className={styles.message}>{getNotificationMessage(notif)}</p>
                       <span className={styles.timestamp}>
                         {new Date(notif.createdAt).toLocaleDateString('ja-JP', {
                           year: 'numeric',

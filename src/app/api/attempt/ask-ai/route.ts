@@ -6,9 +6,9 @@
  * 1. 認証トークンを検証
  * 2. Firestore から現在の attempt を取得し、キャッシュ照合
  * 3. キャッシュヒット → AI呼び出しなし、ターン消費なしで即時返却
- * 4. 無料ユーザーのターン制限チェック
+ * 4. 無料ユーザーの1日20回質問制限チェック (dailyAiTurnCounts による日付別管理)
  * 5. Gemini API に質問を送信（ステートレス）
- * 6. 結果を attempt の aiQuestionsHistory にアトミック追加
+ * 6. 結果を attempt の aiQuestionsHistory にアトミック追加、および制限カウンターの更新
  *
  * Requirements: 4.1, 4.2, 4.3
  * Boundary: AskAiQuestionAPI
@@ -16,7 +16,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { collection, doc, getDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import { collection, doc, getDoc, updateDoc, setDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import {
   findCachedAnswer,
@@ -34,6 +34,20 @@ const attemptsCollection = collection(db, 'attempts');
 
 /** Quizzes コレクション参照 */
 const quizzesCollection = collection(db, 'quizzes');
+
+/**
+ * 日本時間の今日の日付文字列 (YYYY-MM-DD) を取得するヘルパー
+ */
+function getTodayString(): string {
+  const d = new Date();
+  // 日本標準時 (JST) での日付を YYYY-MM-DD フォーマットで取得
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstDate = new Date(d.getTime() + jstOffset);
+  const yyyy = jstDate.getUTCFullYear();
+  const mm = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(jstDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -67,7 +81,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!attemptSnap.exists()) {
       return NextResponse.json(
-        { error: 'attempt-not-found', message: '対象のプレイ記録が見つかりません' },
+        { error: 'attempt-not-found', message: '対象 of プレイ記録が見つかりません' },
         { status: 404 }
       );
     }
@@ -95,13 +109,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // ── ターン制限チェック ──────────────────────────────────
-    const currentTurnCount = attempt.aiTurnCount ?? 0;
-    if (isAiTurnLimitExceeded(currentTurnCount, isPremium ?? false)) {
+    // ── 1日同一クイズ20回制限チェック ────────────────────────
+    const todayStr = getTodayString();
+    const dailyCountDocRef = doc(db, 'users', userId, 'dailyAiTurnCounts', attempt.quizId);
+    const dailyCountSnap = await getDoc(dailyCountDocRef);
+
+    let currentDailyCount = 0;
+    if (dailyCountSnap.exists()) {
+      const dailyData = dailyCountSnap.data() as { count: number; lastUpdatedDate: string };
+      if (dailyData.lastUpdatedDate === todayStr) {
+        currentDailyCount = dailyData.count;
+      }
+    }
+
+    if (isAiTurnLimitExceeded(currentDailyCount, isPremium ?? false)) {
       return NextResponse.json(
         {
           error: 'limit-exceeded',
-          message: '本日の質問上限（20回）に達しました。プレミアムプランで制限を解除できます。',
+          message: '本日のこのクイズに対する質問上限（20回）に達しました。プレミアムプランで制限を解除できます。',
         },
         { status: 429 }
       );
@@ -119,7 +144,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const quiz = quizSnap.data() as Quiz;
-    // ウミガメ問題の裏設定（質問に対応する問題の aiContextDetails を使用）
     const lateralQuestion = quiz.questions.find((q) => q.type === 'lateral-thinking');
     const aiContextDetails = lateralQuestion?.aiContextDetails;
 
@@ -145,11 +169,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       aiComment = parsed.aiComment;
     } catch (aiError) {
       console.error('[ask-ai] Gemini API エラー:', aiError);
-      // AI エラー時は unknown で返し、ターンは消費させない
-      return NextResponse.json({ answerType: 'unknown', aiComment: 'AIが応答できませんでした。もう一度お試しください。', isFromCache: false, turnsRemaining: null });
+      return NextResponse.json({
+        answerType: 'unknown',
+        aiComment: 'AIが応答できませんでした。もう一度お試しください。',
+        isFromCache: false,
+        turnsRemaining: null,
+      });
     }
 
-    // ── 結果を Attempt にアトミック追加 ────────────────────
+    // ── 結果を アトミックトランザクションで保存 ─────────────────
     const newEntry: AiQuestion = {
       id: `${attemptId}_${Date.now()}`,
       questionText,
@@ -159,12 +187,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       createdAt: new Date(),
     };
 
-    await updateDoc(attemptRef, {
-      aiQuestionsHistory: arrayUnion(newEntry),
-      aiTurnCount: increment(1),
+    await runTransaction(db, async (transaction) => {
+      // 1. attempt の対話履歴と質問数インクリメント
+      transaction.update(attemptRef, {
+        aiQuestionsHistory: arrayUnion(newEntry),
+        aiTurnCount: increment(1),
+      });
+
+      // 2. 1日20回制限のカウンタをインクリメント・本日日付に更新
+      transaction.set(
+        dailyCountDocRef,
+        {
+          count: increment(1),
+          lastUpdatedDate: todayStr,
+        },
+        { merge: true }
+      );
     });
 
-    const newTurnCount = currentTurnCount + 1;
+    const newTurnCount = currentDailyCount + 1;
     const turnsRemaining = isPremium
       ? null
       : Math.max(0, 20 - newTurnCount);

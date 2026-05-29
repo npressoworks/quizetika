@@ -5,20 +5,20 @@ import {
   orderBy, 
   getDocs, 
   doc, 
+  addDoc,
   updateDoc 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 
 export interface Notification {
   id: string;
-  recipientId: string;
-  type: 'follow' | 'issue_resolved' | 'content_deleted' | 'bookmark';
-  quizId?: string;
-  quizTitle?: string;
-  senderId?: string;
-  senderName?: string;
-  senderAvatar?: string;
-  message: string;
+  userId: string; // recipientId から userId へ仕様一元化
+  type: 'follow' | 'bookmark' | 'correction_resolved' | 'badge_unlocked' | 'quiz_review_warning';
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
+  targetId?: string;
+  targetTitle?: string;
   isRead: boolean;
   createdAt: Date;
 }
@@ -31,7 +31,7 @@ const notificationsCollection = collection(db, 'notifications');
 export async function getNotifications(userId: string): Promise<Notification[]> {
   const q = query(
     notificationsCollection,
-    where('recipientId', '==', userId),
+    where('userId', '==', userId),
     orderBy('createdAt', 'desc')
   );
   
@@ -40,14 +40,13 @@ export async function getNotifications(userId: string): Promise<Notification[]> 
     const data = docSnap.data();
     return {
       id: docSnap.id,
-      recipientId: data.recipientId,
+      userId: data.userId,
       type: data.type,
-      quizId: data.quizId,
-      quizTitle: data.quizTitle,
       senderId: data.senderId,
       senderName: data.senderName,
       senderAvatar: data.senderAvatar,
-      message: data.message,
+      targetId: data.targetId,
+      targetTitle: data.targetTitle,
       isRead: data.isRead,
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
     } as Notification;
@@ -57,9 +56,28 @@ export async function getNotifications(userId: string): Promise<Notification[]> 
 /**
  * 特定の通知を既読にする
  */
-export async function markNotificationAsRead(notificationId: string): Promise<void> {
+export async function markAsRead(notificationId: string): Promise<void> {
   const docRef = doc(notificationsCollection, notificationId);
   await updateDoc(docRef, {
     isRead: true
   });
+}
+
+// 後方互換性用の別名
+export { markAsRead as markNotificationAsRead };
+
+/**
+ * 新規通知を登録する
+ */
+export async function createNotification(
+  notificationData: Omit<Notification, 'id' | 'createdAt' | 'isRead'>
+): Promise<string> {
+  const payload: Omit<Notification, 'id'> = {
+    ...notificationData,
+    isRead: false,
+    createdAt: new Date(),
+  };
+
+  const docRef = await addDoc(notificationsCollection, payload);
+  return docRef.id;
 }

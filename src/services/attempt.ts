@@ -1,33 +1,27 @@
-/**
- * プレイ履歴（Attempt）Firestore 永続化サービス
- *
- * 機能:
- * 1. saveAttempt    - プレイ結果を Firestore の attempts コレクションに保存
- * 2. syncPendingAttempts - localStorage の未同期データをオンライン復帰時に一括同期
- *
- * Boundary: AttemptService (Task 2.3)
- * Requirements: 3.1, 3.3, 5.5
- */
-
 import {
   collection,
   addDoc,
   doc,
+  getDoc,
+  getDocs,
   updateDoc,
-  arrayUnion,
+  query,
+  where,
+  orderBy,
   runTransaction,
   increment,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { quizzesRef } from '../lib/firebase/firestore';
-import { Attempt } from '../types';
+import { quizzesRef, usersRef } from '../lib/firebase/firestore';
+import { Attempt, Quiz, Question } from '../types';
 import {
   getPendingSyncAttempts,
   clearPendingSyncAttempt,
   PendingSyncAttempt,
 } from './attempt-session';
 
-/** Firestore の attempts コレクション参照（型コンバーターなしで直接使用） */
 const attemptsCollection = collection(db, 'attempts');
 
 /* ==========================================================================
@@ -36,63 +30,174 @@ const attemptsCollection = collection(db, 'attempts');
 
 /**
  * プレイ結果を Firestore に保存する。
- * 同時に:
- * - quizzes/{quizId}.playCount をインクリメント
- * - パーフェクトスコア時はリーダーボードを更新
- *
- * @param attemptData 保存するプレイ結果データ（id と completedAt を除く）
- * @returns 作成された Attempt ドキュメントID
+ * アトミックなトランザクション内で、attemptsへのレコード追加、
+ * プレイ回数加算、パーフェクト時のリーダーボード更新をすべて行う。
  */
 export async function saveAttempt(
   attemptData: Omit<Attempt, 'id' | 'completedAt'>
 ): Promise<string> {
   const completedAt = new Date();
+  const attemptDocRef = doc(attemptsCollection);
 
   const payload: Omit<Attempt, 'id'> = {
     ...attemptData,
     completedAt,
   };
 
-  // Firestore にプレイ履歴を保存
-  const docRef = await addDoc(attemptsCollection, payload);
-
-  // クイズのプレイ回数をインクリメント（非同期で実行）
   const quizDocRef = doc(quizzesRef, attemptData.quizId);
-  updateDoc(quizDocRef, { playCount: increment(1) }).catch((e) =>
-    console.warn('[AttemptService] playCount インクリメントに失敗:', e)
-  );
 
-  // パーフェクトスコア時はリーダーボードにエントリを追加
-  if (attemptData.score === attemptData.totalQuestions) {
-    const leaderboardEntry = {
-      userId: attemptData.userId,
-      displayName: '', // 呼び出し元で非正規化した名前を設定
-      score: attemptData.score,
-      elapsedSeconds: attemptData.elapsedSeconds,
-      completedAt,
+  await runTransaction(db, async (transaction) => {
+    const quizSnap = await transaction.get(quizDocRef);
+    if (!quizSnap.exists()) {
+      throw new Error(`クイズが見つかりません: ${attemptData.quizId}`);
+    }
+
+    const quiz = quizSnap.data() as Quiz;
+
+    // attempt の追加
+    transaction.set(attemptDocRef, payload);
+
+    const quizUpdates: Record<string, any> = {
+      playCount: increment(1),
+      updatedAt: completedAt,
     };
-    updateDoc(quizDocRef, {
-      leaderboard: arrayUnion(leaderboardEntry),
-    }).catch((e) => console.warn('[AttemptService] リーダーボード更新に失敗:', e));
-  }
 
-  return docRef.id;
+    // パーフェクトスコア時はリーダーボードにエントリを追加
+    if (attemptData.score === attemptData.totalQuestions) {
+      const leaderboardEntry = {
+        userId: attemptData.userId,
+        displayName: '', // 呼び出し元で非正規化した名前を設定する想定
+        score: attemptData.score,
+        elapsedSeconds: attemptData.elapsedSeconds,
+        completedAt,
+      };
+
+      // クイズ内のリーダーボード配列を更新
+      const newLeaderboard = [...(quiz.leaderboard ?? [])];
+      newLeaderboard.push(leaderboardEntry);
+      newLeaderboard.sort((a, b) => b.score - a.score || a.elapsedSeconds - b.elapsedSeconds);
+      // 上位5名にスライス
+      quizUpdates.leaderboard = newLeaderboard.slice(0, 5);
+    }
+
+    transaction.update(quizDocRef, quizUpdates);
+  });
+
+  return attemptDocRef.id;
 }
 
 /* ==========================================================================
-   ユーザーの間違い問題記録更新
+   弱点克服プレイ (復習) 用メソッド
    ========================================================================== */
 
 /**
- * ユーザーの totalFailedQuestionsCount を更新する
- * （プレイ後に未復習問題数を正確に反映するために呼び出す）
+ * 過去に自身が間違えた設問配列のみを抽出し、復習用データとして提供する。
  *
- * @param uid ユーザーID
- * @param delta 増減値（正: 増加、負: 減少）
+ * @param userId ユーザーID
+ * @param quizId クイズID（指定された場合、そのクイズ内の間違いに絞る）
+ * @param genreFilter ジャンル名（指定された場合、そのジャンルに属するクイズの間違いに絞る）
+ */
+export async function getFailedQuestions(
+  userId: string,
+  quizId?: string,
+  genreFilter?: string | null
+): Promise<Question[]> {
+  // 1. ユーザーの過去の attempts を取得
+  let attemptsQuery = query(attemptsCollection, where('userId', '==', userId));
+  if (quizId) {
+    attemptsQuery = query(attemptsQuery, where('quizId', '==', quizId));
+  }
+  const attemptsSnap = await getDocs(attemptsQuery);
+
+  // 間違えた問題IDの重複排除セットを作成
+  const failedIds = new Set<string>();
+  const quizIdToFailedIds: Record<string, string[]> = {};
+
+  attemptsSnap.docs.forEach((docSnap) => {
+    const data = docSnap.data() as Attempt;
+    if (data.failedQuestionIds && data.failedQuestionIds.length > 0) {
+      if (!quizIdToFailedIds[data.quizId]) {
+        quizIdToFailedIds[data.quizId] = [];
+      }
+      data.failedQuestionIds.forEach((qId) => {
+        failedIds.add(qId);
+        if (!quizIdToFailedIds[data.quizId].includes(qId)) {
+          quizIdToFailedIds[data.quizId].push(qId);
+        }
+      });
+    }
+  });
+
+  if (failedIds.size === 0) return [];
+
+  // 2. 対象となるクイズデータをまとめてフェッチし、問題オブジェクトを抽出する
+  const failedQuestions: Question[] = [];
+
+  for (const qId of Object.keys(quizIdToFailedIds)) {
+    const quizDocRef = doc(quizzesRef, qId);
+    const quizSnap = await getDoc(quizDocRef);
+
+    if (quizSnap.exists()) {
+      const quiz = quizSnap.data() as Quiz;
+      // ジャンルフィルタのチェック
+      if (genreFilter && genreFilter !== 'all' && quiz.genre !== genreFilter) {
+        continue;
+      }
+
+      const qIds = quizIdToFailedIds[qId];
+      quiz.questions.forEach((q) => {
+        if (qIds.includes(q.id)) {
+          failedQuestions.push(q);
+        }
+      });
+    }
+  }
+
+  return failedQuestions;
+}
+
+/**
+ * 復習プレイで正解した設問を、ユーザーの過去の間違いリストからアトミックに削除する。
+ * 同時に、users.totalFailedQuestionsCount もアトミックに減算する。
+ */
+export async function updateFailedQuestions(
+  userId: string,
+  quizId: string,
+  solvedQuestionIds: string[]
+): Promise<void> {
+  if (solvedQuestionIds.length === 0) return;
+
+  const userDocRef = doc(usersRef, userId);
+
+  // 過去の該当クイズの attempts をすべて走査して、failedQuestionIds からアトミックに正解した問題を除去
+  const attemptsQuery = query(
+    attemptsCollection,
+    where('userId', '==', userId),
+    where('quizId', '==', quizId)
+  );
+  const attemptsSnap = await getDocs(attemptsQuery);
+
+  await runTransaction(db, async (transaction) => {
+    // 1. 各 attempts の failedQuestionIds から solvedQuestionIds を除去
+    attemptsSnap.docs.forEach((docSnap) => {
+      transaction.update(docSnap.ref, {
+        failedQuestionIds: arrayRemove(...solvedQuestionIds),
+      });
+    });
+
+    // 2. ユーザーの totalFailedQuestionsCount を減算
+    transaction.update(userDocRef, {
+      totalFailedQuestionsCount: increment(-solvedQuestionIds.length),
+      updatedAt: new Date(),
+    });
+  });
+}
+
+/**
+ * ユーザーの totalFailedQuestionsCount を更新する（既存スタブ）
  */
 export async function updateFailedQuestionsCount(uid: string, delta: number): Promise<void> {
   if (delta === 0) return;
-  const { usersRef } = await import('../lib/firebase/firestore');
   const userDocRef = doc(usersRef, uid);
   await updateDoc(userDocRef, {
     totalFailedQuestionsCount: increment(delta),
@@ -104,12 +209,6 @@ export async function updateFailedQuestionsCount(uid: string, delta: number): Pr
    オフライン未同期データの Firestore バッチ同期
    ========================================================================== */
 
-/**
- * localStorage に退避された未同期 Attempt を Firestore に一括送信する。
- * ネットワーク復帰時（online イベント等）に呼び出すことを想定。
- *
- * @returns 同期に成功した件数
- */
 export async function syncPendingAttempts(): Promise<number> {
   const pending = getPendingSyncAttempts();
   if (pending.length === 0) return 0;
@@ -119,12 +218,10 @@ export async function syncPendingAttempts(): Promise<number> {
   for (const pendingAttempt of pending) {
     try {
       const attempt = pendingSyncToAttempt(pendingAttempt);
-      await addDoc(attemptsCollection, attempt);
-      // 同期成功したものをキューから除去
+      await saveAttempt(attempt); // トランザクション版を呼び出して同期
       clearPendingSyncAttempt(pendingAttempt.localId);
       successCount++;
     } catch (e) {
-      // 個別失敗は次の同期機会に再試行するためスキップ
       console.warn(`[AttemptService] 未同期データの同期に失敗 (localId=${pendingAttempt.localId}):`, e);
     }
   }
@@ -132,9 +229,6 @@ export async function syncPendingAttempts(): Promise<number> {
   return successCount;
 }
 
-/**
- * PendingSyncAttempt を Attempt オブジェクト（Firestore 保存用）に変換する
- */
 function pendingSyncToAttempt(pending: PendingSyncAttempt): Omit<Attempt, 'id'> {
   return {
     userId: pending.userId,

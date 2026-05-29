@@ -6,8 +6,8 @@
  * 1. リクエストバリデーション（真相要約は最大1000文字）
  * 2. Attempt と Quiz の裏設定を Firestore から取得
  * 3. Gemini API に真相要約を送信して合否を判定
- * 4. 合格時: attempt を completed にマークし、リーダーボードを更新
- * 5. 不合格時: AIアドバイスをレスポンスとして返す
+ * 4. 合格時: attempt を completed にマーク、履歴の追加、リーダーボード・プレイ数のトランザクション更新
+ * 5. 不合格時: 履歴の追加、AIアドバイスをレスポンスとして返す
  *
  * Requirements: 4.5, 4.6, 4.7
  * Boundary: VerifyTruthAPI
@@ -15,7 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { collection, doc, getDoc, updateDoc, arrayUnion, increment } from 'firebase/firestore';
+import { collection, doc, getDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { buildVerifyTruthPrompt, parseTruthVerifyResponse } from '@/services/verify-truth-utils';
 import { Attempt, Quiz } from '@/types';
@@ -96,31 +96,60 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const now = new Date();
+    // 履歴追加用の解答レコード
+    const newTruthAttempt = {
+      id: `${attemptId}_truth_${Date.now()}`,
+      truthText: truthSummary,
+      isCorrect,
+      aiFeedback: advice ?? '',
+      createdAt: now,
+    };
+
     if (isCorrect) {
-      // 合格: Attempt を完了状態にマーク
-      const completedAt = new Date();
+      // 合格: トランザクションでアトミックに完了マーク、履歴追加、リーダーボード更新
       const elapsedSeconds = attempt.elapsedSeconds;
 
-      await updateDoc(attemptRef, {
-        completedAt,
-        score: attempt.totalQuestions, // ウミガメは全問正解扱い
-      });
+      await runTransaction(db, async (transaction) => {
+        const quizTransactionSnap = await transaction.get(quizRef);
+        if (!quizTransactionSnap.exists()) throw new Error('クイズが見つかりません。');
+        const currentQuiz = quizTransactionSnap.data() as Quiz;
 
-      // リーダーボードにエントリを追加
-      await updateDoc(quizRef, {
-        leaderboard: arrayUnion({
+        // 1. attempt を完了、履歴追加
+        transaction.update(attemptRef, {
+          completedAt: now,
+          score: attempt.totalQuestions, // ウミガメは全問正解扱い
+          aiTruthAttempts: arrayUnion(newTruthAttempt),
+        });
+
+        // 2. クイズのリーダーボードとプレイ数インクリメント
+        const leaderboardEntry = {
           userId,
           displayName: displayName ?? '',
           score: attempt.totalQuestions,
           elapsedSeconds,
-          completedAt,
-        }),
-        playCount: increment(1),
+          completedAt: now,
+        };
+
+        const newLeaderboard = [...(currentQuiz.leaderboard ?? [])];
+        newLeaderboard.push(leaderboardEntry);
+        newLeaderboard.sort((a, b) => b.score - a.score || a.elapsedSeconds - b.elapsedSeconds);
+        const top5Leaderboard = newLeaderboard.slice(0, 5);
+
+        transaction.update(quizRef, {
+          leaderboard: top5Leaderboard,
+          playCount: increment(1),
+          updatedAt: now,
+        });
       });
 
       return NextResponse.json({ isCorrect: true, advice: null });
     } else {
-      // 不合格: AIアドバイスを返す
+      // 不合格: 履歴の追加のみアトミックに行い、AIアドバイスを返す
+      await updateDoc(attemptRef, {
+        aiTruthAttempts: arrayUnion(newTruthAttempt),
+      });
+
       return NextResponse.json({ isCorrect: false, advice });
     }
   } catch (error) {

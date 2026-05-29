@@ -16,6 +16,7 @@ export interface User {
   followersCount: number; // フォロワー数
   followingCount: number; // フォローしている数
   reputationScore: number; // 信頼スコア
+  totalReactionsCount?: number; // 累計獲得リアクション数
   moderationTier: 'newcomer' | 'contributor' | 'moderator' | 'senior_moderator'; // 権限ティアー
   reputationHistory: ReputationEventLog[]; // スコア変動履歴 (直近30件)
   lastReputationCalculatedAt: Date | null; // 変動バッチ計算日時

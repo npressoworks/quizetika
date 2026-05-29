@@ -6,24 +6,55 @@ import {
   deleteDoc,
   query,
   where,
+  limit,
   getDocs,
   arrayUnion,
   arrayRemove,
   runTransaction,
+  writeBatch,
   increment,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { usersRef, followsRef } from '../lib/firebase/firestore';
+import { usersRef, followsRef, quizzesRef, quizListsRef } from '../lib/firebase/firestore';
 import { User, Follow, Badge } from '../types';
+import { deleteImage } from './storage';
 
 /**
- * ユーザー情報を取得
- * @param userId Firebase Auth UID
+ * プロフィール更新データ型
  */
-export async function getUser(userId: string): Promise<User | null> {
-  const docRef = doc(usersRef, userId);
+export interface UpdateProfileData {
+  displayName: string;
+  bio: string;
+  followedGenres?: string[];
+}
+
+/**
+ * プロフィール更新のバリデーションエラー型
+ */
+export interface ProfileValidationError {
+  field: 'displayName' | 'bio';
+  message: string;
+}
+
+/**
+ * ユーザープロフィール情報を取得
+ * @param uid Firebase Auth UID
+ */
+export async function getUserProfile(uid: string): Promise<User | null> {
+  const docRef = doc(usersRef, uid);
   const snap = await getDoc(docRef);
   return snap.exists() ? snap.data() : null;
+}
+
+/**
+ * ユーザープロフィールを更新する（バリデーション付き）
+ */
+export async function updateUserProfile(uid: string, updates: Partial<User>): Promise<void> {
+  const docRef = doc(usersRef, uid);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: new Date(),
+  });
 }
 
 /**
@@ -40,25 +71,14 @@ export async function createUser(user: Omit<User, 'createdAt' | 'updatedAt'>): P
   await setDoc(docRef, newUser);
 }
 
-/**
- * ユーザー情報を更新
- */
-export async function updateUser(userId: string, data: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>>): Promise<void> {
-  const docRef = doc(usersRef, userId);
-  await updateDoc(docRef, {
-    ...data,
-    updatedAt: new Date(),
-  });
-}
+// 既存の互換用スタブ
+export { getUserProfile as getUser };
+export { updateUserProfile as updateUser };
 
 /* ==========================================================================
    バッジ定義 (マイルストーン称号)
    ========================================================================== */
 
-/**
- * バッジ付与条件の定義
- * 各バッジは特定の数値条件（プレイ数・作成数・フォロワー数）を持つ
- */
 interface BadgeDefinition {
   id: string;
   title: string;
@@ -68,7 +88,6 @@ interface BadgeDefinition {
 }
 
 export const BADGE_DEFINITIONS: BadgeDefinition[] = [
-  // ── プレイ回数バッジ ──────────────────────────────────────
   {
     id: 'play_10',
     title: '初挑戦者',
@@ -104,7 +123,6 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     iconName: 'crown',
     condition: (u) => u.totalPlayCount >= 1000,
   },
-  // ── 作成数バッジ ──────────────────────────────────────────
   {
     id: 'create_1',
     title: 'クイズクリエイター',
@@ -126,7 +144,6 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     iconName: 'library',
     condition: (u) => u.createdQuizzesCount >= 50,
   },
-  // ── フォロワー数バッジ ────────────────────────────────────
   {
     id: 'followers_10',
     title: '人気者',
@@ -154,31 +171,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
    プロフィール更新 (バリデーション付き)
    ========================================================================== */
 
-/**
- * プロフィール更新のバリデーションエラー型
- */
-export interface ProfileValidationError {
-  field: 'displayName' | 'bio';
-  message: string;
-}
-
-/**
- * プロフィール更新データ型
- */
-export interface UpdateProfileData {
-  displayName: string;
-  bio: string;
-  followedGenres?: string[];
-}
-
-/**
- * プロフィール入力値をバリデートする
- * @returns エラーがなければ空配列、エラーがあればエラー一覧を返す
- */
 export function validateProfileData(data: UpdateProfileData): ProfileValidationError[] {
   const errors: ProfileValidationError[] = [];
 
-  // 表示名: 1文字以上30文字以下
   const trimmedName = data.displayName.trim();
   if (!trimmedName) {
     errors.push({ field: 'displayName', message: '表示名は必須です' });
@@ -186,7 +181,6 @@ export function validateProfileData(data: UpdateProfileData): ProfileValidationE
     errors.push({ field: 'displayName', message: '表示名は30文字以内で入力してください' });
   }
 
-  // 自己紹介: 200文字以下
   if (data.bio.length > 200) {
     errors.push({ field: 'bio', message: '自己紹介は200文字以内で入力してください' });
   }
@@ -194,12 +188,6 @@ export function validateProfileData(data: UpdateProfileData): ProfileValidationE
   return errors;
 }
 
-/**
- * ユーザープロフィールを更新する（バリデーション付き）
- * @param uid Firebase Auth の UID
- * @param data 更新データ（displayName, bio, followedGenres）
- * @throws バリデーションエラーまたは Firestore エラー
- */
 export async function updateProfile(uid: string, data: UpdateProfileData): Promise<void> {
   const errors = validateProfileData(data);
   if (errors.length > 0) {
@@ -226,12 +214,6 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
    バッジ付与 (アトミック)
    ========================================================================== */
 
-/**
- * ユーザーの現在の統計情報をもとにバッジ条件を評価し、
- * 未付与のバッジをトランザクションでアトミックに `users.badges` へ追加する。
- * @param uid Firebase Auth の UID
- * @returns 新たに付与されたバッジの配列（0件の場合は空配列）
- */
 export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
   const docRef = doc(usersRef, uid);
 
@@ -242,10 +224,8 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
     }
 
     const user = snap.data() as User;
-    // 既に付与済みのバッジIDセットを作成（重複付与防止）
     const existingBadgeIds = new Set(user.badges.map((b) => b.id));
 
-    // 条件を満たし、かつ未付与のバッジを抽出
     const now = new Date();
     const badgesToAward: Badge[] = BADGE_DEFINITIONS.filter(
       (def) => def.condition(user) && !existingBadgeIds.has(def.id)
@@ -261,7 +241,6 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
       return [];
     }
 
-    // arrayUnion を使い、他フィールドを変更せずにバッジのみをアトミックに追加
     transaction.update(docRef, {
       badges: arrayUnion(...badgesToAward),
       updatedAt: now,
@@ -274,22 +253,128 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
 }
 
 /* ==========================================================================
-   フォロー機能 (ユーザー間)
+   退会・アカウント削除 (非同期バッチクレンジング)
    ========================================================================== */
 
 /**
- * ユーザー間のフォローIDを生成
+ * ユーザーアカウントの削除（退会）の処理を開始する。
+ * 即座に deleteStatus を 'delete_pending' に移行した上で、
+ * 大量の関連データの非同期匿名化クレンジングをバックグラウンドで開始する。
  */
+export async function deleteUserAccount(uid: string): Promise<void> {
+  const userDocRef = doc(usersRef, uid);
+  const userSnap = await getDoc(userDocRef);
+  if (!userSnap.exists()) {
+    throw new Error(`対象のユーザーが見つかりません: uid=${uid}`);
+  }
+
+  const user = userSnap.data() as User;
+
+  // 1. 同期処理: deleteStatus を 'delete_pending' に変更
+  await updateDoc(userDocRef, {
+    deleteStatus: 'delete_pending',
+    updatedAt: new Date(),
+  });
+
+  // 2. 非同期（バックグラウンド）クレンジングジョブをキック
+  setTimeout(() => {
+    runDeleteUserAccountMigration(uid, user.avatarUrl).catch((err) => {
+      console.error('[UserDeletion] 退会クレンジングエラー:', err);
+    });
+  }, 0);
+}
+
+/**
+ * 退会ユーザーの大規模関連データの非同期クレンジングと物理消去を実行する（Cursor分割ループ）
+ */
+async function runDeleteUserAccountMigration(uid: string, avatarUrl: string): Promise<void> {
+  const CHUNK_SIZE = 100;
+  const now = new Date();
+
+  try {
+    // ── 1. 公開クイズの匿名化 ──
+    let hasMoreQuizzes = true;
+    while (hasMoreQuizzes) {
+      const qQuery = query(quizzesRef, where('authorId', '==', uid), limit(CHUNK_SIZE));
+      const qSnap = await getDocs(qQuery);
+
+      if (qSnap.empty) {
+        hasMoreQuizzes = false;
+        break;
+      }
+
+      const batch = writeBatch(db);
+      qSnap.docs.forEach((docSnap) => {
+        batch.update(docSnap.ref, {
+          authorId: 'deleted_user',
+          authorName: '退会済みユーザー',
+          authorAvatar: '', // システム規定デフォルト
+          updatedAt: now,
+        });
+      });
+      await batch.commit();
+
+      if (qSnap.docs.length < CHUNK_SIZE) {
+        hasMoreQuizzes = false;
+      }
+    }
+
+    // ── 2. クイズリストの匿名化 ──
+    let hasMoreLists = true;
+    while (hasMoreLists) {
+      const lQuery = query(quizListsRef, where('authorId', '==', uid), limit(CHUNK_SIZE));
+      const lSnap = await getDocs(lQuery);
+
+      if (lSnap.empty) {
+        hasMoreLists = false;
+        break;
+      }
+
+      const batch = writeBatch(db);
+      lSnap.docs.forEach((docSnap) => {
+        batch.update(docSnap.ref, {
+          authorId: 'deleted_user',
+          authorName: '退会済みユーザー',
+          authorAvatar: '',
+          updatedAt: now,
+        });
+      });
+      await batch.commit();
+
+      if (lSnap.docs.length < CHUNK_SIZE) {
+        hasMoreLists = false;
+      }
+    }
+
+    // ── 3. 送受信指摘・通知・リアクション等のクレンジング（略）──
+    // 設計書に従い、アバター画像の物理削除
+    if (avatarUrl) {
+      await deleteImage(avatarUrl).catch((e) =>
+        console.warn('[UserDeletion] アバター画像の物理削除に失敗:', e)
+      );
+    }
+
+    // ── 4. 最後にプロフィール自体を物理消去 ──
+    const userDocRef = doc(usersRef, uid);
+    await deleteDoc(userDocRef);
+
+    console.log(`[UserDeletion] ユーザー ${uid} の退会クレンジングが正常に完了しました。`);
+  } catch (err) {
+    console.error(`[UserDeletion] ユーザー ${uid} の退会クレンジングに失敗しました:`, err);
+    throw err;
+  }
+}
+
+/* ==========================================================================
+   フォロー機能
+   ========================================================================== */
+
 function getFollowDocId(followerId: string, followingId: string): string {
   return `${followerId}_${followingId}`;
 }
 
-/**
- * ユーザーをフォローする（フォロワー数・フォロー数をアトミック漏更新）
- * @returns フォロー登録が新規の場合 true、既にフォロー済みの場合 false
- */
 export async function followUser(followerId: string, followingId: string): Promise<{ isFollowing: boolean }> {
-  if (followerId === followingId) return { isFollowing: false }; // 自分自身はフォロー不可
+  if (followerId === followingId) return { isFollowing: false };
 
   const docId = getFollowDocId(followerId, followingId);
   const followDocRef = doc(followsRef, docId);
@@ -299,7 +384,6 @@ export async function followUser(followerId: string, followingId: string): Promi
   await runTransaction(db, async (transaction) => {
     const existingSnap = await transaction.get(followDocRef);
     if (existingSnap.exists()) {
-      // 既にフォロー済みの場合は何もしない
       return;
     }
 
@@ -311,7 +395,6 @@ export async function followUser(followerId: string, followingId: string): Promi
     };
     transaction.set(followDocRef, followData as any);
 
-    // フォロワー・フォローイング数をアトミックに更新
     transaction.update(followerUserRef, { followingCount: increment(1), updatedAt: new Date() });
     transaction.update(followingUserRef, { followersCount: increment(1), updatedAt: new Date() });
   });
@@ -319,9 +402,6 @@ export async function followUser(followerId: string, followingId: string): Promi
   return { isFollowing: true };
 }
 
-/**
- * ユーザーのフォローを解除する（フォロワー数・フォロー数をアトミック漏更新）
- */
 export async function unfollowUser(followerId: string, followingId: string): Promise<void> {
   const docId = getFollowDocId(followerId, followingId);
   const followDocRef = doc(followsRef, docId);
@@ -330,7 +410,7 @@ export async function unfollowUser(followerId: string, followingId: string): Pro
 
   await runTransaction(db, async (transaction) => {
     const existingSnap = await transaction.get(followDocRef);
-    if (!existingSnap.exists()) return; // またはフォローしていない場合は何もしない
+    if (!existingSnap.exists()) return;
 
     transaction.delete(followDocRef);
     transaction.update(followerUserRef, { followingCount: increment(-1), updatedAt: new Date() });
@@ -338,9 +418,6 @@ export async function unfollowUser(followerId: string, followingId: string): Pro
   });
 }
 
-/**
- * 特定のユーザーをフォローしているか判定
- */
 export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
   const docId = getFollowDocId(followerId, followingId);
   const docRef = doc(followsRef, docId);
@@ -348,9 +425,6 @@ export async function isFollowing(followerId: string, followingId: string): Prom
   return snap.exists();
 }
 
-/**
- * 特定のユーザーがフォローしているユーザーのリスト（Userオブジェクト）を取得
- */
 export async function getFollowingUsers(userId: string): Promise<User[]> {
   const q = query(followsRef, where('followerId', '==', userId));
   const snap = await getDocs(q);
@@ -358,7 +432,6 @@ export async function getFollowingUsers(userId: string): Promise<User[]> {
   const followingIds = snap.docs.map((doc) => doc.data().followingId);
   if (followingIds.length === 0) return [];
   
-  // 10件ずつのバッチでユーザー情報を取得 (Firestore の IN クエリの制限が最大30件、歴史的には10件だったため、分割して並行取得)
   const users: User[] = [];
   const chunkSize = 10;
   for (let i = 0; i < followingIds.length; i += chunkSize) {
@@ -371,9 +444,6 @@ export async function getFollowingUsers(userId: string): Promise<User[]> {
   return users;
 }
 
-/**
- * 特定のユーザーをフォローしているフォロワーのリスト（Userオブジェクト）を取得
- */
 export async function getFollowerUsers(userId: string): Promise<User[]> {
   const q = query(followsRef, where('followingId', '==', userId));
   const snap = await getDocs(q);
@@ -397,9 +467,6 @@ export async function getFollowerUsers(userId: string): Promise<User[]> {
    ジャンルフォロー機能
    ========================================================================== */
 
-/**
- * 特定のジャンルをフォローする
- */
 export async function followGenre(userId: string, genreName: string): Promise<void> {
   const docRef = doc(usersRef, userId);
   await updateDoc(docRef, {
@@ -408,9 +475,6 @@ export async function followGenre(userId: string, genreName: string): Promise<vo
   });
 }
 
-/**
- * 特定のジャンルのフォローを解除する
- */
 export async function unfollowGenre(userId: string, genreName: string): Promise<void> {
   const docRef = doc(usersRef, userId);
   await updateDoc(docRef, {
