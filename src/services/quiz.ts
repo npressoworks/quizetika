@@ -166,7 +166,7 @@ export async function incrementPlayCount(quizId: string): Promise<void> {
 export async function getLatestQuizzes(limitCount: number = 10): Promise<Quiz[]> {
   const q = query(
     quizzesRef,
-    where('isPublished', '==', true),
+    where('status', '==', 'published'),
     orderBy('createdAt', 'desc'),
     limit(limitCount)
   );
@@ -180,7 +180,7 @@ export async function getLatestQuizzes(limitCount: number = 10): Promise<Quiz[]>
 export async function getPopularQuizzes(limitCount: number = 10): Promise<Quiz[]> {
   const q = query(
     quizzesRef,
-    where('isPublished', '==', true),
+    where('status', '==', 'published'),
     orderBy('playCount', 'desc'),
     limit(limitCount)
   );
@@ -194,7 +194,7 @@ export async function getPopularQuizzes(limitCount: number = 10): Promise<Quiz[]
 export async function getTrendingQuizzes(limitCount: number = 10): Promise<Quiz[]> {
   const q = query(
     quizzesRef,
-    where('isPublished', '==', true),
+    where('status', '==', 'published'),
     orderBy('bookmarksCount', 'desc'),
     limit(limitCount)
   );
@@ -219,7 +219,7 @@ export async function getQuizzesByAuthor(authorId: string, includeUnpublished: b
     q = query(
       quizzesRef,
       where('authorId', '==', authorId),
-      where('isPublished', '==', true),
+      where('status', '==', 'published'),
       orderBy('createdAt', 'desc')
     );
   }
@@ -233,7 +233,7 @@ export async function getQuizzesByAuthor(authorId: string, includeUnpublished: b
 export async function getQuizzesByGenre(genreName: string, limitCount: number = 10): Promise<Quiz[]> {
   const q = query(
     quizzesRef,
-    where('isPublished', '==', true),
+    where('status', '==', 'published'),
     where('genre', '==', genreName),
     orderBy('createdAt', 'desc'),
     limit(limitCount)
@@ -249,7 +249,7 @@ export async function getQuizzesByGenre(genreName: string, limitCount: number = 
 export async function getQuizzesByTag(tag: string, limitCount: number = 10): Promise<Quiz[]> {
   const q = query(
     quizzesRef,
-    where('isPublished', '==', true),
+    where('status', '==', 'published'),
     where('tags', 'array-contains', tag),
     orderBy('createdAt', 'desc'),
     limit(limitCount)
@@ -275,7 +275,7 @@ export async function getFollowedTimeline(followerId: string, limitCount: number
   const targetIds = followingIds.slice(0, 30);
   const timelineQuery = query(
     quizzesRef,
-    where('isPublished', '==', true),
+    where('status', '==', 'published'),
     where('authorId', 'in', targetIds),
     orderBy('createdAt', 'desc'),
     limit(limitCount)
