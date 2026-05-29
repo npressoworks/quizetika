@@ -1,0 +1,687 @@
+/**
+ * ジャンル新設申請・投票画面 CSS Module
+ * Requirements: 3.1 - 3.5
+ */
+
+/* ============================================================
+   レイアウト
+   ============================================================ */
+
+.pageContainer {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+  animation: fadeIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+/* ============================================================
+   ページヘッダー
+   ============================================================ */
+
+.pageHeader {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.headerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(157, 78, 221, 0.1);
+  border: 1px solid rgba(157, 78, 221, 0.25);
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.pageTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
+.pageSubtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.seniorBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 189, 0, 0.1);
+  border: 1px solid rgba(255, 189, 0, 0.3);
+  color: var(--color-warning);
+  font-size: 0.88rem;
+  padding: 6px 16px;
+  border-radius: var(--radius-md);
+  margin-top: 8px;
+}
+
+/* ============================================================
+   アラート
+   ============================================================ */
+
+.alertAutoApproval {
+  background: linear-gradient(135deg, rgba(46, 196, 182, 0.15), rgba(157, 78, 221, 0.1));
+  border: 1px solid rgba(46, 196, 182, 0.4);
+  color: var(--color-success);
+  padding: 18px 22px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: center;
+  animation: fadeIn 0.3s ease, pulse 2s ease-in-out 3;
+}
+
+.alertSuccess {
+  background: rgba(46, 196, 182, 0.1);
+  border: 1px solid rgba(46, 196, 182, 0.28);
+  color: var(--color-success);
+  padding: 13px 18px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  font-size: 0.92rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.alertError {
+  background: rgba(255, 0, 84, 0.08);
+  border: 1px solid rgba(255, 0, 84, 0.22);
+  color: #ff6b6b;
+  padding: 13px 18px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  font-size: 0.92rem;
+  animation: fadeIn 0.3s ease;
+}
+
+/* ============================================================
+   タブナビゲーション
+   ============================================================ */
+
+.tabNav {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-surface);
+  border: var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 5px;
+  margin-bottom: 28px;
+  overflow-x: auto;
+}
+
+.tabBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  transition: var(--transition-smooth);
+  white-space: nowrap;
+}
+
+.tabBtn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tabActive {
+  background: rgba(157, 78, 221, 0.15);
+  color: var(--color-primary);
+  border: 1px solid rgba(157, 78, 221, 0.25);
+}
+
+.tabBadge {
+  background: var(--color-primary);
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ============================================================
+   申請フォームタブ
+   ============================================================ */
+
+.formCard {
+  backdrop-filter: var(--glass-blur);
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  padding: 32px 36px;
+}
+
+.formTitle {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.formDescription {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.formGroup {
+  margin-bottom: 22px;
+}
+
+.formLabel {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.formInput {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  transition: var(--transition-smooth);
+  backdrop-filter: blur(4px);
+}
+
+.formInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 12px var(--color-primary-glow);
+  outline: none;
+}
+
+.inputHint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.inputError {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.83rem;
+  color: #ff6b6b;
+}
+
+/* アップロードエリア */
+.uploadArea {
+  border: 2px dashed var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  text-align: center;
+}
+
+.uploadArea:hover {
+  border-color: var(--color-primary);
+  background: rgba(157, 78, 221, 0.04);
+}
+
+.uploadPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.uploadIcon {
+  font-size: 2.5rem;
+}
+
+.uploadText {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.uploadHint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.iconPreview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.iconPreviewImg {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+
+.iconPreviewName {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.submitBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--color-primary), #7b2cbf);
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 4px 16px rgba(157, 78, 221, 0.35);
+  margin-top: 4px;
+}
+
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(157, 78, 221, 0.5);
+}
+
+.submitBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ============================================================
+   投票リスト
+   ============================================================ */
+
+.requestList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.requestCard {
+  backdrop-filter: var(--glass-blur);
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  transition: var(--transition-smooth);
+}
+
+.requestCard:hover {
+  border-color: rgba(157, 78, 221, 0.2);
+  box-shadow: 0 8px 32px rgba(157, 78, 221, 0.08);
+}
+
+/* ジャンル情報 */
+.genreInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.genreIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  background: rgba(157, 78, 221, 0.1);
+  border: 1px solid rgba(157, 78, 221, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.genreIconImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.genreDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.genreDisplayName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.genreId {
+  font-size: 0.83rem;
+  color: var(--color-accent);
+  background: rgba(0, 245, 212, 0.08);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+}
+
+.genreDate {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* プログレスバー */
+.progressSection {
+  margin-bottom: 16px;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.progressLabel {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.progressValue {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.progressBar {
+  height: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  border-radius: 999px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 4px;
+}
+
+.voteWeights {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  flex-wrap: wrap;
+}
+
+.voteFor { color: var(--color-success); font-weight: 600; }
+.voteAgainst { color: #ff6b6b; font-weight: 600; }
+.voteTotal { color: var(--text-muted); margin-left: auto; }
+
+/* 投票アクション */
+.voteActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.weightBadge {
+  background: rgba(255, 189, 0, 0.1);
+  border: 1px solid rgba(255, 189, 0, 0.28);
+  color: var(--color-warning);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.voteBtns {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.voteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+  transition: var(--transition-smooth);
+}
+
+.voteApproveBtn {
+  background: rgba(46, 196, 182, 0.1);
+  border-color: rgba(46, 196, 182, 0.3);
+  color: var(--color-success);
+}
+
+.voteApproveBtn:hover:not(:disabled) {
+  background: rgba(46, 196, 182, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(46, 196, 182, 0.15);
+}
+
+.voteRejectBtn {
+  background: rgba(255, 0, 84, 0.08);
+  border-color: rgba(255, 0, 84, 0.25);
+  color: #ff6b6b;
+}
+
+.voteRejectBtn:hover:not(:disabled) {
+  background: rgba(255, 0, 84, 0.16);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 0, 84, 0.12);
+}
+
+.voteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ============================================================
+   履歴タブ
+   ============================================================ */
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.historyCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+  transition: var(--transition-smooth);
+}
+
+.historyApproved {
+  background: rgba(46, 196, 182, 0.06);
+  border-color: rgba(46, 196, 182, 0.2);
+}
+
+.historyRejected {
+  background: rgba(255, 0, 84, 0.04);
+  border-color: rgba(255, 0, 84, 0.15);
+}
+
+.historyIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.historyDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.historyDisplayName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyGenreId {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.historyDate {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.historyStatus {
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.statusApproved {
+  background: rgba(46, 196, 182, 0.15);
+  color: var(--color-success);
+}
+
+.statusRejected {
+  background: rgba(255, 0, 84, 0.1);
+  color: #ff6b6b;
+}
+
+/* ============================================================
+   共通
+   ============================================================ */
+
+.emptyState {
+  text-align: center;
+  padding: 70px 24px;
+  color: var(--text-muted);
+}
+
+.emptyIcon {
+  font-size: 3.5rem;
+  margin-bottom: 16px;
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 20px;
+  color: var(--text-muted);
+}
+
+.loadingInner {
+  display: flex;
+  justify-content: center;
+  padding: 60px;
+}
+
+.spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btnSpinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* ============================================================
+   アニメーション
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}

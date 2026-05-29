@@ -1,0 +1,376 @@
+/**
+ * 管理者モデレーション審査画面 CSS Module
+ * Requirements: 1.1 - 1.5
+ */
+
+/* ============================================================
+   レイアウト
+   ============================================================ */
+
+.pageContainer {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+  animation: fadeIn 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+/* ============================================================
+   ページヘッダー
+   ============================================================ */
+
+.pageHeader {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.headerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 0, 84, 0.12);
+  border: 1px solid rgba(255, 0, 84, 0.3);
+  color: #ff6b6b;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.pageTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+
+.pageSubtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   フィードバックメッセージ
+   ============================================================ */
+
+.alertSuccess {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(46, 196, 182, 0.12);
+  border: 1px solid rgba(46, 196, 182, 0.3);
+  color: var(--color-success);
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.alertError {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 0, 84, 0.1);
+  border: 1px solid rgba(255, 0, 84, 0.25);
+  color: #ff6b6b;
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* ============================================================
+   キュー統計
+   ============================================================ */
+
+.queueStats {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.queueCount {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--color-danger);
+  line-height: 1;
+}
+
+.queueLabel {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+/* ============================================================
+   審査キューリスト
+   ============================================================ */
+
+.queueList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.queueCard {
+  backdrop-filter: var(--glass-blur);
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: var(--transition-smooth);
+}
+
+.queueCard:hover {
+  border-color: rgba(255, 0, 84, 0.2);
+  box-shadow: 0 8px 40px rgba(255, 0, 84, 0.08);
+}
+
+/* カードヘッダー */
+.cardHeader {
+  padding: 24px 28px 18px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.contentTypeBadge {
+  background: rgba(157, 78, 221, 0.12);
+  border: 1px solid rgba(157, 78, 221, 0.25);
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.flagCountBadge {
+  background: rgba(255, 0, 84, 0.1);
+  border: 1px solid rgba(255, 0, 84, 0.25);
+  color: #ff6b6b;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.quizTitleLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  margin-bottom: 10px;
+}
+
+.quizTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  transition: var(--transition-fast);
+}
+
+.quizTitleLink:hover .quizTitle {
+  color: var(--color-primary);
+}
+
+.previewIcon {
+  font-size: 1rem;
+  opacity: 0.6;
+  transition: var(--transition-fast);
+}
+
+.quizTitleLink:hover .previewIcon {
+  opacity: 1;
+}
+
+.quizMeta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* 通報詳細セクション */
+.flagsSection {
+  padding: 18px 28px;
+  background: rgba(255, 0, 84, 0.03);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.flagsSectionTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.flagsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flagItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  gap: 12px;
+}
+
+.flagReason {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.flagReporter {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* アクションボタン */
+.cardActions {
+  padding: 18px 28px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-smooth);
+  text-decoration: none;
+}
+
+.restoreBtn {
+  background: rgba(46, 196, 182, 0.15);
+  border: 1px solid rgba(46, 196, 182, 0.35);
+  color: var(--color-success);
+}
+
+.restoreBtn:hover:not(:disabled) {
+  background: rgba(46, 196, 182, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(46, 196, 182, 0.2);
+}
+
+.deleteBtn {
+  background: rgba(255, 0, 84, 0.12);
+  border: 1px solid rgba(255, 0, 84, 0.3);
+  color: #ff6b6b;
+}
+
+.deleteBtn:hover:not(:disabled) {
+  background: rgba(255, 0, 84, 0.22);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(255, 0, 84, 0.2);
+}
+
+.previewBtn {
+  background: rgba(157, 78, 221, 0.1);
+  border: 1px solid rgba(157, 78, 221, 0.25);
+  color: var(--color-primary);
+  margin-left: auto;
+}
+
+.previewBtn:hover {
+  background: rgba(157, 78, 221, 0.2);
+  transform: translateY(-2px);
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ============================================================
+   空の状態
+   ============================================================ */
+
+.emptyState {
+  text-align: center;
+  padding: 80px 24px;
+  color: var(--text-muted);
+}
+
+.emptyIcon {
+  font-size: 3.5rem;
+  margin-bottom: 16px;
+}
+
+/* ============================================================
+   ローディング
+   ============================================================ */
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 20px;
+  color: var(--text-muted);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.btnSpinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* ============================================================
+   アニメーション
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
