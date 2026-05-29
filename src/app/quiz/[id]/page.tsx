@@ -182,6 +182,21 @@ export default function QuizDetailPage({ params }: PageProps) {
             )}
           </div>
 
+          {/* 作者情報 */}
+          <div className={styles.authorSection}>
+            <Link href={`/profile/${quiz.authorId}`} className={styles.authorLink}>
+              <img 
+                src={quiz.authorAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${quiz.authorId}`} 
+                alt={quiz.authorName} 
+                className={styles.authorAvatar} 
+              />
+              <div className={styles.authorInfo}>
+                <span className={styles.authorLabel}>作成者</span>
+                <span className={styles.authorName}>{quiz.authorName}</span>
+              </div>
+            </Link>
+          </div>
+
           {/* 説明 */}
           <div className={styles.description}>
             <p>{quiz.description}</p>

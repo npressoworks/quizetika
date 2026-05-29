@@ -147,6 +147,8 @@ export async function getFailedQuestions(
       const qIds = quizIdToFailedIds[qId];
       quiz.questions.forEach((q) => {
         if (qIds.includes(q.id)) {
+          // クライアント側で一括削除のために逆引きできるように quizId を注入
+          (q as any).quizId = qId;
           failedQuestions.push(q);
         }
       });

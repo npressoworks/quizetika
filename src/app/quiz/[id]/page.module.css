@@ -307,3 +307,66 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* 作者情報 */
+.authorSection {
+  margin-bottom: 8px;
+}
+
+.authorLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+  transition: var(--transition-smooth);
+}
+
+.authorLink:hover {
+  background: rgba(157, 78, 221, 0.05);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 10px rgba(157, 78, 221, 0.15);
+}
+
+.authorAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--border-light);
+  background-color: var(--bg-surface-solid);
+  object-fit: cover;
+  transition: var(--transition-fast);
+}
+
+.authorLink:hover .authorAvatar {
+  border-color: var(--color-primary);
+  transform: scale(1.05);
+}
+
+.authorInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.authorLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.authorName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  transition: var(--transition-fast);
+}
+
+.authorLink:hover .authorName {
+  color: var(--color-primary);
+}

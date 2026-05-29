@@ -3,15 +3,16 @@
 import React, { useEffect, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Check, X, ShieldAlert, Award, Heart, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle, ArrowLeft, Trophy, CheckCircle } from 'lucide-react';
+import { Check, X, ShieldAlert, Award, Heart, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle, ArrowLeft, Trophy, CheckCircle, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getQuiz } from '@/services/quiz';
+import { getQuizList } from '@/services/quiz-list';
 import { submitReview, submitFeedbackReport } from '@/services/review';
 import { sendReaction } from '@/services/reaction';
 import { db } from '@/lib/firebase/config';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getPendingSyncAttempts } from '@/services/attempt-session';
-import { Quiz, Attempt, FeedbackReport } from '@/types';
+import { Quiz, Attempt, FeedbackReport, Question } from '@/types';
 import styles from './result.module.css';
 
 interface PageProps {
@@ -44,6 +45,15 @@ function QuizResultPageContent({ quizId }: ContentProps) {
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [feedbackLoading, setFeedbackLoading] = useState<boolean>(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<boolean>(false);
+
+  // 問題集（クイズリスト）の連続プレイ用
+  const listId = searchParams.get('listId');
+  const [nextQuizId, setNextQuizId] = useState<string | null>(null);
+  const [isLastInList, setIsLastInList] = useState<boolean>(false);
+  const [listLoading, setListLoading] = useState<boolean>(false);
+
+  // 特定の問題に対する間違い指摘用
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
 
   // 1. オンライン状態の監視
   useEffect(() => {
@@ -107,6 +117,52 @@ function QuizResultPageContent({ quizId }: ContentProps) {
     loadData();
   }, [quizId, attemptId, localId]);
 
+  // 2.5 問題集内の次のクイズ判定
+  useEffect(() => {
+    if (!listId || !quiz) return;
+
+    async function checkNextQuiz() {
+      setListLoading(true);
+      try {
+        const listData = await getQuizList(listId!);
+        if (listData && listData.quizIds) {
+          const currentIdx = listData.quizIds.indexOf(quizId);
+          if (currentIdx !== -1) {
+            if (currentIdx < listData.quizIds.length - 1) {
+              setNextQuizId(listData.quizIds[currentIdx + 1]);
+              setIsLastInList(false);
+            } else {
+              setNextQuizId(null);
+              setIsLastInList(true);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[QuizResult] クイズリスト情報判定失敗:', err);
+      } finally {
+        setListLoading(false);
+      }
+    }
+    checkNextQuiz();
+  }, [listId, quiz, quizId]);
+
+  // 次のクイズに進むアクションハンドラ (オフライン接続ブロック付)
+  const handleNextQuizClick = () => {
+    if (!online) {
+      alert('現在オフラインのため、問題集の次のクイズに進むことはできません。ネットワーク接続が復旧してから移動してください。');
+      return;
+    }
+    if (nextQuizId) {
+      router.push(`/quiz/${nextQuizId}/play?listId=${listId}&mode=list`);
+    }
+  };
+
+  // 個別の問題間違い指摘モーダル起動
+  const openFeedbackModal = (q: Question) => {
+    setSelectedQuestion(q);
+    setShowFeedbackModal(true);
+  };
+
   // 👍/👎投票
   const handleReviewVote = async (vote: 'positive' | 'negative') => {
     if (!user || !quiz || voted || !online) return;
@@ -153,8 +209,8 @@ function QuizResultPageContent({ quizId }: ContentProps) {
       const report: Omit<FeedbackReport, 'id' | 'status' | 'createdAt'> = {
         quizId: quiz.id,
         quizTitle: quiz.title,
-        questionId: quiz.questions[0]?.id || 'unknown',
-        questionText: quiz.questions[0]?.questionText || '全体',
+        questionId: selectedQuestion?.id || 'unknown',
+        questionText: selectedQuestion?.questionText || '全体',
         reporterId: user.id,
         creatorId: quiz.authorId,
         category: feedbackCategory,
@@ -285,10 +341,10 @@ function QuizResultPageContent({ quizId }: ContentProps) {
           <button
             className="btn btn-secondary"
             style={{ flex: 1 }}
-            onClick={() => setShowFeedbackModal(true)}
+            onClick={() => openFeedbackModal(quiz.questions[0] || { id: 'unknown', questionText: '全体' } as any)}
             disabled={!online}
           >
-            <MessageSquare size={16} /> 問題の間違い指摘
+            <MessageSquare size={16} /> クイズ全体の指摘
           </button>
           <button
             className="btn btn-accent"
@@ -300,6 +356,39 @@ function QuizResultPageContent({ quizId }: ContentProps) {
             {reactionSent ? '感謝を送信しました！' : '作家にお礼リアクションを送る'}
           </button>
         </div>
+
+        {/* 問題集リスト連続プレイナビゲーション (要件 3.2, 3.3) */}
+        {listId && (
+          <div className={styles.listNavigation}>
+            {listLoading ? (
+              <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)' }}>
+                次のクイズを準備中...
+              </div>
+            ) : nextQuizId ? (
+              <button 
+                className="btn btn-primary" 
+                onClick={handleNextQuizClick}
+                style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <span>問題集の次のクイズに進む</span>
+                <ChevronRight size={18} />
+              </button>
+            ) : isLastInList ? (
+              <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
+                <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
+                  🎉 おめでとうございます！問題集のすべてのクイズを完遂しました！
+                </p>
+                <Link 
+                  href={`/list/${listId}`} 
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  問題集の詳細に戻る
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* 問題正誤リストおよび解説表示 (Task 5.1) */}
@@ -313,21 +402,33 @@ function QuizResultPageContent({ quizId }: ContentProps) {
           return (
             <article key={q.id} className={styles.questionItem}>
               <div className={styles.itemHeader}>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>
-                  第 {idx + 1} 問
-                </h3>
-                {isCorrect ? (
-                  <span className={styles.correctLabel}>
-                    <Check size={16} /> 正解
-                  </span>
-                ) : (
-                  <span className={styles.incorrectLabel}>
-                    <X size={16} /> 不正解
-                  </span>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                    第 {idx + 1} 問
+                  </h3>
+                  {isCorrect ? (
+                    <span className={styles.correctLabel}>
+                      <Check size={16} /> 正解
+                    </span>
+                  ) : (
+                    <span className={styles.incorrectLabel}>
+                      <X size={16} /> 不正解
+                    </span>
+                  )}
+                </div>
+                {/* 設問単位のクローズド指摘ボタン */}
+                <button
+                  className="btn btn-outline"
+                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderColor: 'rgba(255,183,3,0.3)', color: '#ffb703' }}
+                  onClick={() => openFeedbackModal(q)}
+                  disabled={!online}
+                >
+                  <MessageSquare size={12} style={{ marginRight: '4px', display: 'inline', verticalAlign: 'text-bottom' }} />
+                  この設問を指摘
+                </button>
               </div>
 
-              <p style={{ fontSize: '1.05rem', color: 'var(--text-main)', lineHeight: '1.5' }}>
+              <p style={{ fontSize: '1.05rem', color: 'var(--text-main)', lineHeight: '1.5', marginTop: '8px' }}>
                 {q.questionText}
               </p>
 

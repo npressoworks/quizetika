@@ -30,19 +30,24 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/context/auth-context';
-import { createMergeRequest, voteOnMergeRequest } from '@/services/moderation';
+import { createMergeRequest, voteMergeRequest } from '@/services/tagMerge';
 import styles from './merge.module.css';
 
 /** マージリクエストの型定義 */
 interface MergeRequest {
   id: string;
+  targetType: 'tag' | 'genre';
   sourceId: string;
   targetId: string;
-  type: 'tag' | 'genre';
-  proposerId: string;
-  totalApproveWeight: number;
-  totalWeight: number;
-  status: 'open' | 'approved' | 'rejected';
+  requesterId: string;
+  requesterName: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  votesForCount: number;
+  votesAgainstCount: number;
+  weightedVotesFor: number;
+  weightedVotesAgainst: number;
+  votedUserIds: string[];
   createdAt: Date | Timestamp;
 }
 
@@ -140,6 +145,7 @@ export default function CommunityMergePage() {
         formSourceId.trim(),
         formTargetId.trim(),
         formType,
+        formReasoning,
         user.id
       );
       setSuccessMessage(
@@ -171,7 +177,7 @@ export default function CommunityMergePage() {
     setErrorMessage(null);
 
     try {
-      await voteOnMergeRequest(mergeRequestId, user.id, vote);
+      await voteMergeRequest(mergeRequestId, user.id, vote);
       setSuccessMessage(
         vote === 'approve' ? '👍 賛成票を投じました。' : '👎 反対票を投じました。'
       );
@@ -195,8 +201,9 @@ export default function CommunityMergePage() {
   // 賛成率計算 (Req 2.7)
   // -------------------------------------------------------------------
   const calcApprovalRate = (req: MergeRequest): number => {
-    if (req.totalWeight === 0) return 0;
-    return Math.round((req.totalApproveWeight / req.totalWeight) * 100);
+    const totalWeighted = req.weightedVotesFor + req.weightedVotesAgainst;
+    if (totalWeighted === 0) return 0;
+    return Math.round((req.weightedVotesFor / totalWeighted) * 100);
   };
 
   // ローディング
@@ -281,7 +288,7 @@ export default function CommunityMergePage() {
                       {/* リクエストヘッダー */}
                       <div className={styles.requestHeader}>
                         <span className={styles.requestTypeBadge}>
-                          {req.type === 'tag' ? '🏷️ タグ' : '🎭 ジャンル'}
+                          {req.targetType === 'tag' ? '🏷️ タグ' : '🎭 ジャンル'}
                         </span>
                         <span className={styles.requestDate}>
                           {req.createdAt instanceof Timestamp
@@ -291,12 +298,12 @@ export default function CommunityMergePage() {
                             : ''}
                         </span>
                       </div>
-
+ 
                       {/* マージ方向表示 (Req 2.4: ソースクリックで別ウィンドウ) */}
                       <div className={styles.mergeDirection}>
                         <button
                           className={styles.sourceLink}
-                          onClick={() => openSourceList(req.sourceId, req.type)}
+                          onClick={() => openSourceList(req.sourceId, req.targetType)}
                           title="クリックして一覧を別ウィンドウで開く"
                         >
                           {req.sourceId}
@@ -322,13 +329,13 @@ export default function CommunityMergePage() {
                         </div>
                         <div className={styles.voteWeights}>
                           <span className={styles.voteFor}>
-                            👍 {req.totalApproveWeight}
+                            👍 {req.weightedVotesFor}
                           </span>
                           <span className={styles.voteAgainst}>
-                            👎 {req.totalWeight - req.totalApproveWeight}
+                            👎 {req.weightedVotesAgainst}
                           </span>
                           <span className={styles.voteTotal}>
-                            合計重み: {req.totalWeight}
+                            合計重み: {req.weightedVotesFor + req.weightedVotesAgainst}
                           </span>
                         </div>
                       </div>

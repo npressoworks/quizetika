@@ -30,13 +30,9 @@ import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/context/auth-context';
 import {
   submitGenreRequest,
-  resolveGenreRequest,
-} from '@/services/moderation';
+  voteGenreRequest,
+} from '@/services/tagMerge';
 import { uploadImage, getGenreIconPath } from '@/services/storage';
-import {
-  isGenreRequestApproved,
-  calculateMergeVoteWeight,
-} from '@/services/moderation-utils';
 import styles from './genres.module.css';
 
 /** ジャンル申請の型定義 */
@@ -44,10 +40,13 @@ interface GenreRequest {
   id: string;
   genreId: string;
   displayName: string;
-  iconUrl: string;
+  iconImageUrl: string;
   requesterId: string;
-  totalApproveWeight: number;
-  totalWeight: number;
+  votesForCount: number;
+  votesAgainstCount: number;
+  weightedVotesFor: number;
+  weightedVotesAgainst: number;
+  votedUserIds: string[];
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Date | Timestamp;
 }
@@ -209,12 +208,12 @@ export default function CommunityGenresPage() {
       const iconUrl = await uploadImage(formIconFile, path);
 
       // 2. ジャンル申請をFirestoreに保存
-      await submitGenreRequest({
-        genreId: formGenreId,
-        displayName: formDisplayName,
+      await submitGenreRequest(
+        formGenreId,
+        formDisplayName,
         iconUrl,
-        requesterId: user.id,
-      });
+        user.id
+      );
 
       setSuccessMessage(`「${formDisplayName}」のジャンル申請を送信しました。`);
       setFormGenreId('');
@@ -245,23 +244,16 @@ export default function CommunityGenresPage() {
     setAutoApprovalAlert(null);
 
     try {
-      const weight = calculateMergeVoteWeight(user.moderationTier);
-      const reqRef = doc(db, 'genreRequests', genreRequest.id);
+      await voteGenreRequest(genreRequest.id, user.id, vote);
+      
+      const weight = user.moderationTier === 'senior_moderator' ? 2 : 1;
+      const isApprove = vote === 'approve';
+      const nextWeightedFor = genreRequest.weightedVotesFor + (isApprove ? weight : 0);
+      const nextWeightedAgainst = genreRequest.weightedVotesAgainst + (isApprove ? 0 : weight);
+      const totalWeighted = nextWeightedFor + nextWeightedAgainst;
+      const approveRate = totalWeighted > 0 ? nextWeightedFor / totalWeighted : 0;
 
-      // 投票を記録（アトミック更新）
-      const newApproveWeight =
-        genreRequest.totalApproveWeight + (vote === 'approve' ? weight : 0);
-      const newTotalWeight = genreRequest.totalWeight + weight;
-
-      await updateDoc(reqRef, {
-        totalWeight: increment(weight),
-        ...(vote === 'approve' ? { totalApproveWeight: increment(weight) } : {}),
-      });
-
-      // 可決条件チェック (Req 3.4)
-      if (isGenreRequestApproved(newApproveWeight, newTotalWeight)) {
-        // 可決: ジャンルを自動登録
-        await resolveGenreRequest(genreRequest.id);
+      if (nextWeightedFor >= 5 && approveRate >= 0.8) {
         setAutoApprovalAlert(
           `🎉 ジャンル「${genreRequest.displayName}」が可決され、ジャンルが追加されました！`
         );
@@ -270,9 +262,9 @@ export default function CommunityGenresPage() {
           vote === 'approve' ? '👍 賛成票を投じました。' : '👎 反対票を投じました。'
         );
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('投票エラー:', err);
-      setErrorMessage('投票に失敗しました。');
+      setErrorMessage(err.message || '投票に失敗しました。');
     } finally {
       setVoteLoading(null);
     }
@@ -292,8 +284,9 @@ export default function CommunityGenresPage() {
 
   // 賛成率
   const calcApprovalRate = (req: GenreRequest) => {
-    if (req.totalWeight === 0) return 0;
-    return Math.round((req.totalApproveWeight / req.totalWeight) * 100);
+    const totalWeight = req.weightedVotesFor + req.weightedVotesAgainst;
+    if (totalWeight === 0) return 0;
+    return Math.round((req.weightedVotesFor / totalWeight) * 100);
   };
 
   // ローディング
@@ -491,8 +484,8 @@ export default function CommunityGenresPage() {
                       {/* アイコンとジャンル情報 */}
                       <div className={styles.genreInfo}>
                         <div className={styles.genreIcon}>
-                          {req.iconUrl ? (
-                            <img src={req.iconUrl} alt={req.displayName} className={styles.genreIconImg} />
+                          {req.iconImageUrl ? (
+                            <img src={req.iconImageUrl} alt={req.displayName} className={styles.genreIconImg} />
                           ) : (
                             <span>🎭</span>
                           )}
@@ -524,13 +517,13 @@ export default function CommunityGenresPage() {
                         </div>
                         <div className={styles.voteWeights}>
                           <span className={styles.voteFor}>
-                            👍 {req.totalApproveWeight}
+                            👍 {req.weightedVotesFor}
                           </span>
                           <span className={styles.voteAgainst}>
-                            👎 {req.totalWeight - req.totalApproveWeight}
+                            👎 {req.weightedVotesAgainst}
                           </span>
                           <span className={styles.voteTotal}>
-                            合計: {req.totalWeight} / 可決条件: 5以上 & 80%以上
+                            合計: {req.weightedVotesFor + req.weightedVotesAgainst} / 可決条件: 重み5以上 & 80%以上
                           </span>
                         </div>
                       </div>
@@ -603,8 +596,8 @@ export default function CommunityGenresPage() {
                     }`}
                   >
                     <div className={styles.historyIcon}>
-                      {req.iconUrl ? (
-                        <img src={req.iconUrl} alt={req.displayName} className={styles.genreIconImg} />
+                      {req.iconImageUrl ? (
+                        <img src={req.iconImageUrl} alt={req.displayName} className={styles.genreIconImg} />
                       ) : (
                         <span>🎭</span>
                       )}

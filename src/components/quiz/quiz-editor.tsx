@@ -710,7 +710,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                 <option value="general">一般常識 / 雑学</option>
               </select>
               {/* ジャンル新設申請画面へのリンク (要件 1.2) */}
-              <a href="/moderation/genre-request" className={styles.genreLink}>
+              <a href="/community/genres" className={styles.genreLink}>
                 新しいジャンルを申請する
               </a>
             </div>

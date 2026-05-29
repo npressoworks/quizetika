@@ -5,10 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen, Check, X, Award, AlertCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-import { db } from '@/lib/firebase/config';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { updateFailedQuestionsCount } from '@/services/attempt';
-import { Question, Quiz } from '@/types';
+import { getFailedQuestions, updateFailedQuestions } from '@/services/attempt';
+import { Question } from '@/types';
 import styles from './review.module.css';
 
 // 復習ジャンルリスト
@@ -39,65 +37,28 @@ export default function ReviewPage() {
   const [failedIds, setFailedIds] = useState<string[]>([]);
   const [recoveredCount, setRecoveredCount] = useState<number>(0);
 
-  // 1. 未ログイン保護
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, authLoading, router]);
+  // 正解した問題の quizId ごとのマッピング (一括アトミック削除用)
+  const [solvedMap, setSolvedMap] = useState<Record<string, string[]>>({});
 
-  // 2. 間違えた問題のフェッチ
+   // 2. 間違えた問題のフェッチ
   const startReviewSession = async () => {
     if (!user) return;
     setLoadingQuestions(true);
     setNoQuestions(false);
     try {
-      // attempts コレクションから該当ユーザーのプレイ履歴を取得
-      const attemptsRef = collection(db, 'attempts');
-      const q = query(attemptsRef, where('userId', '==', user.id));
-      const querySnap = await getDocs(q);
-
-      const allFailedIds = new Set<string>();
-      querySnap.forEach((docSnap) => {
-        const att = docSnap.data();
-        if (att.failedQuestionIds && Array.isArray(att.failedQuestionIds)) {
-          att.failedQuestionIds.forEach((id) => allFailedIds.add(id));
-        }
-      });
-
-      if (allFailedIds.size === 0) {
-        setNoQuestions(true);
-        setLoadingQuestions(false);
-        return;
-      }
-
-      // クイズ一覧から間違えた設問を回収
-      const quizzesRef = collection(db, 'quizzes');
-      const quizSnap = await getDocs(quizzesRef);
-      const gatheredQuestions: Question[] = [];
-
-      quizSnap.forEach((docSnap) => {
-        const quiz = docSnap.data() as Quiz;
-        // ジャンルフィルタが一致、またはオールジャンル
-        if (!selectedGenre || quiz.genre === selectedGenre) {
-          if (quiz.questions && Array.isArray(quiz.questions)) {
-            quiz.questions.forEach((question) => {
-              if (allFailedIds.has(question.id)) {
-                gatheredQuestions.push(question);
-              }
-            });
-          }
-        }
-      });
+      // getFailedQuestions サービスを用いてアトミックに間違い設問をフェッチ (ジャンルフィルタ連動)
+      const gatheredQuestions = await getFailedQuestions(user.id, undefined, selectedGenre || null);
 
       if (gatheredQuestions.length === 0) {
         setNoQuestions(true);
       } else {
         setFailedQuestions(gatheredQuestions);
+        setSolvedMap({});
         setPhase('playing');
         setCurrentIdx(0);
         setCorrectCount(0);
         setAnsweredCount(0);
+        setRecoveredCount(0);
       }
     } catch (e) {
       console.error('[Review] 間違い問題フェッチエラー:', e);
@@ -126,13 +87,18 @@ export default function ReviewPage() {
 
     setAnsweredCount((prev) => prev + 1);
 
+    // 正解した問題の quizId ごとのマッピング更新用のローカル変数
+    let nextSolvedMap = { ...solvedMap };
+
     if (isCorrect) {
       setCorrectCount((prev) => prev + 1);
       setRecoveredCount((prev) => prev + 1);
       
-      // アトミックに間違いリストカウントを減算 (Task 6.2)
-      if (user) {
-        await updateFailedQuestionsCount(user.id, -1);
+      const qId = (currentQuestion as any).quizId || 'unknown';
+      const list = nextSolvedMap[qId] || [];
+      if (!list.includes(currentQuestion.id)) {
+        nextSolvedMap[qId] = [...list, currentQuestion.id];
+        setSolvedMap(nextSolvedMap);
       }
     } else {
       const nextFailed = [...failedIds];
@@ -146,6 +112,16 @@ export default function ReviewPage() {
     if (currentIdx < failedQuestions.length - 1) {
       setCurrentIdx((prev) => prev + 1);
     } else {
+      // 復習プレイ完了時に、正解したすべての間違い問題を一括バッチアトミック削除！ (要件 6.2, 1.1)
+      try {
+        const promises = Object.entries(nextSolvedMap).map(([quizId, solvedQuestionIds]) => {
+          if (quizId === 'unknown' || solvedQuestionIds.length === 0) return Promise.resolve();
+          return updateFailedQuestions(user!.id, quizId, solvedQuestionIds);
+        });
+        await Promise.all(promises);
+      } catch (err) {
+        console.error('[Review] 復習完了時の一括アトミック反映に失敗しました:', err);
+      }
       setPhase('completed');
     }
   };
@@ -195,7 +171,7 @@ export default function ReviewPage() {
           )}
 
           <button
-            className="btn btn-primary styles.startBtn"
+            className={`btn btn-primary ${styles.startBtn}`}
             onClick={startReviewSession}
             disabled={loadingQuestions}
             style={{ width: '100%', marginTop: '16px' }}

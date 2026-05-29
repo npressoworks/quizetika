@@ -118,7 +118,10 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     let isCorrect = false;
 
     // 正誤判定ロジック
-    if (currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') {
+    if (mode === 'flashcard') {
+      // 暗記カード（フラッシュカード）モードは自己申告による正誤判定
+      isCorrect = answerTextOrChoiceId === 'correct';
+    } else if (currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') {
       const selectedChoice = currentQuestion.choices?.find((c) => c.id === answerTextOrChoiceId);
       isCorrect = !!selectedChoice?.isCorrect;
     } else if (currentQuestion.type === 'text-input') {

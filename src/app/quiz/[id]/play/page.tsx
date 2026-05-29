@@ -93,10 +93,14 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
   const handlePlayComplete = async (finalScore = score, finalFailed = failedIds) => {
     if (!quiz) return;
 
+    const listId = searchParams.get('listId') || undefined;
+    const currentMode = listId ? 'list' : (playMode === 'lateral' ? 'normal' : playMode);
+
     const attemptData: Omit<Attempt, 'id' | 'completedAt'> = {
       userId: user?.id || 'guest',
       quizId: quiz.id,
-      mode: playMode === 'lateral' ? 'normal' : playMode,
+      listId,
+      mode: currentMode,
       score: finalScore,
       totalQuestions: quiz.questions.length,
       elapsedSeconds,
@@ -116,7 +120,8 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
         if (user && finalFailed.length > 0) {
           await updateFailedQuestionsCount(user.id, finalFailed.length);
         }
-        router.push(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
+        const listQuery = listId ? `&listId=${listId}` : '';
+        router.push(`/quiz/${quiz.id}/result?attemptId=${attemptId}${listQuery}`);
       } catch (error) {
         console.error('[QuizPlay] 保存失敗:', error);
         // 保存失敗時はオフラインフォールバックとして localStorage に保存
@@ -136,8 +141,10 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       localId,
       completedAt: new Date().toISOString(),
     });
+    const listId = searchParams.get('listId');
+    const listQuery = listId ? `&listId=${listId}` : '';
     // オフライン状態でのリダイレクト（結果画面にて同期警告が出る）
-    router.push(`/quiz/${quiz.id}/result?localId=${localId}`);
+    router.push(`/quiz/${quiz.id}/result?localId=${localId}${listQuery}`);
   };
 
   // ────────── ウミガメスープ問題専用ステート ──────────
@@ -497,16 +504,8 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                     className="btn btn-primary"
                     style={{ flex: 1, background: '#00f5d4', color: '#111' }}
                     onClick={() => {
-                      // 正解申告
-                      // failedIds に追加せず answered に追加して進む
-                      const nextAnswered = [...answeredIds, currentQuestion.id];
-                      // 正解数を +1
-                      handlePlayComplete(score + 1, failedIds);
-                      if (currentIdx < quiz.questions.length - 1) {
-                        setCurrentIdx((prev) => prev + 1);
-                      } else {
-                        setCurrentIdx(quiz.questions.length);
-                      }
+                      // 自己申告: 分かった (正解)
+                      handleAnswerSubmit('correct');
                     }}
                   >
                     <Check size={18} /> 分かった (正解)
@@ -515,14 +514,8 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                     className="btn btn-outline"
                     style={{ flex: 1, borderColor: '#ff007f', color: '#ff007f' }}
                     onClick={() => {
-                      // 不正解申告
-                      const nextFailed = [...failedIds, currentQuestion.id];
-                      handlePlayComplete(score, nextFailed);
-                      if (currentIdx < quiz.questions.length - 1) {
-                        setCurrentIdx((prev) => prev + 1);
-                      } else {
-                        setCurrentIdx(quiz.questions.length);
-                      }
+                      // 自己申告: 分からなかった (不正解)
+                      handleAnswerSubmit('incorrect');
                     }}
                   >
                     <X size={18} /> 分からなかった (不正解)
