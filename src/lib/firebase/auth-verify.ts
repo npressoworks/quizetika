@@ -17,18 +17,10 @@ export function extractBearerToken(request: NextRequest): string | null {
  * Firebase IDトークンをサーバーサイドで安全に検証し、検証済みのUIDを返却する
  * 
  * @param token Firebase IDトークン
- * @param mockUid E2Eテスト環境で検証をバイパスする際に使用するフォールバックUID
+ * @param mockUid (非推奨) 過去の互換性のための引数。エミュレータ移行に伴い使用されません
  * @returns 検証済みの Firebase UID。検証失敗時は null
  */
 export async function verifyFirebaseIdToken(token: string | null, mockUid?: string): Promise<string | null> {
-  const isTestEnv = process.env.NEXT_PUBLIC_ENV === 'test';
-
-  // E2Eテスト環境での動作：トークン検証をバイパスし、申告されたモックUIDをそのまま検証済みとする
-  if (isTestEnv) {
-    console.log('[auth-verify] E2Eテスト環境のため、IDトークンの検証をバイパスします。');
-    return mockUid || 'e2e-test-uid-123456';
-  }
-
   if (!token) {
     console.error('[auth-verify] IDトークンが提供されていません。');
     return null;
@@ -40,8 +32,17 @@ export async function verifyFirebaseIdToken(token: string | null, mockUid?: stri
     return null;
   }
 
+  const isTestEnv = process.env.NEXT_PUBLIC_ENV === 'test';
+  const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
+
   try {
-    const url = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`;
+    // E2Eテスト環境（またはエミュレータ環境）の場合は、Auth Emulator の検証APIエンドポイントを使用
+    let url = `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`;
+    if (isTestEnv || process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+      url = `http://${emulatorHost}/identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`;
+      console.log(`[auth-verify] エミュレータ環境のため、Auth Emulator (${url}) でトークンを検証します。`);
+    }
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {

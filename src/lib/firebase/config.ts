@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, initializeAuth, browserLocalPersistence, Auth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, initializeAuth, browserLocalPersistence, Auth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
 // 環境変数からFirebase設定を読み込み
 const firebaseConfig = {
@@ -31,6 +31,33 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENV === 'test') {
 
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// E2Eテスト環境でのエミュレータ接続設定
+const globalWithEmulators = global as typeof globalThis & {
+  emulatorsConnected?: boolean;
+};
+
+if (process.env.NEXT_PUBLIC_ENV === 'test' && !globalWithEmulators.emulatorsConnected) {
+  // 1. Auth Emulator
+  if (typeof window !== 'undefined') {
+    const authHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
+    connectAuthEmulator(auth, `http://${authHost}`, { disableWarnings: true });
+  }
+
+  // 2. Firestore Emulator
+  const firestoreHost = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+  const [fsIp, fsPort] = firestoreHost.split(':');
+  connectFirestoreEmulator(db, fsIp, parseInt(fsPort || '8080'));
+
+  // 3. Storage Emulator
+  const storageHost = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST || '127.0.0.1:9199';
+  const [stIp, stPort] = storageHost.split(':');
+  connectStorageEmulator(storage, stIp, parseInt(stPort || '9199'));
+
+  // 接続済みフラグをセット
+  globalWithEmulators.emulatorsConnected = true;
+  console.log('[firebase-config] E2Eテスト環境用のFirebase Local Emulator Suiteに接続しました。');
+}
 
 export { app, auth, db, storage };
 export default app;
