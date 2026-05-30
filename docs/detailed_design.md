@@ -278,7 +278,7 @@ sequenceDiagram
 ### 1.5 水平思考クイズ（ウミガメのスープ）AI対話フロー
 水平思考クイズ（ウミガメのスープ）におけるプレイヤーと生成AI、およびFirestoreのattempt対話履歴間のシーケンス図です。
 
-#### 1.5.1 AI判定処理フロー（ステートレス・キャッシュ・ターン制限）
+#### 1.5.1 AI判定処理フロー（ステートフル・キャッシュ・ターン制限）
 
 ```mermaid
 sequenceDiagram
@@ -299,7 +299,7 @@ sequenceDiagram
     DB-->>AS: { quizId, userId, aiQuestionsHistory, aiTurnCount, aiTurnLimit }
 
     Note over AS: ①同一質問キャッシュ判定
-    alt aiQuestionsHistory 内に完全一致の questionText が存在する
+    alt aiQuestionsHistory 内に完全一致 of questionText が存在する
         AS-->>QP: { answerType, aiComment, isFromCache: true } (キャッシュ返却)
         Note over AS: AI呼び出しなし、aiTurnCount も増やさない
     else キャッシュなし
@@ -310,13 +310,14 @@ sequenceDiagram
             AS-->>QP: Error: limit-exceeded
             QP-->>Player: 「無料プランの質問回数上限（20回）に達しました。\nプレミアムプランでは無制限にご利用いただけます。」
         else ターン制限内 (または有料ユーザーで無制限)
-            Note over AS: ③AIステートレス一問一答呼び出し
+            Note over AS: ③AIステートフル対話呼び出し
             AS->>DB: quizzes/{quizId} から aiContextDetails を取得
             DB-->>AS: aiContextDetails
 
-            AS->>AI: プロンプト送信 (aiContextDetails + 1質問のみ。会話履歴は送らない)
+            AS->>AI: チャットセッション作成 (startChat)<br>※直近最大20回分の履歴をマッピングして history に渡す
             activate AI
-            AI->>AI: 「はい/いいえ/関係ありません/判定不能」を独立判定
+            AS->>AI: 新しい質問の送信 (questionText)
+            AI->>AI: 過去履歴から文脈・指示代名詞を解決し、「はい/いいえ/関係ありません/判定不能」を判定
             AI-->>AS: { answerType, aiComment }
             deactivate AI
 
@@ -358,9 +359,11 @@ sequenceDiagram
 * **キャッシュの扱い**:
   * 同一質問キャッシュ（完全一致）にヒットした場合は、AI呼び出しを行わないため、1日の質問カウントは消費されません。
 
-**③ AIステートレス一問一答**
-- AI API（Google Gemini等）に渡すプロンプトは **「裏設定テキスト（`aiContextDetails`）+ 単一の質問テキスト」のみ** とし、過去の会話履歴は一切送信しません。
-- これにより、AIの挙動が一貫し、APIのトークン消費を最小化します。また、プレイヤーの過去の質問文脈に影響されたAIの「推測」を防ぎ、フェアな判定を担保します。
+**③ AIステートフル対話**
+- AI API（Google Gemini等）呼び出し時は、`aiQuestionsHistory` に保存されている直近最大20回分（往復）の対話履歴を `Content[]` 形式にマッピングして `startChat` の `history` 引数に渡します。
+  - 過去のプレイヤーの質問は `role: 'user'` としてマッピングします。
+  - 過去のAIの回答は `role: 'model'` とし、その内容は `q.answerType` を対応する日本語表記（「はい」「いいえ」「関係ありません」「判断できません」のいずれか）に変換したものと、`q.aiComment` を改行で結合した文字列を設定します。
+- これにより、AIは前後の文脈や指示代名詞（例：「その男は死にましたか？」「はい」の後の「彼には家族がいましたか？」の『彼』）を正しく文脈から解決し、高精度かつ自然な水平思考パズルのチャット判定を実現します。
 - AIからの正常な応答フォーマット（Zodスキーマ検証）:
   ```typescript
   const aiResponseSchema = z.object({
@@ -399,9 +402,9 @@ sequenceDiagram
   - スクロール可能。最新の質問は常にリストの最上部（または最下部）に表示する。
 - **残り質問数インジケーター**: 無料ユーザーのみ入力欄の下部に「残り質問数: N/20」を表示する。有料ユーザーには表示しない（∞表示も不要）。
 
-#### 1.5.3 AI自動真相判定処理フロー（真相の解答とAIによる自然言語判定）
+#### 1.5.3 B2ハイブリッド自動真相判定処理フロー（真相の解答とハイブリッド判定）
 
-水平思考クイズにおけるプレイヤーからの「最終解答（真相の記述）」に対して、セキュアなサーバーサイドAPI（`/api/attempt/verify-truth`）を介してAI（Gemini等）が自然言語で正誤判定を行うフローです。
+プレイヤーからの「最終解答（真相 of 記述）」に対して、セキュアなサーバーサイドAPI（`/api/attempt/verify-truth`）において、登録必須キーワードの存在チェックによるAIバイパスと、AI（Gemini等）による自然言語判定を組み合わせた「B2ハイブリッド真相判定」を実行するフローです。
 
 ```mermaid
 sequenceDiagram
@@ -422,36 +425,63 @@ sequenceDiagram
 
     AS->>DB: attempts/{attemptId} ドキュメントを取得
     DB-->>AS: { quizId, userId }
-    AS->>DB: quizzes/{quizId} から { aiContextDetails, explanation } を取得
-    DB-->>AS: { aiContextDetails, explanation }
+    AS->>DB: quizzes/{quizId} から { aiContextDetails, explanation, questions } を取得
+    DB-->>AS: { aiContextDetails, explanation, questions }
 
-    AS->>AI: プロンプト送信 (aiContextDetails + プレイヤー回答 truthText)<br>「真相の核心を突いているか判定せよ」
-    activate AI
-    AI->>AI: 正誤判定およびフィードバックの生成 (自然言語)
-    AI-->>AS: { isCorrect: boolean, feedback: string }
-    deactivate AI
-
-    AS->>DB: トランザクション開始
-    DB->>DB: attempts.aiTruthAttempts に { id, truthText, isCorrect, aiFeedback, createdAt } を arrayUnion
+    Note over AS: ①正規化キーワードマッチング判定 (B2方式)
+    AS->>AS: 提出回答と必須キーワードの正規化部分一致をチェック
     
-    alt isCorrect == true (正解合格)
+    alt 登録必須キーワードがすべて含まれている場合 (AIバイパス即合格)
+        Note over AS: AI呼び出しをバイパス（数ミリ秒で完了、APIコストゼロ）
+        AS->>DB: トランザクション開始
+        DB->>DB: attempts.aiTruthAttempts に結果を arrayUnion (isBypass: true)
         DB->>DB: attempts.completedAt にサーバータイムスタンプを設定
-        AS-->>QP: { isCorrect: true, feedback }
+        AS-->>QP: { isCorrect: true, feedback: "お見事！真相の必須要素をすべて含んでいます！", isBypass: true }
+    else キーワードが不足している場合 (AIフォールバック判定)
+        Note over AS: ②AIによる自然言語判定にフォールバック
+        AS->>AI: プロンプト送信 (aiContextDetails + プレイヤー回答 truthText)<br>「真相の核心を突いているか判定せよ」
+        activate AI
+        AI->>AI: 正誤判定およびフィードバックの生成 (自然言語)
+        AI-->>AS: { isCorrect: boolean, feedback: string }
+        deactivate AI
+
+        AS->>DB: トランザクション開始
+        DB->>DB: attempts.aiTruthAttempts に { id, truthText, isCorrect, aiFeedback, createdAt, isBypass: false } を arrayUnion
+        
+        alt isCorrect == true (正解合格)
+            DB->>DB: attempts.completedAt にサーバータイムスタンプを設定
+            AS-->>QP: { isCorrect: true, feedback }
+        else isCorrect == false (不正解・差し戻し)
+            AS-->>QP: { isCorrect: false, feedback }
+        end
+    end
+    
+    alt isCorrect == true (合格)
         QP->>QP: 華やかなクリア演出アニメーションを起動
         QP->>Player: 自動的に結果画面 (/quiz/[id]/result) へ遷移
-    else isCorrect == false (不正解・差し戻し)
-        AS-->>QP: { isCorrect: false, feedback }
+    else isCorrect == false (不合格)
         QP->>QP: モーダルを閉じ、インラインにAIフィードバック(アドバイス)を警告枠表示
         QP->>Player: フィールドロック解除、質問プレイへ復帰可能に
     end
     deactivate AS
 ```
 
-##### AI自動真相判定ビジネスロジック詳細
+##### B2ハイブリッド自動真相判定ビジネスロジック詳細
 * **セキュリティ**:
   APIキー保護と安全なプロンプト構築のため、AIへの判定リクエストは必ず Next.js API Route などのサーバーサイド（`AttemptService.verifyTruth`）から発行し、クライアントからのGemini APIへの直接通信はSecurity RulesおよびCORSで完全にブロックします。
-* **判定基準**:
-  AIは「裏設定（`aiContextDetails`）」および「解答・解説（`explanation`）」を参照し、プレイヤーが入力した `truthText` が真相の核心（重要なキーワード、登場人物の動機、因果関係など）を十分に捉えているかを総合的かつ自然言語的に検証します。表記揺れ（例：「川」と「河」、「警察」と「おまわりさん」）を賢く吸収し、公正な合格判定を下します。
+
+* **B2ハイブリッド判定ロジック**:
+  真相解答（`truthText`）の正誤判定には、プログラムによるキーワード検証と、AIによる自然言語理解の意味判定を併用した「B2ハイブリッド真相判定」を採用します。
+  1. **正規化（Normalizer）処理**:
+     表記揺れを極限まで低減するため、入力テキストと登録必須キーワード（`truthKeywords`）の両方に対して以下の正規化を行います。
+     - 半角・全角のすべての空白文字・スペースの除去。
+     - 英大文字の小文字化（`.toLowerCase()`）。
+     - 全角英数記号の半角化。
+  2. **AIバイパス（即時合格判定）**:
+     作問時に登録されたすべての必須キーワード（`truthKeywords`）が、正規化された解答テキスト内に部分一致ですべて含まれている（全合致）場合、AIの呼び出しを行わずに即時合格（`isCorrect = true`, `isBypass = true`）と判定します。これにより、判定にかかる時間を数ミリ秒に短縮してUXを向上させるとともに、AI APIのコストをゼロにします。
+  3. **AI判定へのフォールバック**:
+     必須キーワードが1つでも不足している場合、AI（Gemini）による自然言語の意味判定にフォールバックします。AIは「裏設定（`aiContextDetails`）」および「解答・解説（`explanation`）」を参照し、プレイヤーが入力した `truthText` が表記揺れを吸収しつつ核心を捉えているかを総合判定します。
+
 * **不合格（不正解）時のフィードバック設計**:
   単に「不正解」と返すのではなく、AIが「まだ解明されていない謎のヒント」や「考慮すべき矛盾点」をフィードバックテキスト（`aiFeedback`）としてプレイヤーに返します。これによりプレイヤーはそれを参考にチャット質問を重ねることができ、挫折を防ぐ極上のUXを提供します。
 

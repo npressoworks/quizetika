@@ -87,7 +87,8 @@ export interface LeaderboardRecord {
 | **`saveAttempt`** | クイズ解答結果を保存し、クイズの `playCount` をトランザクションでアトミックに加算する。 | `attempt: Omit<Attempt, 'id'>` | `Promise<string>` (AttemptのID) | 必要 |
 | **`getFailedQuestions`** | 特定クイズにおいて、過去に自身が間違えた設問配列のみを抽出し、復習用データとして提供。`genreFilter = null` (または未指定) の場合は全クイズID横断で集約する。 | `userId: string`, `quizId?: string`, `genreFilter?: string \| null` | `Promise<Question[]>` | 必要 |
 | **`updateFailedQuestions`** | 復習プレイ（弱点克服）で正解した設問を、ユーザーの過去の間違いリストからアトミックに削除する。 | `userId: string`, `quizId: string`, `solvedQuestionIds: string[]` | `Promise<void>` | 必要 |
-| **`askAiQuestion`** | 水平思考クイズ（ウミガメのスープ）において、AIへ自由記述の質問を送信し、判定結果と補足コメントを取得・履歴保存する。本プレイモードはAI質問のターン制限を管理する都合上、ゲストプレイは不可（ログイン必須）とする。**①質問文字数上限**: `questionText` は最大100文字に制限し、超過時は `validation-error` をスロー。**②同一質問キャッシュ**: `aiQuestionsHistory` を照合し、`questionText` が完全一致する履歴が存在する場合はAI API呼び出しを行わず即座に既存の回答を返す（`isFromCache: true`、質問カウントも消費しない）。**③1日同一クイズ20回制限（無料枠）**: 無料ユーザーは同一クイズに対して1日最大20ターンに制限する。別セッション（Attempt）を開始した場合でもカウントは累積され、毎日日付変更時にクリアされる。判定時は `users/{uid}/dailyAiTurnCounts/{quizId}` から当日の `count` を読み込んでチェックし、質問成立時にアトミックにインクリメント・本日日付を更新する。超過時は `limit-exceeded` をスロー。有料プラン（`aiTurnLimit: null`）は無制限。**④AIステートレス一問一答**: AI API呼び出し時は会話履歴を送らず、「裏設定（`aiContextDetails`）＋ 1質問」のみをプロンプトに渡して判定する。**⑤セキュリティ**: APIキー漏洩防止のため、Next.js API Route または Cloud Functions 等のサーバーサイドを経由して呼び出し、クライアントからの直接呼び出しを禁止する。 | `attemptId: string`, `questionText: string` (max 100文字) | `Promise<{ answerType: 'yes' \| 'no' \| 'irrelevant' \| 'unknown', aiComment?: string, isFromCache: boolean }>` | 必要 |
+| **`askAiQuestion`** | 水平思考クイズ（ウミガメのスープ）において、AIへ自由記述の質問を送信し、判定結果と補足コメントを取得・履歴保存する。本プレイモードはAI質問 of ターン制限を管理する都合上、ゲストプレイは不可（ログイン必須）とする。**①質問文字数上限**: `questionText` は最大100文字に制限し、超過時は `validation-error` をスロー。**②同一質問キャッシュ**: `aiQuestionsHistory` を照合し、`questionText` が完全一致する履歴が存在する場合はAI API呼び出しを行わず即座に既存の回答を返す（`isFromCache: true`、質問カウントも消費しない）。**③1日同一クイズ20回制限（無料枠）**: 無料ユーザーは同一クイズに対して1日最大20ターンに制限する。別セッション（Attempt）を開始した場合でもカウントは累積され、毎日日付変更時にクリアされる。判定時は `users/{uid}/dailyAiTurnCounts/{quizId}` から当日の `count` を読み込んでチェックし、質問成立時にアトミックにインクリメント・本日日付を更新する。超過時は `limit-exceeded` をスロー。有料プラン（`aiTurnLimit: null`）は無制限。**④AIステートフル対話**: AI API呼び出し時は `aiQuestionsHistory` に記録された直近最大20回分の質問・回答履歴をマッピングして Gemini API（`startChat`）へ送信し、文脈（「それ」「彼」などの代名詞など）を考慮したステートフルな対話を行う。**⑤セキュリティ**: APIキー漏洩防止のため、Next.js API Route または Cloud Functions 等のサーバーサイドを経由して呼び出し、クライアントからの直接呼び出しを禁止する。 | `attemptId: string`, `questionText: string` (max 100文字) | `Promise<{ answerType: 'yes' \| 'no' \| 'irrelevant' \| 'unknown', aiComment?: string, isFromCache: boolean }>` | 必要 |
+| **`verifyTruth`** | 水平思考クイズにおいて、プレイヤーが入力した真相要約が核心を突いているか判定する。**B2ハイブリッド判定**を採用し、入力された回答に作問時に登録された必須キーワード（`truthKeywords`）がすべて含まれているかを正規化部分一致でチェックする。全キーワードが合致すればAIをバイパスして即時合格（`isCorrect = true`, `isBypass = true`）とし、不足している場合のみAI（Gemini）を呼び出す判定にフォールバックする。 | `attemptId: string`, `truthText: string` | `Promise<{ isCorrect: boolean, feedback: string, isBypass: boolean }>` | 必要 |
 
 ---
 
@@ -279,7 +280,8 @@ export const questionSchema = z.object({
   correctTextAnswerList: z.array(z.string().min(1)).optional(),
   sortingItems: z.array(sortingItemSchema).max(6, '並び替え要素は最大6つまでです。').optional(),
   associationHints: z.array(z.string().min(1)).max(5, '連想ヒントは最大5つまでです。').optional(),
-  aiContextDetails: z.string().max(2000, 'AI用コンテキストは2000文字以内で入力してください。').optional()
+  aiContextDetails: z.string().max(2000, 'AI用コンテキストは2000文字以内で入力してください。').optional(),
+  truthKeywords: z.array(z.string().min(1, 'キーワードは空文字では登録できません。')).min(1, '真相判定用の必須キーワードを最低1つ以上登録してください。').optional()
 }).superRefine((data, ctx) => {
   // 〇×（マルバツ）クイズ
   if (data.type === 'true-false') {
@@ -360,6 +362,13 @@ export const questionSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: '水平思考クイズのAI判定を正しく実行するため、20文字以上の詳細な裏設定・判定ルールを入力してください。',
         path: ['aiContextDetails']
+      });
+    }
+    if (!data.truthKeywords || data.truthKeywords.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: '水平思考クイズの自動真相判定を正しく実行するため、必須キーワードを最低1つ以上登録してください。',
+        path: ['truthKeywords']
       });
     }
   }

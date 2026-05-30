@@ -130,6 +130,7 @@ erDiagram
 * `sortingItems` (`array (SortingItem)`, 任意): 並び替え用ソート対象要素リスト。
 * `associationHints` (`array (string)`, 任意): 連想ヒントリスト。
 * `aiContextDetails` (`string`, 任意): ウミガメのスープ用詳細裏設定（AI判定用コンテキスト）。20文字以上2000文字以内。
+* `truthKeywords` (`array (string)`, 任意): ウミガメのスープ用自動真相判定必須キーワード。最低1つ以上の登録が必要。
 * `correctCount` (`number`): 正解した累計回数。
 * `incorrectCount` (`number`): 不正解だった累計回数。
 
@@ -212,7 +213,7 @@ erDiagram
 | `elapsedSeconds`| `number` | **必須** | 秒数 | 解答経過時間（秒単位）。 |
 | `failedQuestionIds`| `array (string)`| **必須** | `[]` | 間違えた問題のID配列。 |
 | `difficultyVote` | `number` | 任意 | `1` 〜 `10` / `null` | 体感難易度投票。 |
-| `aiQuestionsHistory`| `array (AiQuestion)`| 任意 | `[]` | 水平思考プレイの対話履歴。 |
+| `aiQuestionsHistory`| `array (AiQuestion)`| 任意 | `[]` | 水平思考プレイの直近最大20ターン分の対話履歴（ステートフル対話の文脈参照用）。 |
 | `aiTurnCount` | `number` | 任意 | `0` | 現在のセッションで発行した質問の総数（キャッシュヒット分を導く）。 |
 | `aiTurnLimit` | `number \| null` | 任意 | `20`（無料）/ `null`（有料） | 適用されるターン制限値。`null` の場合は無制限（プレミアムプラン）。 |
 | `completedAt` | `timestamp` | **必須** | `request.time` | プレイ完了日時。 |
