@@ -23,6 +23,8 @@ import {
   isAiTurnLimitExceeded,
   buildAiPrompt,
   parseAiResponse,
+  mapHistoryToGeminiContents,
+  buildAiSystemInstruction,
 } from '@/services/ask-ai-utils';
 import { AiQuestion, Attempt, Quiz } from '@/types';
 
@@ -154,15 +156,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // ── Gemini API に質問を送信（ステートレス）──────────────
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const prompt = buildAiPrompt(aiContextDetails, questionText);
+    // ── Gemini API に質問を送信（会話履歴を含めたステートフル対話）──
+    const model = genAI.getGenerativeModel({
+      model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
+      systemInstruction: buildAiSystemInstruction(aiContextDetails),
+    });
+
+    const mappedHistory = mapHistoryToGeminiContents(history);
+    const chat = model.startChat({
+      history: mappedHistory,
+      generationConfig: {
+        maxOutputTokens: 200,
+      },
+    });
 
     let answerType: AiQuestion['answerType'] = 'unknown';
     let aiComment = '判断できませんでした。';
 
     try {
-      const result = await model.generateContent(prompt);
+      const result = await chat.sendMessage(questionText);
       const responseText = result.response.text();
       const parsed = parseAiResponse(responseText);
       answerType = parsed.answerType;

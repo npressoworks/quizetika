@@ -116,13 +116,11 @@ ${aiContextDetails}
 ${questionText}
 
 【回答ルール】
-- 以下の4つのいずれかのみで答えてください：
-  - YES: 質問が裏設定の真相に照らして「はい」に相当する場合
-  - NO: 質問が裏設定の真相に照らして「いいえ」に相当する場合
-  - IRRELEVANT: 質問が謎の解決に関係ない場合
-  - UNKNOWN: 裏設定から判断できない場合
-- 回答の最初の行に必ず「ANSWER: YES」「ANSWER: NO」「ANSWER: IRRELEVANT」「ANSWER: UNKNOWN」のいずれかを記載してください。
-- 2行目以降に、プレイヤーへの短い日本語コメント（30文字以内）を添えてください。裏設定を直接ばらさないよう注意してください。`;
+- 以下のいずれかで答えてください：
+  - はい: 質問が裏設定の真相に照らして「はい」に相当する場合
+  - いいえ: 質問が裏設定の真相に照らして「いいえ」に相当する場合
+  - 関係ありません: 質問が謎の解決に関係ない場合
+  - 判断できません: 裏設定から判断できない場合`;
 }
 
 /* ==========================================================================
@@ -140,15 +138,67 @@ export function parseAiResponse(responseText: string): {
   aiComment: string;
 } {
   const lines = responseText.trim().split('\n');
-  const firstLine = lines[0]?.toUpperCase() ?? '';
+  const firstLine = lines[0] ?? '';
 
   let answerType: AiAnswerType = 'unknown';
-  if (firstLine.includes('ANSWER: YES')) answerType = 'yes';
-  else if (firstLine.includes('ANSWER: NO')) answerType = 'no';
-  else if (firstLine.includes('ANSWER: IRRELEVANT')) answerType = 'irrelevant';
+  if (firstLine.includes('はい')) answerType = 'yes';
+  else if (firstLine.includes('いいえ')) answerType = 'no';
+  else if (firstLine.includes('関係ありません')) answerType = 'irrelevant';
   // それ以外は unknown
 
-  const aiComment = lines.slice(1).join('\n').trim() || '判断できませんでした。';
+  const aiComment = lines.slice(1).join('\n').trim() || '';
 
   return { answerType, aiComment };
+}
+
+import { Content } from '@google/generative-ai';
+
+/**
+ * 過去の対話履歴を Gemini API の Content[] 形式に変換する（最大20件分）
+ *
+ * @param history 過去の質問履歴
+ * @returns Gemini Content配列
+ */
+export function mapHistoryToGeminiContents(
+  history: { questionText: string; answerType: string; aiComment?: string }[]
+): Content[] {
+  const recent = history.slice(-20); // 直近20回
+  return recent.flatMap((item) => {
+    let answerText = '';
+    if (item.answerType === 'yes') answerText = 'はい';
+    else if (item.answerType === 'no') answerText = 'いいえ';
+    else if (item.answerType === 'irrelevant') answerText = '関係ありません';
+    else answerText = '判断できません';
+
+    if (item.aiComment) {
+      answerText += `\n${item.aiComment}`;
+    }
+
+    return [
+      { role: 'user', parts: [{ text: item.questionText }] },
+      { role: 'model', parts: [{ text: answerText }] },
+    ];
+  });
+}
+
+/**
+ * Gemini Chat API用のシステムインストラクションを構築する
+ *
+ * @param aiContextDetails クイズの裏設定
+ * @returns システムインストラクションプロンプト
+ */
+export function buildAiSystemInstruction(aiContextDetails: string): string {
+  return `あなたは「ウミガメのスープ」（水平思考パズル）のゲームマスターです。
+ユーザーから寄せられる質問に対して、以下の【裏設定】に基づいて回答ルールに従って答えてください。
+回答ルールにない余計なヒントや解答を直接教えるような発言は絶対に避けてください。
+
+【裏設定（絶対に直接開示しないこと）】
+${aiContextDetails}
+
+【回答ルール】
+- 以下のいずれかで答えてください：
+  - はい: 質問が裏設定の真相に照らして「はい」に相当する場合
+  - いいえ: 質問が裏設定の真相に照らして「いいえ」に相当する場合
+  - 関係ありません: 質問が謎の解決に関係ない場合
+  - 判断できません: 裏設定から判断できない場合`;
 }
