@@ -139,7 +139,11 @@ export default function QuizDetailPage({ params }: PageProps) {
               disabled={bookmarkLoading}
               title="ブックマーク"
             >
-              <Star size={20} fill={bookmarked ? '#ff007f' : 'none'} />
+              <Star 
+                size={20} 
+                color={bookmarked ? '#ff007f' : 'var(--text-muted)'}
+                fill={bookmarked ? '#ff007f' : 'none'} 
+              />
             </button>
           </div>
 

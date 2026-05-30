@@ -106,9 +106,25 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
   // メモリ上で createdAt (降順) でソートする
   const bookmarkDocs = snap.docs.map((doc) => doc.data());
   bookmarkDocs.sort((a, b) => {
-    const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
-    const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
-    return timeB - timeA;
+    const getTime = (val: unknown): number => {
+      if (!val) return 0;
+      if (val instanceof Date) return val.getTime();
+      if (val && typeof val === 'object') {
+        const obj = val as Record<string, unknown>;
+        if (typeof obj.toDate === 'function') {
+          return (obj.toDate as () => Date)().getTime();
+        }
+        if (typeof obj.seconds === 'number') {
+          return obj.seconds * 1000;
+        }
+      }
+      if (typeof val === 'string' || typeof val === 'number') {
+        const date = new Date(val);
+        return isNaN(date.getTime()) ? 0 : date.getTime();
+      }
+      return 0;
+    };
+    return getTime(b.createdAt) - getTime(a.createdAt);
   });
 
   const quizIds = bookmarkDocs.map((doc) => doc.targetId);
@@ -149,9 +165,25 @@ export async function getBookmarkedLists(userId: string): Promise<QuizList[]> {
   // メモリ上で createdAt (降順) でソートする
   const bookmarkDocs = snap.docs.map((doc) => doc.data());
   bookmarkDocs.sort((a, b) => {
-    const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
-    const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
-    return timeB - timeA;
+    const getTime = (val: unknown): number => {
+      if (!val) return 0;
+      if (val instanceof Date) return val.getTime();
+      if (val && typeof val === 'object') {
+        const obj = val as Record<string, unknown>;
+        if (typeof obj.toDate === 'function') {
+          return (obj.toDate as () => Date)().getTime();
+        }
+        if (typeof obj.seconds === 'number') {
+          return obj.seconds * 1000;
+        }
+      }
+      if (typeof val === 'string' || typeof val === 'number') {
+        const date = new Date(val);
+        return isNaN(date.getTime()) ? 0 : date.getTime();
+      }
+      return 0;
+    };
+    return getTime(b.createdAt) - getTime(a.createdAt);
   });
 
   const listIds = bookmarkDocs.map((doc) => doc.targetId);

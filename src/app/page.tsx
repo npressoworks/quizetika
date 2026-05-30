@@ -366,11 +366,15 @@ export default function Home() {
                       <span>👤 {quiz.authorName}</span>
                     </div>
                     <button
-                      className={`${styles.bookmarkBtn} ${bookmarkedIds.has(quiz.id) ? styles.bookmarked : ''
-                        }`}
+                      className={`${styles.bookmarkBtn} ${bookmarkedIds.has(quiz.id) ? styles.bookmarked : ''}`}
                       onClick={(e) => handleBookmarkClick(e, quiz.id)}
+                      title="ブックマーク"
                     >
-                      <Star size={18} fill={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'none'} />
+                      <Star 
+                        size={18} 
+                        color={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'var(--text-muted)'}
+                        fill={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'none'} 
+                      />
                     </button>
                   </div>
                 </div>
