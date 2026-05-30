@@ -52,7 +52,7 @@ erDiagram
 | `id` | `string` | **必須** | Firebase Auth `uid` と一致 | ユーザーの一意なID。 |
 | `email` | `string` | **必須** | ユニーク制約 | アカウントのメールアドレス。 |
 | `displayName` | `string` | **必須** | 最大30文字 | サービス上の表示名。 |
-| `avatarUrl` | `string` | **必須** | デフォルト画像URL | プロフィールアバターのストレージ画像参照先。 |
+| `avatarUrl` | `string` | **必須** | デフォルト画像URL | プロフィールアバターのストレージ画像参照先。**[SEC-08対策]** SVG-based XSS防御のため、SVG形式（image/svg+xml）のアップロードは完全禁止（PNG, JPEG, GIFのみ許容）。 |
 | `bio` | `string` | 任意 | 最大200文字 / 空文字 | ユーザーの自己紹介・プロフィール説明文。 |
 | `followedGenres`| `array (string)` | **必須** | `[]` | ユーザーがフォロー・関心のあるジャンル名の配列。 |
 | `badges` | `array (Badge)` | **必須** | `[]` | 獲得した称号バッジオブジェクトのネスト配列。 |
@@ -67,7 +67,7 @@ erDiagram
 | `reputationHistory` | `array (object)` | **必須** | `[]` | 直近30件 of スコア変動ログリスト（デバッグ・不正調査用）。各要素は `{ eventId, delta, reason, createdAt }` を持つ。最多30件を超えた場合は古い要素から履歴済みとして削除。 |
 | `lastReputationCalculatedAt` | `timestamp` | **必須** | `null` | 日次バッチによるスコア再計算の最終実行日時。冪等性保証用（当日処理済みはスキップ）。 |
 | `totalFailedQuestionsCount` | `number` | **必須** | `0` | 未復習の間違い問題の総数（プロフィール画面での弱点克服セクション表示用の高速化ショートカット）。 |
-| `deleteStatus` | `string` | **必須** | `'active'` | **[NEW]** アカウントの削除状態（`'active' \| 'delete_pending'`）。`delete_pending` に変更されると、Firestore Security Rulesにより本人以外の非公開情報へのアクセスを遮断し、退会済みユーザーと同等の制限がかかる。 |
+| `deleteStatus` | `string` | **必須** | `'active'` | **[NEW]** アカウントの削除状態（`'active' \| 'delete_pending'`）。退会処理は、IDトークン検証を含むセキュアなサーバーサイドAPI（/api/user/delete-account）を通じてアトミックに実行されます（CISO-SEC-05対策によるサーバー移行）。`delete_pending` に変更されると、Firestore Security Rulesにより本人以外の非公開情報へのアクセスを遮断し、退会済みユーザーと同等の制限がかかる。 |
 
 #### ネストされる `Badge` オブジェクト型
 * `id` (`string`): バッジ一意ID（例: `badge_play_100`, `badge_creator_tier1`）

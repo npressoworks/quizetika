@@ -153,7 +153,7 @@ export interface LeaderboardRecord {
 | **`checkNGWords`** | 入力テキストが事前定義されたNGワードリストに引っかかるか検証（検知時は `true` ）。 | `text: string` | `boolean` | 不要 (保存前) |
 | **`submitFlag`** | クイズに対する通報を送信。通報数が5回に達した時、トランザクションでクイズを非公開（保留）に強制変更し、管理者モデレーション待ちにする。 | `flag: Omit<Flag, 'id' \| 'createdAt'>` | `Promise<string>` (通報ID) | 必要 |
 | **`getPendingFlags`** | 管理者モデレーション画面用に、未処理の通報コンテンツ一覧を取得する。 | - | `Promise<Flag[]>` | 必要（管理者ロール） |
-| **`resolveFlag`** | 管理者による通報処理の決定。通報承認時は永久非公開/削除、通報却下時は公開状態に復帰させる。 | `flagId: string`, `action: 'approve' \| 'reject'` | `Promise<void>` | 必要（管理者ロール） |
+| **`resolveFlag`** | 管理者による通報処理の決定。通報承認時は永久非公開/削除、通報却下時は公開状態に復帰させる。**多重防衛（セキュリティ対策）**: クライアントから直接 Firestore を操作する特権処理を安全にするため、実行者の UID (`executorId`) の引き渡しを必須化。サービス層内部で Firestore から実行者の `users/{uid}` を直接引き直し、実際の `moderationTier` や `role === 'admin'` を検証する認可チェック（Assert）を行い、クライアントサイドでの特権昇格・偽造呼び出しを防御します。 | `flagId: string`, `action: 'approve' \| 'reject'`, `executorId: string` | `Promise<void>` | 必要（管理者ロール） |
 
 ---
 
@@ -169,7 +169,7 @@ export interface LeaderboardRecord {
 | **`getUserProfile`** | 指定されたIDのユーザープロフィール情報を取得する。 | `uid: string` | `Promise<UserProfile \| null>` | 不要 |
 | **`updateUserProfile`** | 自身のプロフィール（表示名、アバター、自己紹介、フォローしているジャンルなど）を更新する。 | `uid: string`, `updates: Partial<UserProfile>` | `Promise<void>` | 必要 |
 | **`checkAndAwardBadges`** | ユーザーのアクティビティ（累計プレイ数、作成数、フォロワー数など）を検証し、新たに達成した称号バッジがあれば自動的にアトミック付与する。 | `uid: string` | `Promise<Badge[]>` (新規付与されたバッジリスト) | 必要 |
-| **`deleteUserAccount`** | ユーザーアカウントの削除（退会）の処理を開始する。大量の公開データ（quizzes, quizLists）や活動履歴（feedbackReports, notifications, reactions）の非正規化情報を匿名化する際、Firestoreのアトミックバッチ500件制限を回避するため、本メソッドはユーザーの `deleteStatus` を `'delete_pending'` に変更し、Cloud Tasks の退会処理ジョブキューへアトミックにタスクを登録して即時終了する。実際のクレンジング・物理削除は Cloud Functions 上で非同期分割実行される。 | `uid: string` | `Promise<void>` | 必要 |
+| **`deleteUserAccount`** | ユーザーアカウントの削除（退会）の処理を開始する。**セキュリティ対策 (サーバーサイドへの一本化)**: ブラウザ上の非同期 `setTimeout` による重いバッチループを廃止（データ不整合や通信切断タイムアウトを完全に回避）。フロントエンドは IDトークンを付与して Next.js API Route (/api/user/delete-account) を POST 呼び出しし、サーバーサイド側で安全かつ非同期にクレンジング・物理削除・匿名化バッチ処理を完遂する構造に一本化されました。 | `uid: string` | `Promise<void>` | 必要 |
 
 ---
 
@@ -257,7 +257,7 @@ export interface LeaderboardRecord {
 
 | メソッド名 | 説明 | 主要引数 | 戻り値 | 認証要否 |
 | :--- | :--- | :--- | :--- | :--- |
-| **`uploadImage`** | ファイルを Firebase Storage の指定パスにアップロードし、公開URLを返す。 | `file: File`, `path: string` | `Promise<string>` (公開URL) | 必要 |
+| **`uploadImage`** | ファイルを Firebase Storage の指定パスにアップロードし、公開URLを返す。**セキュリティ対策 (SVG-based XSS防御)**: スクリプトインジェクションによるセッションハイジャックや特権奪取を完全に防ぐため、アップロード許容MIMEタイプ（`ALLOWED_MIME_TYPES`）から `'image/svg+xml'` (SVG形式) を完全に除外。画像形式を `PNG`, `JPEG`, `GIF` の安全なビットマップ画像のみに厳しく制限しています。 | `file: File`, `path: string` | `Promise<string>` (公開URL) | 必要 |
 
 ## 3. Zodによるリクエスト・データバリデーションスキーマ仕様
 安全で不整合のないデータ保存を実現するため、Zodによるスキーマ検証を保存直前に実行します。
