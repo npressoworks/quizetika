@@ -473,3 +473,35 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Sorting Control Styles */
+.sortingBtnGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sortingMoveBtn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sortingMoveBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--text-main);
+  background: rgba(157, 78, 221, 0.08);
+}
+
+.sortingMoveBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+

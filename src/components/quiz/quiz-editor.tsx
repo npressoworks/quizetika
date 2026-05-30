@@ -189,8 +189,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     setQuestions(nextQuestions);
   };
 
-  // 設問タイプの切り替え (選択式 / 短答文字入力式 / ウミガメのスープ)
-  const handleToggleQuestionType = (idx: number, type: 'multiple-choice' | 'text-input' | 'lateral-thinking') => {
+  // 設問タイプの切り替え (選択式 / 短答文字入力式 / 並び替え / 連想 / ウミガメのスープ)
+  const handleToggleQuestionType = (idx: number, type: 'multiple-choice' | 'text-input' | 'sorting' | 'association' | 'lateral-thinking') => {
     const nextQuestions = [...questions];
     nextQuestions[idx].type = type;
     
@@ -202,16 +202,45 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         { id: '4', choiceText: '選択肢 4', isCorrect: false, selectedCount: 0 },
       ];
       nextQuestions[idx].correctTextAnswerList = undefined;
+      nextQuestions[idx].sortingItems = undefined;
+      nextQuestions[idx].associationHints = undefined;
       nextQuestions[idx].aiContextDetails = undefined;
+      nextQuestions[idx].truthKeywords = undefined;
     } else if (type === 'text-input' && !nextQuestions[idx].correctTextAnswerList) {
       nextQuestions[idx].correctTextAnswerList = ['正解テキスト'];
       nextQuestions[idx].choices = undefined;
+      nextQuestions[idx].sortingItems = undefined;
+      nextQuestions[idx].associationHints = undefined;
       nextQuestions[idx].aiContextDetails = undefined;
+      nextQuestions[idx].truthKeywords = undefined;
+    } else if (type === 'sorting' && !nextQuestions[idx].sortingItems) {
+      nextQuestions[idx].sortingItems = [
+        { id: '1', text: '要素 1', correctOrder: 0 },
+        { id: '2', text: '要素 2', correctOrder: 1 },
+      ];
+      nextQuestions[idx].choices = undefined;
+      nextQuestions[idx].correctTextAnswerList = undefined;
+      nextQuestions[idx].associationHints = undefined;
+      nextQuestions[idx].aiContextDetails = undefined;
+      nextQuestions[idx].truthKeywords = undefined;
+    } else if (type === 'association') {
+      if (!nextQuestions[idx].associationHints) {
+        nextQuestions[idx].associationHints = ['ヒント 1'];
+      }
+      if (!nextQuestions[idx].correctTextAnswerList) {
+        nextQuestions[idx].correctTextAnswerList = ['正解テキスト'];
+      }
+      nextQuestions[idx].choices = undefined;
+      nextQuestions[idx].sortingItems = undefined;
+      nextQuestions[idx].aiContextDetails = undefined;
+      nextQuestions[idx].truthKeywords = undefined;
     } else if (type === 'lateral-thinking') {
       nextQuestions[idx].aiContextDetails = '';
       nextQuestions[idx].truthKeywords = [];
       nextQuestions[idx].choices = undefined;
       nextQuestions[idx].correctTextAnswerList = undefined;
+      nextQuestions[idx].sortingItems = undefined;
+      nextQuestions[idx].associationHints = undefined;
     }
     
     setQuestions(nextQuestions);
@@ -279,6 +308,111 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         return;
       }
       nextQuestions[qIdx].correctTextAnswerList = nextQuestions[qIdx].correctTextAnswerList!.filter((_, i) => i !== aIdx);
+      setQuestions(nextQuestions);
+    }
+  };
+
+  // 並び替え要素のテキスト変更
+  const handleSortingItemTextChange = (qIdx: number, itemIdx: number, text: string) => {
+    const nextQuestions = [...questions];
+    if (nextQuestions[qIdx].sortingItems) {
+      nextQuestions[qIdx].sortingItems![itemIdx].text = text;
+      setQuestions(nextQuestions);
+    }
+  };
+
+  // 並び替え要素の追加
+  const handleAddSortingItem = (qIdx: number) => {
+    const nextQuestions = [...questions];
+    if (nextQuestions[qIdx].sortingItems) {
+      const items = nextQuestions[qIdx].sortingItems!;
+      if (items.length >= 6) {
+        alert('並び替え要素は最大6個までです。');
+        return;
+      }
+      const newId = Math.random().toString(36).substring(2, 9);
+      nextQuestions[qIdx].sortingItems = [
+        ...items,
+        { id: newId, text: `要素 ${items.length + 1}`, correctOrder: items.length }
+      ];
+      setQuestions(nextQuestions);
+    }
+  };
+
+  // 並び替え要素の削除
+  const handleRemoveSortingItem = (qIdx: number, itemIdx: number) => {
+    const nextQuestions = [...questions];
+    if (nextQuestions[qIdx].sortingItems) {
+      const items = nextQuestions[qIdx].sortingItems!;
+      if (items.length <= 2) {
+        alert('並び替え要素は最低2個必要です。');
+        return;
+      }
+      const filtered = items.filter((_, idx) => idx !== itemIdx);
+      // correctOrder を再割り当て
+      nextQuestions[qIdx].sortingItems = filtered.map((item, idx) => ({
+        ...item,
+        correctOrder: idx
+      }));
+      setQuestions(nextQuestions);
+    }
+  };
+
+  // 並び替え要素の移動 (▲ / ▼)
+  const handleMoveSortingItem = (qIdx: number, itemIdx: number, direction: 'up' | 'down') => {
+    const nextQuestions = [...questions];
+    if (nextQuestions[qIdx].sortingItems) {
+      const items = [...nextQuestions[qIdx].sortingItems!];
+      const targetIdx = direction === 'up' ? itemIdx - 1 : itemIdx + 1;
+      if (targetIdx < 0 || targetIdx >= items.length) return;
+
+      // 要素の入れ替え
+      const temp = items[itemIdx];
+      items[itemIdx] = items[targetIdx];
+      items[targetIdx] = temp;
+
+      // correctOrder を再割り当て
+      nextQuestions[qIdx].sortingItems = items.map((item, idx) => ({
+        ...item,
+        correctOrder: idx
+      }));
+      setQuestions(nextQuestions);
+    }
+  };
+
+  // 連想ヒントのテキスト変更
+  const handleAssociationHintTextChange = (qIdx: number, hintIdx: number, text: string) => {
+    const nextQuestions = [...questions];
+    if (nextQuestions[qIdx].associationHints) {
+      nextQuestions[qIdx].associationHints![hintIdx] = text;
+      setQuestions(nextQuestions);
+    }
+  };
+
+  // 連想ヒントの追加
+  const handleAddAssociationHint = (qIdx: number) => {
+    const nextQuestions = [...questions];
+    if (nextQuestions[qIdx].associationHints) {
+      const hints = nextQuestions[qIdx].associationHints!;
+      if (hints.length >= 5) {
+        alert('連想ヒントは最大5個までです。');
+        return;
+      }
+      nextQuestions[qIdx].associationHints = [...hints, `ヒント ${hints.length + 1}`];
+      setQuestions(nextQuestions);
+    }
+  };
+
+  // 連想ヒントの削除
+  const handleRemoveAssociationHint = (qIdx: number, hintIdx: number) => {
+    const nextQuestions = [...questions];
+    if (nextQuestions[qIdx].associationHints) {
+      const hints = nextQuestions[qIdx].associationHints!;
+      if (hints.length <= 1) {
+        alert('連想ヒントは最低1個必要です。');
+        return;
+      }
+      nextQuestions[qIdx].associationHints = hints.filter((_, idx) => idx !== hintIdx);
       setQuestions(nextQuestions);
     }
   };
@@ -609,21 +743,35 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                       className={`${styles.toggleBtn} ${q.type === 'multiple-choice' ? styles.toggleBtnActive : ''}`}
                       onClick={() => handleToggleQuestionType(qIdx, 'multiple-choice')}
                     >
-                      選択式 (4択)
+                      選択式
                     </button>
                     <button
                       type="button"
                       className={`${styles.toggleBtn} ${q.type === 'text-input' ? styles.toggleBtnActive : ''}`}
                       onClick={() => handleToggleQuestionType(qIdx, 'text-input')}
                     >
-                      短答文字入力式
+                      短答式
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.toggleBtn} ${q.type === 'sorting' ? styles.toggleBtnActive : ''}`}
+                      onClick={() => handleToggleQuestionType(qIdx, 'sorting')}
+                    >
+                      並び替え
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.toggleBtn} ${q.type === 'association' ? styles.toggleBtnActive : ''}`}
+                      onClick={() => handleToggleQuestionType(qIdx, 'association')}
+                    >
+                      連想
                     </button>
                     <button
                       type="button"
                       className={`${styles.toggleBtn} ${q.type === 'lateral-thinking' ? styles.toggleBtnActive : ''}`}
                       onClick={() => handleToggleQuestionType(qIdx, 'lateral-thinking')}
                     >
-                      ウミガメのスープ (GM型AI)
+                      ウミガメのスープ
                     </button>
                   </div>
 
@@ -691,6 +839,129 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                       >
                         <Plus size={14} /> 正解候補を追加する
                       </button>
+                    </div>
+                  )}
+
+                  {/* 並び替えの設問入力 */}
+                  {q.type === 'sorting' && q.sortingItems && (
+                    <div className={styles.choicesList}>
+                      <label className={styles.label}>並び替え要素（上から正しい順序に並ぶように設定してください。2〜6要素）</label>
+                      {q.sortingItems.map((item, iIdx) => (
+                        <div key={item.id || iIdx} className={styles.choiceRow}>
+                          <div className={styles.sortingBtnGroup}>
+                            <button
+                              type="button"
+                              className={styles.sortingMoveBtn}
+                              disabled={iIdx === 0}
+                              onClick={() => handleMoveSortingItem(qIdx, iIdx, 'up')}
+                              title="上に移動"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.sortingMoveBtn}
+                              disabled={iIdx === q.sortingItems!.length - 1}
+                              onClick={() => handleMoveSortingItem(qIdx, iIdx, 'down')}
+                              title="下に移動"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            className={styles.input}
+                            value={item.text}
+                            onChange={(e) => handleSortingItemTextChange(qIdx, iIdx, e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className={styles.removeQuestionBtn}
+                            onClick={() => handleRemoveSortingItem(qIdx, iIdx)}
+                            title="この要素を削除"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className={styles.addTextAnswerBtn}
+                        onClick={() => handleAddSortingItem(qIdx)}
+                        style={{ marginTop: '8px' }}
+                      >
+                        <Plus size={14} /> 要素を追加する
+                      </button>
+                    </div>
+                  )}
+
+                  {/* 連想クイズの設問入力 */}
+                  {q.type === 'association' && q.associationHints && (
+                    <div className={styles.choicesList}>
+                      <label className={styles.label}>段階的連想ヒント（ヒント1から順にプレイヤーに開示されます。1〜5ヒント）</label>
+                      {q.associationHints.map((hint, hIdx) => (
+                        <div key={hIdx} className={styles.choiceRow}>
+                          <span style={{ fontSize: '0.9rem', minWidth: '60px', color: 'var(--text-muted)' }}>
+                            ヒント {hIdx + 1}
+                          </span>
+                          <input
+                            type="text"
+                            className={styles.input}
+                            placeholder={`例: ヒント ${hIdx + 1} の内容`}
+                            value={hint}
+                            onChange={(e) => handleAssociationHintTextChange(qIdx, hIdx, e.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className={styles.removeQuestionBtn}
+                            onClick={() => handleRemoveAssociationHint(qIdx, hIdx)}
+                            title="このヒントを削除"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className={styles.addTextAnswerBtn}
+                        onClick={() => handleAddAssociationHint(qIdx)}
+                        style={{ marginTop: '8px', marginBottom: '16px' }}
+                      >
+                        <Plus size={14} /> ヒントを追加する
+                      </button>
+
+                      {/* 連想の正解設定 (短答式の correctTextAnswerList と同一構造) */}
+                      {q.correctTextAnswerList && (
+                        <div className={styles.textAnswersContainer} style={{ marginTop: '16px', borderTop: '1px dashed var(--border-light)', paddingTop: '16px' }}>
+                          <label className={styles.label}>正解テキスト候補（大文字・小文字表記揺れなど複数設定可能）</label>
+                          {q.correctTextAnswerList.map((ans, aIdx) => (
+                            <div key={aIdx} className={styles.textAnswerRow}>
+                              <input
+                                type="text"
+                                className={styles.input}
+                                placeholder="例: 正解文字列"
+                                value={ans}
+                                onChange={(e) => handleTextAnswerChange(qIdx, aIdx, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                className={styles.removeQuestionBtn}
+                                onClick={() => handleRemoveTextAnswer(qIdx, aIdx)}
+                                title="この正解を削除"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            className={styles.addTextAnswerBtn}
+                            onClick={() => handleAddTextAnswer(qIdx)}
+                          >
+                            <Plus size={14} /> 正解候補を追加する
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 

@@ -55,6 +55,27 @@ export async function saveAttempt(
 
     const quiz = quizSnap.data() as Quiz;
 
+    // ── セキュリティ対策（チート防止のためのサーバーサイド二重検証） ──
+    const actualTotalQuestions = quiz.questions?.length ?? 0;
+    if (attemptData.totalQuestions !== actualTotalQuestions) {
+      throw new Error(`問題数の不整合が検知されました。期待される問題数: ${actualTotalQuestions}, 送信された問題数: ${attemptData.totalQuestions}`);
+    }
+
+    // 送信された間違えた問題IDがすべて該当クイズに存在するか検証
+    const quizQuestionIds = new Set((quiz.questions ?? []).map((q) => q.id));
+    for (const failedId of attemptData.failedQuestionIds) {
+      if (!quizQuestionIds.has(failedId)) {
+        throw new Error(`該当クイズに存在しない不正な問題IDが解答履歴に含まれています: ${failedId}`);
+      }
+    }
+
+    // 計算上の正解数と送信されたスコア（score）が合致するか検証
+    const calculatedScore = actualTotalQuestions - attemptData.failedQuestionIds.length;
+    if (attemptData.score !== calculatedScore) {
+      throw new Error(`スコアデータの不整合が検知されました。計算スコア: ${calculatedScore}, 送信スコア: ${attemptData.score}`);
+    }
+    // ───────────────────────────────────────────────────────────────
+
     // トランザクション内で最新のユーザーのdisplayNameを取得 (ゲストでない場合)
     let displayName = 'ゲストプレイヤー';
     if (attemptData.userId && attemptData.userId !== 'guest') {

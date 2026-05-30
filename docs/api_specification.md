@@ -344,7 +344,7 @@ export const questionSchema = z.object({
       });
     }
   }
-  // 並び替えクイズ
+  // 並び替えクイズ (sorting): 提示された複数の要素を、正しい順番（インデックス）にドラッグ＆ドロップ等で並び替える形式
   if (data.type === 'sorting') {
     if (!data.sortingItems || data.sortingItems.length < 2 || data.sortingItems.length > 6) {
       ctx.addIssue({
@@ -352,21 +352,37 @@ export const questionSchema = z.object({
         message: '並び替え問題には2〜6つの並び替え要素が必要です。',
         path: ['sortingItems']
       });
+    } else {
+      // correctOrderの重複チェックとインデックス値の検証
+      const orders = data.sortingItems.map(item => item.correctOrder);
+      const uniqueOrders = new Set(orders);
+      const maxOrder = data.sortingItems.length - 1;
+      
+      const hasDuplicates = uniqueOrders.size !== orders.length;
+      const isOutRange = orders.some(o => o < 0 || o > maxOrder);
+      
+      if (hasDuplicates || isOutRange) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `並び替え要素の正しい順序（インデックス）は 0 から ${maxOrder} までの重複のない連続する整数で指定してください。`,
+          path: ['sortingItems']
+        });
+      }
     }
   }
-  // 連想クイズ
+  // 連想クイズ (association): 段階的なヒント（連想ヒントリスト）を提示して、最終的な正解を導き出させる形式
   if (data.type === 'association') {
-    if (!data.associationHints || data.associationHints.length === 0) {
+    if (!data.associationHints || data.associationHints.length === 0 || data.associationHints.length > 5) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: '連想問題には少なくとも1つのヒントが必要です。',
+        message: '連想問題には1〜5つの段階的ヒント（連想ヒントリスト）が必要です。',
         path: ['associationHints']
       });
     }
     if (!data.correctTextAnswerList || data.correctTextAnswerList.length === 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: '連想解答には少なくとも1つの正解パターンが必要です。',
+        message: '連想クイズの最終的な正解判定用として、少なくとも1つの正解パターン（正解テキストパターン）が必要です。',
         path: ['correctTextAnswerList']
       });
     }

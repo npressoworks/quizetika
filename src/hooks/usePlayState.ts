@@ -124,11 +124,25 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     } else if (currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') {
       const selectedChoice = currentQuestion.choices?.find((c) => c.id === answerTextOrChoiceId);
       isCorrect = !!selectedChoice?.isCorrect;
-    } else if (currentQuestion.type === 'text-input') {
-      const cleanInput = answerTextOrChoiceId.trim().toLowerCase();
+    } else if (currentQuestion.type === 'text-input' || currentQuestion.type === 'association') {
+      const cleanInput = answerTextOrChoiceId.trim().toLowerCase().replace(/\s+/g, '');
       isCorrect = currentQuestion.correctTextAnswerList?.some(
-        (ans) => ans.trim().toLowerCase() === cleanInput
+        (ans) => ans.trim().toLowerCase().replace(/\s+/g, '') === cleanInput
       ) ?? false;
+    } else if (currentQuestion.type === 'sorting') {
+      // 並び替え要素の正しい順序を検証
+      // カンマ区切りの要素ID文字列（例："id1,id2,id3"）を受け取ると想定
+      const userSortedIds = answerTextOrChoiceId.split(',');
+      const sortingItems = currentQuestion.sortingItems ?? [];
+      
+      if (userSortedIds.length !== sortingItems.length) {
+        isCorrect = false;
+      } else {
+        isCorrect = userSortedIds.every((id, idx) => {
+          const item = sortingItems.find((s) => s.id === id);
+          return item?.correctOrder === idx;
+        });
+      }
     }
 
     // 回答ログの追加

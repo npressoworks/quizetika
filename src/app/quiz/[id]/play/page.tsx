@@ -245,6 +245,42 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
     }
   };
 
+  // ────────── 並び替え・連想クイズ用一時ステート ──────────
+  const [sortingItems, setSortingItems] = useState<{ id: string; text: string; correctOrder: number }[]>([]);
+  const [activeHintIdx, setActiveHintIdx] = useState<number>(0);
+
+  // 問題インデックス変化時の初期化
+  useEffect(() => {
+    if (!quiz || currentIdx >= quiz.questions.length) return;
+    const currentQuestion = quiz.questions[currentIdx];
+    
+    if (currentQuestion.type === 'sorting' && currentQuestion.sortingItems) {
+      // 初期状態ではランダムシャッフル
+      const items = [...currentQuestion.sortingItems];
+      for (let i = items.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [items[i], items[j]] = [items[j], items[i]];
+      }
+      setSortingItems(items);
+    }
+    
+    if (currentQuestion.type === 'association') {
+      setActiveHintIdx(0);
+    }
+  }, [currentIdx, quiz]);
+
+  // 並び替え要素の上下スワップ移動処理
+  const moveSortingItem = (index: number, direction: 'up' | 'down') => {
+    const nextIndex = direction === 'up' ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= sortingItems.length) return;
+    
+    const nextItems = [...sortingItems];
+    const temp = nextItems[index];
+    nextItems[index] = nextItems[nextIndex];
+    nextItems[nextIndex] = temp;
+    setSortingItems(nextItems);
+  };
+
   // 4. ヒント表示モーダル制御
   const [showHint, setShowHint] = useState<boolean>(false);
 
@@ -490,6 +526,94 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
             />
             <button type="submit" className="btn btn-primary">送信</button>
           </form>
+        )}
+
+        {/* 4. 並び替えクイズのUI */}
+        {currentQuestion?.type === 'sorting' && (
+          <div className={styles.sortingArea}>
+            <div className={styles.sortingList}>
+              {sortingItems.map((item, idx) => (
+                <div key={item.id} className={styles.sortingItem}>
+                  <span className={styles.sortingItemIndex}>{idx + 1}</span>
+                  <span className={styles.sortingItemText}>{item.text}</span>
+                  <div className={styles.sortingItemActions}>
+                    <button
+                      className={`${styles.sortMoveBtn} btn btn-secondary btn-sm`}
+                      onClick={() => moveSortingItem(idx, 'up')}
+                      disabled={idx === 0}
+                      title="上へ"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      className={`${styles.sortMoveBtn} btn btn-secondary btn-sm`}
+                      onClick={() => moveSortingItem(idx, 'down')}
+                      disabled={idx === sortingItems.length - 1}
+                      title="下へ"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', marginTop: '20px' }}
+              onClick={() => {
+                const sortedIds = sortingItems.map((item) => item.id).join(',');
+                handleAnswerSubmit(sortedIds);
+              }}
+            >
+              並び替えを確定して解答する
+            </button>
+          </div>
+        )}
+
+        {/* 5. 連想クイズのUI */}
+        {currentQuestion?.type === 'association' && (
+          <div className={styles.associationArea}>
+            <div className={styles.associationHintsList}>
+              {currentQuestion.associationHints
+                ?.slice(0, activeHintIdx + 1)
+                .map((hint, idx) => (
+                  <div key={idx} className={styles.associationHintItem}>
+                    <span className={styles.associationHintLabel}>ヒント {idx + 1}:</span>
+                    <span className={styles.associationHintText}>{hint}</span>
+                  </div>
+                ))}
+            </div>
+            
+            {currentQuestion.associationHints && activeHintIdx < currentQuestion.associationHints.length - 1 && (
+              <button
+                className="btn btn-secondary"
+                style={{ width: '100%', marginBottom: '20px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)' }}
+                onClick={() => setActiveHintIdx((prev) => prev + 1)}
+              >
+                次のヒントを表示する (残り {currentQuestion.associationHints.length - 1 - activeHintIdx} 件)
+              </button>
+            )}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const input = (e.currentTarget.elements.namedItem('associationAnswer') as HTMLInputElement).value;
+                handleAnswerSubmit(input);
+                e.currentTarget.reset();
+              }}
+              className={styles.inputForm}
+            >
+              <input
+                type="text"
+                name="associationAnswer"
+                className={styles.textInput}
+                placeholder="連想される答えを入力してください..."
+                required
+                autoComplete="off"
+              />
+              <button type="submit" className="btn btn-accent">解答を送信</button>
+            </form>
+          </div>
         )}
 
         {/* 3. フラッシュカードのフリップ動作 */}

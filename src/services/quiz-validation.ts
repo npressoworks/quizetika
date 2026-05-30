@@ -89,13 +89,24 @@ function isQuestionAnswerValid(question: Question): boolean {
       // correctTextAnswerList に最低1つのエントリが必要
       return (question.correctTextAnswerList ?? []).length > 0;
 
-    case 'sorting':
-      // sortingItems が最低2つ必要
-      return (question.sortingItems ?? []).length >= 2;
+    case 'sorting': {
+      // sortingItems が2〜6個必要
+      const items = question.sortingItems ?? [];
+      if (items.length < 2 || items.length > 6) return false;
+      // correctOrderの重複チェックとインデックス範囲検証
+      const orders = items.map((item) => item.correctOrder);
+      const uniqueOrders = new Set(orders);
+      if (uniqueOrders.size !== orders.length) return false;
+      const maxOrder = items.length - 1;
+      return orders.every((o) => o >= 0 && o <= maxOrder);
+    }
 
-    case 'association':
-      // associationHints が最低1つ必要
-      return (question.associationHints ?? []).length > 0;
+    case 'association': {
+      // associationHints が1〜5個必要、かつ correctTextAnswerList に最低1つの正解パターンが必要
+      const hints = question.associationHints ?? [];
+      if (hints.length < 1 || hints.length > 5) return false;
+      return (question.correctTextAnswerList ?? []).length > 0;
+    }
 
     case 'lateral-thinking':
       // aiContextDetails（裏設定）が必要、かつ必須キーワードが1つ以上指定されていること

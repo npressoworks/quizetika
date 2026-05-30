@@ -123,15 +123,17 @@ erDiagram
 #### ネストされる `Question` オブジェクト型
 * `id` (`string`): 問題の一意ID（UUIDまたは連番）。
 * `type` (`'true-false' \| 'multiple-choice' \| 'text-input' \| 'sorting' \| 'association' \| 'lateral-thinking'`): 問題タイプ。
+  - `sorting`（並び替えクイズ）: 提示された複数の要素を、正しい順番（インデックス）にドラッグ＆ドロップ等で並び替える形式です。
+  - `association`（連想クイズ）: 段階的なヒント（連想ヒントリスト）を提示して、最終的な正解を導き出させる形式です。
 * `questionText` (`string`): 問題文。
 * `explanation` (`string`): 解説文。
 * `imageUrl` (`string`, 任意): 参考イラスト・写真URL。
 * `hint` (`string`, 任意): ヒントテキスト。
 * `limitTime` (`number`, 任意): 制限秒数。
-* `correctTextAnswerList` (`array (string)`, 任意): 正解パターンリスト。
-* `choices` (`array (Choice)`, 任意): 選択肢配列。
-* `sortingItems` (`array (SortingItem)`, 任意): 並び替え用ソート対象要素リスト。
-* `associationHints` (`array (string)`, 任意): 連想ヒントリスト。
+* `correctTextAnswerList` (`array (string)`, 任意): 正解パターンリスト。短答式および連想クイズの正解判定用。
+* `choices` (`array (Choice)`, 任意): 選択肢配列。〇×・多肢選択クイズ用。
+* `sortingItems` (`array (SortingItem)`, 任意): 並び替えクイズ用のソート対象要素リスト。ドラッグ＆ドロップにより正しい順番（`correctOrder`）に並び替えるための2〜6つの要素。
+* `associationHints` (`array (string)`, 任意): 連想クイズ用の段階的ヒントリスト。最大5つのヒントを登録し、段階的にプレイヤーへ開示する。
 * `aiContextDetails` (`string`, 任意): ウミガメのスープ用詳細裏設定（AI判定用コンテキスト）。20文字以上2000文字以内。
 * `truthKeywords` (`array (string)`, 任意): ウミガメのスープ用自動真相判定必須キーワード。最低1つ以上の登録が必要。
 * `correctCount` (`number`): 正解した累計回数。
