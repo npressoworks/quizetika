@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { doc, updateDoc, collection, query, where, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { usersRef } from '@/lib/firebase/firestore';
+import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
 
 const ANONYMIZED_NAME = '退会済みユーザー';
 const ANONYMIZED_AVATAR = 'https://api.dicebear.com/7.x/initials/svg?seed=deleted';
@@ -61,6 +62,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!uid) {
       return NextResponse.json({ error: 'missing-uid' }, { status: 400 });
+    }
+
+    // Authorization ヘッダーから IDトークンを抽出し検証
+    const token = extractBearerToken(request);
+    const verifiedUid = await verifyFirebaseIdToken(token, uid);
+
+    if (!verifiedUid || verifiedUid !== uid) {
+      console.warn(`[delete-account] 認証に失敗しました。要求UID: ${uid}, 検証UID: ${verifiedUid}`);
+      return NextResponse.json({ error: 'unauthorized', message: '認証に失敗したか、権限がありません。' }, { status: 401 });
     }
 
     // ── 同期フェーズ ─────────────────────────────────────

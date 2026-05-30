@@ -157,8 +157,7 @@ export default function LoginPage() {
 
         {/* E2E Test Auth (開発環境またはE2Eテスト環境、あるいはクエリパラメータで指定された場合のみ表示) */}
         {(process.env.NODE_ENV !== 'production' || 
-          process.env.NEXT_PUBLIC_ENV === 'test' || 
-          (typeof window !== 'undefined' && window.location.search.includes('e2e=true'))) && (
+          process.env.NEXT_PUBLIC_ENV === 'test') && (
           <div style={{ marginTop: '12px', width: '100%' }}>
             <button
               id="e2e-test-login-btn"

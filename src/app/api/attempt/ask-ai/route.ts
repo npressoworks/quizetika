@@ -27,6 +27,7 @@ import {
   buildAiSystemInstruction,
 } from '@/services/ask-ai-utils';
 import { AiQuestion, Attempt, Quiz } from '@/types';
+import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
 
 /** Gemini API クライアント（サーバーサイドでのみ使用） */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
@@ -55,11 +56,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // ── リクエストボディのパース ────────────────────────────
     const body = await request.json();
-    const { attemptId, questionText, userId, isPremium } = body as {
+    const { attemptId, questionText, userId } = body as {
       attemptId: string;
       questionText: string;
       userId: string;
-      isPremium?: boolean;
     };
 
     // 入力バリデーション
@@ -77,6 +77,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // ── トークン検証による認証チェック ────────────────────
+    const token = extractBearerToken(request);
+    const verifiedUid = await verifyFirebaseIdToken(token, userId);
+
+    if (!verifiedUid || verifiedUid !== userId) {
+      console.warn(`[ask-ai] 認証に失敗しました。要求userId: ${userId}, 検証UID: ${verifiedUid}`);
+      return NextResponse.json(
+        { error: 'unauthorized', message: '認証に失敗したか、本人の操作ではありません' },
+        { status: 401 }
+      );
+    }
+
+    // ── 認証済みのUIDを元にデータベースから安全にプレミアム状態を解決 ──
+    let isPremium = false;
+    try {
+      const userDocRef = doc(db, 'users', verifiedUid);
+      const userSnap = await getDoc(userDocRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        isPremium = userData.isPremium === true || ['moderator', 'senior_moderator'].includes(userData.moderationTier);
+      }
+    } catch (dbErr) {
+      console.error('[ask-ai] ユーザープレミアム情報の解決エラー (非致命的):', dbErr);
+    }
+
     // ── Attempt ドキュメントを取得 ──────────────────────────
     const attemptRef = doc(attemptsCollection, attemptId);
     const attemptSnap = await getDoc(attemptRef);
@@ -91,7 +116,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const attempt = attemptSnap.data() as Attempt;
 
     // セキュリティ: 本人のAttemptのみ操作可能
-    if (attempt.userId !== userId) {
+    if (attempt.userId !== verifiedUid) {
       return NextResponse.json(
         { error: 'unauthorized', message: '他のユーザーのプレイ記録は操作できません' },
         { status: 403 }

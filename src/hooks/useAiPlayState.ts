@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { AiQuestion } from '@/types';
+import { auth } from '@/lib/firebase/config';
 
 interface UseAiPlayStateProps {
   attemptId: string;
@@ -61,9 +62,13 @@ export function useAiPlayState({
     setPending(true);
 
     try {
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/attempt/ask-ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           attemptId,
           questionText,

@@ -11,6 +11,7 @@ import { useAiPlayState } from '@/hooks/useAiPlayState';
 import { saveAttempt, updateFailedQuestionsCount } from '@/services/attempt';
 import { addPendingSyncAttempt, generateLocalId } from '@/services/attempt-session';
 import { Quiz, Attempt, Question } from '@/types';
+import { auth } from '@/lib/firebase/config';
 import styles from './play.module.css';
 
 interface PageProps {
@@ -210,9 +211,13 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
     setIsTruthChecking(true);
     setTruthAdvice(null);
     try {
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch('/api/attempt/verify-truth', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           attemptId: lateralAttemptId,
           userId: user.id,

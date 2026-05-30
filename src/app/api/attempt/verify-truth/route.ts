@@ -23,6 +23,7 @@ import {
   verifyKeywords,
 } from '@/services/verify-truth-utils';
 import { Attempt, Quiz } from '@/types';
+import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
@@ -54,6 +55,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // ── トークン検証による認証チェック ────────────────────
+    const token = extractBearerToken(request);
+    const verifiedUid = await verifyFirebaseIdToken(token, userId);
+
+    if (!verifiedUid || verifiedUid !== userId) {
+      console.warn(`[verify-truth] 認証に失敗しました。要求userId: ${userId}, 検証UID: ${verifiedUid}`);
+      return NextResponse.json(
+        { error: 'unauthorized', message: '認証に失敗したか、本人の操作ではありません' },
+        { status: 401 }
+      );
+    }
+
     // Attempt を取得
     const attemptRef = doc(attemptsCollection, attemptId);
     const attemptSnap = await getDoc(attemptRef);
@@ -63,7 +76,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const attempt = attemptSnap.data() as Attempt;
 
     // セキュリティチェック
-    if (attempt.userId !== userId) {
+    if (attempt.userId !== verifiedUid) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 403 });
     }
 
