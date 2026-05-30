@@ -110,6 +110,57 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     }
   });
 
+  test('F-403-2: トップページ一覧からクイズを直接ブックマークでき、星アイコンのカラーが即時反映されること', async ({ page }) => {
+    // 1. ホームページにアクセス
+    await page.goto('/');
+
+    // ログイン状態を確認・シミュレート（もし未ログインならE2Eログインボタンをクリック）
+    const loginBtn = page.locator('#e2e-test-login-btn');
+    try {
+      await loginBtn.waitFor({ state: 'visible', timeout: 2000 });
+      if (await loginBtn.isVisible()) {
+        await loginBtn.click();
+        await page.waitForTimeout(1000);
+      }
+    } catch (e) {}
+
+    // トップページにクイズカードが表示されていることを確認
+    const firstCard = page.locator('[data-testid="quiz-card"]').first();
+    await expect(firstCard).toBeVisible({ timeout: 10000 });
+
+    // クイズカード内のお気に入り（星）ボタンを特定
+    const bookmarkBtn = firstCard.locator('button[title="ブックマーク"]').first();
+    await expect(bookmarkBtn).toBeVisible();
+
+    const starIcon = bookmarkBtn.locator('svg').first();
+    await expect(starIcon).toBeVisible();
+
+    // 既にブックマークされている場合は一旦解除して白星スタートにする
+    let fillAttr = await starIcon.getAttribute('fill');
+    if (fillAttr === '#ff007f') {
+      await bookmarkBtn.click();
+      await page.waitForTimeout(500);
+      fillAttr = await starIcon.getAttribute('fill');
+    }
+    expect(fillAttr).toBe('none');
+
+    // ブックマークボタンをクリック
+    await bookmarkBtn.click();
+
+    // 即座に星の色がネオンピンク (#ff007f) に変化することを確認
+    await page.waitForTimeout(500);
+    const starFill = await starIcon.getAttribute('fill');
+    expect(starFill).toBe('#ff007f');
+
+    // 再度クリックしてブックマーク解除
+    await bookmarkBtn.click();
+
+    // 即座に元の白抜き（none）に戻ることを確認
+    await page.waitForTimeout(500);
+    const starFillAfter = await starIcon.getAttribute('fill');
+    expect(starFillAfter).toBe('none');
+  });
+
   test('F-404: 通知機能が正常に動作すること', async ({ page }) => {
     // 1. ホームページにアクセス
     await page.goto('/');
