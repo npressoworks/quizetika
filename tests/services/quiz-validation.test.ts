@@ -239,6 +239,42 @@ describe('validateQuizForPublish', () => {
       const errors = validateQuizForPublish(quiz);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
+
+    test('lateral-thinking問題でaiContextDetailsとtruthKeywordsが設定されている場合はエラーを返さない', () => {
+      const validLateralQuestion = makeQuestion({
+        type: 'lateral-thinking',
+        choices: undefined,
+        aiContextDetails: 'これはウミガメのスープの真相です。',
+        truthKeywords: ['ウミガメ', 'スープ'],
+      });
+      const quiz = makeQuiz({ questions: [validLateralQuestion] });
+      const errors = validateQuizForPublish(quiz);
+      expect(errors.some((e) => e.field === 'questions')).toBe(false);
+    });
+
+    test('lateral-thinking問題でaiContextDetailsが空の場合エラーを返す', () => {
+      const invalidQuestion = makeQuestion({
+        type: 'lateral-thinking',
+        choices: undefined,
+        aiContextDetails: '  ',
+        truthKeywords: ['ウミガメ'],
+      });
+      const quiz = makeQuiz({ questions: [invalidQuestion] });
+      const errors = validateQuizForPublish(quiz);
+      expect(errors.some((e) => e.field === 'questions')).toBe(true);
+    });
+
+    test('lateral-thinking問題でtruthKeywordsが空の場合エラーを返す', () => {
+      const invalidQuestion = makeQuestion({
+        type: 'lateral-thinking',
+        choices: undefined,
+        aiContextDetails: 'これはウミガメのスープの真相です。',
+        truthKeywords: [],
+      });
+      const quiz = makeQuiz({ questions: [invalidQuestion] });
+      const errors = validateQuizForPublish(quiz);
+      expect(errors.some((e) => e.field === 'questions')).toBe(true);
+    });
   });
 
   // ── NGワードバリデーション ─────────────────────────────

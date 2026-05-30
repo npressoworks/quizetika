@@ -50,6 +50,8 @@
 4. When a creator edits a quiz title, the Quizeum System shall automatically synchronize the updated title across all related feedback reports, reactions, and notifications.
 5. When a creator deletes a quiz, the Quizeum System shall asynchronously clean up or soft-delete all associated bookmarks, feedback reports, notifications, and reactions.
 6. When a creator requests export, the Quizeum System shall compile all quizzes created by the user (including drafts) into a single downloadable structured format.
+7. When a creator configures a lateral-thinking question, the Quizeum System shall allow the creator to add and remove multiple truth keywords (essential essences) using a visual tag-like input interface, storing them as a list of strings.
+8. When a creator publishes a quiz containing a lateral-thinking question, the Quizeum System shall validate that at least one truth keyword is registered for the lateral-thinking question, preventing publication if no keywords are specified.
 
 ### Requirement 3: クイズプレイとセッション保護
 **Objective:** As a Quiz Player, I want to play quizzes in various modes with progress protection, so that I can enjoy a seamless and uninterrupted playing experience even under unstable network conditions.
@@ -66,13 +68,15 @@
 **Objective:** As a Quiz Player, I want to interact with a stateless AI to solve lateral-thinking quizzes, so that I can query for clues dynamically and receive intelligent, real-time validation of my solution.
 
 #### Acceptance Criteria
-1. While playing a lateral thinking quiz, when a player submits a free-text question (up to 100 characters), the Quizeum System shall invoke a stateless AI engine using the secret setup context of the quiz and return one of the predefined answers (Yes / No / Irrelevant / Unknown) with a brief comment.
+1. While playing a lateral thinking quiz, when a player submits a free-text question (up to 100 characters), the Quizeum System shall retrieve up to the last 20 question-and-comment pairs from the session's Q&A history, and securely pass them along with the new question to the AI engine using the secret setup context of the quiz, and return one of the predefined answers (Yes / No / Irrelevant / Unknown) with a brief comment.
 2. If a player is a free-tier user, the Quizeum System shall limit their AI questions to a maximum of 20 per day per quiz, sharing the count across all sessions of the same quiz and resetting it daily at midnight.
 3. When a player submits a question that exactly matches a question in their current session's Q&A history, the Quizeum System shall instantly return the cached answer without invoking the AI engine or decrementing the daily turn count.
 4. The Quizeum System shall present a two-column layout on the lateral-thinking play screen, displaying the interactive chat interface on the left and a scrollable Q&A history list panel on the right.
-5. When a player submits a truth summary to verify their solution, the Quizeum System shall securely pass the text to the AI engine to evaluate if the core solution is reached.
-6. If the AI engine confirms the truth summary is correct, the Quizeum System shall trigger a clear animation and redirect the player to the results view, recording their elapsed time on the leaderboard.
-7. If the AI engine rejects the truth summary, the Quizeum System shall display AI-generated advice detailing unsolved contradictions, allowing the player to resume questioning.
+5. When a player submits a truth summary to verify their solution, the Quizeum System shall verify whether all of the registered truth keywords (essential essences) are contained in the user's truth summary.
+6. When the verification confirms all truth keywords are contained in the user's truth summary, the Quizeum System shall bypass the AI engine, immediately mark the solution as correct (VERDICT: CORRECT), and trigger a clear animation and redirect the player to the results view.
+7. When the verification finds any truth keyword is missing, the Quizeum System shall securely pass the truth summary along with the secret setup context to the AI engine to evaluate if the core solution is reached.
+8. If the AI engine confirms the truth summary is correct, the Quizeum System shall trigger a clear animation and redirect the player to the results view.
+9. If the AI engine rejects the truth summary, the Quizeum System shall display AI-generated advice detailing unsolved contradictions, allowing the player to resume questioning.
 
 ### Requirement 5: ソーシャル機能およびクイズリスト
 **Objective:** As a Quizeum User, I want to follow creators, bookmark content, react to quizzes, and organize quizzes into custom lists, so that I can discover, organize, and share quality content.

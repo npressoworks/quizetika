@@ -21,9 +21,9 @@
 ## Boundary Commitments
 
 ### This Spec Owns
-- **データ永続化と整合性**: `users`, `quizzes`, `quizLists`, `follows`, `bookmarks`, `attempts`, `feedbackReports`, `flags`, `reactions`, `notifications`, `metadata_genres`, `metadata_tags`, `mergeRequests`, `genreRequests`, `quizReviews`, `reviewResetRequests` などのFirestoreスキーマおよびトランザクション設計。
+- **データ永続化と整合性**: `users`, `quizzes`, `quizLists`, `follows`, `bookmarks`, `attempts`, `feedbackReports`, `flags`, `reactions`, `notifications`, `metadata_genres`, `metadata_tags`, `mergeRequests`, `genreRequests`, `quizReviews`, `reviewResetRequests` などのFirestoreスキーマ（ウミガメスープ用必須キーワード `truthKeywords` を含む）およびトランザクション設計。
 - **アカウント削除プロセス**: Next.js API Routeを経由した即時Auth物理削除と、Cloud Tasks/Cloud Functionsを連動させた非同期ジョブ分割によるアトミックバッチ匿名化。
-- **水平思考プレイ判定ロジック**: サーバーAPIを仲介するGemini API連携、同一質問キャッシュ一致判定、1日同一クイズ20回制限（無料ユーザー）、真相自動判定およびAIフィードバック。
+- **水平思考プレイ判定ロジック**: サーバーAPIを仲介するGemini API連携（直近最大20回分の会話履歴参照を伴うステートフル化）、同一質問キャッシュ一致判定、1日同一クイズ20回制限（無料ユーザー）、必須キーワード全一致による即正解チェックとAIフォールバックによるハイブリッド真相判定（B2方式）。
 - **メタデータ管理**: 表記揺れタグの自動名寄せおよび類似サジェスト、表記揺れタグ/ジャンルのモデレータ投票による仮想マージ関係の解決と canonical 解決。
 - **オフライン/セッション保護**: クライアントローカル永続ストレージでの進捗永続化およびオンライン復帰時の自動バッチ同期。
 
@@ -116,15 +116,20 @@ src/
 ```
 
 ### Modified Files
-- `src/types/index.ts` — 称号、ウミガメスープ履歴、マージリクエスト、指摘等の新規型定義を網羅。
-- `src/services/quiz.ts` — 公開時バリデーション、タグの「自動名寄せ」および類似サジェスト警告、難易度自動変化バッチ、およびエクスポート機能を追加。
-- `src/services/user.ts` — プロフィール編集、アトミックな称号バッジ付与、および退会処理（API呼び出しと `delete_pending` 設定）を追加。
+- `src/types/index.ts` — 称号、ウミガメスープ履歴、必須キーワード `truthKeywords` などの型定義を網羅。
+- `src/services/quiz.ts` — クイズ公開時バリデーション（ウミガメスープにおけるキーワード設定検証）等を追加。
+- `src/services/quiz-validation.ts` — ウミガメスープ形式の時、必須キーワードが最低1つ指定されているかどうかの検証を追加。
+- `src/services/ask-ai-utils.ts` — 会話履歴を反映したシステムインラインプロンプト構築と Gemini Chat API 連携用マッピングロジックを追加。
+- `src/services/verify-truth-utils.ts` — 登録必須キーワードがすべて含まれているかを検証する `verifyKeywords` 正規化判定関数を追加。
+- `src/app/api/attempt/ask-ai/route.ts` — Firestore から履歴を取得して直近20回分の履歴を Gemini に渡しステートフルな呼び出しを行うよう修正。
+- `src/app/api/attempt/verify-truth/route.ts` — 必須キーワード一致による即合格（AIバイパス）とAIフォールバックを組み合わせたハイブリッド判定処理を追加。
+- `src/components/quiz/quiz-editor.tsx` — ウミガメスープ形式の問題作成時に、タグ風UIで必須キーワードを追加・削除できるフォームを追加。
 
 ---
 
 ## System Flows
 
-### 水平思考クイズ（ウミガメのスープ）AI判定フロー
+### 水平思考クイズ（ウミガメのスープ）ステートフルAI質問対話フロー
 
 ```mermaid
 sequenceDiagram
@@ -152,10 +157,46 @@ sequenceDiagram
         else 制限内
             API->>DB: クイズの裏設定 (aiContextDetails) を取得
             DB-->>API: aiContextDetails
-            API->>AI: 一問一答プロンプト送信 (ステートレス)
-            AI-->>API: 判定結果 (Yes/No/Irrelevant/Unknown)
+            API->>API: 履歴から直近最大20回分をマッピング
+            API->>AI: Gemini Chat API で履歴付きで呼び出し (ステートフル)
+            AI-->>API: 判定結果 (Yes/No/Irrelevant/Unknown) + コメント
             API->>DB: 質問履歴アトミック追加 & ターン数+1
             API-->>Client: 判定結果とAIコメントを返却
+        end
+    end
+    deactivate API
+```
+
+### 水平思考クイズ（ウミガメのスープ）B2 ハイブリッド真相自動判定フロー
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player as プレイヤー
+    participant Client as プレイ画面 (/play)
+    participant API as 真相判定API (/api/attempt/verify-truth)
+    participant AI as Gemini API
+    participant DB as Firestore (Database)
+
+    Player->>Client: 真相要約を提出 (最大1000文字)
+    Client->>API: verifyTruth(attemptId, truthSummary)
+    activate API
+    API->>DB: クイズの登録キーワード (truthKeywords) と裏設定を取得
+    DB-->>API: truthKeywords, aiContextDetails
+    
+    alt すべての必須キーワードが要約に含まれている (B2即合格)
+        Note over API: AI呼び出しをバイパスして即合格判定
+        API->>DB: attempt完了マーク、履歴追加、リーダーボード更新 (Transaction)
+        API-->>Client: 判定結果合格 (isCorrect = true)
+    else キーワードが一部不足 (AIフォールバック判定)
+        API->>AI: 要約を裏設定と照合するプロンプトを送信
+        AI-->>API: 判定結果 (CORRECT / INCORRECT) + アドバイス
+        alt AIによる合格判定
+            API->>DB: attempt完了マーク、履歴追加、リーダーボード更新 (Transaction)
+            API-->>Client: 判定結果合格 (isCorrect = true)
+        else AIによる不合格判定
+            API->>DB: 不合格履歴の追加
+            API-->>Client: 判定結果不合格 & AIからのアドバイス返却
         end
     end
     deactivate API
@@ -219,13 +260,15 @@ sequenceDiagram
 | 3.4 | オフラインリストプレイの進行ブロック | `LocalAttemptSession` | `checkConnectivity` | - |
 | 3.5 | プレイ結果画面（良問評価・難易度投票）| `ReviewService` | `submitReview` | - |
 | 3.6 | 自己ベスト・ハイスコア自動登録 | `QuizService` | `updateLeaderboard` | - |
-| 4.1 | 水平思考クイズのAI質問判定 | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI判定フロー |
-| 4.2 | 無料ユーザーの1日20回制限 | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI判定フロー |
-| 4.3 | 同一質問キャッシュ | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI判定フロー |
+| 2.7 | 必須キーワード(エッセンス)のタグ風UI入力 | `QuizCreator` / UI | `truthKeywords` タグ入力UI | - |
+| 2.8 | クイズ公開時の必須キーワードバリデーション | `QuizService` | `validateQuizForPublish` | - |
+| 4.1 | 最大20回分の会話履歴を参照したステートフルAI質問 | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | 質問対話フロー |
+| 4.2 | 無料ユーザーの1日20回制限 | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | 質問対話フロー |
+| 4.3 | 同一質問キャッシュ | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | 質問対話フロー |
 | 4.4 | プレイ画面2カラムレイアウト | UI Component | `LateralThinkingPlayView` | - |
-| 4.5 | AI自動真相判定 | `VerifyTruthAPI` | `/api/attempt/verify-truth` | - |
-| 4.6 | 真相合格時のクリア演出・遷移 | `VerifyTruthAPI` | `/api/attempt/verify-truth` | - |
-| 4.7 | 真相不合格時のAIアドバイスフィードバック | `VerifyTruthAPI` | `/api/attempt/verify-truth` | - |
+| 4.5 | 必須キーワード一致による即合格(AIバイパス) | `VerifyTruthAPI` | `/api/attempt/verify-truth` | 真相判定フロー |
+| 4.6 | キーワード不足時のAIフォールバック真相判定 | `VerifyTruthAPI` | `/api/attempt/verify-truth` | 真相判定フロー |
+| 4.7 | 真相不合格時のAIアドバイスフィードバック | `VerifyTruthAPI` | `/api/attempt/verify-truth` | 真相判定フロー |
 | 5.1 | フォロー/フォロワーアトミック更新 | `UserService` | `followUser` | - |
 | 5.2 | タイムラインフィード表示 | `QuizService` | `getFollowedTimeline` | - |
 | 5.3 | ブックマークアトミック更新 | `BookmarkService` | `toggleBookmark` | - |
@@ -420,6 +463,7 @@ export interface Question {
   sortingItems?: SortingItem[];
   associationHints?: string[];
   aiContextDetails?: string;
+  truthKeywords?: string[]; // ウミガメスープ用必須正解キーワード (2.7)
   correctCount: number;
   incorrectCount: number;
 }
@@ -510,10 +554,14 @@ export interface FeedbackReport {
 - **タグ正規化の検証**: `normalizeTag` が全半角トリム、小文字化、記号排除を完璧に行うかを検証。
 - **称号バッジ条件判定**: 累計プレイ数が条件（例：100回）を満たした際に、正確に該当バッジを配列に追加するロジックをモック検証。
 - **同一質問キャッシュの検証**: 完全一致する質問が `aiQuestionsHistory` に存在する場合に、AIを呼び出さずキャッシュの回答を返すことを単体テスト。
+- **必須キーワード検証ロジック**: `verifyKeywords` 関数が全半角正規化を行い、大文字小文字に関わらずキーワード合致を正確に判定できるかをテスト。
+- **会話履歴マッピング検証**: 履歴から直近20回の Q&A ペアが正しく Gemini SDK の `Content[]` 型にマッピングされることを単体テスト。
 
 ### Integration Tests
 - **退会時非同期クレンジング**: API Routeに退会リクエストを送信し、Auth物理削除完了とCloud Tasksへのジョブ登録、およびFirestore匿名化が整合性高く動作することを検証。
-- **ウミガメスープ真相自動判定**: 生成AIに真相（要約記述）を渡し、判定結果（`isCorrect` のブーリアン値およびAIフィードバック）が返り attempts に記録される一連のフローをテスト。
+- **ウミガメスープB2ハイブリッド真相判定**:
+  - 必須キーワードが揃っている場合にAIを呼び出さず、即時Firestoreを更新して合格レスポンスを返す統合テスト。
+  - キーワードが不足している場合にGemini APIを呼び出し、AIの評価に基づいて合格またはアドバイスを返す統合テスト。
 
 ### E2E / UI Tests
 - **解答中断と自動復旧**: プレイ中にブラウザを強制リロードし、`localStorage` から解答進捗が100%正しく復元され、プレイが継続できるかをシミュレート。
