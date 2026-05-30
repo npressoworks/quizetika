@@ -25,6 +25,7 @@ export async function createQuizList(
   const now = new Date();
   const newList: Omit<QuizList, 'id'> = {
     ...list,
+    questionIds: list.questionIds || [], // 設問ID配列を初期化（デフォルトは空配列）
     bookmarksCount: 0,
     createdAt: now,
     updatedAt: now,

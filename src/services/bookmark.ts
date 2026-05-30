@@ -8,8 +8,8 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { bookmarksRef, quizzesRef, quizListsRef } from '../lib/firebase/firestore';
-import { Bookmark, Quiz, QuizList } from '../types';
+import { bookmarksRef, quizzesRef, quizListsRef, questionsRef } from '../lib/firebase/firestore';
+import { Bookmark, Quiz, QuizList, Question } from '../types';
 
 /**
  * ブックマークのユニークなドキュメントIDを生成
@@ -36,15 +36,20 @@ export async function isBookmarked(userId: string, targetId: string): Promise<bo
 export async function toggleBookmark(
   userId: string,
   targetId: string,
-  targetType: 'quiz' | 'list'
+  targetType: 'quiz' | 'list' | 'question'
 ): Promise<boolean> {
   const bookmarkDocId = getBookmarkDocId(userId, targetId);
   const bookmarkDocRef = doc(bookmarksRef, bookmarkDocId);
 
   // 対象オブジェクトのドキュメント参照を取得
-  const targetDocRef = targetType === 'quiz'
-    ? (doc(quizzesRef, targetId) as any)
-    : (doc(quizListsRef, targetId) as any);
+  let targetDocRef: any;
+  if (targetType === 'quiz') {
+    targetDocRef = doc(quizzesRef, targetId);
+  } else if (targetType === 'list') {
+    targetDocRef = doc(quizListsRef, targetId);
+  } else {
+    targetDocRef = doc(questionsRef, targetId);
+  }
 
   return await runTransaction(db, async (transaction) => {
     const bookmarkSnap = await transaction.get(bookmarkDocRef);

@@ -171,6 +171,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
       description,
       coverImageUrl: coverImageUrl || undefined,
       quizIds: attachedQuizzes.map((q) => q.id),
+      questionIds: [], // 設問の独立化対応に伴い、空の設問ID配列を初期値として設定
       isPublished,
     };
 

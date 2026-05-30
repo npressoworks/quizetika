@@ -392,6 +392,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       genre,
       tags,
       originalTags,
+      questionIds: questions.map((q) => q.id), // 設問の独立化対応に伴い、設問IDの配列をアタッチ
       questions,
       questionCount: questions.length,
       status,

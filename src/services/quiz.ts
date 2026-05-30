@@ -13,26 +13,73 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { quizzesRef, followsRef, bookmarksRef } from '../lib/firebase/firestore';
-import { Quiz } from '../types';
+import { quizzesRef, followsRef, bookmarksRef, questionsRef } from '../lib/firebase/firestore';
+import { Quiz, Question } from '../types';
 import { validateQuizForPublish, normalizeTag } from './quiz-validation';
 
 /**
  * 新規クイズを作成・投稿する
+ * アトミックなバッチ処理により、各設問（questions）を個別の questions/{questionId} ドキュメントとして書き出します。
+ * 親クイズ（quizzes）には、questionIds 配列および非正規化された設問配列を同期保存します。
  */
-export async function createQuiz(quiz: Omit<Quiz, 'id' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function createQuiz(
+  quiz: Omit<Quiz, 'id' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>
+): Promise<string> {
   const now = new Date();
-  const newQuiz: Omit<Quiz, 'id'> = {
-    ...quiz,
+  
+  // 1. 新しいクイズドキュメントIDを事前に取得
+  const quizDocRef = doc(quizzesRef);
+  const quizId = quizDocRef.id;
+
+  const batch = writeBatch(db);
+
+  // 2. 設問の個別保存と ID の収集
+  const questionIds: string[] = [];
+  const processedQuestions: Question[] = [];
+
+  const inputQuestions = quiz.questions || [];
+  for (const q of inputQuestions) {
+    const qDocRef = doc(questionsRef);
+    const qId = qDocRef.id;
+
+    const fullQuestion: Question = {
+      ...q,
+      id: qId,
+      quizId: quizId,
+      authorId: quiz.authorId,
+      authorName: quiz.authorName,
+      authorAvatar: quiz.authorAvatar,
+      bookmarksCount: q.bookmarksCount || 0,
+      correctCount: q.correctCount || 0,
+      incorrectCount: q.incorrectCount || 0,
+    };
+
+    // questions コレクションに保存
+    batch.set(qDocRef, fullQuestion);
+
+    questionIds.push(qId);
+    processedQuestions.push(fullQuestion);
+  }
+
+  // 3. クイズドキュメントの作成
+  const newQuiz: Quiz = {
+    ...(quiz as any),
+    id: quizId,
+    questionIds,
+    questions: processedQuestions,
+    questionCount: processedQuestions.length,
     playCount: 0,
     bookmarksCount: 0,
     createdAt: now,
     updatedAt: now,
   };
-  
-  // addDoc を使うことで Firestore が自動的にドキュメントIDを割り振る
-  const docRef = await addDoc(quizzesRef, newQuiz as any);
-  return docRef.id;
+
+  batch.set(quizDocRef, newQuiz);
+
+  // 4. バッチコミット
+  await batch.commit();
+
+  return quizId;
 }
 
 /**
@@ -46,13 +93,82 @@ export async function getQuiz(quizId: string): Promise<Quiz | null> {
 
 /**
  * クイズ情報を更新する
+ * 設問（questions）が更新データに含まれる場合、古い設問との差分を検出し、
+ * 削除された設問を questions コレクションからアトミックに削除、
+ * 新規設問の登録、および既存設問の更新を同期処理します。
  */
-export async function updateQuiz(quizId: string, data: Partial<Omit<Quiz, 'id' | 'authorId' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>>): Promise<void> {
-  const docRef = doc(quizzesRef, quizId);
-  await updateDoc(docRef, {
+export async function updateQuiz(
+  quizId: string,
+  data: Partial<Omit<Quiz, 'id' | 'authorId' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>>
+): Promise<void> {
+  const quizDocRef = doc(quizzesRef, quizId);
+  const currentQuiz = await getQuiz(quizId);
+  
+  if (!currentQuiz) {
+    throw new Error('クイズが見つかりません');
+  }
+
+  const batch = writeBatch(db);
+  const now = new Date();
+
+  // 更新ペイロードの作成
+  const updatePayload: any = {
     ...data,
-    updatedAt: new Date(),
-  });
+    updatedAt: now,
+  };
+
+  // もし questions が更新データに含まれている場合、設問の同期・差分削除を行う
+  if (data.questions) {
+    const oldQuestionIds = currentQuiz.questionIds || [];
+    const newQuestionIds: string[] = [];
+    const processedQuestions: Question[] = [];
+
+    // 新しい設問の同期処理
+    for (const q of data.questions) {
+      let qId = q.id;
+      // 既存の設問ID（古いIDリストに含まれている本物のID）か判定
+      const isExistingId = qId && oldQuestionIds.includes(qId);
+      
+      let qDocRef;
+      if (isExistingId) {
+        qDocRef = doc(questionsRef, qId);
+      } else {
+        qDocRef = doc(questionsRef);
+        qId = qDocRef.id;
+      }
+
+      const fullQuestion: Question = {
+        ...q,
+        id: qId,
+        quizId: quizId,
+        authorId: currentQuiz.authorId,
+        authorName: currentQuiz.authorName,
+        authorAvatar: currentQuiz.authorAvatar,
+        bookmarksCount: q.bookmarksCount || 0,
+        correctCount: q.correctCount || 0,
+        incorrectCount: q.incorrectCount || 0,
+      };
+
+      // 保存または更新
+      batch.set(qDocRef, fullQuestion);
+      newQuestionIds.push(qId);
+      processedQuestions.push(fullQuestion);
+    }
+
+    // 削除された設問を特定し、Firestore から削除
+    const deletedQuestionIds = oldQuestionIds.filter((id) => !newQuestionIds.includes(id));
+    for (const dId of deletedQuestionIds) {
+      const dDocRef = doc(questionsRef, dId);
+      batch.delete(dDocRef);
+    }
+
+    updatePayload.questionIds = newQuestionIds;
+    updatePayload.questions = processedQuestions;
+    updatePayload.questionCount = processedQuestions.length;
+  }
+
+  batch.update(quizDocRef, updatePayload);
+  await batch.commit();
 }
 
 /**
@@ -101,10 +217,45 @@ export async function saveQuiz(
   // タグを正規化（常に適用）
   const normalizedTags = quizData.tags.map(normalizeTag).filter(Boolean);
 
-  const payload: Omit<Quiz, 'id'> = {
-    ...quizData,
+  const quizDocRef = doc(quizzesRef);
+  const quizId = quizDocRef.id;
+
+  const batch = writeBatch(db);
+
+  const questionIds: string[] = [];
+  const processedQuestions: Question[] = [];
+
+  const inputQuestions = quizData.questions || [];
+  for (const q of inputQuestions) {
+    const qDocRef = doc(questionsRef);
+    const qId = qDocRef.id;
+
+    const fullQuestion: Question = {
+      ...q,
+      id: qId,
+      quizId: quizId,
+      authorId: quizData.authorId,
+      authorName: quizData.authorName,
+      authorAvatar: quizData.authorAvatar,
+      bookmarksCount: q.bookmarksCount || 0,
+      correctCount: q.correctCount || 0,
+      incorrectCount: q.incorrectCount || 0,
+    };
+
+    batch.set(qDocRef, fullQuestion);
+
+    questionIds.push(qId);
+    processedQuestions.push(fullQuestion);
+  }
+
+  const payload: Quiz = {
+    ...(quizData as any),
+    id: quizId,
     tags: normalizedTags,
     status,
+    questionIds,
+    questions: processedQuestions,
+    questionCount: processedQuestions.length,
     playCount: 0,
     bookmarksCount: 0,
     createdAt: now,
@@ -113,8 +264,7 @@ export async function saveQuiz(
 
   // 公開時のみ完全バリデーションを実行
   if (status === 'published') {
-    const tempQuiz = { id: '', ...payload } as Quiz;
-    const errors = validateQuizForPublish(tempQuiz);
+    const errors = validateQuizForPublish(payload);
     if (errors.length > 0) {
       throw new Error(
         `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`
@@ -127,8 +277,10 @@ export async function saveQuiz(
     }
   }
 
-  const docRef = await addDoc(quizzesRef, payload as any);
-  return docRef.id;
+  batch.set(quizDocRef, payload);
+  await batch.commit();
+
+  return quizId;
 }
 
 /**

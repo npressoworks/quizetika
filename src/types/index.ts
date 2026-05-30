@@ -59,6 +59,10 @@ export interface SortingItem {
 // 3. 問題 (Question)
 export interface Question {
   id: string;             // 問題ID (UUIDまたは連番)
+  quizId?: string;        // 属するクイズのID
+  authorId?: string;      // 作成者のユーザーID
+  authorName?: string;    // 作成者の表示名 (非正規化)
+  authorAvatar?: string;  // 作成者のアバターURL (非正規化)
   type: 'true-false' | 'multiple-choice' | 'text-input' | 'sorting' | 'association' | 'lateral-thinking'; // 問題タイプ
   questionText: string;
   explanation: string;    // 正解後の解説
@@ -73,6 +77,7 @@ export interface Question {
   truthKeywords?: string[]; // ウミガメのスープ用必須正解キーワード
   correctCount: number;   // 正解した累計回数
   incorrectCount: number; // 不正解だった累計回数
+  bookmarksCount?: number; // 設問単体がブックマーク登録された総数
 }
 
 export interface LeaderboardRecord {
@@ -96,7 +101,8 @@ export interface Quiz {
   genre: string;          // ジャンル (例: 'programming', 'history' など)
   tags: string[];         // 標準化されたタグの配列
   originalTags: string[]; // 入力された生のタグの配列
-  questions: Question[];  // 問題の配列 (ドキュメントに内包)
+  questionIds: string[];  // 設問ドキュメントのID配列 (順序保持)
+  questions: Question[];  // 問題の配列 (表示高速化用・非正規化コピー)
   questionCount: number;  // 問題数
   status: 'draft' | 'published' | 'suspended'; // ステータス
   flagsCount: number;     // 累計通報数
@@ -127,6 +133,7 @@ export interface QuizList {
   description: string;
   coverImageUrl?: string; // カバー画像URL
   quizIds: string[];      // 含まれるクイズIDの配列
+  questionIds: string[];  // 含まれる設問IDの配列
   isPublished: boolean;   // 公開フラグ
   bookmarksCount: number; // ブックマークされている数
   createdAt: Date;
@@ -145,8 +152,8 @@ export interface Follow {
 export interface Bookmark {
   id: string;             // userId_targetId の形式
   userId: string;         // ブックマークしたユーザー
-  targetId: string;       // クイズID または リストID
-  targetType: 'quiz' | 'list'; // 対象のタイプ
+  targetId: string;       // クイズID、リストID、または設問ID
+  targetType: 'quiz' | 'list' | 'question'; // 対象のタイプ
   createdAt: Date;
 }
 
