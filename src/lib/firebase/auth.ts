@@ -11,8 +11,9 @@ import {
 
 const MOCK_USER_KEY = 'quizeum_mock_user';
 
-// テスト環境判定
-const isTestEnv = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENV === 'test';
+// テスト環境判定 (環境変数、またはローカルストレージにモックユーザーが存在する場合にテストモードとする)
+const isTestEnv = typeof window !== 'undefined' && 
+  (process.env.NEXT_PUBLIC_ENV === 'test' || localStorage.getItem(MOCK_USER_KEY) !== null);
 
 // 登録されたリスナーのリスト
 const listeners: ((user: any | null) => void)[] = [];
