@@ -130,7 +130,8 @@ export default function AdminModerationPage() {
     setSuccessMessage(null);
     setErrorMessage(null);
     try {
-      await resolveFlag(quizId, action);
+      if (!user) throw new Error('ユーザーがログインしていません');
+      await resolveFlag(quizId, action, user.id);
       setQueueItems((prev) => prev.filter((item) => item.quiz.id !== quizId));
       setSuccessMessage(
         action === 'restore'

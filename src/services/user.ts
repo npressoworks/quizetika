@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import { usersRef, followsRef, quizzesRef, quizListsRef } from '../lib/firebase/firestore';
+import { auth } from '../lib/firebase/config';
 import { User, Follow, Badge } from '../types';
 import { deleteImage } from './storage';
 
@@ -253,115 +254,27 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
 }
 
 /* ==========================================================================
-   退会・アカウント削除 (非同期バッチクレンジング)
+   退会・アカウント削除 (セキュアサーバー委譲化)
    ========================================================================== */
 
 /**
- * ユーザーアカウントの削除（退会）の処理を開始する。
- * 即座に deleteStatus を 'delete_pending' に移行した上で、
- * 大量の関連データの非同期匿名化クレンジングをバックグラウンドで開始する。
+ * ユーザーアカウントの削除（退会）処理をセキュアなサーバーAPIに安全に一本化して委譲します。
+ * クライアントのブラウザ環境でのバッチループを廃止し、データ不整合リスクを排除。
  */
 export async function deleteUserAccount(uid: string): Promise<void> {
-  const userDocRef = doc(usersRef, uid);
-  const userSnap = await getDoc(userDocRef);
-  if (!userSnap.exists()) {
-    throw new Error(`対象のユーザーが見つかりません: uid=${uid}`);
-  }
-
-  const user = userSnap.data() as User;
-
-  // 1. 同期処理: deleteStatus を 'delete_pending' に変更
-  await updateDoc(userDocRef, {
-    deleteStatus: 'delete_pending',
-    updatedAt: new Date(),
+  const token = await auth.currentUser?.getIdToken();
+  const res = await fetch('/api/user/delete-account', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    body: JSON.stringify({ uid }),
   });
 
-  // 2. 非同期（バックグラウンド）クレンジングジョブをキック
-  setTimeout(() => {
-    runDeleteUserAccountMigration(uid, user.avatarUrl).catch((err) => {
-      console.error('[UserDeletion] 退会クレンジングエラー:', err);
-    });
-  }, 0);
-}
-
-/**
- * 退会ユーザーの大規模関連データの非同期クレンジングと物理消去を実行する（Cursor分割ループ）
- */
-async function runDeleteUserAccountMigration(uid: string, avatarUrl: string): Promise<void> {
-  const CHUNK_SIZE = 100;
-  const now = new Date();
-
-  try {
-    // ── 1. 公開クイズの匿名化 ──
-    let hasMoreQuizzes = true;
-    while (hasMoreQuizzes) {
-      const qQuery = query(quizzesRef, where('authorId', '==', uid), limit(CHUNK_SIZE));
-      const qSnap = await getDocs(qQuery);
-
-      if (qSnap.empty) {
-        hasMoreQuizzes = false;
-        break;
-      }
-
-      const batch = writeBatch(db);
-      qSnap.docs.forEach((docSnap) => {
-        batch.update(docSnap.ref, {
-          authorId: 'deleted_user',
-          authorName: '退会済みユーザー',
-          authorAvatar: '', // システム規定デフォルト
-          updatedAt: now,
-        });
-      });
-      await batch.commit();
-
-      if (qSnap.docs.length < CHUNK_SIZE) {
-        hasMoreQuizzes = false;
-      }
-    }
-
-    // ── 2. クイズリストの匿名化 ──
-    let hasMoreLists = true;
-    while (hasMoreLists) {
-      const lQuery = query(quizListsRef, where('authorId', '==', uid), limit(CHUNK_SIZE));
-      const lSnap = await getDocs(lQuery);
-
-      if (lSnap.empty) {
-        hasMoreLists = false;
-        break;
-      }
-
-      const batch = writeBatch(db);
-      lSnap.docs.forEach((docSnap) => {
-        batch.update(docSnap.ref, {
-          authorId: 'deleted_user',
-          authorName: '退会済みユーザー',
-          authorAvatar: '',
-          updatedAt: now,
-        });
-      });
-      await batch.commit();
-
-      if (lSnap.docs.length < CHUNK_SIZE) {
-        hasMoreLists = false;
-      }
-    }
-
-    // ── 3. 送受信指摘・通知・リアクション等のクレンジング（略）──
-    // 設計書に従い、アバター画像の物理削除
-    if (avatarUrl) {
-      await deleteImage(avatarUrl).catch((e) =>
-        console.warn('[UserDeletion] アバター画像の物理削除に失敗:', e)
-      );
-    }
-
-    // ── 4. 最後にプロフィール自体を物理消去 ──
-    const userDocRef = doc(usersRef, uid);
-    await deleteDoc(userDocRef);
-
-    console.log(`[UserDeletion] ユーザー ${uid} の退会クレンジングが正常に完了しました。`);
-  } catch (err) {
-    console.error(`[UserDeletion] ユーザー ${uid} の退会クレンジングに失敗しました:`, err);
-    throw err;
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || '退会処理のAPIリクエストに失敗しました。');
   }
 }
 

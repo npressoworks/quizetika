@@ -87,11 +87,24 @@ export async function flagContent(
  * 管理者による審査結果を反映する
  * @param quizId 審査対象のクイズID
  * @param action 'restore'（公開復帰） | 'delete'（永久削除）
+ * @param executorId 審査を実行するユーザーのUID (多重防衛用)
  */
 export async function resolveFlag(
   quizId: string,
-  action: 'restore' | 'delete'
+  action: 'restore' | 'delete',
+  executorId: string
 ): Promise<void> {
+  // 実行者の権限をFirestoreから引き直して検証 (CISO防衛制限)
+  const executorSnap = await getDoc(doc(usersRef, executorId));
+  if (!executorSnap.exists()) {
+    throw new Error('実行ユーザーが見つかりません');
+  }
+  const executor = executorSnap.data() as User;
+  const isAuthorized = executor.moderationTier === 'senior_moderator' || (executor as any).role === 'admin';
+  if (!isAuthorized) {
+    throw new Error('この操作を実行する権限がありません (CISOセキュリティ制限)');
+  }
+
   const quizDocRef = doc(quizzesRef, quizId);
 
   if (action === 'restore') {
@@ -192,8 +205,21 @@ export async function submitGenreRequest(request: {
 /**
  * ジャンル申請を可決/否決する
  * 可決時は metadata_genres コレクションに自動登録する
+ * @param genreRequestId ジャンル申請のドキュメントID
+ * @param executorId 申請審査を実行するユーザーのUID (多重防衛用)
  */
-export async function resolveGenreRequest(genreRequestId: string): Promise<void> {
+export async function resolveGenreRequest(genreRequestId: string, executorId: string): Promise<void> {
+  // 実行者の権限をFirestoreから引き直して検証 (CISO防衛制限)
+  const executorSnap = await getDoc(doc(usersRef, executorId));
+  if (!executorSnap.exists()) {
+    throw new Error('実行ユーザーが見つかりません');
+  }
+  const executor = executorSnap.data() as User;
+  const isAuthorized = ['contributor', 'moderator', 'senior_moderator'].includes(executor.moderationTier) || (executor as any).role === 'admin';
+  if (!isAuthorized) {
+    throw new Error('この操作を実行する権限がありません (CISOセキュリティ制限)');
+  }
+
   const reqRef = doc(genreRequestsCollection, genreRequestId);
   const reqSnap = await getDoc(reqRef);
   if (!reqSnap.exists()) throw new Error('申請が見つかりません');
