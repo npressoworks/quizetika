@@ -77,7 +77,23 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.2 AttemptService (`src/services/attempt.ts`)
+### 2.2 QuestionService (`src/services/question.ts`) [NEW]
+設問（Question）単体の取得、設問単位のブックマーク、およびクイズリスト（問題集）への追加・削除を制御します。
+
+#### メソッド定義一覧
+
+| メソッド名 | 説明 | 主要引数 | 戻り値 | 認証要否 |
+| :--- | :--- | :--- | :--- | :--- |
+| **`getQuestion`** | 指定されたIDの設問を1件取得する。 | `id: string` | `Promise<Question \| null>` | 不要 |
+| **`getQuestionsByQuiz`** | 指定されたクイズIDに紐づくすべての設問を取得する（順序はクイズの `questionIds` に準拠）。 | `quizId: string` | `Promise<Question[]>` | 不要 |
+| **`toggleBookmarkQuestion`** | 特定の設問をブックマーク登録/解除（トグル）し、トランザクションで設問ドキュメントの `bookmarksCount` をアトミックに加減算する。 | `userId: string`, `questionId: string` | `Promise<void>` | 必要 |
+| **`getBookmarkedQuestions`** | ユーザー自身がブックマークした設問一覧を取得する。 | `userId: string` | `Promise<Question[]>` | 必要 |
+| **`addQuestionToList`** | ユーザーが所有するクイズリスト（問題集）に特定の設問を追加し、リストの `questionIds` 配列にアトミック追加する。 | `listId: string`, `questionId: string` | `Promise<void>` | 必要 |
+| **`removeQuestionFromList`** | ユーザーが所有するクイズリスト（問題集）から特定の設問を削除し、リストの `questionIds` 配列からアトミック削除する。 | `listId: string`, `questionId: string` | `Promise<void>` | 必要 |
+
+---
+
+### 2.3 AttemptService (`src/services/attempt.ts`)
 解答結果（プレイ履歴）の永続化、および間違えた問題の復習データ（弱点克服）の抽出・更新を担当します。
 
 #### メソッド定義一覧
@@ -92,8 +108,8 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.3 SocialService (`src/services/social.ts`)
-ユーザー間のフォロー関係、クイズおよびクイズリストのブックマーク操作、タイムラインフィード、クイズリストの管理を処理します。
+### 2.4 SocialService (`src/services/social.ts`)
+ユーザー間のフォロー関係、クイズ、クイズリスト、および個別の設問のブックマーク操作、タイムラインフィード、クイズリスト（設問アタッチ対応）の管理を処理します。
 
 #### メソッド定義一覧
 
@@ -102,19 +118,19 @@ export interface LeaderboardRecord {
 | **`followUser`** | 他のクリエイターをフォロー/フォロー解除（トグル）し、互いのフォロー・フォロワー数をアトミックに更新する。 | `followerId: string`, `followingId: string` | `Promise<void>` | 必要 |
 | **`getFollowers`** | 指定されたユーザーのフォロワー一覧を取得。 | `userId: string` | `Promise<UserProfile[]>` | 不要 |
 | **`getFollowing`** | 指定されたユーザーがフォローしているユーザー一覧を取得。 | `userId: string` | `Promise<UserProfile[]>` | 不要 |
-| **`toggleBookmark`** | クイズまたはクイズリストをブックマーク登録/解除し、トランザクションで `bookmarksCount` を加減算。 | `userId: string`, `targetId: string`, `targetType: 'quiz' \| 'list'` | `Promise<void>` | 必要 |
+| **`toggleBookmark`** | クイズ、クイズリスト、または個別の設問をブックマーク登録/解除し、トランザクションで `bookmarksCount` を加減算。 | `userId: string`, `targetId: string`, `targetType: 'quiz' \| 'list' \| 'question'` | `Promise<void>` | 必要 |
 | **`getBookmarkedQuizzes`** | ユーザーがブックマークしたクイズ一覧を取得する。 | `userId: string` | `Promise<Quiz[]>` | 必要 |
 | **`getBookmarkedLists`** | ユーザーがブックマークしたクイズリスト一覧を取得する。 | `userId: string` | `Promise<QuizList[]>` | 必要 |
 | **`getTimelineFeed`** | 自身がフォローしているユーザーが作成した最新の公開クイズ一覧を時系列で取得。デフォルト20件、最大100件。 | `userId: string`, `limitCount?: number` (default: 20, max: 100) | `Promise<Quiz[]>` | 必要 |
-| **`createQuizList`** | 複数のクイズをまとめるクイズリストを新規作成する。 | `authorId: string`, `listData: Omit<QuizList, 'id'>` | `Promise<string>` (リストID) | 必要 |
+| **`createQuizList`** | 複数のクイズや特定の設問をまとめるクイズリスト（問題集）を新規作成する。 | `authorId: string`, `listData: Omit<QuizList, 'id'>` | `Promise<string>` (リストID) | 必要 |
 | **`getQuizList`** | 指定されたIDのクイズリストを1件取得する。 | `listId: string` | `Promise<QuizList \| null>` | 不要 |
-| **`updateQuizList`** | クイズリストのメタ情報や収録クイズID配列を更新する。 | `listId: string`, `authorId: string`, `updates: Partial<QuizList>` | `Promise<void>` | 必要 |
+| **`updateQuizList`** | クイズリストのメタ情報、収録クイズID配列、および収録設問ID配列を更新する。 | `listId: string`, `authorId: string`, `updates: Partial<QuizList>` | `Promise<void>` | 必要 |
 | **`deleteQuizList`** | クイズリストを削除する。 | `listId: string`, `authorId: string` | `Promise<void>` | 必要 |
 | **`getQuizListsByUser`** | 特定のユーザーが作成した公開（ログイン中の自作であれば非公開含む）クイズリスト一覧を取得。 | `userId: string` | `Promise<QuizList[]>` | 不要 |
 
 ---
 
-### 2.4 ReportService (`src/services/report.ts`)
+### 2.5 ReportService (`src/services/report.ts`)
 クローズドな間違い・別解指摘フィードバック、およびクリエイターへの通知ループを制御します。
 
 #### メソッド定義一覧
@@ -127,7 +143,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.5 ModerationService (`src/services/moderation.ts`)
+### 2.6 ModerationService (`src/services/moderation.ts`)
 コミュニティの健全性を保つための不適切表現（NGワード）検知、ユーザー通報、自動非公開、管理者による審査キューの管理を行います。
 
 #### メソッド定義一覧
@@ -141,7 +157,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.6 UserService (`src/services/user.ts`) [NEW]
+### 2.7 UserService (`src/services/user.ts`) [NEW]
 ユーザープロフィールの取得、更新、獲得した「称号バッジ」の自動判定・付与、およびアカウント削除（退会処理）を制御します。
 
 > **バッジ付与の実行主体**: `checkAndAwardBadges` は『Cloud Functions for Firebase (`firestore.document('users/{uid}').onUpdate`)』をトリガーとしてサーバーサイドで実行されます。フロントエンドからの直接呼び出しは認められません（Security Rulesで保護）。
@@ -157,7 +173,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.7 NotificationService (`src/services/notification.ts`) [NEW]
+### 2.8 NotificationService (`src/services/notification.ts`) [NEW]
 ユーザー宛ての時系列アクティビティ通知の取得、既読管理、通知作成を担当します。
 
 #### メソッド定義一覧
@@ -170,7 +186,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.8 ReactionService (`src/services/reaction.ts`) [NEW]
+### 2.9 ReactionService (`src/services/reaction.ts`) [NEW]
 クイズプレイ完了時にプレイヤーから作家へ送る「いいね・感謝」リアクション、およびリアクション履歴の取得を制御します。
 
 #### メソッド定義一覧
@@ -183,7 +199,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.9 RatingService (`src/services/rating.ts`) [NEW]
+### 2.10 RatingService (`src/services/rating.ts`) [NEW]
 クイズ結果画面から行う「体感難易度投票」の永続化を担当します。星1〜5段階の面白さ評価は廃止され良問評価（ReviewService）へ一本化されたため、本サービスは難易度投票のみを管理します。
 
 #### メソッド定義一覧
@@ -194,7 +210,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.10 ReviewService (`src/services/review.ts`) [NEW]
+### 2.11 ReviewService (`src/services/review.ts`) [NEW]
 クイズに対する「良問（👍）/ 悪問（👎）」評価（Steam風レビュー）の登録・参照・リセット申請を担当します。バッジの計算・付与は週次Cloud Functionsバッチで実行されます。
 
 #### メソッド定義一覧
@@ -207,7 +223,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.11 ReputationService (`src/services/reputation.ts`) [NEW]
+### 2.12 ReputationService (`src/services/reputation.ts`) [NEW]
 ユーザーの信頼スコア参照およびモデレータ権限の確認を担当します。スコア更新は日次Cloud Functionsバッチのみが実行します。
 
 #### メソッド定義一覧
@@ -220,7 +236,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.12 TagMergeService (`src/services/tagMerge.ts`) [NEW]
+### 2.13 TagMergeService (`src/services/tagMerge.ts`) [NEW]
 タグ・ジャンルのマージリクエスト・ジャンル新設申請の初提、投票、および可決時のアトミック適用を制御します。詳細は詳細設計書 Section 6.7 を参照。
 
 #### メソッド定義一覧
@@ -234,7 +250,7 @@ export interface LeaderboardRecord {
 
 ---
 
-### 2.13 StorageService (`src/services/storage.ts`) [NEW]
+### 2.14 StorageService (`src/services/storage.ts`) [NEW]
 画像（カバー画像、設問画像、アバター、ジャンルアイコン等）の Firebase Storage へのアップロードを管理します。
 
 #### メソッド定義一覧
@@ -380,7 +396,8 @@ export const quizPublishSchema = z.object({
   difficulty: z.number().int().min(1).max(10, '難易度は1から10の整数値で指定してください。'),
   genre: z.string().min(1, 'ジャンルを選択してください。'),
   tags: z.array(z.string().max(15)).max(5, 'タグは最大5つまで設定可能です。'),
-  questions: z.array(questionSchema).min(1, 'クイズを公開するには最低1問以上の問題を追加してください。')
+  questionIds: z.array(z.string()).min(1, 'クイズを公開するには最低1問以上の問題を追加してください。').optional(),
+  questions: z.array(questionSchema).min(1, 'クイズを公開するには最低1問以上の問題を追加してください。') // 非正規化コピーの検証
 });
 
 // インポート機能は廃止されたため、インポート用Zodスキーマ定義は存在しません。エクスポート時は出力データの整合性のみ検証されます。
@@ -501,5 +518,14 @@ export interface QuizExportPackage {
     description: string;
     isPublished: boolean;
   };
+}
+
+// ブックマーク (設問ブックマーク対応)
+export interface Bookmark {
+  id: string;             // userId_targetId の形式
+  userId: string;
+  targetId: string;       // クイズID、リストID、または設問ID
+  targetType: 'quiz' | 'list' | 'question'; // 'question' を追加
+  createdAt: Date;
 }
 ```

@@ -131,7 +131,8 @@ sequenceDiagram
                 QS->>DB: metadata_genres / metadata_tags マスタを参照
                 DB-->>QS: 統合先 canonicalId の解決
                 QS->>DB: トランザクション開始
-                DB->>DB: quizzes ドキュメント保存<br>(非正規化 authorName/Avatar + canonicalGenreId / canonicalTagIds)
+                DB->>DB: 各設問を questions コレクションに独立保存
+                DB->>DB: quizzes ドキュメント保存<br>(questionIds配列 + questions非正規化ネストコピー + canonicalGenreId / canonicalTagIds)
                 QS-->>QC: 保存完了 (quizId)
                 deactivate QS
                 
@@ -484,6 +485,55 @@ sequenceDiagram
 
 * **不合格（不正解）時のフィードバック設計**:
   単に「不正解」と返すのではなく、AIが「まだ解明されていない謎のヒント」や「考慮すべき矛盾点」をフィードバックテキスト（`aiFeedback`）としてプレイヤーに返します。これによりプレイヤーはそれを参考にチャット質問を重ねることができ、挫折を防ぐ極上のUXを提供します。
+
+---
+
+### 1.6 設問単体のブックマークおよびマイリスト追加フロー
+ユーザーがクイズプレイ中または結果画面等から、特定の設問（Question）を個別でお気に入り登録（ブックマーク）したり、自身の作成したクイズリスト（問題集）に追加・削除するフローです。アトミックなトランザクションによりデータ整合性を担保します。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player as プレイヤー
+    participant QP as 設問表示コンポーネント (Play/Result UI)
+    participant QService as QuestionService (src/services/question.ts)
+    participant DB as Firestore (Database)
+
+    alt 設問単体のブックマーク登録（トグルON）
+        Player->>QP: 「設問をブックマーク」をクリック
+        QP->>QService: toggleBookmarkQuestion(uid, questionId)
+        activate QService
+        QService->>DB: トランザクション開始
+        DB->>DB: bookmarks ドキュメント作成 (targetType = 'question')
+        DB->>DB: questions.bookmarksCount を +1 インクリメント (アトミック)
+        QService-->>QP: 登録成功
+        deactivate QService
+        QP-->>Player: ブックマーク完了トースト表示
+
+    else 設問単体のブックマーク解除（トグルOFF）
+        Player->>QP: 「ブックマークを解除」をクリック
+        QP->>QService: toggleBookmarkQuestion(uid, questionId)
+        activate QService
+        QService->>DB: トランザクション開始
+        DB->>DB: bookmarks ドキュメント物理削除
+        DB->>DB: questions.bookmarksCount を -1 デクリメント (アトミック)
+        QService-->>QP: 解除成功
+        deactivate QService
+        QP-->>Player: ブックマーク解除トースト表示
+
+    else 設問をマイリスト（問題集）に追加
+        Player->>QP: 「マイリストに追加」をクリック (リストを選択)
+        QP->>QService: addQuestionToList(listId, questionId)
+        activate QService
+        QService->>DB: トランザクション開始
+        DB->>DB: quizLists.questionIds 配列に questionId を arrayUnion
+        QService-->>QP: 追加成功
+        deactivate QService
+        QP-->>Player: マイリスト追加完了トースト表示
+    end
+```
+
+---
 
 ## 3. 運用設計
 

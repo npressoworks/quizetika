@@ -7,7 +7,6 @@
 ## 1. 論理ER図 (Mermaid)
 
 FirestoreはNoSQLドキュメント指向データベースですが、データ整合性を担保するため、以下のリレーション関係（論理関係）を意識してスキーマを設計します。
-
 ```mermaid
 erDiagram
     USERS ||--o{ QUIZZES : "creates"
@@ -19,21 +18,24 @@ erDiagram
     USERS ||--o{ FLAGS : "flags content"
     USERS ||--o{ REACTIONS : "sends/receives"
     USERS ||--o{ NOTIFICATIONS : "receives"
+    USERS ||--o{ QUESTIONS : "creates (indirect/direct)"
     
+    QUIZZES ||--o{ QUESTIONS : "contains (1-to-many references & embedded copy)"
     QUIZZES ||--o{ BOOKMARKS : "is bookmarked (targetType='quiz')"
     QUIZ_LISTS ||--o{ BOOKMARKS : "is bookmarked (targetType='list')"
+    QUESTIONS ||--o{ BOOKMARKS : "is bookmarked (targetType='question')"
+    
     QUIZZES ||--o{ ATTEMPTS : "has attempts"
     QUIZZES ||--o{ FEEDBACK_REPORTS : "receives corrections"
     QUIZZES ||--o{ FLAGS : "receives flags"
     QUIZZES ||--o{ REACTIONS : "receives positive feedback"
     
-    subgraph Nested within QUIZZES
-        QUIZZES ||--o{ QUESTIONS : "contains (embedded array)"
+    QUIZ_LISTS ||--o{ QUESTIONS : "can contain individual (questionIds)"
+    
+    subgraph QUESTIONS
         QUESTIONS ||--o{ CHOICES : "contains (embedded array)"
     end
 ```
-
-
 ---
 
 ## 2. コレクション・スキーマ詳細定義
@@ -97,7 +99,8 @@ erDiagram
 | `genre` | `string` | **必須** | 1ジャンル名 | クイズのカテゴリジャンル。 |
 | `tags` | `array (string)` | **必須** | 最大5要素 / `[]` | 表記揺れ（空白や大文字など）を排除した標準タグID配列（例：`['reactjs', '歴史']`）。通常時の画面表示用（ハッシュタグ表示に使用）。クイズの「新規作成」「編集」時のみ更新。 |
 | `originalTags` | `array (string)` | **必須** | 最大5要素 / `[]` | **[NEW]** ユーザーが画面から入力した生のオリジナル文字列の配列（例：`['React.js', '歴史']`）。データの保護・復旧用マスターソース（不変フィールド）。モデレータの誤マージ発生時のロールバック再計算用。 |
-| `questions` | `array (Question)`| **必須** | 最低1要素 | クイズに含まれる全問題のネスト配列。 |
+| `questionIds` | `array (string)` | **必須** | 最低1要素 | **[NEW]** クイズに属する独立した `questions` コレクションのドキュメントID配列（順序を保持）。 |
+| `questions` | `array (Question)`| **必須** | 最低1要素 | **[REDEFINED]** 表示・プレイ開始高速化（N+1問題回避）のために非正規化保持される設問データのコピー（構造は `questions` コレクションのドキュメントと同一）。クイズ公開・更新時に実体と同期される。 |
 | `questionCount` | `number` | **必須** | 最低1以上 | 複合検索用の問題数フィールド（Firestoreの配列長検索不可の制約対策）。 |
 | `status` | `string` | **必須** | `'draft' \| 'published' \| 'suspended'` | クイズのステータス（下書き、公開中、通報保留中）。`'published'` のみ検索・探索一覧に表示。 |
 | `flagsCount` | `number` | **必須** | `0` | このクイズに対して送信された累計通報数（5回以上で自動保留化）。 |
@@ -154,8 +157,38 @@ erDiagram
 
 ---
 
-### 2.3 `quizLists` コレクション (自動割り当てドキュメントID)
-複数のクイズを一つのテーマや問題集としてパッケージ化するフォルダモデルです。
+### 2.3 `questions` コレクション (自動割り当てドキュメントID) [NEW]
+クイズから切り離され、単体で取得、ブックマーク、独自のリストへ追加可能な独立した設問エンティティです。
+
+| フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `string` | **必須** | 自動割り当てID | 設問の一意なID。 |
+| `quizId` | `string` | **必須** | `quizzes.id` 参照 | この設問が元々作成された（または属している）親クイズのID。 |
+| `authorId` | `string` | **必須** | `users.id` 参照または `'deleted_user'` | 設問作成者の `uid`。 |
+| `authorName` | `string` | **必須** | 非正規化保持 | 作成者の表示名（冗長保持）。 |
+| `authorAvatar` | `string` | **必須** | 非正規化保持 | 作成者のアバターURL（冗長保持）。 |
+| `type` | `string` | **必須** | `true-false \| multiple-choice \| text-input \| sorting \| association \| lateral-thinking` | 問題タイプ（〇×、多肢選択、短答、並び替え、連想、水平思考）。 |
+| `questionText` | `string` | **必須** | 最大500文字 | 設問の文章。 |
+| `explanation` | `string` | **必須** | 最大1000文字 | 解答後の解説文章。 |
+| `imageUrl` | `string` | 任意 | 参考画像URL | 設問にアタッチされた参考画像のストレージURL。 |
+| `hint` | `string` | 任意 | 最大200文字 | 設問のヒントテキスト。 |
+| `limitTime` | `number` | 任意 | 5〜300秒 | 解答制限秒数。 |
+| `correctTextAnswerList` | `array (string)` | 任意 | 短答形式の正解候補 | 短答式・連想クイズ用の正解判定文字列リスト。 |
+| `choices` | `array (Choice)` | 任意 | 選択肢配列 | 〇×・多肢選択クイズ用の選択肢オブジェクト配列。 |
+| `sortingItems` | `array (SortingItem)` | 任意 | 並び替え用要素リスト | 並び替えクイズ用。 |
+| `associationHints` | `array (string)` | 任意 | 連想ヒント配列 | 連想クイズ用の段階的ヒントリスト。 |
+| `aiContextDetails` | `string` | 任意 | 最大2000文字 | 水平思考クイズのAI判定用裏設定コンテキスト。 |
+| `truthKeywords` | `array (string)` | 任意 | 真相自動判定キーワード | 水平思考クイズ用の必須正解キーワード。 |
+| `correctCount` | `number` | **必須** | `0` | 正解した累計回数。 |
+| `incorrectCount` | `number` | **必須** | `0` | 不正解だった累計回数。 |
+| `bookmarksCount` | `number` | **必須** | `0` | この設問単体がブックマーク登録された総ユーザー数。 |
+| `createdAt` | `timestamp` | **必須** | `request.time` | 設問の作成日時。 |
+| `updatedAt` | `timestamp` | **必須** | `request.time` | 設問の最終更新日時。 |
+
+---
+
+### 2.4 `quizLists` コレクション (自動割り当てドキュメントID)
+複数のクイズまたは特定の設問を一つのテーマや問題集としてパッケージ化するフォルダモデルです。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -165,7 +198,8 @@ erDiagram
 | `authorAvatar` | `string` | **必須** | 非正規化保持 / デフォルトURL | 作成者のアバターURL。ユーザー削除時は退会ユーザー用のデフォルトアバターURLに更新される。 |
 | `title` | `string` | **必須** | 最大50文字 | リストのタイトル。 |
 | `description` | `string` | **必須** | 最大300文字 | リストの概要・説明文。 |
-| `quizIds` | `array (string)` | **必須** | `[]` | リストに組み込まれた `quizzes.id` の配列。 |
+| `quizIds` | `array (string)` | **必須** | `[]` | リストに組み込まれた `quizzes.id` の配列（登録されたクイズ全体）。 |
+| `questionIds` | `array (string)` | **必須** | `[]` | **[NEW]** リストにアタッチされた個別の `questions.id` の配列（登録された設問単体）。 |
 | `isPublished` | `boolean` | **必須** | `false` | 公開状態フラグ。 |
 | `bookmarksCount`| `number` | **必須** | `0` | ブックマーク登録された総件数。 |
 | `createdAt` | `timestamp` | **必須** | `request.time` | 新規作成日時. |
@@ -173,7 +207,7 @@ erDiagram
 
 ---
 
-### 2.4 `follows` コレクション (ドキュメントID: `${followerId}_${followingId}`)
+### 2.5 `follows` コレクション (ドキュメントID: `${followerId}_${followingId}`)
 ユーザー同士のフォロー関係を管理する一意な中間結合コレクションです。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 制約 | 説明 |
@@ -185,20 +219,20 @@ erDiagram
 
 ---
 
-### 2.5 `bookmarks` コレクション (ドキュメントID: `${userId}_${targetId}`)
-ユーザーがクイズまたはクイズリストをブックマーク（お気に入り）登録した情報を保持します。
+### 2.6 `bookmarks` コレクション (ドキュメントID: `${userId}_${targetId}`)
+ユーザーがクイズ、クイズリスト、または特定の設問をブックマーク（お気に入り）登録した情報を保持します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 制約 | 説明 |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `string` | **必須** | `${userId}_${targetId}` | 重複防止合成ID。 |
 | `userId` | `string` | **必須** | `users.id` 参照 | ブックマークしたユーザーの `uid`。 |
-| `targetId` | `string` | **必須** | クイズIDまたはリストID | ブックマークした対象ドキュメントID。 |
-| `targetType` | `string` | **必須** | `'quiz' \| 'list'` | 対象のカテゴリ。 |
+| `targetId` | `string` | **必須** | クイズID、リストID、または設問ID | ブックマークした対象ドキュメントID。 |
+| `targetType` | `string` | **必須** | `'quiz' \| 'list' \| 'question'` | 対象のカテゴリ。 |
 | `createdAt` | `timestamp` | **必須** | `request.time` | ブックマーク登録日時。 |
 
 ---
 
-### 2.6 `attempts` コレクション (自動割り当てドキュメントID)
+### 2.7 `attempts` コレクション (自動割り当てドキュメントID)
 クイズの解答履歴を記録するプレイ履歴モデルです。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 制約 | 説明 |
@@ -228,7 +262,7 @@ erDiagram
 
 ---
 
-### 2.7 `feedbackReports` コレクション (自動割り当てドキュメントID)
+### 2.8 `feedbackReports` コレクション (自動割り当てドキュメントID)
 クローズドな間違い・別解指摘フィードバックです。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
@@ -248,7 +282,7 @@ erDiagram
 
 ---
 
-### 2.8 `flags` コレクション (自動割り当てドキュメントID)
+### 2.9 `flags` コレクション (自動割り当てドキュメントID)
 不適切なコンテンツに対するユーザー通報履歴を管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 制約 | 説明 |
@@ -263,7 +297,7 @@ erDiagram
 
 ---
 
-### 2.9 `reactions` コレクション (自動割り当てドキュメントID、または `${senderId}_${quizId}_${type}`)
+### 2.10 `reactions` コレクション (自動割り当てドキュメントID、または `${senderId}_${quizId}_${type}`)
 プレイ結果画面から作家宛てに送られたリアクション履歴を管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
@@ -278,7 +312,7 @@ erDiagram
 
 ---
 
-### 2.10 `notifications` コレクション (自動割り当てドキュメントID)
+### 2.11 `notifications` コレクション (自動割り当てドキュメントID)
 ユーザー向けのアクティビティ通知（フォロー、ブックマーク、間違い指摘の修正完了オート通知）を時系列で管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
@@ -296,7 +330,7 @@ erDiagram
 
 ---
 
-### 2.11 `metadata_genres` コレクション (ドキュメントID: ジャンルID、例: `'programming'`)
+### 2.12 `metadata_genres` コレクション (ドキュメントID: ジャンルID、例: `'programming'`)
 ジャンルの仮想統合と表示情報を管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
@@ -311,7 +345,7 @@ erDiagram
 
 ---
 
-### 2.12 `metadata_tags` コレクション (ドキュメントID: 小文字統一のタグID、例: `'reactjs'`)
+### 2.13 `metadata_tags` コレクション (ドキュメントID: 小文字統一のタグID、例: `'reactjs'`)
 フリータグのユーザー主導によるマージ・表記揺れ吸収を管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
@@ -325,7 +359,7 @@ erDiagram
 
 ---
 
-### 2.13 `mergeRequests` コレクション (自動割り当てドキュメントID)
+### 2.14 `mergeRequests` コレクション (自動割り当てドキュメントID)
 タグ・ジャンルのマージ提案、投票進捗、および最終決定ステータスを時系列で追跡管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
@@ -349,7 +383,7 @@ erDiagram
 
 ---
 
-### 2.14 `genreRequests` コレクション (自動割り当てドキュメントID)
+### 2.15 `genreRequests` コレクション (自動割り当てドキュメントID)
 ジャンルの新設申請、投票進捗、および自動有効化のイベントを管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
@@ -370,7 +404,7 @@ erDiagram
 
 ---
 
-### 2.15 `quizReviews` コレクション (自動割り当てドキュメントID)
+### 2.16 `quizReviews` コレクション (自動割り当てドキュメントID)
 プレイヤーからクイズへの「良問（👍）/ 悪問（👎）」評価（Steam風レビュー）を管理します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 制約 | 説明 |
@@ -389,7 +423,7 @@ erDiagram
 
 ---
 
-### 2.16 `reviewResetRequests` コレクション (自動割り当てドキュメントID)
+### 2.17 `reviewResetRequests` コレクション (自動割り当てドキュメントID)
 「要改善」バッジのクイズのクリエイターが大幅修正した後、`reviewScore`のリセットを申請するためのコレクションです。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 制約 | 説明 |
@@ -402,7 +436,7 @@ erDiagram
 
 ---
 
-### 2.17 `users/{uid}/reputationEvents` サブコレクション
+### 2.18 `users/{uid}/reputationEvents` サブコレクション
 信頼スコア日次再計算のソースデータとして、各アクション発生時に Cloud Functions が書き込むイベントログ。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 制約 | 説明 |
