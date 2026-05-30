@@ -6,12 +6,11 @@ import {
 } from 'firebase/storage';
 import { storage } from '../lib/firebase/config';
 
-// 許容するMIMEタイプの定義
+// 許容するMIMEタイプの定義 (SEC-08 SVG-based XSS防御のためSVG形式を排除)
 const ALLOWED_MIME_TYPES = [
   'image/png',
   'image/jpeg',
-  'image/gif',
-  'image/svg+xml'
+  'image/gif'
 ];
 
 // 最大ファイルサイズ制限 (2MB)
