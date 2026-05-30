@@ -70,3 +70,32 @@ export function parseTruthVerifyResponse(responseText: string): TruthVerifyResul
 
   return { isCorrect, advice };
 }
+
+/**
+ * プレイヤーの真相要約が、必須キーワード（truthKeywords）をすべて含んでいるか判定する（全角半角・スペース無視・大文字小文字無視）
+ *
+ * @param truthSummary プレイヤーの真相要約文
+ * @param truthKeywords 必須キーワードの配列
+ * @returns すべてのキーワードが含まれていれば true
+ */
+export function verifyKeywords(truthSummary: string, truthKeywords: string[]): boolean {
+  if (!truthKeywords || truthKeywords.length === 0) return false;
+
+  // プレイヤーの回答文を正規化（空白削除、小文字化、全角から半角英数字の簡易変換など）
+  const normalize = (str: string) => {
+    return str
+      .replace(/\s+/g, '')                  // 空白除去
+      .toLowerCase()                         // 小文字化
+      .replace(/[０-９ａ-ｚＡ-Ｚ]/g, (s) => { // 全角英数 ➔ 半角英数
+        return String.fromCharCode(s.charCodeAt(0) - 0xfee0);
+      });
+  };
+
+  const normalizedSummary = normalize(truthSummary);
+
+  // すべてのキーワードが部分一致で含まれているかを検証
+  return truthKeywords.every((keyword) => {
+    const normalizedKeyword = normalize(keyword);
+    return normalizedSummary.includes(normalizedKeyword);
+  });
+}

@@ -17,7 +17,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { collection, doc, getDoc, updateDoc, arrayUnion, increment, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { buildVerifyTruthPrompt, parseTruthVerifyResponse } from '@/services/verify-truth-utils';
+import {
+  buildVerifyTruthPrompt,
+  parseTruthVerifyResponse,
+  verifyKeywords,
+} from '@/services/verify-truth-utils';
 import { Attempt, Quiz } from '@/types';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
@@ -76,24 +80,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'no-context' }, { status: 400 });
     }
 
-    // Gemini API で真相判定
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const prompt = buildVerifyTruthPrompt(lateralQuestion.aiContextDetails, truthSummary);
-
+    // ── B2 ハイブリッド判定 ────────────────────────────────
     let isCorrect = false;
     let advice: string | null = null;
 
-    try {
-      const result = await model.generateContent(prompt);
-      const parsed = parseTruthVerifyResponse(result.response.text());
-      isCorrect = parsed.isCorrect;
-      advice = parsed.advice;
-    } catch (aiError) {
-      console.error('[verify-truth] Gemini API エラー:', aiError);
-      return NextResponse.json(
-        { error: 'ai-error', message: 'AIの判定に失敗しました。しばらく後でもう一度お試しください。' },
-        { status: 503 }
-      );
+    const hasKeywords = verifyKeywords(truthSummary, lateralQuestion.truthKeywords ?? []);
+
+    if (hasKeywords) {
+      // 1. キーワードがすべて含まれている場合: AIをバイパスして即合格 (CORRECT)
+      isCorrect = true;
+      advice = null;
+    } else {
+      // 2. キーワードが一部不足している場合: AIによるフォールバック意味判定を実行
+      const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest' });
+      const prompt = buildVerifyTruthPrompt(lateralQuestion.aiContextDetails, truthSummary);
+
+      try {
+        const result = await model.generateContent(prompt);
+        const parsed = parseTruthVerifyResponse(result.response.text());
+        isCorrect = parsed.isCorrect;
+        advice = parsed.advice;
+      } catch (aiError) {
+        console.error('[verify-truth] Gemini API エラー:', aiError);
+        return NextResponse.json(
+          { error: 'ai-error', message: 'AIの判定に失敗しました。しばらく後でもう一度お試しください。' },
+          { status: 503 }
+        );
+      }
     }
 
     const now = new Date();

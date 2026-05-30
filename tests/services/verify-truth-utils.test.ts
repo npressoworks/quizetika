@@ -9,6 +9,7 @@
 import {
   buildVerifyTruthPrompt,
   parseTruthVerifyResponse,
+  verifyKeywords,
 } from '../../src/services/verify-truth-utils';
 
 describe('buildVerifyTruthPrompt', () => {
@@ -59,5 +60,42 @@ describe('parseTruthVerifyResponse', () => {
   test('判定不明な場合は isCorrect = false として安全側に倒す', () => {
     const result = parseTruthVerifyResponse('何かエラーが起きました');
     expect(result.isCorrect).toBe(false);
+  });
+});
+
+/* ============================================================
+   verifyKeywords のテスト
+   ============================================================ */
+describe('verifyKeywords', () => {
+  const keywords = ['ウミガメ', 'スープ', '遭難', 'React18'];
+
+  test('すべてのキーワードが部分一致で含まれている場合に true を返す', () => {
+    const summary = '男は遭難し、生き残るためにウミガメのスープを飲んだ。React18も使った。';
+    expect(verifyKeywords(summary, keywords)).toBe(true);
+  });
+
+  test('キーワードが1つでも欠けている場合に false を返す', () => {
+    const summary = '男は遭難し、ウミガメのスープを飲んだ。';
+    // 'React18' が含まれていないため不合格
+    expect(verifyKeywords(summary, keywords)).toBe(false);
+  });
+
+  test('大文字・小文字を区別せず合致判定できる', () => {
+    const summary = '男は遭難し、ウミガメのスープを飲んだ。react18を使用。';
+    expect(verifyKeywords(summary, keywords)).toBe(true);
+  });
+
+  test('スペース（全角・半角）を取り除いて判定できる', () => {
+    const summary = '男 は 遭 難 し、 ウ ミ ガ メ の ス ー プ を 飲んだ。R e a c t 1 8';
+    expect(verifyKeywords(summary, keywords)).toBe(true);
+  });
+
+  test('全角英数字を半角に変換して判定できる', () => {
+    const summary = '男は遭難し、ウミガメのスープを飲んだ。Ｒｅａｃｔ１８';
+    expect(verifyKeywords(summary, keywords)).toBe(true);
+  });
+
+  test('キーワードが空配列の場合は false を返す', () => {
+    expect(verifyKeywords('何か解答', [])).toBe(false);
   });
 });
