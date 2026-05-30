@@ -12,9 +12,8 @@ import { bookmarksRef, quizzesRef, quizListsRef, questionsRef } from '../lib/fir
 import { Bookmark, Quiz, QuizList, Question } from '../types';
 
 // テスト環境かどうかを判定するためのフラグ
-// E2Eテスト実行時（NEXT_PUBLIC_ENVがtest）またはE2Eモックユーザーが存在する場合にtrueとなります
-const isTestEnv = typeof window !== 'undefined' && 
-  (process.env.NEXT_PUBLIC_ENV === 'test' || localStorage.getItem('quizeum_mock_user') !== null);
+// E2Eテスト実行時（NEXT_PUBLIC_ENVがtest）にのみtrueとなります
+const isTestEnv = process.env.NEXT_PUBLIC_ENV === 'test';
 
 // E2Eテスト時のお気に入りモックデータを保存するローカルストレージのキー
 const MOCK_BOOKMARKS_KEY = 'quizeum_mock_bookmarks';
