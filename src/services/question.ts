@@ -69,12 +69,20 @@ export async function getBookmarkedQuestions(userId: string): Promise<Question[]
   const q = query(
     bookmarksRef,
     where('userId', '==', userId),
-    where('targetType', '==', 'question'),
-    orderBy('createdAt', 'desc')
+    where('targetType', '==', 'question')
   );
 
   const snap = await getDocs(q);
-  const questionIds = snap.docs.map((doc) => doc.data().targetId);
+
+  // メモリ上で createdAt (降順) でソートする
+  const bookmarkDocs = snap.docs.map((doc) => doc.data());
+  bookmarkDocs.sort((a, b) => {
+    const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+    const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+    return timeB - timeA;
+  });
+
+  const questionIds = bookmarkDocs.map((doc) => doc.targetId);
 
   if (questionIds.length === 0) return [];
 

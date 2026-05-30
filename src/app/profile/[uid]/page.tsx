@@ -369,32 +369,46 @@ export default function ProfilePage() {
           ) : (
             <div className={styles.gridContainer}>
               {quizLists.length === 0 ? (
-                <div className={styles.emptyState}>
-                  作成したリストはまだありません。
+                <div className={styles.emptyState} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <p>作成したリストはまだありません。</p>
+                  {isMyProfile && (
+                    <Link href="/list/create" className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '0.9rem' }}>
+                      新しいリストを作成する
+                    </Link>
+                  )}
                 </div>
               ) : (
-                <div className={styles.cardGrid}>
-                  {quizLists.map((list) => (
-                    <Link 
-                      key={list.id} 
-                      href={`/list/${list.id}`} 
-                      className={`${styles.quizCard} glass-card glass-card-hover`}
-                    >
-                      {list.coverImageUrl && (
-                        <div className={styles.quizThumbnailWrapper}>
-                          <img src={list.coverImageUrl} alt={list.title} className={styles.quizThumbnail} />
+                <>
+                  {isMyProfile && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                      <Link href="/list/create" className="btn btn-primary" style={{ padding: '8px 20px', fontSize: '0.9rem' }}>
+                        新しいリストを作成する
+                      </Link>
+                    </div>
+                  )}
+                  <div className={styles.cardGrid}>
+                    {quizLists.map((list) => (
+                      <Link 
+                        key={list.id} 
+                        href={`/list/${list.id}`} 
+                        className={`${styles.quizCard} glass-card glass-card-hover`}
+                      >
+                        {list.coverImageUrl && (
+                          <div className={styles.quizThumbnailWrapper}>
+                            <img src={list.coverImageUrl} alt={list.title} className={styles.quizThumbnail} />
+                          </div>
+                        )}
+                        <div className={styles.quizCardBody}>
+                          <h3 className={styles.quizTitle}>{list.title}</h3>
+                          <p className={styles.quizDesc}>{list.description}</p>
+                          <div className={styles.listMeta}>
+                            <span>収録問題: {list.quizIds?.length || 0}問</span>
+                          </div>
                         </div>
-                      )}
-                      <div className={styles.quizCardBody}>
-                        <h3 className={styles.quizTitle}>{list.title}</h3>
-                        <p className={styles.quizDesc}>{list.description}</p>
-                        <div className={styles.listMeta}>
-                          <span>収録問題: {list.quizIds?.length || 0}問</span>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                      </Link>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           )}

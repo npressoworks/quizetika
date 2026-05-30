@@ -197,6 +197,14 @@ export default function CreatorDashboardPage() {
             クイズ一括エクスポート
           </button>
           <button 
+            className="btn btn-outline" 
+            onClick={() => router.push('/list/create')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)', border: '1px solid var(--border-light)', background: 'rgba(255, 255, 255, 0.05)' }}
+          >
+            <Plus size={16} />
+            リストを新規作成
+          </button>
+          <button 
             className="btn btn-primary" 
             onClick={() => router.push('/quiz/create')}
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}

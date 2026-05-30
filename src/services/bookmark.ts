@@ -98,12 +98,20 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
   const q = query(
     bookmarksRef,
     where('userId', '==', userId),
-    where('targetType', '==', 'quiz'),
-    orderBy('createdAt', 'desc')
+    where('targetType', '==', 'quiz')
   );
 
   const snap = await getDocs(q);
-  const quizIds = snap.docs.map((doc) => doc.data().targetId);
+
+  // メモリ上で createdAt (降順) でソートする
+  const bookmarkDocs = snap.docs.map((doc) => doc.data());
+  bookmarkDocs.sort((a, b) => {
+    const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+    const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+    return timeB - timeA;
+  });
+
+  const quizIds = bookmarkDocs.map((doc) => doc.targetId);
 
   if (quizIds.length === 0) return [];
 
@@ -133,12 +141,20 @@ export async function getBookmarkedLists(userId: string): Promise<QuizList[]> {
   const q = query(
     bookmarksRef,
     where('userId', '==', userId),
-    where('targetType', '==', 'list'),
-    orderBy('createdAt', 'desc')
+    where('targetType', '==', 'list')
   );
 
   const snap = await getDocs(q);
-  const listIds = snap.docs.map((doc) => doc.data().targetId);
+
+  // メモリ上で createdAt (降順) でソートする
+  const bookmarkDocs = snap.docs.map((doc) => doc.data());
+  bookmarkDocs.sort((a, b) => {
+    const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime();
+    const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime();
+    return timeB - timeA;
+  });
+
+  const listIds = bookmarkDocs.map((doc) => doc.targetId);
 
   if (listIds.length === 0) return [];
 
