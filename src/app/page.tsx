@@ -315,6 +315,7 @@ export default function Home() {
             {filteredQuizzes.map((quiz) => (
               <article
                 key={quiz.id}
+                data-testid="quiz-card"
                 className={styles.card}
                 onClick={() => handleCardClick(quiz.id)}
                 style={{ cursor: 'pointer' }}

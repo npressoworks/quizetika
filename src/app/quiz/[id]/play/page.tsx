@@ -454,7 +454,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
             {currentQuestion.choices?.map((choice) => (
               <button
                 key={choice.id}
-                className={styles.optionBtn}
+                className={`${styles.optionBtn} optionBtn`}
                 onClick={() => handleAnswerSubmit(choice.id)}
               >
                 <span>{choice.choiceText}</span>

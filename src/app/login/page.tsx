@@ -6,8 +6,10 @@ import { useAuth } from '@/context/auth-context';
 import { auth } from '@/lib/firebase/config';
 import {
   signInWithPopup,
-  GoogleAuthProvider
-} from 'firebase/auth';
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from '@/lib/firebase/auth';
 import { AlertCircle } from 'lucide-react';
 import styles from './login.module.css';
 
@@ -51,6 +53,32 @@ export default function LoginPage() {
     } catch (err: any) {
       console.error('Google auth error:', err);
       setErrorMsg(getFriendlyErrorMessage(err.code));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // E2Eテスト用の簡易ログイン (開発環境のみ有効)
+  const handleE2ETestLogin = async () => {
+    setErrorMsg('');
+    setSubmitting(true);
+    const email = 'e2e-test-user@example.com';
+    const password = 'e2e-test-password-999';
+    try {
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err: any) {
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
+          // ユーザーが存在しないかクレデンシャルが無効な場合は作成を試みる
+          await createUserWithEmailAndPassword(auth, email, password);
+        } else {
+          throw err;
+        }
+      }
+      router.push('/');
+    } catch (err: any) {
+      console.error('E2E login error:', err);
+      setErrorMsg('E2Eログインに失敗しました: ' + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -113,6 +141,31 @@ export default function LoginPage() {
             <span>{submitting ? 'サインイン中...' : 'Googleアカウントでログイン'}</span>
           </button>
         </div>
+
+        {/* E2E Test Auth (開発環境のみ) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{ marginTop: '12px', width: '100%' }}>
+            <button
+              id="e2e-test-login-btn"
+              type="button"
+              onClick={handleE2ETestLogin}
+              className="btn btn-primary"
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                fontWeight: 600,
+                borderRadius: '8px',
+                backgroundColor: '#10B981',
+                borderColor: '#10B981',
+                color: 'white',
+              }}
+              disabled={submitting}
+            >
+              <span>E2Eテスト用ログイン (開発用)</span>
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );

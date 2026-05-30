@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { auth } from '@/lib/firebase/config';
-import { signOut } from 'firebase/auth';
+import { signOut } from '@/lib/firebase/auth';
 import { 
   Trophy, 
   Search, 

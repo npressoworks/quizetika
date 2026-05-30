@@ -1,0 +1,345 @@
+.container {
+  max-width: 800px;
+  margin: 60px auto;
+  padding: 0 20px;
+  animation: pageFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.successCard {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-lg);
+  padding: 50px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 祝祭用背景演出 (紙吹雪風グラデーションサークル) */
+.successCard::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -20%;
+  width: 140%;
+  height: 140%;
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(0, 245, 212, 0.05) 0%, transparent 30%),
+    radial-gradient(circle at 80% 20%, rgba(157, 78, 221, 0.06) 0%, transparent 35%),
+    radial-gradient(circle at 50% 80%, rgba(0, 187, 249, 0.04) 0%, transparent 30%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cardContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ポップアップするお祝いアイコンバッジ */
+.badgeWrapper {
+  position: relative;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-accent), #00bbf9);
+  color: var(--text-inverse);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 30px var(--color-accent-glow);
+  transform: scale(0);
+  animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s forwards;
+}
+
+.badgeGlow {
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  opacity: 0;
+  transform: scale(0.6);
+  animation: ripple 1.6s ease-out 0.8s infinite;
+}
+
+.title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #ffffff, var(--color-accent-hover));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  margin-bottom: 35px;
+  max-width: 500px;
+}
+
+/* クイズプレビューカード */
+.quizPreview {
+  width: 100%;
+  max-width: 540px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  margin-bottom: 40px;
+  display: flex;
+  gap: 20px;
+  text-align: left;
+  transition: var(--transition-smooth);
+}
+
+.quizPreview:hover {
+  border-color: var(--border-glow);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.thumbnailPlaceholder {
+  width: 120px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-solid);
+  border: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.thumbnailImage {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  flex-shrink: 0;
+}
+
+.quizMeta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.quizTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.genreBadge {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-light);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.difficultyText {
+  font-size: 0.8rem;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* SNSシェアエリア */
+.shareSection {
+  width: 100%;
+  max-width: 540px;
+  margin-bottom: 45px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 30px;
+}
+
+.shareTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.shareButtons {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* SNSボタンのスタイリング */
+.btnShare {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  user-select: none;
+  min-width: 150px;
+  border: 1px solid transparent;
+}
+
+/* X (Twitter) ボタン */
+.btnX {
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.btnX:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.1);
+}
+
+/* LINE ボタン */
+.btnLine {
+  background: #06c755;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(6, 199, 85, 0.2);
+}
+
+.btnLine:hover {
+  transform: translateY(-2px);
+  background: #05b34c;
+  box-shadow: 0 6px 20px rgba(6, 199, 85, 0.4);
+}
+
+/* コピーボタン */
+.btnCopy {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-light);
+  color: var(--text-main);
+  position: relative;
+}
+
+.btnCopy:hover {
+  border-color: var(--color-primary);
+  background: rgba(157, 78, 221, 0.05);
+}
+
+/* コピートースト・ツールチップ */
+.copyToast {
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%) translateY(5px);
+  background: var(--color-primary);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 15px rgba(157, 78, 221, 0.4);
+  animation: tooltipFadeIn 0.2s ease-out forwards;
+}
+
+.copyToast::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--color-primary);
+}
+
+/* アクションボタンエリア */
+.actionSection {
+  width: 100%;
+  max-width: 540px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 35px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.actionRow {
+  display: flex;
+  gap: 16px;
+}
+
+@media (max-width: 576px) {
+  .quizPreview {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .quizMeta {
+    align-items: center;
+  }
+  .metaRow {
+    justify-content: center;
+  }
+  .shareButtons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btnShare {
+    width: 100%;
+  }
+  .actionRow {
+    flex-direction: column;
+  }
+}
+
+/* キーフレーム定義 */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+@keyframes tooltipFadeIn {
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}

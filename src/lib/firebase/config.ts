@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, browserLocalPersistence, Auth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -17,7 +17,18 @@ const firebaseConfig = {
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 // サービスインスタンスの作成
-const auth = getAuth(app);
+// E2Eテスト環境では browserLocalPersistence を使用してStorageStateとの互換性を確保
+let auth: Auth;
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENV === 'test') {
+  // テスト環境: LocalStorageを使用
+  auth = initializeAuth(app, {
+    persistence: browserLocalPersistence
+  });
+} else {
+  // 本番環境: デフォルト設定
+  auth = getAuth(app);
+}
+
 const db = getFirestore(app);
 const storage = getStorage(app);
 
