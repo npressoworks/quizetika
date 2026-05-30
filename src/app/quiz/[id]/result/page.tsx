@@ -4,6 +4,7 @@ import React, { useEffect, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Check, X, ShieldAlert, Award, Heart, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle, ArrowLeft, Trophy, CheckCircle, ChevronRight } from 'lucide-react';
+import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { useAuth } from '@/context/auth-context';
 import { getQuiz } from '@/services/quiz';
 import { getQuizList } from '@/services/quiz-list';
@@ -444,9 +445,10 @@ function QuizResultPageContent({ quizId }: ContentProps) {
               {q.explanation && (
                 <div className={styles.explanationBox}>
                   <div className={styles.explanationTitle}>💡 解説</div>
-                  <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-                    {q.explanation}
-                  </p>
+                  <p 
+                    style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.6' }}
+                    dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(q.explanation) }}
+                  />
                 </div>
               )}
             </article>

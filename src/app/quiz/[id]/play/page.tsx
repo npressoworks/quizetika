@@ -4,6 +4,7 @@ import React, { useEffect, useState, use, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Timer, HelpCircle, Send, CheckCircle, AlertTriangle, Play, Check, X, ShieldAlert } from 'lucide-react';
+import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { useAuth } from '@/context/auth-context';
 import { getQuiz } from '@/services/quiz';
 import { usePlayState } from '@/hooks/usePlayState';
@@ -503,7 +504,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 <div className={styles.correctAnswer}>
                   正解: {currentQuestion.choices?.find((c) => c.isCorrect)?.choiceText || currentQuestion.correctTextAnswerList?.[0] || '正解'}
                 </div>
-                <p className={styles.explanation}>{currentQuestion.explanation}</p>
+                <p className={styles.explanation} dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.explanation) }} />
 
                 <div className={styles.flashcardActionGrid} style={{ marginTop: '20px' }}>
                   <button

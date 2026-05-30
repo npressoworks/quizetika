@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // すべてのパスに対する共通ルール定義
+    match /{allPaths=**} {
+      
+      // 読み取り（ダウンロード）は誰でも可能（または要件に応じて認証済みのみ）
+      allow read: if true;
+      
+      // 書き込み（アップロード・更新・削除）の制限強制
+      allow write: if 
+        // 1. ユーザーが認証されているか（要件に応じて適用）
+        request.auth != null
+        
+        // 2. アップロードされるファイルの最大容量制限（2MB以下）
+        && request.resource.size < 2 * 1024 * 1024
+        
+        // 3. MIMEタイプの厳密な制限（PNG、JPEG、GIFのみを許可し、SVGや危険なスクリプト混入HTMLを禁止）
+        && request.resource.contentType.matches('image/(png|jpeg|gif)');
+        
+      // 削除操作の個別制御（必要に応じて拡張）
+      allow delete: if request.auth != null;
+    }
+  }
+}

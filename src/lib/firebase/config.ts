@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, initializeAuth, browserLocalPersistence, Auth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 
 // 環境変数からFirebase設定を読み込み
 const firebaseConfig = {
@@ -31,6 +32,20 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENV === 'test') {
 
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// App Checkの初期化 (クライアントサイド本番環境のみ)
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENV !== 'test') {
+  const appCheckSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6Ld_placeholder_key_for_app_check';
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true
+    });
+    console.log('[firebase-config] Firebase App Check を有効化しました。');
+  } catch (err) {
+    console.error('[firebase-config] Firebase App Check の初期化に失敗しました:', err);
+  }
+}
 
 // E2Eテスト環境でのエミュレータ接続設定
 const globalWithEmulators = global as typeof globalThis & {
