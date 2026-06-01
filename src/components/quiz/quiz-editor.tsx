@@ -55,7 +55,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   const [description, setDescription] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [difficulty, setDifficulty] = useState(5);
-  const [genre, setGenre] = useState('programming');
+  const [genre, setGenre] = useState('');
   const [format, setFormat] = useState<'mixed' | 'multiple-choice' | 'text-input' | 'quick-press' | 'sorting' | 'association' | 'lateral-thinking'>('mixed');
   
   // タグ関連ステート
@@ -827,10 +827,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         </div>
       )}
 
-      <div className={styles.grid}>
-        {/* メイン編集エリア */}
-        <div className={styles.leftColumn}>
-          {/* クイズ全体の出題形式設定 (新規追加) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* クイズ全体の出題形式設定 */}
           <div className={styles.editorCard}>
             <h2 className={styles.sectionTitle}>
               <HelpCircle size={20} />
@@ -901,7 +899,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
             </div>
           </div>
 
-          {/* 基本メタデータ入力 (要件 1.1) */}
+          {/* 基本メタデータ入力 */}
           <div className={styles.editorCard}>
             <h2 className={styles.sectionTitle}>
               <Info size={20} />
@@ -909,6 +907,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
             </h2>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* タイトル・説明文 */}
               <div className={styles.formGroup}>
                 <label className={styles.label}>クイズタイトル <span style={{ color: 'var(--color-danger)' }}>*</span></label>
                 <input
@@ -930,10 +929,105 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
+
+              {/* サムネイル・難易度・ジャンル・タグ */}
+              <div className={styles.metaGrid}>
+                {/* 左: サムネイル */}
+                <div className={styles.formGroup}>
+                  <label className={styles.label}>サムネイル画像</label>
+                  <div className={styles.thumbnailUpload} onClick={triggerThumbnail}>
+                    {thumbnailUrl ? (
+                      <img src={thumbnailUrl} alt="Thumbnail preview" className={styles.thumbnailPreview} />
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                        <Image size={32} />
+                        <span style={{ fontSize: '0.85rem' }}>クリックしてサムネイルを自動生成</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 右: 難易度・ジャンル・タグ */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* 難易度スライダー */}
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>難易度 (1 - 10)</label>
+                    <div className={styles.sliderContainer}>
+                      <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        className={styles.slider}
+                        value={difficulty}
+                        onChange={(e) => setDifficulty(parseInt(e.target.value))}
+                      />
+                      <span className={styles.sliderValue}>{difficulty}</span>
+                    </div>
+                  </div>
+
+                  {/* ジャンル選択 */}
+                  <div className={styles.formGroup}>
+                    <div className={styles.genreContainer}>
+                      <label className={styles.label}>ジャンル</label>
+                      <select className={styles.select} value={genre} onChange={(e) => setGenre(e.target.value)}>
+                        <option value="" disabled>ジャンルを選択してください</option>
+                        <option value="programming">プログラミング / IT</option>
+                        <option value="history">歴史 / 世界史</option>
+                        <option value="science">科学 / 自然科学</option>
+                        <option value="anime">アニメ / エンタメ</option>
+                        <option value="sports">スポーツ / 運動</option>
+                        <option value="general">一般常識 / 雑学</option>
+                      </select>
+                      <a href="/community/genres" className={styles.genreLink}>
+                        新しいジャンルを申請する
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* タグ設定 */}
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>タグ (最大 5 つ)</label>
+                    <form onSubmit={handleAddTag} className={styles.tagInputWrapper}>
+                      <input
+                        type="text"
+                        className={styles.input}
+                        placeholder="タグを入力してEnter"
+                        value={tagInput}
+                        onChange={(e) => handleTagInputChange(e.target.value)}
+                        disabled={originalTags.length >= 5}
+                      />
+                    </form>
+                    
+                    {suggestedTag && (
+                      <div className={styles.tagWarning} onClick={applySuggestedTag} style={{ cursor: 'pointer' }}>
+                        <AlertTriangle size={16} />
+                        <div>
+                          <span style={{ fontWeight: 'bold' }}>推奨:</span> 類似するタグ <span style={{ textDecoration: 'underline' }}>#{suggestedTag}</span> が既に存在します。既存のタグを使用することをお勧めします。（クリックで適用）
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={styles.tagList}>
+                      {originalTags.map((tag, idx) => (
+                        <div key={idx} className={styles.tagBadge}>
+                          #{tag}
+                          <button type="button" className={styles.removeTagBtn} onClick={() => handleRemoveTag(idx)}>
+                            &times;
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                      <span className={styles.tagLimitInfo}>{originalTags.length} / 5 タグ</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 設問管理エリア (要件 1.4) */}
+          {/* 設問管理エリア */}
           <div className={styles.editorCard}>
             <div className={styles.questionHeader}>
               <h2 className={styles.sectionTitle} style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>
@@ -1283,104 +1377,25 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                       style={{ minHeight: '80px' }}
                     />
                   </div>
+
+                  <div className={styles.formGroup} style={{ marginTop: '16px' }}>
+                    <label className={styles.label}>出典・参考URL</label>
+                    <input
+                      type="url"
+                      className={styles.input}
+                      placeholder="https://example.com/reference"
+                      value={q.sourceUrl ?? ''}
+                      onChange={(e) => {
+                        const nextQuestions = [...questions];
+                        nextQuestions[qIdx].sourceUrl = e.target.value || null;
+                        setQuestions(nextQuestions);
+                      }}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-
-        {/* 右サイド設定カラム (難易度、ジャンル、タグ、サムネイル等) */}
-        <div className={styles.rightColumn}>
-          {/* サムネイル設定 */}
-          <div className={styles.formGroup}>
-            <label className={styles.label}>サムネイル画像</label>
-            <div className={styles.thumbnailUpload} onClick={triggerThumbnail}>
-              {thumbnailUrl ? (
-                <img src={thumbnailUrl} alt="Thumbnail preview" className={styles.thumbnailPreview} />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
-                  <Image size={32} />
-                  <span style={{ fontSize: '0.85rem' }}>クリックしてサムネイルを自動生成</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 難易度スライダー (要件 1.1) */}
-          <div className={styles.formGroup}>
-            <label className={styles.label}>難易度 (1 - 10)</label>
-            <div className={styles.sliderContainer}>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                className={styles.slider}
-                value={difficulty}
-                onChange={(e) => setDifficulty(parseInt(e.target.value))}
-              />
-              <span className={styles.sliderValue}>{difficulty}</span>
-            </div>
-          </div>
-
-          {/* ジャンル選択 (要件 1.1, 1.2) */}
-          <div className={styles.formGroup}>
-            <div className={styles.genreContainer}>
-              <label className={styles.label}>ジャンル</label>
-              <select className={styles.select} value={genre} onChange={(e) => setGenre(e.target.value)}>
-                <option value="programming">プログラミング / IT</option>
-                <option value="history">歴史 / 世界史</option>
-                <option value="science">科学 / 自然科学</option>
-                <option value="anime">アニメ / エンタメ</option>
-                <option value="sports">スポーツ / 運動</option>
-                <option value="general">一般常識 / 雑学</option>
-              </select>
-              {/* ジャンル新設申請画面へのリンク (要件 1.2) */}
-              <a href="/community/genres" className={styles.genreLink}>
-                新しいジャンルを申請する
-              </a>
-            </div>
-          </div>
-
-          {/* タグ設定 (要件 1.1, 1.3) */}
-          <div className={styles.formGroup}>
-            <label className={styles.label}>タグ (最大 5 つ)</label>
-            <form onSubmit={handleAddTag} className={styles.tagInputWrapper}>
-              <input
-                type="text"
-                className={styles.input}
-                placeholder="タグを入力してEnter"
-                value={tagInput}
-                onChange={(e) => handleTagInputChange(e.target.value)}
-                disabled={originalTags.length >= 5}
-              />
-            </form>
-            
-            {/* 類似 canonical タグのサジェスト警告 (要件 1.3) */}
-            {suggestedTag && (
-              <div className={styles.tagWarning} onClick={applySuggestedTag} style={{ cursor: 'pointer' }}>
-                <AlertTriangle size={16} />
-                <div>
-                  <span style={{ fontWeight: 'bold' }}>推奨:</span> 類似するタグ <span style={{ textDecoration: 'underline' }}>#{suggestedTag}</span> が既に存在します。既存のタグを使用することをお勧めします。（クリックで適用）
-                </div>
-              </div>
-            )}
-
-            <div className={styles.tagList}>
-              {originalTags.map((tag, idx) => (
-                <div key={idx} className={styles.tagBadge}>
-                  #{tag}
-                  <button type="button" className={styles.removeTagBtn} onClick={() => handleRemoveTag(idx)}>
-                    &times;
-                  </button>
-                </div>
-              ))}
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-              <span className={styles.tagLimitInfo}>{originalTags.length} / 5 タグ</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* アクションバー (要件 1.6 下書き保存, 公開) */}

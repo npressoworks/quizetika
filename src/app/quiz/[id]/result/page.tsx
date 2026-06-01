@@ -381,14 +381,14 @@ function QuizResultPageContent({ quizId }: ContentProps) {
               onClick={() => handleReviewVote('positive')}
               disabled={!online || voted !== null || user?.id === quiz.authorId}
             >
-              <ThumbsUp size={16} /> 良問 (👍)
+              <ThumbsUp size={16} /> 良問
             </button>
             <button
               className={`${styles.voteBtn} ${voted === 'negative' ? styles.voteActive : ''}`}
               onClick={() => handleReviewVote('negative')}
               disabled={!online || voted !== null || user?.id === quiz.authorId}
             >
-              <ThumbsDown size={16} /> 微妙 (👎)
+              <ThumbsDown size={16} /> 微妙
             </button>
           </div>
         </div>

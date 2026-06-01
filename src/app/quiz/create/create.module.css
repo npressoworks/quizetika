@@ -409,13 +409,30 @@
 }
 
 /* Thumbnail upload placeholder styling */
+.metaGrid {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .metaGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .thumbnailUpload {
   border: 2px dashed var(--border-light);
   border-radius: var(--radius-md);
-  padding: 30px;
+  padding: 20px;
   text-align: center;
   cursor: pointer;
   transition: var(--transition-smooth);
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .thumbnailUpload:hover {
@@ -425,7 +442,7 @@
 
 .thumbnailPreview {
   width: 100%;
-  max-height: 180px;
+  max-height: 200px;
   object-fit: cover;
   border-radius: var(--radius-sm);
 }

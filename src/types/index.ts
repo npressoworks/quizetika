@@ -75,6 +75,7 @@ export interface Question {
   associationHints?: string[]; // 連想ヒント
   aiContextDetails?: string; // ウミガメのスープ用裏設定
   truthKeywords?: string[]; // ウミガメのスープ用必須正解キーワード
+  sourceUrl?: string | null; // 出典・参考URLリンク
   correctCount: number;   // 正解した累計回数
   incorrectCount: number; // 不正解だった累計回数
   bookmarksCount?: number; // 設問単体がブックマーク登録された総数

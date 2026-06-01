@@ -139,6 +139,7 @@ erDiagram
 * `associationHints` (`array (string)`, 任意): 連想クイズ用の段階的ヒントリスト。最大5つのヒントを登録し、段階的にプレイヤーへ開示する。
 * `aiContextDetails` (`string`, 任意): ウミガメのスープ用詳細裏設定（AI判定用コンテキスト）。20文字以上2000文字以内。
 * `truthKeywords` (`array (string)`, 任意): ウミガメのスープ用自動真相判定必須キーワード。最低1つ以上の登録が必要。
+* `sourceUrl` (`string | null`, 任意): 設問の出典・参考URLリンク。Wikipedia や公式ドキュメント等、解説の根拠となる外部ページを任意で登録する。
 * `correctCount` (`number`): 正解した累計回数。
 * `incorrectCount` (`number`): 不正解だった累計回数。
 
@@ -184,6 +185,7 @@ erDiagram
 | `associationHints` | `array (string)` | 任意 | 連想ヒント配列 | 連想クイズ用の段階的ヒントリスト。 |
 | `aiContextDetails` | `string` | 任意 | 最大2000文字 | 水平思考クイズのAI判定用裏設定コンテキスト。 |
 | `truthKeywords` | `array (string)` | 任意 | 真相自動判定キーワード | 水平思考クイズ用の必須正解キーワード。 |
+| `sourceUrl` | `string \| null` | 任意 | 最大2048文字 / `null` | 設問の出典・参考URLリンク。解説の根拠となる外部ページ（Wikipedia、公式ドキュメント等）を任意で登録する。 |
 | `correctCount` | `number` | **必須** | `0` | 正解した累計回数。 |
 | `incorrectCount` | `number` | **必須** | `0` | 不正解だった累計回数。 |
 | `bookmarksCount` | `number` | **必須** | `0` | この設問単体がブックマーク登録された総ユーザー数。 |
