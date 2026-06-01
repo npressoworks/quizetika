@@ -7,6 +7,10 @@
  */
 
 import { Quiz, Question } from '../types';
+import {
+  MAX_MULTIPLE_CHOICE_COUNT,
+  MIN_MULTIPLE_CHOICE_COUNT,
+} from './quiz-choice-utils';
 
 /* ==========================================================================
    NGワード定義
@@ -80,10 +84,19 @@ export interface QuizPublishValidationError {
  */
 function isQuestionAnswerValid(question: Question): boolean {
   switch (question.type) {
-    case 'multiple-choice':
-    case 'true-false':
-      // choicesの中に isCorrect = true のものが最低1つ必要
-      return (question.choices ?? []).some((c) => c.isCorrect);
+    case 'multiple-choice': {
+      const choices = question.choices ?? [];
+      if (choices.length < MIN_MULTIPLE_CHOICE_COUNT || choices.length > MAX_MULTIPLE_CHOICE_COUNT) {
+        return false;
+      }
+      return choices.some((c) => c.isCorrect);
+    }
+
+    case 'true-false': {
+      const choices = question.choices ?? [];
+      if (choices.length !== 2) return false;
+      return choices.some((c) => c.isCorrect);
+    }
 
     case 'text-input':
     case 'quick-press':

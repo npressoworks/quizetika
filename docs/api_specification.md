@@ -297,7 +297,7 @@ export const questionSchema = z.object({
   imageUrl: z.string().url('有効なURL形式で画像を指定してください。').optional().or(z.literal('')),
   hint: z.string().max(200, 'ヒントは200文字以内で入力してください。').optional(),
   limitTime: z.number().int().min(5, '制限時間は最低5秒以上にしてください。').max(300, '制限時間は最大300秒までです。').optional(),
-  choices: z.array(choiceSchema).max(4, '選択肢は最大4つまでです。').optional(),
+  choices: z.array(choiceSchema).min(2, '選択肢は最低2つ必要です。').max(10, '選択肢は最大10個までです。').optional(),
   correctTextAnswerList: z.array(z.string().min(1)).optional(),
   sortingItems: z.array(sortingItemSchema).max(6, '並び替え要素は最大6つまでです。').optional(),
   associationHints: z.array(z.string().min(1)).max(5, '連想ヒントは最大5つまでです。').optional(),
@@ -325,10 +325,10 @@ export const questionSchema = z.object({
   }
   // 多肢選択クイズ
   if (data.type === 'multiple-choice') {
-    if (!data.choices || data.choices.length < 2 || data.choices.length > 4) {
+    if (!data.choices || data.choices.length < 2 || data.choices.length > 10) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: '選択問題には2〜4つの選択肢が必要です。',
+        message: '選択問題には2〜10個の選択肢が必要です。',
         path: ['choices']
       });
     } else if (!data.choices.some(c => c.isCorrect)) {
@@ -509,6 +509,17 @@ export interface Reaction {
   quizTitle: string;
   type: 'like' | 'thank';
   createdAt: Date;
+}
+
+// 設問ごとのユーザー回答レコード（結果画面の「あなたの回答」表示用）
+// - multiple-choice / true-false : 選択した Choice の id
+// - text-input / quick-press / association : 入力テキスト文字列
+// - sorting : 確定時の要素IDをカンマ区切り連結（例: "id1,id2,id3"）
+// - flashcard : 'correct' または 'incorrect'（自己申告）
+// - lateral-thinking : 真相要約テキスト
+export interface QuestionAnswerRecord {
+  questionId: string;
+  userAnswer: string;
 }
 
 // Attempt のモード型定義

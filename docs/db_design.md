@@ -251,6 +251,7 @@ erDiagram
 | `totalQuestions`| `number` | **必須** | 非負整数 | クイズの総問題数。 |
 | `elapsedSeconds`| `number` | **必須** | 秒数 | 解答経過時間（秒単位）。 |
 | `failedQuestionIds`| `array (string)`| **必須** | `[]` | 間違えた問題のID配列。 |
+| `questionAnswers` | `array (QuestionAnswerRecord)` | 任意 | `[]` | 設問ごとのユーザー回答。結果画面の「あなたの回答」表示に使用。`QuestionAnswerRecord` は `{ questionId: string, userAnswer: string }` の形式。選択式は選択肢ID、並び替えはカンマ区切り要素ID列、記述式は入力テキスト、フラッシュカードは `'correct'`/`'incorrect'`。旧レコードには存在しない場合があり、その場合は「（記録なし）」表示にフォールバックする。 |
 | `difficultyVote` | `number` | 任意 | `1` 〜 `10` / `null` | 体感難易度投票。 |
 | `aiQuestionsHistory`| `array (AiQuestion)`| 任意 | `[]` | 水平思考プレイの直近最大20ターン分の対話履歴（ステートフル対話の文脈参照用）。 |
 | `aiTurnCount` | `number` | 任意 | `0` | 現在のセッションで発行した質問の総数（キャッシュヒット分を導く）。 |

@@ -42,8 +42,8 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     const expTextarea = page.locator('textarea[placeholder="正解した/間違えた挑戦者へ表示する解説文を入力してください。"]').first();
     await expTextarea.fill('正解は useState です。');
 
-    // 公開申請する
-    const publishBtn = page.locator('text=公開申請する');
+    // 公開
+    const publishBtn = page.locator('text=公開');
     await expect(publishBtn).toBeVisible();
     await publishBtn.click();
 

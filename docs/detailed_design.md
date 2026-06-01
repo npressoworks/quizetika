@@ -37,7 +37,7 @@ sequenceDiagram
     Note over AS: リストプレイ時 listId を含めて保存 (mode = 'list')
     activate AS
     AS->>DB: トランザクション開始
-    DB->>DB: attempts ドキュメント新規作成
+    DB->>DB: attempts ドキュメント新規作成<br>(questionAnswers を含む)
     DB->>DB: quizzes.playCount を +1 インクリメント (アトミック)
     AS-->>QP: 保存完了 (attemptId)
     deactivate AS
@@ -129,6 +129,10 @@ sequenceDiagram
 * **タイムの永続化と結果画面**:
   - プレイ完了（オンライン/オフライン）時に `localStorage.setItem('quizeum_qp_times_{attemptId}', JSON.stringify(quickPressTimes))` を実行。
   - 結果画面 (`/quiz/[id]/result`) で読み込み後 `removeItem` し、平均・最速・正答数の統計カードおよび設問別バッジを表示します。
+* **ユーザー回答の記録と結果画面表示**:
+  - `usePlayState` の `handleAnswerSubmit` は、正誤判定後に `setQuestionAnswers(prev => ({ ...prev, [questionId]: rawAnswer }))` で設問ごとのユーザー回答を State に蓄積する。`rawAnswer` は、選択式なら選択肢ID、並び替えならカンマ区切りID列、記述式/早押しなら入力テキスト、フラッシュカードなら `'correct'`/`'incorrect'`。
+  - プレイ完了時に `questionAnswers` を `QuestionAnswerRecord[]`（`{ questionId, userAnswer }[]`）へ変換し、`Attempt.questionAnswers` として `saveAttempt` に渡す。オフライン保存時は `PendingSyncAttempt.questionAnswers` として localStorage に退避する。
+  - 結果画面では `attempt.questionAnswers`（`QuestionAnswerRecord[]`）を参照し、各設問カードに「あなたの回答」欄を表示する。回答の整形（選択肢テキストへの変換・並び替え順のアロー連結等）は `attempt-answer-display.ts` の `formatUserAnswer` / `formatCorrectAnswer` に集約する。`questionAnswers` が空の旧レコードの場合は「（記録なし）」にフォールバックする。
 * **弱点克服プレイ**: 復習画面でも `quick-press` 設問は難読化を適用。表示は全文を即時復号表示（一文字アニメーションは省略）。正誤判定はプレイ画面と同一の正規化・復号ロジックを使用します。
 
 ---
@@ -147,7 +151,7 @@ sequenceDiagram
     participant DB as Firestore (Database)
 
     Creator->>QC: タイトル、説明、初期難易度(1-10)、出題形式(format)、問題群を入力
-    Note over QC: format 選択<br>mixed / 単一形式(選択式・記述式・早押し・並び替え・連想・水平思考)<br>単一形式時は全設問 type を自動固定
+    Note over QC: format 選択<br>mixed / 単一形式(選択式・記述式・早押し・並び替え・連想・水平思考)<br>単一形式時は全設問 type を自動固定<br>形式変更時：設問が全初期値なら確認ダイアログなし即切替<br>入力済みの設問があれば確認ダイアログ表示
     
     alt 下書き保存の場合 (isPublished = false)
         Creator->>QC: 「下書き保存」をクリック
@@ -163,7 +167,7 @@ sequenceDiagram
         Creator->>QC: 「公開する」をクリック
         Note over QC: Zodによる厳格なスキーマ検証 (quizPublishSchema)
         QC->>QC: 設問数(>=1)、各設問正解設定、format と設問 type の一貫性、文字数制限（水平思考のAI用コンテキストは20〜2000文字）などを検証
-        Note over QC: validateQuizForPublish<br>・mixed: multiple-choice / true-false / text-input / sorting のみ<br>・単一形式: 全設問 type が format と一致<br>・quick-press / text-input: correctTextAnswerList 必須
+        Note over QC: validateQuizForPublish<br>・mixed: multiple-choice / true-false / text-input / sorting のみ<br>・単一形式: 全設問 type が format と一致<br>・quick-press / text-input: correctTextAnswerList 必須<br>・multiple-choice: choices 2〜10件 かつ正解1件以上<br>・true-false: choices 2件固定
         
         alt バリデーション失敗
             QC-->>Creator: エラー箇所を赤色強調表示、修正指示トースト表示

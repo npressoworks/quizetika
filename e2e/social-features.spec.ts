@@ -38,7 +38,7 @@ async function ensureQuizAndNavigate(page: any) {
     page.once('dialog', async (dialog: any) => {
       await dialog.accept();
     });
-    await page.locator('text=公開申請する').click();
+    await page.locator('text=公開').click();
     await page.waitForTimeout(1000);  }
 
   await page.goto('/');

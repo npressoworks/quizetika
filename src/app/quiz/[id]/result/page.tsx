@@ -13,6 +13,7 @@ import { sendReaction } from '@/services/reaction';
 import { db } from '@/lib/firebase/config';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getPendingSyncAttempts } from '@/services/attempt-session';
+import { formatCorrectAnswer, formatUserAnswer, getUserAnswerRaw } from '@/services/attempt-answer-display';
 import { Quiz, Attempt, FeedbackReport, Question } from '@/types';
 import styles from './result.module.css';
 
@@ -102,6 +103,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
               totalQuestions: localAtt.totalQuestions,
               elapsedSeconds: localAtt.elapsedSeconds,
               failedQuestionIds: localAtt.failedQuestionIds,
+              questionAnswers: localAtt.questionAnswers,
               difficultyVote: localAtt.difficultyVote,
               aiTurnCount: localAtt.aiTurnCount,
               aiTurnLimit: localAtt.aiTurnLimit,
@@ -471,6 +473,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
 
         {quiz.questions.map((q, idx) => {
           const isCorrect = !attempt.failedQuestionIds.includes(q.id);
+          const hasStoredAnswers = (attempt.questionAnswers?.length ?? 0) > 0;
           return (
             <article key={q.id} className={styles.questionItem}>
               <div className={styles.itemHeader}>
@@ -519,6 +522,26 @@ function QuizResultPageContent({ quizId }: ContentProps) {
               <p style={{ fontSize: '1.05rem', color: 'var(--text-main)', lineHeight: '1.5', marginTop: '8px' }}>
                 {q.questionText}
               </p>
+
+              <div className={styles.answerSummary}>
+                <div className={styles.answerRow}>
+                  <span className={styles.answerLabel}>あなたの回答</span>
+                  <span className={`${styles.answerValue} ${isCorrect ? styles.answerValueCorrect : styles.answerValueIncorrect}`}>
+                    {formatUserAnswer(
+                      q,
+                      getUserAnswerRaw(attempt.questionAnswers, q.id),
+                      attempt.mode,
+                      hasStoredAnswers
+                    )}
+                  </span>
+                </div>
+                <div className={styles.answerRow}>
+                  <span className={styles.answerLabel}>正解</span>
+                  <span className={`${styles.answerValue} ${styles.answerValueCorrect}`}>
+                    {formatCorrectAnswer(q)}
+                  </span>
+                </div>
+              </div>
 
               {q.explanation && (
                 <div className={styles.explanationBox}>

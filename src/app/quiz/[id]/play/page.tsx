@@ -11,6 +11,7 @@ import { usePlayState } from '@/hooks/usePlayState';
 import { useAiPlayState } from '@/hooks/useAiPlayState';
 import { saveAttempt, updateFailedQuestionsCount } from '@/services/attempt';
 import { addPendingSyncAttempt, generateLocalId } from '@/services/attempt-session';
+import { toQuestionAnswerRecords } from '@/services/attempt-answer-display';
 import { Quiz, Attempt, Question } from '@/types';
 import { auth } from '@/lib/firebase/config';
 import styles from './play.module.css';
@@ -96,6 +97,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
     setCurrentIdx,
     answeredIds,
     failedIds,
+    questionAnswers,
     score,
     elapsedSeconds,
     timeLeft,
@@ -128,6 +130,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       totalQuestions: quiz.questions.length,
       elapsedSeconds,
       failedQuestionIds: finalFailed,
+      questionAnswers: toQuestionAnswerRecords(questionAnswers),
       aiTurnCount: 0,
       aiTurnLimit: null,
     };

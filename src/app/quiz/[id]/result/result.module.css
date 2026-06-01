@@ -263,6 +263,44 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
+.answerSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-light);
+}
+
+.answerRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.answerLabel {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.answerValue {
+  font-size: 0.98rem;
+  line-height: 1.5;
+  color: var(--text-main);
+  word-break: break-word;
+}
+
+.answerValueCorrect {
+  color: #00f5d4;
+}
+
+.answerValueIncorrect {
+  color: #ff007f;
+}
+
 .explanationTitle {
   font-weight: 700;
   color: var(--text-main);

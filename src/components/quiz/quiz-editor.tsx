@@ -6,7 +6,12 @@ import { useAuth } from '@/context/auth-context';
 import { saveQuiz, getQuiz, updateQuiz } from '@/services/quiz';
 import { validateQuizForPublish, normalizeTag, QuizPublishValidationError } from '@/services/quiz-validation';
 import { hasAnyQuestionUserInput } from '@/services/quiz-question-input';
-import { Quiz, Question, Choice } from '@/types';
+import {
+  createDefaultChoices,
+  MAX_MULTIPLE_CHOICE_COUNT,
+  MIN_MULTIPLE_CHOICE_COUNT,
+} from '@/services/quiz-choice-utils';
+import { Quiz, Question } from '@/types';
 import styles from '@/app/quiz/create/create.module.css';
 import { Trash2, Plus, Info, AlertTriangle, Image, ArrowLeft, Save, Send, HelpCircle } from 'lucide-react';
 import { SortableSortingList, reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
@@ -175,12 +180,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
     // タイプごとの初期値設定
     if (newQuestion.type === 'multiple-choice') {
-      newQuestion.choices = [
-        { id: '1', choiceText: '選択肢 1', isCorrect: true, selectedCount: 0 },
-        { id: '2', choiceText: '選択肢 2', isCorrect: false, selectedCount: 0 },
-        { id: '3', choiceText: '選択肢 3', isCorrect: false, selectedCount: 0 },
-        { id: '4', choiceText: '選択肢 4', isCorrect: false, selectedCount: 0 },
-      ];
+      newQuestion.choices = createDefaultChoices();
     } else if (newQuestion.type === 'text-input' || newQuestion.type === 'quick-press') {
       newQuestion.correctTextAnswerList = ['正解テキスト'];
     } else if (newQuestion.type === 'sorting') {
@@ -236,12 +236,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       };
 
       if (targetType === 'multiple-choice') {
-        updated.choices = q.choices || [
-          { id: '1', choiceText: '選択肢 1', isCorrect: true, selectedCount: 0 },
-          { id: '2', choiceText: '選択肢 2', isCorrect: false, selectedCount: 0 },
-          { id: '3', choiceText: '選択肢 3', isCorrect: false, selectedCount: 0 },
-          { id: '4', choiceText: '選択肢 4', isCorrect: false, selectedCount: 0 },
-        ];
+        updated.choices = q.choices && q.choices.length >= MIN_MULTIPLE_CHOICE_COUNT && q.choices.length <= MAX_MULTIPLE_CHOICE_COUNT
+          ? q.choices
+          : createDefaultChoices();
         updated.correctTextAnswerList = undefined;
         updated.sortingItems = undefined;
         updated.associationHints = undefined;
@@ -317,12 +314,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     nextQuestions[idx].type = type;
     
     if (type === 'multiple-choice' && !nextQuestions[idx].choices) {
-      nextQuestions[idx].choices = [
-        { id: '1', choiceText: '選択肢 1', isCorrect: true, selectedCount: 0 },
-        { id: '2', choiceText: '選択肢 2', isCorrect: false, selectedCount: 0 },
-        { id: '3', choiceText: '選択肢 3', isCorrect: false, selectedCount: 0 },
-        { id: '4', choiceText: '選択肢 4', isCorrect: false, selectedCount: 0 },
-      ];
+      nextQuestions[idx].choices = createDefaultChoices();
       nextQuestions[idx].correctTextAnswerList = undefined;
       nextQuestions[idx].sortingItems = undefined;
       nextQuestions[idx].associationHints = undefined;
@@ -407,6 +399,49 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       }));
       setQuestions(nextQuestions);
     }
+  };
+
+  const handleAddChoice = (qIdx: number) => {
+    const nextQuestions = [...questions];
+    const choices = nextQuestions[qIdx].choices;
+    if (!choices) return;
+
+    if (choices.length >= MAX_MULTIPLE_CHOICE_COUNT) {
+      alert(`選択肢は最大${MAX_MULTIPLE_CHOICE_COUNT}個までです。`);
+      return;
+    }
+
+    const newId = Math.random().toString(36).substring(2, 9);
+    nextQuestions[qIdx].choices = [
+      ...choices,
+      {
+        id: newId,
+        choiceText: `選択肢 ${choices.length + 1}`,
+        isCorrect: false,
+        selectedCount: 0,
+      },
+    ];
+    setQuestions(nextQuestions);
+  };
+
+  const handleRemoveChoice = (qIdx: number, cIdx: number) => {
+    const nextQuestions = [...questions];
+    const choices = nextQuestions[qIdx].choices;
+    if (!choices) return;
+
+    if (choices.length <= MIN_MULTIPLE_CHOICE_COUNT) {
+      alert(`選択肢は最低${MIN_MULTIPLE_CHOICE_COUNT}個必要です。`);
+      return;
+    }
+
+    const removedWasCorrect = choices[cIdx].isCorrect;
+    const filtered = choices.filter((_, idx) => idx !== cIdx);
+    if (removedWasCorrect && filtered.length > 0) {
+      filtered[0] = { ...filtered[0], isCorrect: true };
+    }
+
+    nextQuestions[qIdx].choices = filtered;
+    setQuestions(nextQuestions);
   };
 
   // 記述式・早押し正解のテキスト更新
@@ -980,7 +1015,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                   {/* 選択式の設問入力 */}
                   {q.type === 'multiple-choice' && q.choices && (
                     <div className={styles.choicesList}>
-                      <label className={styles.label}>選択肢と正解設定（左のチェックが正解になります）</label>
+                      <label className={styles.label}>
+                        選択肢と正解設定（左のチェックが正解になります。{MIN_MULTIPLE_CHOICE_COUNT}〜{MAX_MULTIPLE_CHOICE_COUNT}択）
+                      </label>
                       {q.choices.map((choice, cIdx) => (
                         <div key={choice.id || cIdx} className={styles.choiceRow}>
                           <input
@@ -995,8 +1032,24 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                             value={choice.choiceText}
                             onChange={(e) => handleChoiceTextChange(qIdx, cIdx, e.target.value)}
                           />
+                          <button
+                            type="button"
+                            className={styles.removeQuestionBtn}
+                            onClick={() => handleRemoveChoice(qIdx, cIdx)}
+                            title="この選択肢を削除"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       ))}
+                      <button
+                        type="button"
+                        className={styles.addTextAnswerBtn}
+                        onClick={() => handleAddChoice(qIdx)}
+                        disabled={q.choices.length >= MAX_MULTIPLE_CHOICE_COUNT}
+                      >
+                        <Plus size={14} /> 選択肢を追加する
+                      </button>
                     </div>
                   )}
 
@@ -1350,7 +1403,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <Send size={18} />
-          公開申請する
+          公開
         </button>
       </div>
     </div>

@@ -37,8 +37,8 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     const expTextarea = page.locator('textarea[placeholder="正解した/間違えた挑戦者へ表示する解説文を入力してください。"]').first();
     await expTextarea.fill('2+2=4 です。');
 
-    // 公開申請する
-    await page.locator('text=公開申請する').click();
+    // 公開
+    await page.locator('text=公開').click();
     await expect.poll(() => dialogMessages).toContain('クイズを公開しました！');
     await expect(page).toHaveURL(/\/creator\/dashboard/);
 
@@ -124,7 +124,7 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     const expTextarea = page.locator('textarea[placeholder="正解した/間違えた挑戦者へ表示する解説文を入力してください。"]').first();
     await expTextarea.fill('Javaのarr.lengthプロパティで配列の長さが取得できます。');
 
-    await page.locator('text=公開申請する').click();
+    await page.locator('text=公開').click();
     await expect.poll(() => dialogMessages).toContain('クイズを公開しました！');
     await expect(page).toHaveURL(/\/creator\/dashboard/);
 

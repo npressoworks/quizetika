@@ -1,4 +1,5 @@
 import { hasQuestionUserInput, hasAnyQuestionUserInput } from '../../src/services/quiz-question-input';
+import { createDefaultChoices } from '../../src/services/quiz-choice-utils';
 import { Question } from '../../src/types';
 
 function makeDefaultQuestion(overrides: Partial<Question> = {}): Question {
@@ -10,12 +11,7 @@ function makeDefaultQuestion(overrides: Partial<Question> = {}): Question {
     imageUrl: null,
     hint: null,
     limitTime: null,
-    choices: [
-      { id: '1', choiceText: '選択肢 1', isCorrect: true, selectedCount: 0 },
-      { id: '2', choiceText: '選択肢 2', isCorrect: false, selectedCount: 0 },
-      { id: '3', choiceText: '選択肢 3', isCorrect: false, selectedCount: 0 },
-      { id: '4', choiceText: '選択肢 4', isCorrect: false, selectedCount: 0 },
-    ],
+    choices: createDefaultChoices(),
     correctCount: 0,
     incorrectCount: 0,
     ...overrides,
@@ -29,6 +25,16 @@ describe('hasQuestionUserInput', () => {
 
   it('returns true when question text is entered', () => {
     expect(hasQuestionUserInput(makeDefaultQuestion({ questionText: 'Reactとは？' }))).toBe(true);
+  });
+
+  it('returns true when choice count differs from the default', () => {
+    expect(
+      hasQuestionUserInput(
+        makeDefaultQuestion({
+          choices: createDefaultChoices(5),
+        })
+      )
+    ).toBe(true);
   });
 
   it('returns true when choice text is changed from the default', () => {

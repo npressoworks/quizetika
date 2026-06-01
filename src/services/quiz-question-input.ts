@@ -1,15 +1,14 @@
 import { Question } from '@/types';
+import { isDefaultChoiceSet } from '@/services/quiz-choice-utils';
 
 const DEFAULT_TEXT_ANSWER = '正解テキスト';
 const DEFAULT_ASSOCIATION_HINT = 'ヒント 1';
-const DEFAULT_MULTIPLE_CHOICE_COUNT = 4;
 const DEFAULT_SORTING_ITEM_COUNT = 2;
 
 function hasMultipleChoiceUserInput(q: Question): boolean {
   if (!q.choices) return false;
-  if (q.choices.length !== DEFAULT_MULTIPLE_CHOICE_COUNT) return true;
-  if (q.choices.some((choice, idx) => choice.isCorrect !== (idx === 0))) return true;
-  return q.choices.some((choice, idx) => choice.choiceText !== `選択肢 ${idx + 1}`);
+  if (!isDefaultChoiceSet(q.choices)) return true;
+  return false;
 }
 
 function hasTextAnswerUserInput(q: Question): boolean {

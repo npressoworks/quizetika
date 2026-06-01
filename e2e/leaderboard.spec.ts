@@ -100,7 +100,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
         await dialog.accept();
       });
 
-      await page.locator('text=公開申請する').click();
+      await page.locator('text=公開').click();
       await expect.poll(() => publishDialog).toBe(true);
       await page.goto('/');
       await firstQuizCard.waitFor({ state: 'visible', timeout: 15000 });
@@ -348,7 +348,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
         await dialog.accept();
       });
 
-      await page.locator('text=公開申請する').click();
+      await page.locator('text=公開').click();
       await expect.poll(() => publishDialog).toBe(true);
       await page.goto('/');
       await firstQuizCard.waitFor({ state: 'visible', timeout: 15000 });

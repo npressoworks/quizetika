@@ -230,6 +230,37 @@ describe('validateQuizForPublish', () => {
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
+    test('選択肢問題で選択肢が1個のみの場合エラーを返す', () => {
+      const questionWithOneChoice = makeQuestion({
+        choices: [makeChoice({ id: 'c1', isCorrect: true })],
+      });
+      const quiz = makeQuiz({ questions: [questionWithOneChoice] });
+      const errors = validateQuizForPublish(quiz);
+      expect(errors.some((e) => e.field === 'questions')).toBe(true);
+    });
+
+    test('選択肢問題で選択肢が11個以上の場合エラーを返す', () => {
+      const questionWithTooManyChoices = makeQuestion({
+        choices: Array.from({ length: 11 }, (_, i) =>
+          makeChoice({ id: `c${i + 1}`, isCorrect: i === 0 })
+        ),
+      });
+      const quiz = makeQuiz({ questions: [questionWithTooManyChoices] });
+      const errors = validateQuizForPublish(quiz);
+      expect(errors.some((e) => e.field === 'questions')).toBe(true);
+    });
+
+    test('選択肢問題で2〜10個の選択肢と正解が設定されている場合エラーを返さない', () => {
+      const questionWithTenChoices = makeQuestion({
+        choices: Array.from({ length: 10 }, (_, i) =>
+          makeChoice({ id: `c${i + 1}`, isCorrect: i === 0 })
+        ),
+      });
+      const quiz = makeQuiz({ questions: [questionWithTenChoices] });
+      const errors = validateQuizForPublish(quiz);
+      expect(errors.some((e) => e.field === 'questions')).toBe(false);
+    });
+
     test('text-input問題でcorrectTextAnswerListが空の場合エラーを返す', () => {
       const questionWithNoAnswer = makeQuestion({
         type: 'text-input',

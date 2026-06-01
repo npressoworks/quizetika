@@ -34,8 +34,8 @@ async function ensureSharedNormalQuiz(page: any, dialogMessages: string[]) {
   await choiceInputs.nth(2).fill('useContext');
   await choiceInputs.nth(3).fill('useRef');
 
-  // 公開申請する
-  const publishBtn = page.locator('text=公開申請する');
+  // 公開
+  const publishBtn = page.locator('text=公開');
   await expect(publishBtn).toBeVisible();
   await publishBtn.click();
 

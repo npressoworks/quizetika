@@ -10,7 +10,7 @@
  * Requirements: 3.2, 3.3
  */
 
-import { Attempt } from '../types';
+import { Attempt, QuestionAnswerRecord } from '../types';
 
 /* ==========================================================================
    定数 / キー設計
@@ -42,6 +42,8 @@ export interface PlayProgressData {
   answeredQuestionIds: string[];
   /** 不正解だった問題IDリスト */
   failedQuestionIds: string[];
+  /** 設問ごとのユーザー回答 */
+  questionAnswers?: Record<string, string>;
   /** 現在の正解数 */
   currentScore: number;
   /** 全問題数 */
@@ -67,6 +69,7 @@ export interface PendingSyncAttempt {
   totalQuestions: number;
   elapsedSeconds: number;
   failedQuestionIds: string[];
+  questionAnswers?: QuestionAnswerRecord[];
   difficultyVote?: number | null;
   aiTurnCount: number;
   aiTurnLimit: number | null;

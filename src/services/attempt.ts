@@ -274,6 +274,7 @@ function pendingSyncToAttempt(pending: PendingSyncAttempt): Omit<Attempt, 'id'> 
     totalQuestions: pending.totalQuestions,
     elapsedSeconds: pending.elapsedSeconds,
     failedQuestionIds: pending.failedQuestionIds,
+    questionAnswers: pending.questionAnswers,
     difficultyVote: pending.difficultyVote ?? null,
     aiTurnCount: pending.aiTurnCount,
     aiTurnLimit: pending.aiTurnLimit,

@@ -15,6 +15,7 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
   const [currentIdx, setCurrentIdx] = useState<number>(0);
   const [answeredIds, setAnsweredIds] = useState<string[]>([]);
   const [failedIds, setFailedIds] = useState<string[]>([]);
+  const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
   const [score, setScore] = useState<number>(0);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -32,6 +33,7 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     if (saved && saved.mode === mode && saved.totalQuestions === questions.length) {
       setAnsweredIds(saved.answeredQuestionIds);
       setFailedIds(saved.failedQuestionIds);
+      setQuestionAnswers(saved.questionAnswers ?? {});
       setScore(saved.currentScore);
       setElapsedSeconds(saved.elapsedSeconds);
       
@@ -57,6 +59,7 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
       startedAt: new Date().toISOString(),
       answeredQuestionIds: answeredIds,
       failedQuestionIds: failedIds,
+      questionAnswers,
       currentScore: score,
       totalQuestions: questions.length,
       elapsedSeconds,
@@ -66,7 +69,7 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     if (answeredIds.length < questions.length) {
       LocalAttemptSession.save(quizId, userId, progress);
     }
-  }, [quizId, userId, mode, answeredIds, failedIds, score, elapsedSeconds, questions]);
+  }, [quizId, userId, mode, answeredIds, failedIds, questionAnswers, score, elapsedSeconds, questions]);
 
   // タイマー処理
   useEffect(() => {
@@ -175,6 +178,11 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
       }
     }
 
+    setQuestionAnswers((prev) => ({
+      ...prev,
+      [currentQuestion.id]: answerTextOrChoiceId,
+    }));
+
     // 次の設問へ進む (試験モード以外は自動で進む)
     if (mode !== 'exam') {
       if (currentIdx < questions.length - 1) {
@@ -196,6 +204,7 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     setCurrentIdx,
     answeredIds,
     failedIds,
+    questionAnswers,
     score,
     elapsedSeconds,
     timeLeft,

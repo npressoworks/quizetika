@@ -168,6 +168,11 @@ export interface AiQuestion {
 }
 
 // クイズ挑戦結果 (APIやローカル再生の記録用)
+export interface QuestionAnswerRecord {
+  questionId: string;
+  userAnswer: string;
+}
+
 export interface Attempt {
   id: string;
   userId: string;
@@ -178,6 +183,7 @@ export interface Attempt {
   totalQuestions: number; // 全問題数
   elapsedSeconds: number; // 経過秒数
   failedQuestionIds: string[]; // 間違えた問題ID配列
+  questionAnswers?: QuestionAnswerRecord[]; // 設問ごとのユーザー回答（表示用）
   difficultyVote?: number | null; // 難易度投票値
   aiQuestionsHistory?: AiQuestion[]; // AI対話履歴
   aiTurnCount: number;    // 質問ターン数
