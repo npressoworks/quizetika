@@ -4,15 +4,27 @@ import { useState, useEffect, useRef } from 'react';
 import { Quiz, Question } from '@/types';
 import { LocalAttemptSession, PlayProgressData } from '@/services/attempt-session';
 import { isTextInputAnswerCorrect } from '@/services/text-answer-utils';
+import { canJudgeQuestion, checkTruthKeywordsLocally } from '@/lib/test-play';
 
 interface UsePlayStateProps {
   quizId: string;
   userId: string;
   mode: 'normal' | 'exam' | 'flashcard';
   questions: Question[];
+  /** false のとき localStorage セッションを読み書きしない（テストプレイ用） */
+  persistSession?: boolean;
+  /** true のとき正解設定が不完全な設問は正誤判定をスキップする */
+  skipJudgmentWhenIncomplete?: boolean;
 }
 
-export function usePlayState({ quizId, userId, mode, questions }: UsePlayStateProps) {
+export function usePlayState({
+  quizId,
+  userId,
+  mode,
+  questions,
+  persistSession = true,
+  skipJudgmentWhenIncomplete = false,
+}: UsePlayStateProps) {
   const [currentIdx, setCurrentIdx] = useState<number>(0);
   const [answeredIds, setAnsweredIds] = useState<string[]>([]);
   const [failedIds, setFailedIds] = useState<string[]>([]);
@@ -29,6 +41,7 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
   useEffect(() => {
     if (!quizId || !userId || isInitialized.current) return;
     isInitialized.current = true;
+    if (!persistSession) return;
 
     const saved = LocalAttemptSession.load(quizId, userId);
     if (saved && saved.mode === mode && saved.totalQuestions === questions.length) {
@@ -47,11 +60,11 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
         setCurrentIdx(questions.length - 1);
       }
     }
-  }, [quizId, userId, mode, questions]);
+  }, [quizId, userId, mode, questions, persistSession]);
 
   // localStorage への自動シリアライズ保存
   useEffect(() => {
-    if (!quizId || !userId || !isInitialized.current) return;
+    if (!persistSession || !quizId || !userId || !isInitialized.current) return;
 
     const progress: PlayProgressData = {
       quizId,
@@ -70,7 +83,7 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     if (answeredIds.length < questions.length) {
       LocalAttemptSession.save(quizId, userId, progress);
     }
-  }, [quizId, userId, mode, answeredIds, failedIds, questionAnswers, score, elapsedSeconds, questions]);
+  }, [quizId, userId, mode, answeredIds, failedIds, questionAnswers, score, elapsedSeconds, questions, persistSession]);
 
   // タイマー処理
   useEffect(() => {
@@ -120,9 +133,12 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     if (mode !== 'exam' && answeredIds.includes(currentQuestion.id)) return;
 
     let isCorrect = false;
+    const judgeable = !skipJudgmentWhenIncomplete || canJudgeQuestion(currentQuestion);
 
     // 正誤判定ロジック
-    if (mode === 'flashcard') {
+    if (!judgeable) {
+      isCorrect = false;
+    } else if (mode === 'flashcard') {
       // 暗記カード（フラッシュカード）モードは自己申告による正誤判定
       isCorrect = answerTextOrChoiceId === 'correct';
     } else if (currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') {
@@ -157,6 +173,11 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
           return item?.correctOrder === idx;
         });
       }
+    } else if (currentQuestion.type === 'lateral-thinking') {
+      isCorrect = checkTruthKeywordsLocally(
+        answerTextOrChoiceId,
+        currentQuestion.truthKeywords ?? []
+      );
     }
 
     // 回答ログの追加
@@ -167,12 +188,14 @@ export function usePlayState({ quizId, userId, mode, questions }: UsePlayStatePr
     }
 
     const nextFailed = [...failedIds];
-    if (isCorrect) {
-      setScore((prev) => prev + 1);
-    } else {
-      if (!nextFailed.includes(currentQuestion.id)) {
-        nextFailed.push(currentQuestion.id);
-        setFailedIds(nextFailed);
+    if (judgeable) {
+      if (isCorrect) {
+        setScore((prev) => prev + 1);
+      } else {
+        if (!nextFailed.includes(currentQuestion.id)) {
+          nextFailed.push(currentQuestion.id);
+          setFailedIds(nextFailed);
+        }
       }
     }
 

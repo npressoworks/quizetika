@@ -70,7 +70,7 @@ test.describe('クイズ検索・探索機能 E2Eテスト', () => {
     
     // 9. ジャンルナビゲーションの検証
     // ナビゲーションボタンはページ上に複数可内容があるため、getByRoleで接ボタンだけを特定
-    const programmingGenreBtn = page.getByRole('button', { name: /コンピュータ・プログラミング/ });
+    const programmingGenreBtn = page.getByRole('button', { name: /コンピュータ・IT/ });
     await expect(programmingGenreBtn).toBeVisible();
     await programmingGenreBtn.click();
     await page.waitForTimeout(500);

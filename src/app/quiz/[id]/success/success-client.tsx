@@ -65,7 +65,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
       programming: 'プログラミング / IT',
       history: '歴史 / 世界史',
       science: '科学 / 自然科学',
-      anime: 'アニメ / エンタメ',
+      anime: 'アニメ / ゲーム',
       sports: 'スポーツ / 運動',
       general: '一般常識 / 雑学',
     };

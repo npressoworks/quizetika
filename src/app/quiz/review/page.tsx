@@ -18,7 +18,7 @@ const REVIEW_GENRES = [
   { id: 'science', label: '科学・宇宙', icon: '🌌' },
   { id: 'art', label: 'アート・デザイン', icon: '🎨' },
   { id: 'sports', label: 'スポーツ', icon: '⚽' },
-  { id: 'entertainment', label: 'エンタメ', icon: '🎮' },
+  { id: 'entertainment', label: 'ゲーム', icon: '🎮' },
 ];
 
 export default function ReviewPage() {

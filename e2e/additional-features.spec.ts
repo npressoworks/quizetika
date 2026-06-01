@@ -251,8 +251,8 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
     // 1. ホームページへアクセス
     await page.goto('/');
 
-    // 2. ジャンルボタン（コンピュータ・プログラミング）をクリック
-    const genreBtn = page.getByRole('button', { name: /コンピュータ・プログラミング/ });
+    // 2. ジャンルボタン（コンピュータ・IT）をクリック
+    const genreBtn = page.getByRole('button', { name: /コンピュータ・IT/ });
     await expect(genreBtn).toBeVisible({ timeout: 10000 });
     await genreBtn.click();
     await page.waitForTimeout(500);

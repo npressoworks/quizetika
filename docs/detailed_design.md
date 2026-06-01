@@ -213,6 +213,86 @@ sequenceDiagram
     end
 ```
 
+#### 1.2.1 テストプレイフロー（F-206）
+公開前のクイズを、作問エディタ上の編集中データのまま実際のプレイ画面で確認するフローです。Firestore への書き込みは行わず、統計・履歴への影響を完全に遮断します。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Creator as 作家 (クリエイター)
+    participant QE as クイズ作成・編集画面 (/quiz/create, /quiz/[id]/edit)
+    participant SS as sessionStorage
+    participant TP as テストプレイ画面 (/quiz/test-play/play)
+    participant TR as テストプレイ結果画面 (/quiz/test-play/result)
+
+    Creator->>QE: 設問・メタ情報を編集中
+    Creator->>QE: 「テストプレイ」をクリック
+    QE->>QE: 最小バリデーション（問題文入力済み設問 >= 1）
+    alt プレイ可能な設問が0件
+        QE-->>Creator: 「テストプレイするには、問題文が入力された設問を1問以上追加してください」
+    else プレイ可能
+        QE->>SS: TestPlayPayload を保存<br>(quizDraft, sourcePath, createdAt)
+        QE->>TP: /quiz/test-play/play?mode=normal へ遷移
+        Note over TP: Firestore からクイズを取得しない<br>sessionStorage の draft を読み込み
+        TP->>TP: 通常プレイと同一 UI で解答・正誤判定（1.1.1 ロジック再利用）
+        loop 設問解答ごと
+            Creator->>TP: 解答を選択/入力
+            TP->>TP: 正誤判定（正解未設定時は判定スキップ＋解説のみ）
+        end
+        Creator->>TP: 全問解答完了
+        Note over TP: saveAttempt / playCount / 統計更新は呼び出さない
+        TP->>SS: テストプレイ結果（questionAnswers, score）を一時保存
+        TP->>TR: /quiz/test-play/result へ遷移
+        TR-->>Creator: 正誤一覧・解説を表示（ソーシャル UI 非表示）
+        Creator->>TR: 「編集画面に戻る」をクリック
+        TR->>QE: router.back() または sourcePath へ復帰
+        TR->>SS: TestPlayPayload / 結果データを破棄
+    end
+```
+
+**データ受け渡し仕様 (`TestPlayPayload`)**:
+* **保存先**: `sessionStorage` キー `quizeum_test_play_payload`（タブ単位。ブラウザを閉じると破棄）。
+* **ペイロード構造**:
+  ```typescript
+  interface TestPlayPayload {
+    quizDraft: Omit<Quiz, 'id'> & { id?: string }; // エディタ state のスナップショット
+    sourcePath: string;   // 復帰先（例: /quiz/create, /quiz/[id]/edit）
+    authorId: string;     // 本人確認用（他ユーザーの payload 改ざん防止）
+    createdAt: number;    // Unix ms。24時間超過で無効化
+  }
+  ```
+* **エディタ → ペイロード変換**: `quiz-editor.tsx` の保存処理と同じ正規化（設問 ID 付与、format 反映）を適用するが、`validateQuizForPublish` および NG ワードチェックは**スキップ**する。
+
+**プレイ画面の分岐 (`/quiz/test-play/play`)**:
+* マウント時に `sessionStorage` から `TestPlayPayload` を読み込む。未存在・`authorId !== 現在の uid`・24時間 TTL 超過の場合は作問画面へリダイレクトしエラートーストを表示。
+* `usePlayState` を通常プレイと共用するが、`isTestPlay: true` フラグを渡し、完了時の `saveAttempt` 呼び出しをガードする。
+* 早押し・並び替え・記述式等の判定ロジックは 1.1.1 と同一。`quick-press` の Base64 難読化も適用する。
+* **水平思考（`lateral-thinking`）**: テストプレイ中は `/api/attempt/ask-ai` および `/api/attempt/verify-truth` を**呼び出さない**。AI チャット UI の代わりに「テストプレイでは AI 判定は利用できません。公開後にご確認ください。」の案内バナーを表示し、真相入力があれば `truthKeywords` のローカル部分一致判定のみ実行する（キーワード未設定時は判定不可メッセージ）。
+
+**結果画面の分岐 (`/quiz/test-play/result`)**:
+* 画面上部に「🔬 テストプレイモード（統計・履歴には記録されません）」バナーを常時表示。
+* 良問評価・体感難易度投票・間違い指摘・作家リアクション・SNS 共有・設問ブックマーク・マイリスト追加 UI は**非表示**。
+* 「編集画面に戻る」ボタンのみを主要アクションとし、`sourcePath` または `history.back()` で作問画面へ復帰。
+* `sessionStorage` の `quizeum_test_play_payload` および `quizeum_test_play_result` を破棄する。
+
+**統計・永続化の遮断一覧**:
+
+| 通常プレイで実行される処理 | テストプレイ |
+| :--- | :--- |
+| `saveAttempt` → `attempts` 作成 | **実行しない** |
+| `quizzes.playCount` インクリメント | **実行しない** |
+| 設問 `correctCount` / `incorrectCount` 更新 | **実行しない** |
+| `updateLeaderboard` | **実行しない** |
+| `checkAndAwardBadges` | **実行しない** |
+| `updateFailedQuestions`（復習） | **実行しない** |
+| 良問評価・リアクション・指摘 | **UI 非表示・実行しない** |
+| AI 質問ターンカウント | **実行しない** |
+
+**セキュリティ**:
+* テストプレイルートは認証必須（未ログイン時は `/login?redirect=...`）。
+* `TestPlayPayload.authorId` がログインユーザーの `uid` と一致しない場合は payload を拒否（他者の draft 流用防止）。
+* テストプレイデータは `sessionStorage` のみに保持し、Firestore / API へ送信しない（水平思考 AI を除くローカル判定のみ）。
+
 ---
 
 ### 1.3 間違い指摘フィードバック修正完了オート通知フロー

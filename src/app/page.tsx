@@ -18,12 +18,12 @@ import { Book, Code, Globe, History, Palette, Trophy, Search, SlidersHorizontal,
 // 主要ジャンルナビゲーション用データ
 const GENRES = [
   { id: '', label: 'すべて', icon: '✨' },
-  { id: 'programming', label: 'コンピュータ・プログラミング', icon: '💻' },
+  { id: 'programming', label: 'コンピュータ・IT', icon: '💻' },
   { id: 'history', label: '歴史', icon: '📜' },
   { id: 'science', label: '科学・宇宙', icon: '🌌' },
   { id: 'art', label: 'アート・デザイン', icon: '🎨' },
   { id: 'sports', label: 'スポーツ', icon: '⚽' },
-  { id: 'entertainment', label: 'エンタメ', icon: '🎮' },
+  { id: 'entertainment', label: 'ゲーム', icon: '🎮' },
 ];
 
 export default function Home() {

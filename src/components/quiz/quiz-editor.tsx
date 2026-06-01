@@ -14,8 +14,9 @@ import {
 } from '@/services/quiz-choice-utils';
 import { Quiz, Question } from '@/types';
 import styles from '@/app/quiz/create/create.module.css';
-import { Trash2, Plus, Info, AlertTriangle, Image, ArrowLeft, Save, Send, HelpCircle } from 'lucide-react';
+import { Trash2, Plus, Info, AlertTriangle, Image, ArrowLeft, Save, Send, HelpCircle, Play } from 'lucide-react';
 import { SortableSortingList, reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
+import { buildTestPlayPayload, hasPlayableQuestions, saveTestPlayPayload } from '@/lib/test-play';
 
 interface QuizEditorProps {
   quizId?: string; // 編集モードの場合はIDが渡される
@@ -744,6 +745,56 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     setThumbnailUrl(dummyUrl);
   };
 
+  const handleTestPlay = () => {
+    if (!user) {
+      alert('ログインが必要です。');
+      return;
+    }
+    if (!hasPlayableQuestions(questions)) {
+      alert('テストプレイするには、問題文が入力された設問を1問以上追加してください。');
+      return;
+    }
+
+    const sourcePath = quizId ? `/quiz/${quizId}/edit` : '/quiz/create';
+    const now = new Date();
+    const quizData = {
+      authorId: user.id,
+      authorName: user.displayName,
+      authorAvatar: user.avatarUrl,
+      title,
+      description,
+      thumbnailUrl,
+      difficulty,
+      genre,
+      tags,
+      originalTags,
+      questionIds: questions.map((q) => q.id),
+      questions,
+      questionCount: questions.length,
+      status: 'draft' as const,
+      format,
+      playCount: 0,
+      bookmarksCount: 0,
+      flagsCount: 0,
+      positiveCount: 0,
+      negativeCount: 0,
+      tempPositiveCount: 0,
+      tempNegativeCount: 0,
+      reviewScore: null,
+      reviewBadge: null,
+      isReviewMasked: false,
+      activeResetRequestId: null,
+      canonicalGenreId: '',
+      canonicalTagIds: [],
+      leaderboard: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    saveTestPlayPayload(buildTestPlayPayload(quizData, sourcePath, user.id));
+    router.push('/quiz/test-play/play?mode=normal');
+  };
+
   // 保存処理 (status = 'draft' | 'published')
   const handleSave = async (status: 'draft' | 'published') => {
     if (!user) {
@@ -1080,7 +1131,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                         <option value="programming">プログラミング / IT</option>
                         <option value="history">歴史 / 世界史</option>
                         <option value="science">科学 / 自然科学</option>
-                        <option value="anime">アニメ / エンタメ</option>
+                        <option value="anime">アニメ / ゲーム</option>
                         <option value="sports">スポーツ / 運動</option>
                         <option value="general">一般常識 / 雑学</option>
                       </select>
@@ -1680,6 +1731,16 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         >
           <Save size={18} />
           下書き保存
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={handleTestPlay}
+          disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+        >
+          <Play size={18} />
+          テストプレイ
         </button>
         <button
           type="button"
