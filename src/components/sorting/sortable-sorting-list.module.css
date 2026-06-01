@@ -1,0 +1,59 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--glass-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-light, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 8px);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.itemDragging {
+  opacity: 0.85;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-color: var(--color-primary, #9d4edd);
+  z-index: 1;
+}
+
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #888);
+  cursor: grab;
+  border-radius: var(--radius-sm, 4px);
+  touch-action: none;
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+}
+
+.dragHandle:hover {
+  color: var(--text-main, #fff);
+  background: rgba(157, 78, 221, 0.1);
+}
+
+.itemIndex {
+  flex-shrink: 0;
+  min-width: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary, #9d4edd);
+  font-size: 0.9rem;
+}
+
+.itemBody {
+  flex: 1;
+  min-width: 0;
+}

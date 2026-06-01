@@ -14,6 +14,7 @@ import { addPendingSyncAttempt, generateLocalId } from '@/services/attempt-sessi
 import { Quiz, Attempt, Question } from '@/types';
 import { auth } from '@/lib/firebase/config';
 import styles from './play.module.css';
+import { SortableSortingList } from '@/components/sorting/sortable-sorting-list';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -428,18 +429,6 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       setActiveHintIdx(0);
     }
   }, [currentIdx, quiz]);
-
-  // 並び替え要素の上下スワップ移動処理
-  const moveSortingItem = (index: number, direction: 'up' | 'down') => {
-    const nextIndex = direction === 'up' ? index - 1 : index + 1;
-    if (nextIndex < 0 || nextIndex >= sortingItems.length) return;
-    
-    const nextItems = [...sortingItems];
-    const temp = nextItems[index];
-    nextItems[index] = nextItems[nextIndex];
-    nextItems[nextIndex] = temp;
-    setSortingItems(nextItems);
-  };
 
   // 4. ヒント表示モーダル制御
   const [showHint, setShowHint] = useState<boolean>(false);
@@ -889,32 +878,23 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
         {/* 4. 並び替えクイズのUI */}
         {currentQuestion?.type === 'sorting' && (
           <div className={styles.sortingArea}>
-            <div className={styles.sortingList}>
-              {sortingItems.map((item, idx) => (
-                <div key={item.id} className={styles.sortingItem}>
-                  <span className={styles.sortingItemIndex}>{idx + 1}</span>
-                  <span className={styles.sortingItemText}>{item.text}</span>
-                  <div className={styles.sortingItemActions}>
-                    <button
-                      className={`${styles.sortMoveBtn} btn btn-secondary btn-sm`}
-                      onClick={() => moveSortingItem(idx, 'up')}
-                      disabled={idx === 0}
-                      title="上へ"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      className={`${styles.sortMoveBtn} btn btn-secondary btn-sm`}
-                      onClick={() => moveSortingItem(idx, 'down')}
-                      disabled={idx === sortingItems.length - 1}
-                      title="下へ"
-                    >
-                      ▼
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className={styles.sortingHint}>ドラッグハンドルで要素を正しい順序に並べ替えてください。</p>
+            <SortableSortingList
+              items={sortingItems}
+              listClassName={styles.sortingList}
+              onReorder={(items) =>
+                setSortingItems(
+                  items.map((item, idx) => ({
+                    id: item.id,
+                    text: item.text,
+                    correctOrder: item.correctOrder ?? idx,
+                  }))
+                )
+              }
+              renderItemContent={(item) => (
+                <span className={styles.sortingItemText}>{item.text}</span>
+              )}
+            />
             <button
               className="btn btn-primary"
               style={{ width: '100%', marginTop: '20px' }}

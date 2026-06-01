@@ -538,3 +538,28 @@
     box-shadow: 0 0 0 0 rgba(0, 245, 212, 0);
   }
 }
+
+/* 並び替えクイズ */
+.sortingArea {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.sortingHint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.sortingList {
+  width: 100%;
+}
+
+.sortingItemText {
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+}

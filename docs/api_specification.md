@@ -269,6 +269,11 @@ export interface LeaderboardRecord {
 - **`genre`**: `metadata_genres` コレクションに存在する有効なジャンルIDでなければなりません。未選択や空文字は許容されません。
 - **`tags`**: 最大5個までの文字列配列。各要素はフロントエンドで事前に「自動名寄せ（空白/記号の排除、小文字化）」が適用された、15文字以内の正規化タグID配列である必要があります。
 
+**並び替えクイズ（`type: 'sorting'`）のUI・解答データ連携**:
+- 作問時・プレイ時とも、並び替え要素リストの順序変更は**ドラッグ＆ドロップ**（推奨: `@dnd-kit/core`）で行う。上下ボタンによる順序変更UIは仕様外とする。
+- 作問時: エディタ上の表示順に応じて各 `SortingItem.correctOrder` を 0 から `N-1` まで自動採番して保存する。
+- プレイ時: `sortingItems` をシャッフル表示し、確定時に並べ替え後の要素 `id` をカンマ区切り文字列として `handleAnswerSubmit` に渡す。正誤は各IDの表示インデックスと `correctOrder` の一致で判定する。
+
 ```typescript
 import { z } from 'zod';
 
@@ -344,7 +349,7 @@ export const questionSchema = z.object({
       });
     }
   }
-  // 並び替えクイズ (sorting): 提示された複数の要素を、正しい順番（インデックス）にドラッグ＆ドロップ等で並び替える形式
+  // 並び替えクイズ (sorting): 2〜6要素。作問・プレイUIはドラッグ＆ドロップで順序を操作し、correctOrder は表示順の0始まり連番
   if (data.type === 'sorting') {
     if (!data.sortingItems || data.sortingItems.length < 2 || data.sortingItems.length > 6) {
       ctx.addIssue({

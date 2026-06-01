@@ -84,11 +84,17 @@ sequenceDiagram
 #### 1.1.1 並び替えクイズおよび連想クイズの解答判定仕様
 
 ##### ① 並び替えクイズ (sorting) の判定ロジック
+* **UI実装方針（作問・プレイ共通）**:
+  - 並び替え要素の順序入れ替えは、**ドラッグ＆ドロップのみ**を正規の操作とする。上下ボタン（▲/▼）やクリックによる1枠ずつの入れ替えUIは採用しない。
+  - 推奨ライブラリ: `@dnd-kit/core`（`DndContext` / `SortableContext` / `useSortable`）。タッチ端末では `PointerSensor` の activationConstraint（例: 8px）で誤タップとドラッグを区別する。キーボード操作（`KeyboardSensor`）でアクセシビリティを担保する。
+  - **作問エディタ**（`quiz-editor.tsx` 想定）: 2〜6個の要素テキスト入力欄をソート可能リストとして表示。ドラッグ終了（`onDragEnd`）時に配列順を更新し、各 `SortingItem.correctOrder` を表示インデックス（0〜N-1）へ再採番して state / 保存ペイロードに反映する。
+  - **プレイ画面**（`/quiz/[id]/play`）: 設問切り替え時に `sortingItems` を Fisher–Yates 等でシャッフルし、ソート可能リストにバインド。各カード左にドラッグハンドル（`aria-grabbed` 等）を配置し、ドラッグ中は `transform` / `transition` による視覚フィードバックを付与する。
 * **UIアクションとステート制御**:
-  - 設問に紐づく `sortingItems` 配列（2〜6要素）を取得し、表示順を初期シャッフルした状態でドラッグ＆ドロップ可能なリスト（Dnd-Kit等のコンポーネント）にバインドします。
-  - ユーザーが要素を並び替え、「解答を確定する」ボタンをクリックした時点で判定処理を起動します。
+  - 設問に紐づく `sortingItems` 配列（2〜6要素）を取得し、表示順を初期シャッフルした状態でドラッグ＆ドロップ可能なリストにバインドします。
+  - ユーザーがドラッグ＆ドロップで要素を並び替え、「解答を確定する」ボタンをクリックした時点で判定処理を起動します。
+  - 確定時の解答ペイロードは、並べ替え後の `sortingItems` から `id` を抽出したカンマ区切り文字列（例: `"uuid-c,uuid-a,uuid-b"`）とし、`handleAnswerSubmit(sortedIds)` に渡します。
 * **正誤判定ロジック (Client-side)**:
-  - ユーザーが並び替えた後の要素配列（`userSortedItems`）をループ走査し、各要素のインデックス（`currentIndex`）が、その要素オブジェクトの持つ `correctOrder`（0〜Nの正しいインデックス）と完全一致しているかを全要素で検証します。
+  - `usePlayState` 等で `sortedIds` を `,` で分割し、各インデックス `currentIndex` について対応する `SortingItem` の `correctOrder` と一致するか検証します（`userSortedItems` 配列走査と等価）。
   - すべての要素において `currentIndex === item.correctOrder` が成立する場合のみ正解（`isCorrect = true`）と判定します。1つでもインデックスが合致しない要素があれば、不正解（`isCorrect = false`）と判定します。
 
 ##### ② 連想クイズ (association) の判定ロジック

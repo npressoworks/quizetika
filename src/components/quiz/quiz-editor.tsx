@@ -8,6 +8,7 @@ import { validateQuizForPublish, normalizeTag, QuizPublishValidationError } from
 import { Quiz, Question, Choice } from '@/types';
 import styles from '@/app/quiz/create/create.module.css';
 import { Trash2, Plus, Info, AlertTriangle, Image, ArrowLeft, Save, Send, HelpCircle } from 'lucide-react';
+import { SortableSortingList, reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
 
 interface QuizEditorProps {
   quizId?: string; // 編集モードの場合はIDが渡される
@@ -482,24 +483,11 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     }
   };
 
-  // 並び替え要素の移動 (▲ / ▼)
-  const handleMoveSortingItem = (qIdx: number, itemIdx: number, direction: 'up' | 'down') => {
+  // 並び替え要素のドラッグ＆ドロップ並べ替え
+  const handleSortingItemsReorder = (qIdx: number, reorderedItems: { id: string; text: string; correctOrder?: number }[]) => {
     const nextQuestions = [...questions];
     if (nextQuestions[qIdx].sortingItems) {
-      const items = [...nextQuestions[qIdx].sortingItems!];
-      const targetIdx = direction === 'up' ? itemIdx - 1 : itemIdx + 1;
-      if (targetIdx < 0 || targetIdx >= items.length) return;
-
-      // 要素の入れ替え
-      const temp = items[itemIdx];
-      items[itemIdx] = items[targetIdx];
-      items[targetIdx] = temp;
-
-      // correctOrder を再割り当て
-      nextQuestions[qIdx].sortingItems = items.map((item, idx) => ({
-        ...item,
-        correctOrder: idx
-      }));
+      nextQuestions[qIdx].sortingItems = reindexCorrectOrder(reorderedItems);
       setQuestions(nextQuestions);
     }
   };
@@ -1045,45 +1033,38 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                   {/* 並び替えの設問入力 */}
                   {q.type === 'sorting' && q.sortingItems && (
                     <div className={styles.choicesList}>
-                      <label className={styles.label}>並び替え要素（上から正しい順序に並ぶように設定してください。2〜6要素）</label>
-                      {q.sortingItems.map((item, iIdx) => (
-                        <div key={item.id || iIdx} className={styles.choiceRow}>
-                          <div className={styles.sortingBtnGroup}>
+                      <label className={styles.label}>
+                        並び替え要素（ドラッグで上から正しい順序に並べてください。2〜6要素）
+                      </label>
+                      <SortableSortingList
+                        items={q.sortingItems}
+                        showIndex={false}
+                        onReorder={(reordered) => handleSortingItemsReorder(qIdx, reordered)}
+                        renderItemContent={(item) => (
+                          <div className={styles.choiceRow}>
+                            <input
+                              type="text"
+                              className={styles.input}
+                              value={item.text}
+                              onChange={(e) => {
+                                const itemIdx = q.sortingItems!.findIndex((s) => s.id === item.id);
+                                if (itemIdx >= 0) handleSortingItemTextChange(qIdx, itemIdx, e.target.value);
+                              }}
+                            />
                             <button
                               type="button"
-                              className={styles.sortingMoveBtn}
-                              disabled={iIdx === 0}
-                              onClick={() => handleMoveSortingItem(qIdx, iIdx, 'up')}
-                              title="上に移動"
+                              className={styles.removeQuestionBtn}
+                              onClick={() => {
+                                const itemIdx = q.sortingItems!.findIndex((s) => s.id === item.id);
+                                if (itemIdx >= 0) handleRemoveSortingItem(qIdx, itemIdx);
+                              }}
+                              title="この要素を削除"
                             >
-                              ▲
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.sortingMoveBtn}
-                              disabled={iIdx === q.sortingItems!.length - 1}
-                              onClick={() => handleMoveSortingItem(qIdx, iIdx, 'down')}
-                              title="下に移動"
-                            >
-                              ▼
+                              <Trash2 size={18} />
                             </button>
                           </div>
-                          <input
-                            type="text"
-                            className={styles.input}
-                            value={item.text}
-                            onChange={(e) => handleSortingItemTextChange(qIdx, iIdx, e.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className={styles.removeQuestionBtn}
-                            onClick={() => handleRemoveSortingItem(qIdx, iIdx)}
-                            title="この要素を削除"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      ))}
+                        )}
+                      />
                       <button
                         type="button"
                         className={styles.addTextAnswerBtn}
