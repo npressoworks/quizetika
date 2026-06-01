@@ -14,6 +14,8 @@ import {
 } from '@/services/quiz-choice-utils';
 import { Quiz, Question } from '@/types';
 import styles from '@/app/quiz/create/create.module.css';
+import { MarkdownFieldHint } from '@/components/markdown/markdown-field-hint';
+import { MarkdownPreview } from '@/components/markdown/markdown-preview';
 import { Trash2, Plus, Info, AlertTriangle, Image, ArrowLeft, Save, Send, HelpCircle, Play } from 'lucide-react';
 import { SortableSortingList, reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
 import { buildTestPlayPayload, hasPlayableQuestions, saveTestPlayPayload } from '@/lib/test-play';
@@ -1274,7 +1276,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                     <label className={styles.label}>問題文（必須）</label>
                     <textarea
                       className={`${styles.textarea} ${filterValidationErrors(validationErrors, { field: 'questions', questionIndex: qIdx, questionField: 'questionText' }).length > 0 ? styles.inputError : ''}`}
-                      placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"
+                      placeholder="例: Reactにおいて、**useState** で管理するのは？"
                       value={q.questionText}
                       onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
                       style={{ minHeight: '80px', resize: 'vertical' }}
@@ -1282,6 +1284,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                       minLength={5}
                       maxLength={500}
                     />
+                    <MarkdownFieldHint />
+                    <MarkdownPreview markdown={q.questionText} />
                     <FieldValidationMessages
                       errors={validationErrors}
                       field="questions"

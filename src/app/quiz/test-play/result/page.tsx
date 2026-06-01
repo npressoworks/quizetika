@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, X, ArrowLeft, MinusCircle } from 'lucide-react';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
+import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useAuth } from '@/context/auth-context';
 import {
   loadTestPlayPayload,
@@ -150,9 +151,10 @@ function TestPlayResultContent() {
                 </div>
               </div>
 
-              <p style={{ fontSize: '1.05rem', lineHeight: '1.5', marginTop: '8px' }}>
-                {q.type === 'quick-press' ? '（早押し問題）' : q.questionText}
-              </p>
+              <MarkdownContent
+                markdown={q.questionText}
+                className={styles.questionTextResult}
+              />
 
               {judgeable && (
                 <div className={styles.answerSummary}>

@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@google/generative-ai": "^0.24.1",
     "firebase": "^12.13.0",
+    "framer-motion": "^12.40.0",
     "isomorphic-dompurify": "^2.20.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Check, X, ShieldAlert, Award, Heart, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle, ArrowLeft, Trophy, CheckCircle, ChevronRight } from 'lucide-react';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
+import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useAuth } from '@/context/auth-context';
 import { getQuiz } from '@/services/quiz';
 import { getQuizList } from '@/services/quiz-list';
@@ -519,9 +520,10 @@ function QuizResultPageContent({ quizId }: ContentProps) {
                 </button>
               </div>
 
-              <p style={{ fontSize: '1.05rem', color: 'var(--text-main)', lineHeight: '1.5', marginTop: '8px' }}>
-                {q.questionText}
-              </p>
+              <MarkdownContent
+                markdown={q.questionText}
+                className={styles.questionTextResult}
+              />
 
               <div className={styles.answerSummary}>
                 <div className={styles.answerRow}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { getTextInputFieldProps } from '@/services/text-answer-utils';
-import React, { useEffect, useState, use, useRef } from 'react';
+import React, { useCallback, useEffect, useState, use, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Timer, HelpCircle, Send, CheckCircle, AlertTriangle, Play, Check, X, ShieldAlert } from 'lucide-react';
@@ -17,6 +17,9 @@ import { Quiz, Attempt, Question } from '@/types';
 import { auth } from '@/lib/firebase/config';
 import styles from './play.module.css';
 import { ChoiceAnswerPanel } from '@/components/quiz/choice-answer-panel';
+import { QuestionTextDisplay } from '@/components/quiz/question-text-display';
+import { MarkdownContent } from '@/components/markdown/markdown-content';
+import { useQuickPressStream } from '@/hooks/useQuickPressStream';
 import { SortableSortingList } from '@/components/sorting/sortable-sorting-list';
 import { formatCorrectAnswer } from '@/services/attempt-answer-display';
 
@@ -63,13 +66,13 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       try {
         const data = await getQuiz(quizId);
         
-        // カンニング防止：quick-press問題の問題文と正解リストをBase64で難読化
+        // カンニング防止：quick-press の本文は API ストリーム、正解は Base64 難読化
         if (data && data.questions) {
           data.questions = data.questions.map((q) => {
             if (q.type === 'quick-press') {
               return {
                 ...q,
-                questionText: btoa(unescape(encodeURIComponent(q.questionText))),
+                questionText: '',
                 correctTextAnswerList: q.correctTextAnswerList?.map((ans) =>
                   btoa(unescape(encodeURIComponent(ans)))
                 ) || [],
@@ -283,117 +286,55 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
     }
   };
 
-  // ────────── 早押しクイズ（一文字ずつ表示＆カンニング防止） ──────────
-  const [isReadingStarted, setIsReadingStarted] = useState<boolean>(false); // 問読みを開始したか
-  const [quickPressText, setQuickPressText] = useState<string>(''); // 現在表示中の問題文
-  const [isQuickPressed, setIsQuickPressed] = useState<boolean>(false); // 早押しボタンが押されたか
-  const [isQuickFinished, setIsQuickFinished] = useState<boolean>(false); // アニメーションが完了したか
-  const [instantFeedback, setInstantFeedback] = useState<'correct' | 'incorrect' | null>(null); // その場での解答結果
-  const [userAnswer, setUserAnswer] = useState<string>(''); // 入力した回答の保持
-  const [currentQuickPressTime, setCurrentQuickPressTime] = useState<number>(0); // 今回の早押し解答タイム (秒)
-  const [quickPressTimes, setQuickPressTimes] = useState<{ [questionId: string]: number }>({}); // 正解問題の早押しタイム記録
+  // ────────── 早押しクイズ（ストリーム表示＆カンニング防止） ──────────
+  const [isReadingStarted, setIsReadingStarted] = useState<boolean>(false);
+  const [isQuickPressed, setIsQuickPressed] = useState<boolean>(false);
+  const [instantFeedback, setInstantFeedback] = useState<'correct' | 'incorrect' | null>(null);
+  const [userAnswer, setUserAnswer] = useState<string>('');
+  const [currentQuickPressTime, setCurrentQuickPressTime] = useState<number>(0);
+  const [quickPressTimes, setQuickPressTimes] = useState<{ [questionId: string]: number }>({});
   const quickPressStartTimeRef = useRef<number | null>(null);
-  const quickIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const quickInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 問題インデックス変化時の早押し状態リセット
+  const quickPressQuestion =
+    quiz?.questions[currentIdx]?.type === 'quick-press'
+      ? quiz.questions[currentIdx]
+      : undefined;
+
+  const getQuickPressIdToken = useCallback(
+    async () => (await auth.currentUser?.getIdToken()) ?? null,
+    []
+  );
+
+  const onQuickPressBodyStart = useCallback(() => {
+    quickPressStartTimeRef.current = Date.now();
+  }, []);
+
+  const {
+    displayMarkdown: quickPressDisplayMarkdown,
+    cancelStream: cancelQuickPressStream,
+  } = useQuickPressStream({
+    enabled: Boolean(quickPressQuestion && isReadingStarted),
+    mode: 'api',
+    quizId,
+    questionId: quickPressQuestion?.id ?? '',
+    getIdToken: getQuickPressIdToken,
+    onBodyTimingStart: onQuickPressBodyStart,
+  });
+
   useEffect(() => {
     setIsReadingStarted(false);
     setIsQuickPressed(false);
-    setIsQuickFinished(false);
-    setQuickPressText('');
     setInstantFeedback(null);
     setUserAnswer('');
     setCurrentQuickPressTime(0);
     quickPressStartTimeRef.current = null;
-    if (quickIntervalRef.current) {
-      clearInterval(quickIntervalRef.current);
-      quickIntervalRef.current = null;
-    }
   }, [currentIdx]);
 
-  // 早押しクイズの表示更新アニメーション（問読み開始後に動作）
-  useEffect(() => {
-    if (!quiz || currentIdx >= quiz.questions.length) return;
-    const currentQuestion = quiz.questions[currentIdx];
-
-    // インターバルのクリーンアップ
-    if (quickIntervalRef.current) {
-      clearInterval(quickIntervalRef.current);
-      quickIntervalRef.current = null;
-    }
-
-    if (currentQuestion.type === 'quick-press' && isReadingStarted) {
-      setQuickPressText('');
-      setIsQuickFinished(false);
-
-      let startTimeout: NodeJS.Timeout | null = null;
-      const labelText = '問題：';
-      let labelIdx = 0;
-
-      try {
-        // Base64 から元の問題文を復号
-        const decodedQuestion = decodeURIComponent(escape(atob(currentQuestion.questionText)));
-        const fullText = decodedQuestion;
-
-        // ステップ1: 「問題：」を1文字 200ms でアニメーション表示
-        quickIntervalRef.current = setInterval(() => {
-          labelIdx++;
-          if (labelIdx <= labelText.length) {
-            setQuickPressText(labelText.slice(0, labelIdx));
-          } else {
-            // 「問題：」が表示し終わったらインターバルをクリア
-            if (quickIntervalRef.current) {
-              clearInterval(quickIntervalRef.current);
-              quickIntervalRef.current = null;
-            }
-
-            // ステップ2: 1000ms（1秒）の一呼吸ウェイト
-            startTimeout = setTimeout(() => {
-              // 問題本文の描画が始まる瞬間に計測スタート
-              quickPressStartTimeRef.current = Date.now();
-
-              let charIdx = 0;
-              // ステップ3: 本文を一文字ずつ 200ms でアニメーション表示
-              quickIntervalRef.current = setInterval(() => {
-                charIdx++;
-                if (charIdx <= fullText.length) {
-                  setQuickPressText(labelText + fullText.slice(0, charIdx));
-                } else {
-                  setIsQuickFinished(true);
-                  if (quickIntervalRef.current) {
-                    clearInterval(quickIntervalRef.current);
-                    quickIntervalRef.current = null;
-                  }
-                }
-              }, 200); // 1文字あたり200ms
-            }, 1000);
-          }
-        }, 200); // 1文字あたり200ms
-      } catch (err) {
-        console.error('早押し問題文の復号失敗:', err);
-        setQuickPressText('問題：問題の読み込みに失敗しました。');
-      }
-
-      return () => {
-        if (startTimeout) clearTimeout(startTimeout);
-        if (quickIntervalRef.current) {
-          clearInterval(quickIntervalRef.current);
-        }
-      };
-    }
-  }, [currentIdx, quiz, isReadingStarted]);
-
-  // 早押しボタン押下時
   const handleQuickPress = () => {
     if (isQuickPressed) return;
     setIsQuickPressed(true);
-
-    // アニメーションインターバルを停止
-    if (quickIntervalRef.current) {
-      clearInterval(quickIntervalRef.current);
-      quickIntervalRef.current = null;
-    }
+    cancelQuickPressStream();
 
     // 問題本文が表示され始めてからボタンを押すまでのタイムを計測
     let duration = 0;
@@ -470,7 +411,9 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
           <div className={styles.chatHistory}>
             {/* 初期メッセージ */}
             <div className={`${styles.chatBubble} ${styles.bubbleAi}`}>
-              {lateralQuestion?.questionText}
+              {lateralQuestion ? (
+                <MarkdownContent markdown={lateralQuestion.questionText} />
+              ) : null}
               <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 ※ 質問は「はい」か「いいえ」で回答可能なクローズドクエスチョンで行うと解決に近づきます。
               </div>
@@ -657,9 +600,12 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
           )}
         </div>
 
-        <h2 className={styles.questionText}>
-          {currentQuestion?.type === 'quick-press' ? (isReadingStarted ? quickPressText : '') : currentQuestion?.questionText}
-        </h2>
+        <QuestionTextDisplay
+          question={currentQuestion}
+          className={styles.questionText}
+          quickPressDisplayMarkdown={quickPressDisplayMarkdown}
+          isQuickPressReading={isReadingStarted}
+        />
 
         {/* 1. 選択肢表示 (単一正解=ラジオ / 複数正解=チェックボックス → 確定ボタン) */}
         {(currentQuestion?.type === 'multiple-choice' || currentQuestion?.type === 'true-false') && (

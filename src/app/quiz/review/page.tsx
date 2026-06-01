@@ -7,6 +7,8 @@ import { ArrowLeft, BookOpen, Check, X, Award, AlertCircle, RefreshCw } from 'lu
 import { useAuth } from '@/context/auth-context';
 import { getFailedQuestions, updateFailedQuestions } from '@/services/attempt';
 import { ChoiceAnswerPanel } from '@/components/quiz/choice-answer-panel';
+import { MarkdownContent } from '@/components/markdown/markdown-content';
+import { decodeStoredQuestionText } from '@/lib/question-text';
 import { isChoiceAnswerCorrect } from '@/services/choice-answer-utils';
 import { getTextInputFieldProps, isTextInputAnswerCorrect } from '@/services/text-answer-utils';
 import { Question } from '@/types';
@@ -218,17 +220,22 @@ export default function ReviewPage() {
             </span>
           </div>
 
-          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: '24px', lineHeight: 1.5 }}>
-            {failedQuestions[currentIdx]?.type === 'quick-press'
-              ? (() => {
-                  try {
-                    return decodeURIComponent(escape(atob(failedQuestions[currentIdx]?.questionText)));
-                  } catch (e) {
-                    return failedQuestions[currentIdx]?.questionText;
-                  }
-                })()
-              : failedQuestions[currentIdx]?.questionText}
-          </h2>
+          <div
+            style={{
+              fontSize: '1.35rem',
+              fontWeight: 800,
+              color: 'var(--text-main)',
+              marginBottom: '24px',
+              lineHeight: 1.5,
+            }}
+          >
+            <MarkdownContent
+              markdown={decodeStoredQuestionText(
+                failedQuestions[currentIdx]?.questionText ?? '',
+                failedQuestions[currentIdx]?.type
+              )}
+            />
+          </div>
 
           {/* 選択肢 */}
           {(failedQuestions[currentIdx]?.type === 'multiple-choice' || failedQuestions[currentIdx]?.type === 'true-false') && failedQuestions[currentIdx] && (

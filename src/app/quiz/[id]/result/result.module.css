@@ -256,6 +256,13 @@
   gap: 6px;
 }
 
+.questionTextResult {
+  font-size: 1.05rem;
+  color: var(--text-main);
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
 .explanationBox {
   background: rgba(255, 255, 255, 0.02);
   border-left: 4px solid var(--color-primary);

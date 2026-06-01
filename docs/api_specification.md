@@ -1,4 +1,4 @@
-﻿# quizeum 外部インターフェース（API）仕様書 (改訂版)
+# quizeum 外部インターフェース（API）仕様書 (改訂版)
 
 本ドキュメントは、クイズ投稿SNS「quizeum」におけるフロントエンドとバックエンド（Firebase Platform: Auth, Firestore, Storage）間のデータ通信、およびサービスインターフェース（API）の仕様を定義します。
 
@@ -315,6 +315,7 @@ export interface LeaderboardRecord {
 **設問の問題文（`questionText`）の検証要件**:
 - **下書き保存・公開の共通**（`collectQuestionTextValidationErrors`）: 登録されている各設問について、問題文は必須。前後空白のみは未入力扱い。トリム後 **5文字以上**、全体 **500文字以内**（`MIN_QUESTION_TEXT_LENGTH` / `MAX_QUESTION_TEXT_LENGTH`）。
 - **公開時**（`questionSchema` / Zod）: 上記と同趣旨（`min(5)` / `max(500)`）。エラーは `questionField: 'questionText'` として該当設問カードの問題文テキストエリア直下に表示する。
+- **マークダウン形式**: `questionText` は解説（`explanation`）と同一の簡易マークダウン（太字 `**…**`、斜体 `*…*`、外部リンク `[label](url)`、改行）の**ソース文字列**として保存する。文字数制限はパース後の可視文字数ではなく、保存するソース文字列の長さに適用する。表示時はフロントエンドの `parseMarkdownToHtml` → `sanitizeHtml`（Section 8 参照）を経由する。NGワードチェック（F-1101）もソース文字列に対して実施する。
 
 **ジャンル・タグの検証要件**:
 - **`genre`**: `metadata_genres` コレクションに存在する有効なジャンルIDでなければなりません。未選択や空文字は許容されません。
@@ -348,7 +349,7 @@ export const sortingItemSchema = z.object({
 export const questionSchema = z.object({
   id: z.string().uuid().or(z.string().min(1)),
   type: z.enum(['true-false', 'multiple-choice', 'text-input', 'sorting', 'association', 'lateral-thinking']),
-  questionText: z.string().min(5, '問題文は5文字以上で入力してください。').max(500, '問題文は500文字以内で入力してください。'),
+  questionText: z.string().min(5, '問題文は5文字以上で入力してください。').max(500, '問題文は500文字以内で入力してください。'), // マークダウンソース（記法記号を含む平文）
   explanation: z.string().min(1, '正解時の解説を入力してください。').max(1000, '解説は1000文字以内で入力してください。'),
   imageUrl: z.string().url('有効なURL形式で画像を指定してください。').optional().or(z.literal('')),
   hint: z.string().max(200, 'ヒントは200文字以内で入力してください。').optional(),

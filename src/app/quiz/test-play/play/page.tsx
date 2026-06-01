@@ -12,6 +12,9 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
+import { QuestionTextDisplay } from '@/components/quiz/question-text-display';
+import { useQuickPressStream } from '@/hooks/useQuickPressStream';
+import { decodeStoredQuestionText } from '@/lib/question-text';
 import { useAuth } from '@/context/auth-context';
 import { usePlayState } from '@/hooks/usePlayState';
 import { toQuestionAnswerRecords } from '@/services/attempt-answer-display';
@@ -98,17 +101,35 @@ function TestPlayPageContent() {
     router.push('/quiz/test-play/result');
   };
 
-  // 早押しクイズ用ステート
   const [isReadingStarted, setIsReadingStarted] = useState(false);
-  const [quickPressText, setQuickPressText] = useState('');
   const [isQuickPressed, setIsQuickPressed] = useState(false);
-  const [isQuickFinished, setIsQuickFinished] = useState(false);
   const [instantFeedback, setInstantFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [currentQuickPressTime, setCurrentQuickPressTime] = useState(0);
   const quickPressStartTimeRef = useRef<number | null>(null);
-  const quickIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const quickInputRef = useRef<HTMLInputElement | null>(null);
+
+  const quickPressQuestion =
+    quiz?.questions[currentIdx]?.type === 'quick-press'
+      ? quiz.questions[currentIdx]
+      : undefined;
+
+  const quickPressLocalBody =
+    quickPressQuestion != null
+      ? decodeStoredQuestionText(quickPressQuestion.questionText, 'quick-press')
+      : '';
+
+  const { displayMarkdown: quickPressDisplayMarkdown, cancelStream: cancelQuickPressStream } =
+    useQuickPressStream({
+      enabled: Boolean(quickPressQuestion && isReadingStarted),
+      mode: 'local',
+      quizId: TEST_PLAY_QUIZ_ID,
+      questionId: quickPressQuestion?.id ?? '',
+      localBodyMarkdown: quickPressLocalBody,
+      onBodyTimingStart: () => {
+        quickPressStartTimeRef.current = Date.now();
+      },
+    });
 
   const [sortingItems, setSortingItems] = useState<{ id: string; text: string; correctOrder: number }[]>([]);
   const [activeHintIdx, setActiveHintIdx] = useState(0);
@@ -120,78 +141,13 @@ function TestPlayPageContent() {
   useEffect(() => {
     setIsReadingStarted(false);
     setIsQuickPressed(false);
-    setIsQuickFinished(false);
-    setQuickPressText('');
     setInstantFeedback(null);
     setUserAnswer('');
     setCurrentQuickPressTime(0);
     setLateralTruth('');
     setLateralFeedback(null);
     quickPressStartTimeRef.current = null;
-    if (quickIntervalRef.current) {
-      clearInterval(quickIntervalRef.current);
-      quickIntervalRef.current = null;
-    }
   }, [currentIdx]);
-
-  useEffect(() => {
-    if (!quiz || currentIdx >= quiz.questions.length) return;
-    const currentQuestion = quiz.questions[currentIdx];
-
-    if (quickIntervalRef.current) {
-      clearInterval(quickIntervalRef.current);
-      quickIntervalRef.current = null;
-    }
-
-    if (currentQuestion.type === 'quick-press' && isReadingStarted) {
-      setQuickPressText('');
-      setIsQuickFinished(false);
-
-      let startTimeout: NodeJS.Timeout | null = null;
-      const labelText = '問題：';
-      let labelIdx = 0;
-
-      try {
-        const decodedQuestion = decodeURIComponent(escape(atob(currentQuestion.questionText)));
-        const fullText = decodedQuestion;
-
-        quickIntervalRef.current = setInterval(() => {
-          labelIdx++;
-          if (labelIdx <= labelText.length) {
-            setQuickPressText(labelText.slice(0, labelIdx));
-          } else {
-            if (quickIntervalRef.current) {
-              clearInterval(quickIntervalRef.current);
-              quickIntervalRef.current = null;
-            }
-            startTimeout = setTimeout(() => {
-              quickPressStartTimeRef.current = Date.now();
-              let charIdx = 0;
-              quickIntervalRef.current = setInterval(() => {
-                charIdx++;
-                if (charIdx <= fullText.length) {
-                  setQuickPressText(labelText + fullText.slice(0, charIdx));
-                } else {
-                  setIsQuickFinished(true);
-                  if (quickIntervalRef.current) {
-                    clearInterval(quickIntervalRef.current);
-                    quickIntervalRef.current = null;
-                  }
-                }
-              }, 200);
-            }, 1000);
-          }
-        }, 200);
-      } catch {
-        setQuickPressText('問題：問題の読み込みに失敗しました。');
-      }
-
-      return () => {
-        if (startTimeout) clearTimeout(startTimeout);
-        if (quickIntervalRef.current) clearInterval(quickIntervalRef.current);
-      };
-    }
-  }, [currentIdx, quiz, isReadingStarted]);
 
   useEffect(() => {
     if (!quiz || currentIdx >= quiz.questions.length) return;
@@ -214,10 +170,7 @@ function TestPlayPageContent() {
   const handleQuickPress = () => {
     if (isQuickPressed) return;
     setIsQuickPressed(true);
-    if (quickIntervalRef.current) {
-      clearInterval(quickIntervalRef.current);
-      quickIntervalRef.current = null;
-    }
+    cancelQuickPressStream();
     let duration = 0;
     if (quickPressStartTimeRef.current !== null) {
       duration = (Date.now() - quickPressStartTimeRef.current) / 1000;
@@ -361,11 +314,12 @@ function TestPlayPageContent() {
           </div>
         )}
 
-        <h2 className={styles.questionText}>
-          {currentQuestion.type === 'quick-press'
-            ? (isReadingStarted ? quickPressText : '')
-            : currentQuestion.questionText}
-        </h2>
+        <QuestionTextDisplay
+          question={currentQuestion}
+          className={styles.questionText}
+          quickPressDisplayMarkdown={quickPressDisplayMarkdown}
+          isQuickPressReading={isReadingStarted}
+        />
 
         {(currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') && (
           <ChoiceAnswerPanel

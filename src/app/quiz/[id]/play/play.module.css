@@ -124,9 +124,24 @@
 
 .questionText {
   font-size: 1.4rem;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--text-main);
   line-height: 1.5;
+}
+
+/* 親が font-weight: 700 だとマークダウン太字と区別できない */
+.questionText :global(strong) {
+  font-weight: 800;
+  color: var(--color-accent);
+}
+
+.questionText :global(em) {
+  font-style: italic;
+}
+
+.questionText :global(a) {
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 /* 解答選択肢 (グリッド) */

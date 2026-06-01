@@ -238,8 +238,9 @@ sequenceDiagram
   | 未入力または空白のみ | 問題文を入力してください | `questionText` |
   | トリム後 5 文字未満 | 問題文は5文字以上で入力してください | `questionText` |
   | 500 文字超過 | 問題文は500文字以内で入力してください | `questionText` |
-* **UI**（`quiz-editor.tsx`）: ラベル「問題文（必須）」、`textarea` に `required` / `minLength={5}` / `maxLength={500}`、エラー時 `inputError` クラスと `FieldValidationMessages`（`questionField="questionText"`）。
-* **テストプレイとの関係**: F-206 は「トリム後1文字以上の問題文がある設問が1問以上」で開始可能（5文字ルールは**適用しない**）。下書き保存・公開とは要件を分離する。
+* **UI**（`quiz-editor.tsx`）: ラベル「問題文（必須）」、`textarea` に `required` / `minLength={5}` / `maxLength={500}`、エラー時 `inputError` クラスと `FieldValidationMessages`（`questionField="questionText"`）。入力欄直下に `parseMarkdownToHtml` を用いた**リアルタイムプレビュー**を表示する（解説入力と同一コンポーネントまたは共通フックを推奨）。
+* **マークダウン保存形式**: `questionText` はマークダウンソース文字列を Firestore に平文保存する。文字数検証（5〜500）は記法記号を含むソース長に対して行う。正誤判定・早押しの `correctTextAnswerList` 照合・AI質問の文字列一致など、**プレイヤー入力やロジック比較に用いるテキストはマークダウンをパースしない**（問題文の表示専用）。
+* **テストプレイとの関係**: F-206 は「トリム後1文字以上の問題文がある設問が1問以上」で開始可能（5文字ルールは**適用しない**）。下書き保存・公開とは要件を分離する。テストプレイ画面でも問題文は本番プレイと同様にマークダウンレンダリングする。
 
 #### 1.2.2 テストプレイフロー（F-206）
 公開前のクイズを、作問エディタ上の編集中データのまま実際のプレイ画面で確認するフローです。Firestore への書き込みは行わず、統計・履歴への影響を完全に遮断します。
@@ -1739,7 +1740,7 @@ match /quizzes/{quizId} {
 
 ## 8. セキュリティ・サニタイズ設計 (DOMPurifyによるXSS防御) [NEW]
 
-クイズの解説文などのマークダウンプレーンテキストをフロントエンドでHTMLとして描画する際、XSS（クロスサイトスクリプティング）を物理的に遮断するための詳細設計です。
+クイズの**問題文（`questionText`）・解説文（`explanation`）** などのマークダウンプレーンテキストをフロントエンドでHTMLとして描画する際、XSS（クロスサイトスクリプティング）を物理的に遮断するための詳細設計です。
 
 ### 8.1 共通サニタイズモジュール (`src/lib/security/sanitize.ts`)
 - **採用ライブラリ**: `isomorphic-dompurify` (DOMPurifyの環境非依存ラッパー。Next.js のクライアント・サーバー両環境での動作を保証)。
@@ -1753,10 +1754,32 @@ match /quizzes/{quizId} {
     - 最後に `sanitizeHtml` を通すことで、無害化が保証されたクリーンなHTML文字列を返却します。
 
 ### 8.2 レンダリングへの適用
+
+#### 8.2.1 問題文（`questionText`）
+- **作問画面**（`quiz-editor.tsx`）: 問題文 `textarea` の変更に応じて、入力欄直下のプレビュー領域へ `parseMarkdownToHtml(questionText)` の結果を `dangerouslySetInnerHTML` で描画する。
+- **プレイ画面**（`play/page.tsx`）、**弱点克服**（`/quiz/review`）、**フラッシュカード**、**模擬試験**、**テストプレイ**（`/quiz/test-play/play`）: 設問カード上部の問題文表示に `parseMarkdownToHtml(currentQuestion.questionText)` を適用する。
+- **早押し（`quick-press`）**:
+  - **本文のカンニング防止**: 公開プレイでは `GET /api/quiz/quick-press-stream` が Firestore 上の `questionText` を 200ms/文字で `ReadableStream` 送信する。クライアントのクイズオブジェクトでは `questionText` を空にし、未送信分は DOM に存在しない。
+  - **ラベル「問題：」**: クライアント側で 200ms/文字表示後、1000ms 待機してからストリーム受信開始（計測開始は本文の最初のチャンク到着時）。
+  - **マークダウン表示**: 受信済み本文に `buildQuickPressDisplayMarkdown` を適用し `parseMarkdownToHtml` で描画。記法記号は露出しない。
+  - **演出**: `QuickPressQuestionText`（`framer-motion`）で更新のたびにフェードイン。
+  - **早押しボタン**: `reader.cancel()` / `AbortController` で以降のチャンク受信を遮断。
+  - **テストプレイ**: 下書きは Firestore 未保存のため `useQuickPressStream` の `mode: 'local'` で同一タイミングのクライアント演出を使用（F-308）。
+- **水平思考（`lateral-thinking`）**: チャット上部の設問サマリー表示にも同一パイプラインを適用する。プレイヤーが AI へ送る自由記述（最大100文字）は問題文とは別フィールドであり、マークダウン対象外。
+
+```typescript
+<p
+  className={styles.questionText}
+  dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.questionText) }}
+/>
+```
+
+#### 8.2.2 解説文（`explanation`）
 - 結果画面（`result/page.tsx`）およびプレイ画面（`play/page.tsx`）の解説文（`explanation`）の描画において、生のテキスト挿入ではなく、以下のようにサニタイズ関数を通した上で `dangerouslySetInnerHTML` を用いて安全に描画します。
-  ```typescript
-  <p className={styles.explanation} dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.explanation) }} />
-  ```
+
+```typescript
+<p className={styles.explanation} dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.explanation) }} />
+```
 
 ---
 

@@ -1,7 +1,7 @@
 /**
  * セキュリティ・サニタイズ ユーティリティ
  *
- * フロントエンドでユーザー入力テキスト（クイズ解説文のマークダウンなど）を
+ * フロントエンドでユーザー入力テキスト（問題文・解説文のマークダウンなど）を
  * 安全にレンダリングするためのサニタイズ（無害化）処理を実装します。
  * XSS（クロスサイトスクリプティング）脆弱性および危険なURLスキーマの排除を目的とします。
  */
@@ -38,7 +38,7 @@ export function sanitizeHtml(html: string): string {
  * - 外部リンク (`[text](url)` -> `<a href="url" ...>text</a>`)
  * - 改行 (`\n` -> `<br />`)
  *
- * @param markdown ユーザーが入力した解説文等のマークダウン文字列
+ * @param markdown ユーザーが入力した問題文・解説文等のマークダウン文字列
  * @returns サニタイズ済みの安全なHTML文字列
  */
 export function parseMarkdownToHtml(markdown: string): string {
