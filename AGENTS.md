@@ -3,7 +3,7 @@
 Kiro-style Spec-Driven Development on an agentic SDLC
 
 ## Project Memory
-Project memory keeps persistent guidance (steering, specs notes, component docs) so Antigravity honors your standards each run. Treat it as the long-lived source of truth for patterns, conventions, and decisions.
+Project memory keeps persistent guidance (steering, specs notes, component docs) so Cursor honors your standards each run. Treat it as the long-lived source of truth for patterns, conventions, and decisions.
 
 - Use `.kiro/steering/` for project-wide policies: architecture principles, naming schemes, security constraints, tech stack decisions, api standards, etc.
 - Use local `AGENTS.md` files for feature or library context (e.g. `src/lib/payments/AGENTS.md`): describe domain assumptions, API contracts, or testing conventions specific to that folder.
@@ -25,7 +25,7 @@ Project memory keeps persistent guidance (steering, specs notes, component docs)
 - Use `/kiro-spec-status [feature-name]` to check progress
 
 ## Development Guidelines
-- Think in English, generate responses in English. All Markdown content written to project files (e.g., requirements.md, design.md, tasks.md, research.md, validation reports) MUST be written in the target language configured for this specification (see spec.json.language).
+- Think in English, generate responses in Japanese. All Markdown content written to project files (e.g., requirements.md, design.md, tasks.md, research.md, validation reports) MUST be written in the target language configured for this specification (see spec.json.language).
 
 ## Minimal Workflow
 - Phase 0 (optional): `/kiro-steering`, `/kiro-steering-custom`
@@ -46,16 +46,13 @@ Project memory keeps persistent guidance (steering, specs notes, component docs)
 - Progress check: `/kiro-spec-status {feature}` (use anytime)
 
 ## Skills Structure
-Skills are located in `.agent/skills/kiro-*/SKILL.md`
+Skills are located in `.cursor/skills/kiro-*/SKILL.md`
 - Each skill is a directory with a `SKILL.md` file
-- Use `/skills` to inspect currently available skills
 - Invoke a skill directly with `/kiro-<skill-name>`
 - **If there is even a 1% chance a skill applies to the current task, invoke it.** Do not skip skills because the task seems simple.
 - `kiro-review` — task-local adversarial review protocol used by reviewer subagents
 - `kiro-debug` — root-cause-first debug protocol used by debugger subagents
 - `kiro-verify-completion` — fresh-evidence gate before success or completion claims
-
-> Antigravity does not support programmatic sub-agent dispatch. Skills that reference parallel sub-agents will execute sequentially in the main context.
 
 ## Development Rules
 - 3-phase approval workflow: Requirements → Design → Tasks → Implementation

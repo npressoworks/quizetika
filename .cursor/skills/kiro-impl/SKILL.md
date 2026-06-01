@@ -151,7 +151,7 @@ The debug subagent runs in a **fresh context** — it receives only the error in
 
 **`(P)` markers**: Tasks marked `(P)` in tasks.md indicate they have no inter-dependencies and could theoretically run in parallel. However, kiro-impl processes them sequentially (one at a time) to avoid git conflicts and simplify review. The `(P)` marker is informational for task planning, not an execution directive.
 
-**Fallback**: Antigravity does not support programmatic sub-agent dispatch. Execute all tasks sequentially in the main context using the manual mode execution flow below.
+**Fallback**: If multi-agent is not available, fall back to manual mode execution for all tasks.
 
 ### Manual Mode (main context)
 
