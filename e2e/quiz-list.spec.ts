@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
-test.describe('クイズリスト（問題集）E2Eテスト', () => {
+test.describe('リストE2Eテスト', () => {
 
   test('ユーザーはクイズリストを新規作成し、ブックマーク登録・解除ができること', async ({ page }) => {
     // ダイアログが発生したときに自動的にアサーションと承認を行う
     page.on('dialog', async dialog => {
-      expect(dialog.message()).toContain('問題集を作成しました');
+      expect(dialog.message()).toContain('リストを作成しました');
       await dialog.accept();
     });
     // 1. クイズリスト作成画面へ遷移
@@ -21,7 +21,7 @@ test.describe('クイズリスト（問題集）E2Eテスト', () => {
     } catch (e) {}
     
     // ページタイトルの確認
-    await expect(page.locator('text=新規問題集作成').or(page.locator('h1')).first()).toBeVisible();
+    await expect(page.locator('text=新規リスト作成').or(page.locator('h1')).first()).toBeVisible();
     
     // 2. リストタイトルの入力
     const listTitle = `[TEST] E2Eリスト_${Date.now().toString().slice(-4)}`;
@@ -42,8 +42,8 @@ test.describe('クイズリスト（問題集）E2Eテスト', () => {
       await page.waitForTimeout(500);
     }
     
-    // 4. 保存ボタンをクリック (ロケーターを正確に「問題集を保存する」に指定)
-    const saveBtn = page.locator('text=問題集を保存する').first();
+    // 4. 保存ボタンをクリック (ロケーターを正確に「リストを保存する」に指定)
+    const saveBtn = page.locator('text=リストを保存する').first();
     await expect(saveBtn).toBeVisible();
     await saveBtn.click();
     
@@ -66,7 +66,7 @@ test.describe('クイズリスト（問題集）E2Eテスト', () => {
     await expect(page.locator('text=ブックマーク').first()).toBeVisible();
   });
 
-  test('クイズリスト一覧から問題集の詳細画面を開けること', async ({ page }) => {
+  test('クイズリスト一覧からリストの詳細画面を開けること', async ({ page }) => {
     // 自分が作成したリスト一覧はダッシュボードかプロフィールから確認できる
     await page.goto('/creator/dashboard');
     

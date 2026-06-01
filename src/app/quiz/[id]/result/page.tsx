@@ -49,7 +49,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
   const [feedbackLoading, setFeedbackLoading] = useState<boolean>(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<boolean>(false);
 
-  // 問題集（クイズリスト）の連続プレイ用
+  // リストの連続プレイ用
   const listId = searchParams.get('listId');
   const [nextQuizId, setNextQuizId] = useState<string | null>(null);
   const [isLastInList, setIsLastInList] = useState<boolean>(false);
@@ -131,7 +131,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
     loadData();
   }, [quizId, attemptId, localId]);
 
-  // 2.5 問題集内の次のクイズ判定
+  // 2.5 リスト内の次のクイズ判定
   useEffect(() => {
     if (!listId || !quiz) return;
 
@@ -163,7 +163,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
   // 次のクイズに進むアクションハンドラ (オフライン接続ブロック付)
   const handleNextQuizClick = () => {
     if (!online) {
-      alert('現在オフラインのため、問題集の次のクイズに進むことはできません。ネットワーク接続が復旧してから移動してください。');
+      alert('現在オフラインのため、リストの次のクイズに進むことはできません。ネットワーク接続が復旧してから移動してください。');
       return;
     }
     if (nextQuizId) {
@@ -431,7 +431,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
           </button>
         </div>
 
-        {/* 問題集リスト連続プレイナビゲーション (要件 3.2, 3.3) */}
+        {/* リスト連続プレイナビゲーション (要件 3.2, 3.3) */}
         {listId && (
           <div className={styles.listNavigation}>
             {listLoading ? (
@@ -444,20 +444,20 @@ function QuizResultPageContent({ quizId }: ContentProps) {
                 onClick={handleNextQuizClick}
                 style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
-                <span>問題集の次のクイズに進む</span>
+                <span>リストの次のクイズに進む</span>
                 <ChevronRight size={18} />
               </button>
             ) : isLastInList ? (
               <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
                 <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
-                  🎉 おめでとうございます！問題集のすべてのクイズを完遂しました！
+                  🎉 おめでとうございます！リストのすべてのクイズを完遂しました！
                 </p>
                 <Link 
                   href={`/list/${listId}`} 
                   className="btn btn-primary"
                   style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  問題集の詳細に戻る
+                  リストの詳細に戻る
                 </Link>
               </div>
             ) : null}

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 解答セッション保護およびオフライン自動同期モジュール
  *
  * 機能:
@@ -50,7 +50,7 @@ export interface PlayProgressData {
   totalQuestions: number;
   /** 経過秒数 */
   elapsedSeconds: number;
-  /** 問題集リストID（リストプレイ時のみ） */
+  /** リストID（リストプレイ時のみ） */
   listId?: string | null;
 }
 

@@ -1,4 +1,4 @@
-# quizeum 論理DB設計書 (Firestore Schema Specification)
+﻿# quizeum 論理DB設計書 (Firestore Schema Specification)
 
 本ドキュメントは、クイズ投稿SNS「quizeum」におけるデータの永続化設計、Firestore コレクション構造、データモデルの型定義、インデックス設計、および非正規化によるパフォーマンス最適化設計を定義します。
 
@@ -202,7 +202,7 @@ erDiagram
 ---
 
 ### 2.4 `quizLists` コレクション (自動割り当てドキュメントID)
-複数のクイズまたは特定の設問を一つのテーマや問題集としてパッケージ化するフォルダモデルです。
+複数のクイズまたは特定の設問を一つのテーマやリストとしてパッケージ化するフォルダモデルです。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -551,7 +551,7 @@ erDiagram
   "exportedAt": "2026-05-28T08:20:00Z",
   "list": {
     "title": "おすすめ歴史クイズ選",
-    "description": "歴史好きのための厳選問題集です。",
+    "description": "歴史好きのための厳選リストです。",
     "isPublished": false
   },
   "quizzes": [

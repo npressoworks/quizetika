@@ -1,4 +1,4 @@
-/**
+﻿/**
  * クイズ投稿SNS「quizeum」共通型定義
  */
 
@@ -130,9 +130,9 @@ export interface Quiz {
   updatedAt: Date;
 }
 
-// 5. 問題集 (QuizList)
+// 5. リスト (QuizList)
 export interface QuizList {
-  id: string;             // 問題集ID (FirestoreドキュメントID)
+  id: string;             // リストID (FirestoreドキュメントID)
   authorId: string;       // 作成者のユーザーID
   authorName: string;     // 作成者の表示名 (非正規化)
   authorAvatar: string;   // 作成者のアバターURL (非正規化)

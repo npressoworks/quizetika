@@ -1,4 +1,4 @@
-# quizeum 外部インターフェース（API）仕様書 (改訂版)
+﻿# quizeum 外部インターフェース（API）仕様書 (改訂版)
 
 本ドキュメントは、クイズ投稿SNS「quizeum」におけるフロントエンドとバックエンド（Firebase Platform: Auth, Firestore, Storage）間のデータ通信、およびサービスインターフェース（API）の仕様を定義します。
 
@@ -125,7 +125,7 @@ export interface LeaderboardRecord {
 ---
 
 ### 2.2 QuestionService (`src/services/question.ts`) [NEW]
-設問（Question）単体の取得、設問単位のブックマーク、およびクイズリスト（問題集）への追加・削除を制御します。
+設問（Question）単体の取得、設問単位のブックマーク、およびリストへの追加・削除を制御します。
 
 #### メソッド定義一覧
 
@@ -135,8 +135,8 @@ export interface LeaderboardRecord {
 | **`getQuestionsByQuiz`** | 指定されたクイズIDに紐づくすべての設問を取得する（順序はクイズの `questionIds` に準拠）。 | `quizId: string` | `Promise<Question[]>` | 不要 |
 | **`toggleBookmarkQuestion`** | 特定の設問をブックマーク登録/解除（トグル）し、トランザクションで設問ドキュメントの `bookmarksCount` をアトミックに加減算する。 | `userId: string`, `questionId: string` | `Promise<void>` | 必要 |
 | **`getBookmarkedQuestions`** | ユーザー自身がブックマークした設問一覧を取得する。 | `userId: string` | `Promise<Question[]>` | 必要 |
-| **`addQuestionToList`** | ユーザーが所有するクイズリスト（問題集）に特定の設問を追加し、リストの `questionIds` 配列にアトミック追加する。 | `listId: string`, `questionId: string` | `Promise<void>` | 必要 |
-| **`removeQuestionFromList`** | ユーザーが所有するクイズリスト（問題集）から特定の設問を削除し、リストの `questionIds` 配列からアトミック削除する。 | `listId: string`, `questionId: string` | `Promise<void>` | 必要 |
+| **`addQuestionToList`** | ユーザーが所有するリストに特定の設問を追加し、リストの `questionIds` 配列にアトミック追加する。 | `listId: string`, `questionId: string` | `Promise<void>` | 必要 |
+| **`removeQuestionFromList`** | ユーザーが所有するリストから特定の設問を削除し、リストの `questionIds` 配列からアトミック削除する。 | `listId: string`, `questionId: string` | `Promise<void>` | 必要 |
 
 ---
 
@@ -169,7 +169,7 @@ export interface LeaderboardRecord {
 | **`getBookmarkedQuizzes`** | ユーザーがブックマークしたクイズ一覧を取得する。 | `userId: string` | `Promise<Quiz[]>` | 必要 |
 | **`getBookmarkedLists`** | ユーザーがブックマークしたクイズリスト一覧を取得する。 | `userId: string` | `Promise<QuizList[]>` | 必要 |
 | **`getTimelineFeed`** | 自身がフォローしているユーザーが作成した最新の公開クイズ一覧を時系列で取得。デフォルト20件、最大100件。 | `userId: string`, `limitCount?: number` (default: 20, max: 100) | `Promise<Quiz[]>` | 必要 |
-| **`createQuizList`** | 複数のクイズや特定の設問をまとめるクイズリスト（問題集）を新規作成する。 | `authorId: string`, `listData: Omit<QuizList, 'id'>` | `Promise<string>` (リストID) | 必要 |
+| **`createQuizList`** | 複数のクイズや特定の設問をまとめるリストを新規作成する。 | `authorId: string`, `listData: Omit<QuizList, 'id'>` | `Promise<string>` (リストID) | 必要 |
 | **`getQuizList`** | 指定されたIDのクイズリストを1件取得する。 | `listId: string` | `Promise<QuizList \| null>` | 不要 |
 | **`updateQuizList`** | クイズリストのメタ情報、収録クイズID配列、および収録設問ID配列を更新する。 | `listId: string`, `authorId: string`, `updates: Partial<QuizList>` | `Promise<void>` | 必要 |
 | **`deleteQuizList`** | クイズリストを削除する。 | `listId: string`, `authorId: string` | `Promise<void>` | 必要 |

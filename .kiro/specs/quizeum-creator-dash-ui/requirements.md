@@ -1,7 +1,7 @@
-# Requirements Document: quizeum-creator-dash-ui
+﻿# Requirements Document: quizeum-creator-dash-ui
 
 ## Introduction
-本ドキュメントは、クイズ投稿SNS「quizeum」におけるクイズ作成・編集、作家ダッシュボード（アナリティクスおよび間違い指摘管理）、およびクイズリスト（問題集）の作成・編集・エクスポートを含む、クリエイター（作家）向けフロントエンドUI要件を定義します。
+本ドキュメントは、クイズ投稿SNS「quizeum」におけるクイズ作成・編集、作家ダッシュボード（アナリティクスおよび間違い指摘管理）、およびリストの作成・編集・エクスポートを含む、クリエイター（作家）向けフロントエンドUI要件を定義します。
 
 ## Boundary Context
 - **In scope**:

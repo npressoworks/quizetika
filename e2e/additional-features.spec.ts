@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+﻿import { test, expect } from '@playwright/test';
 
 test.describe('追加機能・複合テスト E2Eテスト', () => {
   
@@ -185,7 +185,7 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
 
     // 2. 自作リスト一覧を確認
     const myListsLink = page.locator('text=リスト').first()
-      .or(page.locator('a').filter({ hasText: /問題集|リスト/ }).first());
+      .or(page.locator('a').filter({ hasText: /リスト/ }).first());
 
     if (await myListsLink.isVisible()) {
       await myListsLink.click();

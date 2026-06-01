@@ -3,8 +3,8 @@ import { QuizListEditor } from '@/components/quiz-list/quiz-list-editor';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: '問題集編集 | quizeum',
-  description: '作成した問題集のタイトルや説明文、収録クイズの順序を編集します。',
+  title: 'リスト編集 | quizeum',
+  description: '作成したリストのタイトルや説明文、収録クイズの順序を編集します。',
 };
 
 interface EditPageProps {

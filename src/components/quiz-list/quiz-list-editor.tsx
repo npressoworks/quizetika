@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -80,7 +80,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
           const embeddedQuizzes = await getQuizzesInList(listId);
           setAttachedQuizzes(embeddedQuizzes);
         } else {
-          setErrorText('問題集が見つかりません。');
+          setErrorText('リストが見つかりません。');
         }
       } catch (err) {
         setErrorText('データ取得に失敗しました。');
@@ -109,7 +109,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
   // クイズのアタッチ
   const handleAttachQuiz = (quiz: Quiz) => {
     if (attachedQuizzes.some((q) => q.id === quiz.id)) {
-      alert('すでにこのクイズは問題集に登録されています。');
+      alert('すでにこのクイズはリストに登録されています。');
       return;
     }
     setAttachedQuizzes([...attachedQuizzes, quiz]);
@@ -178,11 +178,11 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
     try {
       if (listId) {
         await updateQuizList(listId, listData);
-        alert('問題集を更新しました！');
+        alert('リストを更新しました！');
         router.push(`/list/${listId}`);
       } else {
         const newListId = await createQuizList(listData);
-        alert('問題集を作成しました！');
+        alert('リストを作成しました！');
         router.push(`/list/${newListId}`);
       }
     } catch (err: any) {
@@ -249,9 +249,9 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
         <button className={styles.detachBtn} onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center' }}>
           <ArrowLeft size={20} />
         </button>
-        <h1 className={styles.title}>{listId ? '問題集を編集' : '新しい問題集を作成'}</h1>
+        <h1 className={styles.title}>{listId ? 'リストを編集' : '新しいリストを作成'}</h1>
       </div>
-      <p className={styles.subtitle}>お気に入りのクイズや自作クイズをパッケージして、テーマに沿った問題集を作りましょう。</p>
+      <p className={styles.subtitle}>お気に入りのクイズや自作クイズをパッケージして、テーマに沿ったリストを作りましょう。</p>
 
       {errorText && (
         <div style={{ background: 'rgba(255, 0, 84, 0.1)', border: '1px solid rgba(255, 0, 84, 0.3)', color: '#ff3366', padding: '16px', borderRadius: '8px', marginBottom: '24px' }}>
@@ -264,15 +264,15 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
         <div className={styles.card}>
           <div className={styles.cardTitle}>
             <Layers size={20} />
-            <span>問題集の基本設定</span>
+            <span>リストの基本設定</span>
           </div>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>問題集タイトル <span style={{ color: 'var(--color-danger)' }}>*</span></label>
+            <label className={styles.label}>リストタイトル <span style={{ color: 'var(--color-danger)' }}>*</span></label>
             <input
               type="text"
               className={styles.input}
-              placeholder="例: JavaScript中級者向け問題集"
+              placeholder="例: JavaScript中級者向けリスト"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -282,7 +282,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
             <label className={styles.label}>説明文</label>
             <textarea
               className={styles.textarea}
-              placeholder="この問題集の内容や特徴、どのようなクイズを集めているかなどを説明してください。"
+              placeholder="このリストの内容や特徴、どのようなクイズを集めているかなどを説明してください。"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -405,7 +405,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '16px', background: 'rgba(255, 255, 255, 0.01)', padding: '10px', borderRadius: '4px' }}>
             <Info size={14} style={{ flexShrink: 0 }} />
-            <span>カードをドラッグして放すことで、問題集内の並び順をいつでもスムーズに入れ替えられます。</span>
+            <span>カードをドラッグして放すことで、リスト内の並び順をいつでもスムーズに入れ替えられます。</span>
           </div>
         </div>
 
@@ -430,7 +430,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             <Save size={18} />
-            問題集を保存する
+            リストを保存する
           </button>
         </div>
       </div>

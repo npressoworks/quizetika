@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-core
+﻿# Implementation Plan: quizeum-core
 
 ## Tasks
 
@@ -61,7 +61,7 @@
   - _Requirements: 4.5, 4.6, 4.7_
   - _Boundary: VerifyTruthAPI_
 
-- [x] 2.6 (P) ソーシャル機能および問題集リスト管理
+- [x] 2.6 (P) ソーシャル機能およびリスト管理
   - フォロー/フォロー解除時のカウンタアトミック更新、お気に入り登録、およびフォロー中の最新新着タイムライン表示を実装
   - 収録クイズのドラッグ＆ドロップ順序編集機能、リスト内連続 Attempt 記録（listId付与）、およびリストパッケージのエクスポートを実装
   - **完了状態**: リストの連続プレイ時に attempts.listId に親リストIDが正しく付与され、エクスポート時に全収録クイズが1ファイルで保存されること

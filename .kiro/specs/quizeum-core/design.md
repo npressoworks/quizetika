@@ -1,4 +1,4 @@
-# Technical Design Document: quizeum-core
+﻿# Technical Design Document: quizeum-core
 
 ## Overview
 本ドキュメントは、クイズ投稿SNS「quizeum」における核心的なコアシステム（`quizeum-core`）の技術設計仕様を定義します。クイズの作成・下書き・厳格な公開バリデーション、ローカルセッション保護と自動同期を備えたプレイ環境、AIを活用したステートレスなウミガメのスープ（水平思考クイズ）対話、退会時のAuth即時物理削除と大規模非同期クレンジング、そしてコミュニティモデレーションやマージ合意によるメタデータ仮想統合を含みます。
@@ -107,7 +107,7 @@ src/
 │   ├── attempt.ts                # プレイ履歴・進捗同期・キャッシュ管理 (3.1, 3.2, 4.3)
 │   ├── bookmark.ts               # ブックマークのアトミック管理 (5.3)
 │   ├── moderation.ts             # NGワード・通報・マージリクエスト管理 (7.1, 7.2, 7.4)
-│   ├── quiz-list.ts              # 問題集リストの管理 (5.4)
+│   ├── quiz-list.ts              # リストの管理 (5.4)
 │   ├── quiz.ts                   # クイズ公開、編集、エクスポート (2.2, 2.3, 2.6)
 │   ├── storage.ts                # Storageアセット操作、自動クレンジング (1.5, 5.1)
 │   └── user.ts                   # バッジ付与、プロフィール編集 (1.2, 1.3)
@@ -302,7 +302,7 @@ sequenceDiagram
 | `QuizService` | Service | クイズのライフサイクル、エクスポート、ハイスコア更新 | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.6 | Firestore (P0), NGChecker (P1) | Service, API |
 | `AttemptService` | Service | 解答結果の永続化、セッションキャッシュ、オフライン同期 | 3.1, 3.2, 3.3, 3.4, 5.5 | Firestore (P0), LocalStore (P1) | Service, State, Batch |
 | `BookmarkService` | Service | クイズ・リストのブックマークアトミック管理 | 5.3 | Firestore (P0) | Service, State |
-| `QuizListService` | Service | 問題集リストの作成、ドラッグ＆ドロップ、パッケージング | 5.4, 5.6 | Firestore (P0), QuizService (P1) | Service, State |
+| `QuizListService` | Service | リストの作成、ドラッグ＆ドロップ、パッケージング | 5.4, 5.6 | Firestore (P0), QuizService (P1) | Service, State |
 | `ReviewService` | Service | 良問評価、間違い指摘、修正通知、リセットバッチ | 3.5, 6.1, 6.2, 6.3, 6.5 | Firestore (P0), CloudTasks (P1) | Service, State, Batch |
 | `ModerationService` | Service | 通報、自動保留、タグ/ジャンル仮想マージ提案、ジャンル申請 | 7.1, 7.2, 7.3, 7.4, 7.5, 7.6 | Firestore (P0) | Service, State |
 | `/api/user/delete-account` | API Route | 即時Auth物理削除とCloud Tasksジョブ登録 | 1.4 | AuthAdmin (P0), CloudTasks (P0) | API |

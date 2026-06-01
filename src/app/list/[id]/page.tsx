@@ -68,8 +68,8 @@ export default function QuizListDetailPage() {
       <div className={styles.container}>
         <div className={styles.emptyState}>
           <Inbox size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-          <h2>問題集が見つかりません</h2>
-          <p>指定された問題集は削除されたか、存在しない可能性があります。</p>
+          <h2>リストが見つかりません</h2>
+          <p>指定されたリストは削除されたか、存在しない可能性があります。</p>
           <button className="btn btn-primary" style={{ marginTop: '20px' }} onClick={() => router.push('/')}>
             トップへ戻る
           </button>
@@ -101,7 +101,7 @@ export default function QuizListDetailPage() {
             <div className={styles.metaInfo}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-accent)', fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase' }}>
                 <Layers size={14} />
-                <span>問題集パッケージ</span>
+                <span>リストパッケージ</span>
               </div>
               <h1 className={styles.title}>{quizList.title}</h1>
               <p className={styles.description}>{quizList.description}</p>
@@ -159,7 +159,7 @@ export default function QuizListDetailPage() {
         {quizzes.length === 0 ? (
           <div className={styles.emptyState}>
             <Inbox size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-            <p>この問題集にはまだクイズが含まれていません。</p>
+            <p>このリストにはまだクイズが含まれていません。</p>
           </div>
         ) : (
           <div className={styles.quizGrid}>

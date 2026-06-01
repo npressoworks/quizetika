@@ -1,4 +1,4 @@
-import {
+﻿import {
   doc,
   getDoc,
   addDoc,
@@ -17,7 +17,7 @@ import { QuizList, Quiz } from '../types';
 import { reorderQuizIds, buildListExportPackage, QuizListExportPackage } from './quiz-list-utils';
 
 /**
- * 新しいクイズリスト（問題集）を作成する
+ * 新しいリストを作成する
  */
 export async function createQuizList(
   list: Omit<QuizList, 'id' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>

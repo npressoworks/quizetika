@@ -1,4 +1,4 @@
-import {
+﻿import {
   doc,
   getDoc,
   query,
@@ -117,7 +117,7 @@ export async function getBookmarkedQuestions(userId: string): Promise<Question[]
 }
 
 /**
-  * ユーザーが所有するクイズリスト（問題集）に特定の設問を追加する（アトミックなトランザクション）
+  * ユーザーが所有するリストに特定の設問を追加する（アトミックなトランザクション）
   */
 export async function addQuestionToList(listId: string, questionId: string): Promise<void> {
   const listDocRef = doc(quizListsRef, listId);
@@ -142,7 +142,7 @@ export async function addQuestionToList(listId: string, questionId: string): Pro
 }
 
 /**
-  * ユーザーが所有するクイズリスト（問題集）から特定の設問を削除する（アトミックなトランザクション）
+  * ユーザーが所有するリストから特定の設問を削除する（アトミックなトランザクション）
   */
 export async function removeQuestionFromList(listId: string, questionId: string): Promise<void> {
   const listDocRef = doc(quizListsRef, listId);
