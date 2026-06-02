@@ -27,6 +27,7 @@ import {
   canJudgeQuestion,
   checkTruthKeywordsLocally,
   TestPlayResult,
+  buildTestPlayReturnUrl,
 } from '@/lib/test-play';
 import styles from '@/app/quiz/[id]/play/play.module.css';
 import { ChoiceAnswerPanel } from '@/components/quiz/choice-answer-panel';
@@ -261,7 +262,7 @@ function TestPlayPageContent() {
           <button
             type="button"
             className={styles.backBtn}
-            onClick={() => router.push(sourcePath)}
+            onClick={() => router.push(buildTestPlayReturnUrl(sourcePath))}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <ArrowLeft size={16} />

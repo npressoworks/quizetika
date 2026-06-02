@@ -18,7 +18,14 @@ import { MarkdownFieldHint } from '@/components/markdown/markdown-field-hint';
 import { MarkdownPreview } from '@/components/markdown/markdown-preview';
 import { Trash2, Plus, Info, AlertTriangle, Image, ArrowLeft, Save, Send, HelpCircle, Play } from 'lucide-react';
 import { SortableSortingList, reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
-import { buildTestPlayPayload, hasPlayableQuestions, saveTestPlayPayload } from '@/lib/test-play';
+import {
+  buildTestPlayPayload,
+  consumeTestPlayDraftForEditor,
+  getQuizEditorSourcePath,
+  hasPlayableQuestions,
+  saveTestPlayPayload,
+  TEST_PLAY_RESTORE_QUERY,
+} from '@/lib/test-play';
 
 interface QuizEditorProps {
   quizId?: string; // 編集モードの場合はIDが渡される
@@ -148,10 +155,36 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     }
   };
 
+  const applyDraftToEditor = (draft: Omit<Quiz, 'id'> & { id?: string }) => {
+    setTitle(draft.title);
+    setDescription(draft.description);
+    setThumbnailUrl(draft.thumbnailUrl);
+    setDifficulty(draft.difficulty);
+    setGenre(draft.genre);
+    setTags(draft.tags ?? []);
+    setOriginalTags(draft.originalTags ?? []);
+    setQuestions(draft.questions);
+    setFormat(draft.format || 'mixed');
+  };
+
   // 編集モードの場合のデータ取得と所有者チェック
   useEffect(() => {
+    if (authLoading) return;
+
+    const sourcePath = getQuizEditorSourcePath(quizId);
+    const restoringFromTestPlay = searchParams.get(TEST_PLAY_RESTORE_QUERY) === '1';
+
+    if (restoringFromTestPlay && user) {
+      const draft = consumeTestPlayDraftForEditor(user.id, sourcePath);
+      if (draft) {
+        applyDraftToEditor(draft);
+        setInitialFetchLoading(false);
+        router.replace(sourcePath);
+        return;
+      }
+    }
+
     if (!quizId) {
-      // 新規作成時はデフォルトで1問追加しておく
       addDefaultQuestion('mixed');
       return;
     }
@@ -165,15 +198,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
             setErrorText('このクイズを編集する権限がありません。');
             return;
           }
-          setTitle(quiz.title);
-          setDescription(quiz.description);
-          setThumbnailUrl(quiz.thumbnailUrl);
-          setDifficulty(quiz.difficulty);
-          setGenre(quiz.genre);
-          setTags(quiz.tags);
-          setOriginalTags(quiz.originalTags);
-          setQuestions(quiz.questions);
-          setFormat(quiz.format || 'mixed');
+          applyDraftToEditor(quiz);
         } else {
           setErrorText('対象のクイズが見つかりません。');
         }
@@ -184,10 +209,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       }
     };
 
-    if (!authLoading) {
-      fetchQuiz();
-    }
-  }, [quizId, user, authLoading]);
+    fetchQuiz();
+  }, [quizId, user, authLoading, searchParams, router]);
 
   // 修正指摘からのスクロール連動 (要件 2.4)
   useEffect(() => {
@@ -764,7 +787,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       return;
     }
 
-    const sourcePath = quizId ? `/quiz/${quizId}/edit` : '/quiz/create';
+    const sourcePath = getQuizEditorSourcePath(quizId);
     const now = new Date();
     const quizData = {
       authorId: user.id,

@@ -4,6 +4,17 @@ export const TEST_PLAY_PAYLOAD_KEY = 'quizeum_test_play_payload';
 export const TEST_PLAY_RESULT_KEY = 'quizeum_test_play_result';
 export const TEST_PLAY_QUIZ_ID = 'test-play';
 export const TEST_PLAY_TTL_MS = 24 * 60 * 60 * 1000;
+/** テストプレイから編集画面へ復帰するときのクエリ（誤復元防止） */
+export const TEST_PLAY_RESTORE_QUERY = 'fromTestPlay';
+
+export function getQuizEditorSourcePath(quizId?: string): string {
+  return quizId ? `/quiz/${quizId}/edit` : '/quiz/create';
+}
+
+export function buildTestPlayReturnUrl(sourcePath: string): string {
+  const separator = sourcePath.includes('?') ? '&' : '?';
+  return `${sourcePath}${separator}${TEST_PLAY_RESTORE_QUERY}=1`;
+}
 
 export interface TestPlayPayload {
   quizDraft: Omit<Quiz, 'id'> & { id?: string };
@@ -150,6 +161,20 @@ export function clearTestPlaySession(): void {
   if (typeof window === 'undefined') return;
   sessionStorage.removeItem(TEST_PLAY_PAYLOAD_KEY);
   sessionStorage.removeItem(TEST_PLAY_RESULT_KEY);
+}
+
+/**
+ * テストプレイ後の編集画面復帰用。一致する payload を読み込み session を破棄する。
+ */
+export function consumeTestPlayDraftForEditor(
+  expectedAuthorId: string,
+  sourcePath: string
+): (Omit<Quiz, 'id'> & { id?: string }) | null {
+  const payload = loadTestPlayPayload(expectedAuthorId);
+  if (!payload || payload.sourcePath !== sourcePath) return null;
+  const draft = payload.quizDraft;
+  clearTestPlaySession();
+  return draft;
 }
 
 /** 水平思考：truthKeywords のローカル部分一致判定 */

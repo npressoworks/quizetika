@@ -10,7 +10,7 @@ import {
   loadTestPlayPayload,
   loadTestPlayResult,
   prepareQuizForTestPlay,
-  clearTestPlaySession,
+  buildTestPlayReturnUrl,
   canJudgeQuestion,
   TestPlayResult,
 } from '@/lib/test-play';
@@ -49,8 +49,7 @@ function TestPlayResultContent() {
   }, [user, authLoading, router]);
 
   const handleBackToEditor = () => {
-    clearTestPlaySession();
-    router.push(sourcePath);
+    router.push(buildTestPlayReturnUrl(sourcePath));
   };
 
   if (authLoading || loading) {
