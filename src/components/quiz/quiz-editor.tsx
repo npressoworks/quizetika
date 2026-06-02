@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { saveQuiz, getQuiz, updateQuiz } from '@/services/quiz';
@@ -26,6 +26,7 @@ import {
   saveTestPlayPayload,
   TEST_PLAY_RESTORE_QUERY,
 } from '@/lib/test-play';
+import { resolveQuizFormat } from '@/lib/quiz-format';
 
 interface QuizEditorProps {
   quizId?: string; // 編集モードの場合はIDが渡される
@@ -122,7 +123,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
   // 設問関連ステート
   const [questions, setQuestions] = useState<Question[]>([]);
-  
+  /** テストプレイ復帰後に Firestore 取得でドラフトを上書きしない */
+  const skipServerQuizLoadRef = useRef(false);
+
   // ウミガメスープ必須キーワード入力用の一時ステート
   const [keywordInputs, setKeywordInputs] = useState<Record<number, string>>({});
 
@@ -164,12 +167,20 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     setTags(draft.tags ?? []);
     setOriginalTags(draft.originalTags ?? []);
     setQuestions(draft.questions);
-    setFormat(draft.format || 'mixed');
+    setFormat(resolveQuizFormat(draft));
   };
+
+  useEffect(() => {
+    skipServerQuizLoadRef.current = false;
+  }, [quizId]);
 
   // 編集モードの場合のデータ取得と所有者チェック
   useEffect(() => {
     if (authLoading) return;
+
+    if (skipServerQuizLoadRef.current) {
+      return;
+    }
 
     const sourcePath = getQuizEditorSourcePath(quizId);
     const restoringFromTestPlay = searchParams.get(TEST_PLAY_RESTORE_QUERY) === '1';
@@ -177,6 +188,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     if (restoringFromTestPlay && user) {
       const draft = consumeTestPlayDraftForEditor(user.id, sourcePath);
       if (draft) {
+        skipServerQuizLoadRef.current = true;
         applyDraftToEditor(draft);
         setInitialFetchLoading(false);
         router.replace(sourcePath);
