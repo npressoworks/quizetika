@@ -67,7 +67,7 @@
 
 | カテゴリ | 機能ID範囲 | 概要 |
 | :--- | :--- | :--- |
-| ユーザー認証・プロフィール管理 | F-101〜F-199 | アカウント作成・ログイン・プロフィール編集・称号バッジ |
+| ユーザー認証・プロフィール管理 | F-101〜F-199 | アカウント作成・ログイン（Google / X / Azure AD 等）・プロフィール編集・称号バッジ |
 | クイズ作成・管理 | F-201〜F-210 | クイズCRUD・下書き・NGワードチェック・カバー画像 |
 | クイズプレイ | F-301〜F-399 | 通常/模擬試験/フラッシュカード・並び替え(D&D)・早押し・タイマー・オフライン保護 |
 | ソーシャル機能 | F-401〜F-499 | フォロー・タイムライン・ブックマーク・リアクション・通知 |
@@ -89,7 +89,7 @@
 | ID | 機能名 | 詳細仕様 | 認証要否 |
 | :--- | :--- | :--- | :--- |
 | F-101 | メール/パスワード認証 | メールアドレスとパスワードによるアカウント新規作成およびログイン機能。Firebase Authentication を使用。 | 不要 |
-| F-102 | ソーシャルサインイン | Google等のOAuthプロバイダを利用したワンクリックサインイン機能。 | 不要 |
+| F-102 | ソーシャルサインイン | 認証画面（`/login`）において、Firebase Authentication の `signInWithPopup` によるワンクリックサインインを提供する。対応プロバイダは以下の3種類とする。①**Google**: `GoogleAuthProvider`。②**X（旧Twitter）**: `TwitterAuthProvider`（Firebase 上のプロバイダ ID は `twitter.com`）。メールアドレスが取得できない場合があるため、初回登録時の Firestore `users` ドキュメント作成では `displayName`・`photoURL` を優先してプロフィール初期値を設定する。③**Azure AD（Microsoft）**: `OAuthProvider('microsoft.com')`。職場・学校アカウント（Azure AD）および Microsoft アカウントに対応。`email`・`profile` スコープを要求する。単一テナントに限定する場合は、環境変数 `NEXT_PUBLIC_AZURE_AD_TENANT_ID`（Microsoft Entra ID のディレクトリ ID）を設定し、OAuth の `tenant` カスタムパラメータに渡す（未設定時はマルチテナントの Microsoft 認証フロー）。いずれのプロバイダでも、サインイン成功後は `onAuthStateChanged` により Firestore `users/{uid}` が存在しなければ初期ドキュメントを自動作成し、ホーム画面（または `redirect` クエリで指定された遷移先）へリダイレクトする。同一メールアドレスで別プロバイダのアカウントが既に存在する場合は `auth/account-exists-with-different-credential` として扱い、ユーザーに別のログイン方法を案内する。ポップアップブロック・キャンセル・プロバイダ未有効化（`auth/operation-not-allowed`）等の Firebase エラーは日本語メッセージに変換して画面表示する。各プロバイダは Firebase Console（Authentication → Sign-in method）および各 IdP（Google Cloud Console、X Developer Portal、Microsoft Entra ID）側で有効化・リダイレクト URI 登録・クライアントシークレット設定が完了していることが前提となる（アプリ側の `.env` に IdP シークレットは保持しない）。**開発・E2Eテスト専用**: `NODE_ENV !== 'production'` かつ `NEXT_PUBLIC_ENV === 'test'` のときのみ、メール/パスワードによる簡易ログインボタンを表示する（本番ビルドでは Tree Shaking により完全除外）。 | 不要 |
 | F-103 | プロフィール表示 | ユーザーの表示名、アバター、自己紹介、フォロー/フォロワー数、獲得バッジ一覧、作成クイズ一覧、作成クイズリスト一覧を表示する画面。 | 不要 |
 | F-104 | プロフィール編集 | 認証済みユーザーが自身の表示名（最大30文字）、自己紹介（最大200文字）、アバター画像（Firebase Storage経由アップロード：SVG-based XSS防御のためMIMEタイプ 'image/svg+xml' のアップロードは完全に禁止、PNG/JPEG/GIFのみ許容）、フォローしているジャンルを更新できる機能。 | 必要 |
 | F-105 | 称号バッジ自動付与 | 累計プレイ数、クイズ作成・公開数、フォロワー数などの達成条件に応じて「称号バッジ」をCloud Functions（サーバーサイド）で自動判定し、`users.badges` 配列にアトミックに付与する機能。 | 必要 |
@@ -233,6 +233,7 @@
 
 ### 5.1 セキュリティとアクセス制御 (Authentication & Authorization & Media Validation & Injection Defense)
 - **認証保護**: クイズの作成、編集、削除、ブックマークのトグル、フォロー、挑戦結果の記録などは、すべて認証されたユーザー (`request.auth != null`) のみ許可する。
+- **OAuth プロバイダの境界管理（F-102）**: Google・X（Twitter）・Microsoft（Azure AD）のクライアントシークレットおよびリダイレクト URI は Firebase Console / 各 IdP 管理画面でのみ管理し、フロントエンドのソースコードや公開環境変数に IdP シークレットを含めない。Azure AD を特定組織テナントに限定する場合のみ、テナント ID（`NEXT_PUBLIC_AZURE_AD_TENANT_ID`）を公開設定可能な識別子として環境変数に保持する。本番環境で未使用の認証プロバイダは Firebase Console 上で無効化し、`auth/operation-not-allowed` による意図しないログイン経路の露出を防ぐ。
 - **所有者制限**: クイズやクイズリストの編集・削除は、ドキュメントの `authorId` が実行ユーザーの `request.auth.uid` と一致する場合のみ許可する。
 - **データ不整合の防止**: ブックマークのトグルやフォローなどのカウンタ更新、重複登録が発生しうる箇所にはアトミックなトランザクション、またはバッチ書き込みを採用し、カウントの乖離を防ぐ。
 - **サーバーサイドAPIにおけるIDトークン検証と本人確認の強制**: アカウント退会（Next.js API Route: `/api/user/delete-account`）や水平思考クイズのAI質問・真相判定（Next.js API Routes: `/api/attempt/ask-ai` および `/api/attempt/verify-truth`）などの主要サーバーサイド処理においては、ヘッダーに付与された `Authorization: Bearer <ID_TOKEN>` (Firebase Auth ID Token) を Firebase Admin SDK (`admin.auth().verifyIdToken()`) で強制署名検証し、トークンが有効であること、および操作対象リソースの所有者 `uid` がトークンから抽出した認証済み `uid` と完全に一致していることを検証（成りすまし・IDオブジェクト参照の脆弱性防止）する。
