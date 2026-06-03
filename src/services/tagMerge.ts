@@ -18,6 +18,12 @@ import { db } from '../lib/firebase/config';
 import { usersRef, quizzesRef } from '../lib/firebase/firestore';
 import { resolveModerationTier } from './reputation';
 import { User, Quiz } from '../types';
+import {
+  MERGE_MIN_APPROVE_RATE,
+  MERGE_MIN_APPROVE_WEIGHT,
+  GENRE_MIN_APPROVE_RATE,
+  GENRE_MIN_APPROVE_WEIGHT,
+} from '../lib/metadata-governance';
 
 const mergeRequestsCollection = collection(db, 'mergeRequests');
 const genreRequestsCollection = collection(db, 'genreRequests');
@@ -228,7 +234,7 @@ export async function voteMergeRequest(
     const totalWeighted = weightedFor + weightedAgainst;
     const approveRate = weightedFor / totalWeighted;
 
-    if (weightedFor >= 5 && approveRate >= 0.7) {
+    if (weightedFor >= MERGE_MIN_APPROVE_WEIGHT && approveRate >= MERGE_MIN_APPROVE_RATE) {
       updates.status = 'approved';
       updates.migrationStatus = 'processing';
 
@@ -442,7 +448,7 @@ export async function voteGenreRequest(
     const totalWeighted = weightedFor + weightedAgainst;
     const approveRate = weightedFor / totalWeighted;
 
-    if (weightedFor >= 5 && approveRate >= 0.8) {
+    if (weightedFor >= GENRE_MIN_APPROVE_WEIGHT && approveRate >= GENRE_MIN_APPROVE_RATE) {
       updates.status = 'approved';
 
       // ジャンルマスタ登録

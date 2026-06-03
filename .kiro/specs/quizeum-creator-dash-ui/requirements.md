@@ -3,6 +3,8 @@
 ## Introduction
 本ドキュメントは、クイズ投稿SNS「quizeum」におけるクイズ作成・編集、作家ダッシュボード（アナリティクスおよび間違い指摘管理）、およびリストの作成・編集・エクスポートを含む、クリエイター（作家）向けフロントエンドUI要件を定義します。
 
+**Phase 6（2026-06）**: クイズエディタのジャンルセレクトを `metadata_genres` マスタ（`listActiveGenres`）駆動に切り替え、ジャンル新設可決後の選択肢反映と play-flow 探索 UI との ID 一貫性を確保する。
+
 ## Boundary Context
 - **In scope**:
   - クイズ新規作成・編集画面における動的設問管理、設問タイプ（選択肢/短答）の切り替え。
@@ -15,6 +17,9 @@
   - クイズリスト作成・編集画面におけるクイズ検索アタッチ、ドラッグ＆ドロップによる順序並べ替え、およびリストパッケージJSONエクスポート。
 - **Out of scope**:
   - 外部クイズデータのインポートUIおよびインポート処理本体（仕様変更によりインポート機能は完全に廃止されたため、UI領域は一切設置しません）。
+- **Adjacent expectations（Phase 6）**:
+  - ジャンルマスタ読み取り・公開時 `canonicalGenreId` 解決は `quizeum-core` が担当。本スペックはエディタ UI の選択肢表示とリフレッシュのみ。
+  - ジャンル新設申請・投票 UI は `quizeum-moderation-governance-ui`（`/community/genres`）が担当。
 
 ## Requirements
 
@@ -22,7 +27,7 @@
 **Objective:** As a Quiz Creator, I want a visual editor with live tag normalization, suggestions, and strict validation, so that I can draft, edit, and publish high-quality quizzes.
 
 #### Acceptance Criteria
-1. The Quiz Editor Screen shall display metadata fields for title, description, thumbnail upload, difficulty (1-10 slider), genre selector, and tag inputs (maximum 5 tags).
+1. The Quiz Editor Screen shall display metadata fields for title, description, thumbnail upload, difficulty (1-10 slider), genre selector, and tag inputs (maximum 5 tags). **Phase 6 以降**: ジャンルセレクトの選択肢は `listActiveGenres` 由来とする（要件 5 参照）。
 2. The Quiz Editor Screen shall display a link "新しいジャンルを申請する" adjacent to the genre selector, redirecting to the Genre Request Screen.
 3. When the creator inputs a tag, the Quiz Editor Screen shall normalize the text (trim, convert to lowercase, remove spaces/symbols) and, if a similar canonical tag exists, display an inline warning: "推奨: 類似するタグ #TagName が既に存在します。既存のタグを使用することをお勧めします。".
 4. The Quiz Editor Screen shall allow creators to dynamically add or delete questions, toggle question type between "選択式 (multiple-choice)" and "短答文字入力式 (text-input)".
@@ -54,3 +59,15 @@
 1. The List Editor Screen shall display metadata fields (title, description, cover image, public/private visibility toggle) and a quiz search panel.
 2. The List Editor Screen shall allow creators to search and attach quizzes, and sort their order using visual drag-and-drop handles.
 3. The List Editor Screen shall display a "リストパッケージエクスポート" button that packages the list metadata and full self-created quiz data into a single downloadable JSON package.
+
+### Requirement 5: クイズエディタのジャンルマスタ連携（Phase 6）
+**Objective:** As a Quiz Creator, I want the genre selector to reflect approved genre metadata, so that I can publish quizzes under genres that match exploration and moderation rules.
+
+#### Acceptance Criteria
+1. The Quiz Editor Screen shall load active genres via `listActiveGenres` (or equivalent core API) on mount and render each option with master `displayName` and value `genreId` (document ID).
+2. The Quiz Editor Screen shall not use a hardcoded `<option>` list as the source of truth for selectable genres.
+3. The Quiz Editor Screen shall keep the link "新しいジャンルを申請する" adjacent to the genre selector, navigating to `/community/genres`.
+4. When the editor regains window focus after the creator visited the genre request flow (or on explicit retry), the Quiz Editor Screen shall refetch active genres so newly approved genres appear without a full page reload.
+5. When editing a draft whose stored `genre` is not in the current active list (legacy or pending merge), the Quiz Editor Screen shall still display the current value and allow save; publish-time validation remains delegated to `quizeum-core`.
+6. When genre master fetch fails, the Quiz Editor Screen shall show an error or retry affordance and shall not silently fall back to a hardcoded genre list.
+7. The Quiz Editor Screen shall submit the selected `genreId` to `QuizService.saveQuiz` / publish flows unchanged in shape; canonical resolution on publish is handled by core.

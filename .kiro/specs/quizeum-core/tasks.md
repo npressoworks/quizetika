@@ -171,8 +171,99 @@
   - **完了状態**: 既存 attempt 関連テストスイートがグリーンであること
   - _Depends: 5.8_
 
+---
+
+### 6. Phase 6 拡張 — ジャンル・タグメタデータ整合（2026-06）
+
+> 設計: `metadata-resolution` 集約 + 読み取り C2（canonical 優先 + `genre in` フォールバック）。UI は隣接スペック。
+
+- [x] 6.1 メタデータ型定義の追加
+  - `GenreMetadata` / `TagMetadata` を共通型に追加し、`Quiz` の `canonicalGenreId` / `canonicalTagIds` コメントを設計と一致させる
+  - **完了状態**: 型チェックが通り、メタデータ読み取り結果を型安全に受け取れること
+  - _Requirements: 11.4_
+  - _Boundary: types_
+
+- [x] 6.2 canonical 解決ライブラリの実装
+  - 有効ジャンル検証、canonical ジャンル/タグ ID 解決、マージ済みジャンル ID 展開（`in` 10件チャンク）、未登録タグのマスタ自動 create を単一モジュールに実装する
+  - 単体テストで循環 `canonicalId` 拒否・チャンク分割・解決結果の期待値を検証する
+  - **完了状態**: `metadata-resolution` 関連 Jest がグリーンで、解決関数が Firestore マスタを参照して正規 ID を返すこと
+  - _Requirements: 2.2, 2.4, 2.5, 11.2, 11.6_
+  - _Depends: 6.1_
+  - _Boundary: metadata-resolution_
+
+- [x] 6.3 クイズ保存パイプラインへのメタデータ解決統合
+  - 下書き・公開の `saveQuiz` でジャンルマスタ存在検証後に `canonicalGenreId` / `canonicalTagIds` を必ず埋め込む（表示用 `genre` / `tags` は変更しない）
+  - 公開バリデーションとマスタ検証の二重整合、無効ジャンル時の `validation-error` を返す
+  - **完了状態**: 下書き保存後のクイズドキュメントに非空の `canonicalGenreId` が含まれ、存在しないジャンル ID で保存が拒否されること
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+  - _Depends: 6.2_
+  - _Boundary: QuizService, quiz-validation_
+
+- [x] 6.4 Firestore Security Rules（メタデータ・ガバナンス）
+  - `metadata_genres` / `metadata_tags` / `mergeRequests` / `genreRequests` の read/create/update ルールを `detailed_design.md` §6.5 方針で追加する
+  - **完了状態**: エミュレータまたはルールユニットテストで、未認証のマスタ改ざんが拒否され、認証ユーザーのタグ新規 create が許可されること
+  - _Requirements: 11.6_
+  - _Depends: 6.1_
+  - _Boundary: firestore.rules_
+
+- [x] 6.5 Firestore 複合インデックス（canonical 探索）
+  - `quizzes` に `status` + `canonicalGenreId` + (`createdAt` | `playCount` | `bookmarksCount`) の複合インデックスを定義する
+  - タグ一覧用 `canonicalTagIds` + `createdAt` インデックスを追加する
+  - **完了状態**: `firestore.indexes.json` に Phase 6 エントリが追加され、canonical クエリがインデックスエラーにならないこと
+  - _Requirements: 11.1, 11.2, 11.3_
+  - _Depends: 6.1_
+
+- [x] 6.6 (P) ジャンル別公開クイズ一覧（C2 読み取り）
+  - `canonicalGenreId ==` クエリを優先し、未バックフィル向けに `genre in` フォールバックをチャンク実行して `quizId` で dedupe する
+  - 新着・人気・トレンドのソート引数に対応する
+  - **完了状態**: マージ済み旧ジャンル `genre` のみを持つクイズと、canonical 設定済みクイズが同一一覧に重複なく含まれること
+  - _Requirements: 11.1, 11.2_
+  - _Depends: 6.2, 6.5_
+  - _Boundary: QuizService_
+
+- [x] 6.7 (P) タグ別公開クイズ一覧（canonical 優先）
+  - `canonicalTagIds` の `array-contains` を第一選択とし、legacy `tags` フォールバックを併用して欠落なく返す
+  - **完了状態**: マージ前タグ名のみのクイズが正規タグ ID 一覧に含まれること
+  - _Requirements: 11.3_
+  - _Depends: 6.2, 6.5_
+  - _Boundary: QuizService_
+
+- [x] 6.8 (P) 有効ジャンルマスタ一覧と複合検索
+  - `isActive` なジャンルの表示名・アイコン URL を返す一覧 API をサービス層に追加する
+  - ジャンル・難易度・問題数等の複合条件で公開クイズを返す検索を実装し、ジャンル条件は canonical 解決と整合させる
+  - **完了状態**: `listActiveGenres` が空でない本番相当データで結果を返し、`searchQuizzes` が複合フィルタを AND で適用すること
+  - _Requirements: 11.4, 11.5_
+  - _Depends: 6.2_
+  - _Boundary: QuizService_
+
+- [x] 6.9 弱点克服プレイのジャンルフィルタ整合
+  - 指定ジャンル時にマージ展開 ID 集合でクイズを絞り込み、誤答設問抽出に反映する（オールジャンルは従来どおり全件）
+  - **完了状態**: 子ジャンルにのみ分類されたクイズの誤答が、親ジャンルフィルタで取得できること
+  - _Requirements: 3.7_
+  - _Depends: 6.2_
+  - _Boundary: AttemptService_
+
+- [x] 6.10 ガバナンス実装の単一経路化
+  - 未使用のジャンル申請スタブ（重複モジュール内）を削除し、マージ可決 70%・ジャンル新設 80% が `tagMerge` のみで満たされることをテストで固定する
+  - **完了状態**: ジャンル新設・マージの呼び出し経路が一つに集約され、重複 export がリポジトリに残らないこと
+  - _Requirements: 7.4, 7.5, 7.6, 7.8, 11.7_
+  - _Boundary: TagMergeService, ModerationService_
+
+- [x] 6.11 Phase 6 統合検証
+  - `saveQuiz` canonical 埋め込み、`getQuizzesByGenre` C2、可決後の `listActiveGenres`、`getFailedQuestions` フィルタを統合テストで検証する
+  - **完了状態**: Phase 6 関連 Jest がグリーンであり、手動でジャンル一覧・下書き保存のスモークが成功すること
+  - _Depends: 6.3, 6.4, 6.6, 6.8, 6.9, 6.10_
+  - _Requirements: 2.1, 2.2, 2.4, 3.7, 7.5, 7.8, 11.1, 11.2, 11.4, 11.5, 11.7_
+
+- [ ]* 6.12 Phase 6 E2E スモーク（任意）
+  - ジャンル新設可決後に探索 UI が新ジャンルを利用できること、マージ後にジャンル一覧が漏れないことを E2E または手動チェックリストで確認する
+  - **完了状態**: `e2e` またはチェックリスト記録が残り、Phase 6 受け入れが再現可能であること
+  - _Depends: 6.11_
+  - _Requirements: 11.1, 11.4_
+
 ## Implementation Notes
 
 - LB 順位ロジックは `src/lib/leaderboard-ranking.ts`（純関数）と `src/lib/leaderboard-update.ts`（Firebase 非依存ヘルパー）に分離。`countPriorCompletedAttempts` は `attempt.ts` 内に保持。
 - プレイ履歴は `GET /api/user/play-history`（Bearer トークンの uid のみ）。UI は `quizeum-auth-profile-ui` が未実装。
 - クイズ詳細の二系統 LB 表示は暫定で `quiz/[id]/page.tsx` を更新（本番 UI 仕上げは `quizeum-play-flow-ui`）。
+- **Phase 6**: canonical 解決は `src/lib/metadata-resolution.ts` に集約。読み取りは C2（canonical クエリ + `genre in` フォールバック + dedupe）。ホーム/エディタ UI は `quizeum-play-flow-ui` / `quizeum-creator-dash-ui` が `listActiveGenres` に依存。

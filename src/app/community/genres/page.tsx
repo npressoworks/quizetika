@@ -2,7 +2,7 @@
  * ジャンル新設申請・投票画面
  *
  * 機能:
- * - 認証ユーザー向け「申請フォーム」タブ: 英語ID・日本語名・PNG/SVGアイコンアップロード
+ * - 認証ユーザー向け「申請フォーム」タブ: 英語ID・日本語名・PNG/JPEG/GIFアイコン（SVG不可、最大2MB）
  * - モデレータ以上向け「投票」タブ: 保留中ジャンル申請への賛否投票
  * - 可決条件達成時のシステム自動反映と成功アラート表示
  * - 「承認・否決履歴」タブ: 完了済み申請の閲覧
@@ -34,6 +34,10 @@ import {
 } from '@/services/tagMerge';
 import { uploadImage, getGenreIconPath } from '@/services/storage';
 import styles from './genres.module.css';
+import {
+  validateGenreIconFile,
+  GENRE_ICON_ACCEPT,
+} from '@/lib/genre-icon-upload';
 
 /** ジャンル申請の型定義 */
 interface GenreRequest {
@@ -52,10 +56,6 @@ interface GenreRequest {
 }
 
 type TabType = 'request' | 'vote' | 'history';
-
-/** PNG/JPEG/GIF のみ許可 (SEC-08 SVG-based XSS防御のためSVG形式を排除) */
-const ALLOWED_ICON_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
-const MAX_ICON_SIZE = 2 * 1024 * 1024; // 2MB
 
 export default function CommunityGenresPage() {
   const { user, loading } = useAuth();
@@ -159,15 +159,9 @@ export default function CommunityGenresPage() {
 
     if (!file) return;
 
-    // PNG/JPEG/GIF のみ許可 (SEC-08)
-    if (!ALLOWED_ICON_TYPES.includes(file.type)) {
-      setIconError('PNG, JPEG, GIF ファイルのみアップロード可能です。');
-      return;
-    }
-
-    // 2MB 以下
-    if (file.size > MAX_ICON_SIZE) {
-      setIconError('ファイルサイズは 2MB 以下にしてください。');
+    const validation = validateGenreIconFile(file);
+    if (!validation.ok) {
+      setIconError(validation.error);
       return;
     }
 
@@ -440,7 +434,7 @@ export default function CommunityGenresPage() {
                   ref={fileInputRef}
                   id="iconFile"
                   type="file"
-                  accept=".png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif"
+                  accept={GENRE_ICON_ACCEPT}
                   onChange={handleIconChange}
                   className={styles.hiddenInput}
                 />

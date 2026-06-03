@@ -29,7 +29,7 @@ export function parseMarkdownToQuickPressTokens(
 
   while (rest.length > 0) {
     if (rest.startsWith('**')) {
-      const match = rest.match(/^\*\*(.+?)\*\*/s);
+      const match = rest.match(/^\*\*([\s\S]+?)\*\*/);
       if (match) {
         pushChars(tokens, match[1], true);
         rest = rest.slice(match[0].length);

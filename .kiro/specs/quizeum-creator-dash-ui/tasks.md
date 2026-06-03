@@ -55,3 +55,46 @@
   - リスト情報および自作収録クイズをパッケージングした JSON のダウンロードエクスポート処理を実装する。※インポート用UIは設置しない。
   - _Requirements: 4.2, 4.3_
   - _Boundary: QuizListEditor-DragAndDrop_
+
+---
+
+### 5. Phase 6 拡張 — クイズエディタのジャンルマスタ連携（2026-06）
+
+> **前提**: `quizeum-core` Phase 6 完了（`listActiveGenres`）。`useActiveGenres` は `quizeum-play-flow-ui` 実装済みフックを再利用可。
+
+- [x] 5.1 (P) `GenreEditorSelect` コンポーネント
+  - `useActiveGenres` で取得した `displayName` / `id` を `<select>` に描画する。
+  - loading / error / 空一覧 / 再試行 UI を提供し、ハードコード option へフォールバックしない。
+  - 制御値が active 一覧に無いときは orphan 用の追加 `<option>` を 1 件表示する（レガシー下書き対応）。
+  - `data-testid="genre-editor-select"` を付与する。
+  - **完了状態**: マスタ由来の option のみが正本であること。
+  - _Requirements: 5.1, 5.2, 5.5, 5.6_
+  - _Boundary: GenreEditorSelect_
+  - _Depends: quizeum-core Phase 6_
+
+- [x] 5.2 `QuizEditor` への統合と承認後リフレッシュ
+  - `quiz-editor.tsx` の固定 6 件 option を `GenreEditorSelect` に置換する。
+  - `window` の `focus` イベントで `useActiveGenres().refetch()` を呼び、ジャンル新設可決後に選択肢が更新されること。
+  - 「新しいジャンルを申請する」リンクを維持する。
+  - **完了状態**: 作成・編集画面で新設ジャンルが refetch 後に選択可能であること。
+  - _Requirements: 5.3, 5.4, 5.7, 1.2_
+  - _Depends: 5.1_
+
+- [x] 5.3 Phase 6 統合検証
+  - `GenreEditorSelect` の RTL テスト（loading / options / orphan / error）。
+  - 既存 Zod・公開フローの回帰がないこと（`npm test` / `npm run build`）。
+  - **完了状態**: 関連 Jest がグリーンであること。
+  - _Requirements: 5.1, 5.4, 5.6_
+  - _Depends: 5.2_
+
+- [ ]* 5.4 Phase 6 E2E スモーク（任意）
+  - エディタでジャンル select が動的であること、申請画面リンクが有効であることを E2E または手動チェックリストで記録する。
+  - _Depends: 5.3_
+  - _Requirements: 5.1, 5.3_
+
+## Implementation Notes
+
+- Phase 6 は **読み取り専用**（`metadata_genres` 書き込みは governance / core）。
+- `useActiveGenres` を `src/hooks/` に既に置いている場合は import 共有のみで新規フック不要。
+- play-flow のホームジャンル ID とエディタの `genre` 保存値は同一キー（英小文字 doc ID）を用いる。
+- Phase 6 実装（2026-06-03）: `GenreEditorSelect` + `useActiveGenres`、focus 時 refetch。Jest 300 件・build PASS。

@@ -16,6 +16,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
+import { expandGenreIdsForQuery, quizMatchesGenreFilter } from '../lib/metadata-resolution';
 import { quizzesRef, usersRef } from '../lib/firebase/firestore';
 import { Attempt, Quiz, Question, PlayHistoryPage, PlayHistoryEntry } from '../types';
 import {
@@ -195,6 +196,12 @@ export async function getFailedQuestions(
 
   if (failedIds.size === 0) return [];
 
+  let genreIdSet: Set<string> | null = null;
+  if (genreFilter && genreFilter !== 'all') {
+    const expanded = await expandGenreIdsForQuery(genreFilter);
+    genreIdSet = new Set(expanded);
+  }
+
   // 2. 対象となるクイズデータをまとめてフェッチし、問題オブジェクトを抽出する
   const failedQuestions: Question[] = [];
 
@@ -204,8 +211,7 @@ export async function getFailedQuestions(
 
     if (quizSnap.exists()) {
       const quiz = quizSnap.data() as Quiz;
-      // ジャンルフィルタのチェック
-      if (genreFilter && genreFilter !== 'all' && quiz.genre !== genreFilter) {
+      if (genreIdSet && !quizMatchesGenreFilter(quiz, genreIdSet)) {
         continue;
       }
 
@@ -384,6 +390,24 @@ export async function listUserPlayHistory(params: {
       : null;
 
   return { items, nextCursor };
+}
+
+/**
+ * 本人が完了済みプレイしたクイズ ID の一覧（重複除去）。ホームのプレイ状況フィルタ用。
+ */
+export async function listUserPlayedQuizIds(uid: string): Promise<string[]> {
+  const attemptsQuery = query(attemptsCollection, where('userId', '==', uid));
+  const snap = await getDocs(attemptsQuery);
+  const ids = new Set<string>();
+
+  for (const docSnap of snap.docs) {
+    const data = docSnap.data() as Attempt;
+    if (!data.completedAt) continue;
+    if (NON_PERSISTED_PLAY_MODES.has(data.mode)) continue;
+    ids.add(data.quizId);
+  }
+
+  return [...ids];
 }
 
 /* ==========================================================================

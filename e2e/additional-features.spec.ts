@@ -247,20 +247,22 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
     }
   });
 
-  test('ジャンル別クイズ一覧が正常に表示されること', async ({ page }) => {
-    // 1. ホームページへアクセス
+  test('ジャンルアイコンからジャンル別一覧へ遷移できること', async ({ page }) => {
     await page.goto('/');
 
-    // 2. ジャンルボタン（コンピュータ・IT）をクリック
-    const genreBtn = page.getByRole('button', { name: /コンピュータ・IT/ });
-    await expect(genreBtn).toBeVisible({ timeout: 10000 });
-    await genreBtn.click();
-    await page.waitForTimeout(500);
+    const genreNav = page.getByTestId('genre-nav');
+    await expect(genreNav).toBeVisible({ timeout: 10000 });
 
-    // 3. クイズ一覧が表示されることを確認
-    const quizList = page.locator('article');
-    const count = await quizList.count();
-    expect(count).toBeGreaterThanOrEqual(0);
+    const firstGenre = page.locator('[data-testid^="genre-nav-item-"]').first();
+    const testId = await firstGenre.getAttribute('data-testid');
+    if (!testId) {
+      test.skip();
+      return;
+    }
+
+    await firstGenre.click();
+    await expect(page).toHaveURL(/\/genres\//, { timeout: 10000 });
+    await expect(page.getByTestId('genre-explore-page')).toBeVisible();
   });
 
   test('プロフィール編集画面: フォローしているジャンルが管理できること', async ({ page }) => {

@@ -98,6 +98,45 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------
+    // metadata_tags / metadata_genres（Phase 6）
+    // -----------------------------------------------------------------
+    match /metadata_tags/{tagId} {
+      allow read: if true;
+      allow create: if isAuthenticated()
+        && request.resource.data.id == tagId
+        && request.resource.data.canonicalId == null
+        && request.resource.data.mergedTagIds == [];
+      allow update: if isAuthenticated()
+        && request.resource.data.id == resource.data.id
+        && (
+          (resource.data.canonicalId == null && request.resource.data.canonicalId != null)
+          || request.resource.data.mergedTagIds.hasAll(resource.data.mergedTagIds)
+        );
+    }
+
+    match /metadata_genres/{genreId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+    }
+
+    match /mergeRequests/{requestId} {
+      allow read: if true;
+      allow create: if isModeratorOrAbove()
+        && request.resource.data.status == 'pending';
+      allow update: if isModeratorOrAbove();
+      allow delete: if false;
+    }
+
+    match /genreRequests/{requestId} {
+      allow read: if true;
+      allow create: if isAuthenticated()
+        && request.resource.data.status == 'pending';
+      allow update: if isModeratorOrAbove();
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------
     // flags (通報) コレクションルール
     // -----------------------------------------------------------------
     match /flags/{flagId} {

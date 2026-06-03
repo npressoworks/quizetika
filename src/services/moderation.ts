@@ -4,13 +4,10 @@
  * 機能:
  * 1. flagContent      - コンテンツ通報とアトミックカウント更新・自動保留
  * 2. resolveFlag      - 管理者審査（公開復帰 / 永久削除）
- * 3. createMergeRequest - タグ/ジャンル仮想マージ提案
- * 4. voteOnMergeRequest - 重み付き投票
- * 5. submitGenreRequest - 新規ジャンル申請
- * 6. resolveGenreRequest - 可決/否決処理
+ * マージ・ジャンル新設は TagMergeService (`tagMerge.ts`) に集約。
  *
  * Boundary: ModerationService (Task 2.8)
- * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
+ * Requirements: 7.1, 7.2, 7.3
  */
 
 import {
@@ -26,16 +23,9 @@ import {
 import { db } from '../lib/firebase/config';
 import { quizzesRef, usersRef } from '../lib/firebase/firestore';
 import { Quiz, User } from '../types';
-import {
-  isSuspendThresholdReached,
-  calculateMergeVoteWeight,
-  isGenreRequestApproved,
-} from './moderation-utils';
+import { isSuspendThresholdReached } from './moderation-utils';
 
 const flagsCollection = collection(db, 'flags');
-const mergeRequestsCollection = collection(db, 'mergeRequests');
-const genreRequestsCollection = collection(db, 'genreRequests');
-const metadataGenresCollection = collection(db, 'metadata_genres');
 const notificationsCollection = collection(db, 'notifications');
 
 /* ==========================================================================
@@ -132,120 +122,3 @@ export async function resolveFlag(
   }
 }
 
-/* ==========================================================================
-   タグ/ジャンル仮想マージ提案・投票
-   ========================================================================== */
-
-/**
- * 表記揺れタグ/ジャンルの仮想マージ提案を作成する
- */
-export async function createMergeRequest(
-  sourceId: string,
-  targetId: string,
-  type: 'tag' | 'genre',
-  proposerId: string
-): Promise<string> {
-  const docRef = await addDoc(mergeRequestsCollection, {
-    sourceId,
-    targetId,
-    type,
-    proposerId,
-    totalApproveWeight: 0,
-    totalWeight: 0,
-    status: 'open',
-    createdAt: new Date(),
-  });
-  return docRef.id;
-}
-
-/**
- * マージ提案に重み付き投票する
- */
-export async function voteOnMergeRequest(
-  mergeRequestId: string,
-  voterId: string,
-  vote: 'approve' | 'reject'
-): Promise<void> {
-  const voterSnap = await getDoc(doc(usersRef, voterId));
-  if (!voterSnap.exists()) throw new Error('投票者が見つかりません');
-
-  const voter = voterSnap.data() as User;
-  const weight = calculateMergeVoteWeight(voter.moderationTier);
-
-  const mrRef = doc(mergeRequestsCollection, mergeRequestId);
-  await updateDoc(mrRef, {
-    totalWeight: increment(weight),
-    ...(vote === 'approve' ? { totalApproveWeight: increment(weight) } : {}),
-  });
-}
-
-/* ==========================================================================
-   新規ジャンル申請・承認
-   ========================================================================== */
-
-/**
- * 新規ジャンル申請を送信する
- */
-export async function submitGenreRequest(request: {
-  genreId: string;
-  displayName: string;
-  iconUrl: string;
-  requesterId: string;
-}): Promise<string> {
-  const docRef = await addDoc(genreRequestsCollection, {
-    ...request,
-    totalApproveWeight: 0,
-    totalWeight: 0,
-    status: 'pending',
-    createdAt: new Date(),
-  });
-  return docRef.id;
-}
-
-/**
- * ジャンル申請を可決/否決する
- * 可決時は metadata_genres コレクションに自動登録する
- * @param genreRequestId ジャンル申請のドキュメントID
- * @param executorId 申請審査を実行するユーザーのUID (多重防衛用)
- */
-export async function resolveGenreRequest(genreRequestId: string, executorId: string): Promise<void> {
-  // 実行者の権限をFirestoreから引き直して検証 (CISO防衛制限)
-  const executorSnap = await getDoc(doc(usersRef, executorId));
-  if (!executorSnap.exists()) {
-    throw new Error('実行ユーザーが見つかりません');
-  }
-  const executor = executorSnap.data() as User;
-  const isAuthorized = ['contributor', 'moderator', 'senior_moderator'].includes(executor.moderationTier) || (executor as any).role === 'admin';
-  if (!isAuthorized) {
-    throw new Error('この操作を実行する権限がありません (CISOセキュリティ制限)');
-  }
-
-  const reqRef = doc(genreRequestsCollection, genreRequestId);
-  const reqSnap = await getDoc(reqRef);
-  if (!reqSnap.exists()) throw new Error('申請が見つかりません');
-
-  const req = reqSnap.data() as {
-    genreId: string;
-    displayName: string;
-    iconUrl: string;
-    requesterId: string;
-    totalApproveWeight: number;
-    totalWeight: number;
-  };
-
-  const approved = isGenreRequestApproved(req.totalApproveWeight, req.totalWeight);
-
-  if (approved) {
-    // ジャンルを自動登録・有効化
-    await addDoc(metadataGenresCollection, {
-      id: req.genreId,
-      displayName: req.displayName,
-      iconUrl: req.iconUrl,
-      isEnabled: true,
-      createdAt: new Date(),
-    });
-    await updateDoc(reqRef, { status: 'approved', resolvedAt: new Date() });
-  } else {
-    await updateDoc(reqRef, { status: 'rejected', resolvedAt: new Date() });
-  }
-}

@@ -368,6 +368,25 @@ function collectQuestionValidationErrors(question: Question, idx: number): QuizP
 }
 
 /**
+ * 下書き保存前バリデーション（タイトル・ジャンル・各問題文）
+ */
+export function validateQuizForDraft(quiz: Pick<Quiz, 'title' | 'genre' | 'questions'>): QuizPublishValidationError[] {
+  const errors: QuizPublishValidationError[] = [];
+
+  if (!quiz.title?.trim()) {
+    errors.push({ field: 'title', message: '下書き保存するにはタイトルを入力してください' });
+  }
+  if (!quiz.genre?.trim()) {
+    errors.push({ field: 'genre', message: 'ジャンルを選択してください' });
+  }
+  (quiz.questions ?? []).forEach((q, idx) => {
+    errors.push(...collectQuestionTextValidationErrors(q, idx));
+  });
+
+  return errors;
+}
+
+/**
  * クイズの公開前バリデーションを実行する
  *
  * 検証内容:

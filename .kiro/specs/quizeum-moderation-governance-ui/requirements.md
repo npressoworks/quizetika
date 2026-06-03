@@ -3,6 +3,8 @@
 ## Introduction
 本ドキュメントは、クイズ投稿SNS「quizeum」における管理者向け通報コンテンツ審査キュー画面、モデレータ向けタグ/ジャンルの仮想マージリクエスト画面、およびジャンル新設申請・投票画面を含む、コミュニティ自治（モデレーションとガバナンス）に関するフロントエンドUI要件を定義します。
 
+**Phase 6（2026-06）**: ジャンルアイコンアップロードの仕様文言を SEC-08 / `docs/` と整合（**SVG 禁止、PNG/JPEG/GIF のみ**）。実装済み UI との乖離を解消する。
+
 ## Boundary Context
 - **In scope**:
   - 管理者ロール専用の通報審査画面におけるクイズ、リスト、プロフィールの審査待ちリスト表示。
@@ -10,7 +12,7 @@
   - 審査対象クイズの中身を確認するための「管理者特別検証閲覧ビュー」動線。
   - モデレータ専用のマージリクエスト画面におけるマージ提案の起案および保留提案に対する賛否加重投票UI。
   - シニアモデレータに対する「投票重み: x2」のインジケーター表示、および賛成率プログレスバーのリアルタイム可視化。
-  - 認証済みユーザー向けの新ジャンル申請フォーム（ID、日本語名、PNG/SVGアイコン画像のアップロード対応）。
+  - 認証済みユーザー向けの新ジャンル申請フォーム（ID、日本語名、**PNG/JPEG/GIF** アイコン画像のアップロード、最大2MB、**SVG 不可**）。
   - 新設ジャンルの保留中リストに対するモデレータ投票、可決承認条件達成時のシステム自動反映通知、履歴閲覧タブ。
   - `moderationTier` を用いた管理者・モデレータ専用画面への厳格なアクセス制限（ガード）。
 - **Out of scope**:
@@ -44,8 +46,18 @@
 **Objective:** As a Quizeum User, I want to request new genres, and as a Moderator, I want to vote on request approvals, so that we can expand our quiz catalog collaboratively.
 
 #### Acceptance Criteria
-1. The Community Genre Screen shall display an "申請フォーム" tab visible to all authenticated users, containing fields for English genre ID (lowercase, hyphen-separated), Japanese display name, and a PNG/SVG icon upload field.
+1. The Community Genre Screen shall display an "申請フォーム" tab visible to all authenticated users, containing fields for English genre ID (lowercase, hyphen-separated), Japanese display name, and an icon upload field that accepts **PNG, JPEG, or GIF only** (maximum 2MB). **SVG and other formats shall be rejected** with an inline error before upload.
 2. The Community Genre Screen shall display a "投票" tab visible only to users with `moderationTier >= 'moderator'`, displaying pending genre requests.
 3. The Community Genre Screen shall allow moderators to cast Pro/Con votes on pending genre requests.
 4. If a genre request reaches the approval threshold (weighted votes >= 5 and approval rate >= 80%), then the system shall automatically register the genre to `metadata_genres` and show an success alert "ジャンルが追加されました".
 5. The Community Genre Screen shall display an "承認・否決履歴" tab displaying completed genre requests.
+
+### Requirement 4: ジャンルアイコン仕様整合（Phase 6）
+**Objective:** As a platform operator, I want genre request UI and documentation to consistently forbid SVG uploads, so that SEC-08 XSS defenses are not undermined by outdated spec text.
+
+#### Acceptance Criteria
+1. All in-spec references to genre icon uploads shall state **PNG/JPEG/GIF only** and explicitly **exclude SVG** (aligned with `docs/security_architecture.md`, `docs/screen_transition.md`, and `storage.rules`).
+2. The Community Genre Screen's file input `accept` attribute and client-side MIME validation shall match the allowed set (`image/png`, `image/jpeg`, `image/gif`) and maximum size (2MB).
+3. When the user selects a disallowed file (including `.svg` or `image/svg+xml`), the Community Genre Screen shall block submit and show a clear inline error; it shall not upload to Storage.
+4. On genre request approval, the system shall continue to copy `iconImageUrl` from the approved request into `metadata_genres` via existing core transaction (`voteGenreRequest`); no SVG normalization step is required in this spec.
+5. E2E or unit tests shall assert that SVG selection is rejected at the UI layer (optional but recommended in task 5.4).

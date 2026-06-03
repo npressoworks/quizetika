@@ -1,3 +1,5 @@
+jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
+
 import { runTransaction } from 'firebase/firestore';
 import { saveAttempt } from '../../src/services/attempt';
 jest.mock('firebase/firestore', () => {

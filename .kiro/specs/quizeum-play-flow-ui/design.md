@@ -7,6 +7,8 @@
 
 **Phase 5（2026-06）**: クイズ詳細の単位リーダーボードを初回プレイ／リプレイの二系統表示に刷新する。永続化・順位計算は `quizeum-core`（`leaderboard-ranking.ts`）が完了済みのため、本スペックは読み取り・表示・E2E契約の仕上げを担当する。
 
+**Phase 6（2026-06）**: 探索 UI を `metadata_genres` 駆動に切り替える。`listActiveGenres` / `getQuizzesByGenre`（C2）/ `getQuizzesByTag` / `searchQuizzes` を UI から呼び出し、ハードコード `GENRES` を除去する。
+
 ### Goals
 - 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
 - プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
@@ -15,11 +17,13 @@
 - オフライン時におけるプレイ進行・結果確認のフォールバック処理。
 - クイズ作成者本人に対する編集動線UIの提供、および他ユーザーによる直接編集URLアクセス時の認可保護（ガード）。
 - **Phase 5**: クイズ詳細における初回プレイ／リプレイ二系統リーダーボードのタブUI、列表示（正解数・合計時間・達成日）、`data-testid` 契約、E2Eの旧仕様（ハイスコア／最速）からの更新。
+- **Phase 6**: ホームの動的ジャンルナビ、`searchQuizzes` 連携、ジャンル／タグ一覧のソートタブ、弱点克服のマスタ駆動ジャンル選択。
 
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizeum-creator-dash-ui` に委ねます）。
 - 管理者モデレーション、タグ・ジャンル仮想マージなどの自治ガバナンスUI（`quizeum-moderation-governance-ui`が担当）。
 - **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizeum-core`）。マイページのプレイ履歴UI（`quizeum-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
+- **Phase 6**: `metadata-resolution`・Firestore Rules・canonical 書き込み（`quizeum-core`）。クイズエディタのジャンルセレクト（`quizeum-creator-dash-ui`）。
 
 ---
 
@@ -32,6 +36,7 @@
 - **評価フィードバックUI**: 良問評価投票、難易度投票、指摘フォームモーダル、作家感謝リアクション。
 - **クイズ編集認可ガード**: 編集画面（`/quiz/[id]/edit`）における、ログイン状態および作成者所有権（`quiz.authorId === user.id`）に基づく直接アクセスの制限とアクセス拒否UI表示の制御。
 - **クイズ単位リーダーボード表示（Phase 5）**: `QuizDualLeaderboard` コンポーネントによる初回／リプレイの読み取り専用表示、タブ切替、空状態、E2E用 `data-testid`。
+- **ジャンルマスタ駆動探索（Phase 6）**: `GenreNav` / `useActiveGenres`、ホーム・ジャンル一覧・弱点克服のマスタ連携、探索ソート UI。
 
 ### Out of Boundary
 - Gemini APIとの対話やプロンプト生成のバックエンドロジック本体。
@@ -40,13 +45,14 @@
 
 ### Allowed Dependencies
 - **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
-- **`quizeum-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（`@/lib/leaderboard-ranking`、読み取りのみ）**
+- **`quizeum-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**
 - **サーバーAPIプロキシ**: `/api/attempt/ask-ai`, `/api/attempt/verify-truth`
 
 ### Revalidation Triggers
 - AI質問判定API (`/api/attempt/ask-ai`) または真相判定API (`/api/attempt/verify-truth`) の入出力スキーマ変更。
 - `AttemptService` のデータ格納スキーマ変更。
 - `LeaderboardRecord` のフィールド追加・意味変更、または `leaderboard` レガシーフォールバック廃止。
+- **Phase 6**: `GenreMetadata` フィールド変更、`getQuizzesByGenre` の C2 契約変更、`listActiveGenres` のフィルタ条件変更。
 
 ---
 
@@ -121,6 +127,24 @@ components/
     └── useAiPlayState.ts          # ウミガメチャットのステート管理フック (4.3, 4.4)
 e2e/
 └── leaderboard.spec.ts            # クイズ詳細LB: 旧「最速」→リプレイへ更新 (9.x)
+components/
+└── explore/
+    ├── genre-nav.tsx              # アイコン一覧 → /genres/[id] 遷移のみ (10.x)
+    ├── genre-search-field.tsx     # サジェスト付きジャンル選択（複合検索パネル用）
+    └── genre-nav.module.css
+hooks/
+├── useActiveGenres.ts             # listActiveGenres キャッシュ (10.x)
+├── useHomeQuizFeed.ts             # タブ取得 vs searchQuizzes（フィルタ変更・デバウンス）
+└── usePlayedQuizIds.ts            # 認証ユーザーのプレイ済み quizId 集合（1.3 playStatus）
+```
+
+### Modified Files（Phase 6）
+- `src/app/page.tsx` — `GENRES` 定数削除、`GenreNav`（遷移専用）+ `GenreSearchField` + `useHomeQuizFeed` + `usePlayedQuizIds`。
+- `src/app/api/user/played-quiz-ids/route.ts`（新規）— 本人の完了済み `quizId` 一覧（プレイ状況フィルタ用、読み取りのみ）。
+- `src/services/attempt.ts` — `listUserPlayedQuizIds(uid)`（既存 `attempts` 読み取り、UI 支援用）。
+- `src/app/genres/[genreName]/page.tsx` — マスタメタ表示、ソートタブ、`getQuizzesByGenre(..., sort)`。
+- `src/app/tags/[tagName]/page.tsx` — `getQuizzesByTag` + ソートタブ（任意でホームと同型）。
+- `src/app/quiz/review/page.tsx` — `REVIEW_GENRES` を `listActiveGenres` に置換。
 ```
 
 ### Modified Files（Phase 5）
@@ -168,6 +192,44 @@ sequenceDiagram
     LB->>LB: slice(0, 5)、タブで初回／リプレイを切替表示
 ```
 
+### ホーム・ジャンル探索フロー（Phase 6）
+
+**UX 方針（確定）**
+- **ジャンルアイコン**: クリックは常に `/genres/[genreId]` へ遷移。ホーム上のインライン絞り込みには使わない。
+- **ジャンル（複合検索）**: `GenreSearchField` でマスタをサジェスト検索し、選択した `genreId` をフィルタに載せる（件数増加時も操作可能）。
+- **`searchQuizzes`**: フィルタ（ジャンル ID・難易度・問題数・キーワード）変更時にデバウンス（例: 300ms）後に再取得。全フィルタ未指定時はタブ別 API。
+- **プレイ状況（要件 1.3）**: 認証時は `usePlayedQuizIds` で取得した `Set<quizId>` を、タブ取得／`searchQuizzes` 結果の**後段**で適用。未認証は `all` 固定または select 無効＋案内。
+
+```mermaid
+sequenceDiagram
+    participant Home as HomePage
+    participant Hook as useActiveGenres
+    participant Feed as useHomeQuizFeed
+    participant Played as usePlayedQuizIds
+    participant Core as QuizService
+    participant Genre as GenreExplorePage
+
+    Home->>Hook: mount
+    Hook->>Core: listActiveGenres()
+    Core-->>Hook: GenreMetadata[]
+    Hook-->>Home: genres + loading/error
+    Home->>Home: GenreNav 描画（アイコン → router.push /genres/id）
+    Home->>Genre: アイコンクリック
+    Genre->>Core: listActiveGenres (displayName/icon)
+    Genre->>Core: getQuizzesByGenre(id, limit, sort)
+
+    Home->>Played: user 認証時
+    Played->>Core: listUserPlayedQuizIds / API
+    Home->>Feed: フィルタ変更（debounce）
+    alt フィルタあり
+        Feed->>Core: searchQuizzes(keyword, filters)
+    else フィルタなし
+        Feed->>Core: getLatestQuizzes / popular / trending
+    end
+    Feed->>Home: quizzes
+    Home->>Home: playStatus でクライアント絞り込み
+```
+
 ---
 
 ## Requirements Traceability
@@ -175,8 +237,8 @@ sequenceDiagram
 | Requirement | Summary | Components | Interfaces | Flows |
 |-------------|---------|------------|------------|-------|
 | 1.1 | ホームタブ表示（新着・人気・トレンド・フォローTL） | `/` Page | `QuizService` | - |
-| 1.2 | 主要ジャンルナビゲーション | `/` Page | `metadata_genres` | - |
-| 1.3 | 複合検索フィルタ | `/` Page | `QuizService` | - |
+| 1.2 | ジャンルアイコン → `/genres/[id]` | `GenreNav` | `listActiveGenres`, `useRouter` | ホーム・ジャンル探索フロー |
+| 1.3 | 複合検索・サジェスト・playStatus | `GenreSearchField`, `useHomeQuizFeed`, `usePlayedQuizIds` | `searchQuizzes`, played-quiz-ids API | ホーム・ジャンル探索フロー |
 | 1.4 | 未ログイン時ブックマーク制限 | `/` Page | `useAuth`, `/login` | - |
 | 2.1 | クイズ詳細メタ情報表示 | `/quiz/[id]` Page | `QuizService` | - |
 | 2.2 | 良問評価バッジとマスク制御 | `/quiz/[id]` Page | `ReviewService` | - |
@@ -215,6 +277,18 @@ sequenceDiagram
 | 9.6 | リプレイ: `leaderboardReplay` のみ | `QuizDualLeaderboard` | `getLeaderboardReplay` | - |
 | 9.7 | E2E `data-testid` | `QuizDualLeaderboard` | test ids | - |
 | 9.8 | 更新・マージなし（表示のみ） | `QuizDualLeaderboard` | — | Out of boundary |
+| 10.1 | 動的ジャンルナビ | `GenreNav`, `useActiveGenres` | `listActiveGenres` | ホーム・ジャンル探索フロー |
+| 10.2 | ハードコード GENRES 廃止 | `HomePage` | — | — |
+| 10.3 | `/genres/[id]` 遷移（アイコンのみ） | `GenreNav` | `useRouter` | — |
+| 10.4 | `searchQuizzes`（フィルタ変更） | `useHomeQuizFeed` | `searchQuizzes` | — |
+| 10.4b | ジャンルサジェスト | `GenreSearchField` | `useActiveGenres` | — |
+| 10.4c | プレイ状況 | `usePlayedQuizIds` | `listUserPlayedQuizIds` | — |
+| 10.5 | ジャンル一覧メタ表示 | `GenreExplorePage` | `listActiveGenres` | — |
+| 10.6 | ジャンル一覧ソート | `GenreExplorePage` | `getQuizzesByGenre` | — |
+| 10.7 | タグ一覧 canonical + sort | `TagExplorePage` | `getQuizzesByTag` | — |
+| 10.8 | 弱点克服ジャンル選択 | `ReviewPage` | `listActiveGenres` | — |
+| 10.9 | 空・エラー状態 | `GenreNav`, `HomePage` | — | — |
+| 10.10 | ハードコードへサイレントフォールバック禁止 | 全探索 UI | — | Out of boundary |
 
 ---
 
@@ -224,7 +298,10 @@ sequenceDiagram
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
 |-----------|--------------|--------|--------------|------------------|-----------|
-| `HomePage` | UI / Page | クイズ探索・複合検索・タブ切替 | 1.1, 1.2, 1.3, 1.4 | `QuizService`, `useAuth` | State |
+| `HomePage` | UI / Page | クイズ探索・複合検索・タブ切替 | 1.1–1.4, 10.2–10.4 | `useHomeQuizFeed`, `usePlayedQuizIds`, `useAuth` | State |
+| `GenreSearchField` | UI / Component | マスタ駆動ジャンルサジェスト（複合検索） | 1.3, 10.4 | `useActiveGenres` | State |
+| `useHomeQuizFeed` | Hook | タブ取得 / `searchQuizzes` 切替・デバウンス | 1.3, 10.4 | `searchQuizzes`, tab APIs | State |
+| `usePlayedQuizIds` | Hook | プレイ済み quizId 集合 | 1.3 | `/api/user/played-quiz-ids` | State |
 | `QuizDetailPage` | UI / Page | クイズのメタデータおよび良問評価、プレイモード選択、作成者編集動線 | 2.1–2.6 | `QuizService`, `ReviewService`, `useAuth` | State |
 | `QuizDualLeaderboard` | UI / Component | 初回／リプレイLBのタブ表示（読み取り専用） | 9.1–9.8 | `getLeaderboardFirstPlay`, `getLeaderboardReplay` (P0) | State |
 | `QuizPlayPage` | UI / Page | クイズ解答画面（通常タイマー、ヒント、ウミガメスープチャット） | 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6 | `usePlayState`, `useAiPlayState` | State, API |
@@ -304,8 +381,10 @@ interface QuizDualLeaderboardProps {
   - 未ログイン状態で直接アクセスした際、直ちに `/login` へリダイレクトされることを検証。
 
 ### E2E/UI Tests
-- **複合検索フィルタ**:
-  - ホーム画面でジャンルアイコンをクリック、または難易度スライダーを動かした際に、表示されるクイズカードの一覧が意図通りにフィルタリングされるかをブラウザシミュレートしてテスト。
+- **複合検索フィルタ（Phase 6）**:
+  - ジャンルアイコンクリックで `/genres/[id]` に遷移すること（ホーム URL のまま絞り込まないこと）。
+  - `GenreSearchField` でサジェスト選択後、デバウンス経由でグリッドが更新されること。
+  - 認証済みで「未プレイのみ」選択時、プレイ済みクイズが一覧から除外されること。
 - **クイズ詳細・二系統リーダーボード（Phase 5）**:
   - `[data-testid="quiz-leaderboard"]` が表示されること。
   - 初回タブで `[data-testid="highscore-leaderboard"]`、リプレイタブ切替後に `[data-testid="replay-leaderboard"]` が表示されること。

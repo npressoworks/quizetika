@@ -12,22 +12,13 @@ import { decodeStoredQuestionText } from '@/lib/question-text';
 import { isChoiceAnswerCorrect } from '@/services/choice-answer-utils';
 import { getTextInputFieldProps, isTextInputAnswerCorrect } from '@/services/text-answer-utils';
 import { Question } from '@/types';
+import { useActiveGenres } from '@/hooks/useActiveGenres';
 import styles from './review.module.css';
-
-// 復習ジャンルリスト
-const REVIEW_GENRES = [
-  { id: '', label: 'オールジャンル', icon: '🌟' },
-  { id: 'programming', label: '開発・プログラミング', icon: '💻' },
-  { id: 'history', label: '歴史・世界史', icon: '📜' },
-  { id: 'science', label: '科学・宇宙', icon: '🌌' },
-  { id: 'art', label: 'アート・デザイン', icon: '🎨' },
-  { id: 'sports', label: 'スポーツ', icon: '⚽' },
-  { id: 'entertainment', label: 'ゲーム', icon: '🎮' },
-];
 
 export default function ReviewPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { genres, loading: genresLoading, error: genresError } = useActiveGenres();
 
   const [phase, setPhase] = useState<'setup' | 'playing' | 'completed'>('setup');
   const [selectedGenre, setSelectedGenre] = useState<string>('');
@@ -177,15 +168,32 @@ export default function ReviewPage() {
             まずは復習したいクイズのジャンルを選択してください。
           </p>
 
-          <div className={styles.genreSelector}>
-            {REVIEW_GENRES.map((genre) => (
+          <div className={styles.genreSelector} data-testid="review-genre-selector">
+            <div
+              className={`${styles.genreCard} ${selectedGenre === '' ? styles.genreSelected : ''}`}
+              data-testid="review-genre-all"
+              onClick={() => setSelectedGenre('')}
+            >
+              <span className={styles.genreIcon}>🌟</span>
+              <span className={styles.genreLabel}>オールジャンル</span>
+            </div>
+            {genresLoading && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>ジャンルを読み込み中...</p>
+            )}
+            {genresError && (
+              <p style={{ color: 'var(--color-danger, #c62828)', fontSize: '0.9rem' }} role="alert">
+                {genresError}
+              </p>
+            )}
+            {genres.map((genre) => (
               <div
                 key={genre.id}
                 className={`${styles.genreCard} ${selectedGenre === genre.id ? styles.genreSelected : ''}`}
+                data-testid={`review-genre-${genre.id}`}
                 onClick={() => setSelectedGenre(genre.id)}
               >
-                <span className={styles.genreIcon}>{genre.icon}</span>
-                <span className={styles.genreLabel}>{genre.label}</span>
+                <span className={styles.genreIcon}>📚</span>
+                <span className={styles.genreLabel}>{genre.displayName}</span>
               </div>
             ))}
           </div>

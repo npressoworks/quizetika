@@ -1,52 +1,79 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import styles from './page.module.css';
-import {
-  getLatestQuizzes,
-  getPopularQuizzes,
-  getTrendingQuizzes,
-  getFollowedTimeline
-} from '@/services/quiz';
 import { toggleBookmark, getBookmarkedQuizzes } from '@/services/bookmark';
 import { Quiz } from '@/types';
-import { Book, Code, Globe, History, Palette, Trophy, Search, SlidersHorizontal, Star } from 'lucide-react';
-
-// 主要ジャンルナビゲーション用データ
-const GENRES = [
-  { id: '', label: 'すべて', icon: '✨' },
-  { id: 'programming', label: 'コンピュータ・IT', icon: '💻' },
-  { id: 'history', label: '歴史', icon: '📜' },
-  { id: 'science', label: '科学・宇宙', icon: '🌌' },
-  { id: 'art', label: 'アート・デザイン', icon: '🎨' },
-  { id: 'sports', label: 'スポーツ', icon: '⚽' },
-  { id: 'entertainment', label: 'ゲーム', icon: '🎮' },
-];
+import { SlidersHorizontal, Star } from 'lucide-react';
+import { useActiveGenres } from '@/hooks/useActiveGenres';
+import { useHomeQuizFeed } from '@/hooks/useHomeQuizFeed';
+import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
+import { GenreNav } from '@/components/explore/genre-nav';
+import { GenreSearchField } from '@/components/explore/genre-search-field';
+import {
+  DEFAULT_HOME_FEED_FILTERS,
+  type HomeFeedFilters,
+} from '@/lib/home-feed-filters';
+import { applyPlayStatusFilter } from '@/lib/apply-play-status-filter';
 
 export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
+  const { genres, loading: genresLoading, error: genresError, genreLabelById, refetch } =
+    useActiveGenres();
 
-  // ステート管理
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'latest' | 'popular' | 'trending' | 'timeline'>('latest');
-  const [selectedGenre, setSelectedGenre] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [showFilters, setShowFilters] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'latest' | 'popular' | 'trending' | 'timeline'>(
+    'latest'
+  );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
-
-  // 複合検索用フィルターステート
-  const [difficultyMin, setDifficultyMin] = useState<number>(1);
-  const [difficultyMax, setDifficultyMax] = useState<number>(10);
-  const [minQuestions, setMinQuestions] = useState<number>(1);
-  const [maxQuestions, setMaxQuestions] = useState<number>(50);
+  const [filterGenreId, setFilterGenreId] = useState('');
+  const [difficultyMin, setDifficultyMin] = useState(DEFAULT_HOME_FEED_FILTERS.difficultyMin);
+  const [difficultyMax, setDifficultyMax] = useState(DEFAULT_HOME_FEED_FILTERS.difficultyMax);
+  const [minQuestions, setMinQuestions] = useState(DEFAULT_HOME_FEED_FILTERS.minQuestions);
+  const [maxQuestions, setMaxQuestions] = useState(DEFAULT_HOME_FEED_FILTERS.maxQuestions);
   const [playStatus, setPlayStatus] = useState<'all' | 'unplayed' | 'played'>('all');
 
-  // ブックマーク一覧の読み込み (ログイン時のみ)
+  const feedFilters: HomeFeedFilters = useMemo(
+    () => ({
+      genreId: filterGenreId,
+      searchQuery,
+      difficultyMin,
+      difficultyMax,
+      minQuestions,
+      maxQuestions,
+    }),
+    [
+      filterGenreId,
+      searchQuery,
+      difficultyMin,
+      difficultyMax,
+      minQuestions,
+      maxQuestions,
+    ]
+  );
+
+  const { quizzes, loading: feedLoading, error: feedError } = useHomeQuizFeed(
+    activeTab,
+    user?.id,
+    feedFilters
+  );
+  const { playedQuizIds } = usePlayedQuizIds(user?.id);
+
+  const displayQuizzes = useMemo(
+    () => applyPlayStatusFilter(quizzes, playStatus, playedQuizIds),
+    [quizzes, playStatus, playedQuizIds]
+  );
+
+  const resolveGenreLabel = (quiz: Quiz) => {
+    const key = quiz.canonicalGenreId ?? quiz.genre;
+    return genreLabelById.get(key) ?? quiz.genre;
+  };
+
   useEffect(() => {
     async function loadBookmarks() {
       if (user) {
@@ -58,85 +85,17 @@ export default function Home() {
         }
       } else {
         setBookmarkedIds(new Set());
+        setPlayStatus('all');
       }
     }
     loadBookmarks();
   }, [user]);
 
-  // クイズデータのフェッチ (タブ切り替えに連動)
-  useEffect(() => {
-    async function fetchQuizzes() {
-      setLoading(true);
-      try {
-        let fetched: Quiz[] = [];
-        if (activeTab === 'latest') {
-          fetched = await getLatestQuizzes(30);
-        } else if (activeTab === 'popular') {
-          fetched = await getPopularQuizzes(30);
-        } else if (activeTab === 'trending') {
-          fetched = await getTrendingQuizzes(30);
-        } else if (activeTab === 'timeline') {
-          if (user) {
-            fetched = await getFollowedTimeline(user.id, 30);
-          } else {
-            fetched = [];
-          }
-        }
-        setQuizzes(fetched);
-      } catch (e) {
-        console.error('[Home] クイズフェッチエラー:', e);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchQuizzes();
-  }, [activeTab, user]);
-
-  // クライアントサイドでの動的な絞り込み (ジャンル、検索ワード、難易度、問題数などの複合検索)
-  const filteredQuizzes = useMemo(() => {
-    return quizzes.filter((quiz) => {
-      // 1. ジャンルフィルター
-      if (selectedGenre && quiz.genre !== selectedGenre) {
-        return false;
-      }
-
-      // 2. キーワード検索
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = quiz.title.toLowerCase().includes(query);
-        const matchesDesc = quiz.description.toLowerCase().includes(query);
-        const matchesAuthor = quiz.authorName.toLowerCase().includes(query);
-        const matchesTags = quiz.tags.some((t) => t.toLowerCase().includes(query));
-        if (!matchesTitle && !matchesDesc && !matchesAuthor && !matchesTags) {
-          return false;
-        }
-      }
-
-      // 3. 難易度範囲 (1 - 10)
-      if (quiz.difficulty < difficultyMin || quiz.difficulty > difficultyMax) {
-        return false;
-      }
-
-      // 4. 問題数範囲
-      if (quiz.questionCount < minQuestions || quiz.questionCount > maxQuestions) {
-        return false;
-      }
-
-      // 5. プレイ状況 (簡易判定: ログインユーザーの累積履歴はFirestore側でAttemptを検索する必要がありますが、ここではスタブ的フィルタかアプローチに合わせて制御)
-      // ※ 要件: 未プレイ等の複合検索パネルを構築。
-      // ※ ここではシンプルにデモ用にモック動作、または AttemptService を用いてフィルタリングできますが、通常はクライアント状態等を参照
-
-      return true;
-    });
-  }, [quizzes, selectedGenre, searchQuery, difficultyMin, difficultyMax, minQuestions, maxQuestions]);
-
-  // ブックマークトグル
   const handleBookmarkClick = async (e: React.MouseEvent, quizId: string) => {
     e.stopPropagation();
     e.preventDefault();
 
     if (!user) {
-      // 未ログイン時はログイン画面へリダイレクト
       router.push('/login');
       return;
     }
@@ -155,14 +114,14 @@ export default function Home() {
     }
   };
 
-  // 詳細画面へ遷移
   const handleCardClick = (quizId: string) => {
     router.push(`/quiz/${quizId}`);
   };
 
+  const loading = feedLoading;
+
   return (
     <div className={styles.container}>
-      {/* ヒーローセクション */}
       <section className={styles.hero}>
         <h1>知的探求を、もっとクリエイティブに。</h1>
         <p>
@@ -171,22 +130,13 @@ export default function Home() {
         </p>
       </section>
 
-      {/* ジャンルナビゲーション */}
-      <nav className={styles.genreNav}>
-        {GENRES.map((genre) => (
-          <button
-            key={genre.id}
-            className={`${styles.genreButton} ${selectedGenre === genre.id ? styles.genreButtonActive : ''
-              }`}
-            onClick={() => setSelectedGenre(genre.id)}
-          >
-            <span className={styles.genreIcon}>{genre.icon}</span>
-            <span className={styles.genreLabel}>{genre.label}</span>
-          </button>
-        ))}
-      </nav>
+      <GenreNav
+        genres={genres}
+        loading={genresLoading}
+        error={genresError}
+        onRetry={refetch}
+      />
 
-      {/* 検索と複合フィルターパネル */}
       <section className={styles.searchSection}>
         <div className={styles.searchBar}>
           <div style={{ position: 'relative', flex: 1 }}>
@@ -199,6 +149,7 @@ export default function Home() {
             />
           </div>
           <button
+            type="button"
             className={styles.filterToggleBtn}
             onClick={() => setShowFilters(!showFilters)}
           >
@@ -207,9 +158,18 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 展開される詳細検索フィルターパネル */}
         {showFilters && (
           <div className={styles.filterPanel}>
+            <div className={styles.filterGroup}>
+              <span className={styles.filterLabel}>ジャンル</span>
+              <GenreSearchField
+                genres={genres}
+                value={filterGenreId}
+                onChange={setFilterGenreId}
+                disabled={genresLoading || !!genresError}
+              />
+            </div>
+
             <div className={styles.filterGroup}>
               <span className={styles.filterLabel}>難易度範囲 (1 - 10)</span>
               <div className={styles.rangeInputs}>
@@ -246,6 +206,7 @@ export default function Home() {
                 <span>〜</span>
                 <input
                   type="number"
+                  min="1"
                   className={styles.filterSelect}
                   value={maxQuestions}
                   onChange={(e) => setMaxQuestions(Number(e.target.value))}
@@ -258,20 +219,27 @@ export default function Home() {
               <select
                 className={styles.filterSelect}
                 value={playStatus}
-                onChange={(e) => setPlayStatus(e.target.value as any)}
+                disabled={!user}
+                title={!user ? 'ログインするとプレイ状況で絞り込めます' : undefined}
+                onChange={(e) =>
+                  setPlayStatus(e.target.value as 'all' | 'unplayed' | 'played')
+                }
               >
                 <option value="all">すべて表示</option>
                 <option value="unplayed">未プレイのみ</option>
                 <option value="played">プレイ済みのみ</option>
               </select>
+              {!user && (
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                  プレイ状況で絞り込むにはログインが必要です
+                </p>
+              )}
             </div>
           </div>
         )}
       </section>
 
-      {/* メインフィード */}
       <section className={styles.mainContent}>
-        {/* タブバー */}
         <div className={styles.tabBar}>
           <div
             className={`${styles.tab} ${activeTab === 'latest' ? styles.tabActive : ''}`}
@@ -301,18 +269,23 @@ export default function Home() {
           )}
         </div>
 
-        {/* ロード画面 or 結果 */}
+        {feedError && (
+          <div style={{ textAlign: 'center', padding: '16px', color: 'var(--color-danger, #c62828)' }}>
+            {feedError}
+          </div>
+        )}
+
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
             クイズを読み込み中...
           </div>
-        ) : filteredQuizzes.length === 0 ? (
+        ) : displayQuizzes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
             該当するクイズが見つかりませんでした。
           </div>
         ) : (
           <div className={styles.grid}>
-            {filteredQuizzes.map((quiz) => (
+            {displayQuizzes.map((quiz) => (
               <article
                 key={quiz.id}
                 data-testid="quiz-card"
@@ -320,14 +293,12 @@ export default function Home() {
                 onClick={() => handleCardClick(quiz.id)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* 評価バッジ表示 */}
                 {quiz.reviewBadge && !quiz.isReviewMasked && (
                   <div className={styles.badgeContainer}>
                     <span className={styles.badge}>🏅 {quiz.reviewBadge}</span>
                   </div>
                 )}
 
-                {/* サムネイル */}
                 <div className={styles.cardThumbnail}>
                   {quiz.thumbnailUrl ? (
                     <Image
@@ -341,39 +312,35 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* コンテンツ */}
                 <div className={styles.cardContent}>
-                  <div className={styles.cardGenre}>
-                    {GENRES.find((g) => g.id === quiz.genre)?.label || quiz.genre}
-                  </div>
+                  <div className={styles.cardGenre}>{resolveGenreLabel(quiz)}</div>
                   <h3 className={styles.cardTitle}>{quiz.title}</h3>
 
-                  {/* 難易度ゲージ */}
                   <div className={styles.cardDifficulty}>
                     <span>難易度 {quiz.difficulty}</span>
                     <div className={styles.difficultyBar}>
                       <div
                         className={styles.difficultyFill}
                         style={{ width: `${quiz.difficulty * 10}%` }}
-                      ></div>
+                      />
                     </div>
                   </div>
 
-                  {/* 統計とアクション */}
                   <div className={styles.cardStats}>
                     <div className={styles.statsLeft}>
                       <span>⏱️ {quiz.questionCount} 問</span>
                       <span>👤 {quiz.authorName}</span>
                     </div>
                     <button
+                      type="button"
                       className={`${styles.bookmarkBtn} ${bookmarkedIds.has(quiz.id) ? styles.bookmarked : ''}`}
                       onClick={(e) => handleBookmarkClick(e, quiz.id)}
                       title="ブックマーク"
                     >
-                      <Star 
-                        size={18} 
+                      <Star
+                        size={18}
                         color={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'var(--text-muted)'}
-                        fill={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'none'} 
+                        fill={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'none'}
                       />
                     </button>
                   </div>

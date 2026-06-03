@@ -5,16 +5,7 @@ import {
   deleteObject 
 } from 'firebase/storage';
 import { storage } from '../lib/firebase/config';
-
-// 許容するMIMEタイプの定義 (SEC-08 SVG-based XSS防御のためSVG形式を排除)
-const ALLOWED_MIME_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/gif'
-];
-
-// 最大ファイルサイズ制限 (2MB)
-const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+import { assertGenreIconFileValid } from '../lib/genre-icon-upload';
 
 /**
  * 画像ファイルをアップロードする
@@ -23,17 +14,9 @@ const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
  * @returns アップロード後のダウンロードURL
  */
 export async function uploadImage(file: File, path: string): Promise<string> {
-  // 1. ファイルサイズチェック (最大2MB)
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    throw new Error('画像サイズは最大2MBまで許容されます。');
-  }
+  assertGenreIconFileValid(file);
 
-  // 2. MIMEタイプチェック
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    throw new Error('無効なファイル形式です。PNG, JPEG, GIF のみアップロード可能です。');
-  }
-
-  // 3. Storage参照の取得とアップロード
+  // Storage参照の取得とアップロード
   const storageRef = ref(storage, path);
   const metadata = {
     contentType: file.type,

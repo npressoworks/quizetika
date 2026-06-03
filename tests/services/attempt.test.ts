@@ -1,3 +1,5 @@
+jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
+
 import { runTransaction, doc, getDocs } from 'firebase/firestore';
 import {
   saveAttempt,

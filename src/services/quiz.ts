@@ -11,11 +11,103 @@ import {
   getDocs,
   increment,
   writeBatch,
+  collection as firestoreCollection,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import { quizzesRef, followsRef, bookmarksRef, questionsRef } from '../lib/firebase/firestore';
 import { Quiz, Question } from '../types';
-import { validateQuizForPublish, normalizeTag } from './quiz-validation';
+import { validateQuizForPublish, validateQuizForDraft, normalizeTag } from './quiz-validation';
+import {
+  applyQuizMetadataFields,
+  chunkIdsForInQuery,
+  dedupeQuizzesById,
+  expandGenreIdsForQuery,
+  MetadataValidationError,
+  resolveCanonicalGenreId,
+  resolveCanonicalTagIds,
+  sortQuizzesForList,
+  type QuizListSort,
+} from '../lib/metadata-resolution';
+import type { GenreMetadata } from '../types';
+
+export type { QuizListSort } from '../lib/metadata-resolution';
+
+export interface SearchFilters {
+  genreId?: string;
+  difficultyMin?: number;
+  difficultyMax?: number;
+  minQuestions?: number;
+  maxQuestions?: number;
+}
+
+export async function listActiveGenres(): Promise<GenreMetadata[]> {
+  const genresRef = firestoreCollection(db, 'metadata_genres');
+  const q = query(genresRef, where('isActive', '==', true));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => {
+    const data = d.data() as GenreMetadata;
+    return { ...data, id: d.id };
+  });
+}
+
+async function queryPublishedByCanonicalGenre(
+  canonicalGenreId: string,
+  sort: QuizListSort,
+  limitCount: number
+): Promise<Quiz[]> {
+  const orderField =
+    sort === 'popular' ? 'playCount' : sort === 'trending' ? 'bookmarksCount' : 'createdAt';
+  const q = query(
+    quizzesRef,
+    where('status', '==', 'published'),
+    where('canonicalGenreId', '==', canonicalGenreId),
+    orderBy(orderField, 'desc'),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data());
+}
+
+async function queryPublishedByGenreIn(genreIds: string[], limitCount: number): Promise<Quiz[]> {
+  if (genreIds.length === 0) return [];
+  const q = query(
+    quizzesRef,
+    where('status', '==', 'published'),
+    where('genre', 'in', genreIds),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data());
+}
+
+async function queryPublishedByCanonicalTag(
+  tagId: string,
+  sort: QuizListSort,
+  limitCount: number
+): Promise<Quiz[]> {
+  const orderField =
+    sort === 'popular' ? 'playCount' : sort === 'trending' ? 'bookmarksCount' : 'createdAt';
+  const q = query(
+    quizzesRef,
+    where('status', '==', 'published'),
+    where('canonicalTagIds', 'array-contains', tagId),
+    orderBy(orderField, 'desc'),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data());
+}
+
+async function queryPublishedByLegacyTag(tag: string, limitCount: number): Promise<Quiz[]> {
+  const q = query(
+    quizzesRef,
+    where('status', '==', 'published'),
+    where('tags', 'array-contains', tag),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data());
+}
 
 /**
  * 新規クイズを作成・投稿する
@@ -26,7 +118,20 @@ export async function createQuiz(
   quiz: Omit<Quiz, 'id' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
   const now = new Date();
-  
+  const normalizedTags = (quiz.tags ?? []).map(normalizeTag).filter(Boolean);
+
+  let canonicalGenreId = quiz.canonicalGenreId ?? '';
+  let canonicalTagIds = quiz.canonicalTagIds ?? [];
+  if (quiz.genre?.trim()) {
+    const resolved = await applyQuizMetadataFields(
+      quiz.genre,
+      normalizedTags,
+      quiz.authorId
+    );
+    canonicalGenreId = resolved.canonicalGenreId;
+    canonicalTagIds = resolved.canonicalTagIds;
+  }
+
   // 1. 新しいクイズドキュメントIDを事前に取得
   const quizDocRef = doc(quizzesRef);
   const quizId = quizDocRef.id;
@@ -65,6 +170,9 @@ export async function createQuiz(
   const newQuiz: Quiz = {
     ...(quiz as any),
     id: quizId,
+    tags: normalizedTags.length > 0 ? normalizedTags : quiz.tags,
+    canonicalGenreId,
+    canonicalTagIds,
     questionIds,
     questions: processedQuestions,
     questionCount: processedQuestions.length,
@@ -167,6 +275,54 @@ export async function updateQuiz(
     updatePayload.questionCount = processedQuestions.length;
   }
 
+  const mergedGenre = data.genre ?? currentQuiz.genre;
+  const mergedTags = data.tags ?? currentQuiz.tags;
+  const effectiveStatus = data.status ?? currentQuiz.status;
+
+  if (data.genre !== undefined || data.tags !== undefined) {
+    try {
+      const { canonicalGenreId, canonicalTagIds } = await applyQuizMetadataFields(
+        mergedGenre,
+        mergedTags.map(normalizeTag).filter(Boolean),
+        currentQuiz.authorId
+      );
+      updatePayload.tags = mergedTags.map(normalizeTag).filter(Boolean);
+      updatePayload.canonicalGenreId = canonicalGenreId;
+      updatePayload.canonicalTagIds = canonicalTagIds;
+    } catch (err) {
+      if (err instanceof MetadataValidationError) {
+        throw err;
+      }
+      throw err;
+    }
+  }
+
+  if (effectiveStatus === 'published') {
+    const merged: Quiz = { ...currentQuiz, ...updatePayload };
+    const errors = validateQuizForPublish(merged);
+    if (errors.length > 0) {
+      throw new Error(
+        `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`
+      );
+    }
+  } else if (
+    data.genre !== undefined ||
+    data.tags !== undefined ||
+    data.title !== undefined ||
+    data.questions !== undefined
+  ) {
+    const draftErrors = validateQuizForDraft({
+      title: updatePayload.title ?? currentQuiz.title,
+      genre: mergedGenre,
+      questions: updatePayload.questions ?? currentQuiz.questions,
+    });
+    if (draftErrors.length > 0) {
+      throw new Error(
+        `下書き保存に失敗しました: ${draftErrors.map((e) => e.message).join('; ')}`
+      );
+    }
+  }
+
   batch.update(quizDocRef, updatePayload);
   await batch.commit();
 }
@@ -200,7 +356,7 @@ export interface QuizExportPackage {
 
 /**
  * クイズを下書き保存、または公開する統合関数。
- * - status = 'draft': タイトルのみ必須でバリデーションを最小限に抑える
+ * - status = 'draft': タイトル・ジャンル・問題文必須 + メタデータ解決
  * - status = 'published': validateQuizForPublish による完全バリデーションを実行
  *
  * @param quizData クイズデータ（id/playCount/bookmarksCount/createdAt/updatedAt を除く）
@@ -248,10 +404,30 @@ export async function saveQuiz(
     processedQuestions.push(fullQuestion);
   }
 
+  let canonicalGenreId = '';
+  let canonicalTagIds: string[] = [];
+
+  try {
+    const resolved = await applyQuizMetadataFields(
+      quizData.genre,
+      normalizedTags,
+      quizData.authorId
+    );
+    canonicalGenreId = resolved.canonicalGenreId;
+    canonicalTagIds = resolved.canonicalTagIds;
+  } catch (err) {
+    if (err instanceof MetadataValidationError) {
+      throw err;
+    }
+    throw err;
+  }
+
   const payload: Quiz = {
     ...(quizData as any),
     id: quizId,
     tags: normalizedTags,
+    canonicalGenreId,
+    canonicalTagIds,
     status,
     questionIds,
     questions: processedQuestions,
@@ -262,7 +438,6 @@ export async function saveQuiz(
     updatedAt: now,
   };
 
-  // 公開時のみ完全バリデーションを実行
   if (status === 'published') {
     const errors = validateQuizForPublish(payload);
     if (errors.length > 0) {
@@ -271,9 +446,11 @@ export async function saveQuiz(
       );
     }
   } else {
-    // 下書きはタイトル必須のみ
-    if (!quizData.title.trim()) {
-      throw new Error('クイズのタイトルは必須です');
+    const draftErrors = validateQuizForDraft(payload);
+    if (draftErrors.length > 0) {
+      throw new Error(
+        `下書き保存に失敗しました: ${draftErrors.map((e) => e.message).join('; ')}`
+      );
     }
   }
 
@@ -380,34 +557,78 @@ export async function getQuizzesByAuthor(authorId: string, includeUnpublished: b
 }
 
 /**
- * 特定ジャンルのクイズ一覧を取得
+ * 特定ジャンルのクイズ一覧を取得（C2: canonical 優先 + genre in フォールバック）
  */
-export async function getQuizzesByGenre(genreName: string, limitCount: number = 10): Promise<Quiz[]> {
-  const q = query(
-    quizzesRef,
-    where('status', '==', 'published'),
-    where('genre', '==', genreName),
-    orderBy('createdAt', 'desc'),
-    limit(limitCount)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((doc) => doc.data());
+export async function getQuizzesByGenre(
+  genreName: string,
+  limitCount: number = 10,
+  sort: QuizListSort = 'latest'
+): Promise<Quiz[]> {
+  const canonicalId = await resolveCanonicalGenreId(genreName);
+  const expandIds = await expandGenreIdsForQuery(genreName);
+
+  const canonicalRows = await queryPublishedByCanonicalGenre(canonicalId, sort, limitCount);
+  const merged = new Map(canonicalRows.map((q) => [q.id, q]));
+
+  for (const chunk of chunkIdsForInQuery(expandIds)) {
+    const legacyRows = await queryPublishedByGenreIn(chunk, limitCount);
+    legacyRows.forEach((q) => merged.set(q.id, q));
+  }
+
+  return sortQuizzesForList(dedupeQuizzesById([...merged.values()]), sort).slice(0, limitCount);
 }
 
 /**
- * 特定タグのクイズ一覧を取得
- * Firestore の array-contains クエリを使用してタグ配列を検索
+ * 特定タグのクイズ一覧を取得（canonicalTagIds 優先 + tags フォールバック）
  */
-export async function getQuizzesByTag(tag: string, limitCount: number = 10): Promise<Quiz[]> {
-  const q = query(
-    quizzesRef,
-    where('status', '==', 'published'),
-    where('tags', 'array-contains', tag),
-    orderBy('createdAt', 'desc'),
-    limit(limitCount)
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((doc) => doc.data());
+export async function getQuizzesByTag(
+  tag: string,
+  limitCount: number = 10,
+  sort: QuizListSort = 'latest'
+): Promise<Quiz[]> {
+  const normalized = normalizeTag(tag);
+  const canonicalTagId = await resolveCanonicalTagIds([normalized]).then((ids) => ids[0] ?? normalized);
+
+  const canonicalRows = await queryPublishedByCanonicalTag(canonicalTagId, sort, limitCount);
+  const merged = new Map(canonicalRows.map((q) => [q.id, q]));
+
+  const legacyRows = await queryPublishedByLegacyTag(normalized, limitCount);
+  legacyRows.forEach((q) => merged.set(q.id, q));
+
+  if (normalized !== canonicalTagId) {
+    const legacyCanonical = await queryPublishedByLegacyTag(canonicalTagId, limitCount);
+    legacyCanonical.forEach((q) => merged.set(q.id, q));
+  }
+
+  return sortQuizzesForList(dedupeQuizzesById([...merged.values()]), sort).slice(0, limitCount);
+}
+
+/**
+ * 複合条件で公開クイズを検索する
+ */
+export async function searchQuizzes(
+  queryText: string,
+  filters: SearchFilters = {}
+): Promise<Quiz[]> {
+  let base: Quiz[];
+
+  if (filters.genreId) {
+    base = await getQuizzesByGenre(filters.genreId, 100, 'latest');
+  } else {
+    base = await getLatestQuizzes(100);
+  }
+
+  const needle = queryText.trim().toLowerCase();
+
+  return base.filter((quiz) => {
+    if (filters.difficultyMin != null && quiz.difficulty < filters.difficultyMin) return false;
+    if (filters.difficultyMax != null && quiz.difficulty > filters.difficultyMax) return false;
+    if (filters.minQuestions != null && quiz.questionCount < filters.minQuestions) return false;
+    if (filters.maxQuestions != null && quiz.questionCount > filters.maxQuestions) return false;
+    if (!needle) return true;
+    const haystack = `${quiz.title} ${quiz.description}`.toLowerCase();
+    return haystack.includes(needle);
+  });
 }
 
 /**

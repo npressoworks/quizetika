@@ -5,6 +5,8 @@
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフロントエンド構成に加え、CSS Modulesによる親しみやすく機能的なガバナンスUIを実装し、Firestoreサービス（`ModerationService`等）および権限ガードと接続します。
 
+**Phase 6（2026-06）**: ジャンルアイコンアップロードの設計・エラーメッセージを **SEC-08（SVG 禁止、PNG/JPEG/GIF のみ、2MB）** に仕様統一。`src/lib/genre-icon-upload.ts`（新規候補）でクライアント検証を共通化。
+
 ### Goals
 - 不適切通報審査キューおよび管理者特別審査閲覧ビューの構築。
 - タグ/ジャンルの仮想マージ提案起案、モデレータ加重投票（シニアモデレータの重みx2）、および賛成率プログレスバー表示の構築。
@@ -21,7 +23,7 @@
 ### This Spec Owns
 - **UIルーティング設計**: `/admin/moderation`, `/community/merge`, `/community/genres` の各ページコンポーネント。
 - **権限ガード**: クライアントサイドおよび Next.js Server Components での `moderationTier` に基づくページアクセス制御（403/404表示）。
-- **アップロードUI**: ジャンル申請時の PNG/SVG ファイルアップロード（Firebase Storage統合）。
+- **アップロードUI**: ジャンル申請時の **PNG/JPEG/GIF** ファイルアップロード（Firebase Storage、`uploadImage` / `storage.rules` と整合、SVG 禁止）。
 - **投票インタラクション**: 賛成・反対投票時の加重値計算とプログレスバーの描画。
 
 ### Out of Boundary
@@ -105,7 +107,10 @@ sequenceDiagram
 | 2.5 | 賛成/反対加重投票UI | `/community/merge` Page | `ModerationService` | 投票フロー |
 | 2.6 | シニアモデレータ「重みx2」表示と計算 | `/community/merge` Page | `ModerationService` | 投票フロー |
 | 2.7 | 賛成率のリアルタイムプログレスバー表示 | `/community/merge` Page | CSS Progress Bar | 投票フロー |
-| 3.1 | 認証ユーザー向け新ジャンル申請フォーム | `/community/genres` Page | Form (PNG/SVG upload) | - |
+| 3.1 | 認証ユーザー向け新ジャンル申請フォーム | `/community/genres` Page | Form (PNG/JPEG/GIF upload) | - |
+| 4.1 | SEC-08 仕様文言整合 | Spec docs | — | — |
+| 4.2 | MIME/size クライアント検証 | `genre-icon-upload` / Page | `validateGenreIconFile` | — |
+| 4.3 | SVG 拒否 UX | `/community/genres` Page | inline error | — |
 | 3.2 | 保留中ジャンル新設申請の一覧と投票UI | `/community/genres` Page | `ModerationService` | - |
 | 3.3 | モデレータ賛否投票 | `/community/genres` Page | `ModerationService` | - |
 | 3.4 | 可決条件判定とシステム反映通知 | `/community/genres` Page | Cloud Functions / UI | - |
@@ -131,7 +136,7 @@ sequenceDiagram
 - **アクセス権限不足 (403/404)**:
   - 一般ユーザーが `/admin/moderation` などの制限されたページに直接URL入力等でアクセスしようとした場合、ミドルウェア（`middleware.ts`）またはページマウント時に即座に検知し、親切な「お探しのページは見つかりませんでした（または権限がありません）」という404/403画面へと安全にフォールバックします。
 - **画像アップロードエラー**:
-  - ジャンル新設時の PNG/SVG 画像アップロードでファイルサイズオーバーや形式不整合（PNG/SVG以外）を検知した場合は、インラインで警告を表示し、アップロード処理を安全にブロックします。
+  - ジャンル新設時のアイコンアップロードでファイルサイズ超過（>2MB）や許可外形式（**SVG 含む**）を検知した場合は、インラインで警告を表示し、Storage へのアップロードをブロックします。許可形式は PNG/JPEG/GIF のみ。
 
 ---
 
@@ -148,3 +153,5 @@ sequenceDiagram
 ### E2E/UI Tests
 - **マージ賛成率プログレスバー**:
   - 投票一覧で賛成票が投じられた際、`weightedVotesFor` の更新と連動して、DOM上のプログレスバーの `width` パーセンテージスタイルが正確に変更されるかをテスト。
+- **Phase 6 ジャンルアイコン**:
+  - 申請フォームのラベル・ヒントに SVG が含まれないこと。`accept` が png/jpeg/gif のみであること（任意: SVG ファイル選択でエラー表示）。

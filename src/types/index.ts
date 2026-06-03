@@ -122,8 +122,10 @@ export interface Quiz {
   reviewBadge: string | null; // 評価バッジ名
   isReviewMasked: boolean; // 評価マスク状態
   activeResetRequestId: string | null; // 申請中の評価リセットID
-  canonicalGenreId: string; // 統合先の正規ジャンルID
-  canonicalTagIds: string[]; // 統合先の正規タグID配列
+  /** 書き込み時解決: マージ後の正規ジャンルID（検索・一覧用。表示用 `genre` は変更しない） */
+  canonicalGenreId: string;
+  /** 書き込み時解決: 各タグの正規ID（`tags` と対称。`array-contains` 検索用） */
+  canonicalTagIds: string[];
   /** @deprecated 読み取り互換。書き込みは leaderboardFirstPlay / leaderboardReplay */
   leaderboard?: LeaderboardRecord[];
   leaderboardFirstPlay: LeaderboardRecord[];
@@ -214,6 +216,28 @@ export interface PlayHistoryEntry {
 export interface PlayHistoryPage {
   items: PlayHistoryEntry[];
   nextCursor: string | null;
+}
+
+/** `metadata_genres` マスタ（仮想統合・ジャンル一覧） */
+export interface GenreMetadata {
+  id: string;
+  displayName: string;
+  iconImageUrl: string | null;
+  canonicalId: string | null;
+  mergedGenreIds: string[];
+  isActive: boolean;
+  createdAt?: Date;
+}
+
+/** `metadata_tags` マスタ（仮想統合・タグ検索） */
+export interface TagMetadata {
+  id: string;
+  tagName?: string;
+  canonicalId: string | null;
+  mergedTagIds: string[];
+  createdBy?: string;
+  updatedAt?: Date;
+  createdAt?: Date;
 }
 
 // 8. 指摘レポート (feedbackReports)

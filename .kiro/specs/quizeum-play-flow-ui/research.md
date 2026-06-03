@@ -60,3 +60,136 @@
 - `.kiro/specs/quizeum-core/design.md` — LB永続化・`LeaderboardRecord`
 - `docs/detailed_design.md` — 画面F-801/F-802（表示側）
 - `src/types/index.ts` — `LeaderboardRecord`
+
+---
+
+# Gap Analysis: quizeum-play-flow-ui（Phase 6 差分 — 2026-06-03）
+
+## Analysis Summary
+
+- **スコープ**: 要件 1–9 はおおむね実装済み。Phase 6（要件 10）が未着手で、ホーム・ジャンル／タグ一覧・復習のジャンル周りが `docs/` / コア API と乖離している。
+- **上流依存**: `quizeum-core` の `listActiveGenres` / C2 `getQuizzesByGenre` / `getQuizzesByTag` / `searchQuizzes` は **実装済み** — UI 接続のみで足りる。
+- **最大ギャップ**: ハードコード `GENRES` / `REVIEW_GENRES`、ホームのクライアント側のみ絞り込み、`searchQuizzes` 未使用、探索ページのソートタブ欠如。
+- **副次ギャップ**: 要件 1.3 の「プレイ状況」フィルタ UI はあるが `filteredQuizzes` に未接続（スタブ状態）。
+- **推奨**: **Option C（ハイブリッド）** — `useActiveGenres` + `GenreNav` 新設、既存 `page.tsx` / 探索ページを段階的に差し替え。共有 `ExploreSortTabs` の抽出は任意。
+
+## 1. Current State Investigation
+
+### 既存アセット（再利用可能）
+
+| 領域 | 現状 | パターン |
+|------|------|----------|
+| コア API | `src/services/quiz.ts` に `listActiveGenres`, `getQuizzesByGenre(_,_,sort)`, `getQuizzesByTag(_,_,sort)`, `searchQuizzes` | クライアントから直接 import（既存と同型） |
+| ホーム | `src/app/page.tsx` — タブ・複合フィルタ UI・`GENRES` 定数 | CSS Modules、`useMemo` クライアントフィルタ |
+| ジャンル一覧 | `src/app/genres/[genreName]/page.tsx` — `getQuizzesByGenre(id, 20)` のみ | 新着固定、ヘッダーは URL 生文字列 |
+| タグ一覧 | `src/app/tags/[tagName]/page.tsx` — `getQuizzesByTag` のみ | ソート UI なし |
+| 復習 | `src/app/quiz/review/page.tsx` — `REVIEW_GENRES` 定数 | `getFailedQuestions` はコア側でマージ展開済み |
+| Phase 5 LB | `QuizDualLeaderboard` + 単体テスト | 読み取り専用コンポーネント分離済み |
+| プレイ系 | `usePlayState`, `useAiPlayState`, play/result 各ページ | 要件 3–5 は充足 |
+
+### 命名・レイヤー
+
+- 探索ページは `src/app/page.module.css` をジャンル／タグで共有。
+- 新規は `src/hooks/useActiveGenres.ts`、`src/components/explore/genre-nav.tsx` が設計案（未作成）。
+- E2E は `e2e/additional-features.spec.ts` がホームの **「コンピュータ・IT」** ボタン名に依存 → Phase 6 で更新必須。
+
+## 2. Requirement-to-Asset Map
+
+| 要件 | 状態 | ギャップ / 備考 |
+|------|------|----------------|
+| **1.1** ホームタブ | ✅ 充足 | `getLatestQuizzes` 等 |
+| **1.2** ジャンルナビ | ⚠️ 部分 | `GENRES` ハードコード。`iconImageUrl` 未使用 |
+| **1.3** 複合検索 | ⚠️ 部分 | UI あり。`searchQuizzes` 未使用。`playStatus` 未配線。ジャンルは `quiz.genre` のみ（canonical 未考慮） |
+| **1.4** ゲスト BM | ✅ 充足 | `/login` リダイレクト |
+| **2–8** | ✅ おおむね充足 | プレイ・結果・編集ガード・探索他画面は実装済み（別タスク検証済み） |
+| **9** 二系統 LB | ✅ 充足 | `QuizDualLeaderboard` |
+| **10.1** `listActiveGenres` ナビ | ❌ 欠落 | 未呼び出し |
+| **10.2** ハードコード禁止 | ❌ 欠落 | `GENRES` / `REVIEW_GENRES` が正本 |
+| **10.3** `/genres/[id]` 遷移 | ❌ 欠落 | 現状はホーム内 `selectedGenre` フィルタのみ（`docs/screen_transition.md` は遷移を期待） |
+| **10.4** `searchQuizzes` | ❌ 欠落 | クライアント `useMemo` フィルタのみ |
+| **10.5** ジャンル一覧メタ | ❌ 欠落 | `displayName` / `iconImageUrl` 未表示 |
+| **10.6** ジャンル一覧ソート | ❌ 欠落 | `sort` 引数未使用、タブなし（コアは対応済み） |
+| **10.7** タグ一覧ソート | ❌ 欠落 | 同上 |
+| **10.8** 復習ジャンルマスタ | ❌ 欠落 | `REVIEW_GENRES` 固定（API フィルタはコアでマージ対応済み） |
+| **10.9** 空ジャンル | ❌ 欠落 | 0 件時の UI なし |
+| **10.10** エラー時フォールバック禁止 | ⚠️ 暗黙違反リスク | マスタ未取得時も `GENRES` が常に表示される |
+
+## 3. Implementation Approach Options
+
+### Option A: 既存ページへの直接拡張
+
+- `page.tsx` 内で `listActiveGenres` を `useEffect` 取得し、`GENRES` を state 置換。
+- ジャンル／タグ `page.tsx` にソート state を追加。
+
+| 長所 | 短所 |
+|------|------|
+| ファイル数が少ない | ホームが肥大化し続ける |
+| 短期で動く | `GenreNav` / エラー状態の再利用が難しい |
+
+**Effort**: S–M | **Risk**: Low
+
+### Option B: 新コンポーネント中心（設計どおり）
+
+- `useActiveGenres` + `GenreNav` + 共有 `ExploreSortTabs`（任意）。
+- ホーム・ジャンル・タグ・復習は薄いページラッパーに留める。
+
+| 長所 | 短所 |
+|------|------|
+| 境界明確、テストしやすい | 新規ファイル 3–4 |
+| E2E の `data-testid` を固定しやすい | 初回の配線コスト |
+
+**Effort**: M | **Risk**: Low–Medium（E2E 更新）
+
+### Option C: ハイブリッド（推奨）
+
+- **新規**: `useActiveGenres`, `GenreNav`（10.1）。
+- **拡張**: `page.tsx`（10.2–10.4）、`genres/[genreName]`（10.5–10.6）、`tags/[tagName]`（10.7）、`review`（10.8）。
+- **共有**: ホームのタブバーと同型のソート UI を探索ページにコピーまたは小コンポーネント化。
+
+| 長所 | 短所 |
+|------|------|
+| 設計・tasks.md と一致 | ホームの「フィルタ vs 遷移」UX要決定 |
+| コア API をそのまま利用 | `playStatus` は別途 Attempt 連携が必要（1.3） |
+
+**Effort**: **M（3–7 日）** | **Risk**: **Low**（コア完了前提）
+
+## 4. Research Needed（設計フェーズへ引き継ぎ）
+
+| 項目 | 状態 |
+|------|------|
+| ジャンルナビのクリック挙動 | **確定**: アイコンは常に `/genres/[id]` 遷移。ホーム絞り込みは `GenreSearchField` のみ |
+| ホーム検索トリガー | **確定**: フィルタ変更 + デバウンス（例 300ms）→ `searchQuizzes` |
+| `playStatus` | **確定**: 要件 1.3 完遂。`listUserPlayedQuizIds` + API、結果の後段フィルタ。未認証は無効化 |
+| アイコン表示 | 実装時決定（`next/image` またはフォールバック） |
+| Firestore シード | 実装時決定 |
+| E2E | `data-testid` 化・遷移アサーションへ更新 |
+
+## 5. Upstream / Downstream
+
+| 依存 | 状態 |
+|------|------|
+| `quizeum-core` Phase 6 | ✅ API 利用可能（要: Rules/Indexes 本番デプロイは運用） |
+| `quizeum-creator-dash-ui` | 未確認 — エディタの動的セレクトは別スペック（ジャンル表示の一貫性は E2E で横断確認推奨） |
+| `quizeum-auth-profile-ui` | プロフィールのフォロージャンル UI は別（`followedGenres` は表示名文字列のままの可能性） |
+
+## 6. Effort & Risk Summary
+
+| フェーズ | Effort | Risk | 根拠 |
+|---------|--------|------|------|
+| Phase 6 UI（10.1–10.6） | M | Low | 既存サービス・ページパターンの延長 |
+| E2E 更新（10.6–10.7） | S | Medium | ハードコードラベル依存の除去 |
+| 要件 1.3 playStatus | S–M | Medium | コア未対応なら UI のみでは不可 |
+
+## 7. Design Phase Recommendations
+
+1. **採用**: Option C（`tasks.md` セクション 10 と整合）。
+2. **優先順**: 10.1 → 10.3（ジャンルページ）→ 10.2（searchQuizzes）→ 10.5（復習）→ 10.4（タグ）→ 10.6（検証）。
+3. **設計で固定すること**: ジャンルクリック = `/genres/[id]` 遷移（フィルタ専用ボタン「すべて」はホーム残留）。
+4. **テスト**: `useActiveGenres` モック単体 + `GenreNav` RTL + E2E の `data-testid="genre-nav-item-{id}"` 追加。
+5. **設計更新**: 既存 `design.md` Phase 6 は概ね妥当。`ExploreSortTabs` の要否だけ実装時に決定。
+
+## Document Status
+
+- 分析手法: コードベース Grep/Read + 要件 10 トレース + `quizeum-core` API 存在確認
+- 出力先: 本ファイル（`research.md`）に追記
+- 外部 Web 調査: 不要（社内スタック確定済み）

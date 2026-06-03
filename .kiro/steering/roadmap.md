@@ -95,3 +95,61 @@
 
 ## Specs (dependency order)
 （Phase 5 では新規 spec なし — 上記 Existing Spec Updates のみ）
+
+---
+
+## Phase 6: ジャンル機能の docs 整合（2026-06-03 ディスカバリー）
+
+### Overview（本フェーズ）
+ジャンル関連の実装が `docs/` 正本（`requirements_definition.md`, `db_design.md`, `api_specification.md`, `detailed_design.md`, `screen_transition.md`, `security_architecture.md`）および既存 `.kiro/specs` と乖離している。ハードコードされたジャンル一覧、`canonicalGenreId` 未解決、`getQuizzesByGenre` の仮想統合未適用、`metadata_genres` / `genreRequests` の Security Rules 欠落、重複する `moderation.ts` スタブ等を、**新規 spec なし**で既存4スペック + docs 同期により是正する。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: Core-first 垂直整合 — データ層・検証・クエリ・Rules を先に正し、その後 UI を `metadata_genres` 駆動に切り替え
+- **Why**: ホーム/エディタ/ジャンル一覧はすべてマスタと `canonicalGenreId` に依存する。UIだけ先に直すとマージ後の一覧漏れや公開時の不正ジャンルが残る
+- **Rejected alternatives**:
+  - UI-first（ハードコード一覧の統一のみ）: 仮想統合・公開検証が未解決のまま見た目だけ一致する
+  - 物理マイグレーション一括（全 `quizzes.genre` 書き換え）: docs の「仮想統合」方針と矛盾しコスト大。`canonicalGenreId` 書き込み時解決 + 読み取り時 `mergedGenreIds` 展開で足りる
+
+### Scope（本フェーズ）
+- **In**:
+  - `getQuizzesByGenre`: `metadata_genres` 参照 → `mergedGenreIds` 展開 → `where('genre', 'in', [...])`（Firestore `in` 上限10件の分割クエリ含む）
+  - `createQuiz` / `updateQuiz`（公開時）: `metadata_genres` 実在検証 + `canonicalGenreId` 非正規化
+  - `validateQuizForPublish` / Zod: マスタ存在チェックとの二重整合
+  - `firestore.rules` + `firestore.indexes.json`: `metadata_genres`, `genreRequests`, `mergeRequests`（タグ統合と同様パターン）
+  - ホーム: `metadata_genres` からのアイコン/表示名ナビ、`/genres/[id]` への遷移
+  - クイズエディタ: マスタ駆動セレクト、申請動線維持、承認後の一覧リフレッシュ
+  - `/genres/[genreName]`: マスタ `displayName`・`iconImageUrl`、ソート（トレンド/人気/新着）
+  - 重複 `moderation.ts` のジャンル API 削除または `tagMerge.ts` へ統合
+  - 既存 spec（core / play-flow / creator-dash / moderation-governance）requirements・design・tasks のギャップ追記
+  - `docs/db_design.md` のジャンルアイコン「SVG可」記述を SEC-08 方針（PNG/JPEG/GIF のみ）に統一
+- **Out**:
+  - Cloud Functions への投票・可決処理の完全移行（現状クライアント transaction 維持。Storage アイコン移動の自動化は follow-up 可）
+  - 既存クイズの一括 `genre` 物理書き換えバッチ（`runMigration` はマージ可決時のみ）
+  - 新規 spec 境界の追加
+
+### Constraints（本フェーズ）
+- 仮想統合: クイズ `genre` 文字列は原則不変
+- **検索最適化（canonical）**: 公開保存時に `canonicalGenreId` を必ず解決・非正規化。読み取りは `where('canonicalGenreId', '==', resolvedCanonicalId)` を第一選択とし、未バックフィルクイズ向けに `genre in [canonicalId, ...mergedGenreIds]` のフォールバック併用（`api_specification.md` §書き込み時解決・検索高速化）
+- タグ検索も同様に `canonicalTagIds` + `array-contains` を正とする（ジャンルと対称）
+- ジャンルアイコン: SVG 禁止（`storage.rules` / `uploadImage` と一致）
+- Firestore `in` クエリ: 最大10 ID — マージ展開時はチャンク + マージ去重
+
+### Boundary Strategy（本フェーズ）
+- **Core**: マスタ CRUD 読み取り、公開時 canonical 解決、ジャンル別クエリ、Rules/Indexes、デッドコード整理
+- **Play-flow UI**: ホームナビ、ジャンル一覧ページのメタ表示・ソート・リンク
+- **Creator-dash UI**: エディタの動的セレクト（core の list API / 直接 read に依存）
+- **Moderation-governance UI**: 申請・投票 UI は概ね実装済み — icon ライフサイクルと spec 文言（SVG 禁止）の整合のみ
+- **Shared seam**: `resolveCanonicalGenreId(genreId)` を Core に1か所集約
+
+## Existing Spec Updates（Phase 6・依存順）
+- [ ] quizeum-core -- `getQuizzesByGenre` 仮想統合、`createQuiz`/`updateQuiz` マスタ検証・`canonicalGenreId`、Rules/Indexes、ジャンルメタ読み取り API、重複 moderation 削除。Dependencies: none
+- [ ] quizeum-play-flow-ui -- ホーム `metadata_genres` ナビ、`/genres/[genreName]` メタ・ソート、ホーム→ジャンル一覧遷移。Dependencies: quizeum-core
+- [ ] quizeum-creator-dash-ui -- エディタ動的ジャンルセレクト、承認後リフレッシュ、spec 要件同期。Dependencies: quizeum-core
+- [ ] quizeum-moderation-governance-ui -- 申請画面の spec/docs 整合（SVG 禁止表記）、任意: 可決時アイコン Storage 整理。Dependencies: quizeum-core
+
+## Direct Implementation Candidates（Phase 6）
+- [ ] docs-sync-genre -- `docs/db_design.md`（SVG 記述修正）、他 docs が既に正しい場合は core 実装に合わせて差分のみ更新
+- [ ] e2e-genre-alignment -- ジャンル一覧・新設申請・マージ後の一覧表示の E2E 追加/更新
+
+## Specs (dependency order)
+（Phase 6 では新規 spec なし — 上記 Existing Spec Updates のみ）

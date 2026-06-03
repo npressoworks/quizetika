@@ -126,3 +126,71 @@
   - _Requirements: 9.4, 9.5, 9.6_
   - _Depends: 9.1_
   - _Boundary: QuizDualLeaderboard_
+
+---
+
+### 10. Phase 6 拡張 — ジャンルマスタ駆動の探索UI（2026-06）
+
+> **前提**: `quizeum-core` Phase 6 完了（`listActiveGenres`, `getQuizzesByGenre` C2, `searchQuizzes`）。本スペックは UI 接続のみ。
+
+- [x] 10.1 `useActiveGenres` フックとジャンルナビコンポーネント (P)
+  - `listActiveGenres` をマウント時に取得し、loading / error / 空配列を返すフックを実装する。
+  - `GenreNav` で `displayName` と `iconImageUrl`（フォールバック絵文字可）を表示し、各アイコンクリックで **常に** `/genres/[genreId]` へ遷移する（ホーム内フィルタに使わない）。
+  - **完了状態**: 有効ジャンルが API から描画され、ハードコード `GENRES` がホームから削除されていること。
+  - _Requirements: 1.2, 10.1, 10.2, 10.3, 10.9_
+  - _Boundary: GenreNav, useActiveGenres_
+  - _Depends: quizeum-core Phase 6_
+
+- [x] 10.1b (P) `GenreSearchField` — サジェスト付きジャンル選択
+  - `useActiveGenres` の一覧を `displayName` / `genreId` で前方一致・部分一致サジェストするコンボボックスを複合検索パネルに配置する。
+  - 選択結果は `genreId` フィルタとして `useHomeQuizFeed` に渡す（アイコン遷移とは別経路）。
+  - **完了状態**: マスタ件数が多くてもテキスト入力でジャンルを指定できること。
+  - _Requirements: 1.3, 10.4_
+  - _Depends: 10.1_
+
+- [x] 10.2 ホーム画面の複合検索・`searchQuizzes`・プレイ状況（要件 1.3 完遂）
+  - `useHomeQuizFeed`: ジャンル ID・難易度・問題数・キーワードのいずれかが有効なとき、フィルタ変更をデバウンス（例 300ms）後に `searchQuizzes` を呼ぶ。全未指定時はタブ別取得を維持。
+  - `usePlayedQuizIds` + `listUserPlayedQuizIds`（`attempt.ts`）+ `GET /api/user/played-quiz-ids`: 認証ユーザーのプレイ済み `quizId` を取得し、`playStatus`（未プレイ／プレイ済み）をタブ取得・検索結果の後段で適用する。
+  - 未認証時はプレイ状況 select を無効化し案内表示（または常にすべて）。
+  - **完了状態**: ジャンル＋難易度の AND 検索、プレイ状況絞り込み、フィルタ変更トリガーが動作すること。
+  - _Requirements: 1.3, 10.4_
+  - _Depends: 10.1, 10.1b_
+
+- [x] 10.3 (P) ジャンル別一覧画面のメタ表示とソートタブ
+  - `listActiveGenres` から `displayName` / `iconImageUrl` を解決してヘッダーを表示する。
+  - 「新着」「人気」「トレンド」タブで `getQuizzesByGenre(genreId, limit, sort)` を切り替える。
+  - **完了状態**: マージ済み旧ジャンルのクイズが C2 経由で一覧に含まれ、ソート切替が動作すること。
+  - _Requirements: 10.5, 10.6_
+  - _Depends: quizeum-core Phase 6_
+
+- [x] 10.4 (P) タグ別一覧の canonical クエリとソート
+  - `getQuizzesByTag(tag, limit, sort)` を用い、ジャンル一覧と同型のソート UI を追加する。
+  - **完了状態**: タグページで新着／人気／トレンドの切替が動作すること。
+  - _Requirements: 10.7_
+  - _Depends: quizeum-core Phase 6_
+
+- [x] 10.5 弱点克服画面のジャンル選択をマスタ駆動に更新
+  - `REVIEW_GENRES` ハードコードを `listActiveGenres` +「オールジャンル」に置換する。
+  - **完了状態**: 新設可決ジャンルが復習フィルタに表示されること（マスタ反映後）。
+  - _Requirements: 10.8_
+  - _Depends: 10.1_
+
+- [x] 10.6 Phase 6 統合検証
+  - ジャンルアイコン遷移、サジェスト検索、フィルタ変更→`searchQuizzes`、認証時 `playStatus`、ジャンル一覧ソート、復習フィルタをコンポーネントまたは E2E で検証する。
+  - マスタ取得失敗時にハードコード一覧へフォールバックしないことを確認する。
+  - **完了状態**: 関連 Jest / Playwright がグリーンであること。
+  - _Requirements: 1.2, 1.3, 10.1, 10.4, 10.5, 10.6, 10.8, 10.10_
+  - _Depends: 10.2, 10.3, 10.4, 10.5_
+
+- [ ]* 10.7 Phase 6 E2E スモーク（任意）
+  - ジャンル新設可決後にホームナビと `/genres/[id]` に新ジャンルが現れることを E2E または手動チェックリストで確認する。
+  - **完了状態**: チェックリストまたは E2E 記録が残ること。
+  - _Depends: 10.6_
+  - _Requirements: 10.1, 10.5_
+
+## Implementation Notes
+
+- Phase 6 は **読み取り専用**（`metadata_genres` 書き込み除く）。`attempts` の **読み取り**（プレイ済み ID 一覧）は要件 1.3 のため `listUserPlayedQuizIds` + API で許容。
+- **確定 UX**: ジャンルアイコン＝遷移のみ。ジャンル条件は `GenreSearchField` + `searchQuizzes`（フィルタ変更・デバウンス）。`playStatus` は認証後クライアント後段フィルタ。
+- `quizeum-creator-dash-ui` のエディタ動的セレクトと併せて E2E するとジャンル一貫性の受け入れが容易。
+- Phase 6 実装（2026-06-03）: `GenreNav` は遷移専用。`GenreSearchField` + `useHomeQuizFeed`（300ms debounce）+ `applyPlayStatusFilter` / `GET /api/user/played-quiz-ids` で要件 1.3 完遂。Jest 296 件・build PASS。

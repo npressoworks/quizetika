@@ -5,6 +5,8 @@
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフロントエンド構成に加え、CSS Modulesによる親しみやすく機能的なデザインシステムを実装し、Firestoreサービス（`QuizService`, `QuizListService`, `ReviewService`等）およびフロントエンド側Zodスキーマと接続します。
 
+**Phase 6（2026-06）**: `QuizEditor` のジャンル `<select>` を `useActiveGenres` + `GenreEditorSelect` に置換。`quizeum-play-flow-ui` と同一の `listActiveGenres` フックを再利用する。
+
 ### Goals
 - 設問の動的追加・削除、クイズタイプトグルを備えた直感的なクイズエディタの構築。
 - タグ入力時におけるリアルタイム「自動名寄せ」正規化と類似 canonical タグのインラインサジェスト警告UI。
@@ -35,7 +37,8 @@
 ### Allowed Dependencies
 - **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
 - **`quizeum-play-flow-ui`**: `/quiz/[id]` プレイ遷移
-- **`quizeum-core`**: `QuizService`, `QuizListService`, `ReviewService`
+- **`quizeum-core`**: `QuizService`, `QuizListService`, `ReviewService`, **`listActiveGenres`（Phase 6）**
+- **`quizeum-play-flow-ui`（共有）**: `useActiveGenres` フック（`src/hooks/useActiveGenres.ts`）
 
 ### Revalidation Triggers
 - `QuizService.saveQuiz` または `QuizListService.createQuizList` のシリアライズ仕様変更。
@@ -82,14 +85,40 @@ src/
 │               ├── page.tsx       # クイズ編集画面 (1.1, 1.2, 1.3, 1.4, 1.5, 1.6)
 │               └── edit.module.css
 └── components/
-    └── charts/
-        ├── analytics-chart.tsx    # 累計アナリティクス用グラフコンポーネント
-        └── selection-pie.tsx      # 解答選択肢割合用パイチャートコンポーネント
+    ├── charts/
+    │   ├── analytics-chart.tsx    # 累計アナリティクス用グラフコンポーネント
+    │   └── selection-pie.tsx      # 解答選択肢割合用パイチャートコンポーネント
+    └── quiz/
+        └── genre-editor-select.tsx  # マスタ駆動ジャンル select (5.x) 【Phase 6 新規】
+hooks/
+└── useActiveGenres.ts             # play-flow と共有（既存）
 ```
+
+### Modified Files（Phase 6）
+- `src/components/quiz/quiz-editor.tsx` — ハードコード `<option>` 削除、`GenreEditorSelect` 統合、フォーカス時 `refetch`。
+- `src/components/quiz/genre-editor-select.tsx`（新規）— loading / error / orphan value 表示。
 
 ---
 
 ## System Flows
+
+### エディタ・ジャンルマスタ取得フロー（Phase 6）
+```mermaid
+sequenceDiagram
+    participant Editor as QuizEditor
+    participant Select as GenreEditorSelect
+    participant Hook as useActiveGenres
+    participant Core as listActiveGenres
+
+    Editor->>Hook: mount
+    Hook->>Core: listActiveGenres()
+    Core-->>Hook: GenreMetadata[]
+    Hook-->>Select: genres + loading/error
+    Select-->>Editor: genreId onChange
+    Note over Editor: window focus → Hook.refetch()
+    Editor->>Core: saveQuiz(genre: genreId)
+    Note over Core: publish 時 canonicalGenreId 解決（core）
+```
 
 ### タグ入力時のリアルタイム自動名寄せサジェストフロー
 ```mermaid
@@ -130,6 +159,12 @@ sequenceDiagram
 | 4.1 | リストメタ情報とクイズ検索アタッチUI | List Editor | Search / Attach | - |
 | 4.2 | HTML5 Drag and Dropによる順序並べ替えUI | List Editor | HTML5 D&D API | - |
 | 4.3 | リストパッケージJSONエクスポート | List Editor | `QuizListService.exportQuizList` | - |
+| 5.1 | マスタ駆動ジャンル select | `GenreEditorSelect` | `useActiveGenres` | エディタ・ジャンルフロー |
+| 5.2 | ハードコード option 廃止 | `QuizEditor` | — | — |
+| 5.3 | 申請動線リンク維持 | `QuizEditor` | `/community/genres` | — |
+| 5.4 | フォーカス復帰時 refetch | `useActiveGenres` | `refetch` | エディタ・ジャンルフロー |
+| 5.5 | レガシー genre 値の orphan 表示 | `GenreEditorSelect` | controlled value | — |
+| 5.6 | 取得失敗時フォールバック禁止 | `GenreEditorSelect` | error UI | — |
 
 ---
 
@@ -139,7 +174,8 @@ sequenceDiagram
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
 |-----------|--------------|--------|--------------|------------------|-----------|
-| `QuizEditor` | UI / Page | クイズの新規作成・編集、タグ警告、Zod検証 | 1.1, 1.2, 1.3, 1.4, 1.5, 1.6 | `QuizService` | FormState |
+| `QuizEditor` | UI / Page | クイズの新規作成・編集、タグ警告、Zod検証 | 1.1–1.6, 5.1–5.7 | `QuizService`, `GenreEditorSelect` | FormState |
+| `GenreEditorSelect` | UI / Component | マスタ駆動ジャンル `<select>` | 5.1–5.6 | `useActiveGenres` | Controlled |
 | `CreatorDashboard` | UI / Page | 作家アナリティクス、指摘解決、クイズエクスポート | 2.1, 2.2, 2.3, 2.4, 2.5 | `ReviewService`, `QuizService` | State |
 | `QuizListDetail` | UI / Page | クイズリストの閲覧、プレイ開始トラッキング | 3.1, 3.2, 3.3 | `QuizListService`, `useAuth` | State |
 | `QuizListEditor` | UI / Page | リストの新規作成・編集、アタッチ、Drag&Drop、パッケージエクスポート | 4.1, 4.2, 4.3 | `QuizListService` | State |
@@ -169,3 +205,6 @@ sequenceDiagram
 ### E2E/UI Tests
 - **HTML5 Drag and Dropによる並び替え**:
   - リスト編集画面で、収録クイズカードの並び替えハンドルをドラッグ＆ドロップした際に、データのインデックス順序が正しく入れ替わるかをテスト。
+- **Phase 6 ジャンルセレクト**:
+  - `data-testid="genre-editor-select"` がマスタ取得後に option を描画すること（ハードコード「programming」固定 option に依存しないこと）。
+  - `/community/genres` リンクが維持されていること。

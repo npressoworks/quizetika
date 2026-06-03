@@ -27,6 +27,8 @@ import {
   TEST_PLAY_RESTORE_QUERY,
 } from '@/lib/test-play';
 import { resolveQuizFormat } from '@/lib/quiz-format';
+import { useActiveGenres } from '@/hooks/useActiveGenres';
+import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
 
 interface QuizEditorProps {
   quizId?: string; // 編集モードの場合はIDが渡される
@@ -100,7 +102,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  
+  const { genres: activeGenres, loading: genresLoading, error: genresError, refetch: refetchGenres } =
+    useActiveGenres();
+
   const [loading, setLoading] = useState(false);
   const [initialFetchLoading, setInitialFetchLoading] = useState(!!quizId);
   const [validationErrors, setValidationErrors] = useState<QuizPublishValidationError[]>([]);
@@ -125,6 +129,12 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   /** テストプレイ復帰後に Firestore 取得でドラフトを上書きしない */
   const skipServerQuizLoadRef = useRef(false);
+
+  useEffect(() => {
+    const onFocus = () => refetchGenres();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refetchGenres]);
 
   // ウミガメスープ必須キーワード入力用の一時ステート
   const [keywordInputs, setKeywordInputs] = useState<Record<number, string>>({});
@@ -1172,20 +1182,15 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                       <label className={styles.label}>
                         ジャンル <span style={{ color: 'var(--color-danger)' }}>*</span>
                       </label>
-                      <select
-                        className={`${styles.select} ${filterValidationErrors(validationErrors, { field: 'genre' }).length > 0 ? styles.inputError : ''}`}
+                      <GenreEditorSelect
                         value={genre}
-                        onChange={(e) => setGenre(e.target.value)}
-                        required
-                      >
-                        <option value="" disabled>ジャンルを選択してください</option>
-                        <option value="programming">プログラミング / IT</option>
-                        <option value="history">歴史 / 世界史</option>
-                        <option value="science">科学 / 自然科学</option>
-                        <option value="anime">アニメ / ゲーム</option>
-                        <option value="sports">スポーツ / 運動</option>
-                        <option value="general">一般常識 / 雑学</option>
-                      </select>
+                        onChange={setGenre}
+                        genres={activeGenres}
+                        loading={genresLoading}
+                        error={genresError}
+                        onRetry={refetchGenres}
+                        selectClassName={`${styles.select} ${filterValidationErrors(validationErrors, { field: 'genre' }).length > 0 ? styles.inputError : ''}`}
+                      />
                       <a href="/community/genres" className={styles.genreLink}>
                         新しいジャンルを申請する
                       </a>
