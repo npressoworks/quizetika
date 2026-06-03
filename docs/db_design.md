@@ -356,7 +356,7 @@ erDiagram
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `string` | **必須** | ドキュメントID | ジャンルの識別名（例: `'programming'`）。 |
 | `displayName` | `string` | **必須** | 最大20文字 | 画面表示用の正式名（例: `'プログラミング'`）。 |
-| `iconImageUrl` | `string` | **必須** | Firebase Storage画像URL | 表示に使用する正方形のアイコン画像またはSVGのURL。 |
+| `iconImageUrl` | `string` | **必須** | Firebase Storage画像URL | 表示に使用する正方形のアイコン画像 URL（SEC-08: PNG/JPEG/GIF のみ。SVG 不可）。 |
 | `canonicalId` | `string \| null` | 任意 | `null` / ジャンルID参照 | 統合先のジャンルID。自身が存続ジャンルの場合は `null`。 |
 | `mergedGenreIds` | `array (string)` | **必須** | `[]` | 自身に統合された古いジャンルID of リスト（逆引き高速化用）。 |
 | `isActive` | `boolean` | **必須** | `true` | システム全体で選択・検索可能な状態かどうか。 |
@@ -475,41 +475,45 @@ erDiagram
 1. **タイムライン・フィード取得用**:
    * コレクション: `quizzes`
    * フィールド: `authorId` (昇順) ＋ `status` (昇順) ＋ `createdAt` (降順)
-2. **複合検索フィルタ（ジャンル・難易度・問題数・ステータス・新着順）用**:
+2. **ジャンル別一覧（Phase 6・canonical 優先）用**:
    * コレクション: `quizzes`
-   * フィールド: `genre` (昇順) ＋ `difficulty` (昇順) ＋ `status` (昇順) ＋ `createdAt` (降順)
-3. **人気順ランキング＆トレンドクエリ用**:
+   * フィールド: `status` (昇順) ＋ `canonicalGenreId` (昇順) ＋ `createdAt` / `playCount` / `bookmarksCount` (降順)
+   * 備考: `firestore.indexes.json` に3種（新着・人気・トレンド）を定義。未移行クイズはアプリ層で `genre in` フォールバックをマージ。
+3. **タグ別一覧（Phase 6・canonical 優先）用**:
+   * コレクション: `quizzes`
+   * フィールド: `status` (昇順) ＋ `canonicalTagIds` (配列 CONTAINS) ＋ `createdAt` (降順)
+4. **人気順ランキング＆トレンドクエリ用**:
    * コレクション: `quizzes`
    * フィールド: `status` (昇順) ＋ `playCount` (降順) / `bookmarksCount` (降順)
-4. **間違い指摘レポート作家一覧クエリ用**:
+5. **間違い指摘レポート作家一覧クエリ用**:
    * コレクション: `feedbackReports`
    * フィールド: `creatorId` (昇順) ＋ `status` (昇順) ＋ `createdAt` (降順)
-5. **通知一覧クエリ用**:
+6. **通知一覧クエリ用**:
    * コレクション: `notifications`
    * フィールド: `userId` (昇順) ＋ `createdAt` (降順)
-6. **獲得リアクション履歴クエリ用**:
+7. **獲得リアクション履歴クエリ用**:
    * コレクション: `reactions`
    * フィールド: `receiverId` (昇順) ＋ `createdAt` (降順)
-7. **送信リアクション履歴クエリ用**:
+8. **送信リアクション履歴クエリ用**:
    * コレクション: `reactions`
    * フィールド: `senderId` (昇順) ＋ `createdAt` (降順)
-8. **弱点克服・復習用最新履歴取得クエリ用**:
+9. **弱点克服・復習用最新履歴取得クエリ用**:
    * コレクション: `attempts`
    * フィールド: `userId` (昇順) ＋ `quizId` (昇順) ＋ `completedAt` (降順)
-9. **本人プレイ履歴一覧用（Phase 5）**:
+10. **本人プレイ履歴一覧用（Phase 5）**:
    * コレクション: `attempts`
    * フィールド: `userId` (昇順) ＋ `completedAt` (降順)
    * 備考: `firestore.indexes.json` に定義。`listUserPlayHistory` は `mode !== 'test-play'` をアプリ層でフィルタ。
-10. **良問評価クエリ用**:
+11. **良問評価クエリ用**:
    * コレクション: `quizReviews`
    * フィールド: `quizId` (昇順) ＋ `createdAt` (降順)
-11. **ユーザー別良問評価重複防止用**:
+12. **ユーザー別良問評価重複防止用**:
     * コレクション: `quizReviews`
     * フィールド: `quizId` (昇順) ＋ `reviewerId` (昇順)
-12. **信頼スコアイベントバッチ処理用**:
+13. **信頼スコアイベントバッチ処理用**:
     * コレクション: `users/{uid}/reputationEvents` (サブコレクション)
     * フィールド: `processedAt` (昇順) ＋ `createdAt` (昇順)
-13. **マージリクエスト一覧用**:
+14. **マージリクエスト一覧用**:
     * コレクション: `mergeRequests`
     * フィールド: `status` (昇順) ＋ `createdAt` (降順)
 
