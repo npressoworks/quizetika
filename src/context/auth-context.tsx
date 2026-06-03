@@ -6,6 +6,10 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../lib/firebase/config';
 import { getUser, createUser } from '../services/user';
 import { User } from '../types';
+import {
+  clearMiddlewareAuthCookies,
+  syncMiddlewareAuthCookies,
+} from '@/lib/middleware-auth-cookies';
 
 interface AuthContextType {
   user: User | null; // Firestore 内のユーザー詳細情報
@@ -31,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (firebaseUser) {
       const dbUser = await getUser(firebaseUser.uid);
       setUser(dbUser);
+      syncMiddlewareAuthCookies(dbUser, firebaseUser.uid);
     }
   };
 
@@ -68,11 +73,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             dbUser = await getUser(fUser.uid);
           }
           setUser(dbUser);
+          syncMiddlewareAuthCookies(dbUser, fUser.uid);
         } catch (error) {
           console.error('Failed to sync user to Firestore:', error);
+          syncMiddlewareAuthCookies(null, fUser.uid);
         }
       } else {
         setUser(null);
+        clearMiddlewareAuthCookies();
       }
 
       setLoading(false);

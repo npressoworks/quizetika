@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { getSafeRedirectPath } from '@/lib/safe-redirect-path';
 import { auth } from '@/lib/firebase/config';
 import {
   signInWithPopup,
@@ -19,20 +20,22 @@ import styles from './login.module.css';
 // 開発環境かつテスト環境のみ有効なフラグ (本番ビルド時は静的に false となりTree Shakingが機能します)
 const isMockAuthEnabled = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_ENV === 'test';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectPath = getSafeRedirectPath(searchParams.get('redirect'));
 
   // エラーとステータス
   const [errorMsg, setErrorMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 既にログインしている場合は自動的にホームにリダイレクト
+  // 既にログインしている場合は redirect 先（なければホーム）へ
   useEffect(() => {
     if (!loading && user) {
-      router.push('/');
+      router.push(redirectPath);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, redirectPath]);
 
   // Firebaseエラーを日本語のメッセージに変換
   const getFriendlyErrorMessage = (code: string) => {
@@ -57,7 +60,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await signInWithPopup(auth, provider);
-      router.push('/');
+      router.push(redirectPath);
     } catch (err: any) {
       console.error(`${providerLabel} auth error:`, err);
       setErrorMsg(getFriendlyErrorMessage(err.code));
@@ -100,7 +103,7 @@ export default function LoginPage() {
           throw err;
         }
       }
-      router.push('/');
+      router.push(redirectPath);
     } catch (err: any) {
       console.error('E2E login error:', err);
       setErrorMsg('E2Eログインに失敗しました: ' + err.message);
@@ -227,5 +230,19 @@ export default function LoginPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner} />
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }
