@@ -123,6 +123,26 @@ export async function toggleBookmark(
 }
 
 /**
+ * ユーザーがブックマークしたクイズ ID のみ取得（ホームの星表示など軽量用途）
+ */
+export async function getBookmarkedQuizIds(userId: string): Promise<string[]> {
+  if (isTestEnv) {
+    const list = JSON.parse(localStorage.getItem(MOCK_BOOKMARKS_KEY) || '[]');
+    return list
+      .filter((b: { userId: string; targetType: string }) => b.userId === userId && b.targetType === 'quiz')
+      .map((b: { targetId: string }) => b.targetId);
+  }
+
+  const q = query(
+    bookmarksRef,
+    where('userId', '==', userId),
+    where('targetType', '==', 'quiz')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => (d.data() as Bookmark).targetId);
+}
+
+/**
  * ユーザーがブックマークしたすべてのクイズ（Quizオブジェクト）を取得
  */
 export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {

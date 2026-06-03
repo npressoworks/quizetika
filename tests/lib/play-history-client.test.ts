@@ -4,17 +4,26 @@ import {
   PlayHistoryApiError,
 } from '../../src/lib/play-history-client';
 
+const mockListUserPlayHistory = jest.fn();
+
 jest.mock('@/lib/firebase/config', () => ({
   auth: {
-    currentUser: {
-      getIdToken: jest.fn().mockResolvedValue('mock-token'),
-    },
+    currentUser: null as { uid: string } | null,
   },
 }));
 
+jest.mock('@/services/attempt', () => ({
+  listUserPlayHistory: (...args: unknown[]) => mockListUserPlayHistory(...args),
+}));
+
 describe('play-history-client', () => {
+  const { auth } = jest.requireMock('@/lib/firebase/config') as {
+    auth: { currentUser: { uid: string } | null };
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    auth.currentUser = { uid: 'user-1' };
   });
 
   test('getAttemptModeLabel: 各モードの日本語ラベル', () => {
@@ -25,53 +34,43 @@ describe('play-history-client', () => {
     expect(getAttemptModeLabel('list')).toBe('リストプレイ');
   });
 
-  test('fetchPlayHistoryPage: 401 で PlayHistoryApiError', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      json: async () => ({ message: '認証に失敗しました' }),
-    });
+  test('fetchPlayHistoryPage: 未ログインで PlayHistoryApiError', async () => {
+    auth.currentUser = null;
 
-    try {
-      await fetchPlayHistoryPage({});
-      throw new Error('expected PlayHistoryApiError');
-    } catch (e) {
-      expect(e).toBeInstanceOf(PlayHistoryApiError);
-      expect((e as PlayHistoryApiError).status).toBe(401);
-      expect((e as PlayHistoryApiError).message).toBe('認証に失敗しました');
-    }
+    await expect(fetchPlayHistoryPage({})).rejects.toMatchObject({
+      name: 'PlayHistoryApiError',
+      status: 401,
+      message: 'ログインが必要です',
+    });
+    expect(mockListUserPlayHistory).not.toHaveBeenCalled();
   });
 
-  test('fetchPlayHistoryPage: completedAt を Date に変換', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        items: [
-          {
-            attemptId: 'a1',
-            quizId: 'q1',
-            quizTitle: 'テスト',
-            score: 3,
-            totalQuestions: 5,
-            mode: 'normal',
-            completedAt: '2026-01-15T12:00:00.000Z',
-            elapsedSeconds: 42,
-          },
-        ],
-        nextCursor: 'cursor-abc',
-      }),
+  test('fetchPlayHistoryPage: listUserPlayHistory の結果を返す', async () => {
+    const completedAt = new Date('2026-01-15T12:00:00.000Z');
+    mockListUserPlayHistory.mockResolvedValue({
+      items: [
+        {
+          attemptId: 'a1',
+          quizId: 'q1',
+          quizTitle: 'テスト',
+          score: 3,
+          totalQuestions: 5,
+          mode: 'normal',
+          completedAt,
+          elapsedSeconds: 42,
+        },
+      ],
+      nextCursor: 'cursor-abc',
     });
 
-    const page = await fetchPlayHistoryPage({ cursor: 'prev' });
-    expect(page.items[0].completedAt).toBeInstanceOf(Date);
+    const page = await fetchPlayHistoryPage({ cursor: 'prev', limit: 10 });
+    expect(page.items[0].completedAt).toBe(completedAt);
     expect(page.items[0].quizTitle).toBe('テスト');
     expect(page.nextCursor).toBe('cursor-abc');
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('cursor=prev'),
-      expect.objectContaining({
-        headers: { Authorization: 'Bearer mock-token' },
-      })
-    );
+    expect(mockListUserPlayHistory).toHaveBeenCalledWith({
+      uid: 'user-1',
+      cursor: 'prev',
+      limit: 10,
+    });
   });
 });

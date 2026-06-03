@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import styles from './page.module.css';
-import { toggleBookmark, getBookmarkedQuizzes } from '@/services/bookmark';
+import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
 import { Quiz } from '@/types';
 import { SlidersHorizontal, Star } from 'lucide-react';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
@@ -21,7 +21,7 @@ import { applyPlayStatusFilter } from '@/lib/apply-play-status-filter';
 
 export default function Home() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, firebaseUser, loading: authLoading } = useAuth();
   const { genres, loading: genresLoading, error: genresError, genreLabelById, refetch } =
     useActiveGenres();
 
@@ -76,10 +76,12 @@ export default function Home() {
 
   useEffect(() => {
     async function loadBookmarks() {
-      if (user) {
+      if (authLoading) return;
+      const uid = firebaseUser?.uid;
+      if (uid && user) {
         try {
-          const list = await getBookmarkedQuizzes(user.id);
-          setBookmarkedIds(new Set(list.map((q) => q.id)));
+          const ids = await getBookmarkedQuizIds(uid);
+          setBookmarkedIds(new Set(ids));
         } catch (e) {
           console.error('[Home] ブックマーク取得エラー:', e);
         }
@@ -89,7 +91,7 @@ export default function Home() {
       }
     }
     loadBookmarks();
-  }, [user]);
+  }, [user, firebaseUser, authLoading]);
 
   const handleBookmarkClick = async (e: React.MouseEvent, quizId: string) => {
     e.stopPropagation();

@@ -33,13 +33,23 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENV === 'test') {
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// App Checkの初期化 (クライアントサイド本番環境のみ)
-if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENV !== 'test') {
-  const appCheckSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6Ld_placeholder_key_for_app_check';
+function shouldInitializeAppCheck(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (process.env.NEXT_PUBLIC_ENV === 'test') return false;
+  // npm run dev では reCAPTCHA 未設定のため App Check を付けない（Firestore 拒否を防ぐ）
+  if (process.env.NODE_ENV !== 'production') return false;
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY?.trim();
+  if (!siteKey || siteKey.includes('placeholder')) return false;
+  return true;
+}
+
+// App Checkの初期化 (本番ビルド + 有効な reCAPTCHA サイトキーのみ)
+if (shouldInitializeAppCheck()) {
+  const appCheckSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!.trim();
   try {
     initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-      isTokenAutoRefreshEnabled: true
+      isTokenAutoRefreshEnabled: true,
     });
     console.log('[firebase-config] Firebase App Check を有効化しました。');
   } catch (err) {
