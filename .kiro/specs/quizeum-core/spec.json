@@ -1,9 +1,9 @@
 {
   "feature_name": "quizeum-core",
   "created_at": "2026-05-28T22:25:42+09:00",
-  "updated_at": "2026-06-04T01:00:00+09:00",
+  "updated_at": "2026-06-04T19:20:00+09:00",
   "language": "ja",
-  "phase": "tasks-generated",
+  "phase": "requirements-generated",
   "approvals": {
     "requirements": {
       "generated": true,
