@@ -2,7 +2,8 @@
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding: 8px 4px 16px;
+  padding: 40px 4px 16px;
+  margin-top: -32px;
   scrollbar-width: thin;
 }
 
