@@ -121,7 +121,7 @@ export async function resetUserReputation(
     const executorRef = doc(usersRef, executorId);
     const executorSnap = await transaction.get(executorRef);
 
-    if (!executorSnap.exists() || executorSnap.data()?.moderationTier !== 'admin') {
+    if (!executorSnap.exists() || (executorSnap.data()?.moderationTier as string) !== 'admin') {
       throw new Error('この操作を実行する権限がありません');
     }
 

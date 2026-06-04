@@ -183,6 +183,13 @@ export default function AdminModerationPage() {
         <p className={styles.pageSubtitle}>
           通報が5回に達した保留コンテンツを審査し、公開復帰または削除を行います。
         </p>
+        {((user?.moderationTier as string) === 'admin' || (user as any)?.role === 'admin') && (
+          <div>
+            <Link href="/admin/users" className={styles.usersAdminLink}>
+              👤 ユーザー評判管理画面へ
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* フィードバックメッセージ */}
