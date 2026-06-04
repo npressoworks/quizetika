@@ -5,6 +5,7 @@ import {
   runMigration,
   submitGenreRequest,
   voteGenreRequest,
+  seedInitialGenres,
 } from '../../src/services/tagMerge';
 
 jest.mock('firebase/firestore', () => {
@@ -272,5 +273,57 @@ describe('TagMergeService - voteGenreRequest', () => {
         isActive: true,
       })
     );
+  });
+});
+
+describe('TagMergeService - seedInitialGenres', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('未登録ジャンルは新規作成され added が増えること', async () => {
+    const { getDoc, setDoc } = require('firebase/firestore');
+
+    (getDoc as jest.Mock).mockResolvedValue({ exists: () => false });
+    (setDoc as jest.Mock).mockResolvedValue(undefined);
+
+    const result = await seedInitialGenres();
+
+    expect(result.added).toBeGreaterThan(0);
+    expect(result.updated).toBe(0);
+    expect(setDoc).toHaveBeenCalled();
+  });
+
+  test('既存ジャンルIDは更新され updated が増えること', async () => {
+    const { getDoc, updateDoc, setDoc } = require('firebase/firestore');
+
+    (getDoc as jest.Mock).mockResolvedValue({ exists: () => true });
+    (updateDoc as jest.Mock).mockResolvedValue(undefined);
+    (setDoc as jest.Mock).mockResolvedValue(undefined);
+
+    const result = await seedInitialGenres();
+
+    expect(result.updated).toBeGreaterThan(0);
+    expect(updateDoc).toHaveBeenCalled();
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  test('新規と既存が混在する場合、added と updated が両方カウントされること', async () => {
+    const { getDoc, updateDoc, setDoc } = require('firebase/firestore');
+    let callIndex = 0;
+
+    (getDoc as jest.Mock).mockImplementation(() => {
+      const exists = callIndex % 2 === 1;
+      callIndex += 1;
+      return Promise.resolve({ exists: () => exists });
+    });
+    (updateDoc as jest.Mock).mockResolvedValue(undefined);
+    (setDoc as jest.Mock).mockResolvedValue(undefined);
+
+    const result = await seedInitialGenres();
+
+    expect(result.added).toBeGreaterThan(0);
+    expect(result.updated).toBeGreaterThan(0);
+    expect(result.added + result.updated).toBeGreaterThan(0);
   });
 });

@@ -24,6 +24,7 @@ import {
   GENRE_MIN_APPROVE_RATE,
   GENRE_MIN_APPROVE_WEIGHT,
 } from '../lib/metadata-governance';
+import initialGenresData from '../data/initial_genres.json';
 
 const mergeRequestsCollection = collection(db, 'mergeRequests');
 const genreRequestsCollection = collection(db, 'genreRequests');
@@ -468,4 +469,57 @@ export async function voteGenreRequest(
 
     transaction.update(requestRef, updates as any);
   });
+}
+
+/** `initial_genres.json` の1件分 */
+export interface InitialGenreSeed {
+  id: string;
+  displayName: string;
+  description?: string;
+  iconImageUrl: string | null;
+  canonicalId: string | null;
+  mergedGenreIds: string[];
+  isActive: boolean;
+}
+
+export interface SeedInitialGenresResult {
+  added: number;
+  updated: number;
+}
+
+/**
+ * 初期ジャンル定義を metadata_genres へ冪等に投入する。
+ * 既存IDはマスタフィールドを更新し、未存在IDは新規作成する。
+ */
+export async function seedInitialGenres(): Promise<SeedInitialGenresResult> {
+  const genres = initialGenresData as InitialGenreSeed[];
+  let added = 0;
+  let updated = 0;
+  const now = new Date();
+
+  for (const genre of genres) {
+    const genreRef = doc(metadataGenresCollection, genre.id);
+    const snap = await getDoc(genreRef);
+
+    const payload = {
+      id: genre.id,
+      displayName: genre.displayName,
+      description: genre.description ?? '',
+      iconImageUrl: genre.iconImageUrl,
+      canonicalId: genre.canonicalId,
+      mergedGenreIds: genre.mergedGenreIds ?? [],
+      isActive: genre.isActive,
+      updatedAt: now,
+    };
+
+    if (snap.exists()) {
+      await updateDoc(genreRef, payload);
+      updated += 1;
+    } else {
+      await setDoc(genreRef, { ...payload, createdAt: now });
+      added += 1;
+    }
+  }
+
+  return { added, updated };
 }

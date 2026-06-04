@@ -2,14 +2,14 @@
  * 管理者モデレーション審査画面
  *
  * 機能:
- * - 通報5回以上に達した保留コンテンツ（クイズ）の審査キュー表示
+ * - 通報5回以上で suspended となったクイズの審査キュー表示
  * - 各アイテムの通報理由・詳細の表示
  * - 公開復帰（通報リセット）・コンテンツ削除のアクションボタン
  * - 対象クイズクリック時の管理者審査用特別閲覧ビューへの遷移
  * - moderationTier によるクライアントサイドアクセスガード
  *
- * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
- * Boundary: AdminModeration-Queue, AdminModeration-Action
+ * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.2, 5.3, 5.6, 5.7
+ * Boundary: AdminModeration-Queue, AdminModeration-Action, Seed UI
  */
 'use client';
 
@@ -25,7 +25,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/context/auth-context';
+import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { resolveFlag } from '@/services/moderation';
+import { assertSeedGenresAccess } from '@/lib/seed-genres-access';
 import { Quiz } from '@/types';
 import styles from './moderation.module.css';
 
@@ -45,7 +47,7 @@ interface ModerationQueueItem {
 }
 
 export default function AdminModerationPage() {
-  const { user, loading } = useAuth();
+  const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
 
   const [queueItems, setQueueItems] = useState<ModerationQueueItem[]>([]);
@@ -53,6 +55,9 @@ export default function AdminModerationPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedSuccessMessage, setSeedSuccessMessage] = useState<string | null>(null);
+  const [seedErrorMessage, setSeedErrorMessage] = useState<string | null>(null);
 
   // -------------------------------------------------------------------
   // クライアントサイドアクセスガード (Req 1.1)
@@ -60,8 +65,10 @@ export default function AdminModerationPage() {
   // -------------------------------------------------------------------
   const isAuthorized =
     user?.moderationTier === 'senior_moderator' ||
-    // 将来的な admin ロールフィールドへの対応（User型拡張時に削除）
-    (user?.moderationTier as string) === 'admin';
+    (user?.moderationTier as string) === 'admin' ||
+    (user && isAdminUser(user));
+
+  const isAdmin = Boolean(user && isAdminUser(user));
 
   useEffect(() => {
     if (!loading && !user) {
@@ -149,6 +156,56 @@ export default function AdminModerationPage() {
   // -------------------------------------------------------------------
   // 通報理由のラベル変換
   // -------------------------------------------------------------------
+  const handleSeedGenres = async () => {
+    if (!firebaseUser) {
+      setSeedErrorMessage('ログインセッションが無効です。再度ログインしてください。');
+      return;
+    }
+
+    setSeedLoading(true);
+    setSeedSuccessMessage(null);
+    setSeedErrorMessage(null);
+
+    try {
+      await assertSeedGenresAccess(firebaseUser.uid);
+
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/admin/seed-genres', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+        added?: number;
+        updated?: number;
+      };
+
+      if (!res.ok) {
+        throw new Error(
+          data.message ||
+            (data.error === 'admin-not-configured'
+              ? 'サーバーに Firebase サービスアカウントが未設定です。.env.local に FIREBASE_SERVICE_ACCOUNT_JSON を設定してください。'
+              : data.error) ||
+            '初期ジャンルの一括投入に失敗しました。'
+        );
+      }
+
+      const added = data.added ?? 0;
+      const updated = data.updated ?? 0;
+      setSeedSuccessMessage(
+        `初期ジャンルの一括投入が完了しました（新規: ${added}件、更新: ${updated}件）。`
+      );
+    } catch (err) {
+      console.error('初期ジャンル投入エラー:', err);
+      setSeedErrorMessage(
+        err instanceof Error ? err.message : '初期ジャンルの一括投入に失敗しました。'
+      );
+    } finally {
+      setSeedLoading(false);
+    }
+  };
+
   const getReason = (reason: string) => {
     const labels: Record<string, string> = {
       harassment: '🔥 ハラスメント',
@@ -183,7 +240,7 @@ export default function AdminModerationPage() {
         <p className={styles.pageSubtitle}>
           通報が5回に達した保留コンテンツを審査し、公開復帰または削除を行います。
         </p>
-        {((user?.moderationTier as string) === 'admin' || (user as any)?.role === 'admin') && (
+        {isAdmin && (
           <div>
             <Link href="/admin/users" className={styles.usersAdminLink}>
               👤 ユーザー評判管理画面へ
@@ -191,6 +248,44 @@ export default function AdminModerationPage() {
           </div>
         )}
       </header>
+
+      {isAdmin && (
+        <section className={styles.seedSection} aria-labelledby="seed-genres-heading">
+          <h2 id="seed-genres-heading" className={styles.seedSectionTitle}>
+            初期ジャンル一括投入 (Seed Initial Genres)
+          </h2>
+          <p className={styles.seedSectionDesc}>
+            `src/data/initial_genres.json` に定義された標準ジャンルを Firestore の
+            metadata_genres へ冪等に登録します。
+          </p>
+          {seedSuccessMessage && (
+            <div className={styles.alertSuccess}>
+              <span>✅</span> {seedSuccessMessage}
+            </div>
+          )}
+          {seedErrorMessage && (
+            <div className={styles.alertError}>
+              <span>⚠️</span> {seedErrorMessage}
+            </div>
+          )}
+          <button
+            type="button"
+            id="seed-genres-btn"
+            className={styles.seedBtn}
+            onClick={handleSeedGenres}
+            disabled={seedLoading}
+          >
+            {seedLoading ? (
+              <>
+                <span className={styles.btnSpinner} aria-hidden />
+                投入中...
+              </>
+            ) : (
+              '🌱 初期ジャンル一括投入'
+            )}
+          </button>
+        </section>
+      )}
 
       {/* フィードバックメッセージ */}
       {successMessage && (

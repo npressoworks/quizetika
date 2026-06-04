@@ -7,7 +7,7 @@
 
 ## Boundary Context
 - **In scope**:
-  - 管理者ロール専用の通報審査画面におけるクイズ、リスト、プロフィールの審査待ちリスト表示。
+  - 管理者ロール専用の通報審査画面におけるクイズの審査待ちリスト表示（リスト・プロフィールは `quizeum-core` の通報スキーマ整備後に拡張）。
   - 「公開に復帰させる（通報却下）」または「永久非公開化 / 削除」のアクション実行ボタンUI。
   - 審査対象クイズの中身を確認するための「管理者特別検証閲覧ビュー」動線。
   - モデレータ専用のマージリクエスト画面におけるマージ提案の起案および保留提案に対する賛否加重投票UI。
@@ -25,7 +25,7 @@
 
 #### Acceptance Criteria
 1. The Admin Moderation Screen shall restrict access, showing a 404/403 page if the authenticated user does not have the 'admin' or 'senior_moderator' role.
-2. The Admin Moderation Screen shall display a moderation queue of items (quizzes, lists, profiles) that have reached the flag count threshold of 5.
+2. The Admin Moderation Screen shall display a moderation queue of quizzes that have reached the flag count threshold of 5 and `status: 'suspended'`. Lists and profiles are out of scope until core exposes equivalent flag/suspend fields.
 3. For each queue item, the Admin Moderation Screen shall display the specific violation flags (harassment, spam, etc.) and player-provided feedback details.
 4. The Admin Moderation Screen shall display action buttons allowing the administrator to either "公開に復帰 (Restore)" (which resets flag counts to 0) or "コンテンツ削除 (Permanent Hide/Delete)" (which sends warning notification to creator).
 5. When the administrator clicks a flagged quiz in the queue, the system shall open a special read-only Quiz Detail View with a "管理者審査用特別ビュー" header overlay.
@@ -61,3 +61,16 @@
 3. When the user selects a disallowed file (including `.svg` or `image/svg+xml`), the Community Genre Screen shall block submit and show a clear inline error; it shall not upload to Storage.
 4. On genre request approval, the system shall continue to copy `iconImageUrl` from the approved request into `metadata_genres` via existing core transaction (`voteGenreRequest`); no SVG normalization step is required in this spec.
 5. E2E or unit tests shall assert that SVG selection is rejected at the UI layer (optional but recommended in task 5.4).
+
+### Requirement 5: 初期ジャンル一括投入機能 (System Administration: Seed Initial Genres)
+**Objective:** As a System Administrator, I want to batch-insert a predefined list of initial genres (seed data) into the database, so that the application has a standardized set of default categories available for creators and players without manual setup.
+
+#### Acceptance Criteria
+1. The Admin Moderation Screen shall restrict access to the Seed Genres UI section, making it visible or accessible only if the authenticated user has the 'admin' role or `moderationTier` is 'admin'.
+2. The Admin Moderation Screen shall display a "初期ジャンル一括投入 (Seed Initial Genres)" button or section within the admin workspace.
+3. When the administrator clicks the seeding button, the system shall fetch the initial genres predefined in `src/data/initial_genres.json` and send a request to a dedicated backend API route (e.g. `/api/admin/seed-genres`).
+4. The backend seeding logic shall parse the pre-defined initial genres and write them to the `metadata_genres` Firestore collection.
+5. During seeding, the system shall check if each genre ID already exists in `metadata_genres`. If it exists, the system shall skip or update the record, avoiding duplicates or primary key conflicts.
+6. The Admin Moderation Screen shall display a loading state (e.g., disable the button, show a spinner) while the seeding request is in progress.
+7. Upon successful execution of the seeding process, the Admin Moderation Screen shall display a success message specifying the count of added/updated genres. If a failure occurs, it shall display an appropriate error alert.
+

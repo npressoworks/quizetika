@@ -25,7 +25,8 @@ service cloud.firestore {
     function isSeniorModeratorOrAdmin() {
       return isAuthenticated() && (
         getUserData(request.auth.uid).moderationTier == 'senior_moderator' ||
-        getUserData(request.auth.uid).moderationTier == 'admin'
+        getUserData(request.auth.uid).moderationTier == 'admin' ||
+        getUserData(request.auth.uid).role == 'admin'
       );
     }
     
@@ -38,11 +39,27 @@ service cloud.firestore {
       );
     }
 
+    // システム管理者（moderationTier または users.role の admin）
+    function isSystemAdmin() {
+      return isAuthenticated() && (
+        getUserData(request.auth.uid).moderationTier == 'admin' ||
+        getUserData(request.auth.uid).role == 'admin'
+      );
+    }
+
+    // metadata_genres への書き込み（モデレータ可決・管理者シード）
+    function canWriteMetadataGenres() {
+      return isNotBanned() && (isModeratorOrAbove() || isSystemAdmin());
+    }
+
     // ユーザーがBANされていないか確認
     function isNotBanned() {
-      return !isAuthenticated() || 
-        getUserData(request.auth.uid).isBanned == null || 
-        getUserData(request.auth.uid).isBanned == false;
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && (
+          !('isBanned' in getUserData(request.auth.uid))
+          || getUserData(request.auth.uid).isBanned == false
+        );
     }
 
     // -----------------------------------------------------------------
@@ -138,8 +155,8 @@ service cloud.firestore {
 
     match /metadata_genres/{genreId} {
       allow read: if true;
-      allow create: if isAuthenticated() && isNotBanned();
-      allow update: if isAuthenticated() && isNotBanned();
+      allow create: if canWriteMetadataGenres();
+      allow update: if canWriteMetadataGenres();
     }
 
     match /mergeRequests/{requestId} {

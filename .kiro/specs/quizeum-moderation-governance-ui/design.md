@@ -23,8 +23,9 @@
 ### This Spec Owns
 - **UIルーティング設計**: `/admin/moderation`, `/community/merge`, `/community/genres` の各ページコンポーネント。
 - **権限ガード**: クライアントサイドおよび Next.js Server Components での `moderationTier` に基づくページアクセス制御（403/404表示）。
-- **アップロードUI**: ジャンル申請時の **PNG/JPEG/GIF** ファイルアップロード（Firebase Storage、`uploadImage` / `storage.rules` と整合、SVG 禁止）。
+- **アップロードUI**: ジャンル申請時の **PNG/JPEG/GIF** ファイルアップロード（Firebase Storage、`uploadImage` / `storage.rules` と整合, SVG 禁止）。
 - **投票インタラクション**: 賛成・反対投票時の加重値計算とプログレスバーの描画。
+- **初期ジャンル一括投入**: 管理者画面でのシード投入UI、一括登録用APIルート `/api/admin/seed-genres`。
 
 ### Out of Boundary
 - Cloud Functions を用いた非同期の投票可決バックエンドトリガー処理（`quizeum-core`が担当）。
@@ -32,7 +33,8 @@
 ### Allowed Dependencies
 - **`quizeum-auth-profile-ui`**: `Header`, `useAuth`, プロフィール権限バッジ
 - **`quizeum-play-flow-ui`**: `/quiz/[id]` 審査用特別閲覧ビュー
-- **`quizeum-core`**: `ModerationService`, Firebase Storage
+- **`quizeum-core`**: `ModerationService`, Firebase Storage, `tagMerge` (シードロジック)
+- **Static Assets**: `src/data/initial_genres.json` (初期ジャンル定義データ)
 
 ### Revalidation Triggers
 - `ModerationService` のAPIシグネチャ変更。
@@ -57,8 +59,12 @@ src/
 ├── app/
 │   ├── admin/
 │   │   └── moderation/
-│   │       ├── page.tsx           # 管理者モデレーション審査画面 (1.1, 1.2, 1.3, 1.4, 1.5)
+│   │       ├── page.tsx           # 管理者モデレーション審査画面 (1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.2, 5.3, 5.6, 5.7)
 │   │       └── moderation.module.css
+│   ├── api/
+│   │   └── admin/
+│   │       └── seed-genres/
+│   │           └── route.ts       # 初期ジャンル一括投入APIルート (5.1, 5.3, 5.4, 5.5)
 │   └── community/
 │       ├── merge/
 │       │   ├── page.tsx           # タグ/ジャンルマージリクエスト画面 (2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7)
@@ -66,6 +72,8 @@ src/
 │       └── genres/
 │           ├── page.tsx           # ジャンル新設申請・投票画面 (3.1, 3.2, 3.3, 3.4, 3.5)
 │           └── genres.module.css
+├── services/
+│   └── tagMerge.ts                # シード投入サービス関数 seedInitialGenres 追加 (5.4, 5.5)
 └── middleware.ts                  # ロール別ルートガードミドルウェア (1.1, 2.1)
 ```
 
@@ -115,6 +123,13 @@ sequenceDiagram
 | 3.3 | モデレータ賛否投票 | `/community/genres` Page | `ModerationService` | - |
 | 3.4 | 可決条件判定とシステム反映通知 | `/community/genres` Page | Cloud Functions / UI | - |
 | 3.5 | 承認/否決履歴タブ表示 | `/community/genres` Page | History Tab | - |
+| 5.1 | 管理者専用シードUIアクセス制限 | `/admin/moderation` Page / API | check admin role | - |
+| 5.2 | 一括投入セクション・ボタン表示 | `/admin/moderation` Page | Button | - |
+| 5.3 | 一括登録APIへのリクエスト送信 | `/admin/moderation` Page | `fetch()` request | - |
+| 5.4 | Firestore一括書き込みと冪等性 | `tagMerge.ts` | `seedInitialGenres` | - |
+| 5.5 | 重複回避（スキップ/アップデート） | `tagMerge.ts` | `seedInitialGenres` | - |
+| 5.6 | 実行時ローディング表示とボタン無効化 | `/admin/moderation` Page | UI state | - |
+| 5.7 | 結果（件数）または失敗アラート表示 | `/admin/moderation` Page | Alert Messages | - |
 
 ---
 
@@ -124,9 +139,11 @@ sequenceDiagram
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
 |-----------|--------------|--------|--------------|------------------|-----------|
-| `AdminModeration` | UI / Page | 通報コンテンツの審査と特別プレビュー | 1.1, 1.2, 1.3, 1.4, 1.5 | `ModerationService`, `useAuth` | State |
-| `CommunityMerge` | UI / Page | マージ起案、加重投票、進捗可視化 | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7 | `ModerationService`, `useAuth` | State |
-| `CommunityGenres` | UI / Page | ジャンル新設申請（画像付）、投票、履歴閲覧 | 3.1, 3.2, 3.3, 3.4, 3.5 | `ModerationService`, Storage | State |
+| `AdminModeration` | UI / Page | 通報審査、初期ジャンル投入UI | 1.1-1.5, 5.1, 5.2, 5.3, 5.6, 5.7 | `ModerationService`, `useAuth`, `/api/admin/seed-genres` | UI State |
+| `CommunityMerge` | UI / Page | マージ起案、加重投票、進捗可視化 | 2.1-2.7 | `ModerationService`, `useAuth` | UI State |
+| `CommunityGenres` | UI / Page | ジャンル新設申請（画像付）、投票、履歴閲覧 | 3.1-3.5, 4.1-4.3 | `ModerationService`, Storage | UI State |
+| `seed-genres API` | API Route | 初期ジャンル一括登録認可・実行 | 5.1, 5.3, 5.4, 5.5 | `tagMerge` service, Firebase Admin Auth | JSON response |
+| `seedInitialGenres` | Service | Firestore上のジャンル一括書き込み | 5.4, 5.5 | `metadata_genres` collection | Promise<{ added: number, updated: number }> |
 
 ---
 
@@ -145,13 +162,20 @@ sequenceDiagram
 ### Unit Tests
 - **加重投票値の計算**:
   - 投票関数が、一般モデレータの場合は `weight: 1`、シニアモデレータの場合は `weight: 2` として正しく呼び出され、比率が計算されるかをテスト。
+- **初期ジャンル一括投入 (seedInitialGenres)**:
+  - モック化されたFirestore環境で、初期ジャンルリストが重複なしで新規投入されること、および既存IDが含まれる場合にスキップ/更新されること（冪等性）を検証するテスト。
 
 ### Integration Tests
 - **ルートガード（ミドルウェア保護）**:
   - `moderationTier` が `newcomer` のユーザーセッションに対し、`/admin/moderation` および `/community/merge` へのアクセスが遮断されることを統合テスト。
+- **API 認可チェック**:
+  - 管理者以外のトークンを用いて `/api/admin/seed-genres` を呼び出した際に `403 Forbidden` または `401 Unauthorized` が返ることを検証。
 
 ### E2E/UI Tests
 - **マージ賛成率プログレスバー**:
   - 投票一覧で賛成票が投じられた際、`weightedVotesFor` の更新と連動して、DOM上のプログレスバーの `width` パーセンテージスタイルが正確に変更されるかをテスト。
 - **Phase 6 ジャンルアイコン**:
   - 申請フォームのラベル・ヒントに SVG が含まれないこと。`accept` が png/jpeg/gif のみであること（任意: SVG ファイル選択でエラー表示）。
+- **初期ジャンル一括投入 UI**:
+  - 管理者が「初期ジャンル一括投入」ボタンをクリックした際に、ローディング表示が行われ、APIの返り値に基づいて成功アラートが表示されることをテスト。
+

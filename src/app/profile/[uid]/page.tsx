@@ -33,6 +33,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { User, Quiz, QuizList as QuizListType, Badge } from '@/types';
+import { resolveModerationTierDisplay, type ModerationTierDisplayKey } from '@/lib/moderation-tier-display';
 import { ProfilePlayHistoryPanel } from '@/components/profile/profile-play-history-panel';
 import styles from './profile.module.css';
 
@@ -67,19 +68,12 @@ const getBadgeIcon = (iconName: string) => {
   }
 };
 
-// 権限ティアーのスタイルと表示名のマッピング
-const getTierDetails = (tier: string) => {
-  switch (tier) {
-    case 'senior_moderator':
-      return { label: 'シニアモデレーター', class: styles.tierSeniorMod };
-    case 'moderator':
-      return { label: 'モデレーター', class: styles.tierMod };
-    case 'contributor':
-      return { label: 'コントリビューター', class: styles.tierContributor };
-    case 'newcomer':
-    default:
-      return { label: 'ニューカマー', class: styles.tierNewcomer };
-  }
+const TIER_BADGE_CLASS: Record<ModerationTierDisplayKey, string> = {
+  admin: styles.tierAdmin,
+  senior_moderator: styles.tierSeniorMod,
+  moderator: styles.tierMod,
+  contributor: styles.tierContributor,
+  newcomer: styles.tierNewcomer,
 };
 
 export default function ProfilePage() {
@@ -188,7 +182,8 @@ export default function ProfilePage() {
     );
   }
 
-  const tierDetails = getTierDetails(profileUser.moderationTier);
+  const tierDisplay = resolveModerationTierDisplay(profileUser);
+  const tierBadgeClass = TIER_BADGE_CLASS[tierDisplay.key];
 
   return (
     <main className={styles.main}>
@@ -215,9 +210,9 @@ export default function ProfilePage() {
             <div className={styles.userInfo}>
               <div className={styles.nameSection}>
                 <h1 className={styles.displayName}>{profileUser.displayName}</h1>
-                <span className={`${styles.tierBadge} ${tierDetails.class}`}>
+                <span className={`${styles.tierBadge} ${tierBadgeClass}`}>
                   <Shield size={14} />
-                  <span>{tierDetails.label}</span>
+                  <span>{tierDisplay.label}</span>
                 </span>
               </div>
 

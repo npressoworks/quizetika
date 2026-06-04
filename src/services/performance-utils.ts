@@ -59,23 +59,18 @@ export async function simulateSpikeAccess(
   errorProbability: number = 0
 ): Promise<{ successRate: number; errorRate: number; averageResponseTimeMs: number }> {
   const start = Date.now();
-  let successCount = 0;
-  let errorCount = 0;
 
-  const promises = Array.from({ length: requestCount }).map(async () => {
-    const reqStart = Date.now();
-    // 擬似レスポンス遅延（通常時5〜15msのブレを表現）
-    const delay = 5 + Math.random() * 10;
-    await new Promise((resolve) => setTimeout(resolve, delay));
+  const outcomes = await Promise.all(
+    Array.from({ length: requestCount }).map(async () => {
+      // 擬似レスポンス遅延（通常時5〜15msのブレを表現）
+      const delay = 5 + Math.random() * 10;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return Math.random() < errorProbability;
+    })
+  );
 
-    if (Math.random() < errorProbability) {
-      errorCount++;
-    } else {
-      successCount++;
-    }
-  });
-
-  await Promise.all(promises);
+  const errorCount = outcomes.filter(Boolean).length;
+  const successCount = requestCount - errorCount;
 
   const duration = Date.now() - start;
   const averageResponseTimeMs = duration / requestCount;

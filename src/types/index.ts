@@ -17,7 +17,8 @@ export interface User {
   followingCount: number; // フォローしている数
   reputationScore: number; // 信頼スコア
   totalReactionsCount?: number; // 累計獲得リアクション数
-  moderationTier: 'newcomer' | 'contributor' | 'moderator' | 'senior_moderator'; // 権限ティアー
+  moderationTier: 'newcomer' | 'contributor' | 'moderator' | 'senior_moderator'; // 権限ティアー（管理者は role または tier の 'admin'）
+  role?: string; // システム管理者など特権ロール（Firestore 上の任意フィールド）
   reputationHistory: ReputationEventLog[]; // スコア変動履歴 (直近30件)
   lastReputationCalculatedAt: Date | null; // 変動バッチ計算日時
   totalFailedQuestionsCount: number; // 未復習の間違い問題の総数

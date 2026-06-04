@@ -21,7 +21,7 @@ function expireCookie(name: string): void {
   document.cookie = `${name}=; path=/; max-age=0; SameSite=Lax`;
 }
 
-function isAdminUser(user: User): boolean {
+export function isAdminUser(user: User): boolean {
   if ((user.moderationTier as string) === 'admin') return true;
   const role = (user as User & { role?: string }).role;
   return role === 'admin';

@@ -130,6 +130,13 @@
   text-transform: uppercase;
 }
 
+.tierAdmin {
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.45);
+  color: #ffc107;
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.2);
+}
+
 .tierSeniorMod {
   background: rgba(255, 0, 84, 0.12);
   border: 1px solid rgba(255, 0, 84, 0.3);

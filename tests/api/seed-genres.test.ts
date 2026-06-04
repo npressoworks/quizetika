@@ -1,0 +1,110 @@
+import { NextRequest } from 'next/server';
+import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { getDoc } from 'firebase/firestore';
+
+jest.mock('@/lib/firebase/config', () => require('../__mocks__/firebase-config'));
+jest.mock('@/lib/firebase/firestore', () => ({
+  usersRef: { path: 'users' },
+}));
+
+jest.mock('@/lib/firebase/auth-verify', () => ({
+  extractBearerToken: jest.fn(),
+  verifyFirebaseIdToken: jest.fn(),
+}));
+
+jest.mock('@/services/seedInitialGenresAdmin', () => ({
+  seedInitialGenresWithAdmin: jest.fn(),
+}));
+
+jest.mock('firebase/firestore', () => {
+  const original = jest.requireActual('firebase/firestore');
+  return {
+    ...original,
+    doc: jest.fn((ref, id) => ({ ref, id })),
+    getDoc: jest.fn(),
+  };
+});
+
+const mockExtractBearerToken = extractBearerToken as jest.MockedFunction<typeof extractBearerToken>;
+const mockVerifyFirebaseIdToken = verifyFirebaseIdToken as jest.MockedFunction<
+  typeof verifyFirebaseIdToken
+>;
+const mockGetDoc = getDoc as jest.MockedFunction<typeof getDoc>;
+const { seedInitialGenresWithAdmin } = jest.requireMock('@/services/seedInitialGenresAdmin') as {
+  seedInitialGenresWithAdmin: jest.Mock;
+};
+
+// route は firestore 依存のため、モック設定後に読み込む
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { POST } = require('@/app/api/admin/seed-genres/route') as typeof import('@/app/api/admin/seed-genres/route');
+
+function buildRequest(): NextRequest {
+  return new NextRequest('http://localhost/api/admin/seed-genres', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer test-token' },
+  });
+}
+
+describe('POST /api/admin/seed-genres', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockExtractBearerToken.mockReturnValue('test-token');
+    seedInitialGenresWithAdmin.mockResolvedValue({ added: 3, updated: 2 });
+  });
+
+  test('トークンが無効な場合は 401 を返すこと', async () => {
+    mockVerifyFirebaseIdToken.mockResolvedValue(null);
+
+    const res = await POST(buildRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(401);
+    expect(body.error).toBe('unauthorized');
+  });
+
+  test('管理者以外は 403 を返すこと', async () => {
+    mockVerifyFirebaseIdToken.mockResolvedValue('user-1');
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ moderationTier: 'senior_moderator' }),
+    } as never);
+
+    const res = await POST(buildRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body.error).toBe('forbidden');
+  });
+
+  test('管理者は 200 と投入件数を返すこと', async () => {
+    mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ moderationTier: 'admin', displayName: 'Admin' }),
+    } as never);
+
+    const res = await POST(buildRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.added).toBe(3);
+    expect(body.updated).toBe(2);
+    expect(seedInitialGenresWithAdmin).toHaveBeenCalledTimes(1);
+  });
+
+  test('role が admin のユーザーも 200 を返すこと', async () => {
+    mockVerifyFirebaseIdToken.mockResolvedValue('admin-2');
+    mockGetDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ moderationTier: 'moderator', role: 'admin' }),
+    } as never);
+
+    const res = await POST(buildRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(seedInitialGenresWithAdmin).toHaveBeenCalledTimes(1);
+  });
+});
