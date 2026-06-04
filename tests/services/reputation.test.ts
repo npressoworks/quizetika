@@ -1,9 +1,10 @@
-import { getDoc, doc } from 'firebase/firestore';
+import { getDoc, doc, runTransaction } from 'firebase/firestore';
 import {
   resolveModerationTier,
   getReputationScore,
   checkModeratorEligibility,
   getReputationLimit,
+  resetUserReputation,
 } from '../../src/services/reputation';
 
 // Firebase Firestore モック
@@ -11,10 +12,21 @@ jest.mock('firebase/firestore', () => {
   const original = jest.requireActual('firebase/firestore');
   return {
     ...original,
-    doc: jest.fn((ref, ...paths) => ({ id: paths[paths.length - 1], path: paths.join('/') })),
+    doc: jest.fn((ref, ...paths) => {
+      const basePath = typeof ref === 'object' && ref && 'path' in ref ? ref.path : '';
+      const id = paths.length > 0 ? paths[paths.length - 1] : 'auto-generated-id';
+      const fullPath = paths.length > 0 
+        ? (basePath ? `${basePath}/${paths.join('/')}` : paths.join('/'))
+        : (basePath ? `${basePath}/${id}` : '');
+      return { id, path: fullPath };
+    }),
+    collection: jest.fn((db, path) => ({ path })),
     getDoc: jest.fn(),
+    runTransaction: jest.fn(),
+    serverTimestamp: jest.fn(() => new Date()),
   };
 });
+
 
 describe('ReputationService - resolveModerationTier', () => {
   test('0 〜 49 点は newcomer', () => {
@@ -122,3 +134,112 @@ describe('ReputationService - getReputationLimit', () => {
     expect(result).toEqual({ totalDelta: 3 });
   });
 });
+
+describe('ReputationService - resetUserReputation', () => {
+  const targetUid = 'target-user-uid';
+  const executorId = 'admin-executor-uid';
+  const reason = 'コミュニティ荒らし行為のためリセット';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('管理者が実行した場合、対象ユーザーのスコアとティアーがリセットされ、adminLogsに監査ログが書き込まれること', async () => {
+    const mockTargetUserSnap = {
+      exists: () => true,
+      data: () => ({
+        displayName: '荒らしユーザー',
+        reputationScore: 250,
+        moderationTier: 'moderator',
+      }),
+    };
+
+    const mockExecutorSnap = {
+      exists: () => true,
+      data: () => ({
+        displayName: 'システム管理者',
+        moderationTier: 'admin', // 管理者権限
+      }),
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockImplementation((ref) => {
+        if (ref.id === targetUid) return mockTargetUserSnap;
+        return mockExecutorSnap;
+      }),
+      update: jest.fn(),
+      set: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
+      return callback(mockTransaction);
+    });
+
+    await resetUserReputation(targetUid, executorId, reason);
+
+    expect(mockTransaction.get).toHaveBeenCalledTimes(2);
+    expect(mockTransaction.update).toHaveBeenCalledTimes(1);
+    expect(mockTransaction.set).toHaveBeenCalledTimes(1);
+
+    // ユーザー情報のリセット確認
+    expect(mockTransaction.update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: targetUid }),
+      {
+        reputationScore: 0,
+        moderationTier: 'newcomer',
+        updatedAt: expect.any(Date),
+      }
+    );
+
+    // 監査ログの書き込み確認
+    expect(mockTransaction.set).toHaveBeenCalledWith(
+      expect.objectContaining({ path: expect.stringContaining('adminLogs') }),
+      {
+        targetUid,
+        executorId,
+        action: 'reputation_reset',
+        reason,
+        createdAt: expect.any(Date),
+      }
+    );
+  });
+
+  test('非管理者が実行した場合、Permission Deniedで処理が拒否されること', async () => {
+    const mockTargetUserSnap = {
+      exists: () => true,
+      data: () => ({ reputationScore: 100 }),
+    };
+
+    const mockExecutorSnap = {
+      exists: () => true,
+      data: () => ({
+        displayName: '一般モデレータ',
+        moderationTier: 'moderator', // 管理者でない
+      }),
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockImplementation((ref) => {
+        if (ref.id === targetUid) return mockTargetUserSnap;
+        return mockExecutorSnap;
+      }),
+      update: jest.fn(),
+      set: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
+      return callback(mockTransaction);
+    });
+
+    await expect(
+      resetUserReputation(targetUid, 'non-admin-uid', reason)
+    ).rejects.toThrow('この操作を実行する権限がありません');
+  });
+
+  test('理由が10文字未満の場合、バリデーションエラーになること', async () => {
+    await expect(
+      resetUserReputation(targetUid, executorId, '短すぎ')
+    ).rejects.toThrow('リセット理由は10文字以上で入力してください。');
+  });
+});
+

@@ -15,7 +15,7 @@
   - _Boundary: SecurityRules_
 
 ### 2. Core (Service & API Implementation)
-- [ ] 2.1 (P) ReputationService への resetUserReputation 関数の実装
+- [x] 2.1 (P) ReputationService への resetUserReputation 関数の実装
   - `src/services/reputation.ts` に `resetUserReputation(targetUid: string, executorId: string, reason: string)` メソッドを追加する。
   - トランザクション内で、`users/{targetUid}` の `reputationScore` を `0`、`moderationTier` を `newcomer` に更新し、同時に `adminLogs` コレクションにリクエスト履歴（監査ログ）を書き込む。
   - 実行者の `executorId` を `users` から再取得し、管理者ロールを持たない場合はエラーをスローする認可チェック（Assert）を組み込む。
