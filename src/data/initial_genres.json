@@ -1,0 +1,146 @@
+[
+  {
+    "id": "programming",
+    "displayName": "コンピュータ・IT",
+    "description": "プログラミング、アルゴリズム、IT技術に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "net-meme",
+    "displayName": "ネットミーム・配信者",
+    "description": "インターネットで流行したミームや配信者に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "history",
+    "displayName": "歴史",
+    "description": "日本史、世界史、歴史上の人物に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "science",
+    "displayName": "自然・科学",
+    "description": "物理、化学、生物、宇宙などの科学に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "anime-manga",
+    "displayName": "アニメ・漫画",
+    "description": "人気アニメや懐かしの漫画に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "trivia",
+    "displayName": "雑学・トリビア",
+    "description": "知っていると自慢できる雑学や豆知識に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "language",
+    "displayName": "語学",
+    "description": "英語や日本語、世界の言語に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "sports",
+    "displayName": "スポーツ",
+    "description": "野球、サッカー、オリンピック競技などのクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "music-art",
+    "displayName": "音楽・芸術",
+    "description": "クラシック、J-POP、美術作品、画家に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "games",
+    "displayName": "ゲーム",
+    "description": "家庭用ゲーム、スマホアプリ、ボードゲームに関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "geography",
+    "displayName": "地理・旅行",
+    "description": "世界の国々、日本の観光地、地理に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "tv-entertainment",
+    "displayName": "TV・芸能",
+    "description": "テレビ番組、芸能人、お笑いに関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "movie",
+    "displayName": "映画",
+    "description": "名作映画、映画監督、俳優に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "business",
+    "displayName": "ビジネス・資格",
+    "description": "ビジネス知識、会計、資格試験に関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "nazotoki",
+    "displayName": "謎解き・ひらめき",
+    "description": "頭の柔らかさが試される謎解き・ひらめきクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "other",
+    "displayName": "その他",
+    "description": "どのカテゴリにも属さないユニークなクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  }
+]

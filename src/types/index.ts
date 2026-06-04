@@ -225,6 +225,7 @@ export interface PlayHistoryPage {
 export interface GenreMetadata {
   id: string;
   displayName: string;
+  description?: string;
   iconImageUrl: string | null;
   canonicalId: string | null;
   mergedGenreIds: string[];

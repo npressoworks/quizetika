@@ -43,4 +43,22 @@ describe('GenreNav', () => {
     fireEvent.click(screen.getByRole('button', { name: '再試行' }));
     expect(onRetry).toHaveBeenCalled();
   });
+
+  it('説明文がある場合にツールチップを描画する', () => {
+    const genresWithDesc = [
+      {
+        id: 'programming',
+        displayName: 'コンピュータ・IT',
+        description: 'プログラミングに関するクイズです',
+        iconImageUrl: null,
+        canonicalId: null,
+        mergedGenreIds: [],
+        isActive: true,
+      },
+    ];
+    render(<GenreNav genres={genresWithDesc} loading={false} error={null} />);
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip).toBeInTheDocument();
+    expect(tooltip).toHaveTextContent('プログラミングに関するクイズです');
+  });
 });

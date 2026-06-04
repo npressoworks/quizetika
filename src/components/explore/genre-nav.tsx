@@ -72,6 +72,11 @@ export function GenreNav({ genres, loading, error, onRetry }: GenreNavProps) {
             )}
           </span>
           <span className={styles.label}>{genre.displayName}</span>
+          {genre.description && (
+            <span className={styles.tooltip} role="tooltip">
+              {genre.description}
+            </span>
+          )}
         </button>
       ))}
     </nav>

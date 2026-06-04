@@ -7,6 +7,7 @@
 }
 
 .button {
+  position: relative;
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -24,6 +25,44 @@
 .button:hover {
   border-color: var(--color-primary);
   transform: translateY(-2px);
+}
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: rgba(15, 23, 42, 0.95);
+  color: #ffffff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 100;
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
+}
+
+.button:hover .tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-6px);
 }
 
 .iconWrap {
