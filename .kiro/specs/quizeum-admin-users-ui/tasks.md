@@ -23,7 +23,7 @@
   - _Requirements: 3.2_
   - _Boundary: ReputationService_
   - _Depends: 1.1, 1.2_
-- [ ] 2.2 (P) resetUserReputation API エンドポイントの作成
+- [x] 2.2 (P) resetUserReputation API エンドポイントの作成
   - `src/app/api/admin/users/reset/route.ts` を新規作成し、`POST` リクエストを受け取る Route Handler を実装する。
   - リクエストボディから `targetUid` と `reason` を取得し、ヘッダーに付与された IDトークンの署名検証（JWT）を行って実行者のUIDを抽出し、`resetUserReputation` サービスを呼び出す。
   - **完了条件**: ポストマン等のAPIクライアントから管理者IDトークン付きでリクエストを送信した際、200 OK が返り、データベース上で該当ユーザー情報が初期化され、ログが記録されること。
