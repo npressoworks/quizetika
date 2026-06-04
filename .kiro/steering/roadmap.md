@@ -153,3 +153,38 @@
 
 ## Specs (dependency order)
 （Phase 6 では新規 spec なし — 上記 Existing Spec Updates のみ）
+
+---
+
+## Phase 7: 管理者向けユーザー管理ツール（2026-06-04 ディスカバリー）
+
+### Overview（本フェーズ）
+システム管理者（Super Admin）向けに、不適切なユーザーの信頼スコアやモデレータティアーを緊急時に手動でリセットし、監査ログとして `adminLogs` に記録する機能を提供する。専用画面 `/admin/users` を新設し、そこで特定のユーザーUIDによる検索、情報表示、リセット処理を実行可能にする。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: `/admin/users` 専用画面の新設 + Core 側リセットトランザクション + `adminLogs` 保存
+- **Why**: 既存のモデレーション画面と分離することで、将来的な管理者用ユーザーBANや権限管理機能の拡張性を担保する。
+- **Rejected alternatives**:
+  - 既存 `/admin/moderation` への統合: 管理機能が1画面に詰め込まれすぎ、将来的な拡張が難しくなるため却下。
+
+### Scope（本フェーズ）
+- **In**:
+  - `reputation.ts` への `resetUserReputation` サービス追加（トランザクションによる `users` の `reputationScore: 0` & `moderationTier: 'newcomer'` リセット、および `adminLogs` へのログ挿入）。
+  - `executorId` による厳格な `admin` ロールチェック（多重防衛）。
+  - `/admin/users` 画面の新規作成（UIDによるユーザー情報表示、手動リセット理由の入力、リセット実行アクション）。
+  - 既存 `/admin/moderation` 画面から `/admin/users` へのナビゲーションリンク追加。
+  - Firestore Security Rules に `adminLogs` の読み書きルール追加。
+- **Out**:
+  - ユーザーの物理削除や一時BAN（今回は要件・設計書に沿った手動リセットとログ保存のみに絞る）。
+
+### Boundary Strategy（本フェーズ）
+- **Core** がデータモデル・手動リセットAPI・`adminLogs`への書き込みを所有。
+- **Admin Users UI** が `/admin/users` での検索およびリセット実行パネルを所有。
+- **Shared seam**: `resetUserReputation` を Core に1か所集約し UI はそれを呼び出す。
+
+## Existing Spec Updates（Phase 7）
+- [ ] quizeum-core -- `resetUserReputation` メソッド、`adminLogs` スキーマ・型定義、Firestore Security Rules。Dependencies: none
+
+## Specs (dependency order)
+- [ ] quizeum-admin-users-ui -- 管理者専用ユーザー検索・手動スコアリセット画面（`/admin/users`）の実装、ルートガード。Dependencies: quizeum-core
+
