@@ -1,0 +1,55 @@
+.appContainer {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  background-color: var(--bg-main);
+}
+
+.mainWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* flexの子要素がはみ出さないようにする */
+}
+
+.content {
+  flex: 1;
+  padding: 24px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.playContainer {
+  min-height: 100vh;
+  background-color: var(--bg-main);
+}
+
+/* ==========================================================================
+   Responsive Paddings (Requirement 4)
+   ========================================================================== */
+
+/* PC size (1024px and above) */
+@media (min-width: 1024px) {
+  .appContainer {
+    padding-left: 275px; /* Sidebar width */
+  }
+}
+
+/* Tablet size (768px to 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .appContainer {
+    padding-left: 70px; /* Slim Sidebar width */
+  }
+}
+
+/* Mobile size (767px and below) */
+@media (max-width: 767px) {
+  .appContainer {
+    padding-left: 0;
+    padding-bottom: 60px; /* BottomNav height */
+  }
+  .content {
+    padding: 16px;
+  }
+}

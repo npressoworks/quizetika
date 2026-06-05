@@ -1,7 +1,7 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth-context";
-import { Header } from "@/components/layout/header";
+import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 
 export const metadata: Metadata = {
   title: "quizeum - クイズ投稿・管理SNS",
@@ -19,10 +19,12 @@ export default function RootLayout({
     <html lang="ja">
       <body>
         <AuthProvider>
-          <Header />
-          {children}
+          <LayoutWrapper>
+            {children}
+          </LayoutWrapper>
         </AuthProvider>
       </body>
     </html>
   );
 }
+
