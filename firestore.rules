@@ -271,6 +271,26 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------
+    // notifications (通知) コレクションルール
+    // -----------------------------------------------------------------
+    match /notifications/{notificationId} {
+      // 自身の通知のみ読み取り可能
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // 認証済みでBANされていないユーザーが通知を作成可能
+      allow create: if isAuthenticated() && isNotBanned();
+      
+      // 自身の通知の既読状態のみ更新可能
+      allow update: if isAuthenticated() && isNotBanned()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      
+      // 自身の通知のみ削除可能
+      allow delete: if isAuthenticated() && isNotBanned()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // -----------------------------------------------------------------
     // adminLogs (管理者ログ) コレクションルール
     // -----------------------------------------------------------------
     match /adminLogs/{logId} {
