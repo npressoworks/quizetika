@@ -1,31 +1,97 @@
+.wrapper {
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
 .nav {
   display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 40px 4px 16px;
-  margin-top: -32px;
-  scrollbar-width: thin;
+  gap: 8px;
+  padding: 8px 4px;
+  scrollbar-width: none;
 }
 
-.button {
-  position: relative;
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+.pill {
   flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-width: 88px;
-  padding: 12px 10px;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: rgba(30, 30, 45, 0.6);
+  color: #a0aec0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  position: relative;
+}
+
+.pill:hover {
+  border-color: #00f2fe;
+  color: #fff;
+  background: rgba(0, 242, 254, 0.1);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+.togglePill {
+  background: rgba(0, 242, 254, 0.05);
+  border-color: rgba(0, 242, 254, 0.3);
+  color: #00f2fe;
+}
+
+.togglePill:hover {
+  background: rgba(0, 242, 254, 0.2);
+  border-color: #00f2fe;
+}
+
+.iconWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.iconImg {
+  object-fit: contain;
+}
+
+.label {
+  line-height: 1;
+}
+
+.status {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  color: var(--color-danger, #c62828);
+}
+
+.retryBtn {
+  margin-top: 8px;
+  padding: 6px 14px;
+  border-radius: 8px;
   border: 1px solid var(--border-light);
-  border-radius: 12px;
   background: var(--bg-card);
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
-}
-
-.button:hover {
-  border-color: var(--color-primary);
-  transform: translateY(-2px);
+  font-size: 0.85rem;
 }
 
 .tooltip {
@@ -60,51 +126,9 @@
   border-color: rgba(15, 23, 42, 0.95) transparent transparent transparent;
 }
 
-.button:hover .tooltip {
+.pill:hover .tooltip {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(-6px);
 }
 
-.iconWrap {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-}
-
-.iconImg {
-  object-fit: contain;
-  border-radius: 8px;
-}
-
-.label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-main);
-  text-align: center;
-  line-height: 1.2;
-}
-
-.status {
-  padding: 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.error {
-  color: var(--color-danger, #c62828);
-}
-
-.retryBtn {
-  margin-top: 8px;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
-  background: var(--bg-card);
-  cursor: pointer;
-  font-size: 0.85rem;
-}

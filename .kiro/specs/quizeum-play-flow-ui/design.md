@@ -11,6 +11,8 @@
 
 **Phase 8（2026-06）**: ブックマーク画面をクイズ・リスト・設問の3タブに拡張し、プレイ／結果画面からの設問ブックマーク、および設問リスト（`listType: 'question'`）の連続プレイ導線を追加する。データ取得・`attempts` 永続化は `quizeum-core`（実装済み）に依存し、本スペックは UI・セッション状態・遷移のみを担当する。
 
+**Phase 9（2026-06）**: トップページレイアウトのスタイリッシュ化、統合検索バーの上部配置、ピル形式の横スクロールカテゴリー、サムネイル・プレイボタン付きのクイズカード、検索中スケルトン、ネオン調インタラクションを UI スペックの要件として追加・更新します。
+
 ### Goals
 - 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
 - プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
@@ -21,6 +23,7 @@
 - **Phase 5**: クイズ詳細における初回プレイ／リプレイ二系統リーダーボードのタブUI、列表示（正解数・合計時間・達成日）、`data-testid` 契約、E2Eの旧仕様（ハイスコア／最速）からの更新。
 - **Phase 6**: ホームの動的ジャンルナビ、`searchQuizzes` 連携、ジャンル／タグ一覧のソートタブ、弱点克服のマスタ駆動ジャンル選択。
 - **Phase 8**: `/bookmarks` の3分類タブ、`getBookmarkFeed` 駆動の一覧、プレイ／結果画面の設問ブックマークトグル、設問リスト詳細の連続プレイ（`question-list` セッション + 次設問遷移）。
+- **Phase 9**: ホーム画面のファーストビュー最適化、検索バー上部優先、1行横スクロールジャンルピル、主要ジャンル以外の「すべて見る」折りたたみ、サムネイル・評価スター・「プレイする」ボタン付きクイズカードグリッド表示、検索中スケルトンプレースホルダー、クリアボタン・ネオン発光エフェクト付き統合検索。
 
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizeum-creator-dash-ui` に委ねます）。
@@ -44,6 +47,7 @@
 - **分類ブックマーク UI（Phase 8）**: `/bookmarks` の3タブ、`BookmarkFeed` 表示、設問カードの親クイズメタ表示、ブックマーク解除トグル。
 - **設問ブックマーク操作（Phase 8）**: プレイ画面・結果画面の設問行トグル（`toggleBookmark` `targetType: 'question'`）。
 - **設問リストプレイ導線（Phase 8）**: リスト詳細の `listType` 分岐、設問リスト開始ボタン、`question-list` セッション保持、結果画面からの次設問遷移。
+- **ホーム画面・クイズ探索 UI の最適化（Phase 9）**: 検索バー上部配置、1行横スクロールジャンルナビ（ピル形式）、主要以外の折りたたみ（すべて見る）、サムネイル・評価スター・「プレイ」ボタン付き `QuizCard` コンポーネント、ローディング時の `SkeletonCard`、統合検索入力・クリア・フォーカス時のネオンエフェクトおよびクイックサーチチップ。
 
 ### Out of Boundary
 - Gemini APIとの対話やプロンプト生成のバックエンドロジック本体。
@@ -137,9 +141,14 @@ components/
 │   └── question-bookmark-toggle.tsx # 設問BMトグル (11.6)
 components/
 ├── quiz/
+│   ├── quiz-card.tsx              # サムネイル・スター評価・プレイボタン付きクイズカード (1.5) 【Phase 9 新規】
+│   ├── quiz-card.module.css
 │   ├── quiz-editor.tsx            # クイズエディタコンポーネント (8.1, 8.2 認可ガード)
 │   ├── quiz-dual-leaderboard.tsx  # 初回／リプレイLB表示 (9.1–9.8) 【Phase 5 新規】
 │   └── quiz-dual-leaderboard.module.css
+├── ui/
+│   ├── skeleton-card.tsx          # 検索読み込み中のスケルトンプレースホルダー (1.4) 【Phase 9 新規】
+│   └── skeleton-card.module.css
 └── hooks/
     ├── usePlayState.ts            # 通常プレイのセッション管理フック (3.4)
     └── useAiPlayState.ts          # ウミガメチャットのステート管理フック (4.3, 4.4)
@@ -168,6 +177,11 @@ hooks/
 - `src/lib/question-list-session.ts`（新規）— `read` / `write` / `advance` / `clear` 純関数。
 - `src/hooks/useBookmarkFeed.ts`（新規）— フィード取得とタブ別楽観更新。
 - `src/components/bookmark/*`（新規）— タブ・カード・トグル UI。
+
+### Modified Files（Phase 9）
+- `src/app/page.tsx` — 巨大バナーの廃止・縮小。検索バーの最上部移動。`GenreNav` を1行横スクロールピル形状に修正、および「すべて見る」トグル追加。クイズ一覧を `QuizCard` と `SkeletonCard` に置き換え。クイックサーチチップの追加、フォーカス時・ホバー時のネオン調スタイルの統合。
+- `src/app/page.module.css` — 検索バー上部レイアウト、ピルスクロールスタイル、クイックサーチチップ、バナー縮小スタイル。
+- `src/components/explore/genre-nav.tsx` — 1行横スクロール対応、「すべて見る」展開表示。
 
 ### Modified Files（Phase 6）
 - `src/app/page.tsx` — `GENRES` 定数削除、`GenreNav`（遷移専用）+ `GenreSearchField` + `useHomeQuizFeed` + `usePlayedQuizIds`。
@@ -313,10 +327,11 @@ sequenceDiagram
 
 | Requirement | Summary | Components | Interfaces | Flows |
 |-------------|---------|------------|------------|-------|
-| 1.1 | ホームタブ表示（新着・人気・トレンド・フォローTL） | `/` Page | `QuizService` | - |
-| 1.2 | ジャンルアイコン → `/genres/[id]` | `GenreNav` | `listActiveGenres`, `useRouter` | ホーム・ジャンル探索フロー |
-| 1.3 | 複合検索・サジェスト・playStatus | `GenreSearchField`, `useHomeQuizFeed`, `usePlayedQuizIds` | `searchQuizzes`, played-quiz-ids API | ホーム・ジャンル探索フロー |
-| 1.4 | 未ログイン時ブックマーク制限 | `/` Page | `useAuth`, `/login` | - |
+| 1.1 | ファーストビューの最適化 (バナー縮小・検索バー最上部配置) | `/` Page | CSS / DOM layout | - |
+| 1.2 | カテゴリー表示の整理 (ピル・横スクロール・「すべて見る」) | `GenreNav` | `listActiveGenres`, `useRouter` | - |
+| 1.3 | コンテンツ優先レイアウト (グリッド表示・タブ視認性) | `/` Page | CSS grid layout | - |
+| 1.4 | 統合検索機能および UI/UX (検索クリア・ネオン・クイックサーチ・スケルトン) | `/` Page, `GenreSearchField`, `SkeletonCard` | `searchQuizzes`, `useHomeQuizFeed` | ホーム・ジャンル探索フロー |
+| 1.5 | クイズカード魅力向上 (サムネイル・プレイボタン・情報整理) | `QuizCard` | `Quiz` data representation | - |
 | 2.1 | クイズ詳細メタ情報表示 | `/quiz/[id]` Page | `QuizService` | - |
 | 2.2 | 良問評価バッジとマスク制御 | `/quiz/[id]` Page | `ReviewService` | - |
 | 2.3 | 3つのプレイモード選択UI | `/quiz/[id]` Page | Mode Panel | - |
@@ -389,8 +404,10 @@ sequenceDiagram
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
 |-----------|--------------|--------|--------------|------------------|-----------|
-| `HomePage` | UI / Page | クイズ探索・複合検索・タブ切替 | 1.1–1.4, 10.2–10.4 | `useHomeQuizFeed`, `usePlayedQuizIds`, `useAuth` | State |
-| `GenreSearchField` | UI / Component | マスタ駆動ジャンルサジェスト（複合検索） | 1.3, 10.4 | `useActiveGenres` | State |
+| `HomePage` | UI / Page | クイズ探索・複合検索・タブ切替 | 1.1–1.5, 10.2–10.4 | `useHomeQuizFeed`, `usePlayedQuizIds`, `useAuth`, `QuizCard`, `SkeletonCard` | State |
+| `GenreSearchField` | UI / Component | マスタ駆動ジャンルサジェスト（複合検索） | 1.4, 10.4 | `useActiveGenres` | State |
+| `QuizCard` | UI / Component | サムネイル・プレイボタン・スター表示を持つクイズカード | 1.5 | `useAuth`, `toggleBookmark` | State |
+| `SkeletonCard` | UI / Component | 検索ロード中の骨組みアニメーション | 1.4 | — | State |
 | `useHomeQuizFeed` | Hook | タブ取得 / `searchQuizzes` 切替・デバウンス | 1.3, 10.4 | `searchQuizzes`, tab APIs | State |
 | `usePlayedQuizIds` | Hook | プレイ済み quizId 集合 | 1.3 | `/api/user/played-quiz-ids` | State |
 | `QuizDetailPage` | UI / Page | クイズのメタデータおよび良問評価、プレイモード選択、作成者編集動線 | 2.1–2.6 | `QuizService`, `ReviewService`, `useAuth` | State |
@@ -409,6 +426,48 @@ sequenceDiagram
 | `ListDetailPage` | UI / Page | クイズリスト／設問リスト詳細とプレイ開始 | 11.10–11.13 | `resolveListType`, `getQuestionsInList` | State |
 | `question-list-session` | Lib | 設問リスト連続プレイの sessionStorage | 11.11, 11.12 | — | Service |
 | `useBookmarkFeed` | Hook | `getBookmarkFeed` 取得と楽観更新 | 11.1–11.6 | `BookmarkService` | State |
+
+#### `QuizCard`（Phase 9）
+
+| Field | Detail |
+|-------|--------|
+| Intent | サムネイル画像、プレイボタン、評価（星）、ブックマークボタンを持つクイズカードUIの描画 |
+| Requirements | 1.5 |
+
+**Responsibilities & Constraints**
+- クイズ固有の `thumbnailUrl` がある場合は Next.js `Image` でアスペクト比を保って表示、ない場合はジャンル名やテーマに基づくスタイリッシュなプレースホルダー画像（またはグラデーション背景＋アイコン）を表示。
+- タイトル、作成者名、難易度（プログレスバー表示）、星（評価レート `reviewScore`）、および明示的な「プレイする」または「挑戦する」ボタンを整理して表示。
+- ホバー時にカード全体が浮き上がり、境界線がネオン発光するスムーズなトランジション（CSS Modules）を実装。
+- カード内部のブックマークボタンをクリックしたときはイベント伝播を抑止（`stopPropagation`）して `toggleBookmark` を実行、未認証時は `/login` 遷移。
+
+**Dependencies**
+- Inbound: `HomePage`, `BookmarkQuizGrid` 等 — `quiz: Quiz` prop
+- Outbound: `BookmarkService` — `toggleBookmark`
+
+**Contracts**: State [x]
+
+##### Props
+```typescript
+interface QuizCardProps {
+  quiz: Quiz;
+  isBookmarked: boolean;
+  onBookmarkToggle: (quizId: string) => Promise<void>;
+  onPlayClick: (quizId: string) => void;
+}
+```
+
+#### `SkeletonCard`（Phase 9）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 検索結果フェッチ中のカード型骨組みアニメーション表示 |
+| Requirements | 1.4 |
+
+**Responsibilities & Constraints**
+- クイズカードの物理レイアウト（サムネイルエリア、タイトルエリア、メタデータエリア）と同一寸法のプレースホルダーを、点滅（pulse）アニメーションを適用したグレー背景で描画する。
+- 検索実行中（`loading === true`）のときに、グリッド表示数分の `SkeletonCard` をマップ展開して表示する。
+
+**Contracts**: State [x]
 
 #### `QuizDualLeaderboard`（Phase 5）
 
@@ -598,6 +657,15 @@ function buildQuestionListPlayUrl(session: QuestionListSession, index: number): 
   - 初回タブで `[data-testid="highscore-leaderboard"]`、リプレイタブ切替後に `[data-testid="replay-leaderboard"]` が表示されること。
   - エントリがある場合、各行に `[data-testid="leaderboard-entry"]` が存在し、列に正解数・秒数が含まれること（テキストマッチは緩く、存在確認中心）。
   - 旧テスト「最速全問正解ランキング」「`fastest-leaderboard`」は削除またはリプレイ仕様へ差し替え。
+- **ホーム画面 UI 最最適化 (Phase 9)**:
+  - 巨大バナーが削除または大幅に縮小されて描画されること。
+  - 検索バーがカテゴリナビゲーション（`[data-testid="genre-nav"]`）より上位に配置されていること。
+  - カテゴリーが1行のピル形状（`[data-testid="genre-pill-container"]`）で横スクロール可能なCSS構造になっていること。
+  - クイズカード（`[data-testid="quiz-card"]`）内にサムネイル画像、難易度、評価スター、および `data-testid="play-btn"` のプレイボタンが含まれていること。
+  - 検索バーに文字列を入力した際、クリア用 `[data-testid="search-clear-btn"]` ボタンが表示され、クリックすると入力が空になること。
+  - 検索バー下部のクイックサーチバッジチップをクリックしたとき、そのキーワードが検索インプットに反映され、検索が自動的にトリガーされること。
+  - 検索実行中、`[data-testid="skeleton-card"]` が表示されること。
+
 - **ブックマーク3タブ（Phase 8）**:
   - `[data-testid="bookmarks-tabs"]` で3タブが表示され、設問タブで親クイズタイトルがカードに含まれること。
   - 設問タブで解除後、当該カードが一覧から消えること（楽観更新）。

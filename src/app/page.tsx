@@ -1,18 +1,18 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import styles from './page.module.css';
 import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
-import { Quiz } from '@/types';
-import { SlidersHorizontal, Star } from 'lucide-react';
+import { SlidersHorizontal, Search, X } from 'lucide-react';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { useHomeQuizFeed } from '@/hooks/useHomeQuizFeed';
 import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
 import { GenreNav } from '@/components/explore/genre-nav';
 import { GenreSearchField } from '@/components/explore/genre-search-field';
+import { QuizCard } from '@/components/quiz/quiz-card';
+import { SkeletonCard } from '@/components/ui/skeleton-card';
 import {
   DEFAULT_HOME_FEED_FILTERS,
   type HomeFeedFilters,
@@ -22,7 +22,7 @@ import { applyPlayStatusFilter } from '@/lib/apply-play-status-filter';
 export default function Home() {
   const router = useRouter();
   const { user, firebaseUser, loading: authLoading } = useAuth();
-  const { genres, loading: genresLoading, error: genresError, genreLabelById, refetch } =
+  const { genres, loading: genresLoading, error: genresError, refetch } =
     useActiveGenres();
 
   const [activeTab, setActiveTab] = useState<'latest' | 'popular' | 'trending' | 'timeline'>(
@@ -69,11 +69,6 @@ export default function Home() {
     [quizzes, playStatus, playedQuizIds]
   );
 
-  const resolveGenreLabel = (quiz: Quiz) => {
-    const key = quiz.canonicalGenreId ?? quiz.genre;
-    return genreLabelById.get(key) ?? quiz.genre;
-  };
-
   useEffect(() => {
     async function loadBookmarks() {
       if (authLoading) return;
@@ -93,10 +88,7 @@ export default function Home() {
     loadBookmarks();
   }, [user, firebaseUser, authLoading]);
 
-  const handleBookmarkClick = async (e: React.MouseEvent, quizId: string) => {
-    e.stopPropagation();
-    e.preventDefault();
-
+  const handleBookmarkToggle = async (quizId: string) => {
     if (!user) {
       router.push('/login');
       return;
@@ -120,28 +112,12 @@ export default function Home() {
     router.push(`/quiz/${quizId}`);
   };
 
-  const loading = feedLoading;
-
   return (
     <div className={styles.container}>
-      <section className={styles.hero}>
-        <h1>知的探求を、もっとクリエイティブに。</h1>
-        <p>
-          「quizeum」は、知識の共有と水平思考を楽しむクイズ投稿SNSです。
-          AIが真相を判定する『ウミガメのスープ』や各種クイズを今すぐプレイ！
-        </p>
-      </section>
-
-      <GenreNav
-        genres={genres}
-        loading={genresLoading}
-        error={genresError}
-        onRetry={refetch}
-      />
-
       <section className={styles.searchSection}>
         <div className={styles.searchBar}>
-          <div style={{ position: 'relative', flex: 1 }}>
+          <div className={styles.searchFieldWrapper}>
+            <Search className={styles.searchIcon} size={18} />
             <input
               type="text"
               placeholder="タイトル、説明文、作成者、タグでクイズを検索..."
@@ -149,6 +125,16 @@ export default function Home() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                className={styles.clearBtn}
+                onClick={() => setSearchQuery('')}
+                aria-label="クリア"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -158,6 +144,20 @@ export default function Home() {
             <SlidersHorizontal size={18} />
             フィルター
           </button>
+        </div>
+
+        <div className={styles.quickSearch}>
+          <span className={styles.quickSearchLabel}>クイック検索:</span>
+          {['#ウミガメのスープ', '#JavaScript', '#雑学', '#難問', '#初心者向け'].map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className={styles.quickChip}
+              onClick={() => setSearchQuery(tag)}
+            >
+              {tag}
+            </button>
+          ))}
         </div>
 
         {showFilters && (
@@ -241,6 +241,18 @@ export default function Home() {
         )}
       </section>
 
+      <section className={styles.heroMini}>
+        <h2>知的探求を、もっとクリエイティブに。</h2>
+        <p>クイズ投稿SNS「quizeum」で、知識と水平思考のウミガメスープに挑戦しよう。</p>
+      </section>
+
+      <GenreNav
+        genres={genres}
+        loading={genresLoading}
+        error={genresError}
+        onRetry={refetch}
+      />
+
       <section className={styles.mainContent}>
         <div className={styles.tabBar}>
           <div
@@ -277,9 +289,11 @@ export default function Home() {
           </div>
         )}
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-            クイズを読み込み中...
+        {feedLoading ? (
+          <div className={styles.grid}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
           </div>
         ) : displayQuizzes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
@@ -288,66 +302,13 @@ export default function Home() {
         ) : (
           <div className={styles.grid}>
             {displayQuizzes.map((quiz) => (
-              <article
+              <QuizCard
                 key={quiz.id}
-                data-testid="quiz-card"
-                className={styles.card}
-                onClick={() => handleCardClick(quiz.id)}
-                style={{ cursor: 'pointer' }}
-              >
-                {quiz.reviewBadge && !quiz.isReviewMasked && (
-                  <div className={styles.badgeContainer}>
-                    <span className={styles.badge}>🏅 {quiz.reviewBadge}</span>
-                  </div>
-                )}
-
-                <div className={styles.cardThumbnail}>
-                  {quiz.thumbnailUrl ? (
-                    <Image
-                      src={quiz.thumbnailUrl}
-                      alt={quiz.title}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 300px"
-                    />
-                  ) : (
-                    <span className={styles.thumbnailFallback}>💡</span>
-                  )}
-                </div>
-
-                <div className={styles.cardContent}>
-                  <div className={styles.cardGenre}>{resolveGenreLabel(quiz)}</div>
-                  <h3 className={styles.cardTitle}>{quiz.title}</h3>
-
-                  <div className={styles.cardDifficulty}>
-                    <span>難易度 {quiz.difficulty}</span>
-                    <div className={styles.difficultyBar}>
-                      <div
-                        className={styles.difficultyFill}
-                        style={{ width: `${quiz.difficulty * 10}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className={styles.cardStats}>
-                    <div className={styles.statsLeft}>
-                      <span>⏱️ {quiz.questionCount} 問</span>
-                      <span>👤 {quiz.authorName}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className={`${styles.bookmarkBtn} ${bookmarkedIds.has(quiz.id) ? styles.bookmarked : ''}`}
-                      onClick={(e) => handleBookmarkClick(e, quiz.id)}
-                      title="ブックマーク"
-                    >
-                      <Star
-                        size={18}
-                        color={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'var(--text-muted)'}
-                        fill={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'none'}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </article>
+                quiz={quiz}
+                isBookmarked={bookmarkedIds.has(quiz.id)}
+                onBookmarkToggle={handleBookmarkToggle}
+                onPlayClick={handleCardClick}
+              />
             ))}
           </div>
         )}
