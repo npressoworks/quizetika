@@ -10,7 +10,9 @@
 **Phase 6（2026-06）**: ジャンル・タグメタデータを `docs/` 正本に整合する。公開保存時に `canonicalGenreId` / `canonicalTagIds` を解決・非正規化し、一覧・検索は正規識別子クエリを優先しつつ legacy クイズ向けに `genre in` フォールバックを併用する（C2 方式）。`metadata-resolution` ライブラリに解決ロジックを集約し、`tagMerge.ts` をガバナンスの単一経路とする。
 また、悪質ユーザーのBAN（アカウント停止）機能を追加し、Firestore Security Rulesによるデータ書き込みの即時遮断、監査ログ記録、認証セッションの強制無効化（Cookie連携）を設計する。
 
-**Phase 8（2026-06）**: ブックマークをクイズ・クイズリスト・設問の3分類で取得し、設問ブックマークは親クイズ公開時のみ許可する。リストに `listType`（`quiz` | `question`）を追加し、設問リストには他者の公開設問も追加可能とする。設問リスト連続プレイは既存クイズリストと同様に**設問ごとに1 attempt**（`mode: 'question-list'`）を記録する。作問時は自作クイズを検索し、設問を参照リンク（ドキュメント複製なし）で再利用する。参照設問の編集は **Copy-on-Write 切り離し** とする（内容変更時のみ新規 `questions` ドキュメントを作成し、未変更の参照は既存 ID を維持）。
+**Phase 8（2026-06）**: ブックマークをクイズ・クイズリスト・設問の3分類で取得し、設問ブックマークは親クイズ公開時のみ許可する。リストに `listType`（`quiz` | `question`）を追加し、設問リストには他者の公開設問も追加可能とする。設問リスト連続プレイは既存クイズリストと同様に**設問ごとに1 attempt**（`mode: 'question-list'`）を記録する。作問時は自作クイズを検索し、設問を参照リンク（ドキュメント複製なし）で再利用する。参照設問の編集は **Copy-on-Write 切り離し** とする（内容変更時のみ新規 `questions` ドキュメントを作成し、未変更 of 参照は既存 ID を維持）。
+
+**Phase 9（2026-06）**: トップページの統合検索機能（ジャンル、タグ、クイズ名、作者名を単一検索バーで同時検索可能にするハイブリッド検索ロジック）をコア層の設計仕様として追加します。
 
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
@@ -22,6 +24,7 @@
 - ジャンル・タグの仮想統合を保存・一覧・弱点克服フィルタまで一貫適用し、canonical 単一クエリで探索性能を確保する（legacy フォールバック併用）。
 - BANされたユーザーによるシステムへの不正書き込み（Firestore / API）を即座にブロックし、既存の認証セッションを強制的にログアウトさせる。
 - クイズ・リスト・設問の分類ブックマーク、設問リスト CRUD/プレイ、自作クイズ検索、参照リンク設問の保存整合をコア層で一貫提供する。
+- 統合検索機能（ユニバーサル検索）のため、タイトル・説明・作者・タグ・ジャンルの並行ハイブリッド検索とクライアントデデュプ・フィルタロジックを最適化する。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -44,6 +47,7 @@
 - **Phase 8 — 分類ブックマーク**: 3種 `toggleBookmark`、公開親クイズ検証、分類一覧取得、設問ブックマーク通知。
 - **Phase 8 — 設問リスト**: `listType` 付きリスト CRUD、公開設問追加検証、設問 ID 並び替え、設問リストエクスポート、`question-list` attempt 記録契約。
 - **Phase 8 — 参照リンク作問**: `searchAuthorQuizzes`、参照 ID のみの保存パス、Copy-on-Write 切り離し、共有設問の安全な参照解除。
+- **Phase 9 — 統合検索コアロジック**: `searchQuizzes` API 内における複数インデックス並行クエリ（タグ、作者名、ジャンル名等）、クライアント側マージ・重複排除、および大文字小文字を区別しない各種項目（タイトル、説明、作者名、タグ、ジャンル）の部分一致フィルタリング処理。
 
 ### Out of Boundary
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
@@ -193,10 +197,11 @@ src/
 - `src/services/bookmark.ts` — 設問登録時検証、分類フィード取得、設問 BM 通知（13.x）。
 - `src/services/question.ts` — 設問一覧 enrich、リスト追加を validation 経由に（14.x）。
 - `src/services/quiz-list.ts` — `listType`、設問並び替え、タイプ別一覧、設問リストエクスポート（14.x）。
-- `src/services/quiz.ts` — 参照リンク保存パス統合（15.x）。
+- `src/services/quiz.ts` — 参照リンク保存パス統合（15.x）。また、`searchQuizzes` API を拡張してタグ、作者名、ジャンル名、タイトルを網羅する並行クエリとクライアント側ハイブリッド部分一致フィルタを実装（Phase 9）。
 - `src/services/quiz-list-utils.ts` — `buildQuestionListExportPackage`、`reorderQuestionIds`。
 - `src/types/index.ts` — `QuizListType`, `listType`, `Attempt.mode` 拡張、`BookmarkFeed` 型。
 - `firestore.indexes.json` — `quizLists`: `authorId` + `listType` + `createdAt`（任意、タイプ別一覧用）。
+- `tests/services/quiz-search-universal.test.ts` — **新規**。統合検索（ハイブリッド検索）における並行クエリ、重複排除、および部分一致フィルタの単体テスト（Phase 9）。
 - `tests/lib/linked-question.test.ts` — **新規**。
 - `tests/services/bookmark-phase8.test.ts` — **新規**。
 - `tests/services/quiz-list-question-type.test.ts` — **新規**。
@@ -464,6 +469,8 @@ sequenceDiagram
 | 11.5 | 複合検索 | `QuizService` | `searchQuizzes` | - |
 | 11.6 | メタデータ Rules | `firestore.rules` | metadata_* / mergeRequests | - |
 | 11.7 | ガバナンス単一経路 | `TagMergeService` | `tagMerge.ts` のみ | - |
+| 11.8 | クイズの統合検索 (ユニバーサル検索) | `QuizService` | `searchQuizzes` | - |
+| 11.9 | ハイブリッド・マルチクエリ検索 (並行クエリとデデュプ) | `QuizService` | `searchQuizzes` | - |
 | 12.1 | ユーザーのBANと監査ログ記録 | `ReputationService` / API Route | `/api/admin/users/ban` | - |
 | 12.2 | BAN解除と監査ログ記録 | `ReputationService` / API Route | `/api/admin/users/unban` | - |
 | 12.3 | BAN中の書き込み拒否と強制ログアウト | Security Rules / AuthContext | `isNotBanned()`, `quizeum_banned` Cookie | - |
@@ -592,6 +599,14 @@ export interface QuizService {
 - **Validation Hooks**: `saveQuiz` 内で `assertActiveGenre` → `resolveCanonicalGenreId` / `resolveCanonicalTagIds` → `ensureTagMasters` の順。公開時は既存 Zod + NG チェック。
 - **`getQuizzesByGenre`（C2）**: (1) `canonicalGenreId == resolvedCanonicalId` クエリ (2) `genre in expandIds` チャンククエリ (3) `Map<id, Quiz>` で dedupe、(4) `sort` に応じてマージソート。
 - **`getQuizzesByTag`**: 第一選択 `where('canonicalTagIds','array-contains', resolvedTagId)`。フォールバック `tags array-contains` は legacy 用に残す。
+- **`searchQuizzes` (Phase 9 統合検索)**: 
+  - `queryText` が指定された場合、大文字小文字を無視した並行 Firestore クエリを実行して母集団となるクイズ一覧を取得し、クライアントサイドで統合（`id` で dedupe）する：
+    1. タグ一致クエリ: `where('tags', 'array-contains', normalizedQuery)` (タグ正規化適用)
+    2. 作者名完全一致クエリ: `where('authorName', '==', queryText)`
+    3. ジャンル一致クエリ: `getQuizzesByGenre(queryText, 100)` (マージされたジャンルもカバー)
+    4. 新着クイズクエリ (全体母集団の担保): `getLatestQuizzes(100)`
+  - 重複排除されたクイズ配列に対し、アプリ（サービス）層で `title`, `description`, `authorName`, `genre`, `tags` のいずれかが `queryText` (小文字化された needle) を含むかどうかの部分一致フィルタをかける。
+  - さらに、詳細フィルター（`difficultyMin/Max`, `minQuestions/MaxQuestions`）を適用して最終結果を返す。
 - **Note**: リーダーボード更新は `AttemptService` / `verify-truth` に集約。
 
 #### `TagMergeService`（`src/services/tagMerge.ts`）
@@ -1224,6 +1239,10 @@ function canDeleteQuestionDoc(
 - **Phase 8 — listType**: 設問リストに公開設問追加成功、下書き親設問は拒否、クイズリストへの設問追加は拒否。
 - **Phase 8 — 参照リンク**: 同一 `questionId` を2クイズが参照しても `questions` ドキュメントが1つのまま。参照解除後も他クイズ参照時は doc 残存。
 - **Phase 8 — searchAuthorQuizzes**: タグ・キーワードで自作下書きがヒットすること。
+- **Phase 9 — 統合検索（ユニバーサル検索）**:
+  - キーワード「作者名」「タグ名」「ジャンル名」「タイトルの一部」を入力して `searchQuizzes` を呼び出した際に、対象のクイズが漏れなく返ってくること。
+  - 複数ソースから取得されたクイズがIDで適切に重複排除（dedupe）されていること。
+  - 部分一致フィルタによって大文字小文字に関わらずキーワードがマッチすること。
 
 ### E2E / UI Tests
 - **解答中断と自動復旧**: プレイ中にブラウザを強制リロードし、`localStorage` から解答進捗が100%正しく復元され、プレイが継続できるかをシミュレート。
