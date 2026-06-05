@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Star } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { toggleBookmark } from '@/services/bookmark';
 import styles from './bookmark.module.css';
@@ -63,7 +63,11 @@ export function QuestionBookmarkToggle({
         title={bookmarked ? 'ブックマーク解除' : 'ブックマーク登録'}
         data-testid={`question-bookmark-toggle-${questionId}`}
       >
-        <Star size={18} fill={bookmarked ? '#ff007f' : 'none'} />
+        <Bookmark 
+          size={18} 
+          color={bookmarked ? '#00ff66' : 'currentColor'} 
+          fill={bookmarked ? '#00ff66' : 'none'} 
+        />
       </button>
       {error && (
         <span style={{ fontSize: '0.7rem', color: '#ff4d6d', maxWidth: 120, textAlign: 'center' }}>

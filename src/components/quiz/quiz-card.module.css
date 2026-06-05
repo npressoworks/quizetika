@@ -85,14 +85,13 @@
 .bookmarkBtn:hover {
   background: rgba(0, 0, 0, 0.8);
   transform: scale(1.1);
-  border-color: #ffd700;
-  color: #ffd700;
+  border-color: #00ff66;
+  color: #00ff66;
 }
 
 .bookmarkBtn.active {
-  color: #ffd700;
-  border-color: #ffd700;
-  text-shadow: 0 0 5px rgba(255, 215, 0, 0.8);
+  color: #00ff66;
+  border-color: #00ff66;
 }
 
 .content {

@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Star } from 'lucide-react';
+import { ArrowLeft, Bookmark } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useBookmarkFeed } from '@/hooks/useBookmarkFeed';
 import { BookmarksTabs } from '@/components/bookmark/bookmarks-tabs';
@@ -52,7 +52,7 @@ export default function BookmarksPage() {
 
       <div className={styles.titleSection}>
         <h1 className={styles.title}>
-          <Star size={32} fill="#ff007f" style={{ color: '#ff007f' }} />
+          <Bookmark size={32} fill="#00ff66" style={{ color: '#00ff66' }} />
           お気に入りブックマーク一覧
         </h1>
         <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>

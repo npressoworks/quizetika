@@ -1,4 +1,5 @@
 import React from 'react';
+import { Bookmark } from 'lucide-react';
 import type { Quiz } from '../../types';
 import styles from './quiz-card.module.css';
 
@@ -48,7 +49,11 @@ export function QuizCard({ quiz, isBookmarked, onBookmarkToggle, onPlayClick }: 
           data-testid="quiz-card-bookmark-btn"
           aria-label="ブックマーク"
         >
-          {isBookmarked ? '★' : '☆'}
+          <Bookmark 
+            size={18} 
+            color={isBookmarked ? '#00ff66' : 'currentColor'}
+            fill={isBookmarked ? '#00ff66' : 'none'} 
+          />
         </button>
       </div>
 

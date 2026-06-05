@@ -3,7 +3,7 @@
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, Star, Tag } from 'lucide-react';
+import { ArrowLeft, Bookmark, Tag } from 'lucide-react';
 import { getQuizzesByTag, type QuizListSort } from '@/services/quiz';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { useAuth } from '@/context/auth-context';
@@ -158,7 +158,11 @@ export default function TagExplorePage({ params }: PageProps) {
                     className={`${styles.bookmarkBtn} ${bookmarkedIds.has(quiz.id) ? styles.bookmarked : ''}`}
                     onClick={(e) => handleBookmarkToggle(e, quiz.id)}
                   >
-                    <Star size={18} fill={bookmarkedIds.has(quiz.id) ? '#ff007f' : 'none'} />
+                    <Bookmark 
+                      size={18} 
+                      color={bookmarkedIds.has(quiz.id) ? '#00ff66' : 'currentColor'}
+                      fill={bookmarkedIds.has(quiz.id) ? '#00ff66' : 'none'} 
+                    />
                   </button>
                 </div>
               </div>

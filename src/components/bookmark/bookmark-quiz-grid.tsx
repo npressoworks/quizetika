@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 import { Quiz } from '@/types';
 import cardStyles from '@/app/page.module.css';
 
@@ -52,7 +52,7 @@ export function BookmarkQuizGrid({ quizzes, onRemove }: BookmarkQuizGridProps) {
                 }}
                 title="ブックマーク解除"
               >
-                <Star size={18} fill="#ff007f" />
+                <Bookmark size={18} fill="#00ff66" color="#00ff66" />
               </button>
             </div>
           </div>

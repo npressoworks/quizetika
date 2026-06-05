@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Star, Layers } from 'lucide-react';
+import { Bookmark, Layers } from 'lucide-react';
 import { QuizList, resolveListType } from '@/types';
 import { getProfileListTypeLabel } from '@/lib/profile-list-display';
 import styles from './bookmark.module.css';
@@ -42,7 +42,7 @@ export function BookmarkListGrid({ lists, onRemove }: BookmarkListGridProps) {
             onClick={() => onRemove(list.id)}
             title="ブックマーク解除"
           >
-            <Star size={20} fill="#ff007f" />
+            <Bookmark size={20} fill="#00ff66" color="#00ff66" />
           </button>
         </div>
       ))}

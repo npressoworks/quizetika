@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Star } from 'lucide-react';
+import { Bookmark } from 'lucide-react';
 import { BookmarkedQuestionEntry } from '@/types';
 import styles from './bookmark.module.css';
 
@@ -65,7 +65,7 @@ export function BookmarkQuestionList({ questions, onRemove }: BookmarkQuestionLi
             onClick={() => onRemove(entry.question.id)}
             title="ブックマーク解除"
           >
-            <Star size={20} fill="#ff007f" />
+            <Bookmark size={20} fill="#00ff66" color="#00ff66" />
           </button>
         </div>
       ))}

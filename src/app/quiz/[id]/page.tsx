@@ -4,7 +4,7 @@ import React, { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Star, Play, Award, Timer, Layers, HelpCircle, Edit } from 'lucide-react';
+import { ArrowLeft, Bookmark, Play, Award, Timer, Layers, HelpCircle, Edit } from 'lucide-react';
 import { QuizDualLeaderboard } from '@/components/quiz/quiz-dual-leaderboard';
 import { useAuth } from '@/context/auth-context';
 import { getQuiz } from '@/services/quiz';
@@ -143,10 +143,10 @@ export default function QuizDetailPage({ params }: PageProps) {
               disabled={bookmarkLoading}
               title="ブックマーク"
             >
-              <Star 
+              <Bookmark 
                 size={20} 
-                color={bookmarked ? '#ff007f' : 'var(--text-muted)'}
-                fill={bookmarked ? '#ff007f' : 'none'} 
+                color={bookmarked ? '#00ff66' : 'var(--text-muted)'}
+                fill={bookmarked ? '#00ff66' : 'none'} 
               />
             </button>
           </div>
