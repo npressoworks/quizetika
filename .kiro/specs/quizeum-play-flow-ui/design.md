@@ -9,6 +9,8 @@
 
 **Phase 6（2026-06）**: 探索 UI を `metadata_genres` 駆動に切り替える。`listActiveGenres` / `getQuizzesByGenre`（C2）/ `getQuizzesByTag` / `searchQuizzes` を UI から呼び出し、ハードコード `GENRES` を除去する。
 
+**Phase 8（2026-06）**: ブックマーク画面をクイズ・リスト・設問の3タブに拡張し、プレイ／結果画面からの設問ブックマーク、および設問リスト（`listType: 'question'`）の連続プレイ導線を追加する。データ取得・`attempts` 永続化は `quizeum-core`（実装済み）に依存し、本スペックは UI・セッション状態・遷移のみを担当する。
+
 ### Goals
 - 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
 - プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
@@ -18,12 +20,14 @@
 - クイズ作成者本人に対する編集動線UIの提供、および他ユーザーによる直接編集URLアクセス時の認可保護（ガード）。
 - **Phase 5**: クイズ詳細における初回プレイ／リプレイ二系統リーダーボードのタブUI、列表示（正解数・合計時間・達成日）、`data-testid` 契約、E2Eの旧仕様（ハイスコア／最速）からの更新。
 - **Phase 6**: ホームの動的ジャンルナビ、`searchQuizzes` 連携、ジャンル／タグ一覧のソートタブ、弱点克服のマスタ駆動ジャンル選択。
+- **Phase 8**: `/bookmarks` の3分類タブ、`getBookmarkFeed` 駆動の一覧、プレイ／結果画面の設問ブックマークトグル、設問リスト詳細の連続プレイ（`question-list` セッション + 次設問遷移）。
 
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizeum-creator-dash-ui` に委ねます）。
 - 管理者モデレーション、タグ・ジャンル仮想マージなどの自治ガバナンスUI（`quizeum-moderation-governance-ui`が担当）。
 - **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizeum-core`）。マイページのプレイ履歴UI（`quizeum-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
 - **Phase 6**: `metadata-resolution`・Firestore Rules・canonical 書き込み（`quizeum-core`）。クイズエディタのジャンルセレクト（`quizeum-creator-dash-ui`）。
+- **Phase 8**: リスト作成・`listType` 選択・設問のリストへの追加 UI（`quizeum-creator-dash-ui`）。`bookmarksCount` 更新・`attempts` 書き込みロジック（`quizeum-core`）。プロフィールのリストタイプ表示（`quizeum-auth-profile-ui`）。
 
 ---
 
@@ -37,6 +41,9 @@
 - **クイズ編集認可ガード**: 編集画面（`/quiz/[id]/edit`）における、ログイン状態および作成者所有権（`quiz.authorId === user.id`）に基づく直接アクセスの制限とアクセス拒否UI表示の制御。
 - **クイズ単位リーダーボード表示（Phase 5）**: `QuizDualLeaderboard` コンポーネントによる初回／リプレイの読み取り専用表示、タブ切替、空状態、E2E用 `data-testid`。
 - **ジャンルマスタ駆動探索（Phase 6）**: `GenreNav` / `useActiveGenres`、ホーム・ジャンル一覧・弱点克服のマスタ連携、探索ソート UI。
+- **分類ブックマーク UI（Phase 8）**: `/bookmarks` の3タブ、`BookmarkFeed` 表示、設問カードの親クイズメタ表示、ブックマーク解除トグル。
+- **設問ブックマーク操作（Phase 8）**: プレイ画面・結果画面の設問行トグル（`toggleBookmark` `targetType: 'question'`）。
+- **設問リストプレイ導線（Phase 8）**: リスト詳細の `listType` 分岐、設問リスト開始ボタン、`question-list` セッション保持、結果画面からの次設問遷移。
 
 ### Out of Boundary
 - Gemini APIとの対話やプロンプト生成のバックエンドロジック本体。
@@ -45,7 +52,7 @@
 
 ### Allowed Dependencies
 - **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
-- **`quizeum-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**
+- **`quizeum-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**, **`getBookmarkFeed`, `toggleBookmark`, `getQuestionsInList`, `saveAttempt`（`mode: 'question-list'`）（Phase 8）**
 - **サーバーAPIプロキシ**: `/api/attempt/ask-ai`, `/api/attempt/verify-truth`
 
 ### Revalidation Triggers
@@ -53,6 +60,7 @@
 - `AttemptService` のデータ格納スキーマ変更。
 - `LeaderboardRecord` のフィールド追加・意味変更、または `leaderboard` レガシーフォールバック廃止。
 - **Phase 6**: `GenreMetadata` フィールド変更、`getQuizzesByGenre` の C2 契約変更、`listActiveGenres` のフィルタ条件変更。
+- **Phase 8**: `BookmarkFeed` / `BookmarkedQuestionEntry` 形状変更、`QuestionInListEntry` 契約変更、`question-list` attempt フィールド追加、設問リストセッションキー仕様変更。
 
 ---
 
@@ -91,8 +99,11 @@ src/
 │   ├── page.tsx                   # ホーム画面 (1.1, 1.2, 1.3, 1.4)
 │   ├── page.module.css
 │   ├── bookmarks/
-│   │   ├── page.tsx               # ブックマーク一覧画面 (7.3)
+│   │   ├── page.tsx               # ブックマーク一覧画面 (7.3, 11.1–11.5)
 │   │   └── bookmarks.module.css
+│   ├── list/
+│   │   └── [id]/
+│   │       └── page.tsx           # リスト詳細 (クイズ/設問分岐) (11.7–11.9)
 │   ├── leaderboard/
 │   │   ├── page.tsx               # 総合リーダーボード画面 (7.1)
 │   │   └── leaderboard.module.css
@@ -112,11 +123,18 @@ src/
 │           ├── edit/
 │           │   └── page.tsx       # クイズ編集画面ルーティング (8.1, 8.2)
 │           ├── play/
-│           │   ├── page.tsx       # クイズプレイ画面 (3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6)
+│           │   ├── page.tsx       # クイズプレイ画面 (3.x, 4.x, 11.6, 11.10–11.12)
 │           │   └── play.module.css
 │           └── result/
-│               ├── page.tsx       # クイズ結果画面 (5.1, 5.2, 5.3, 5.4, 5.5)
+│               ├── page.tsx       # クイズ結果画面 (5.x, 11.6, 11.11–11.13)
 │               └── result.module.css
+components/
+├── bookmark/
+│   ├── bookmarks-tabs.tsx         # クイズ/リスト/設問タブ (11.1)
+│   ├── bookmark-quiz-grid.tsx     # 既存グリッドの抽出 (11.2)
+│   ├── bookmark-list-grid.tsx     # リストカード (11.3)
+│   ├── bookmark-question-list.tsx # 設問カード一覧 (11.4, 11.5)
+│   └── question-bookmark-toggle.tsx # 設問BMトグル (11.6)
 components/
 ├── quiz/
 │   ├── quiz-editor.tsx            # クイズエディタコンポーネント (8.1, 8.2 認可ガード)
@@ -136,7 +154,20 @@ hooks/
 ├── useActiveGenres.ts             # listActiveGenres キャッシュ (10.x)
 ├── useHomeQuizFeed.ts             # タブ取得 vs searchQuizzes（フィルタ変更・デバウンス）
 └── usePlayedQuizIds.ts            # 認証ユーザーのプレイ済み quizId 集合（1.3 playStatus）
+lib/
+└── question-list-session.ts       # 設問リスト連続プレイ sessionStorage (11.8–11.13)
+hooks/
+└── useBookmarkFeed.ts               # getBookmarkFeed ラッパー + 楽観更新 (11.1–11.5)
 ```
+
+### Modified Files（Phase 8）
+- `src/app/bookmarks/page.tsx` — `getBookmarkedQuizzes` を `getBookmarkFeed` + `BookmarksTabs` に置換。3タブ空状態・解除トグル。
+- `src/app/list/[id]/page.tsx` — `resolveListType` で分岐。設問リストは `getQuestionsInList` 表示 + 連続プレイ開始（`question-list` セッション初期化）。
+- `src/app/quiz/[id]/play/page.tsx` — `mode=question-list` / `questionId` / `qIndex` クエリ対応。単一設問プレイ、`saveAttempt` の `mode: 'question-list'`、`totalQuestions: 1`。設問行に `QuestionBookmarkToggle`。
+- `src/app/quiz/[id]/result/page.tsx` — 設問リスト次設問判定（`question-list-session`）。`QuestionBookmarkToggle`。ブックマークからの `startAtQuestionId` 再プレイ導線。
+- `src/lib/question-list-session.ts`（新規）— `read` / `write` / `advance` / `clear` 純関数。
+- `src/hooks/useBookmarkFeed.ts`（新規）— フィード取得とタブ別楽観更新。
+- `src/components/bookmark/*`（新規）— タブ・カード・トグル UI。
 
 ### Modified Files（Phase 6）
 - `src/app/page.tsx` — `GENRES` 定数削除、`GenreNav`（遷移専用）+ `GenreSearchField` + `useHomeQuizFeed` + `usePlayedQuizIds`。
@@ -230,6 +261,52 @@ sequenceDiagram
     Home->>Home: playStatus でクライアント絞り込み
 ```
 
+### 設問リスト連続プレイフロー（Phase 8）
+
+**UX 方針（確定）**
+- 設問リストは**収録設問ごとに1 attempt**（`mode: 'question-list'`, `totalQuestions: 1`）。コア契約に準拠。
+- 連続プレイの進行状態は `sessionStorage` キー `quizeum_question_list_session` に保持（タブ閉鎖まで有効。`localStorage` の通常プレイ復元とは別キー）。
+- プレイ URL: `/quiz/{parentQuizId}/play?listId={listId}&mode=question-list&questionId={qId}&qIndex={n}`。
+- 結果 URL: 既存 `listId` クエリを維持し、結果画面がセッションから次エントリを解決して「次の設問へ」を表示。
+
+```mermaid
+sequenceDiagram
+    participant List as ListDetailPage
+    participant Session as question-list-session
+    participant Play as QuizPlayPage
+    participant Core as AttemptService
+    participant Result as QuizResultPage
+
+    List->>Core: getQuestionsInList(listId)
+    Core-->>List: QuestionInListEntry[]
+    List->>Session: initSession(listId, entries)
+    List->>Play: router push (qIndex=0)
+    Play->>Play: 単一設問に絞り込み表示
+    Play->>Core: saveAttempt(mode=question-list, totalQuestions=1)
+    Play->>Result: attemptId + listId
+    Result->>Session: getNextEntry()
+    alt 次設問あり
+        Result->>Play: 次の parentQuizId + questionId
+    else 最終設問
+        Result->>Result: リスト完了メッセージ + /list/{id} へ
+    end
+```
+
+### ブックマーク3タブ読み込みフロー（Phase 8）
+
+```mermaid
+sequenceDiagram
+    participant Page as BookmarksPage
+    participant Hook as useBookmarkFeed
+    participant Core as BookmarkService
+
+    Page->>Hook: mount(userId)
+    Hook->>Core: getBookmarkFeed(userId)
+    Core-->>Hook: BookmarkFeed
+    Hook-->>Page: quizzes | lists | questions
+    Page->>Page: BookmarksTabs でタブ切替（再フェッチなし）
+```
+
 ---
 
 ## Requirements Traceability
@@ -289,6 +366,20 @@ sequenceDiagram
 | 10.8 | 弱点克服ジャンル選択 | `ReviewPage` | `listActiveGenres` | — |
 | 10.9 | 空・エラー状態 | `GenreNav`, `HomePage` | — | — |
 | 10.10 | ハードコードへサイレントフォールバック禁止 | 全探索 UI | — | Out of boundary |
+| 11.1 | ブックマーク画面3タブ | `BookmarksTabs`, `BookmarksPage` | `useBookmarkFeed` | ブックマーク3タブフロー |
+| 11.2 | 未認証時 `/login` リダイレクト | `BookmarksPage` | `useAuth` | — |
+| 11.3 | クイズタブ（feed + 解除 + 詳細遷移） | `BookmarkQuizGrid` | `getBookmarkFeed` | — |
+| 11.4 | リストタブ（解除 + `/list/[id]`） | `BookmarkListGrid` | `BookmarkFeed.lists` | — |
+| 11.5 | 設問タブ（抜粋・親タイトル・日時降順） | `BookmarkQuestionList` | `BookmarkFeed.questions` | — |
+| 11.6 | 設問カード → 親クイズプレイ開始 | `BookmarkQuestionList` | `startAtQuestionId` | — |
+| 11.7 | プレイ中の設問BMトグル | `QuestionBookmarkToggle` on `QuizPlayPage` | `toggleBookmark('question')` | — |
+| 11.8 | 結果画面の設問行BMトグル | `QuestionBookmarkToggle` on `QuizResultPage` | `toggleBookmark('question')` | — |
+| 11.9 | 未認証の設問BM → `/login` | `QuestionBookmarkToggle` | `useAuth` | — |
+| 11.10 | 設問リスト詳細（順序一覧 + 開始ボタン） | `ListDetailPage` | `getQuestionsInList` | 設問リスト連続プレイフロー |
+| 11.11 | 設問リストプレイ開始（セッション保持） | `ListDetailPage` | `question-list-session` | 設問リスト連続プレイフロー |
+| 11.12 | 結果後の次設問遷移／完了 | `QuizResultPage` | `advanceQuestionListSession` | 設問リスト連続プレイフロー |
+| 11.13 | クイズリストは従来のリストプレイ | `ListDetailPage` | `getQuizzesInList`, `mode=list` | — |
+| 11.14 | BM カウント・attempt 永続化なし | 全 Phase 8 UI | コアサービス呼び出しのみ | Out of boundary |
 
 ---
 
@@ -309,7 +400,15 @@ sequenceDiagram
 | `QuizResultPage` | UI / Page | 正誤解説、評価・難易度投票、指摘フォーム、お礼送信 | 5.1, 5.2, 5.3, 5.4, 5.5 | `ReviewService`, `ReactionService` | State, API |
 | `ReviewPage` | UI / Page | 間違えた設問の復習プレイとフィルタ制御 | 6.1, 6.2, 6.3 | `AttemptService` | State |
 | `LeaderboardPage` | UI / Page | プラットフォームランキングの可視化 | 7.1 | `QuizService` | State |
-| `BookmarksPage` | UI / Page | ブックマークしたアイテムの管理と解除 | 7.3 | `BookmarkService` | State |
+| `BookmarksPage` | UI / Page | 3分類ブックマークの表示と解除 | 7.3, 11.1–11.6 | `useBookmarkFeed`, `BookmarkService` | State |
+| `BookmarksTabs` | UI / Component | クイズ／リスト／設問タブ切替 | 11.1 | `useBookmarkFeed` | State |
+| `BookmarkQuizGrid` | UI / Component | クイズカードグリッド（既存UI再利用） | 11.3 | `toggleBookmark` | State |
+| `BookmarkListGrid` | UI / Component | リストカード + `/list/[id]` リンク | 11.4 | `toggleBookmark` | State |
+| `BookmarkQuestionList` | UI / Component | 設問カード（親タイトル・日時・プレイ導線） | 11.5, 11.6 | `toggleBookmark` | State |
+| `QuestionBookmarkToggle` | UI / Component | 設問行のBMオン／オフ | 11.7, 11.8, 11.9 | `toggleBookmark`, `useAuth` | State |
+| `ListDetailPage` | UI / Page | クイズリスト／設問リスト詳細とプレイ開始 | 11.10–11.13 | `resolveListType`, `getQuestionsInList` | State |
+| `question-list-session` | Lib | 設問リスト連続プレイの sessionStorage | 11.11, 11.12 | — | Service |
+| `useBookmarkFeed` | Hook | `getBookmarkFeed` 取得と楽観更新 | 11.1–11.6 | `BookmarkService` | State |
 
 #### `QuizDualLeaderboard`（Phase 5）
 
@@ -352,6 +451,112 @@ interface QuizDualLeaderboardProps {
 - 表示名欠落時は `名無しさん`。
 - スタイルは `quiz-dual-leaderboard.module.css` に集約し、既存 `page.module.css` の `.leaderboardSection` 等を移管または `@compose` 相当のクラス再利用。
 
+#### `BookmarksTabs` / `useBookmarkFeed`（Phase 8）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 1回の `getBookmarkFeed` で3分類を取得し、タブ切替はクライアント state のみ |
+| Requirements | 11.1, 11.3, 11.4, 11.5 |
+
+**Responsibilities & Constraints**
+- マウント時に `getBookmarkFeed(userId)` を1回呼び出す。タブ変更で再フェッチしない（解除時は楽観的に該当配列から除去）。
+- 空タブには要件どおりの案内文（「ブックマークしたクイズ／リスト／設問がありません」）を表示。
+- 未ログインは既存どおり `/login` へリダイレクト。
+
+**Contracts**: State [x]
+
+```typescript
+type BookmarkTab = 'quiz' | 'list' | 'question';
+
+interface UseBookmarkFeedResult {
+  feed: BookmarkFeed | null;
+  loading: boolean;
+  activeTab: BookmarkTab;
+  setActiveTab: (tab: BookmarkTab) => void;
+  removeBookmark: (targetType: BookmarkTargetType, targetId: string) => Promise<void>;
+}
+```
+
+##### `data-testid` 契約
+| 要素 | test id |
+|------|---------|
+| タブバー | `bookmarks-tabs` |
+| クイズタブ | `bookmarks-tab-quiz` |
+| リストタブ | `bookmarks-tab-list` |
+| 設問タブ | `bookmarks-tab-question` |
+| 空状態（設問） | `bookmarks-empty-question` |
+
+#### `QuestionBookmarkToggle`（Phase 8）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 設問行に星アイコンを表示し、ログイン時のみ `toggleBookmark(userId, questionId, 'question')` |
+| Requirements | 11.7, 11.8, 11.9 |
+
+**Responsibilities & Constraints**
+- 未ログイン時は非表示または disabled + ツールチップ（ホーム BM と同方針）。
+- 親クイズが非公開化された設問はコア側で BM 解除済みのため、一覧に出ない。プレイ中に検出した場合はトグル失敗をトースト表示。
+- 初期状態は `getBookmarkFeed` の `questionIds` Set または `isQuestionBookmarked`（コアに単体 API がなければ feed 由来の props で渡す）。
+
+**Contracts**: State [x]
+
+```typescript
+interface QuestionBookmarkToggleProps {
+  questionId: string;
+  initialBookmarked: boolean;
+  onToggle?: (bookmarked: boolean) => void;
+}
+```
+
+#### `question-list-session`（Phase 8）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 設問リスト連続プレイの進行インデックスを sessionStorage で保持 |
+| Requirements | 11.11, 11.12 |
+
+**Contracts**: Service [x]
+
+```typescript
+interface QuestionListSessionEntry {
+  questionId: string;
+  parentQuizId: string;
+}
+
+interface QuestionListSession {
+  listId: string;
+  entries: QuestionListSessionEntry[];
+  currentIndex: number;
+}
+
+const QUESTION_LIST_SESSION_KEY = 'quizeum_question_list_session';
+
+function initQuestionListSession(listId: string, entries: QuestionListSessionEntry[]): void;
+function readQuestionListSession(): QuestionListSession | null;
+function advanceQuestionListSession(): QuestionListSessionEntry | null;
+function clearQuestionListSession(): void;
+function buildQuestionListPlayUrl(session: QuestionListSession, index: number): string;
+```
+
+**Implementation Notes**
+- `ListDetailPage` の「連続プレイ開始」で `initQuestionListSession` → `buildQuestionListPlayUrl(..., 0)` へ遷移。
+- `QuizPlayPage` は `mode=question-list` 時、`questionId` に一致する1問のみを `usePlayState` に渡す（`totalQuestions` 表示も 1）。
+- `QuizResultPage` は `listId` かつセッション存在時、クイズリスト（`quizIds`）分岐より**先に**設問リスト分岐を評価。`advanceQuestionListSession` で次 URL を生成。最終設問後は `clearQuestionListSession` + 完了 UI。
+- ブックマーク設問からの単体プレイ（11.6）: `/quiz/{parentQuizId}/play?startAtQuestionId={id}`。セッションは作成しない。
+- `QuizPlayPage` は `mode=question-list` 時に `saveAttempt` で `mode: 'question-list'`, `totalQuestions: 1` を送信（11.12 の attempt 記録はコア契約に従いプレイ完了ハンドラで実施）。
+
+#### `ListDetailPage` 設問リスト分岐（Phase 8）
+
+| Field | Detail |
+|-------|--------|
+| Intent | `resolveListType(quizList)` が `'question'` のとき設問一覧と連続プレイ CTA を表示 |
+| Requirements | 11.10, 11.11, 11.13 |
+
+**Responsibilities & Constraints**
+- `listType === 'quiz'`（または未設定の legacy）は既存 `getQuizzesInList` フローを維持。
+- 設問行は `QuestionInListEntry` の `questionText`（先頭80文字）、親 `quizTitle`、`genre` を表示。
+- 空リスト時は「設問が収録されていません」と編集画面へのリンク（作成者のみ）。
+
 ---
 
 ## Error Handling
@@ -363,6 +568,9 @@ interface QuizDualLeaderboardProps {
   - オフラインでのプレイ中、結果画面に遷移した際は、「現在オフラインのため、良問評価や間違い指摘、作家リアクションは送信できません。オンライン復帰後に自動同期されます。」と優しいトーンで警告ヘッダーを表示し、関連ボタンを非活性化（disabled）します。
 - **非作成者によるクイズ編集画面への直接アクセス保護**:
   - ログイン中ユーザーが対象クイズの作成者ではない場合（`user.id !== quiz.authorId`）、編集コンポーネント（`QuizEditor`）は編集フォームをレンダリングせず、「アクセス権限がありません。このクイズは他のユーザーが作成したものです。」という警告メッセージUIを表示して操作を完全にブロックします。
+- **設問ブックマーク／設問リストプレイの失敗（Phase 8）**:
+  - `toggleBookmark` 失敗時はトグルを元に戻し、「ブックマークの更新に失敗しました」と表示。親クイズ非公開などコア検証エラーはそのままメッセージを表示。
+  - 設問リストセッション欠落時（直接 URL アクセス等）は結果画面で「リストの続きを再生できません」とリスト詳細へのリンクを表示。`saveAttempt` 失敗時は既存オフラインフォールバックを維持。
 
 ---
 
@@ -390,3 +598,16 @@ interface QuizDualLeaderboardProps {
   - 初回タブで `[data-testid="highscore-leaderboard"]`、リプレイタブ切替後に `[data-testid="replay-leaderboard"]` が表示されること。
   - エントリがある場合、各行に `[data-testid="leaderboard-entry"]` が存在し、列に正解数・秒数が含まれること（テキストマッチは緩く、存在確認中心）。
   - 旧テスト「最速全問正解ランキング」「`fastest-leaderboard`」は削除またはリプレイ仕様へ差し替え。
+- **ブックマーク3タブ（Phase 8）**:
+  - `[data-testid="bookmarks-tabs"]` で3タブが表示され、設問タブで親クイズタイトルがカードに含まれること。
+  - 設問タブで解除後、当該カードが一覧から消えること（楽観更新）。
+- **設問リスト連続プレイ（Phase 8）**:
+  - 設問リスト詳細からプレイ開始 → 1問完了 → 結果画面に「次の設問へ」→ 次の親クイズのプレイ画面へ遷移すること。
+  - 最終設問完了後にリスト完了メッセージが表示されること。
+- **設問ブックマークトグル（Phase 8）**:
+  - 結果画面の設問行でトグル操作後、`/bookmarks` の設問タブに反映されること（再読み込み後）。
+
+### Unit Tests（Phase 8）
+- **`question-list-session`**:
+  - `init` → `read` → `advance` が順序どおりエントリを返し、最終後 `null` になること。`clear` で storage が空になること。
+  - `buildQuestionListPlayUrl` が `mode=question-list` と `questionId` / `qIndex` を含むこと。

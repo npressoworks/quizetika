@@ -1,7 +1,7 @@
 'use client';
 
 import { getTextInputFieldProps } from '@/services/text-answer-utils';
-import React, { useCallback, useEffect, useState, use, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, use, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Timer, HelpCircle, Send, CheckCircle, AlertTriangle, Play, Check, X, ShieldAlert } from 'lucide-react';
@@ -22,6 +22,12 @@ import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useQuickPressStream } from '@/hooks/useQuickPressStream';
 import { SortableSortingList } from '@/components/sorting/sortable-sorting-list';
 import { formatCorrectAnswer } from '@/services/attempt-answer-display';
+import { getBookmarkFeed } from '@/services/bookmark';
+import { QuestionBookmarkToggle } from '@/components/bookmark/question-bookmark-toggle';
+import {
+  readQuestionListSession,
+  syncQuestionListSessionIndex,
+} from '@/lib/question-list-session';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -37,13 +43,30 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
   const { user } = useAuth();
   
   const rawMode = searchParams.get('mode') || 'normal';
-  const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral';
+  const questionListMode = rawMode === 'question-list';
+  const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral' | 'list' | 'question-list';
+  const effectivePlayMode: 'normal' | 'exam' | 'flashcard' | 'lateral' =
+    questionListMode || rawMode === 'list'
+      ? 'normal'
+      : (rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral');
   const feedbackParam = searchParams.get('feedback');
   const showFeedback = feedbackParam === null ? true : feedbackParam === 'true';
+  const questionIdParam = searchParams.get('questionId');
+  const startAtQuestionId = searchParams.get('startAtQuestionId');
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [online, setOnline] = useState<boolean>(true);
+  const [bookmarkedQuestionIds, setBookmarkedQuestionIds] = useState<Set<string>>(new Set());
+
+  const playQuestions = useMemo(() => {
+    if (!quiz?.questions?.length) return [];
+    if (questionListMode && questionIdParam) {
+      const q = quiz.questions.find((x) => x.id === questionIdParam);
+      return q ? [q] : [];
+    }
+    return quiz.questions;
+  }, [quiz, questionListMode, questionIdParam]);
 
   // 1. オンライン・オフライン判定の監視
   useEffect(() => {
@@ -97,6 +120,30 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
     loadQuiz();
   }, [quizId, playMode, user]);
 
+  useEffect(() => {
+    if (!user) {
+      setBookmarkedQuestionIds(new Set());
+      return;
+    }
+    getBookmarkFeed(user.id)
+      .then((feed) => {
+        setBookmarkedQuestionIds(new Set(feed.questions.map((e) => e.question.id)));
+      })
+      .catch(() => setBookmarkedQuestionIds(new Set()));
+  }, [user]);
+
+  useEffect(() => {
+    if (!questionListMode) return;
+    const qIndex = searchParams.get('qIndex');
+    const listId = searchParams.get('listId');
+    if (qIndex == null || !listId) return;
+    const session = readQuestionListSession();
+    if (session?.listId === listId) {
+      const idx = parseInt(qIndex, 10);
+      if (!Number.isNaN(idx)) syncQuestionListSessionIndex(idx);
+    }
+  }, [questionListMode, searchParams]);
+
   // 通常・模擬試験・フラッシュカード用のプレイフック
   const {
     currentIdx,
@@ -115,17 +162,30 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
   } = usePlayState({
     quizId,
     userId: user?.id || 'guest',
-    mode: playMode === 'lateral' ? 'normal' : playMode,
-    questions: quiz?.questions || [],
+    mode: playMode === 'lateral' ? 'normal' : (playMode === 'exam' || playMode === 'flashcard' ? playMode : 'normal'),
+    questions: playQuestions,
   });
+
+  useEffect(() => {
+    if (!quiz || questionListMode || !startAtQuestionId) return;
+    const idx = quiz.questions.findIndex((q) => q.id === startAtQuestionId);
+    if (idx >= 0) setCurrentIdx(idx);
+  }, [quiz, startAtQuestionId, questionListMode, setCurrentIdx]);
 
   // 3. 通常・試験・フラッシュカード完了時の処理
   const handlePlayComplete = async (finalScore = score, finalFailed = failedIds) => {
     if (!quiz) return;
 
-    // リストのIDを取得。型定義（string | undefined）に合わせるため undefined を維持
     const listId = searchParams.get('listId') || undefined;
-    const currentMode = listId ? 'list' : (playMode === 'lateral' ? 'normal' : playMode);
+    const isQuestionListPlay = questionListMode && !!listId;
+    let currentMode: Attempt['mode'];
+    if (isQuestionListPlay) {
+      currentMode = 'question-list';
+    } else if (listId) {
+      currentMode = 'list';
+    } else {
+      currentMode = playMode === 'lateral' ? 'normal' : (playMode === 'exam' || playMode === 'flashcard' ? playMode : 'normal');
+    }
 
     const attemptData: Omit<Attempt, 'id' | 'completedAt'> = {
       userId: user?.id || 'guest',
@@ -133,7 +193,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       listId,
       mode: currentMode,
       score: finalScore,
-      totalQuestions: quiz.questions.length,
+      totalQuestions: isQuestionListPlay ? 1 : quiz.questions.length,
       elapsedSeconds,
       failedQuestionIds: finalFailed,
       questionAnswers: toQuestionAnswerRecords(questionAnswers),
@@ -540,10 +600,10 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
   };
 
   const currentQuestion = quiz.questions[currentIdx];
-  const progressPercent = quiz.questions.length > 0 ? (answeredIds.length / quiz.questions.length) * 100 : 0;
+  const progressPercent = playQuestions.length > 0 ? (answeredIds.length / playQuestions.length) * 100 : 0;
 
   // すべて解答完了時のリダイレクト・完了トリガー
-  if (isFinished && currentIdx >= quiz.questions.length) {
+  if (isFinished && currentIdx >= playQuestions.length) {
     return (
       <div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}>
         <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>全問終了しました！</p>
@@ -581,22 +641,37 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
           <div className={styles.progressFill} style={{ width: `${progressPercent}%` }}></div>
         </div>
         <div className={styles.progressText}>
-          <span>解答済み: {answeredIds.length} / {quiz.questions.length} 問</span>
+          <span>解答済み: {answeredIds.length} / {playQuestions.length} 問</span>
           <span>経過時間: {elapsedSeconds} 秒</span>
         </div>
       </div>
 
       {/* 問題表示カード */}
       <div className={styles.quizCard}>
-        <div className={styles.questionMeta}>
-          <span className={styles.questionType}>
-            第 {currentIdx + 1} 問 ({getQuestionTypeLabel(currentQuestion?.type)})
-          </span>
-          {/* 個別カウントダウンタイマー (通常モード) */}
-          {playMode === 'normal' && timeLeft !== null && (
-            <span className={`${styles.timer} ${timeLeft <= 5 ? styles.timerWarning : ''}`}>
-              ⏱️ 残り {timeLeft} 秒
+        <div className={styles.questionMeta} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <span className={styles.questionType}>
+              第 {currentIdx + 1} 問 ({getQuestionTypeLabel(currentQuestion?.type)})
             </span>
+            {effectivePlayMode === 'normal' && timeLeft !== null && (
+              <span className={`${styles.timer} ${timeLeft <= 5 ? styles.timerWarning : ''}`}>
+                ⏱️ 残り {timeLeft} 秒
+              </span>
+            )}
+          </div>
+          {currentQuestion && (
+            <QuestionBookmarkToggle
+              questionId={currentQuestion.id}
+              initialBookmarked={bookmarkedQuestionIds.has(currentQuestion.id)}
+              onToggle={(bookmarked) => {
+                setBookmarkedQuestionIds((prev) => {
+                  const next = new Set(prev);
+                  if (bookmarked) next.add(currentQuestion.id);
+                  else next.delete(currentQuestion.id);
+                  return next;
+                });
+              }}
+            />
           )}
         </div>
 
@@ -613,7 +688,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
             question={currentQuestion}
             onConfirm={handleAnswerSubmit}
             initialAnswer={questionAnswers[currentQuestion.id]}
-            disabled={playMode !== 'exam' && answeredIds.includes(currentQuestion.id)}
+            disabled={effectivePlayMode !== 'exam' && answeredIds.includes(currentQuestion.id)}
           />
         )}
 
@@ -908,7 +983,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
         )}
 
         {/* 3. フラッシュカードのフリップ動作 */}
-        {playMode === 'flashcard' && (
+        {effectivePlayMode === 'flashcard' && (
           <div className={styles.flashcardArea}>
             {!showAnswer ? (
               <button className="btn btn-accent" onClick={() => setShowAnswer(true)}>
@@ -959,7 +1034,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       </div>
 
       {/* 模擬試験用の設問ナビゲーション */}
-      {playMode === 'exam' && (
+      {effectivePlayMode === 'exam' && (
         <div className={styles.examNavGrid}>
           {quiz.questions.map((q, idx) => {
             const isAnswered = answeredIds.includes(q.id);

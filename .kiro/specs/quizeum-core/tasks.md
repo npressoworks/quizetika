@@ -296,6 +296,106 @@
   - _Depends: 7.1, 7.2, 7.3, 7.4_
   - _Requirements: 12.1, 12.2, 12.3_
 
+---
+
+### 8. Phase 8 拡張 — 分類ブックマーク・設問リスト・参照リンク作問（2026-06）
+
+> 設計: `question-list-validation` / `linked-question` を lib に集約。UI は隣接スペック（play-flow / creator-dash / auth-profile）が担当。
+
+- [x] 8.1 Phase 8 ドメイン型とスキーマ拡張
+  - クイズリストに `listType`（`quiz` | `question`）を追加し、未設定読み取り時は `quiz` と解釈するヘルパーを型層に定義する
+  - 解答履歴のプレイモードに `question-list` を追加し、設問リストプレイ契約（`listId` + 親 `quizId` + `totalQuestions: 1`）を型コメントで明示する
+  - 分類ブックマーク取得用の `BookmarkFeed` / `BookmarkedQuestionEntry` 型を追加する
+  - エディタ送信用の参照リンク識別（`linkKind: 'reference'`）を設問ペイロード型に追加する（Firestore 永続化フィールドは必須としない）
+  - **完了状態**: 型チェックが通り、新規 `listType` 作成ペイロードと `question-list` attempt がコンパイルエラーなく表現できること
+  - _Requirements: 14.1, 14.2, 14.8_
+  - _Boundary: types_
+
+- [x] 8.2 (P) 設問リスト・ブックマーク検証ライブラリ
+  - 設問の親クイズが公開済みであることのみブックマーク・設問リスト追加を許可する検証を実装する
+  - クイズリストへの設問操作・設問リストへのクイズ操作をタイプ不一致として拒否するガードを実装する
+  - 非公開・下書き・停止中の親クイズに紐づく設問追加を専用エラーで拒否する
+  - 単体テストで公開のみ許可・タイプ不一致拒否・非公開親拒否が期待どおりであること
+  - **完了状態**: 検証ライブラリの Jest がグリーンで、422 相当のエラー種別が呼び出し元から区別できること
+  - _Requirements: 13.2, 13.3, 14.5, 14.6, 14.7_
+  - _Depends: 8.1_
+  - _Boundary: question-list-validation_
+
+- [x] 8.3 (P) 参照リンク設問の保存・切り離しライブラリ
+  - 保存ペイロードを参照 ID のみと新規/変更設問に分割する純関数を実装する
+  - 参照追加時に作成者が設問のソースクイズを所有していることのみ許可する検証を実装する
+  - 内容未変更の参照は既存設問ドキュメントを複製せず、内容変更時のみ Copy-on-Write で新規設問 doc を発行する方針を実装する
+  - クイズから参照を外しただけでは共有設問ドキュメントを削除しないガードを実装する
+  - 単体テストで参照のみ保存・他クイズ参照時の doc 残存・非自作拒否が期待どおりであること
+  - **完了状態**: 参照リンク関連 Jest がグリーンで、同一 `questionId` の二重 doc 作成が発生しないこと
+  - _Requirements: 15.3, 15.4, 15.5, 15.6_
+  - _Depends: 8.1_
+  - _Boundary: linked-question_
+
+- [x] 8.4 (P) 分類ブックマークサービスの拡張
+  - クイズ・クイズリスト・設問の3種 `toggleBookmark` をアトミックにトグルし、各対象のブックマーク数を更新する
+  - 設問ブックマーク登録前に公開親クイズ検証を適用し、非公開親は拒否する
+  - `getBookmarkFeed` で3分類一覧を追加日時降順で返し、クイズ BM は公開済みのみ、設問 BM は親メタ付与かつ非公開親を除外する
+  - 他ユーザー設問の新規ブックマーク時に作成者へ通知を送信する（既存クイズ・リスト BM 通知と同契約）
+  - **完了状態**: 統合テストで3分類フィード取得・非公開親設問の登録拒否・設問 BM 通知が確認できること
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7_
+  - _Depends: 8.2_
+  - _Boundary: BookmarkService_
+
+- [x] 8.5 (P) 設問リスト対応のクイズリストサービス拡張
+  - 新規リスト作成時に `listType` を必須受け取り永続化し、既存リストの `listType` 変更を拒否する
+  - 設問リストへの公開設問追加・削除・ID 並び替えを検証ライブラリ経由で実装し、他者の公開設問も追加可能とする
+  - クイズリストの従来操作（クイズ追加・並び替え・連続プレイ用メンバー）を `listType` で分離し、タイプ不一致操作を拒否する
+  - 作成者のリスト一覧を `listType` フィルタ付きで取得できるようにする
+  - 設問リストの順序付き設問一覧（親クイズタイトル付き）と、メタデータ＋設問参照を含むエクスポートを実装する（外部設問は ID 参照のみ）
+  - **完了状態**: 設問リスト CRUD・並び替え・エクスポート・タイプ別一覧の統合テストがグリーンであること
+  - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.9, 14.10_
+  - _Depends: 8.2_
+  - _Boundary: QuizListService, QuestionService_
+
+- [x] 8.6 (P) 過去自作クイズ検索サービス
+  - 作成者 ID にスコープしたクイズ一覧から、タイトル・説明・タグのキーワード／タグ一致でフィルタする検索を実装する（下書き含む）
+  - 検索結果クイズに属する設問の問題文・識別情報を返す取得を提供する
+  - **完了状態**: 自作下書きクイズがキーワード・タグ検索でヒットし、設問詳細が取得できること
+  - _Requirements: 15.1, 15.2_
+  - _Depends: 8.1_
+  - _Boundary: AuthorQuizSearchService_
+
+- [x] 8.7 クイズ保存への参照リンク統合
+  - クイズ下書き・公開保存時に参照リンク設問パスを適用し、未変更参照は既存設問 doc を再利用する
+  - 参照設問の内容変更時は Copy-on-Write で新規 doc を発行し、当該クイズの `questionIds` を差し替える
+  - 非自作クイズ由来の設問リンクを拒否する
+  - **完了状態**: 同一設問を2クイズが参照しても `questions` ドキュメントが1つのまま、参照解除後も他クイズ参照時は doc が残ること
+  - _Requirements: 15.3, 15.4, 15.5, 15.6_
+  - _Depends: 8.3_
+  - _Boundary: QuizService_
+
+- [x] 8.8 設問リストプレイの attempt 記録統合
+  - 設問リスト内の各設問プレイ完了時に `mode: 'question-list'`、`listId`、親 `quizId` を付与して attempt を永続化する
+  - 設問リストの順序付きメンバー取得をプレイフロー UI が利用できる契約で公開する
+  - **完了状態**: 設問リスト連続プレイ後の attempts に `question-list` と正しい `listId` が記録されること
+  - _Requirements: 14.8_
+  - _Depends: 8.5_
+  - _Boundary: AttemptService, QuizListService_
+
+- [x] 8.9 (P) Firestore インデックスと Security Rules（Phase 8）
+  - 作成者別リストタイプ一覧用の複合インデックス（`authorId` + `listType` + `createdAt`）を定義する
+  - `quizLists` 作成時に `listType in ['quiz','question']` を推奨し、作成後の `listType` 変更を update ルールで拒否可能とする
+  - **完了状態**: インデックス定義がリポジトリに追加され、タイプ別一覧クエリがインデックスエラーにならないこと
+  - _Depends: 8.1_
+  - _Boundary: firestore.indexes.json, firestore.rules_
+
+- [x] 8.10 Phase 8 統合検証
+  - 分類ブックマーク（3分類・公開ガード・通知）、設問リスト CRUD/エクスポート、参照リンク保存、自作クイズ検索を統合テストで検証する
+  - **完了状態**: Phase 8 関連 Jest がグリーンであり、手動で設問 BM・設問リスト追加・参照リンク保存のスモークが成功すること
+  - _Depends: 8.4, 8.5, 8.6, 8.7, 8.8, 8.9_
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.8, 14.9, 14.10, 15.1, 15.2, 15.3, 15.4, 15.5, 15.6_
+
+- [ ]* 8.11 Phase 8 回帰スモーク（任意）
+  - 既存クイズリスト連続プレイ（`mode: 'list'`）とクイズ・リストブックマークが Phase 8 変更後も動作することを確認する
+  - **完了状態**: 既存 bookmark / quiz-list 関連テストスイートがグリーンであること
+  - _Depends: 8.10_
+
 ## Implementation Notes
 
 - LB 順位ロジックは `src/lib/leaderboard-ranking.ts`（純関数）と `src/lib/leaderboard-update.ts`（Firebase 非依存ヘルパー）に分離。`countPriorCompletedAttempts` は `attempt.ts` 内に保持。
@@ -303,4 +403,5 @@
 - クイズ詳細の二系統 LB 表示は暫定で `quiz/[id]/page.tsx` を更新（本番 UI 仕上げは `quizeum-play-flow-ui`）。
 - **Phase 6**: canonical 解決は `src/lib/metadata-resolution.ts` に集約。読み取りは C2（canonical クエリ + `genre in` フォールバック + dedupe）。ホーム/エディタ UI は `quizeum-play-flow-ui` / `quizeum-creator-dash-ui` が `listActiveGenres` に依存。
 - **Phase 7 (BAN機能)**: 管理者権限によるAPI呼び出しの検証（Authorization ヘッダーでの `idToken` 解析）と、Firestore Rulesでの `isNotBanned()` チェック。Cookie `quizeum_banned` による即時遮断はミドルウェアおよび `AuthContext` と連携。
+- **Phase 8**: 検証は `question-list-validation`、参照リンクは `linked-question`、自作検索フィルタは `lib/author-quiz-search.ts` に集約。`getBookmarkFeed` / `exportQuestionList` / `searchAuthorQuizzes` をサービス層に追加。設問リストプレイは `mode: 'question-list'`（`satisfiesQuestionListAttemptContract`）。リスト作成 UI は暫定 `listType: 'quiz'`（`quizeum-creator-dash-ui` で設問リスト選択を実装予定）。
 

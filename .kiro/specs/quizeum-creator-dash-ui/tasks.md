@@ -92,9 +92,104 @@
   - _Depends: 5.3_
   - _Requirements: 5.1, 5.3_
 
+---
+
+### 6. Phase 8 拡張 — 設問リスト編集と参照リンク作問 UI（2026-06）
+
+> **前提**: `quizeum-core` Phase 8 完了（`createQuizList` + `listType`, `addQuestionToList`, `exportQuestionList`, `searchAuthorQuizzes`, 参照リンク `saveQuiz`）。`quizeum-play-flow-ui` Phase 8 でリスト詳細の `listType` 表示・設問リストプレイは実装済み。
+
+- [x] 6.1 (P) `question-attach-search` 純関数ライブラリ
+  - 3ソース由来の `QuestionAttachCandidate` をマージし、`questionId` 重複を除去する。
+  - `questionText` / 親タイトルに対するキーワード部分一致フィルタを提供する。
+  - Jest で重複除去・キーワードフィルタ・空キーワード時の全件通過を検証する。
+  - **完了状態**: 単体テストがグリーンであり、フックから import 可能であること。
+  - _Requirements: 6.4_
+  - _Boundary: question-attach-search_
+  - _Depends: quizeum-core Phase 8_
+
+- [x] 6.2 (P) `useQuestionAttachSearch` フック
+  - タブ `own-published` / `bookmarked` / `public-explore` ごとに候補を非同期取得する。
+  - `own-published`: `searchAuthorQuizzes` → 公開のみ → `getQuestionsByQuiz`。
+  - `bookmarked`: `getBookmarkedQuestions`。
+  - `public-explore`: `getLatestQuizzes(N)` → 設問フラット化 → 他者・公開のみ（設計どおり `searchQuizzes` は補助のみ）。
+  - キーワード変更を 300ms デバウンス後に `question-attach-search` でフィルタする。
+  - **完了状態**: タブ切替とキーワード入力で候補リストが更新されること（モックテスト可）。
+  - _Requirements: 6.4_
+  - _Depends: 6.1_
+  - _Boundary: useQuestionAttachSearch_
+
+- [x] 6.3 (P) `ListTypeSelector` コンポーネント
+  - 新規リスト作成時に `quiz` / `question` をラジオ選択する。編集モードでは読み取り専用表示。
+  - `data-testid`（`list-type-selector`, `list-type-quiz`, `list-type-question`）を付与する。
+  - RTL でタブ切替（選択通知）と disabled 状態を検証する。
+  - **完了状態**: 新規作成画面で2種類が選択でき、編集画面では変更不可表示になること。
+  - _Requirements: 6.1, 6.2_
+  - _Boundary: ListTypeSelector_
+
+- [x] 6.4 `QuizListEditor` の listType 分岐と初回保存フロー
+  - 新規作成時 `ListTypeSelector` を統合し、保存時に `createQuizList({ listType, questionIds: [] })` を送信する（設問リストは空で作成）。
+  - 編集時は `resolveListType` を表示のみとし、`listType` 変更 UI を出さない。
+  - `listType === 'question'` のときクイズアタッチパネルを非表示にし、`listId` 未取得時は `QuestionListAttachPanel` を disabled + 案内文を表示する。
+  - `listType === 'quiz'` は従来のクイズアタッチ・並び替え・`exportQuizList` を維持する（6.10）。
+  - **完了状態**: 設問リストを新規作成すると `listType: 'question'` で保存され、初回保存後に設問パネルが有効になること。
+  - _Requirements: 4.1, 4.2, 4.3, 6.1, 6.2, 6.3, 6.10, 3.5_
+  - _Depends: 6.3_
+  - _Boundary: QuizListEditor_
+
+- [x] 6.5 (P) `QuestionListAttachPanel`（検索・アタッチ・解除）
+  - 3タブ検索 UI と `useQuestionAttachSearch` を接続し、候補から `addQuestionToList` を呼び出す。
+  - アタッチ一覧に問題文抜粋・親クイズタイトルを表示する。`removeQuestionFromList` で楽観的または再取得で UI 更新する。
+  - 非公開親などコア検証エラー時はインラインエラーを表示し一覧を変更しない（6.6）。
+  - 公開探索タブに「直近公開クイズの設問から検索（全件保証なし）」注記を表示する。
+  - **完了状態**: 設問リスト編集で3タブから設問を追加・削除できること。
+  - _Requirements: 6.4, 6.5, 6.6, 6.7_
+  - _Depends: 6.2, 6.4_
+  - _Boundary: QuestionListAttachPanel_
+
+- [x] 6.6 設問リストの DnD 並び替えとエクスポート
+  - アタッチ済み設問行に HTML5 DnD ハンドルを追加し、完了時に `reorderQuestionList` を呼び出す（既存クイズリスト DnD パターンを踏襲）。
+  - 設問リスト保存済みの場合、エクスポートボタンで `exportQuestionList` を呼び出し JSON をダウンロードする。
+  - **完了状態**: DnD 後に再読み込みでも順序が保持され、エクスポート JSON にリストメタと設問参照が含まれること。
+  - _Requirements: 6.8, 6.9_
+  - _Depends: 6.5_
+  - _Boundary: QuestionListAttachPanel, QuizListEditor_
+
+- [x] 6.7 (P) 参照リンク作問パネル群
+  - `ReferenceQuestionBadge` で「参照リンク」バッジを表示する。
+  - `useAuthorQuizReferenceSearch` が `searchAuthorQuizzes` にキーワード・タグを渡す。
+  - `AuthorQuizReferencePanel`（折りたたみ）でクイズ展開 → 設問選択 → `onLinkQuestion` を発火（自作のみ、7.5）。
+  - **完了状態**: パネルから設問をリンク選択するとコールバックが `linkKind: 'reference'` 付き設問を返すこと。
+  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
+  - _Depends: quizeum-core Phase 8_
+  - _Boundary: AuthorQuizReferencePanel, ReferenceQuestionBadge, useAuthorQuizReferenceSearch_
+
+- [x] 6.8 `QuizEditor` 参照リンク統合と CoW 状態機械
+  - `AuthorQuizReferencePanel` を統合し、参照設問を `reference-readonly`（デフォルト readOnly + 削除のみ）で表示する。
+  - 「内容を編集（コピーに切り離し）」で `reference-detaching` に遷移し 7.7 通知を表示後、編集可能にする。
+  - 保存時 `saveQuiz` に `linkKind` と元 `id` を送信する。Zod 公開検証は `reference-readonly` 行をスキップする。
+  - 参照解除はローカル配列からの除去のみ（7.8, 7.10）。
+  - **完了状態**: 参照設問がバッジ付きで readOnly 表示され、編集切り離し後に保存できること。永続化ロジックは UI に追加されていないこと。
+  - _Requirements: 7.6, 7.7, 7.8, 7.9, 7.10_
+  - _Depends: 6.7_
+  - _Boundary: QuizEditor_
+
+- [x] 6.9 Phase 8 統合検証
+  - 設問リスト作成（listType 選択→初回保存→アタッチ→DnD→エクスポート）、参照リンク追加・CoW 通知、クイズリスト回帰を Jest / コンポーネントテストで検証する。
+  - `npm test` / `npm run build` がグリーンであること。
+  - **完了状態**: Phase 8 関連テストがグリーンであり、手動スモークで設問リスト編集と参照リンク保存が成功すること。
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9, 7.10_
+  - _Depends: 6.4, 6.6, 6.8_
+
+- [ ]* 6.10 Phase 8 E2E スモーク（任意）
+  - `[data-testid="list-type-question"]` で設問リスト作成、参照パネルからリンク追加を Playwright またはチェックリストで記録する。
+  - _Depends: 6.9_
+  - _Requirements: 6.1, 7.1_
+
 ## Implementation Notes
 
 - Phase 6 は **読み取り専用**（`metadata_genres` 書き込みは governance / core）。
 - `useActiveGenres` を `src/hooks/` に既に置いている場合は import 共有のみで新規フック不要。
 - play-flow のホームジャンル ID とエディタの `genre` 保存値は同一キー（英小文字 doc ID）を用いる。
 - Phase 6 実装（2026-06-03）: `GenreEditorSelect` + `useActiveGenres`、focus 時 refetch。Jest 300 件・build PASS。
+- **Phase 8**: 設問リストは **初回保存で `listId` 取得後** にアタッチ可能。公開探索は `getLatestQuizzes` ベース + 設問文フィルタ。参照設問は readOnly デフォルト + 明示的切り離しで CoW（7.7）。リスト詳細表示は play-flow 実装を信頼（3.1–3.4 は 6.9 で回帰確認）。
+- Phase 8 実装（2026-06-05）: `ListTypeSelector` / `QuestionListAttachPanel` / 参照パネル群、`QuizListEditor` listType 分岐、設問リスト作成後 `/edit` 遷移。Jest 366 件・build PASS。

@@ -96,3 +96,60 @@
   - _Requirements: 7.3_
   - _Depends: 7.1_
   - _Boundary: play-history-client_
+
+---
+
+### 8. Phase 8 拡張 — 作成リストの listType 別表示（2026-06）
+
+> **前提**: `quizeum-core` Phase 8 完了（`getQuizListsByAuthor` + `listType` フィルタ、`resolveListType`）。`quizeum-creator-dash-ui` / `quizeum-play-flow-ui` Phase 8 でリスト作成・詳細表示は実装済み。
+
+- [x] 8.1 (P) `profile-list-display` 純関数ライブラリ
+  - `getProfileListTypeLabel` と `getProfileListItemCount` を実装する。内部は必ず `resolveListType(list)` を使用し、`list.listType` 直参照は行わない。
+  - Jest で `listType: undefined`（クイズリスト扱い・`quizIds` 件数）、`listType: 'question'`（`questionIds` 件数）を検証する。
+  - **完了状態**: 単体テストがグリーンであり、コンポーネントから import 可能であること。
+  - _Requirements: 8.2, 8.3, 8.4_
+  - _Boundary: profile-list-display_
+
+- [x] 8.2 (P) `ProfileListCard` コンポーネント
+  - 種別バッジ（`profile-list-type-badge`）、正しい収録件数ラベル、`/list/[id]` リンク、`data-testid="profile-list-card"` を実装する。
+  - `getProfileListTypeLabel(resolveListType(list))` のみでバッジ文言を決定する（`bookmark-list-grid` の直比較パターンはコピーしない）。
+  - RTL でクイズ／設問リストのバッジ・件数表示・レガシー未設定リストを検証する。
+  - **完了状態**: 設問リストで `quizIds` 件数が表示されないこと。
+  - _Requirements: 8.2, 8.3, 8.4, 8.5, 8.9_
+  - _Depends: 8.1_
+  - _Boundary: ProfileListCard_
+
+- [x] 8.3 `ProfileListsPanel`（一覧・空状態・任意フィルタ）
+  - `ProfileListCard` で一覧を描画する。本人0件時は既存空状態 + `/list/create` 導線（8.6）。
+  - 任意フィルタ `all` | `quiz` | `question` をクライアント絞り込みで実装する（`profile-list-filter-*` testid）。
+  - フィルタ結果0件（全体1件以上）時は `profile-list-filter-empty` とフィルタ解除操作を表示する（8.6 真の0件と区別）。
+  - **完了状態**: 3種フィルタで一覧が切り替わり、フィルタ空状態から「すべて」に復帰できること。
+  - _Requirements: 8.1, 8.6, 8.7_
+  - _Depends: 8.2_
+  - _Boundary: ProfileListsPanel_
+
+- [x] 8.4 `ProfilePage` リストタブ統合
+  - `src/app/profile/[uid]/page.tsx` のリストタブインライン JSX を `ProfileListsPanel` に委譲する。
+  - タブ見出し `作成したリスト (N)` はフィルタ前の全件数のまま維持する。`getQuizListsByAuthor` 取得ロジックは変更しない。
+  - **完了状態**: リストタブで種別バッジ付きカードが表示され、クリックで `/list/[id]` へ遷移すること。
+  - _Requirements: 2.2, 8.1, 8.5_
+  - _Depends: 8.3_
+  - _Boundary: ProfilePage-Tabs_
+
+- [x] 8.5 Phase 8 統合検証
+  - `profile-list-display` / `ProfileListCard` / `ProfileListsPanel` のテストと、クイズ・プレイ履歴タブの回帰スモークを実施する。
+  - `npm test` / `npm run build` がグリーンであること。
+  - **完了状態**: Phase 8 関連テストがグリーンであり、手動スモークでクイズ／設問リストの種別・件数が正しいこと。
+  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9_
+  - _Depends: 8.4_
+
+- [ ]* 8.6 Phase 8 E2E スモーク（任意）
+  - `profile-list-card` / `profile-list-type-badge` の表示、設問リストの `questionIds` ベース件数、フィルタ空状態を Playwright またはチェックリストで記録する。
+  - _Depends: 8.5_
+  - _Requirements: 8.2, 8.9_
+
+## Implementation Notes
+
+- Phase 5 実装済み: 本人のみ「プレイ履歴」第3タブ + `ProfilePlayHistoryPanel`。
+- **Phase 8**: 種別判定は `resolveListType` 必須。フィルタはクライアント絞り込み（API 再取得不要）。リスト CRUD は実装しない（8.8）。
+- Phase 8 実装（2026-06-06）: `profile-list-display` + `ProfileListCard` + `ProfileListsPanel`。Jest 375 件・build PASS。

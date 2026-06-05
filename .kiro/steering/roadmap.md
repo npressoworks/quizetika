@@ -142,13 +142,13 @@
 - **Shared seam**: `resolveCanonicalGenreId(genreId)` を Core に1か所集約
 
 ## Existing Spec Updates（Phase 6・依存順）
-- [ ] quizeum-core -- `getQuizzesByGenre` 仮想統合、`createQuiz`/`updateQuiz` マスタ検証・`canonicalGenreId`、Rules/Indexes、ジャンルメタ読み取り API、重複 moderation 削除。Dependencies: none
-- [ ] quizeum-play-flow-ui -- ホーム `metadata_genres` ナビ、`/genres/[genreName]` メタ・ソート、ホーム→ジャンル一覧遷移。Dependencies: quizeum-core
-- [ ] quizeum-creator-dash-ui -- エディタ動的ジャンルセレクト、承認後リフレッシュ、spec 要件同期。Dependencies: quizeum-core
-- [ ] quizeum-moderation-governance-ui -- 申請画面の spec/docs 整合（SVG 禁止表記）、任意: 可決時アイコン Storage 整理。Dependencies: quizeum-core
+- [x] quizeum-core -- `getQuizzesByGenre` 仮想統合、`createQuiz`/`updateQuiz` マスタ検証・`canonicalGenreId`、Rules/Indexes、ジャンルメタ読み取り API、重複 moderation 削除。Dependencies: none
+- [x] quizeum-play-flow-ui -- ホーム `metadata_genres` ナビ、`/genres/[genreName]` メタ・ソート、ホーム→ジャンル一覧遷移。Dependencies: quizeum-core
+- [x] quizeum-creator-dash-ui -- エディタ動的ジャンルセレクト、承認後リフレッシュ、spec 要件同期。Dependencies: quizeum-core
+- [x] quizeum-moderation-governance-ui -- 申請画面の spec/docs 整合（SVG 禁止表記）、任意: 可決時アイコン Storage 整理。Dependencies: quizeum-core
 
 ## Direct Implementation Candidates（Phase 6）
-- [ ] docs-sync-genre -- `docs/db_design.md`（SVG 記述修正）、他 docs が既に正しい場合は core 実装に合わせて差分のみ更新
+- [x] docs-sync-genre -- `docs/db_design.md`（SVG 記述修正）、他 docs が既に正しい場合は core 実装に合わせて差分のみ更新
 - [ ] e2e-genre-alignment -- ジャンル一覧・新設申請・マージ後の一覧表示の E2E 追加/更新
 
 ## Specs (dependency order)
@@ -190,5 +190,60 @@
 
 ## Specs (dependency order)
 - [ ] quizeum-admin-users-ui -- 管理者専用ユーザー検索・手動スコアリセット・BAN/UNBAN画面（`/admin/users`）の実装、ルートガード。Dependencies: quizeum-core
+
+---
+
+## Phase 8: ブックマーク・リスト・設問再利用（2026-06-05 ディスカバリー）
+
+### Overview（本フェーズ）
+ブックマークとリストをクイズ単位・設問単位の両方で作成・管理できるように改良する。ブックマーク画面ではクイズ・リスト・設問を分類表示する。リストは既存 `quizLists` コレクションに `listType`（`quiz` | `question`）を追加し、クイズリスト（`quizIds`）と設問リスト（`questionIds`）を区別する。設問リストには**他者の公開クイズに含まれる公開設問も追加可能**とする。作問時は過去の自作クイズ（下書き含む）を検索し、設問を参照リンク（ドキュメント複製なし）で新規クイズに再利用できるようにする。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: 単一コレクション + `listType` — `QuizList` に `listType: 'quiz' | 'question'` を追加し、既存 `quizIds` / `questionIds` をタイプで使い分ける。設問の作問再利用は `sourceQuestionId`（参照）で同一 `questions` ドキュメントを指す。
+- **Why**: 型・`questionIds`・`toggleBookmark(..., 'question')` 等の実装断片が既にあり、Phase 5–7 と同様に既存スペック拡張で完結する。別コレクション分割は CRUD・Rules・UI の二重化コストが大きい。
+- **Rejected alternatives**:
+  - `quiz_lists` / `question_lists` コレクション分離: クエリは明確だが移行・二重実装が過大。
+  - 設問リスト後回し（ブックマーク＋作問リンクのみ）: 「リストも各単位で管理」の要望が未達のままになる。
+
+### Scope（本フェーズ）
+- **In**:
+  - クイズ・リスト・設問のブックマーク API および一覧取得（クイズ／設問は分離、追加日時降順）
+  - `QuizList.listType` によるクイズリスト／設問リストの作成・更新・取得（作者別・タイプ別フィルタ）
+  - 設問リストへの設問追加: **公開済み**の設問のみ（自作・他者作問を問わない）。ブックマーク済み設問や検索 UI からの追加導線
+  - 設問リスト連続プレイ（`attempts.mode = 'question-list'`）
+  - 作問時: 自作クイズのキーワード／タグ検索、設問の参照リンク追加（複製しない）
+  - `/bookmarks` のタブ（クイズ / リスト / 設問）、リスト編集のタイプ切替・設問 DnD、作問エディタの過去クイズ検索パネル
+  - プロフィール「作成したリスト」のタイプ別表示（必要最小限）
+  - `docs/` 正本（`db_design.md`, `api_specification.md` 等）と Firestore Rules / Indexes の同期
+- **Out**:
+  - 他ユーザーの**未公開**クイズ・設問のブックマーク／リスト追加
+  - 自作でないクイズからの設問**リンク再利用**（作問エディタ内の参照追加は自作のみ）
+  - 設問リストへの下書き・非公開設問の追加
+  - 参照リンク設問の「実体編集」が元クイズに波及する詳細 UX（初版は参照表示＋権限境界を Core で定義、編集は元または切り離しポリシーを design で確定）
+
+### Constraints（本フェーズ）
+- 既存 `quizLists` ドキュメントは `listType` 未設定時 **`quiz` として後方互換**（読み取り・一覧フィルタ）
+- ブックマーク取得: クイズは従来どおり公開クイズに限定可、設問は **親クイズが published** のもののみ一覧に含める
+- 設問リスト追加時: `questions` ドキュメント存在 + 親 `quizzes.status === 'published'` を Core で検証
+- 参照リンク設問: 新規クイズの `questionIds` に既存 `questions/{id}` を追加。`createQuiz` / `updateQuiz` は参照 ID に対して新規 `questions` ドキュメントを作成しない
+
+### Boundary Strategy（本フェーズ）
+- **Core**: `listType`、ブックマーク／リスト／設問の取得 API、設問リスト CRUD、設問リストプレイセッション、`searchAuthorQuizzes`、参照リンク保存、Rules/Indexes、`Attempt.mode` 拡張
+- **Play-flow UI**: `/bookmarks` 3タブ、プレイ／結果／クイズ詳細での設問ブックマーク、設問リストプレイ開始
+- **Creator-dash UI**: リスト編集（タイプ・設問ピッカー・DnD）、作問エディタの自作クイズ検索・リンク UI
+- **Auth-profile UI**: プロフィールのリストタブを `listType` で区別表示（軽微）
+- **Shared seam**: 公開設問の追加可否・参照リンクの永続化は Core に1か所集約。UI は検索・ピッカーのみ
+
+## Existing Spec Updates（Phase 8・依存順）
+- [x] quizeum-core -- 要件 13–15 の design/tasks/実装: `listType`、`getBookmarkedQuestions` 統合、設問リストプレイ、自作クイズ検索 API、参照リンク `saveQuiz`、Rules/Indexes、`question-list` mode。Dependencies: none
+- [x] quizeum-play-flow-ui -- `/bookmarks` タブ（クイズ・リスト・設問）、設問ブックマーク操作、設問リストプレイ導線。Dependencies: quizeum-core
+- [x] quizeum-creator-dash-ui -- リスト `listType` 編集・設問追加 UI、作問エディタ過去クイズ検索・リンクパネル。Dependencies: quizeum-core
+- [x] quizeum-auth-profile-ui -- プロフィール「作成したリスト」のクイズリスト／設問リスト区別表示。Dependencies: quizeum-core
+
+## Direct Implementation Candidates（Phase 8）
+- [x] docs-sync-bookmarks-lists -- `docs/db_design.md`（`listType`, 参照設問フィールド）、`docs/api_specification.md`、`docs/detailed_design.md`、`docs/screen_transition.md` を core/play-flow/creator-dash 実装と同期
+
+## Specs (dependency order)
+（Phase 8 では新規 spec なし — 上記 Existing Spec Updates のみ）
 
 

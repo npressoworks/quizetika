@@ -16,6 +16,15 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getPendingSyncAttempts } from '@/services/attempt-session';
 import { formatCorrectAnswer, formatUserAnswer, getUserAnswerRaw } from '@/services/attempt-answer-display';
 import { Quiz, Attempt, FeedbackReport, Question } from '@/types';
+import { getBookmarkFeed } from '@/services/bookmark';
+import { QuestionBookmarkToggle } from '@/components/bookmark/question-bookmark-toggle';
+import {
+  readQuestionListSession,
+  advanceQuestionListSession,
+  clearQuestionListSession,
+  buildQuestionListPlayUrl,
+  peekNextQuestionListEntry,
+} from '@/lib/question-list-session';
 import styles from './result.module.css';
 
 interface PageProps {
@@ -55,6 +64,11 @@ function QuizResultPageContent({ quizId }: ContentProps) {
   const [nextQuizId, setNextQuizId] = useState<string | null>(null);
   const [isLastInList, setIsLastInList] = useState<boolean>(false);
   const [listLoading, setListLoading] = useState<boolean>(false);
+  const [isQuestionListFlow, setIsQuestionListFlow] = useState(false);
+  const [nextQuestionListUrl, setNextQuestionListUrl] = useState<string | null>(null);
+  const [isLastInQuestionList, setIsLastInQuestionList] = useState(false);
+  const [questionListSessionMissing, setQuestionListSessionMissing] = useState(false);
+  const [bookmarkedQuestionIds, setBookmarkedQuestionIds] = useState<Set<string>>(new Set());
 
   // 特定の問題に対する間違い指摘用
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
@@ -132,9 +146,45 @@ function QuizResultPageContent({ quizId }: ContentProps) {
     loadData();
   }, [quizId, attemptId, localId]);
 
-  // 2.5 リスト内の次のクイズ判定
+  useEffect(() => {
+    if (!user) {
+      setBookmarkedQuestionIds(new Set());
+      return;
+    }
+    getBookmarkFeed(user.id)
+      .then((feed) => {
+        setBookmarkedQuestionIds(new Set(feed.questions.map((e) => e.question.id)));
+      })
+      .catch(() => setBookmarkedQuestionIds(new Set()));
+  }, [user]);
+
+  // 2.5 リスト内の次設問／次クイズ判定（設問リストを優先）
   useEffect(() => {
     if (!listId || !quiz) return;
+
+    const session = readQuestionListSession();
+    if (session && session.listId === listId) {
+      setIsQuestionListFlow(true);
+      setListLoading(false);
+      const nextEntry = peekNextQuestionListEntry();
+      if (nextEntry) {
+        const nextIndex = session.currentIndex + 1;
+        setNextQuestionListUrl(buildQuestionListPlayUrl(session, nextIndex));
+        setIsLastInQuestionList(false);
+        setQuestionListSessionMissing(false);
+      } else {
+        setNextQuestionListUrl(null);
+        setIsLastInQuestionList(true);
+      }
+      return;
+    }
+
+    if (attempt?.mode === 'question-list') {
+      setIsQuestionListFlow(true);
+      setQuestionListSessionMissing(true);
+      setListLoading(false);
+      return;
+    }
 
     async function checkNextQuiz() {
       setListLoading(true);
@@ -159,7 +209,13 @@ function QuizResultPageContent({ quizId }: ContentProps) {
       }
     }
     checkNextQuiz();
-  }, [listId, quiz, quizId]);
+  }, [listId, quiz, quizId, attempt]);
+
+  useEffect(() => {
+    if (isLastInQuestionList) {
+      clearQuestionListSession();
+    }
+  }, [isLastInQuestionList]);
 
   // 次のクイズに進むアクションハンドラ (オフライン接続ブロック付)
   const handleNextQuizClick = () => {
@@ -169,6 +225,20 @@ function QuizResultPageContent({ quizId }: ContentProps) {
     }
     if (nextQuizId) {
       router.push(`/quiz/${nextQuizId}/play?listId=${listId}&mode=list`);
+    }
+  };
+
+  const handleNextQuestionClick = () => {
+    if (!online) {
+      alert('現在オフラインのため、次の設問に進むことはできません。');
+      return;
+    }
+    const nextEntry = advanceQuestionListSession();
+    if (nextEntry) {
+      const session = readQuestionListSession();
+      if (session) {
+        router.push(buildQuestionListPlayUrl(session, session.currentIndex));
+      }
     }
   };
 
@@ -432,16 +502,49 @@ function QuizResultPageContent({ quizId }: ContentProps) {
           </button>
         </div>
 
-        {/* リスト連続プレイナビゲーション (要件 3.2, 3.3) */}
+        {/* リスト連続プレイナビゲーション */}
         {listId && (
           <div className={styles.listNavigation}>
-            {listLoading ? (
+            {isQuestionListFlow ? (
+              questionListSessionMissing ? (
+                <div style={{ textAlign: 'center', padding: '16px', marginTop: '16px', color: 'var(--text-muted)', background: 'var(--glass-bg)', borderRadius: 'var(--radius-md)' }}>
+                  <p>リストの続きを再生できません。</p>
+                  <Link href={`/list/${listId}`} className="btn btn-secondary" style={{ marginTop: '12px', display: 'inline-flex' }}>
+                    リストの詳細へ
+                  </Link>
+                </div>
+              ) : nextQuestionListUrl ? (
+                <button
+                  className="btn btn-primary"
+                  onClick={handleNextQuestionClick}
+                  data-testid="question-list-next"
+                  style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <span>次の設問へ</span>
+                  <ChevronRight size={18} />
+                </button>
+              ) : isLastInQuestionList ? (
+                <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
+                  <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
+                    🎉 設問リストのすべての設問を完遂しました！
+                  </p>
+                  <Link
+                    href={`/list/${listId}`}
+                    className="btn btn-primary"
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => clearQuestionListSession()}
+                  >
+                    リストの詳細に戻る
+                  </Link>
+                </div>
+              ) : null
+            ) : listLoading ? (
               <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)' }}>
                 次のクイズを準備中...
               </div>
             ) : nextQuizId ? (
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 onClick={handleNextQuizClick}
                 style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
@@ -453,8 +556,8 @@ function QuizResultPageContent({ quizId }: ContentProps) {
                 <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
                   🎉 おめでとうございます！リストのすべてのクイズを完遂しました！
                 </p>
-                <Link 
-                  href={`/list/${listId}`} 
+                <Link
+                  href={`/list/${listId}`}
                   className="btn btn-primary"
                   style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                 >
@@ -508,16 +611,29 @@ function QuizResultPageContent({ quizId }: ContentProps) {
                     </span>
                   )}
                 </div>
-                {/* 設問単位のクローズド指摘ボタン */}
-                <button
-                  className="btn btn-outline"
-                  style={{ padding: '4px 10px', fontSize: '0.8rem', borderColor: 'rgba(255,183,3,0.3)', color: '#ffb703' }}
-                  onClick={() => openFeedbackModal(q)}
-                  disabled={!online}
-                >
-                  <MessageSquare size={12} style={{ marginRight: '4px', display: 'inline', verticalAlign: 'text-bottom' }} />
-                  この設問を指摘
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <QuestionBookmarkToggle
+                    questionId={q.id}
+                    initialBookmarked={bookmarkedQuestionIds.has(q.id)}
+                    onToggle={(bookmarked) => {
+                      setBookmarkedQuestionIds((prev) => {
+                        const next = new Set(prev);
+                        if (bookmarked) next.add(q.id);
+                        else next.delete(q.id);
+                        return next;
+                      });
+                    }}
+                  />
+                  <button
+                    className="btn btn-outline"
+                    style={{ padding: '4px 10px', fontSize: '0.8rem', borderColor: 'rgba(255,183,3,0.3)', color: '#ffb703' }}
+                    onClick={() => openFeedbackModal(q)}
+                    disabled={!online}
+                  >
+                    <MessageSquare size={12} style={{ marginRight: '4px', display: 'inline', verticalAlign: 'text-bottom' }} />
+                    この設問を指摘
+                  </button>
+                </div>
               </div>
 
               <MarkdownContent

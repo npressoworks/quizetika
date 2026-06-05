@@ -1,4 +1,4 @@
-﻿import {
+import {
   doc,
   getDoc,
   addDoc,
@@ -13,19 +13,33 @@
   arrayRemove,
 } from 'firebase/firestore';
 import { quizListsRef, quizzesRef } from '../lib/firebase/firestore';
-import { QuizList, Quiz } from '../types';
-import { reorderQuizIds, buildListExportPackage, QuizListExportPackage } from './quiz-list-utils';
+import { QuizList, Quiz, Question, QuizListType, resolveListType } from '../types';
+import { getQuestion } from './question';
+import {
+  reorderQuizIds,
+  buildListExportPackage,
+  QuizListExportPackage,
+  reorderQuestionIds,
+  buildQuestionListExportPackage,
+  QuestionListExportPackage,
+} from './quiz-list-utils';
+import { assertListTypeOperation } from '../lib/question-list-validation';
 
 /**
  * 新しいリストを作成する
  */
-export async function createQuizList(
-  list: Omit<QuizList, 'id' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>
-): Promise<string> {
+export interface CreateQuizListInput
+  extends Omit<QuizList, 'id' | 'bookmarksCount' | 'createdAt' | 'updatedAt'> {
+  listType: QuizListType;
+}
+
+export async function createQuizList(list: CreateQuizListInput): Promise<string> {
   const now = new Date();
   const newList: Omit<QuizList, 'id'> = {
     ...list,
-    questionIds: list.questionIds || [], // 設問ID配列を初期化（デフォルトは空配列）
+    listType: list.listType,
+    quizIds: list.quizIds ?? [],
+    questionIds: list.questionIds || [],
     bookmarksCount: 0,
     createdAt: now,
     updatedAt: now,
@@ -51,6 +65,9 @@ export async function updateQuizList(
   listId: string,
   data: Partial<Omit<QuizList, 'id' | 'authorId' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>>
 ): Promise<void> {
+  if ('listType' in data && data.listType !== undefined) {
+    throw new Error('作成後の listType 変更は許可されていません');
+  }
   const docRef = doc(quizListsRef, listId);
   await updateDoc(docRef, {
     ...data,
@@ -70,6 +87,9 @@ export async function deleteQuizList(listId: string): Promise<void> {
  * リストにクイズを追加する
  */
 export async function addQuizToList(listId: string, quizId: string): Promise<void> {
+  const list = await getQuizList(listId);
+  if (!list) throw new Error(`リストが見つかりません: listId=${listId}`);
+  assertListTypeOperation(list, 'quiz');
   const docRef = doc(quizListsRef, listId);
   await updateDoc(docRef, {
     quizIds: arrayUnion(quizId),
@@ -111,25 +131,49 @@ export async function getLatestQuizLists(limitCount: number = 10): Promise<QuizL
  */
 export async function getQuizListsByAuthor(
   authorId: string,
-  includeUnpublished: boolean = false
+  includeUnpublished: boolean = false,
+  options?: { listType?: QuizListType }
 ): Promise<QuizList[]> {
   let q;
   if (includeUnpublished) {
-    q = query(
-      quizListsRef,
-      where('authorId', '==', authorId),
-      orderBy('createdAt', 'desc')
-    );
+    if (options?.listType) {
+      q = query(
+        quizListsRef,
+        where('authorId', '==', authorId),
+        where('listType', '==', options.listType),
+        orderBy('createdAt', 'desc')
+      );
+    } else {
+      q = query(
+        quizListsRef,
+        where('authorId', '==', authorId),
+        orderBy('createdAt', 'desc')
+      );
+    }
   } else {
-    q = query(
-      quizListsRef,
-      where('authorId', '==', authorId),
-      where('isPublished', '==', true),
-      orderBy('createdAt', 'desc')
-    );
+    if (options?.listType) {
+      q = query(
+        quizListsRef,
+        where('authorId', '==', authorId),
+        where('isPublished', '==', true),
+        where('listType', '==', options.listType),
+        orderBy('createdAt', 'desc')
+      );
+    } else {
+      q = query(
+        quizListsRef,
+        where('authorId', '==', authorId),
+        where('isPublished', '==', true),
+        orderBy('createdAt', 'desc')
+      );
+    }
   }
   const snap = await getDocs(q);
-  return snap.docs.map((doc) => doc.data());
+  const lists = snap.docs.map((d) => d.data() as QuizList);
+  if (!options?.listType) {
+    return lists;
+  }
+  return lists.filter((list) => resolveListType(list) === options.listType);
 }
 
 /**
@@ -170,6 +214,7 @@ export async function getQuizzesInList(listId: string): Promise<Quiz[]> {
 export async function reorderQuizList(listId: string, newOrder: string[]): Promise<void> {
   const list = await getQuizList(listId);
   if (!list) throw new Error(`リストが見つかりません: listId=${listId}`);
+  assertListTypeOperation(list, 'quiz');
 
   const reordered = reorderQuizIds(list.quizIds, newOrder);
   const docRef = doc(quizListsRef, listId);
@@ -188,12 +233,77 @@ export async function reorderQuizList(listId: string, newOrder: string[]): Promi
  * @param authorId リスト作成者のユーザーID
  * @returns QuizListExportPackage
  */
+export interface QuestionInListEntry {
+  question: Question;
+  parentQuizId: string;
+  parentQuizTitle: string;
+}
+
+export async function getQuestionsInList(listId: string): Promise<QuestionInListEntry[]> {
+  const list = await getQuizList(listId);
+  if (!list || !list.questionIds?.length) return [];
+
+  const entries: QuestionInListEntry[] = [];
+  for (const questionId of list.questionIds) {
+    const question = await getQuestion(questionId);
+    if (!question?.quizId) continue;
+    const parentSnap = await getDoc(doc(quizzesRef, question.quizId));
+    if (!parentSnap.exists()) continue;
+    const parent = parentSnap.data() as Quiz;
+    entries.push({
+      question,
+      parentQuizId: parent.id,
+      parentQuizTitle: parent.title,
+    });
+  }
+  return entries;
+}
+
+export async function reorderQuestionList(listId: string, newOrder: string[]): Promise<void> {
+  const list = await getQuizList(listId);
+  if (!list) throw new Error(`リストが見つかりません: listId=${listId}`);
+  assertListTypeOperation(list, 'question');
+
+  const reordered = reorderQuestionIds(list.questionIds ?? [], newOrder);
+  const docRef = doc(quizListsRef, listId);
+  await updateDoc(docRef, {
+    questionIds: reordered,
+    updatedAt: new Date(),
+  });
+}
+
+export async function exportQuestionList(
+  listId: string,
+  authorId: string
+): Promise<QuestionListExportPackage> {
+  const list = await getQuizList(listId);
+  if (!list) throw new Error(`リストが見つかりません: listId=${listId}`);
+
+  const inList = await getQuestionsInList(listId);
+  const ownedQuestions: Question[] = [];
+  const externalQuestionRefs: Array<{ questionId: string; parentQuizId: string }> = [];
+
+  for (const entry of inList) {
+    if (entry.question.authorId === authorId) {
+      ownedQuestions.push(entry.question);
+    } else {
+      externalQuestionRefs.push({
+        questionId: entry.question.id,
+        parentQuizId: entry.parentQuizId,
+      });
+    }
+  }
+
+  return buildQuestionListExportPackage(list, ownedQuestions, externalQuestionRefs);
+}
+
 export async function exportQuizList(
   listId: string,
   authorId: string
 ): Promise<QuizListExportPackage> {
   const list = await getQuizList(listId);
   if (!list) throw new Error(`リストが見つかりません: listId=${listId}`);
+  assertListTypeOperation(list, 'quiz');
 
   const allQuizzes = await getQuizzesInList(listId);
   const ownedQuizzes = allQuizzes.filter((q) => q.authorId === authorId);

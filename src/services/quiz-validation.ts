@@ -7,6 +7,7 @@
  */
 
 import { Quiz, Question } from '../types';
+import { isReferenceLinkQuestion } from '../lib/linked-question';
 import {
   MAX_TEXT_INPUT_CHAR_COUNT,
   MIN_TEXT_INPUT_CHAR_COUNT,
@@ -431,12 +432,14 @@ export function validateQuizForPublish(quiz: Quiz): QuizPublishValidationError[]
   } else {
     // ── 各問題の正解設定チェック ──────────────────────
     quiz.questions.forEach((q, idx) => {
+      if (isReferenceLinkQuestion(q)) return;
       errors.push(...collectQuestionValidationErrors(q, idx));
     });
 
     // ── クイズ形式と設問タイプの一貫性チェック ──────────
     if (quiz.format) {
       quiz.questions.forEach((q, idx) => {
+        if (isReferenceLinkQuestion(q)) return;
         if (quiz.format === 'mixed') {
           const allowedTypes = ['multiple-choice', 'true-false', 'text-input', 'sorting'];
           if (!allowedTypes.includes(q.type)) {
@@ -472,7 +475,9 @@ export function validateQuizForPublish(quiz: Quiz): QuizPublishValidationError[]
   const textsToCheck = [
     quiz.title,
     quiz.description,
-    ...quiz.questions.flatMap((q) => [q.questionText, q.explanation ?? '']),
+    ...quiz.questions
+      .filter((q) => !isReferenceLinkQuestion(q))
+      .flatMap((q) => [q.questionText, q.explanation ?? '']),
   ];
 
   for (const text of textsToCheck) {

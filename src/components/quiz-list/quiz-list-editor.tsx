@@ -9,9 +9,14 @@ import {
   getQuizList, 
   updateQuizList, 
   getQuizzesInList, 
-  exportQuizList 
+  exportQuizList,
+  exportQuestionList,
+  getQuestionsInList,
+  type QuestionInListEntry,
 } from '@/services/quiz-list';
-import { QuizList, Quiz } from '@/types';
+import { QuizList, Quiz, QuizListType, resolveListType } from '@/types';
+import { ListTypeSelector } from '@/components/quiz-list/list-type-selector';
+import { QuestionListAttachPanel } from '@/components/quiz-list/question-list-attach-panel';
 import styles from '@/app/list/create/edit.module.css';
 import { 
   Save, 
@@ -43,7 +48,9 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
   const [description, setDescription] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(true);
+  const [listType, setListType] = useState<QuizListType>('quiz');
   const [attachedQuizzes, setAttachedQuizzes] = useState<Quiz[]>([]);
+  const [attachedQuestions, setAttachedQuestions] = useState<QuestionInListEntry[]>([]);
 
   // クイズ検索関連ステート
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,9 +83,16 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
           setDescription(listData.description);
           setCoverImageUrl(listData.coverImageUrl || null);
           setIsPublished(listData.isPublished);
-          
-          const embeddedQuizzes = await getQuizzesInList(listId);
-          setAttachedQuizzes(embeddedQuizzes);
+          const resolved = resolveListType(listData);
+          setListType(resolved);
+
+          if (resolved === 'question') {
+            const questionEntries = await getQuestionsInList(listId);
+            setAttachedQuestions(questionEntries);
+          } else {
+            const embeddedQuizzes = await getQuizzesInList(listId);
+            setAttachedQuizzes(embeddedQuizzes);
+          }
         } else {
           setErrorText('リストが見つかりません。');
         }
@@ -163,6 +177,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
     setLoading(true);
     setErrorText(null);
 
+    const isQuestionList = listType === 'question';
     const listData = {
       authorId: user.id,
       authorName: user.displayName,
@@ -170,8 +185,11 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
       title,
       description,
       coverImageUrl: coverImageUrl || undefined,
-      quizIds: attachedQuizzes.map((q) => q.id),
-      questionIds: [], // 設問の独立化対応に伴い、空の設問ID配列を初期値として設定
+      listType,
+      quizIds: isQuestionList ? [] : attachedQuizzes.map((q) => q.id),
+      questionIds: isQuestionList
+        ? attachedQuestions.map((e) => e.question.id)
+        : [],
       isPublished,
     };
 
@@ -183,7 +201,11 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
       } else {
         const newListId = await createQuizList(listData);
         alert('リストを作成しました！');
-        router.push(`/list/${newListId}`);
+        if (isQuestionList) {
+          router.push(`/list/${newListId}/edit`);
+        } else {
+          router.push(`/list/${newListId}`);
+        }
       }
     } catch (err: any) {
       setErrorText(err.message || '保存に失敗しました。');
@@ -198,8 +220,13 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
     
     try {
       let exportData;
-      if (listId) {
-        // すでに保存されている場合はFirestore上のIDからエクスポート
+      if (listType === 'question') {
+        if (!listId) {
+          alert('設問リストは保存後にエクスポートできます。');
+          return;
+        }
+        exportData = await exportQuestionList(listId, user.id);
+      } else if (listId) {
         exportData = await exportQuizList(listId, user.id);
       } else {
         // 新規作成時はクライアント上のデータで動的にパッケージ構築
@@ -317,7 +344,30 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
             </label>
           </div>
 
-          {/* クイズ検索・アタッチパネル (要件 4.1) */}
+          <div className={styles.formGroup} style={{ marginTop: 24 }}>
+            <label className={styles.label}>リスト種別</label>
+            <ListTypeSelector
+              value={listType}
+              onChange={setListType}
+              disabled={!!listId}
+            />
+          </div>
+
+          {listType === 'question' ? (
+            <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid var(--border-light)' }}>
+              <span className={styles.label} style={{ marginBottom: '12px', display: 'block' }}>
+                設問をアタッチする
+              </span>
+              <QuestionListAttachPanel
+                listId={listId ?? ''}
+                authorId={user?.id ?? ''}
+                attached={attachedQuestions}
+                onAttachedChange={setAttachedQuestions}
+                disabled={!listId}
+              />
+            </div>
+          ) : (
+          /* クイズ検索・アタッチパネル (要件 4.1) */
           <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid var(--border-light)' }}>
             <span className={styles.label} style={{ marginBottom: '12px', display: 'block' }}>クイズをアタッチする</span>
             <form onSubmit={handleSearch} className={styles.searchBar}>
@@ -358,9 +408,10 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
               )}
             </div>
           </div>
+          )}
         </div>
 
-        {/* 右カラム: アタッチしたクイズの順序並び替え (HTML5 Drag and Drop) (要件 4.2) */}
+        {listType === 'quiz' && (
         <div className={styles.card} style={{ minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
           <div className={styles.cardTitle}>
             <GripVertical size={20} />
@@ -408,6 +459,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
             <span>カードをドラッグして放すことで、リスト内の並び順をいつでもスムーズに入れ替えられます。</span>
           </div>
         </div>
+        )}
 
         {/* アクションバー (要件 4.3 エクスポート, 保存) */}
         <div className={styles.actionsBar}>
@@ -415,7 +467,10 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
             type="button"
             className="btn btn-secondary"
             onClick={handleExportList}
-            disabled={loading || attachedQuizzes.length === 0}
+            disabled={
+              loading ||
+              (listType === 'quiz' ? attachedQuizzes.length === 0 : !listId)
+            }
             style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
           >
             <Download size={18} />

@@ -738,6 +738,8 @@ sequenceDiagram
         Player->>QP: 「マイリストに追加」をクリック (リストを選択)
         QP->>QService: addQuestionToList(listId, questionId)
         activate QService
+        QService->>QService: assertListTypeOperation(list, 'question')
+        QService->>QService: assertParentQuizPublished(parentQuiz.status)
         QService->>DB: トランザクション開始
         DB->>DB: quizLists.questionIds 配列に questionId を arrayUnion
         QService-->>QP: 追加成功
@@ -745,6 +747,29 @@ sequenceDiagram
         QP-->>Player: マイリスト追加完了トースト表示
     end
 ```
+
+**Phase 8 ガード**: 設問ブックマーク・リスト追加はいずれも親クイズ `status === 'published'` を必須とする。設問リスト以外への `addQuestionToList` は `ListTypeMismatchError`。
+
+---
+
+### 1.7 リスト種別・設問リストプレイ・参照リンク作問（Phase 8）
+
+#### 1.7.1 `listType` と後方互換
+- `QuizList.listType`: `'quiz' | 'question'`。Firestore 既存ドキュメント未設定時は `resolveListType()` が `quiz` と解釈。
+- 作成時に `listType` を必須永続化。更新時の `listType` 変更はサービス層・Security Rules で拒否。
+- クイズリスト操作（`quizIds` CRUD）と設問リスト操作（`questionIds` CRUD）は `assertListTypeOperation` で分離。
+
+#### 1.7.2 設問リスト連続プレイ
+1. リスト詳細で `getQuestionsInList` により順序付きメンバーを取得。
+2. `question-list-session`（sessionStorage）に `listId` と進行インデックスを保持。
+3. 各設問プレイ完了時に `saveAttempt({ mode: 'question-list', listId, quizId: 親ID, totalQuestions: 1, ... })`。
+4. 結果画面から次設問へ遷移。最終設問完了後にセッションをクリア。
+
+#### 1.7.3 参照リンク作問（Copy-on-Write）
+1. `searchAuthorQuizzes` で自作クイズを検索し、設問を `linkKind: 'reference'` でエディタに追加。
+2. 保存時 `partitionQuestionsForSave` が参照 ID のみ / 新規所有設問 / 内容変更による切り離しコピーを分類。
+3. 参照設問は既存 `questions/{id}` を `quiz.questionIds` に追加するのみ（新規 `questions` ドキュメントは作成しない）。
+4. 参照設問の内容を編集した場合は `owned` 設問として新規 `questions` ドキュメントを作成（CoW）。
 
 ---
 

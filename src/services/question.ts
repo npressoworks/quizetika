@@ -1,4 +1,4 @@
-﻿import {
+import {
   doc,
   getDoc,
   query,
@@ -9,8 +9,13 @@
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import { questionsRef, bookmarksRef, quizListsRef, quizzesRef } from '../lib/firebase/firestore';
-import { Question, Bookmark, QuizList } from '../types';
+import { Question, Bookmark, QuizList, Quiz } from '../types';
 import { toggleBookmark } from './bookmark';
+import {
+  assertListTypeOperation,
+  assertParentQuizPublished,
+  QuestionNotListAddableError,
+} from '../lib/question-list-validation';
 
 /**
   * 指定されたIDの設問を1件取得する
@@ -40,13 +45,12 @@ export async function getQuestionsByQuiz(quizId: string): Promise<Question[]> {
   }
 
   const questions: Question[] = [];
-  const chunkSize = 10;
-  
-  for (let i = 0; i < questionIds.length; i += chunkSize) {
-    const chunk = questionIds.slice(i, i + chunkSize);
-    const q = query(questionsRef, where('id', 'in', chunk));
-    const snap = await getDocs(q);
-    snap.forEach((doc) => questions.push(doc.data()));
+
+  for (const questionId of questionIds) {
+    const snap = await getDoc(doc(questionsRef, questionId));
+    if (snap.exists()) {
+      questions.push(snap.data());
+    }
   }
 
   // クイズが保持する本来の順序（questionIds配列のインデックス）通りにソートして返す
@@ -120,6 +124,17 @@ export async function getBookmarkedQuestions(userId: string): Promise<Question[]
   * ユーザーが所有するリストに特定の設問を追加する（アトミックなトランザクション）
   */
 export async function addQuestionToList(listId: string, questionId: string): Promise<void> {
+  const question = await getQuestion(questionId);
+  if (!question?.quizId) {
+    throw new Error('設問が見つかりません。');
+  }
+  const quizSnap = await getDoc(doc(quizzesRef, question.quizId));
+  if (!quizSnap.exists()) {
+    throw new Error('設問が見つかりません。');
+  }
+  const parentQuiz = quizSnap.data() as Quiz;
+  assertParentQuizPublished(parentQuiz.status, QuestionNotListAddableError);
+
   const listDocRef = doc(quizListsRef, listId);
 
   await runTransaction(db, async (transaction) => {
@@ -129,6 +144,7 @@ export async function addQuestionToList(listId: string, questionId: string): Pro
     }
 
     const listData = listSnap.data() as QuizList;
+    assertListTypeOperation(listData, 'question');
     const currentQuestionIds = listData.questionIds || [];
 
     if (!currentQuestionIds.includes(questionId)) {
@@ -154,6 +170,7 @@ export async function removeQuestionFromList(listId: string, questionId: string)
     }
 
     const listData = listSnap.data() as QuizList;
+    assertListTypeOperation(listData, 'question');
     const currentQuestionIds = listData.questionIds || [];
 
     if (currentQuestionIds.includes(questionId)) {

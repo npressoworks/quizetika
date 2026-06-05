@@ -188,9 +188,101 @@
   - _Depends: 10.6_
   - _Requirements: 10.1, 10.5_
 
+---
+
+### 11. Phase 8 拡張 — 分類ブックマークと設問リストプレイ UI（2026-06）
+
+> **前提**: `quizeum-core` Phase 8 完了（`getBookmarkFeed`, `getQuestionsInList`, `toggleBookmark` 設問対応, `saveAttempt` の `question-list` モード）。本スペックは UI・セッション状態・遷移のみ。
+
+- [x] 11.1 (P) 設問リスト連続プレイセッションライブラリ
+  - `sessionStorage` キー `quizeum_question_list_session` でリスト ID・順序付きエントリ（`questionId`, `parentQuizId`）・現在インデックスを初期化・読取・進行・クリアする純関数を実装する。
+  - 設問リストプレイ用 URL（`mode=question-list`, `questionId`, `qIndex`, `listId`）を組み立てるヘルパーを提供する。
+  - Jest で init → read → advance → 最終後 null → clear のシーケンスを検証する。
+  - **完了状態**: セッションライブラリの単体テストがグリーンであり、設問リスト開始時に先頭エントリの URL が生成できること。
+  - _Requirements: 11.11, 11.12_
+  - _Boundary: question-list-session_
+  - _Depends: quizeum-core Phase 8_
+
+- [x] 11.2 (P) `useBookmarkFeed` フック
+  - マウント時に `getBookmarkFeed` を1回呼び出し、クイズ・リスト・設問の3分類フィードと loading 状態を返す。
+  - `toggleBookmark` による解除後、該当タブの配列から楽観的にエントリを除去する `removeBookmark` を提供する（タブ切替で再フェッチしない）。
+  - **完了状態**: 認証ユーザーで feed が3分類とも取得でき、解除後に UI 状態から当該アイテムが消えること。
+  - _Requirements: 11.1, 11.3, 11.4, 11.5_
+  - _Boundary: useBookmarkFeed_
+  - _Depends: quizeum-core Phase 8_
+
+- [x] 11.3 (P) ブックマークタブ・カードコンポーネント群
+  - `BookmarksTabs` で「クイズ」「リスト」「設問」タブを切り替え、設計どおりの `data-testid`（`bookmarks-tabs`, `bookmarks-tab-quiz`, `bookmarks-tab-list`, `bookmarks-tab-question`）を付与する。
+  - `BookmarkQuizGrid` は既存ホームカードスタイルを再利用し、解除トグルと `/quiz/[id]` 遷移を提供する。
+  - `BookmarkListGrid` はリストカードに解除トグルと `/list/[id]` リンクを提供する。
+  - `BookmarkQuestionList` は問題文抜粋・親クイズタイトル・ブックマーク日時降順で設問を表示し、カードクリックで `/quiz/[parentQuizId]/play?startAtQuestionId={id}` へ遷移する。
+  - 各タブの空状態に要件どおりの案内文を表示する。
+  - **完了状態**: 3タブコンポーネントが Storybook 相当の単体描画または RTL で切替・空状態・testid を確認できること。
+  - _Requirements: 11.1, 11.3, 11.4, 11.5, 11.6_
+  - _Depends: 11.2_
+  - _Boundary: BookmarksTabs, BookmarkQuizGrid, BookmarkListGrid, BookmarkQuestionList_
+
+- [x] 11.4 ブックマーク一覧ページの3タブ統合
+  - `bookmarks/page.tsx` を `getBookmarkedQuizzes` 単体から `useBookmarkFeed` + `BookmarksTabs` + 各グリッドへ置換する。
+  - 未認証アクセス時は既存どおり `/login` へリダイレクトする（11.2）。
+  - **完了状態**: `/bookmarks` で3タブが表示され、クイズタブの既存カード UX が維持されつつリスト・設問タブが動作すること。
+  - _Requirements: 7.3, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6_
+  - _Depends: 11.3_
+  - _Boundary: BookmarksPage_
+
+- [x] 11.5 (P) 設問ブックマークトグルコンポーネント
+  - 設問行に星アイコンのオン／オフトグルを表示し、認証時は `toggleBookmark(userId, questionId, 'question')` を呼び出す。
+  - 未認証時の操作は `/login` へ遷移する。親クイズ非公開などコア検証エラー時はトグルを元に戻しエラーを表示する。
+  - **完了状態**: トグル操作で BM 状態が切り替わり、未認証時にログイン画面へ遷移すること。
+  - _Requirements: 11.7, 11.8, 11.9_
+  - _Boundary: QuestionBookmarkToggle_
+  - _Depends: quizeum-core Phase 8_
+
+- [x] 11.6 (P) リスト詳細の設問リスト分岐と連続プレイ開始
+  - `resolveListType` で `listType === 'question'` のとき `getQuestionsInList` による順序付き設問一覧（抜粋・親タイトル）と「設問リストプレイ開始」ボタンを表示する。
+  - 開始時に `initQuestionListSession` を呼び、先頭設問の親クイズプレイ URL へ遷移する。
+  - `listType === 'quiz'`（または legacy 未設定）は従来の `getQuizzesInList` + 「リストプレイ開始」（`mode=list`）を維持し、設問リスト UI と混在させない。
+  - **完了状態**: 設問リスト詳細で設問一覧と開始ボタンが表示され、クイズリスト詳細は従来どおりクイズ連続プレイのみ提供すること。
+  - _Requirements: 11.10, 11.11, 11.13_
+  - _Depends: 11.1_
+  - _Boundary: ListDetailPage_
+
+- [x] 11.7 プレイ画面の設問リストモードと設問BM統合
+  - `mode=question-list` クエリ時、`questionId` に一致する1問のみをプレイ対象とし、完了時に `saveAttempt` で `mode: 'question-list'`, `totalQuestions: 1`, `listId` を送信する。
+  - 通常・模擬試験プレイ中の設問表示行に `QuestionBookmarkToggle` を配置する（ウミガメスープは対象外でよい）。
+  - `startAtQuestionId` クエリ時は当該設問から解答開始できるようインデックスを初期化する（設問タブからの単体プレイ、セッションは作成しない）。
+  - **完了状態**: 設問リストプレイで1問完了後に attempt が `question-list` で保存され、プレイ中に設問 BM トグルが動作すること。
+  - _Requirements: 11.6, 11.7, 11.9, 11.11, 11.14_
+  - _Depends: 11.1, 11.5_
+  - _Boundary: QuizPlayPage_
+
+- [x] 11.8 結果画面の設問BMと設問リスト次設問遷移
+  - 正誤一覧の各設問行に `QuestionBookmarkToggle` を配置する（公開親設問のみ操作可能）。
+  - `listId` かつ `question-list-session` 存在時は、クイズリスト（`quizIds`）分岐より先に設問リスト分岐を評価し、「次の設問へ」で次エントリのプレイ URL へ遷移する。最終設問後はセッションをクリアし完了メッセージとリスト詳細リンクを表示する。
+  - セッション欠落時は「リストの続きを再生できません」案内を表示する。
+  - **完了状態**: 設問リスト2問目以降へ結果画面から遷移でき、最終設問後に完了 UI が表示されること。
+  - _Requirements: 11.8, 11.12_
+  - _Depends: 11.1, 11.5, 11.7_
+  - _Boundary: QuizResultPage_
+
+- [x] 11.9 Phase 8 統合検証
+  - 3タブブックマーク（表示・解除・設問カード→プレイ）、設問 BM トグル（プレイ・結果）、設問リスト連続プレイ（開始→1問完了→次設問→完了）、クイズリスト回帰を Jest またはコンポーネントテストで検証する。
+  - `bookmarksCount` 更新や attempt 永続化ロジックが UI 層に追加されていないことを確認する。
+  - **完了状態**: Phase 8 関連テストがグリーンであり、手動スモークで設問リスト3設問連続プレイが完走すること。
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 11.10, 11.11, 11.12, 11.13, 11.14_
+  - _Depends: 11.4, 11.6, 11.7, 11.8_
+
+- [ ]* 11.10 Phase 8 E2E スモーク（任意）
+  - `[data-testid="bookmarks-tabs"]` で3タブ切替、設問リスト詳細からの連続プレイ、結果画面の次設問ボタンを Playwright で検証する。
+  - **完了状態**: E2E 記録またはチェックリストが残ること。
+  - _Depends: 11.9_
+  - _Requirements: 11.1, 11.10, 11.12_
+
 ## Implementation Notes
 
 - Phase 6 は **読み取り専用**（`metadata_genres` 書き込み除く）。`attempts` の **読み取り**（プレイ済み ID 一覧）は要件 1.3 のため `listUserPlayedQuizIds` + API で許容。
 - **確定 UX**: ジャンルアイコン＝遷移のみ。ジャンル条件は `GenreSearchField` + `searchQuizzes`（フィルタ変更・デバウンス）。`playStatus` は認証後クライアント後段フィルタ。
 - `quizeum-creator-dash-ui` のエディタ動的セレクトと併せて E2E するとジャンル一貫性の受け入れが容易。
 - Phase 6 実装（2026-06-03）: `GenreNav` は遷移専用。`GenreSearchField` + `useHomeQuizFeed`（300ms debounce）+ `applyPlayStatusFilter` / `GET /api/user/played-quiz-ids` で要件 1.3 完遂。Jest 296 件・build PASS。
+- **Phase 8**: ブックマークは `getBookmarkFeed` 一括取得 + 楽観的解除。設問リスト進行は `question-list-session`（sessionStorage）。attempt 永続化・`bookmarksCount` はコアのみ（要件 11.14）。クイズリスト連続プレイ（`mode=list`）は回帰維持。
+- Phase 8 実装（2026-06-05）: `components/bookmark/*`, `useBookmarkFeed`, `question-list-session`。Jest 354 件・build PASS。

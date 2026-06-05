@@ -10,6 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
+    "emulators": "firebase emulators:start --only auth,firestore,storage --project quizeum-77bc6",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "deploy:rules": "firebase deploy --only firestore:rules"
@@ -39,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "eslint-plugin-security": "^3.0.1",
+    "firebase-tools": "^15.19.1",
     "jest": "^30.4.2",
     "jest-environment-jsdom": "^30.4.1",
     "jest-environment-node": "^30.4.1",

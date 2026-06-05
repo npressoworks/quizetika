@@ -63,10 +63,17 @@ export interface SortingItem {
 /** 記述式問題の入力タイプ */
 export type TextInputMode = 'text' | 'numeric' | 'char-count';
 
+/** クイズリストの種別（未設定は読み取り時 `quiz` として扱う） */
+export type QuizListType = 'quiz' | 'question';
+
+/** エディタ送信用: 参照リンク設問か新規/所有設問か（Firestore 永続化フィールドは必須ではない） */
+export type QuestionLinkKind = 'owned' | 'reference';
+
 // 3. 問題 (Question)
 export interface Question {
   id: string;             // 問題ID (UUIDまたは連番)
   quizId?: string;        // 属するクイズのID
+  linkKind?: QuestionLinkKind;
   authorId?: string;      // 作成者のユーザーID
   authorName?: string;    // 作成者の表示名 (非正規化)
   authorAvatar?: string;  // 作成者のアバターURL (非正規化)
@@ -150,6 +157,8 @@ export interface QuizList {
   coverImageUrl?: string; // カバー画像URL
   quizIds: string[];      // 含まれるクイズIDの配列
   questionIds: string[];  // 含まれる設問IDの配列
+  /** リスト種別。既存ドキュメント未設定時は `quiz` として解釈 */
+  listType?: QuizListType;
   isPublished: boolean;   // 公開フラグ
   bookmarksCount: number; // ブックマークされている数
   createdAt: Date;
@@ -193,7 +202,11 @@ export interface Attempt {
   userId: string;
   quizId: string;
   listId?: string | null;
-  mode: 'normal' | 'exam' | 'flashcard' | 'review' | 'list' | 'test-play';
+  /**
+   * プレイモード。
+   * `question-list`: 設問リスト連続プレイ（設問ごとに1 attempt、`listId` + 親 `quizId`、`totalQuestions: 1`）
+   */
+  mode: 'normal' | 'exam' | 'flashcard' | 'review' | 'list' | 'question-list' | 'test-play';
   score: number;          // 正解数
   totalQuestions: number; // 全問題数
   elapsedSeconds: number; // 経過秒数
@@ -220,6 +233,38 @@ export interface PlayHistoryEntry {
 export interface PlayHistoryPage {
   items: PlayHistoryEntry[];
   nextCursor: string | null;
+}
+
+/** ブックマークした設問1件（親クイズメタ付き） */
+export interface BookmarkedQuestionEntry {
+  question: Question;
+  parentQuizId: string;
+  parentQuizTitle: string;
+  bookmarkedAt: Date;
+}
+
+/** 分類ブックマーク一覧（クイズ・リスト・設問） */
+export interface BookmarkFeed {
+  quizzes: Quiz[];
+  lists: QuizList[];
+  questions: BookmarkedQuestionEntry[];
+}
+
+/** 既存リストの listType 未設定をクイズリストとして解釈 */
+export function resolveListType(list: Pick<QuizList, 'listType'>): QuizListType {
+  return list.listType ?? 'quiz';
+}
+
+/** 設問リストプレイ attempt の契約を満たすか */
+export function satisfiesQuestionListAttemptContract(
+  attempt: Pick<Attempt, 'mode' | 'listId' | 'quizId' | 'totalQuestions'>
+): boolean {
+  return (
+    attempt.mode === 'question-list' &&
+    !!attempt.listId &&
+    !!attempt.quizId &&
+    attempt.totalQuestions === 1
+  );
 }
 
 /** `metadata_genres` マスタ（仮想統合・ジャンル一覧） */

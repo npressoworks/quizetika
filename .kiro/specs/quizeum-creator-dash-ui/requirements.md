@@ -1,73 +1,113 @@
-﻿# Requirements Document: quizeum-creator-dash-ui
+# 要件定義書: quizeum-creator-dash-ui
 
-## Introduction
+## はじめに
 本ドキュメントは、クイズ投稿SNS「quizeum」におけるクイズ作成・編集、作家ダッシュボード（アナリティクスおよび間違い指摘管理）、およびリストの作成・編集・エクスポートを含む、クリエイター（作家）向けフロントエンドUI要件を定義します。
 
 **Phase 6（2026-06）**: クイズエディタのジャンルセレクトを `metadata_genres` マスタ（`listActiveGenres`）駆動に切り替え、ジャンル新設可決後の選択肢反映と play-flow 探索 UI との ID 一貫性を確保する。
 
-## Boundary Context
-- **In scope**:
+**Phase 8（2026-06）**: リスト作成時の `listType`（クイズリスト／設問リスト）選択、設問リスト編集（設問検索・アタッチ・DnD・エクスポート）、および作問エディタでの過去自作クイズ検索・参照リンク追加 UI を追加する（永続化・検証は `quizeum-core` が担当）。
+
+## 境界コンテキスト
+- **対象範囲（In scope）**:
   - クイズ新規作成・編集画面における動的設問管理、設問タイプ（選択肢/短答）の切り替え。
   - クイズタグ入力時の「自動名寄せ正規化」と類似 canonical タグ存在時のインラインサジェスト警告UI。
-  - 公開申請時のZodスキーマを用いた厳格な検証エラーリストインライン表示。
+  - 公開申請時の Zod スキーマを用いた厳格な検証エラーリストインライン表示。
   - 作家ダッシュボードにおけるアナリティクスグラフ（累計プレイ数、評価、ブックマーク）およびクイズ個別設問解答割合グラフ。
   - プレイヤーからクローズドに送信された「間違い指摘フィードバック」の一覧表示と修正アクション動線。
-  - 自分が作成したクイズデータのワンクリック一括JSONエクスポート機能。
-  - クイズリスト詳細画面における収録クイズ一覧と listId / mode = 'list' による連続プレイ開始UI。
-  - クイズリスト作成・編集画面におけるクイズ検索アタッチ、ドラッグ＆ドロップによる順序並べ替え、およびリストパッケージJSONエクスポート。
-- **Out of scope**:
-  - 外部クイズデータのインポートUIおよびインポート処理本体（仕様変更によりインポート機能は完全に廃止されたため、UI領域は一切設置しません）。
-- **Adjacent expectations（Phase 6）**:
+  - 自分が作成したクイズデータのワンクリック一括 JSON エクスポート機能。
+  - クイズリスト詳細画面における収録クイズ一覧と `listId` / `mode = 'list'` による連続プレイ開始 UI。
+  - クイズリスト作成・編集画面におけるクイズ検索アタッチ、ドラッグ＆ドロップによる順序並べ替え、およびリストパッケージ JSON エクスポート。
+  - **Phase 8**: リスト作成時の `listType` 選択、設問リスト向けの設問検索・アタッチ・並び替え・エクスポート UI、クイズエディタ内の過去自作クイズ検索パネルと設問の参照リンク追加 UI。
+- **対象外（Out of scope）**:
+  - 外部クイズデータのインポート UI およびインポート処理本体（仕様変更によりインポート機能は完全に廃止されたため、UI 領域は一切設置しない）。
+  - **Phase 8**: ブックマーク一覧の3タブ UI、プレイ／結果画面での設問ブックマーク、設問リスト連続プレイの遷移ロジック（`quizeum-play-flow-ui`）。プロフィールのリストタイプ別タブ表示（`quizeum-auth-profile-ui`）。
+- **隣接システムへの期待（Phase 6）**:
   - ジャンルマスタ読み取り・公開時 `canonicalGenreId` 解決は `quizeum-core` が担当。本スペックはエディタ UI の選択肢表示とリフレッシュのみ。
   - ジャンル新設申請・投票 UI は `quizeum-moderation-governance-ui`（`/community/genres`）が担当。
+- **隣接システムへの期待（Phase 8）**:
+  - リスト `listType` の永続化、設問追加の公開検証、`addQuestionToList` / `removeQuestionFromList`、`exportQuestionList`、`reorderQuestionList`（設問 ID）は `quizeum-core` が担当。
+  - 過去自作クイズ検索は `searchAuthorQuizzes`、参照リンク保存は `QuizService.saveQuiz` の参照パス（Copy-on-Write 切り離し含む）に依存する。
+  - 設問リストの「設問リストプレイ開始」ボタンと連続遷移は `quizeum-play-flow-ui`（要件 11）が担当。本スペックはリスト詳細の編集導線とメタ表示を担当する。
 
-## Requirements
+## 要件
 
-### Requirement 1: クイズ作成・編集画面 (Page: `/quiz/create`, `/quiz/[id]/edit`)
-**Objective:** As a Quiz Creator, I want a visual editor with live tag normalization, suggestions, and strict validation, so that I can draft, edit, and publish high-quality quizzes.
+### 要件 1: クイズ作成・編集画面 (Page: `/quiz/create`, `/quiz/[id]/edit`)
+**目的:** クイズ作成者として、タグ正規化・サジェスト・厳格な検証付きのビジュアルエディタでクイズを下書き・編集・公開したい。それにより高品質なクイズを効率よく制作できる。
 
-#### Acceptance Criteria
-1. The Quiz Editor Screen shall display metadata fields for title, description, thumbnail upload, difficulty (1-10 slider), genre selector, and tag inputs (maximum 5 tags). **Phase 6 以降**: ジャンルセレクトの選択肢は `listActiveGenres` 由来とする（要件 5 参照）。
-2. The Quiz Editor Screen shall display a link "新しいジャンルを申請する" adjacent to the genre selector, redirecting to the Genre Request Screen.
-3. When the creator inputs a tag, the Quiz Editor Screen shall normalize the text (trim, convert to lowercase, remove spaces/symbols) and, if a similar canonical tag exists, display an inline warning: "推奨: 類似するタグ #TagName が既に存在します。既存のタグを使用することをお勧めします。".
-4. The Quiz Editor Screen shall allow creators to dynamically add or delete questions, toggle question type between "選択式 (multiple-choice)" and "短答文字入力式 (text-input)".
-5. When the creator attempts to publish a quiz, the Quiz Editor Screen shall run Zod schema validation and, if any integration constraints are violated (e.g., no question, no correct answer specified), display a clear red error list.
-6. The Quiz Editor Screen shall allow the creator to click "下書き保存" at any time, saving the draft state to Firestore via `QuizService.saveQuiz(status='draft')` without validation errors.
+#### 受け入れ基準
+1. クイズエディタ画面は、タイトル、説明、サムネイルアップロード、難易度（1〜10スライダー）、ジャンルセレクト、タグ入力（最大5個）のメタデータフィールドを表示すること。**Phase 6 以降**: ジャンルセレクトの選択肢は `listActiveGenres` 由来とする（要件 5 参照）。
+2. クイズエディタ画面は、ジャンルセレクトの隣に「新しいジャンルを申請する」リンクを表示し、ジャンル新設申請画面へ遷移できること。
+3. 作成者がタグを入力したとき、クイズエディタ画面は、テキストを正規化（トリム、小文字化、空白・記号除去）し、類似する canonical タグが存在する場合は「推奨: 類似するタグ #TagName が既に存在します。既存のタグを使用することをお勧めします。」のインライン警告を表示すること。
+4. クイズエディタ画面は、設問の動的追加・削除、および設問タイプの「選択式 (multiple-choice)」／「短答文字入力式 (text-input)」切り替えを可能にすること。
+5. 作成者がクイズの公開を試みたとき、クイズエディタ画面は、Zod スキーマ検証を実行し、統合制約違反（設問なし、正解未指定等）がある場合は明確な赤色エラーリストを表示すること。
+6. クイズエディタ画面は、作成者が任意のタイミングで「下書き保存」をクリックし、検証エラーなく `QuizService.saveQuiz(status='draft')` 経由で下書きを Firestore に保存できること。
 
-### Requirement 2: 作家ダッシュボード (Page: `/creator/dashboard`)
-**Objective:** As a Quiz Creator, I want a unified dashboard for analytics, feedback resolution, and exporting my content, so that I can monitor performance and maintain my quizzes.
+### 要件 2: 作家ダッシュボード (Page: `/creator/dashboard`)
+**目的:** クイズ作成者として、アナリティクス・指摘対応・エクスポートを一元的に行いたい。それによりパフォーマンスを把握しクイズを維持できる。
 
-#### Acceptance Criteria
-1. The Creator Dashboard Screen shall display an analytics summary (cumulative plays, average rating, bookmarks) using visual charts (line/bar graphs).
-2. The Creator Dashboard Screen shall display a detailed analytics panel for each quiz, visualizing the answer distribution percentage for each question (e.g., pie charts of choice selections).
-3. The Creator Dashboard Screen shall display a closed feedback report queue, displaying player-reported issues (typos, fact errors, alternatives).
-4. When the creator clicks "修正する" on a feedback report card, the system shall redirect the creator to the corresponding Quiz Editor Screen pre-loaded with the affected question.
-5. The Creator Dashboard Screen shall display a "クイズ一括エクスポート" button that packages all quizzes (including drafts) into a single downloadable JSON package.
+#### 受け入れ基準
+1. 作家ダッシュボード画面は、累計プレイ数・平均評価・ブックマーク数のアナリティクス概要を折れ線／棒グラフ等で表示すること。
+2. 作家ダッシュボード画面は、各クイズの設問別解答割合（選択肢の円グラフ等）を詳細パネルで表示すること。
+3. 作家ダッシュボード画面は、プレイヤーからのクローズド指摘（誤字、事実誤認、別解等）のキューを一覧表示すること。
+4. 作成者が指摘カードの「修正する」をクリックしたとき、システムは、該当設問がプリロードされたクイズエディタ画面へ遷移すること。
+5. 作家ダッシュボード画面は、「クイズ一括エクスポート」ボタンで全クイズ（下書き含む）を単一のダウンロード可能な JSON パッケージにまとめること。
 
-### Requirement 3: クイズリスト詳細画面 (Page: `/list/[id]`)
-**Objective:** As a Quizeum User, I want to view quiz lists and start sequential attempts, so that I can solve organized collections of quizzes.
+### 要件 3: クイズリスト詳細画面 (Page: `/list/[id]`)
+**目的:** Quizeum のユーザーとして、リストの内容を確認し連続プレイを開始したい。それにより整理されたクイズコレクションに取り組める。
 
-#### Acceptance Criteria
-1. The Quiz List Detail Screen shall display the list title, description, creator avatar, list cover image, and card list of embedded quizzes.
-2. When the user clicks the "リストプレイ開始" button, the Quiz List Detail Screen shall start sequential play, tracking attempts with `attempts.listId` set to the list ID and `mode` set to `'list'`.
-3. Where the authenticated user is the list creator, the Quiz List Detail Screen shall display a "リストを編集する" edit button.
+#### 受け入れ基準
+1. リスト詳細画面は、リストタイトル、説明、作成者アバター、カバー画像、およびクイズリストと設問リストを区別する種別表示（`listType` 未設定時はクイズリストとして表示）を表示すること。
+2. リストがクイズリスト（`listType` が `quiz` または未設定）であるとき、リスト詳細画面は、収録クイズのカード一覧を表示すること。
+3. リストが設問リスト（`listType` が `question`）であるとき、リスト詳細画面は、収録設問を順序付き一覧で表示し、問題文抜粋と親クイズタイトルを含めること（連続プレイ開始は `quizeum-play-flow-ui` 要件 11 が担当）。
+4. ユーザーがクイズリストで「リストプレイ開始」をクリックしたとき、リスト詳細画面は、従来どおり `attempts.listId` と `mode: 'list'` によるクイズ単位の連続プレイを開始すること。
+5. 認証済みユーザーがリスト作成者である場合、リスト詳細画面は、`listType` に関わらず「リストを編集する」ボタンを表示すること。
 
-### Requirement 4: リスト作成・編集画面 (Page: `/list/create`, `/list/[id]/edit`)
-**Objective:** As a Quiz Creator, I want to draft quiz lists using search and drag-and-drop sorting, so that I can package themed content collections.
+### 要件 4: リスト作成・編集画面 (Page: `/list/create`, `/list/[id]/edit`)
+**目的:** クイズ作成者として、検索とドラッグ＆ドロップでリストを編集したい。それによりテーマ別のコンテンツコレクションをパッケージ化できる。
 
-#### Acceptance Criteria
-1. The List Editor Screen shall display metadata fields (title, description, cover image, public/private visibility toggle) and a quiz search panel.
-2. The List Editor Screen shall allow creators to search and attach quizzes, and sort their order using visual drag-and-drop handles.
-3. The List Editor Screen shall display a "リストパッケージエクスポート" button that packages the list metadata and full self-created quiz data into a single downloadable JSON package.
+#### 受け入れ基準
+1. リスト編集画面は、タイトル、説明、カバー画像、公開／非公開トグル、および `listType` に応じたコンテンツアタッチパネル（要件 6）を表示すること。
+2. リストタイプが `quiz` のとき、リスト編集画面は、クイズ検索・アタッチ、ドラッグ＆ドロップ並び替え、クイズリスト JSON エクスポートを従来どおり提供すること。
+3. リストタイプが `question` のとき、リスト編集画面は、要件 6 に従い設問のアタッチ・並び替え・エクスポートを提供すること。
 
-### Requirement 5: クイズエディタのジャンルマスタ連携（Phase 6）
-**Objective:** As a Quiz Creator, I want the genre selector to reflect approved genre metadata, so that I can publish quizzes under genres that match exploration and moderation rules.
+### 要件 5: クイズエディタのジャンルマスタ連携（Phase 6）
+**目的:** クイズ作成者として、承認済みジャンルマスタに沿ったジャンルセレクトを使いたい。それにより探索・モデレーションルールと一致したジャンルで公開できる。
 
-#### Acceptance Criteria
-1. The Quiz Editor Screen shall load active genres via `listActiveGenres` (or equivalent core API) on mount and render each option with master `displayName` and value `genreId` (document ID).
-2. The Quiz Editor Screen shall not use a hardcoded `<option>` list as the source of truth for selectable genres.
-3. The Quiz Editor Screen shall keep the link "新しいジャンルを申請する" adjacent to the genre selector, navigating to `/community/genres`.
-4. When the editor regains window focus after the creator visited the genre request flow (or on explicit retry), the Quiz Editor Screen shall refetch active genres so newly approved genres appear without a full page reload.
-5. When editing a draft whose stored `genre` is not in the current active list (legacy or pending merge), the Quiz Editor Screen shall still display the current value and allow save; publish-time validation remains delegated to `quizeum-core`.
-6. When genre master fetch fails, the Quiz Editor Screen shall show an error or retry affordance and shall not silently fall back to a hardcoded genre list.
-7. The Quiz Editor Screen shall submit the selected `genreId` to `QuizService.saveQuiz` / publish flows unchanged in shape; canonical resolution on publish is handled by core.
+#### 受け入れ基準
+1. クイズエディタ画面は、マウント時に `listActiveGenres`（または同等のコア API）で有効ジャンル一覧を取得し、各 option にマスタの `displayName` と値 `genreId`（ドキュメント ID）を表示すること。
+2. クイズエディタ画面は、選択可能ジャンルの正本としてハードコードされた `<option>` 一覧を用いてはならない。
+3. クイズエディタ画面は、ジャンルセレクトの隣に「新しいジャンルを申請する」リンクを維持し、`/community/genres` へ遷移できること。
+4. 作成者がジャンル新設フローから戻ったあとエディタがフォーカスを得たとき、または明示的な再試行が行われたとき、クイズエディタ画面は、有効ジャンル一覧を再取得し、新規承認ジャンルをフルリロードなしで選択肢に反映すること。
+5. 保存済み下書きの `genre` が現行の有効一覧に含まれないとき（レガシーまたはマージ保留）、クイズエディタ画面は、現在値を表示したまま保存を許可すること（公開時検証は `quizeum-core` に委譲）。
+6. ジャンルマスタ取得に失敗した場合、クイズエディタ画面は、エラーまたは再試行 UI を表示し、サイレントにハードコード一覧へフォールバックしてはならない。
+7. クイズエディタ画面は、選択した `genreId` を `QuizService.saveQuiz` / 公開フローへ従来どおりの形状で送信すること（公開時の canonical 解決は core が担当）。
+
+### 要件 6: 設問リストの作成・編集（Phase 8）(Pages: `/list/create`, `/list/[id]/edit`)
+**目的:** クイズ作成者として、公開済み設問を複数ソースから集めて設問リストを作成・編集したい。それによりクイズ単位を超えた学習用コレクションを編集できる。
+
+#### 受け入れ基準
+1. 作成者がリスト編集画面で新規リストの作成を開始したとき、クリエイターダッシュボード UI は、保存前にリストタイプ `quiz` または `question` の選択を必須とし、`createQuizList` 経由で `listType` を永続化すること。
+2. 既存リストを編集するとき、クリエイターダッシュボード UI は、現在の `listType` を表示し、作成後の `listType` 変更を許可してはならない。
+3. リストタイプが `question` のとき、リスト編集画面は、クイズアタッチパネルを非表示にし、設問アタッチパネルを表示すること。
+4. 作成者がアタッチする設問を検索したとき、リスト編集画面は、少なくとも次のソースでキーワード検索をサポートすること：自作公開クイズ内の設問、ブックマーク済み設問（`getBookmarkedQuestions`）、コアルールで追加可能な他者の公開設問。
+5. 作成者が設問をアタッチ選択したとき、リスト編集画面は、`addQuestionToList` を呼び出し、問題文抜粋と親クイズタイトルをアタッチ一覧に表示すること。
+6. 候補設問の親クイズが公開済みでない場合、作成者が当該設問のアタッチを試みたとき、クリエイターダッシュボード UI は、エラーを表示し、設問を追加してはならない。
+7. 作成者がアタッチ済み設問を削除したとき、リスト編集画面は、`removeQuestionFromList` を呼び出し、フルページリロードなしで UI を更新すること。
+8. 作成者がアタッチ済み設問の順序を変更したとき、リスト編集画面は、`reorderQuestionList`（または同等のコア API）を呼び出し、ドラッグ＆ドロップハンドルで順序を保持すること。
+9. 作成者が設問リストのエクスポートを実行したとき、リスト編集画面は、`exportQuestionList` を呼び出し、コアのエクスポート規則に従ったリストメタデータと設問参照を含む JSON パッケージをダウンロードすること。
+10. リストタイプが `quiz` のとき、リスト編集画面は、従来どおりのクイズ検索・アタッチ・並び替え・エクスポートを維持し、設問アタッチパネルを表示してはならない。
+
+### 要件 7: 作問エディタの過去自作クイズ検索・参照リンク（Phase 8）(Pages: `/quiz/create`, `/quiz/[id]/edit`)
+**目的:** クイズ作成者として、過去の自作クイズから設問を検索し、参照リンクで新規クイズに再利用したい。それにより再入力なしで効率的に作問できる。
+
+#### 受け入れ基準
+1. クイズエディタ画面は、認証済み作成者向けに折りたたみ可能なパネル「過去のクイズから設問を追加」（または同等のラベル）を表示すること。
+2. 作成者がパネルでキーワードを入力またはタグを選択したとき、クイズエディタ画面は、現在の作成者にスコープした `searchAuthorQuizzes` を呼び出し、下書きを含む一致クイズを一覧表示すること。
+3. 作成者が検索結果のクイズを展開したとき、クイズエディタ画面は、当該クイズの設問を問題文抜粋付きで表示し、個別設問のリンク選択を可能にすること。
+4. 作成者が自作過去クイズ内の設問をリンク確認したとき、クイズエディタ画面は、エディタ状態に参照リンク（`linkKind: 'reference'`）として追加し、UI 層で設問内容を複製しないこと。
+5. 作成者が所有しないクイズの設問をリンクしようとした場合、クリエイターダッシュボード UI は、当該操作を提供しない、または試行時に禁止エラーを表示すること。
+6. クイズエディタ画面は、参照リンク済み設問と新規作成設問を視覚的に区別すること（例：バッジ「参照リンク」）。
+7. 作成者が参照リンク済み設問の内容を編集したとき、クイズエディタ画面は、下書き保存または公開保存の前に、コアの Copy-on-Write 方針に従い保存時に切り離し用のローカルコピーが作成され得る旨を作成者に通知すること。
+8. 作成者が下書きから参照リンク済み設問を削除したとき、クイズエディタ画面は、エディタ上からのみ参照を解除し、元クイズの設問レコードを削除してはならない。
+9. クイズエディタ画面は、参照リンク済み設問 ID を `QuizService.saveQuiz` / 公開フローへ送信し、内容が未変更の場合は core が設問ドキュメントを複製せず参照として永続化できること。
+10. クリエイターダッシュボード UI は、参照の永続化、所有権チェック、重複ドキュメント防止をクライアントで実装してはならない（いずれも `quizeum-core` の責務）。

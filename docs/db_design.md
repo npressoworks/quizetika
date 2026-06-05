@@ -197,6 +197,7 @@ erDiagram
 | `aiContextDetails` | `string` | 任意 | 最大2000文字 | 水平思考クイズのAI判定用裏設定コンテキスト。 |
 | `truthKeywords` | `array (string)` | 任意 | 真相自動判定キーワード | 水平思考クイズ用の必須正解キーワード。 |
 | `sourceUrl` | `string \| null` | 任意 | 最大2048文字 / `null` | 設問の出典・参考URLリンク。解説の根拠となる外部ページ（Wikipedia、公式ドキュメント等）を任意で登録する。 |
+| `linkKind` | `string` | 任意 | `'owned' \| 'reference'` | **エディタ送信用（Phase 8）**。参照リンク作問時に UI が `reference` を付与。Firestore 永続化フィールドではなく、保存時に `partitionQuestionsForSave` が参照 ID のみ / Copy-on-Write 切り離しに分類する。 |
 | `correctCount` | `number` | **必須** | `0` | 正解した累計回数。 |
 | `incorrectCount` | `number` | **必須** | `0` | 不正解だった累計回数。 |
 | `bookmarksCount` | `number` | **必須** | `0` | この設問単体がブックマーク登録された総ユーザー数。 |
@@ -206,7 +207,7 @@ erDiagram
 ---
 
 ### 2.4 `quizLists` コレクション (自動割り当てドキュメントID)
-複数のクイズまたは特定の設問を一つのテーマやリストとしてパッケージ化するフォルダモデルです。
+複数のクイズまたは特定の設問を一つのテーマやリストとしてパッケージ化するフォルダモデルです。`listType` によりクイズリスト（`quizIds`）と設問リスト（`questionIds`）を区別します。
 
 | フィールド名 | 論理物理型 | 必須 / 任意 | 初期値 / 制約 | 説明 |
 | :--- | :--- | :--- | :--- | :--- |
@@ -216,8 +217,9 @@ erDiagram
 | `authorAvatar` | `string` | **必須** | 非正規化保持 / デフォルトURL | 作成者のアバターURL。ユーザー削除時は退会ユーザー用のデフォルトアバターURLに更新される。 |
 | `title` | `string` | **必須** | 最大50文字 | リストのタイトル。 |
 | `description` | `string` | **必須** | 最大300文字 | リストの概要・説明文。 |
-| `quizIds` | `array (string)` | **必須** | `[]` | リストに組み込まれた `quizzes.id` の配列（登録されたクイズ全体）。 |
-| `questionIds` | `array (string)` | **必須** | `[]` | **[NEW]** リストにアタッチされた個別の `questions.id` の配列（登録された設問単体）。 |
+| `listType` | `string` | 任意（新規作成時必須） | `'quiz' \| 'question'` / 未設定は `quiz` | **Phase 8**。リスト種別。既存ドキュメント未設定時は読み取り層 `resolveListType()` が `quiz` と解釈。作成後の変更は拒否。 |
+| `quizIds` | `array (string)` | **必須** | `[]` | クイズリスト（`listType === 'quiz'`）で使用。`quizzes.id` の配列。 |
+| `questionIds` | `array (string)` | **必須** | `[]` | 設問リスト（`listType === 'question'`）で使用。公開親クイズに属する `questions.id` の配列（他者の公開設問も追加可）。 |
 | `isPublished` | `boolean` | **必須** | `false` | 公開状態フラグ。 |
 | `bookmarksCount`| `number` | **必須** | `0` | ブックマーク登録された総件数。 |
 | `createdAt` | `timestamp` | **必須** | `request.time` | 新規作成日時. |
@@ -258,8 +260,8 @@ erDiagram
 | `id` | `string` | **必須** | 自動割り当てID | ドキュメントの一意ID。 |
 | `userId` | `string` | **必須** | `users.id` 参照 | クイズをプレイしたユーザーの `uid`。 |
 | `quizId` | `string` | **必須** | `quizzes.id` 参照 | プレイした対象のクイズID。 |
-| `listId` | `string` | 任意 | `quizLists.id` 参照 | クイズリストからプレイされた場合のリストID。 |
-| `mode` | `string` | **必須** | `'normal' \| 'exam' \| 'flashcard' \| 'review' \| 'list'` | プレイモード。 |
+| `listId` | `string` | 任意 | `quizLists.id` 参照 | クイズリストまたは設問リストからプレイされた場合のリストID。 |
+| `mode` | `string` | **必須** | `'normal' \| 'exam' \| 'flashcard' \| 'review' \| 'list' \| 'question-list' \| 'test-play'` | プレイモード。`question-list` は設問リスト連続プレイ（設問ごとに1 attempt、`totalQuestions: 1`）。 |
 | `score` | `number` | **必須** | 非負整数 | 正解した問題数。 |
 | `totalQuestions`| `number` | **必須** | 非負整数 | クイズの総問題数。 |
 | `elapsedSeconds`| `number` | **必須** | 秒数 | 解答経過時間（秒単位）。 |
@@ -516,6 +518,10 @@ erDiagram
 14. **マージリクエスト一覧用**:
     * コレクション: `mergeRequests`
     * フィールド: `status` (昇順) ＋ `createdAt` (降順)
+15. **作成者別リスト種別一覧（Phase 8）用**:
+    * コレクション: `quizLists`
+    * フィールド: `authorId` (昇順) ＋ `listType` (昇順) ＋ `createdAt` (降順)
+    * 備考: 公開のみの場合は `isPublished` (昇順) を追加した複合インデックスも `firestore.indexes.json` に定義。`listType` 未設定ドキュメントはアプリ層 `resolveListType()` で後方互換。
 
 ---
 
@@ -589,6 +595,32 @@ erDiagram
   ]
 }
 ```
+
+#### 4.3 設問リスト・パッケージ (`QuestionListExportPackage`) [Phase 8]
+```json
+{
+  "exportedAt": "2026-06-05T12:00:00Z",
+  "list": {
+    "title": "おすすめ設問ピックアップ",
+    "description": "公開設問の厳選リスト",
+    "listType": "question",
+    "questionIds": ["q-1", "q-2"]
+  },
+  "ownedQuestions": [
+    {
+      "id": "q-1",
+      "quizId": "quiz-a",
+      "type": "multiple-choice",
+      "questionText": "サンプル設問",
+      "explanation": "解説"
+    }
+  ],
+  "externalQuestionRefs": [
+    { "questionId": "q-2", "parentQuizId": "quiz-b" }
+  ]
+}
+```
+自作設問はフルデータ、他者の公開設問は `questionId` + 親 `quizId` の参照のみ。
 
 ---
 

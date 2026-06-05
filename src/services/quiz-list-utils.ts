@@ -5,7 +5,7 @@
  * Requirements: 5.4, 5.6
  */
 
-import { Quiz, QuizList } from '../types';
+import { Quiz, QuizList, Question } from '../types';
 
 /* ==========================================================================
    リストのクイズID並び替え
@@ -61,5 +61,36 @@ export function buildListExportPackage(
     list,
     ownedQuizzes,
     externalQuizIds,
+  };
+}
+
+/* ==========================================================================
+   設問リストの並び替え・エクスポート（Phase 8）
+   ========================================================================== */
+
+export function reorderQuestionIds(originalIds: string[], newOrder: string[]): string[] {
+  const validIds = new Set(originalIds);
+  return newOrder.filter((id) => validIds.has(id));
+}
+
+export interface QuestionListExportPackage {
+  exportedAt: string;
+  list: QuizList;
+  /** 自作設問のフルデータ */
+  ownedQuestions: Question[];
+  /** 他者設問の参照（ID + 親クイズ ID） */
+  externalQuestionRefs: Array<{ questionId: string; parentQuizId: string }>;
+}
+
+export function buildQuestionListExportPackage(
+  list: QuizList,
+  ownedQuestions: Question[],
+  externalQuestionRefs: Array<{ questionId: string; parentQuizId: string }>
+): QuestionListExportPackage {
+  return {
+    exportedAt: new Date().toISOString(),
+    list,
+    ownedQuestions,
+    externalQuestionRefs,
   };
 }

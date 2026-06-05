@@ -27,10 +27,20 @@
 **Purpose**: アプリケーション全体で共有される共通のデータ型・インターフェースの定義。  
 **Example**: `/src/types/quiz.ts` (クイズ、リーダーボードの型)。
 
+### 純関数ライブラリ (Pure Logic Libraries)
+**Location**: `/src/lib/`  
+**Purpose**: UIに依存しない表示ヘルパー、セッション状態、検証・フィルタ等の純関数。サービス層のビジネスロジックとは分離し、コンポーネントやフックから呼び出す。  
+**Example**: `/src/lib/profile-list-display.ts`（リスト種別ラベル）、`/src/lib/question-list-session.ts`（設問リストプレイ進行）。
+
+### カスタムフック (Custom Hooks)
+**Location**: `/src/hooks/`  
+**Purpose**: データ取得・検索・プレイ状態など、コンポーネント横断の React ステートと副作用。  
+**Example**: `/src/hooks/useBookmarkFeed.ts`, `/src/hooks/useQuestionAttachSearch.ts`。
+
 ### スタイル定義 (Styles)
-**Location**: `/src/styles/`  
-**Purpose**: グローバルスタイル、テーマのCSS変数定義。  
-**Example**: `/src/styles/globals.css`。
+**Location**: `/src/app/globals.css`（グローバル）、`/src/styles/`（共有トークン）  
+**Purpose**: グローバルスタイルとテーマの CSS 変数。コンポーネント固有スタイルは CSS Modules を各コンポーネント隣に配置。  
+**Example**: `/src/app/globals.css`, `/src/styles/variables.css`。
 
 ### 仕様と記憶 (Kiro Metadata)
 **Location**: `/.kiro/`  

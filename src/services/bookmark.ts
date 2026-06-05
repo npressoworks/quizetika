@@ -8,8 +8,17 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { bookmarksRef, quizzesRef, quizListsRef, questionsRef } from '../lib/firebase/firestore';
-import { Bookmark, Quiz, QuizList, Question } from '../types';
+import { bookmarksRef, quizzesRef, quizListsRef, questionsRef, usersRef } from '../lib/firebase/firestore';
+import {
+  Bookmark,
+  Quiz,
+  QuizList,
+  Question,
+  BookmarkFeed,
+  BookmarkedQuestionEntry,
+} from '../types';
+import { assertParentQuizPublished } from '../lib/question-list-validation';
+import { createNotification } from './notification';
 
 // テスト環境かどうかを判定するためのフラグ
 // E2Eテスト実行時（NEXT_PUBLIC_ENVがtest）にのみtrueとなります
@@ -24,6 +33,50 @@ const MOCK_BOOKMARKS_KEY = 'quizeum_mock_bookmarks';
  */
 function getBookmarkDocId(userId: string, targetId: string): string {
   return `${userId}_${targetId}`;
+}
+
+function bookmarkCreatedAtMs(val: unknown): number {
+  if (!val) return 0;
+  if (val instanceof Date) return val.getTime();
+  if (val && typeof val === 'object') {
+    const obj = val as Record<string, unknown>;
+    if (typeof obj.toDate === 'function') {
+      return (obj.toDate as () => Date)().getTime();
+    }
+    if (typeof obj.seconds === 'number') {
+      return obj.seconds * 1000;
+    }
+  }
+  if (typeof val === 'string' || typeof val === 'number') {
+    const date = new Date(val);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  return 0;
+}
+
+function sortBookmarksByCreatedAtDesc(bookmarkDocs: Bookmark[]): Bookmark[] {
+  return [...bookmarkDocs].sort(
+    (a, b) => bookmarkCreatedAtMs(b.createdAt) - bookmarkCreatedAtMs(a.createdAt)
+  );
+}
+
+async function assertQuestionBookmarkable(questionId: string): Promise<Question> {
+  const questionRef = doc(questionsRef, questionId);
+  const questionSnap = await getDoc(questionRef);
+  if (!questionSnap.exists()) {
+    throw new Error('Target document does not exist.');
+  }
+  const question = questionSnap.data() as Question;
+  if (!question.quizId) {
+    throw new Error('Target document does not exist.');
+  }
+  const quizSnap = await getDoc(doc(quizzesRef, question.quizId));
+  if (!quizSnap.exists()) {
+    throw new Error('Target document does not exist.');
+  }
+  const quiz = quizSnap.data() as Quiz;
+  assertParentQuizPublished(quiz.status);
+  return question;
 }
 
 /**
@@ -50,6 +103,11 @@ export async function toggleBookmark(
   targetId: string,
   targetType: 'quiz' | 'list' | 'question'
 ): Promise<boolean> {
+  let questionForNotify: Question | null = null;
+  if (targetType === 'question' && !isTestEnv) {
+    questionForNotify = await assertQuestionBookmarkable(targetId);
+  }
+
   if (isTestEnv) {
     const list = JSON.parse(localStorage.getItem(MOCK_BOOKMARKS_KEY) || '[]');
     const idx = list.findIndex((b: any) => b.userId === userId && b.targetId === targetId);
@@ -82,7 +140,7 @@ export async function toggleBookmark(
     targetDocRef = doc(questionsRef, targetId);
   }
 
-  return await runTransaction(db, async (transaction) => {
+  const added = await runTransaction(db, async (transaction) => {
     const bookmarkSnap = await transaction.get(bookmarkDocRef);
     const targetSnap = await transaction.get(targetDocRef);
 
@@ -120,6 +178,27 @@ export async function toggleBookmark(
       return true; // 登録完了
     }
   });
+
+  if (
+    added &&
+    targetType === 'question' &&
+    questionForNotify?.authorId &&
+    questionForNotify.authorId !== userId
+  ) {
+    const senderSnap = await getDoc(doc(usersRef, userId));
+    const sender = senderSnap.exists() ? senderSnap.data() : null;
+    await createNotification({
+      userId: questionForNotify.authorId,
+      type: 'bookmark',
+      senderId: userId,
+      senderName: (sender as { displayName?: string })?.displayName ?? 'ユーザー',
+      senderAvatar: (sender as { avatarUrl?: string })?.avatarUrl ?? '',
+      targetId: questionForNotify.id,
+      targetTitle: questionForNotify.questionText.slice(0, 80),
+    });
+  }
+
+  return added;
 }
 
 /**
@@ -176,28 +255,9 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
   const snap = await getDocs(q);
 
   // メモリ上で createdAt (降順) でソートする
-  const bookmarkDocs = snap.docs.map((doc) => doc.data());
-  bookmarkDocs.sort((a, b) => {
-    const getTime = (val: unknown): number => {
-      if (!val) return 0;
-      if (val instanceof Date) return val.getTime();
-      if (val && typeof val === 'object') {
-        const obj = val as Record<string, unknown>;
-        if (typeof obj.toDate === 'function') {
-          return (obj.toDate as () => Date)().getTime();
-        }
-        if (typeof obj.seconds === 'number') {
-          return obj.seconds * 1000;
-        }
-      }
-      if (typeof val === 'string' || typeof val === 'number') {
-        const date = new Date(val);
-        return isNaN(date.getTime()) ? 0 : date.getTime();
-      }
-      return 0;
-    };
-    return getTime(b.createdAt) - getTime(a.createdAt);
-  });
+  const bookmarkDocs = sortBookmarksByCreatedAtDesc(
+    snap.docs.map((doc) => doc.data() as Bookmark)
+  );
 
   const quizIds = bookmarkDocs.map((doc) => doc.targetId);
 
@@ -211,7 +271,7 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
     const quizQuery = query(
       quizzesRef,
       where('id', 'in', chunk),
-      where('isPublished', '==', true)
+      where('status', '==', 'published')
     );
     const quizSnap = await getDocs(quizQuery);
     quizSnap.forEach((doc) => quizzes.push(doc.data()));
@@ -235,28 +295,9 @@ export async function getBookmarkedLists(userId: string): Promise<QuizList[]> {
   const snap = await getDocs(q);
 
   // メモリ上で createdAt (降順) でソートする
-  const bookmarkDocs = snap.docs.map((doc) => doc.data());
-  bookmarkDocs.sort((a, b) => {
-    const getTime = (val: unknown): number => {
-      if (!val) return 0;
-      if (val instanceof Date) return val.getTime();
-      if (val && typeof val === 'object') {
-        const obj = val as Record<string, unknown>;
-        if (typeof obj.toDate === 'function') {
-          return (obj.toDate as () => Date)().getTime();
-        }
-        if (typeof obj.seconds === 'number') {
-          return obj.seconds * 1000;
-        }
-      }
-      if (typeof val === 'string' || typeof val === 'number') {
-        const date = new Date(val);
-        return isNaN(date.getTime()) ? 0 : date.getTime();
-      }
-      return 0;
-    };
-    return getTime(b.createdAt) - getTime(a.createdAt);
-  });
+  const bookmarkDocs = sortBookmarksByCreatedAtDesc(
+    snap.docs.map((doc) => doc.data() as Bookmark)
+  );
 
   const listIds = bookmarkDocs.map((doc) => doc.targetId);
 
@@ -277,4 +318,55 @@ export async function getBookmarkedLists(userId: string): Promise<QuizList[]> {
 
   const idToIndex = new Map(listIds.map((id, index) => [id, index]));
   return lists.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
+}
+
+/**
+ * ブックマークした設問を親クイズメタ付きで取得（公開親のみ）
+ */
+export async function enrichBookmarkedQuestions(
+  userId: string
+): Promise<BookmarkedQuestionEntry[]> {
+  const q = query(
+    bookmarksRef,
+    where('userId', '==', userId),
+    where('targetType', '==', 'question')
+  );
+  const snap = await getDocs(q);
+  const bookmarkDocs = sortBookmarksByCreatedAtDesc(
+    snap.docs.map((d) => d.data() as Bookmark)
+  );
+
+  const entries: BookmarkedQuestionEntry[] = [];
+  for (const bm of bookmarkDocs) {
+    const questionSnap = await getDoc(doc(questionsRef, bm.targetId));
+    if (!questionSnap.exists()) continue;
+    const question = questionSnap.data() as Question;
+    if (!question.quizId) continue;
+    const quizSnap = await getDoc(doc(quizzesRef, question.quizId));
+    if (!quizSnap.exists()) continue;
+    const quiz = quizSnap.data() as Quiz;
+    if (quiz.status !== 'published') continue;
+    entries.push({
+      question,
+      parentQuizId: quiz.id,
+      parentQuizTitle: quiz.title,
+      bookmarkedAt:
+        bm.createdAt instanceof Date
+          ? bm.createdAt
+          : new Date(bookmarkCreatedAtMs(bm.createdAt)),
+    });
+  }
+  return entries;
+}
+
+/**
+ * クイズ・リスト・設問の3分類ブックマーク一覧
+ */
+export async function getBookmarkFeed(userId: string): Promise<BookmarkFeed> {
+  const [quizzes, lists, questions] = await Promise.all([
+    getBookmarkedQuizzes(userId),
+    getBookmarkedLists(userId),
+    enrichBookmarkedQuestions(userId),
+  ]);
+  return { quizzes, lists, questions };
 }

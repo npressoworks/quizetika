@@ -7,6 +7,9 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   // テストファイルが配置されるディレクトリ
   testDir: './e2e',
+
+  // Firestore Emulator にジャンルマスタを投入
+  globalSetup: './e2e/global-setup.ts',
   
   // 各テストの最大実行時間 (ミリ秒) - Firebaseの初期化時間を考慮して60秒に設定
   timeout: 60 * 1000,

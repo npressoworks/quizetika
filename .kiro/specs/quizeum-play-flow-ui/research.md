@@ -193,3 +193,80 @@
 - 分析手法: コードベース Grep/Read + 要件 10 トレース + `quizeum-core` API 存在確認
 - 出力先: 本ファイル（`research.md`）に追記
 - 外部 Web 調査: 不要（社内スタック確定済み）
+
+---
+
+# Phase 8 Gap Analysis（要件 11・2026-06-05）
+
+## Summary
+
+`quizeum-core` Phase 8 は実装済み（`getBookmarkFeed`, `getQuestionsInList`, `toggleBookmark` 設問対応, `saveAttempt` の `question-list` モード）。`quizeum-play-flow-ui` は `/bookmarks` がクイズのみ、`list/[id]` がクイズリスト専用、プレイ／結果に設問 BM なし、設問リスト連続プレイ未配線。本フェーズは **Extension（軽量 discovery）** で既存ページ拡張 + 小コンポーネント抽出が最適。
+
+## 1. Current State vs Requirements 11
+
+| 要件 | 現状 | ギャップ |
+|------|------|----------|
+| **11.1** 3タブ | 単一クイズ一覧 | `getBookmarkFeed` + タブ UI 未実装 |
+| **11.2** 未認証リダイレクト | 実装済 | 維持 |
+| **11.3** クイズタブ | `getBookmarkedQuizzes` で実装済 | `BookmarkFeed.quizzes` へ移行 |
+| **11.4** リストタブ | なし | 新規グリッド |
+| **11.5** 設問タブ | なし | `BookmarkedQuestionEntry` + 日時降順 |
+| **11.6** 設問カード→プレイ | なし | `startAtQuestionId` 導線 |
+| **11.7–11.9** プレイ/結果 BM・未認証 | なし | `QuestionBookmarkToggle` 新規 |
+| **11.10–11.12** 設問リストプレイ | `mode=list`（クイズ連続）のみ | `question-list` セッション + 次設問遷移 |
+| **11.13** クイズリスト維持 | 実装済 | 設問分岐と混在させない |
+| **11.14** コア永続化なし | 準拠 | UI はサービス呼び出しのみ |
+
+## 2. Core API 確認（利用可能）
+
+| API | 所在 | UI からの参照 |
+|-----|------|---------------|
+| `getBookmarkFeed` | `bookmark.ts` | ❌ |
+| `toggleBookmark(..., 'question')` | `bookmark.ts` | ❌ |
+| `getQuestionsInList` | `quiz-list.ts` | ❌ |
+| `resolveListType` | `types/index.ts` | ❌ |
+| `saveAttempt` + `mode: 'question-list'` | `attempt.ts` | ❌（play は `list` のみ） |
+
+## 3. Design Synthesis（Phase 8）
+
+### Generalization
+- **ブックマーク解除**は3タブ共通で `toggleBookmark` + 楽観的配列除去。`useBookmarkFeed.removeBookmark` に集約。
+- **リスト連続プレイ**はクイズリスト（`quizIds` + `mode=list`）と設問リスト（`question-list-session` + `mode=question-list`）でセッション形状が異なるが、結果画面の「次へ」パターンは共通化可能（先に `listType` / セッション種別を判定）。
+
+### Build vs. Adopt
+- **採用**: コア `getBookmarkFeed` 一括取得（3タブで再フェッチ不要）。`sessionStorage` で設問リスト進行（既存 `usePlayState` の `localStorage` キーと衝突しない別キー）。
+- **新規**: `question-list-session.ts` のみ。外部ライブラリ不要。
+
+### Simplification
+- `BookmarksPage` を肥大化させず `components/bookmark/*` に分割。E2E 用 `data-testid` はタブバーに集中。
+- 設問単体プレイ（11.12）は専用ルートを作らず `startAtQuestionId` クエリで既存プレイ画面を拡張。
+
+## 4. Architecture Pattern Evaluation
+
+| Option | 説明 | 判定 |
+|--------|------|------|
+| A | 各ページに直書き | 却下（bookmarks/play/result が肥大化） |
+| B | フック + 小コンポーネント（推奨） | **採用** — 設計・tasks 境界が明確 |
+| C | 専用 `/question-list/play` ルート | 却下 — コア契約は親 `quizId` ベースの attempt |
+
+## 5. Risks & Mitigations
+
+| リスク | 緩和 |
+|--------|------|
+| クイズリストと設問リストの結果画面分岐競合 | `question-list-session` 存在を先に評価 |
+| 親クイズ跨ぎで `usePlayState` が全問ロード | `questionId` で1問にフィルタ |
+| 設問 BM 初期状態の N+1 | プレイ画面は quiz ロード時に user's bookmarked questionIds を1回取得（または feed キャッシュ） |
+
+## 6. Upstream / Downstream
+
+| 依存 | 状態 |
+|------|------|
+| `quizeum-core` Phase 8 | ✅ 実装・テスト済 |
+| `quizeum-creator-dash-ui` | 設問リスト作成 UI は別スペック（プレイ導線のみ本スペック） |
+| `quizeum-auth-profile-ui` | プロフィール BM 表示は別（任意連携） |
+
+## Document Status（Phase 8）
+
+- 分析: Grep/Read（`bookmarks/page.tsx`, `list/[id]/page.tsx`, `play/page.tsx`, `result/page.tsx`, `bookmark.ts`）
+- Discovery 種別: **Light（Extension）**
+- 外部調査: 不要

@@ -10,6 +10,8 @@
 **Phase 6（2026-06）**: ジャンル・タグメタデータを `docs/` 正本に整合する。公開保存時に `canonicalGenreId` / `canonicalTagIds` を解決・非正規化し、一覧・検索は正規識別子クエリを優先しつつ legacy クイズ向けに `genre in` フォールバックを併用する（C2 方式）。`metadata-resolution` ライブラリに解決ロジックを集約し、`tagMerge.ts` をガバナンスの単一経路とする。
 また、悪質ユーザーのBAN（アカウント停止）機能を追加し、Firestore Security Rulesによるデータ書き込みの即時遮断、監査ログ記録、認証セッションの強制無効化（Cookie連携）を設計する。
 
+**Phase 8（2026-06）**: ブックマークをクイズ・クイズリスト・設問の3分類で取得し、設問ブックマークは親クイズ公開時のみ許可する。リストに `listType`（`quiz` | `question`）を追加し、設問リストには他者の公開設問も追加可能とする。設問リスト連続プレイは既存クイズリストと同様に**設問ごとに1 attempt**（`mode: 'question-list'`）を記録する。作問時は自作クイズを検索し、設問を参照リンク（ドキュメント複製なし）で再利用する。参照設問の編集は **Copy-on-Write 切り離し** とする（内容変更時のみ新規 `questions` ドキュメントを作成し、未変更の参照は既存 ID を維持）。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -19,6 +21,7 @@
 - 本人プレイ履歴をページング付きで安全に返却する（他ユーザーからの取得は拒否）。
 - ジャンル・タグの仮想統合を保存・一覧・弱点克服フィルタまで一貫適用し、canonical 単一クエリで探索性能を確保する（legacy フォールバック併用）。
 - BANされたユーザーによるシステムへの不正書き込み（Firestore / API）を即座にブロックし、既存の認証セッションを強制的にログアウトさせる。
+- クイズ・リスト・設問の分類ブックマーク、設問リスト CRUD/プレイ、自作クイズ検索、参照リンク設問の保存整合をコア層で一貫提供する。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -38,6 +41,9 @@
 - **オフライン/セッション保護**: クライアントローカル永続ストレージでの進捗永続化およびオンライン復帰時の自動バッチ同期。
 - **クイズリーダーボード（初回／リプレイ）**: `quizzes.leaderboardFirstPlay` / `quizzes.leaderboardReplay` の更新ロジック、順位比較、トランザクション内の attempt 回数判定。
 - **プレイ履歴クエリ**: 認証済み本人向け `attempts` 一覧 of ページング取得（クイズタイトル非正規化の解決を含む）。
+- **Phase 8 — 分類ブックマーク**: 3種 `toggleBookmark`、公開親クイズ検証、分類一覧取得、設問ブックマーク通知。
+- **Phase 8 — 設問リスト**: `listType` 付きリスト CRUD、公開設問追加検証、設問 ID 並び替え、設問リストエクスポート、`question-list` attempt 記録契約。
+- **Phase 8 — 参照リンク作問**: `searchAuthorQuizzes`、参照 ID のみの保存パス、Copy-on-Write 切り離し、共有設問の安全な参照解除。
 
 ### Out of Boundary
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
@@ -47,6 +53,7 @@
 - クイズ詳細画面のリーダーボードタブUI（`quizeum-play-flow-ui`）。
 - 管理者向けBAN/UNBAN操作画面のUIレイアウトおよび表示コンポーネント（`quizeum-admin-users-ui` が担当）。
 - **Phase 6**: ホーム/エディタ/ジャンル一覧の UI、ジャンル新設・マージ画面のレイアウト、既存クイズの一括 `genre` 物理書き換え、Cloud Functions への投票移行。
+- **Phase 8**: `/bookmarks` タブ UI、リスト/作問エディタのピッカー・DnD・検索パネル（`quizeum-play-flow-ui` / `quizeum-creator-dash-ui`）。プロフィールのリストタイプ別表示（`quizeum-auth-profile-ui`）。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
@@ -60,6 +67,9 @@
 - `leaderboardFirstPlay` / `leaderboardReplay` フィールド追加および旧 `leaderboard` 読み取り互換の廃止方針。
 - プレイ履歴APIのレスポンス形状またはページングカーソル形式の変更。
 - `metadata_genres` / `metadata_tags` スキーマ変更、canonical 解決アルゴリズム変更、ジャンル一覧クエリのフォールバック廃止。
+- `QuizList.listType` 追加および未設定リストのデフォルト解釈変更。
+- `Attempt.mode` に `question-list` 追加、参照リンク設問の Copy-on-Write 契約変更。
+- `BookmarkFeed` / `BookmarkedQuestionEntry` レスポンス形状の変更。
 
 ---
 
@@ -175,6 +185,23 @@ src/
 - `firestore.indexes.json` — `(status, canonicalGenreId, createdAt|playCount|bookmarksCount)` 複合インデックス。
 - `tests/lib/metadata-resolution.test.ts` — **新規**。
 - `tests/services/quiz-genre-query.test.ts` — **新規**（canonical + legacy フォールバック union）。
+
+**Phase 8 追加ファイル**:
+- `src/lib/question-list-validation.ts` — **新規**。`listType` ガード、親クイズ `published` 検証、タイプ不一致操作拒否。
+- `src/lib/linked-question.ts` — **新規**。参照リンク判定、Copy-on-Write 切り離し、共有設問削除ガード。
+- `src/services/author-quiz-search.ts` — **新規**。`searchAuthorQuizzes`（自作・下書き含むキーワード/タグ検索）。
+- `src/services/bookmark.ts` — 設問登録時検証、分類フィード取得、設問 BM 通知（13.x）。
+- `src/services/question.ts` — 設問一覧 enrich、リスト追加を validation 経由に（14.x）。
+- `src/services/quiz-list.ts` — `listType`、設問並び替え、タイプ別一覧、設問リストエクスポート（14.x）。
+- `src/services/quiz.ts` — 参照リンク保存パス統合（15.x）。
+- `src/services/quiz-list-utils.ts` — `buildQuestionListExportPackage`、`reorderQuestionIds`。
+- `src/types/index.ts` — `QuizListType`, `listType`, `Attempt.mode` 拡張、`BookmarkFeed` 型。
+- `firestore.indexes.json` — `quizLists`: `authorId` + `listType` + `createdAt`（任意、タイプ別一覧用）。
+- `tests/lib/linked-question.test.ts` — **新規**。
+- `tests/services/bookmark-phase8.test.ts` — **新規**。
+- `tests/services/quiz-list-question-type.test.ts` — **新規**。
+- `tests/services/quiz-linked-question.test.ts` — **新規**。
+- `tests/services/author-quiz-search.test.ts` — **新規**。
 
 ---
 
@@ -885,6 +912,260 @@ flowchart LR
 
 ---
 
+## Phase 8: ブックマーク・リスト・設問再利用
+
+### Architecture Pattern（Phase 8）
+
+```mermaid
+graph TB
+    subgraph core [quizeum-core Phase 8]
+        BookmarkSvc[BookmarkService]
+        QuizListSvc[QuizListService]
+        QuestionSvc[QuestionService]
+        AuthorSearch[AuthorQuizSearchService]
+        LinkedQ[linked-question lib]
+        Validation[question-list-validation lib]
+        QuizSvc[QuizService]
+    end
+    Firestore[(Firestore)]
+    NotifySvc[NotificationService]
+
+    BookmarkSvc --> Validation
+    BookmarkSvc --> NotifySvc
+    QuizListSvc --> Validation
+    QuizListSvc --> QuestionSvc
+    AuthorSearch --> QuizSvc
+    QuizSvc --> LinkedQ
+    LinkedQ --> Firestore
+    BookmarkSvc --> Firestore
+    QuizListSvc --> Firestore
+    QuestionSvc --> Firestore
+```
+
+**パターン**: Option C Hybrid（gap 分析推奨）。既存サービスを拡張し、参照リンクと検証は `src/lib/` に純関数集約。UI は呼び出しのみ。
+
+### 設問リストプレイ契約
+
+クイズリスト（要件 5.5）と対称とし、設問リストは**収録設問ごとに1件の attempt** を記録する。
+
+| フィールド | 値 |
+|-----------|-----|
+| `mode` | `'question-list'` |
+| `listId` | 設問リスト ID |
+| `quizId` | 当該設問の親クイズ ID |
+| `totalQuestions` | 1（設問単位プレイ） |
+
+プレイ画面ルーティングは隣接 UI が担当。コアは `getQuestionsInList(listId)` で順序付き `Question[]` と親クイズメタを返す。
+
+### 参照リンク保存フロー
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Editor as Creator UI
+    participant QuizSvc as QuizService
+    participant Linked as linked-question.ts
+    participant DB as Firestore
+
+    Editor->>QuizSvc: saveQuiz with questions payload
+    QuizSvc->>Linked: partitionReferenceAndOwned(questions)
+    Linked-->>QuizSvc: referenceIds ownedToWrite
+    loop each referenceId
+        QuizSvc->>Linked: assertAuthorOwnsSourceQuiz(authorId, questionId)
+        Linked->>DB: read questions and parent quiz
+    end
+    loop each owned question
+        alt content unchanged reference
+            Note over QuizSvc: questionIds only no question doc write
+        else content modified reference
+            QuizSvc->>Linked: detachCopyOnWrite(question)
+            Linked->>DB: create new questions doc
+        else owned new or edited
+            QuizSvc->>DB: batch set question doc
+        end
+    end
+    QuizSvc->>DB: update quizzes questionIds and denorm questions
+```
+
+**Copy-on-Write 方針（design 確定）**: エディタが参照設問の内容を変更して保存した場合のみ新規 `questions/{id}` を発行し、当該クイズの `questionIds` を差し替える。未変更の参照は既存 ID をそのまま `questionIds` に追加し、設問ドキュメントへの書き込みは行わない。クイズから参照を外しただけでは設問ドキュメントを削除しない。
+
+### Requirements Traceability（Phase 8）
+
+| Requirement | Summary | Components | Interfaces | Flows |
+|-------------|---------|------------|------------|-------|
+| 13.1 | 3種 BM トグル | `BookmarkService` | `toggleBookmark` | - |
+| 13.2 | 公開設問のみ BM 登録 | `BookmarkService`, `question-list-validation` | `assertQuestionBookmarkable` | - |
+| 13.3 | 非公開親は BM 拒否 | 同上 | 同上 | - |
+| 13.4 | 3分類一覧 | `BookmarkService` | `getBookmarkFeed` | - |
+| 13.5 | クイズ BM 公開のみ | `BookmarkService` | `getBookmarkedQuizzes` | - |
+| 13.6 | 設問 BM に親メタ | `BookmarkService` | `enrichBookmarkedQuestions` | - |
+| 13.7 | 設問 BM 通知 | `BookmarkService`, `NotificationService` | `createNotification` | BM 成功後 |
+| 14.1 | 作成時 listType | `QuizListService` | `createQuizList` | - |
+| 14.2 | 未設定は quiz 扱い | `QuizListService` | `resolveListType` | - |
+| 14.3 | クイズリスト操作 | `QuizListService` | `addQuizToList` 等 | - |
+| 14.4 | 設問リストメンバー | `QuestionService` | `addQuestionToList` | - |
+| 14.5–14.6 | 公開設問のみ追加 | `question-list-validation` | `assertQuestionListAddable` | - |
+| 14.7 | タイプ不一致拒否 | `question-list-validation` | `assertListTypeOperation` | - |
+| 14.8 | question-list attempt | `QuizListService`, `AttemptService` | `getQuestionsInList`, `saveAttempt` | 設問リストプレイ |
+| 14.9 | タイプ別一覧 | `QuizListService` | `getQuizListsByAuthor` | - |
+| 14.10 | 設問リスト export | `QuizListService` | `exportQuestionList` | - |
+| 15.1 | 自作検索 | `AuthorQuizSearchService` | `searchAuthorQuizzes` | - |
+| 15.2 | 設問詳細 | `QuestionService` | `getQuestionsByQuiz` | - |
+| 15.3 | 参照リンク | `QuizService`, `linked-question` | `saveQuiz` 参照パス | 参照リンク保存 |
+| 15.4 | 非自作拒否 | `linked-question` | `assertAuthorOwnsSourceQuiz` | - |
+| 15.5 | 重複 doc 禁止 | `QuizService` | 参照パス | 同上 |
+| 15.6 | 参照解除のみ | `linked-question` | `canDeleteQuestionDoc` | - |
+
+### Components（Phase 8）
+
+| Component | Domain | Intent | Req | Key Dependencies | Contracts |
+|-----------|--------|--------|-----|------------------|-----------|
+| `BookmarkService` | Service | 分類 BM と通知 | 13.1–13.7 | Firestore P0, validation P0, Notification P1 | Service |
+| `QuizListService` | Service | listType リスト | 14.1–14.10 | Firestore P0, validation P0 | Service |
+| `AuthorQuizSearchService` | Service | 自作クイズ検索 | 15.1–15.2 | QuizService P0 | Service |
+| `linked-question` | Lib | 参照リンク保存 | 15.3–15.6 | Firestore read P0 | Pure functions |
+| `question-list-validation` | Lib | 公開/タイプ検証 | 13.2–13.3, 14.5–14.7 | Firestore read P0 | Pure functions |
+
+#### BookmarkService（Phase 8 拡張）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 3分類ブックマーク取得と設問 BM のガード・通知 |
+| Requirements | 13.1–13.7 |
+
+**Contracts**: Service
+
+```typescript
+interface BookmarkFeed {
+  quizzes: Quiz[];
+  lists: QuizList[];
+  questions: BookmarkedQuestionEntry[];
+}
+
+interface BookmarkedQuestionEntry {
+  question: Question;
+  parentQuizId: string;
+  parentQuizTitle: string;
+  bookmarkedAt: Date;
+}
+
+interface BookmarkServicePhase8 {
+  getBookmarkFeed(userId: string): Promise<BookmarkFeed>;
+  toggleBookmark(
+    userId: string,
+    targetId: string,
+    targetType: 'quiz' | 'list' | 'question'
+  ): Promise<boolean>;
+}
+```
+
+- **13.2–13.3**: `targetType === 'question'` のとき `assertQuestionBookmarkable(questionId)` をトランザクション前に実行。
+- **13.4**: 既存3 getter を内部利用し `BookmarkFeed` を組み立て。
+- **13.6**: `enrichBookmarkedQuestions` が親 `quizzes` を chunk 取得し `status === 'published'` のみ残す。
+- **13.7**: 新規 BM かつ `question.authorId !== userId` のとき `createNotification({ type: 'bookmark', ... })`。
+
+#### QuizListService（Phase 8 拡張）
+
+```typescript
+type QuizListType = 'quiz' | 'question';
+
+function resolveListType(list: QuizList): QuizListType;
+
+interface QuizListServicePhase8 {
+  createQuizList(input: CreateQuizListInput): Promise<string>;
+  getQuizListsByAuthor(
+    authorId: string,
+    options?: { listType?: QuizListType; includeUnpublished?: boolean }
+  ): Promise<QuizList[]>;
+  getQuestionsInList(listId: string): Promise<QuestionInListEntry[]>;
+  reorderQuestionList(listId: string, newOrder: string[]): Promise<void>;
+  exportQuestionList(listId: string, authorId: string): Promise<QuestionListExportPackage>;
+}
+
+interface QuestionInListEntry {
+  question: Question;
+  parentQuizId: string;
+  parentQuizTitle: string;
+}
+```
+
+- **14.2**: `listType` 未設定は `'quiz'`。
+- **14.7**: `assertListTypeOperation(list, 'quiz' | 'question')` を各 mutate 前に呼ぶ。
+- **14.10**: 自作設問はフルデータ、他者設問は ID + 親クイズ参照のみ（クイズリスト export と対称）。
+
+#### AuthorQuizSearchService
+
+```typescript
+interface SearchAuthorQuizzesParams {
+  authorId: string;
+  keyword?: string;
+  tag?: string;
+  includeDrafts?: boolean; // default true
+}
+
+interface AuthorQuizSearchService {
+  searchAuthorQuizzes(params: SearchAuthorQuizzesParams): Promise<Quiz[]>;
+}
+```
+
+- **実装**: `getQuizzesByAuthor(authorId, true)` で取得後、アプリ層で `keyword`（title/description 部分一致）と `tag`（`tags` 配列）をフィルタ。Firestore 全文検索は使わない（初版）。
+
+#### linked-question（lib）
+
+```typescript
+type QuestionSavePartition = {
+  referenceOnlyIds: string[];
+  ownedToWrite: Question[];
+  detachCopies: Question[];
+};
+
+function partitionQuestionsForSave(
+  quizId: string,
+  authorId: string,
+  questions: Question[],
+  priorQuestionIds: string[]
+): Promise<QuestionSavePartition>;
+
+function assertAuthorOwnsSourceQuiz(
+  authorId: string,
+  questionId: string
+): Promise<void>;
+
+function canDeleteQuestionDoc(
+  questionId: string,
+  excludingQuizId: string
+): Promise<boolean>;
+```
+
+- **15.4**: 参照追加時、設問の `authorId` がリクエスト `authorId` と一致することを要求（自作クイズ内の設問のみリンク可）。
+- **15.6**: `updateQuiz` の設問削除で `canDeleteQuestionDoc === false` なら `questions` コレクションからは削除しない。
+
+### Data Models（Phase 8）
+
+**`quizLists` ドキュメント追加**:
+
+| Field | Type | Default | Notes |
+|-------|------|---------|-------|
+| `listType` | `'quiz' \| 'question'` | 既存 doc は読み取り時 `'quiz'` | 作成時必須 |
+
+**`Question`（エディタ送信用、永続化は既存 doc 再利用）**:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `linkKind` | `'owned' \| 'reference'` | エディタ→保存 API のみ。Firestore 必須ではない |
+
+**`Attempt.mode`**: `'question-list'` を追加。
+
+**後方互換**: `listType` 未設定の既存リストは CRUD・プレイ・export すべてクイズリストとして動作。
+
+### Migration Strategy（Phase 8）
+
+- **データマイグレーション不要**: 読み取り時 `resolveListType` でデフォルト `'quiz'`。
+- **新規作成から** `listType` を必須書き込み。
+- **Rules**: `quizLists` create/update で `listType in ['quiz','question']` を推奨（未設定 create は UI から常に送信）。
+
+---
+
 ## Error Handling
 
 ### Error Strategy
@@ -897,6 +1178,10 @@ flowchart LR
   - 1日20回の質問上限を超過した場合、API Routeは `429 Too Many Requests` (Error: `limit-exceeded`) を返却し、画面側でプレミアムプランへの誘導を含めた警告ダイアログをインライン表示します。
 - **メタデータ検証（Phase 6）**:
   - 無効ジャンル・未解決タグで `saveQuiz` が失敗した場合、`validation-error` としてフィールド `genre` / `tags` にメッセージを返す（クライアントはエディタで表示）。
+- **Phase 8 — ブックマーク/リスト**:
+  - 非公開親設問の BM・設問リスト追加は `QuestionNotBookmarkableError` / `QuestionNotListAddableError`（422）で拒否。
+  - クイズリストへの設問追加・設問リストへのクイズ追加は `ListTypeMismatchError`（422）。
+  - 非自作設問のリンクは `ReferenceLinkForbiddenError`（403）。
 
 ---
 
@@ -914,6 +1199,9 @@ flowchart LR
 - **canonical 解決**: `resolveCanonicalGenreId` が `canonicalId` チェーンを辿ること、循環で reject すること。
 - **in チャンク**: `chunkIdsForInQuery` が 10 件上限で分割すること。
 - **C2 union**: canonical のみ・legacy のみ・重複ありの3ケースで dedupe 後件数が期待通り。
+- **resolveListType**: 未設定リストが `quiz`、明示 `question` がそのまま返ること。
+- **partitionQuestionsForSave**: 参照 ID のみのとき `ownedToWrite` が空であること。
+- **canDeleteQuestionDoc**: 他クイズが `questionIds` に含むとき `false`。
 
 ### Integration Tests
 - **初回プレイLB**: 1回目の `saveAttempt` が `leaderboardFirstPlay` のみ更新し `leaderboardReplay` を変更しないこと。
@@ -932,6 +1220,10 @@ flowchart LR
   - `unbanUser` が BAN解除時に `isBanned: false` を設定し、`bannedReason` / `bannedAt` フィールドを削除し、`adminLogs` に `action: 'unban'` を記録すること。
   - 管理者以外の権限（モデレータ等）によるBAN/UNBAN API呼び出しが `403 Forbidden` / `権限エラー` で拒否されること。
   - `firestore.rules` の `isNotBanned()` チェックにより、`isBanned: true` のユーザーからの全書込が Firestore 上で拒否されること。
+- **Phase 8 — ブックマーク分類**: `getBookmarkFeed` が3分類を返し、非公開親の設問が questions から除外されること。
+- **Phase 8 — listType**: 設問リストに公開設問追加成功、下書き親設問は拒否、クイズリストへの設問追加は拒否。
+- **Phase 8 — 参照リンク**: 同一 `questionId` を2クイズが参照しても `questions` ドキュメントが1つのまま。参照解除後も他クイズ参照時は doc 残存。
+- **Phase 8 — searchAuthorQuizzes**: タグ・キーワードで自作下書きがヒットすること。
 
 ### E2E / UI Tests
 - **解答中断と自動復旧**: プレイ中にブラウザを強制リロードし、`localStorage` から解答進捗が100%正しく復元され、プレイが継続できるかをシミュレート。
@@ -946,6 +1238,7 @@ flowchart LR
     - `isNotBanned()` ヘルパーを定義し、書き込みアクションを実行する全ルール（`create`, `update`, `delete`）に `&& isNotBanned()` を追加。
     - `isNotBanned()` は、`/users/$(request.auth.uid)` ドキュメントの `isBanned` フィールドが `true` でないことを検証する。これにより、不正アカウントによるデータ改ざんを完全に防ぐ。
   - **Phase 6**: `metadata_tags` / `metadata_genres` は read 全公開。create は認証ユーザー（タグは `canonicalId==null` 初期化）。update は `canonicalId` セットまたは `merged*Ids` の `hasAll` 拡張のみ（`detailed_design.md` §6.5）。`mergeRequests` / `genreRequests` はモデレータ権限で create/update を制限（`isModeratorOrAbove()`）。
+  - **Phase 8**: `quizLists` の update は `authorId == request.auth.uid` を維持。`listType` 変更は create 後固定（update でのタイプ変更は拒否可）。設問リストへの追加はサーバー/クライアント双方で公開検証（Rules 単独では親クイズ状態まで検証困難なためサービス層が正本）。
 - **APIキーの秘匿**:
   - Google Gemini API キーなどの認証情報はNext.jsのサーバー環境変数としてのみ管理し、クライアントへは一切露出させません。
 

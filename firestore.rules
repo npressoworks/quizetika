@@ -97,17 +97,18 @@ service cloud.firestore {
     match /quizzes/{quizId} {
       // 読み取りルール:
       // 通常のクイズは誰でも閲覧可能。ただし保留状態 (suspended) は管理者・シニアモデレータのみ閲覧可能。
-      allow read: if resource.data.status != 'suspended' 
+      allow read: if !('status' in resource.data)
+        || resource.data.status != 'suspended'
         || isSeniorModeratorOrAdmin()
         // 作成者本人も確認のため閲覧可能にする
         || (isAuthenticated() && resource.data.authorId == request.auth.uid);
         
       // 作成ルール:
-      // 認証済みユーザーのみ新規作成可能。初期の通報件数は0であり、ステータスは active であること。
+      // 認証済みユーザーのみ新規作成可能。初期の通報件数は0、ステータスは draft または published。
       allow create: if isAuthenticated() && isNotBanned()
         && request.resource.data.authorId == request.auth.uid
         && request.resource.data.flagsCount == 0
-        && request.resource.data.status == 'active';
+        && request.resource.data.status in ['draft', 'published'];
         
       // プレイ数・ブックマーク数・リーダーボードのみの更新（プレイ完了・ブックマーク操作）
       function isPublicQuizStatsUpdate() {
@@ -173,6 +174,51 @@ service cloud.firestore {
         && request.resource.data.status == 'pending';
       allow update: if isModeratorOrAbove() && isNotBanned();
       allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------
+    // questions コレクションルール
+    // -----------------------------------------------------------------
+    match /questions/{questionId} {
+      allow read: if true;
+
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.authorId == request.auth.uid;
+
+      allow update: if isNotBanned() && (
+        isOwner(resource.data.authorId)
+        || (
+          isAuthenticated()
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['bookmarksCount', 'correctCount', 'incorrectCount', 'updatedAt'])
+        )
+      );
+
+      allow delete: if isNotBanned() && isOwner(resource.data.authorId);
+    }
+
+    // -----------------------------------------------------------------
+    // quizLists コレクションルール（Phase 8）
+    // -----------------------------------------------------------------
+    match /quizLists/{listId} {
+      allow read: if resource.data.isPublished == true
+        || (isAuthenticated() && resource.data.authorId == request.auth.uid);
+
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.authorId == request.auth.uid
+        && (
+          !('listType' in request.resource.data)
+          || request.resource.data.listType in ['quiz', 'question']
+        );
+
+      allow update: if isNotBanned() && isOwner(resource.data.authorId)
+        && request.resource.data.authorId == resource.data.authorId
+        && (
+          !('listType' in request.resource.data)
+          || request.resource.data.listType == resource.data.listType
+        );
+
+      allow delete: if isNotBanned() && isOwner(resource.data.authorId);
     }
 
     // -----------------------------------------------------------------

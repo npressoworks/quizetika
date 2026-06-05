@@ -18,6 +18,12 @@ import { quizzesRef, followsRef, bookmarksRef, questionsRef } from '../lib/fireb
 import { Quiz, Question } from '../types';
 import { validateQuizForPublish, validateQuizForDraft, normalizeTag } from './quiz-validation';
 import {
+  assertAuthorOwnsQuestion,
+  canDeleteQuestionDoc,
+  isReferenceLinkQuestion,
+  partitionQuestionsForSave,
+} from '../lib/linked-question';
+import {
   applyQuizMetadataFields,
   chunkIdsForInQuery,
   dedupeQuizzesById,
@@ -231,21 +237,52 @@ export async function updateQuiz(
     const newQuestionIds: string[] = [];
     const processedQuestions: Question[] = [];
 
-    // 新しい設問の同期処理
+    const candidateIds = data.questions
+      .map((q) => q.id)
+      .filter((id): id is string => !!id);
+    const storedById = await loadQuestionsByIds([
+      ...new Set([...oldQuestionIds, ...candidateIds]),
+    ]);
+
     for (const q of data.questions) {
+      if (isReferenceLinkQuestion(q) && q.id && !storedById.has(q.id)) {
+        const snap = await getDoc(doc(questionsRef, q.id));
+        if (snap.exists()) {
+          storedById.set(q.id, snap.data() as Question);
+        }
+      }
+    }
+
+    const partition = partitionQuestionsForSave(
+      data.questions,
+      oldQuestionIds,
+      storedById
+    );
+
+    for (const refId of partition.referenceOnlyIds) {
+      const stored = storedById.get(refId);
+      if (!stored) {
+        throw new Error(`参照設問が見つかりません: ${refId}`);
+      }
+      assertAuthorOwnsQuestion(currentQuiz.authorId, stored);
+      newQuestionIds.push(refId);
+      processedQuestions.push(stripEditorOnlyFields({ ...stored, id: refId }));
+    }
+
+    for (const q of partition.ownedToWrite) {
       let qId = q.id;
-      // 既存の設問ID（古いIDリストに含まれている本物のID）か判定
-      const isExistingId = qId && oldQuestionIds.includes(qId);
-      
+      const isExistingOwned =
+        !!qId && oldQuestionIds.includes(qId) && !isReferenceLinkQuestion(q);
+
       let qDocRef;
-      if (isExistingId) {
+      if (isExistingOwned && qId) {
         qDocRef = doc(questionsRef, qId);
       } else {
         qDocRef = doc(questionsRef);
         qId = qDocRef.id;
       }
 
-      const fullQuestion: Question = {
+      const fullQuestion: Question = stripEditorOnlyFields({
         ...q,
         id: qId,
         quizId: quizId,
@@ -255,19 +292,23 @@ export async function updateQuiz(
         bookmarksCount: q.bookmarksCount || 0,
         correctCount: q.correctCount || 0,
         incorrectCount: q.incorrectCount || 0,
-      };
+      });
 
-      // 保存または更新
       batch.set(qDocRef, fullQuestion);
       newQuestionIds.push(qId);
       processedQuestions.push(fullQuestion);
     }
 
-    // 削除された設問を特定し、Firestore から削除
     const deletedQuestionIds = oldQuestionIds.filter((id) => !newQuestionIds.includes(id));
     for (const dId of deletedQuestionIds) {
-      const dDocRef = doc(questionsRef, dId);
-      batch.delete(dDocRef);
+      const deletable = await canDeleteQuestionDoc(
+        dId,
+        quizId,
+        findQuizIdsContainingQuestion
+      );
+      if (deletable) {
+        batch.delete(doc(questionsRef, dId));
+      }
     }
 
     updatePayload.questionIds = newQuestionIds;
@@ -354,6 +395,33 @@ export interface QuizExportPackage {
   quizzes: Quiz[];
 }
 
+async function loadQuestionsByIds(ids: string[]): Promise<Map<string, Question>> {
+  const map = new Map<string, Question>();
+  if (ids.length === 0) return map;
+  const unique = [...new Set(ids)];
+  for (let i = 0; i < unique.length; i += 10) {
+    const chunk = unique.slice(i, i + 10);
+    const snap = await getDocs(query(questionsRef, where('id', 'in', chunk)));
+    snap.forEach((d) => {
+      const q = d.data() as Question;
+      map.set(q.id, q);
+    });
+  }
+  return map;
+}
+
+async function findQuizIdsContainingQuestion(questionId: string): Promise<string[]> {
+  const snap = await getDocs(
+    query(quizzesRef, where('questionIds', 'array-contains', questionId))
+  );
+  return snap.docs.map((d) => d.id);
+}
+
+function stripEditorOnlyFields(question: Question): Question {
+  const { linkKind: _linkKind, ...rest } = question;
+  return rest as Question;
+}
+
 /**
  * クイズを下書き保存、または公開する統合関数。
  * - status = 'draft': タイトル・ジャンル・問題文必須 + メタデータ解決
@@ -382,11 +450,26 @@ export async function saveQuiz(
   const processedQuestions: Question[] = [];
 
   const inputQuestions = quizData.questions || [];
-  for (const q of inputQuestions) {
+  const refCandidateIds = inputQuestions
+    .filter((q) => isReferenceLinkQuestion(q) && q.id)
+    .map((q) => q.id as string);
+  const storedById = await loadQuestionsByIds(refCandidateIds);
+  const partition = partitionQuestionsForSave(inputQuestions, [], storedById);
+
+  for (const refId of partition.referenceOnlyIds) {
+    const stored = storedById.get(refId);
+    if (!stored) {
+      throw new Error(`参照設問が見つかりません: ${refId}`);
+    }
+    assertAuthorOwnsQuestion(quizData.authorId, stored);
+    questionIds.push(refId);
+    processedQuestions.push(stripEditorOnlyFields({ ...stored, id: refId }));
+  }
+
+  for (const q of partition.ownedToWrite) {
     const qDocRef = doc(questionsRef);
     const qId = qDocRef.id;
-
-    const fullQuestion: Question = {
+    const fullQuestion: Question = stripEditorOnlyFields({
       ...q,
       id: qId,
       quizId: quizId,
@@ -396,10 +479,8 @@ export async function saveQuiz(
       bookmarksCount: q.bookmarksCount || 0,
       correctCount: q.correctCount || 0,
       incorrectCount: q.incorrectCount || 0,
-    };
-
+    });
     batch.set(qDocRef, fullQuestion);
-
     questionIds.push(qId);
     processedQuestions.push(fullQuestion);
   }

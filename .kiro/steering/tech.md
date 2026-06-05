@@ -54,6 +54,7 @@ npm run test:e2e
 
 ## 主要な技術決定 (Key Technical Decisions)
 
+- **リスト種別の後方互換**: `QuizList.listType`（`quiz` | `question`）は未設定ドキュメントを `quiz` と解釈する `resolveListType()` を型層に集約し、UI・サービスは `list.listType` の直参照を避ける。
 - **Vanilla CSSの採用**: UIは独自のプレミアムなデザインシステムを構築するため、TailwindCSSなどの汎用ユーティリティフレームワークは使用せず、柔軟で保守性の高い Vanilla CSS / CSS Modules を使用します。
 - **二重検証（Defense-in-Depth）**: フロントエンド（Cookie等）での権限チェックはUX向上のためだけに使用し、実際のデータ更新や操作はFirestoreセキュリティルール（`firestore.rules`）およびサーバーサイドでのトークン検証で厳格に認可します。
 - **画像のSVGアップロード禁止**: XSS（スクリプト埋め込み）攻撃を防ぐため、Firebase Storageへの画像アップロード（アイコン含む）は `PNG`, `JPEG`, `GIF` に限定し、セキュリティルールで容量・MIMEタイプを厳格にチェックします。

@@ -29,6 +29,9 @@ import {
 import { resolveQuizFormat } from '@/lib/quiz-format';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
+import { AuthorQuizReferencePanel } from '@/components/quiz/author-quiz-reference-panel';
+import { ReferenceQuestionBadge } from '@/components/quiz/reference-question-badge';
+import { isReferenceLinkQuestion } from '@/lib/linked-question';
 
 interface QuizEditorProps {
   quizId?: string; // 編集モードの場合はIDが渡される
@@ -127,6 +130,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
   // 設問関連ステート
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [cowNoticeIds, setCowNoticeIds] = useState<Set<string>>(new Set());
   /** テストプレイ復帰後に Firestore 取得でドラフトを上書きしない */
   const skipServerQuizLoadRef = useRef(false);
 
@@ -391,6 +395,30 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   };
 
   // 設問の削除
+  const linkedQuestionIds = React.useMemo(
+    () => new Set(questions.map((q) => q.id).filter(Boolean) as string[]),
+    [questions]
+  );
+
+  const handleLinkReferenceQuestion = (question: Question) => {
+    if (linkedQuestionIds.has(question.id)) {
+      alert('この設問はすでにリンクされています。');
+      return;
+    }
+    setQuestions((prev) => [...prev, { ...question, linkKind: 'reference' }]);
+  };
+
+  const handleDetachReferenceForEdit = (qIdx: number) => {
+    const next = [...questions];
+    const q = next[qIdx];
+    if (!isReferenceLinkQuestion(q)) return;
+    next[qIdx] = { ...q, linkKind: 'owned' };
+    setQuestions(next);
+    if (q.id) {
+      setCowNoticeIds((prev) => new Set(prev).add(q.id));
+    }
+  };
+
   const handleRemoveQuestion = (idx: number) => {
     if (questions.length <= 1) {
       alert('最低1問は必要です。');
@@ -917,6 +945,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         draftErrors.push({ field: 'genre', message: 'ジャンルを選択してください' });
       }
       questions.forEach((q, idx) => {
+        if (isReferenceLinkQuestion(q)) return;
         draftErrors.push(...collectQuestionTextValidationErrors(q, idx));
       });
       if (draftErrors.length > 0) {
@@ -1251,13 +1280,27 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                 <Plus size={16} /> 問題を追加
               </button>
             </div>
+
+            {user && (
+              <AuthorQuizReferencePanel
+                authorId={user.id}
+                onLinkQuestion={handleLinkReferenceQuestion}
+                linkedQuestionIds={linkedQuestionIds}
+              />
+            )}
+
             <FieldValidationMessages errors={validationErrors} field="questions" unscopedOnly />
 
             <div className={styles.questionList}>
-              {questions.map((q, qIdx) => (
+              {questions.map((q, qIdx) => {
+                const isRefReadOnly = isReferenceLinkQuestion(q);
+                return (
                 <div key={q.id || qIdx} id={`question-card-${qIdx}`} className={styles.questionCard}>
                   <div className={styles.questionCardHeader}>
-                    <span className={styles.questionNumber}>第 {qIdx + 1} 問</span>
+                    <span className={styles.questionNumber}>
+                      第 {qIdx + 1} 問
+                      {isRefReadOnly && <ReferenceQuestionBadge />}
+                    </span>
                     <button
                       type="button"
                       className={styles.removeQuestionBtn}
@@ -1268,6 +1311,30 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                     </button>
                   </div>
 
+                  {cowNoticeIds.has(q.id) && (
+                    <div className={styles.tagWarning} role="status" data-testid="cow-detach-notice">
+                      <AlertTriangle size={16} />
+                      <span>保存時に独自コピーとして切り離されます</span>
+                    </div>
+                  )}
+
+                  {isRefReadOnly ? (
+                    <div style={{ padding: '12px 0' }}>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                        参照リンク設問（読み取り専用）
+                      </p>
+                      <p style={{ whiteSpace: 'pre-wrap', marginBottom: 12 }}>{q.questionText}</p>
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={() => handleDetachReferenceForEdit(qIdx)}
+                        data-testid={`detach-reference-${q.id}`}
+                      >
+                        内容を編集（コピーに切り離し）
+                      </button>
+                    </div>
+                  ) : (
+                  <>
                   {/* 設問タイプ切り替えトグル (複合形式のみ) */}
                   {format === 'mixed' ? (
                     <div className={styles.typeToggle}>
@@ -1781,8 +1848,11 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                       }}
                     />
                   </div>
+                  </>
+                  )}
                 </div>
-              ))}
+              );
+              })}
             </div>
           </div>
       </div>
