@@ -171,6 +171,8 @@
   box-shadow: var(--glass-shadow);
   display: flex;
   flex-direction: column;
+  background: var(--bg-surface-solid) !important;
+  backdrop-filter: none !important;
 }
 
 .dropdownHeader {
@@ -249,6 +251,8 @@
   border-right: none;
   padding: 16px 24px 24px 24px;
   z-index: 99;
+  background: var(--bg-surface-solid) !important;
+  backdrop-filter: none !important;
 }
 
 .mobileNav {
