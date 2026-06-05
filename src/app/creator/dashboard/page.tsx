@@ -4,9 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { getQuizzesByAuthor, exportQuizzes } from '@/services/quiz';
+import { getReportsForCreator } from '@/services/review';
 import { Quiz, Question, FeedbackReport } from '@/types';
-import { db } from '@/lib/firebase/config';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import styles from './dashboard.module.css';
 import { AnalyticsChart } from '@/components/charts/analytics-chart';
 import { SelectionPie } from '@/components/charts/selection-pie';
@@ -99,17 +98,7 @@ export default function CreatorDashboardPage() {
         setAverageRating(reviewsCount > 0 ? Math.round((reviewsSum / reviewsCount) * 10) / 10 : 0);
 
         // 2. 間違い指摘フィードバックの取得 (status = 'open')
-        const feedbackRef = collection(db, 'feedbackReports');
-        const q = query(
-          feedbackRef, 
-          where('creatorId', '==', user.id), 
-          where('status', '==', 'open')
-        );
-        const snap = await getDocs(q);
-        const fbList: FeedbackReport[] = [];
-        snap.forEach((doc) => {
-          fbList.push({ id: doc.id, ...doc.data() } as FeedbackReport);
-        });
+        let fbList = await getReportsForCreator(user.id);
 
         // モックデータを追加 (テスト用およびデータが空のときのプレミアム演出用)
         if (fbList.length === 0 && userQuizzes.length > 0) {

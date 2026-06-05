@@ -271,6 +271,32 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------
+    // feedbackReports (間違い指摘) コレクションルール
+    // -----------------------------------------------------------------
+    match /feedbackReports/{reportId} {
+      // クイズ作成者は自分宛ての指摘、報告者は自分の送信履歴を閲覧可能
+      allow read: if isAuthenticated() && (
+        resource.data.creatorId == request.auth.uid
+        || resource.data.reporterId == request.auth.uid
+      );
+
+      // 認証済みユーザーが指摘を送信（報告者IDは自身、初期ステータスは open）
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.category in ['typo', 'fact', 'alternative'];
+
+      // 作成者のみ status を resolved に更新可能
+      allow update: if isAuthenticated() && isNotBanned()
+        && resource.data.creatorId == request.auth.uid
+        && resource.data.status == 'open'
+        && request.resource.data.status == 'resolved'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+      allow delete: if false;
+    }
+
+    // -----------------------------------------------------------------
     // notifications (通知) コレクションルール
     // -----------------------------------------------------------------
     match /notifications/{notificationId} {

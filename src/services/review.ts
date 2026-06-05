@@ -57,6 +57,17 @@ export async function submitFeedbackReport(
   return docRef.id;
 }
 
+/** 作家ダッシュボード用: 未解決（open）の指摘一覧を取得 */
+export async function getReportsForCreator(creatorId: string): Promise<FeedbackReport[]> {
+  const q = query(
+    feedbackReportsCollection,
+    where('creatorId', '==', creatorId),
+    where('status', '==', 'open')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedbackReport));
+}
+
 export async function resolveReport(reportId: string, resolverNote?: string): Promise<void> {
   const reportRef = doc(feedbackReportsCollection, reportId);
   const reportSnap = await getDoc(reportRef);
