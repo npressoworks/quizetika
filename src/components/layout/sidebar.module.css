@@ -1,0 +1,324 @@
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  border-top: none;
+  border-left: none;
+  border-bottom: none;
+  background: rgba(10, 8, 19, 0.7);
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.2);
+  z-index: 90;
+  padding: 24px 16px;
+  transition: var(--transition-smooth);
+}
+
+.topSection {
+  margin-bottom: 32px;
+  padding-left: 8px;
+}
+
+.logo {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+}
+
+.logoAccent {
+  transition: var(--transition-smooth);
+}
+
+.logo:hover .logoAccent {
+  text-shadow: 0 0 15px rgba(0, 245, 212, 0.9);
+}
+
+.navMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  font-weight: 500;
+  transition: var(--transition-smooth);
+}
+
+.navLink:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(4px);
+}
+
+.active {
+  color: var(--color-accent);
+  background: rgba(0, 245, 212, 0.08);
+  font-weight: 600;
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding-left: 13px; /* border分の調整 */
+}
+
+.iconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+
+.label {
+  transition: opacity 0.3s ease;
+}
+
+/* 作問ボタン */
+.createBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  font-size: 1rem;
+  background: linear-gradient(135deg, var(--color-primary), #7b2cbf);
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(157, 78, 221, 0.4);
+  margin-top: 16px;
+}
+
+.createBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(157, 78, 221, 0.6);
+  opacity: 0.95;
+}
+
+.createBtnLabel {
+  transition: opacity 0.3s ease;
+}
+
+/* フッターセクション */
+.footerSection {
+  margin-top: auto;
+  border-top: 1px solid var(--border-light);
+  padding-top: 16px;
+}
+
+.skeletonAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-surface-solid);
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.loginBtn {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  border-radius: var(--radius-md);
+}
+
+/* プロフィール領域 */
+.profileContainer {
+  position: relative;
+}
+
+.profileBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  text-align: left;
+}
+
+.profileBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-light);
+  transition: var(--transition-smooth);
+}
+
+.profileBtn:hover .avatar {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.profileDetails {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  transition: opacity 0.3s ease;
+}
+
+.profileName {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  color: var(--text-muted);
+  transition: opacity 0.3s ease;
+}
+
+/* ポップアップメニュー */
+.backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 98;
+}
+
+.popupMenu {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  width: 220px;
+  padding: 8px;
+  z-index: 99;
+  border-radius: var(--radius-md);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface-solid) !important;
+}
+
+.popupItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-align: left;
+  width: 100%;
+}
+
+.popupItem:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.logoutItem:hover {
+  color: var(--color-danger);
+  background: rgba(255, 0, 84, 0.08);
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border-light);
+  margin: 6px 0;
+}
+
+/* ==========================================================================
+   Responsive Layout Styles (Requirement 1)
+   ========================================================================== */
+
+/* PC size (1024px and above) */
+@media (min-width: 1024px) {
+  .sidebar {
+    width: 275px;
+  }
+}
+
+/* Tablet size (768px to 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .sidebar {
+    width: 70px;
+    padding: 24px 8px;
+    align-items: center;
+  }
+
+  .topSection {
+    padding-left: 0;
+  }
+
+  .logo {
+    font-size: 1.3rem;
+  }
+  .logo span:last-child {
+    display: none; /* "eum"を隠して"Q"または"Quiz"程度にする */
+  }
+
+  .label,
+  .createBtnLabel,
+  .profileDetails,
+  .chevron {
+    display: none; /* テキスト類を隠してアイコンのみにする */
+  }
+
+  .navLink {
+    justify-content: center;
+    padding: 12px;
+  }
+
+  .active {
+    border-left: 3px solid var(--color-accent);
+    border-radius: var(--radius-md);
+    padding-left: 12px;
+  }
+
+  .createBtn {
+    padding: 12px;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .profileBtn {
+    justify-content: center;
+    padding: 4px;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+  }
+
+  .popupMenu {
+    left: calc(100% + 12px);
+    bottom: 0;
+  }
+}
+
+/* Mobile size (767px and below) */
+@media (max-width: 767px) {
+  .sidebar {
+    display: none; /* 非表示にする */
+  }
+}
