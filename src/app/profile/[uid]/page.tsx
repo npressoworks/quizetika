@@ -113,14 +113,23 @@ export default function ProfilePage() {
 
         setProfileUser(userData);
 
-        // クイズとリストの取得
-        const [userQuizzes, userLists] = await Promise.all([
+        // クイズとリストは独立取得（一方の Rules 未反映で両方が空になるのを防ぐ）
+        const [quizzesResult, listsResult] = await Promise.allSettled([
           getQuizzesByAuthor(uid, isMyProfile),
-          getQuizListsByAuthor(uid, isMyProfile)
+          getQuizListsByAuthor(uid, isMyProfile),
         ]);
-        
-        setQuizzes(userQuizzes);
-        setQuizLists(userLists);
+
+        if (quizzesResult.status === 'fulfilled') {
+          setQuizzes(quizzesResult.value);
+        } else {
+          console.error('Error loading profile quizzes:', quizzesResult.reason);
+        }
+
+        if (listsResult.status === 'fulfilled') {
+          setQuizLists(listsResult.value);
+        } else {
+          console.error('Error loading profile lists:', listsResult.reason);
+        }
 
         // フォロー状態の確認
         if (currentUser && !isMyProfile) {
