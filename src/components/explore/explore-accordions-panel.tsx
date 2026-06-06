@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import type { GenreMetadata } from '@/types';
 import type { QuizFormat } from '@/lib/quiz-format';
+import { getFormatLabel } from '@/lib/quiz-format-labels';
 import { filterGenreSuggestions } from '@/lib/filter-genre-suggestions';
 import { ExploreAccordion } from './explore-accordion';
 import { GenreCarousel } from './genre-carousel';
@@ -41,6 +42,10 @@ export function ExploreAccordionsPanel({
     return filterGenreSuggestions(genres, genreSearchQuery, genres.length);
   }, [genres, genreSearchQuery]);
 
+  const selectedGenre = useMemo(() => {
+    return genres.find((g) => g.id === selectedGenreId);
+  }, [genres, selectedGenreId]);
+
   const handleGenreSelect = useCallback(
     (genreId: string) => {
       onGenreSelect(genreId);
@@ -53,7 +58,7 @@ export function ExploreAccordionsPanel({
     <div className={styles.accordionsPanel}>
       <ExploreAccordion
         testId="explore-accordion-genre"
-        title="ジャンルで絞り込む"
+        title={selectedGenre ? `ジャンルで絞り込む：${selectedGenre.displayName}` : 'ジャンルで絞り込む'}
         open={genreOpen}
         onToggle={() => setGenreOpen((v) => !v)}
       >
@@ -84,7 +89,7 @@ export function ExploreAccordionsPanel({
 
       <ExploreAccordion
         testId="explore-accordion-format"
-        title="出題形式で絞り込む"
+        title={selectedFormat ? `出題形式で絞り込む：${getFormatLabel(selectedFormat)}` : '出題形式で絞り込む'}
         open={formatOpen}
         onToggle={() => setFormatOpen((v) => !v)}
       >
