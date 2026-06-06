@@ -1,5 +1,9 @@
 'use client';
 
+/**
+ * @deprecated Phase 11: ホーム画面からは除去。ジャンル探索は ExploreAccordionsPanel / GenreCarousel を使用。
+ * 参照用にファイルを残置（単体テスト用）。
+ */
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';

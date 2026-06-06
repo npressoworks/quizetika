@@ -25,4 +25,10 @@ describe('filterTagSuggestions', () => {
     const result = filterTagSuggestions(tags, 'web開発');
     expect(result.some((t) => t.id === 'web')).toBe(true);
   });
+
+  it('ひらがな入力でカタカナ tagName にマッチする', () => {
+    const kanaTags = [{ id: 'turtle', tagName: 'ウミガメのスープ' }];
+    const result = filterTagSuggestions(kanaTags, 'うみがめ');
+    expect(result.map((t) => t.id)).toEqual(['turtle']);
+  });
 });

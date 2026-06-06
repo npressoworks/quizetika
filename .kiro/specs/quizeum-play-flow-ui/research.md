@@ -341,3 +341,166 @@
 - **QuizCard ナビゲーション**: 探索一覧は `href` prop でルートを `Link` 化。ホームは `onPlayClick` 維持。`play-btn` testid を全画面で付与。
 - **Enter 優先順位**: サジェスト open + 候補あり → 選択。それ以外 → チップ確定（`GenreSearchField` 同型）。
 - **タグサジェスト**: 照合キー `id`、表示 `tagName ?? id`。`listActiveTags` は core 要件 16（存続タグのみ）に依存。
+
+---
+
+# Gap Analysis: quizeum-play-flow-ui（Phase 10 実装後 & Phase 11 — 2026-06-05）
+
+## Analysis Summary
+
+- **Phase 10（要件 12）**: **おおむね実装済み**。`UnifiedSearchField`（タグチップ・サジェスト）、`QuizCard`（★N・ジャンル・形式）、ジャンル／タグ一覧の `QuizCard` 統一、`getFormatLabel` 共有 lib 化、関連テストあり。
+- **Phase 11（要件 13）**: **未着手**。アコーディオン・カルーセルなし。`GenreNav` がホームに残存（`/genres` 遷移）。ジャンルページに検索 UI なし。`filterFormat` 状態なし。
+- **Phase 10 残差**: 軽微 — `handleSearchClearAll` はジャンルクリア済みだが Phase 11 向け **形式クリア未対応**（将来拡張）。プレイ状況フィルタは `applyPlayStatusFilter` で接続済み。
+- **推奨（設計フェーズ）**: **Option C（ハイブリッド）** — 新規 `ExploreAccordion` / `GenreCarousel` / `FormatCarousel` + `HomeFeedFilters` / hook 拡張 + ジャンルページは共有 `ExploreSearchSection` を `lockedGenreId` 付きで再利用。
+- **規模 / リスク**: Phase 11 **M（3–5日）/ Medium** — 新 UI コンポーネント、状態同期、`GenreNav` 削除に伴うテスト/E2E 更新。
+
+## Document Status
+
+- **入力**: `requirements.md` 要件 12–13、roadmap Phase 10–11、`page.tsx`, `genre-nav.tsx`, `genres/[genreName]/page.tsx`, `unified-search-field.tsx`, `home-feed-filters.ts`, `useHomeQuizFeed.ts`
+- **手法**: gap-analysis.md フレームワーク、Grep/Read
+- **分析日**: 2026-06-05
+- **上流**: `quizeum-core` Phase 11（`SearchFilters.format`）が UI の形式カルーセルより先
+
+## 1. Requirement-to-Asset Map
+
+### Phase 10（要件 12）
+
+| サブ領域 | 期待 | 現状 | ギャップ |
+|---------|------|------|----------|
+| 12.1–6 タグチップ | スペース/Enter 確定、× 削除、クリア | `unified-search-field.tsx` | ✅ |
+| 12.7–10 サジェスト | タグ・ジャンル部分一致 | `filter-search-suggestions.ts` | ✅ |
+| 12.11 クイックサーチ | チップ追加（テキスト流し込み禁止） | `page.tsx` `handleQuickChip` | ✅ |
+| 12.12–15 検索実行 | タグ AND + デバウンス | `useHomeQuizFeed` + `searchQuizzes` | ✅ |
+| 12.16–20 クイズカード | ★N、ジャンル、形式 | `quiz-card.tsx` + 探索ページ | ✅ |
+| 12.21–22 a11y/testid | キーボード、data-testid | 実装・部分テスト | ✅（E2E 追加余地あり） |
+
+### Phase 11（要件 13）
+
+| サブ領域 | 期待 | 現状 | ギャップ |
+|---------|------|------|----------|
+| 13.1–3 アコーディオン | 2 セクション独立開閉 | なし | ❌ **Missing** |
+| 13.4–8 ジャンルカルーセル | 横スクロール、ホーム内フィルタ | `GenreNav` ピル → `/genres` 遷移 | ❌ **Missing** + **Conflict** |
+| 13.9–12 形式カルーセル | 7 形式、ホーム内フィルタ | なし | ❌ **Missing** |
+| 13.13–14 GenreNav 置換 | ピル非表示、遷移禁止 | `page.tsx` L266 `GenreNav` | ❌ **Missing** |
+| 13.15–18 状態共有 | 検索バー・カルーセル同期 | `filterGenreId` のみ、format なし | ❌ **Partial** |
+| 13.19–23 ジャンルページ検索 | scoped 検索 UI | `getQuizzesByGenre` のみ | ❌ **Missing** |
+| 13.26–27 testid | accordion/carousel/search | なし | ❌ **Missing** |
+
+## 2. Current State Investigation
+
+### 既存アセット（Phase 11 で再利用）
+
+| ファイル | 再利用内容 |
+|---------|-----------|
+| `unified-search-field.tsx` | タグチップ・ジャンルサジェスト — ホーム／ジャンルページ共通 |
+| `genre-search-field.tsx` | フィルタパネル内ジャンル（ホームのみ。ジャンルページは非表示） |
+| `genre-nav.tsx` | カード UI の参考（アイコン+ラベル）— **置換対象** |
+| `explore-sort-tabs.tsx` | ジャンルページのソート（検索未指定時） |
+| `home-feed-filters.ts` | `format` フィールド追加先 |
+| `useHomeQuizFeed.ts` | `searchQuizzes` 呼び出し — `format` 引数追加 |
+| `quiz-format-labels.ts` | 形式カルーセルラベル定義 |
+| `page.module.css` | 検索セクションスタイル — アコーディオン追加 |
+
+### 競合・置換ポイント
+
+```text
+page.tsx 現行レイアウト:
+  searchSection (UnifiedSearchField + filterPanel)
+  quickSearch chips
+  GenreNav  ← Phase 11 で削除
+  tabBar + grid
+
+Phase 11 目標:
+  searchSection
+  ExploreAccordions (genre | format carousels)  ← 新規
+  quickSearch / tabBar / grid
+```
+
+- `tests/components/genre-nav.test.tsx` — ホームから `GenreNav` 削除後は **コンポーネント単体テストは残すか、カルーセルテストへ移行**。
+- `genre-nav.tsx` の `/genres` 遷移は要件 13 と矛盾 — ファイル自体は削除せず、ホームからの参照のみ除去可。
+
+## 3. Implementation Approach Options
+
+### Option A: `page.tsx` インライン拡張
+
+- アコーディオン・カルーセルを `page.tsx` に直接追加
+- **Pros**: ファイル数最小
+- **Cons**: `page.tsx` 肥大化（既に 340 行級）、ジャンルページ再利用困難
+- **Effort**: M / **Risk**: Medium
+
+### Option B: 探索コンポーネント一式新設
+
+- `explore-accordion.tsx`, `genre-carousel.tsx`, `format-carousel.tsx`, `explore-search-section.tsx`
+- **Pros**: テスト・ジャンルページ再利用が明確
+- **Cons**: ファイル増
+- **Effort**: M / **Risk**: Low-Medium
+
+### Option C: ハイブリッド（推奨候補）
+
+- **新規**: アコーディオン + 2 カルーセル + `EXPLORE_FORMATS` 定数（`quiz-format-labels` 隣接）
+- **拡張**: `HomeFeedFilters.format`, `hasActiveHomeSearchFilters`, `useHomeQuizFeed`（または `useExploreQuizFeed`）
+- **共有**: `ExploreSearchSection` — props: `lockedGenreId?: string`（ジャンルページ用）
+- **削除**: ホームの `GenreNav` import/render
+- **Pros**: roadmap Phase 11 の shared seam に一致、ジャンルページ scoped 検索を DRY
+- **Cons**: hook 抽象化の初期コスト
+- **Effort**: M / **Risk**: Medium
+
+## 4. ジャンルページ scoped 検索 — 設計論点
+
+| 論点 | 選択肢 |
+|------|--------|
+| 検索 active 判定 | `hasActiveExploreFilters({ ...filters, lockedGenreId })` — locked genre は常に active 扱いしない（要件 13.22） |
+| データ取得分岐 | フィルタなし → `getQuizzesByGenre(id, limit, sort)` / あり → `searchQuizzes(keyword, { genreId: locked, tags, format, ... })` |
+| ソート | scoped 検索時は `searchQuizzes` 戻りを `sortQuizzesForList` でクライアント再ソート（Research Needed: core 側 sort 引数追加 vs UI 側 sort） |
+| プレイ状況 | ジャンルページ要件に明記なし — 初版はホーム同等フィルタを写すか Out か design で確定 |
+
+## 5. Research Needed
+
+| 項目 | 内容 |
+|------|------|
+| scoped 検索時のソート | `searchQuizzes` は `latest` 固定取得が多い — ジャンルページで「人気」タブ + 検索同時指定時の UX |
+| カルーセル UX | scroll-snap のみ vs 左右矢印ボタン（要件未指定 — design で任意） |
+| E2E | 既存ホーム E2E が `GenreNav` / ジャンル遷移を前提にしていないか確認 |
+| core 依存 | Phase 11 UI は `quizeum-core` の `format` フィルタ merge 後に結合 |
+
+## 6. Effort & Risk Summary
+
+| ワークストリーム | Effort | Risk |
+|-----------------|--------|------|
+| Phase 10 残差（ほぼなし） | — | — |
+| アコーディオン + カルーセル UI | M | Low |
+| ホーム状態拡張 + GenreNav 削除 | S | Medium（回帰） |
+| ジャンルページ scoped 検索 | M | Medium |
+| テスト（RTL + E2E 更新） | S | Medium |
+| **Phase 11 合計** | **M** | **Medium** |
+
+## 7. Design Phase Recommendations
+
+1. **Option C** — 共有 `ExploreSearchSection` + `lockedGenreId`。
+2. 形式一覧定数: `src/lib/explore-formats.ts`（id + label、`getFormatLabel` 再利用）。
+3. 実装順: **core format フィルタ → ホームカルーセル → GenreNav 削除 → ジャンルページ**。
+4. `GenreNav` コンポーネントファイルは残し、ホーム参照のみ削除（他画面で未使用なら deprecation コメント）。
+5. testid 契約は要件 13.26–27 に従い E2E を先にスケルトン定義。
+
+## Document Status（Phase 11）
+
+- 設計: `design.md` Phase 11 節追記済み
+- Discovery 種別: **Light（Extension）**
+- 外部調査: 不要
+
+### Design Synthesis（Phase 11 — 2026-06-05）
+
+**Generalization**
+- 探索フィルタ状態は `HomeFeedFilters` + `hasActiveExploreFilters` / `hasActiveScopedExploreFilters` に集約。ホームとジャンルページは `ExploreSearchSection` + `useExploreQuizFeed` を共有。
+- ジャンル／形式の「カード選択」は同一トグルパターン（選択 → 再選択で解除）。
+
+**Build vs. Adopt**
+- **採用**: 既存 `UnifiedSearchField`、`QuizCard`、`ExploreSortTabs`、コア `searchQuizzes.format`（実装済み）、クライアント `sortQuizzesForList`。
+- **新規**: アコーディオン・2 カルーセル、`explore-formats.ts`。外部 carousel ライブラリは不採用。
+
+**Simplification**
+- `useHomeQuizFeed` を `useExploreQuizFeed` に統合（home/scoped モード）。`GenreNav` はホームから除去のみ（ファイル削除しない）。
+
+### validate-design 反映（予定）
+- scoped 検索 + ソート同時指定時は UI 側 `sortQuizzesForList` で再ソート（core に sort 引数追加は Phase 11 Non-Goal）。
+

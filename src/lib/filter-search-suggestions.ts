@@ -1,5 +1,6 @@
 import { filterGenreSuggestions } from '@/lib/filter-genre-suggestions';
 import { filterTagSuggestions } from '@/lib/filter-tag-suggestions';
+import { normalizeSearchText } from '@/lib/normalize-search-text';
 import type { GenreMetadata, TagMetadata } from '@/types';
 
 export type SearchSuggestion =
@@ -13,7 +14,7 @@ export function filterSearchSuggestions(
   query: string,
   maxResults = 10
 ): SearchSuggestion[] {
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeSearchText(query);
   if (!needle) {
     return [];
   }
@@ -35,8 +36,8 @@ export function filterSearchSuggestions(
   );
 
   const score = (item: SearchSuggestion): number => {
-    const id = item.id.toLowerCase();
-    const label = item.label.toLowerCase();
+    const id = normalizeSearchText(item.id);
+    const label = normalizeSearchText(item.label);
     if (id === needle || label === needle) return 0;
     if (id.startsWith(needle) || label.startsWith(needle)) return 1;
     if (id.includes(needle) || label.includes(needle)) return 2;

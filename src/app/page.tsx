@@ -5,15 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import styles from './page.module.css';
 import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
-import { SlidersHorizontal } from 'lucide-react';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { useActiveTags } from '@/hooks/useActiveTags';
-import { UnifiedSearchField } from '@/components/explore/unified-search-field';
-import { normalizeTag } from '@/services/quiz-validation';
 import { useHomeQuizFeed } from '@/hooks/useHomeQuizFeed';
 import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
-import { GenreNav } from '@/components/explore/genre-nav';
-import { GenreSearchField } from '@/components/explore/genre-search-field';
+import { ExploreAccordionsPanel } from '@/components/explore/explore-accordions-panel';
+import { ExploreSearchSection } from '@/components/explore/explore-search-section';
 import { QuizCard } from '@/components/quiz/quiz-card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import {
@@ -21,6 +18,7 @@ import {
   type HomeFeedFilters,
 } from '@/lib/home-feed-filters';
 import { applyPlayStatusFilter } from '@/lib/apply-play-status-filter';
+import type { QuizFormat } from '@/lib/quiz-format';
 
 export default function Home() {
   const router = useRouter();
@@ -37,54 +35,30 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'latest' | 'popular' | 'trending' | 'timeline'>(
     'latest'
   );
-  const [searchQuery, setSearchQuery] = useState('');
-  const [tagChips, setTagChips] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<HomeFeedFilters>(DEFAULT_HOME_FEED_FILTERS);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
-  const [filterGenreId, setFilterGenreId] = useState('');
-  const [difficultyMin, setDifficultyMin] = useState(DEFAULT_HOME_FEED_FILTERS.difficultyMin);
-  const [difficultyMax, setDifficultyMax] = useState(DEFAULT_HOME_FEED_FILTERS.difficultyMax);
-  const [minQuestions, setMinQuestions] = useState(DEFAULT_HOME_FEED_FILTERS.minQuestions);
-  const [maxQuestions, setMaxQuestions] = useState(DEFAULT_HOME_FEED_FILTERS.maxQuestions);
   const [playStatus, setPlayStatus] = useState<'all' | 'unplayed' | 'played'>('all');
 
-  const feedFilters: HomeFeedFilters = useMemo(
-    () => ({
-      genreId: filterGenreId,
-      searchQuery,
-      tagChips,
-      difficultyMin,
-      difficultyMax,
-      minQuestions,
-      maxQuestions,
-    }),
-    [
-      filterGenreId,
-      searchQuery,
-      tagChips,
-      difficultyMin,
-      difficultyMax,
-      minQuestions,
-      maxQuestions,
-    ]
-  );
-
-  const handleSearchClearAll = () => {
-    setSearchQuery('');
-    setTagChips([]);
-    setFilterGenreId('');
+  const patchFilters = (patch: Partial<HomeFeedFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
   };
 
-  const handleQuickChip = (label: string) => {
-    const normalized = normalizeTag(label.replace(/^#/, ''));
-    if (!normalized || tagChips.includes(normalized)) return;
-    setTagChips((prev) => [...prev, normalized]);
+  const handleSearchClearAll = () => {
+    setFilters(DEFAULT_HOME_FEED_FILTERS);
+  };
+
+  const handleGenreSelect = (genreId: string) => {
+    patchFilters({ genreId });
+  };
+
+  const handleFormatSelect = (format: QuizFormat | '') => {
+    patchFilters({ format });
   };
 
   const { quizzes, loading: feedLoading, error: feedError } = useHomeQuizFeed(
     activeTab,
     user?.id,
-    feedFilters
+    filters
   );
   const { playedQuizIds } = usePlayedQuizIds(user?.id);
 
@@ -138,136 +112,29 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
-      <section className={styles.searchSection}>
-        <div className={styles.searchBar}>
-          <div className={styles.searchFieldWrapper}>
-            <UnifiedSearchField
-              tagChips={tagChips}
-              onTagChipsChange={setTagChips}
-              keyword={searchQuery}
-              onKeywordChange={setSearchQuery}
-              genres={genres}
-              tags={activeTags}
-              genresLoading={genresLoading}
-              tagsLoading={tagsLoading}
-              genresError={genresError}
-              tagsError={tagsError}
-              tagLabelById={tagLabelById}
-              selectedGenreId={filterGenreId}
-              onGenreSelect={setFilterGenreId}
-              onClearAll={handleSearchClearAll}
-            />
-          </div>
-          <button
-            type="button"
-            className={styles.filterToggleBtn}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <SlidersHorizontal size={18} />
-            フィルター
-          </button>
-        </div>
+      <ExploreSearchSection
+        filters={filters}
+        onFiltersChange={patchFilters}
+        onClearAll={handleSearchClearAll}
+        tags={activeTags}
+        tagsLoading={tagsLoading}
+        tagsError={tagsError}
+        tagLabelById={tagLabelById}
+        playStatus={playStatus}
+        onPlayStatusChange={setPlayStatus}
+        playStatusDisabled={!user}
+        showQuickSearch
+      />
 
-        <div className={styles.quickSearch}>
-          <span className={styles.quickSearchLabel}>クイック検索:</span>
-          {['#ウミガメのスープ', '#JavaScript', '#雑学', '#難問', '#初心者向け'].map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              className={styles.quickChip}
-              onClick={() => handleQuickChip(tag)}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-
-        {showFilters && (
-          <div className={styles.filterPanel}>
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>ジャンル</span>
-              <GenreSearchField
-                genres={genres}
-                value={filterGenreId}
-                onChange={setFilterGenreId}
-                disabled={genresLoading || !!genresError}
-              />
-            </div>
-
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>難易度範囲 (1 - 10)</span>
-              <div className={styles.rangeInputs}>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  className={styles.filterSelect}
-                  value={difficultyMin}
-                  onChange={(e) => setDifficultyMin(Number(e.target.value))}
-                />
-                <span>〜</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="10"
-                  className={styles.filterSelect}
-                  value={difficultyMax}
-                  onChange={(e) => setDifficultyMax(Number(e.target.value))}
-                />
-              </div>
-            </div>
-
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>問題数</span>
-              <div className={styles.rangeInputs}>
-                <input
-                  type="number"
-                  min="1"
-                  className={styles.filterSelect}
-                  value={minQuestions}
-                  onChange={(e) => setMinQuestions(Number(e.target.value))}
-                />
-                <span>〜</span>
-                <input
-                  type="number"
-                  min="1"
-                  className={styles.filterSelect}
-                  value={maxQuestions}
-                  onChange={(e) => setMaxQuestions(Number(e.target.value))}
-                />
-              </div>
-            </div>
-
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>プレイ状況</span>
-              <select
-                className={styles.filterSelect}
-                value={playStatus}
-                disabled={!user}
-                title={!user ? 'ログインするとプレイ状況で絞り込めます' : undefined}
-                onChange={(e) =>
-                  setPlayStatus(e.target.value as 'all' | 'unplayed' | 'played')
-                }
-              >
-                <option value="all">すべて表示</option>
-                <option value="unplayed">未プレイのみ</option>
-                <option value="played">プレイ済みのみ</option>
-              </select>
-              {!user && (
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                  プレイ状況で絞り込むにはログインが必要です
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-      </section>
-
-      <GenreNav
+      <ExploreAccordionsPanel
         genres={genres}
-        loading={genresLoading}
-        error={genresError}
-        onRetry={refetch}
+        genresLoading={genresLoading}
+        genresError={genresError}
+        onGenresRetry={refetch}
+        selectedGenreId={filters.genreId}
+        onGenreSelect={handleGenreSelect}
+        selectedFormat={filters.format}
+        onFormatSelect={handleFormatSelect}
       />
 
       <section className={styles.mainContent}>

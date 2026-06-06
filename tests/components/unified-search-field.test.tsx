@@ -6,13 +6,11 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { UnifiedSearchField } from '@/components/explore/unified-search-field';
 
-const genres = [{ id: 'programming', displayName: 'コンピュータ・IT' }];
 const tags = [{ id: 'js', tagName: 'JavaScript', canonicalId: null, mergedTagIds: [] }];
 
 describe('UnifiedSearchField', () => {
   const onTagChipsChange = jest.fn();
   const onKeywordChange = jest.fn();
-  const onGenreSelect = jest.fn();
   const onClearAll = jest.fn();
 
   beforeEach(() => {
@@ -26,15 +24,10 @@ describe('UnifiedSearchField', () => {
         onTagChipsChange={onTagChipsChange}
         keyword=""
         onKeywordChange={onKeywordChange}
-        genres={genres}
         tags={tags}
-        genresLoading={false}
         tagsLoading={false}
-        genresError={null}
         tagsError={null}
         tagLabelById={new Map([['js', 'JavaScript']])}
-        selectedGenreId=""
-        onGenreSelect={onGenreSelect}
         onClearAll={onClearAll}
         {...overrides}
       />

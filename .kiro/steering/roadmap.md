@@ -339,4 +339,60 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
 ## Specs (dependency order)
 （Phase 10 では新規 spec なし — 上記 Existing Spec Updates のみ）
 
+---
+
+## Phase 11: 探索アコーディオン・カルーセル & ジャンルページ検索（2026-06-05 ディスカバリー）
+
+### Overview（本フェーズ）
+ホーム画面の検索バー直下に「ジャンルから探す」「出題形式で探す」のアコーディオンを配置し、展開時にジャンルカード／出題形式カードの横スクロールカルーセルを表示する。カード選択は**ページ遷移せずホーム内のクイズグリッドを絞り込む**（ホーム内フィルタ型）。検索バー・フィルタパネルとフィルタ状態を共有し、ジャンルは検索バーのサジェストでも絞り込める。既存 `GenreNav`（ピル横スクロール）は本 UI に置き換える。あわせてジャンル別一覧（`/genres/[genreName]`）にも検索バーとフィルタを追加し、当該ジャンル内でのキーワード・タグ・難易度・出題形式等の絞り込みを可能にする。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: 共有探索フィルタ状態 + カルーセル選択 → `searchQuizzes` 連携（ホーム内フィルタ型）
+- **Why**: ユーザーが「まず条件を選んでから一覧を見る」探索フローをホーム上で完結できる。Phase 10 の統合検索・タグチップと同一の `searchQuizzes` / `HomeFeedFilters` 系状態を拡張すれば、カルーセル・検索バー・フィルタパネルが一貫して動作する。ジャンルページは `genreId` を URL から固定し、同一コンポーネントを `lockedGenreId` 付きで再利用する。
+- **Rejected alternatives**:
+  - **ナビゲーション型**（カード → `/genres/[id]` や `/formats/[format]`）: ユーザー選択により却下。探索はホーム上で完結させる。
+  - **カルーセル専用 API 新設**: マスタ件数・形式種別は少なく、既存 `listActiveGenres` + 静的形式定義で足りる。
+  - **ジャンルページのみクライアント side フィルタ**: ホームと挙動が乖離するため、`searchQuizzes`（ジャンル固定）に統一。
+
+### Scope（本フェーズ）
+- **In**:
+  - ホーム: 検索バー下のアコーディオン 2 セクション（ジャンル／出題形式）
+  - 展開時の横スクロールカルーセル（CSS scroll-snap、Vanilla CSS Modules）。ジャンルカードはアイコン・表示名・説明（任意）
+  - カード選択で `filterGenreId` / `filterFormat` を設定し、デバウンス付き `searchQuizzes` でグリッド更新。選択中カードのハイライト、再タップまたはクリアで解除
+  - 検索バー（`UnifiedSearchField`）との状態共有: ジャンルサジェスト選択も `filterGenreId` に反映しカルーセル選択状態と同期
+  - 既存 `GenreNav` ピルナビの**削除・置換**（要件 1.x の `/genres` 遷移ルールを本フェーズで改定）
+  - `quizeum-core`: `SearchFilters` / `searchQuizzes` への `format`（出題形式）フィルタ追加（`resolveQuizFormat` と一致する判定）
+  - `HomeFeedFilters` / `hasActiveHomeSearchFilters` への `format` 追加
+  - ジャンルページ: ホームと同型の検索バー＋フィルタパネル（`genreId` は URL 固定、ジャンルセレクトは非表示または読み取り専用）。`searchQuizzes` で当該ジャンル内検索
+  - 出題形式カルーセル: `getFormatLabel` 対象の有効形式一覧（mixed, multiple-choice, text-input, quick-press, sorting, association, lateral-thinking）
+  - テスト: カルーセル選択→グリッド絞り込み、ジャンルページ scoped 検索、format フィルタ結合
+- **Out**:
+  - `/formats/[format]` 専用ルート新設
+  - URL クエリパラメータによるフィルタ共有可能化（将来 follow-up 可）
+  - タグ別一覧（`/tags/[tagName]`）への検索バー追加（本フェーズはジャンルページのみ）
+  - カルーセル用 Framer Motion 自動スライド・外部 carousel ライブラリ導入
+  - サーバー側 format インデックス新設（クライアント側 `resolveQuizFormat` フィルタで足りる）
+
+### Constraints（本フェーズ）
+- Vanilla CSS / CSS Modules。横スクロールは `scroll-snap-type: x mandatory` 等で実装（新規 npm 依存なし）
+- アコーディオン: WAI-ARIA `button` + `aria-expanded` / `aria-controls` を付与
+- 形式フィルタは DB の `quiz.format` 単体ではなく `resolveQuizFormat({ format, questions })` の結果と比較（`QuizCard` と同規則）
+- Phase 10（タグチップ・サジェスト）と共存: Phase 10 未完了でも Phase 11 は `UnifiedSearchField` 拡張前提で設計。実装順は Phase 10 → Phase 11 を推奨
+- ジャンルページの `genreId` は URL パラメータを正とし、フィルタで他ジャンルへ切り替えない（ジャンル変更はホームまたはカルーセル経由）
+
+### Boundary Strategy（本フェーズ）
+- **Core**: `SearchFilters.format`、`searchQuizzes` 内形式フィルタ、`resolveQuizFormat` との整合
+- **Play-flow UI**: アコーディオン、ジャンル／形式カルーセル、ホーム状態管理、`GenreNav` 削除、ジャンルページ検索 UI、共有コンポーネント（例: `ExploreFilterSection`）
+- **Shared seam**: 探索フィルタ状態の型（`HomeFeedFilters` 拡張）と `searchQuizzes` 呼び出しを lib/hook に1か所集約し、ホーム・ジャンルページで再利用
+
+## Existing Spec Updates（Phase 11・依存順）
+- [ ] quizeum-core -- `SearchFilters.format` 追加、`searchQuizzes` 出題形式フィルタ（`resolveQuizFormat` 一致）、必要なら型・テスト。Dependencies: none
+- [ ] quizeum-play-flow-ui -- ホームアコーディオン＋カルーセル（ホーム内フィルタ）、`GenreNav` 置換、検索バー状態同期、ジャンルページ検索・フィルタ、`HomeFeedFilters.format` 連携。Dependencies: quizeum-core（format フィルタ）。Phase 10 検索 UI と整合
+
+## Direct Implementation Candidates（Phase 11）
+- [ ] explore-filter-hook -- `useExploreQuizFeed`（または `useHomeQuizFeed` 拡張）でホーム／ジャンルページの `searchQuizzes` 呼び出しを共通化
+
+## Specs (dependency order)
+（Phase 11 では新規 spec なし — 上記 Existing Spec Updates のみ）
+
 

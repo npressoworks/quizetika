@@ -1,18 +1,26 @@
 'use client';
 
-import React, { useEffect, useState, use, useMemo } from 'react';
+import React, { useEffect, useMemo, useState, use } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { getQuizzesByGenre, type QuizListSort } from '@/services/quiz';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
+import { type QuizListSort } from '@/services/quiz';
 import { useAuth } from '@/context/auth-context';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
+import { useActiveTags } from '@/hooks/useActiveTags';
+import { useExploreQuizFeed } from '@/hooks/useExploreQuizFeed';
+import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
 import { ExploreSortTabs } from '@/components/explore/explore-sort-tabs';
+import { ExploreSearchSection } from '@/components/explore/explore-search-section';
 import { QuizCard } from '@/components/quiz/quiz-card';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
-import { Quiz } from '@/types';
+import {
+  DEFAULT_HOME_FEED_FILTERS,
+  type HomeFeedFilters,
+} from '@/lib/home-feed-filters';
+import { applyPlayStatusFilter } from '@/lib/apply-play-status-filter';
 import styles from '../../page.module.css';
 
 interface PageProps {
@@ -23,14 +31,27 @@ export default function GenreExplorePage({ params }: PageProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { genres, genreLabelById, loading: genresMetaLoading } = useActiveGenres();
+  const {
+    tags: activeTags,
+    loading: tagsLoading,
+    error: tagsError,
+    tagLabelById,
+  } = useActiveTags();
 
   const resolvedParams = use(params);
   const genreId = decodeURIComponent(resolvedParams.genreName);
 
   const [activeSort, setActiveSort] = useState<QuizListSort>('latest');
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<HomeFeedFilters>(() => ({
+    ...DEFAULT_HOME_FEED_FILTERS,
+    genreId,
+  }));
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+  const [playStatus, setPlayStatus] = useState<'all' | 'unplayed' | 'played'>('all');
+
+  useEffect(() => {
+    setFilters((prev) => ({ ...prev, genreId }));
+  }, [genreId]);
 
   const meta = useMemo(
     () => genres.find((g) => g.id === genreId) ?? null,
@@ -39,39 +60,46 @@ export default function GenreExplorePage({ params }: PageProps) {
 
   const headerTitle = meta?.displayName ?? genreId;
 
+  const feedFilters = useMemo(
+    () => ({ ...filters, genreId }),
+    [filters, genreId]
+  );
+
+  const { quizzes, loading, error: feedError } = useExploreQuizFeed({
+    mode: 'scoped',
+    filters: feedFilters,
+    lockedGenreId: genreId,
+    activeSort,
+    limit: 20,
+  });
+  const { playedQuizIds } = usePlayedQuizIds(user?.id);
+
+  const displayQuizzes = useMemo(
+    () => applyPlayStatusFilter(quizzes, playStatus, playedQuizIds),
+    [quizzes, playStatus, playedQuizIds]
+  );
+
   useEffect(() => {
     let cancelled = false;
 
-    async function loadQuizzes() {
-      setLoading(true);
-      try {
-        const fetched = await getQuizzesByGenre(genreId, 20, activeSort);
-        if (cancelled) return;
-        setQuizzes(fetched);
-
-        if (user && fetched.length > 0) {
-          const ids = new Set<string>();
-          for (const q of fetched) {
-            const isB = await isBookmarked(user.id, q.id);
-            if (isB) ids.add(q.id);
-          }
-          if (!cancelled) setBookmarkedIds(ids);
-        } else if (!cancelled) {
-          setBookmarkedIds(new Set());
+    async function loadBookmarks() {
+      if (user && quizzes.length > 0) {
+        const ids = new Set<string>();
+        for (const q of quizzes) {
+          const isB = await isBookmarked(user.id, q.id);
+          if (isB) ids.add(q.id);
         }
-      } catch (e) {
-        console.error('[GenreExplore] 読み込み失敗:', e);
-        if (!cancelled) setQuizzes([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setBookmarkedIds(ids);
+      } else if (!cancelled) {
+        setBookmarkedIds(new Set());
       }
     }
 
-    loadQuizzes();
+    loadBookmarks();
     return () => {
       cancelled = true;
     };
-  }, [genreId, activeSort, user]);
+  }, [user, quizzes]);
 
   const handleBookmarkToggle = async (quizId: string) => {
     if (!user) {
@@ -87,6 +115,14 @@ export default function GenreExplorePage({ params }: PageProps) {
     } catch (err) {
       console.error('[GenreExplore] ブックマークエラー:', err);
     }
+  };
+
+  const patchFilters = (patch: Partial<HomeFeedFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch, genreId }));
+  };
+
+  const handleClearAll = () => {
+    setFilters({ ...DEFAULT_HOME_FEED_FILTERS, genreId });
   };
 
   return (
@@ -143,7 +179,29 @@ export default function GenreExplorePage({ params }: PageProps) {
         </p>
       </div>
 
+      <ExploreSearchSection
+        filters={feedFilters}
+        onFiltersChange={patchFilters}
+        onClearAll={handleClearAll}
+        lockedGenreId={genreId}
+        tags={activeTags}
+        tagsLoading={tagsLoading}
+        tagsError={tagsError}
+        tagLabelById={tagLabelById}
+        playStatus={playStatus}
+        onPlayStatusChange={setPlayStatus}
+        playStatusDisabled={!user}
+        showQuickSearch={false}
+        testId="genre-explore-search"
+      />
+
       <ExploreSortTabs activeSort={activeSort} onSortChange={setActiveSort} />
+
+      {feedError && (
+        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--color-danger, #c62828)' }}>
+          {feedError}
+        </div>
+      )}
 
       {loading ? (
         <div className={styles.grid}>
@@ -151,13 +209,13 @@ export default function GenreExplorePage({ params }: PageProps) {
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : quizzes.length === 0 ? (
+      ) : displayQuizzes.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
           該当するクイズがありませんでした。
         </div>
       ) : (
         <div className={styles.grid}>
-          {quizzes.map((quiz) => (
+          {displayQuizzes.map((quiz) => (
             <QuizCard
               key={quiz.id}
               quiz={quiz}

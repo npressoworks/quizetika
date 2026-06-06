@@ -68,17 +68,33 @@ test.describe('クイズ検索・探索機能 E2Eテスト', () => {
     // フィルターパネルを閉じる
     await filterToggleBtn.click();
     
-    // 9. ジャンルナビゲーションの検証
-    // ナビゲーションボタンはページ上に複数可内容があるため、getByRoleで接ボタンだけを特定
-    const programmingGenreBtn = page.getByRole('button', { name: /コンピュータ・IT/ });
-    await expect(programmingGenreBtn).toBeVisible();
-    await programmingGenreBtn.click();
-    await page.waitForTimeout(500);
-    
-    // ジャンルを「すべて」に戻す
-    const allGenreBtn = page.getByRole('button', { name: /すべて/ }).first();
-    await expect(allGenreBtn).toBeVisible();
-    await allGenreBtn.click();
+    // 9. ジャンルアコーディオン・カルーセル絞り込み（/genres へ遷移しない）
+    const genreAccordion = page.getByTestId('explore-accordion-genre');
+    await expect(genreAccordion).toBeVisible({ timeout: 10000 });
+    await genreAccordion.click();
+    await page.waitForTimeout(300);
+
+    const programmingGenreCard = page.getByTestId('genre-carousel-card-programming');
+    if (await programmingGenreCard.count()) {
+      await programmingGenreCard.click();
+      await page.waitForTimeout(500);
+      await expect(page).toHaveURL('/');
+      await programmingGenreCard.click();
+    }
+
+    // 10. 出題形式アコーディオン
+    const formatAccordion = page.getByTestId('explore-accordion-format');
+    await expect(formatAccordion).toBeVisible();
+    await formatAccordion.click();
+    await page.waitForTimeout(300);
+
+    const formatCard = page.locator('[data-testid^="format-carousel-card-"]').first();
+    if (await formatCard.count()) {
+      await formatCard.click();
+      await page.waitForTimeout(500);
+      await expect(page).toHaveURL('/');
+      await formatCard.click();
+    }
   });
 
   test('クイックサーチチップでタグチップが追加されカードに ★ 難易度が表示されること', async ({ page }) => {
@@ -162,5 +178,36 @@ test.describe('クイズ検索・探索機能 E2Eテスト', () => {
     await page.waitForTimeout(1000);
     const contentArea = page.locator('section').last();
     await expect(contentArea).toBeVisible();
+  });
+
+  test('ジャンルページで scoped 検索 UI が表示され形式フィルタで絞り込めること', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForLoadState('domcontentloaded');
+
+    const genreAccordion = page.getByTestId('explore-accordion-genre');
+    await expect(genreAccordion).toBeVisible({ timeout: 15000 });
+    await genreAccordion.click();
+
+    const programmingCard = page.getByTestId('genre-carousel-card-programming');
+    if (!(await programmingCard.count())) {
+      test.skip();
+      return;
+    }
+
+    await page.goto('/genres/programming');
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.getByTestId('genre-explore-page')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('genre-explore-search')).toBeVisible();
+
+    const filterToggleBtn = page.getByRole('button', { name: 'フィルター' });
+    await filterToggleBtn.click();
+    await expect(page.locator('text=難易度範囲 (1 - 10)')).toBeVisible();
+    await expect(page.locator('text=ジャンル')).toHaveCount(0);
+
+    const searchInput = page.locator('input[placeholder="タイトル、説明文、作成者、タグでクイズを検索..."]');
+    await searchInput.fill('存在しないscoped検索XYZ');
+    await page.waitForTimeout(600);
+    await expect(page.locator('text=該当するクイズがありませんでした。')).toBeVisible({ timeout: 8000 });
   });
 });

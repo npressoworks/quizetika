@@ -1,5 +1,8 @@
+import type { QuizFormat } from '@/lib/quiz-format';
+
 export interface HomeFeedFilters {
   genreId: string;
+  format: QuizFormat | '';
   searchQuery: string;
   tagChips: string[];
   difficultyMin: number;
@@ -10,6 +13,7 @@ export interface HomeFeedFilters {
 
 export const DEFAULT_HOME_FEED_FILTERS: HomeFeedFilters = {
   genreId: '',
+  format: '',
   searchQuery: '',
   tagChips: [],
   difficultyMin: 1,
@@ -17,15 +21,3 @@ export const DEFAULT_HOME_FEED_FILTERS: HomeFeedFilters = {
   minQuestions: 1,
   maxQuestions: 50,
 };
-
-/** タブ別取得のままか、searchQuizzes に切り替えるか */
-export function hasActiveHomeSearchFilters(filters: HomeFeedFilters): boolean {
-  if (filters.genreId.trim()) return true;
-  if (filters.searchQuery.trim()) return true;
-  if (filters.tagChips.length > 0) return true;
-  if (filters.difficultyMin !== DEFAULT_HOME_FEED_FILTERS.difficultyMin) return true;
-  if (filters.difficultyMax !== DEFAULT_HOME_FEED_FILTERS.difficultyMax) return true;
-  if (filters.minQuestions !== DEFAULT_HOME_FEED_FILTERS.minQuestions) return true;
-  if (filters.maxQuestions !== DEFAULT_HOME_FEED_FILTERS.maxQuestions) return true;
-  return false;
-}

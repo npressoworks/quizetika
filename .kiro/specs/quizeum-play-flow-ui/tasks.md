@@ -288,6 +288,7 @@
 - Phase 8 実装（2026-06-05）: `components/bookmark/*`, `useBookmarkFeed`, `question-list-session`。Jest 354 件・build PASS。
 - **Phase 10**: 統合検索は `UnifiedSearchField` + `useActiveTags` + `filter-search-suggestions`。タグ AND 検索は `useHomeQuizFeed` → `searchQuizzes({ tags })`（core 10.x 完了後に実装）。カードは `★ N` + ジャンル + 出題形式、探索一覧は `QuizCard` + `href` 共通化。
 - Phase 10 実装（2026-06-06）: `UnifiedSearchField`, `useActiveTags`, `quiz-format-labels`, `QuizCard` 拡張、探索一覧共通化。Jest 430 件・build PASS。
+- **Phase 11**: ホームは `ExploreAccordionsPanel` + カルーセル（ホーム内フィルタ、`GenreNav` 非表示）。`useExploreQuizFeed` が `format` 含む home/scoped 分岐。ジャンルページは `ExploreSearchSection` + `lockedGenreId`。scoped 検索 + ソート同時時は `sortQuizzesForList` でクライアント再ソート。前提: `quizeum-core` Phase 11（`SearchFilters.format`）完了。
 
 ---
 
@@ -418,4 +419,83 @@
   - **完了状態**: E2E 記録またはチェックリストが残ること
   - _Depends: 13.9_
   - _Requirements: 12.11, 12.13, 12.16, 12.19_
+
+---
+
+### 14. Phase 11 拡張 — 探索アコーディオン・カルーセルおよびジャンルページ scoped 検索（2026-06）
+
+> **前提**: `quizeum-core` Phase 11 完了（`searchQuizzes` の `format` フィルタ）。本スペックは UI・フィルタ状態・カルーセル・ジャンルページ scoped 検索のみ。
+
+- [x] 14.1 (P) 探索フィルタ基盤と出題形式定数
+  - 7 種の出題形式カルーセル用定数（`QuizFormat` + `getFormatLabel` ラベル）を共有 lib に定義する
+  - 複合フィルタ状態に `format` フィールドを追加し、ホーム用 active 判定（形式含む）とジャンルページ scoped 用 active 判定（固定ジャンルのみでは false）を純関数として実装する
+  - scoped / home 判定の単体テスト（固定ジャンルのみ、形式のみ、キーワードのみ等）を追加する
+  - **完了状態**: `explore-filter-active` の Jest がグリーンであり、`HomeFeedFilters` に `format` が型安全に追加されていること
+  - _Requirements: 13.15, 13.17, 13.22_
+  - _Depends: quizeum-core Phase 11_
+  - _Boundary: explore-formats, explore-filter-active, home-feed-filters_
+
+- [x] 14.2 `useExploreQuizFeed` フック（home / scoped 分岐）
+  - ホーム: active 判定時に `searchQuizzes` へ `format` を含む全フィルタを渡し、未指定時はタブ別取得を維持する（300ms デバウンス）
+  - ジャンルページ scoped: active 判定時に固定 `genreId` 付き `searchQuizzes` を呼び出し、戻り値を `sortQuizzesForList` でソートタブ順に再ソートする。未指定時は `getQuizzesByGenre` を維持する
+  - 既存 `useHomeQuizFeed` 呼び出し元との互換（re-export または置換）を整理する
+  - **完了状態**: 形式フィルタ指定時に `searchQuizzes` が `format` 引数付きで呼ばれ、scoped モードで固定ジャンル外の結果が含まれないこと（モックテスト）
+  - _Requirements: 13.16, 13.21, 13.22_
+  - _Depends: 14.1_
+  - _Boundary: useExploreQuizFeed_
+
+- [x] 14.3 (P) アコーディオンとジャンル／形式カルーセル UI
+  - 独立開閉可能な2アコーディオン（「ジャンルから探す」「出題形式で探す」）と横スクロールカードカルーセルを実装する（CSS scroll-snap、外部 carousel ライブラリ不使用）
+  - ジャンルカード選択で `genreId` を設定／再選択で解除し、**ページ遷移しない**（`useRouter` 不使用）。形式カードも同一トグルパターン
+  - 選択中カードのハイライト、`aria-expanded`、設計どおりの `data-testid`（accordion / carousel / card プレフィックス）を付与する
+  - ジャンルカードは `listActiveGenres` 由来の表示名・アイコン（任意説明文）を表示する
+  - **完了状態**: カルーセルコンポーネントテストがグリーンであり、ジャンルカードクリックで `onGenreSelect` が呼ばれ `/genres` へ遷移しないこと
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.9, 13.10, 13.11, 13.12, 13.26_
+  - _Depends: 14.1_
+  - _Boundary: ExploreAccordionsPanel, GenreCarousel, FormatCarousel, ExploreAccordion_
+
+- [x] 14.4 (P) 共有探索検索セクション（`ExploreSearchSection`）
+  - 統合検索フィールドと展開可能フィルタパネル（難易度・問題数・プレイ状況）をホーム／ジャンルページ共通コンポーネントとして抽出する
+  - `lockedGenreId` 指定時はフィルタパネル内ジャンルセレクトを非表示とし、ジャンルサジェストが固定ジャンルを上書きしない
+  - ジャンルページ検索領域に `data-testid="genre-explore-search"` を付与する
+  - **完了状態**: `lockedGenreId` あり／なしのコンポーネントテストがグリーンであり、ホーム同型の検索 UI がジャンルページでも描画されること
+  - _Requirements: 13.15, 13.19, 13.20, 13.21, 13.27_
+  - _Depends: 14.1_
+  - _Boundary: ExploreSearchSection_
+
+- [x] 14.5 ホーム画面統合（`GenreNav` 除去・フィルタ状態同期）
+  - ホームから `GenreNav` の import／render を除去し、検索バー直下に `ExploreAccordionsPanel` を配置する
+  - ジャンルカルーセル・形式カルーセル・統合検索サジェスト・フィルタパネルの `genreId` / `format` を単一 state で同期する
+  - 検索バー一括クリアでジャンル・形式カルーセルの選択状態も解除する
+  - `ExploreSearchSection` + `useExploreQuizFeed`（home モード）+ `ExploreAccordionsPanel` を配線し、全フィルタ未指定時はタブ別取得へ復帰する
+  - `genre-nav.tsx` に deprecation コメントを追加する（ファイルは残置）
+  - **完了状態**: ホーム DOM に `[data-testid="genre-nav"]` が存在せず、ジャンルカルーセル選択後も URL が `/` のままグリッドが絞り込まれること
+  - _Requirements: 1.2, 10.1, 10.3, 13.8, 13.13, 13.14, 13.15, 13.16, 13.17, 13.18_
+  - _Depends: 14.2, 14.3, 14.4_
+  - _Boundary: HomePage_
+
+- [x] 14.6 ジャンル別一覧ページ scoped 検索 UI
+  - `/genres/[genreName]` に `ExploreSearchSection`（`lockedGenreId`）を見出し／ソートタブ近傍に配置する
+  - scoped フィルタ active 時は `useExploreQuizFeed`（scoped モード）、未指定時は既存 `getQuizzesByGenre` + ソートタブを維持する
+  - 読み込み中スケルトン表示、固定ジャンル外クイズが結果に含まれないことを確認する
+  - **完了状態**: ジャンルページでキーワードまたは形式フィルタ指定時に当該ジャンル内のみ結果が更新され、全フィルタ未指定時はソートタブ切替が従来どおり動作すること
+  - _Requirements: 13.19, 13.20, 13.21, 13.22, 13.23_
+  - _Depends: 14.2, 14.4_
+  - _Boundary: GenreExplorePage_
+
+- [x] 14.7 Phase 11 統合検証
+  - ホーム: アコーディオン展開、ジャンル／形式カルーセル絞り込み、検索バーとの状態同期、クリア連動、GenreNav 非表示をコンポーネントテストおよび E2E で検証する
+  - ジャンルページ: scoped 検索、ソートタブ回帰、スケルトン表示を検証する
+  - Phase 10 統合検索（タグチップ・サジェスト）および Phase 6 ジャンル一覧が破壊されていないことを確認する
+  - **完了状態**: Phase 11 関連 Jest / Playwright がグリーンであること
+  - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.8, 13.9, 13.10, 13.11, 13.12, 13.13, 13.14, 13.15, 13.16, 13.17, 13.18, 13.19, 13.20, 13.21, 13.22, 13.23, 13.26, 13.27_
+  - _Depends: 14.5, 14.6_
+  - _Boundary: Testing_
+
+- [x]* 14.8 Phase 11 E2E スモーク（任意）
+  - `e2e/quiz-search.spec.ts` で形式カルーセル絞り込み、ジャンルカルーセルが `/genres` に遷移しないこと、ジャンルページ scoped 検索を検証する
+  - **完了状態**: E2E 記録またはチェックリストが残ること
+  - _Depends: 14.7_
+  - _Requirements: 13.4, 13.10, 13.14, 13.21_
+  - _Boundary: Testing_
 

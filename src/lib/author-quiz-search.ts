@@ -1,4 +1,5 @@
 import type { Quiz } from '../types';
+import { searchTextIncludes } from './normalize-search-text';
 
 export interface SearchAuthorQuizzesParams {
   authorId: string;
@@ -8,8 +9,8 @@ export interface SearchAuthorQuizzesParams {
 }
 
 function matchesKeyword(quiz: Quiz, keyword: string): boolean {
-  const hay = `${quiz.title} ${quiz.description}`.toLowerCase();
-  return hay.includes(keyword.toLowerCase());
+  const hay = `${quiz.title} ${quiz.description}`;
+  return searchTextIncludes(hay, keyword);
 }
 
 function matchesTag(quiz: Quiz, tag: string): boolean {

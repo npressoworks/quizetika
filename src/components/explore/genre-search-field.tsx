@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useId, useMemo, useRef, useState } from 'react';
 import { filterGenreSuggestions } from '@/lib/filter-genre-suggestions';
 import type { GenreMetadata } from '@/types';
 import styles from './genre-search-field.module.css';
 
 export interface GenreSearchFieldProps {
   genres: GenreMetadata[];
+  query: string;
+  onQueryChange: (query: string) => void;
   value: string;
   onChange: (genreId: string) => void;
   disabled?: boolean;
@@ -14,35 +16,23 @@ export interface GenreSearchFieldProps {
 
 export function GenreSearchField({
   genres,
+  query,
+  onQueryChange,
   value,
   onChange,
   disabled = false,
 }: GenreSearchFieldProps) {
   const listId = useId();
-  const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const selected = useMemo(
-    () => genres.find((g) => g.id === value) ?? null,
-    [genres, value]
-  );
-
-  useEffect(() => {
-    if (selected) {
-      setText(selected.displayName);
-    } else if (!value) {
-      setText('');
-    }
-  }, [selected, value]);
-
   const suggestions = useMemo(
-    () => filterGenreSuggestions(genres, text),
-    [genres, text]
+    () => filterGenreSuggestions(genres, query),
+    [genres, query]
   );
 
-  useEffect(() => {
+  React.useEffect(() => {
     function onDocClick(e: MouseEvent) {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -52,15 +42,22 @@ export function GenreSearchField({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
+  const updateQuery = (next: string) => {
+    onQueryChange(next);
+    if (!next.trim()) {
+      onChange('');
+    }
+  };
+
   const pick = (genre: Pick<GenreMetadata, 'id' | 'displayName'>) => {
     onChange(genre.id);
-    setText(genre.displayName);
+    onQueryChange('');
     setOpen(false);
   };
 
   const clear = () => {
     onChange('');
-    setText('');
+    onQueryChange('');
     setOpen(false);
   };
 
@@ -74,17 +71,19 @@ export function GenreSearchField({
         type="text"
         className={styles.input}
         placeholder="ジャンル名で検索..."
-        value={text}
+        value={query}
         disabled={disabled || genres.length === 0}
         autoComplete="off"
         onFocus={() => setOpen(true)}
         onChange={(e) => {
-          setText(e.target.value);
+          updateQuery(e.target.value);
           setHighlight(0);
           setOpen(true);
-          if (!e.target.value.trim()) {
-            onChange('');
-          }
+        }}
+        onInput={(e) => {
+          updateQuery(e.currentTarget.value);
+          setHighlight(0);
+          setOpen(true);
         }}
         onKeyDown={(e) => {
           if (!open || suggestions.length === 0) return;

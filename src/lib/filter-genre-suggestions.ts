@@ -1,4 +1,5 @@
 import type { GenreMetadata } from '@/types';
+import { normalizeSearchText } from '@/lib/normalize-search-text';
 
 /** 複合検索パネル用: displayName / genreId で部分一致サジェスト */
 export function filterGenreSuggestions(
@@ -6,15 +7,15 @@ export function filterGenreSuggestions(
   query: string,
   maxResults = 8
 ): Pick<GenreMetadata, 'id' | 'displayName'>[] {
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeSearchText(query);
   if (!needle) {
     return genres.slice(0, maxResults);
   }
 
   const scored = genres
     .map((g) => {
-      const name = g.displayName.toLowerCase();
-      const id = g.id.toLowerCase();
+      const name = normalizeSearchText(g.displayName);
+      const id = normalizeSearchText(g.id);
       let rank = 3;
       if (id === needle || name === needle) rank = 0;
       else if (id.startsWith(needle) || name.startsWith(needle)) rank = 1;

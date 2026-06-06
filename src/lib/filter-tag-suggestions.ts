@@ -1,4 +1,5 @@
 import type { TagMetadata } from '@/types';
+import { normalizeSearchText } from '@/lib/normalize-search-text';
 
 /** タグマスタを id 優先・tagName 副次で部分一致フィルタ */
 export function filterTagSuggestions(
@@ -6,15 +7,15 @@ export function filterTagSuggestions(
   query: string,
   maxResults = 8
 ): Pick<TagMetadata, 'id' | 'tagName'>[] {
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeSearchText(query);
   if (!needle) {
     return tags.slice(0, maxResults);
   }
 
   const scored = tags
     .map((t) => {
-      const id = t.id.toLowerCase();
-      const name = (t.tagName ?? t.id).toLowerCase();
+      const id = normalizeSearchText(t.id);
+      const name = normalizeSearchText(t.tagName ?? t.id);
       let rank = 4;
       if (id === needle) rank = 0;
       else if (id.startsWith(needle)) rank = 1;

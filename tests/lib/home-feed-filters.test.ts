@@ -1,7 +1,5 @@
-import {
-  DEFAULT_HOME_FEED_FILTERS,
-  hasActiveHomeSearchFilters,
-} from '@/lib/home-feed-filters';
+import { DEFAULT_HOME_FEED_FILTERS } from '@/lib/home-feed-filters';
+import { hasActiveHomeSearchFilters } from '@/lib/explore-filter-active';
 
 describe('hasActiveHomeSearchFilters', () => {
   it('デフォルトでは false', () => {

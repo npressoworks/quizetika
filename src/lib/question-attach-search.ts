@@ -1,4 +1,4 @@
-export type QuestionAttachSource = 'own-published' | 'bookmarked' | 'public-explore';
+import { searchTextIncludes } from '@/lib/normalize-search-text';
 
 export interface QuestionAttachCandidate {
   questionId: string;
@@ -37,10 +37,9 @@ export function filterQuestionCandidatesByKeyword(
 ): QuestionAttachCandidate[] {
   const trimmed = keyword.trim();
   if (!trimmed) return candidates;
-  const lower = trimmed.toLowerCase();
   return candidates.filter(
     (c) =>
-      c.questionText.toLowerCase().includes(lower) ||
-      c.parentQuizTitle.toLowerCase().includes(lower)
+      searchTextIncludes(c.questionText, trimmed) ||
+      searchTextIncludes(c.parentQuizTitle, trimmed)
   );
 }

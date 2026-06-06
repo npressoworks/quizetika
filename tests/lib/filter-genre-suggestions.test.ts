@@ -20,4 +20,9 @@ describe('filterGenreSuggestions', () => {
     const result = filterGenreSuggestions(GENRES, 'prog');
     expect(result[0]?.id).toBe('programming');
   });
+
+  it('ひらがな入力でカタカナ displayName にマッチする', () => {
+    const result = filterGenreSuggestions(GENRES, 'こんぴゅーた');
+    expect(result.map((g) => g.id)).toEqual(['programming']);
+  });
 });

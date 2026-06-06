@@ -17,6 +17,7 @@ import { db } from '../lib/firebase/config';
 import { quizzesRef, followsRef, bookmarksRef, questionsRef } from '../lib/firebase/firestore';
 import { Quiz, Question } from '../types';
 import { validateQuizForPublish, validateQuizForDraft, normalizeTag } from './quiz-validation';
+import { normalizeSearchText, searchTextIncludes } from '../lib/normalize-search-text';
 import {
   assertAuthorOwnsQuestion,
   canDeleteQuestionDoc,
@@ -39,12 +40,15 @@ import {
   quizMatchesAllTags,
   type TagMatchSpec,
 } from '../lib/quiz-tag-match';
+import { applyFormatFilter } from '../lib/quiz-format-match';
+import type { QuizFormat } from '../lib/quiz-format';
 
 export type { QuizListSort } from '../lib/metadata-resolution';
 
 export interface SearchFilters {
   genreId?: string;
   tags?: string[];
+  format?: QuizFormat;
   difficultyMin?: number;
   difficultyMax?: number;
   minQuestions?: number;
@@ -735,12 +739,13 @@ export async function searchQuizzes(
   queryText: string,
   filters: SearchFilters = {}
 ): Promise<Quiz[]> {
-  const needle = queryText.trim().toLowerCase();
+  const trimmedQuery = queryText.trim();
+  const hasQuery = normalizeSearchText(trimmedQuery).length > 0;
   const tagSpecs = await buildTagMatchSpecs(filters.tags);
   const hasTags = tagSpecs.length > 0;
   let base: Quiz[];
 
-  if (needle) {
+  if (hasQuery) {
     // 1. 各種条件に応じた Firestore クエリの並行実行
     const normalizedQuery = normalizeTag(queryText);
 
@@ -788,22 +793,14 @@ export async function searchQuizzes(
   }
 
   // 3. アプリ（サービス）層での大文字小文字を区別しない部分一致フィルタおよび詳細条件フィルターの適用
-  const matchedQuizzes = needle
-    ? base.filter((quiz) => {
-        const title = (quiz.title || '').toLowerCase();
-        const description = (quiz.description || '').toLowerCase();
-        const authorName = (quiz.authorName || '').toLowerCase();
-        const genre = (quiz.genre || '').toLowerCase();
-        const tags = (quiz.tags || []).map((t) => t.toLowerCase());
-
-        return (
-          title.includes(needle) ||
-          description.includes(needle) ||
-          authorName.includes(needle) ||
-          genre.includes(needle) ||
-          tags.some((t) => t.includes(needle))
-        );
-      })
+  const matchedQuizzes = hasQuery
+    ? base.filter((quiz) =>
+        searchTextIncludes(quiz.title || '', trimmedQuery) ||
+        searchTextIncludes(quiz.description || '', trimmedQuery) ||
+        searchTextIncludes(quiz.authorName || '', trimmedQuery) ||
+        searchTextIncludes(quiz.genre || '', trimmedQuery) ||
+        (quiz.tags || []).some((t) => searchTextIncludes(t, trimmedQuery))
+      )
     : base;
 
   // 詳細フィルターとジャンルフィルターの適用
@@ -821,6 +818,10 @@ export async function searchQuizzes(
       if (quiz.canonicalGenreId && expandedGenreIds.has(quiz.canonicalGenreId)) return true;
       return false;
     });
+  }
+
+  if (filters.format) {
+    finalQuizzes = applyFormatFilter(finalQuizzes, filters.format);
   }
 
   return finalQuizzes.filter((quiz) => {

@@ -2,9 +2,9 @@
 
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { filterSearchSuggestions, type SearchSuggestion } from '@/lib/filter-search-suggestions';
+import { filterTagSuggestions } from '@/lib/filter-tag-suggestions';
 import { normalizeTag } from '@/services/quiz-validation';
-import type { GenreMetadata, TagMetadata } from '@/types';
+import type { TagMetadata } from '@/types';
 import styles from './unified-search-field.module.css';
 
 export interface UnifiedSearchFieldProps {
@@ -12,15 +12,10 @@ export interface UnifiedSearchFieldProps {
   onTagChipsChange: (chips: string[]) => void;
   keyword: string;
   onKeywordChange: (value: string) => void;
-  genres: GenreMetadata[];
   tags: TagMetadata[];
-  genresLoading: boolean;
   tagsLoading: boolean;
-  genresError: string | null;
   tagsError: string | null;
   tagLabelById: Map<string, string>;
-  selectedGenreId: string;
-  onGenreSelect: (genreId: string) => void;
   onClearAll: () => void;
   disabled?: boolean;
 }
@@ -30,14 +25,10 @@ export function UnifiedSearchField({
   onTagChipsChange,
   keyword,
   onKeywordChange,
-  genres,
   tags,
-  genresLoading,
   tagsLoading,
-  genresError,
   tagsError,
   tagLabelById,
-  onGenreSelect,
   onClearAll,
   disabled = false,
 }: UnifiedSearchFieldProps) {
@@ -47,8 +38,8 @@ export function UnifiedSearchField({
   const [highlight, setHighlight] = useState(0);
 
   const suggestions = useMemo(
-    () => filterSearchSuggestions(tags, genres, keyword),
-    [tags, genres, keyword]
+    () => filterTagSuggestions(tags, keyword),
+    [tags, keyword]
   );
 
   const showClear = keyword.trim().length > 0 || tagChips.length > 0;
@@ -80,21 +71,15 @@ export function UnifiedSearchField({
     onTagChipsChange(tagChips.filter((c) => c !== chip));
   };
 
-  const pickSuggestion = (item: SearchSuggestion) => {
-    if (item.kind === 'tag') {
-      if (!tagChips.includes(item.id)) {
-        onTagChipsChange([...tagChips, item.id]);
-      }
-      onKeywordChange('');
-    } else {
-      onGenreSelect(item.id);
-      onKeywordChange('');
+  const pickTag = (tagId: string) => {
+    if (!tagChips.includes(tagId)) {
+      onTagChipsChange([...tagChips, tagId]);
     }
+    onKeywordChange('');
     setOpen(false);
   };
 
-  const masterError = tagsError || genresError;
-  const suggestDisabled = disabled || genresLoading || tagsLoading;
+  const suggestDisabled = disabled || tagsLoading;
 
   return (
     <div className={styles.wrap} ref={wrapRef} data-testid="unified-search-field">
@@ -143,7 +128,7 @@ export function UnifiedSearchField({
               if (e.key === 'Enter') {
                 e.preventDefault();
                 if (open && suggestions.length > 0) {
-                  pickSuggestion(suggestions[highlight]);
+                  pickTag(suggestions[highlight].id);
                 } else if (tryAddChip(keyword)) {
                   onKeywordChange('');
                 }
@@ -177,29 +162,25 @@ export function UnifiedSearchField({
         <ul className={styles.list} role="listbox">
           {suggestions.map((item, i) => (
             <li
-              key={`${item.kind}-${item.id}`}
+              key={item.id}
               role="option"
               aria-selected={i === highlight}
               className={`${styles.option} ${i === highlight ? styles.optionActive : ''}`}
-              data-testid={
-                item.kind === 'tag'
-                  ? `search-suggest-tag-${item.id}`
-                  : `search-suggest-genre-${item.id}`
-              }
+              data-testid={`search-suggest-tag-${item.id}`}
               onMouseDown={(e) => {
                 e.preventDefault();
-                pickSuggestion(item);
+                pickTag(item.id);
               }}
             >
-              <span className={styles.optionKind}>{item.kind === 'tag' ? 'タグ' : 'ジャンル'}</span>
-              {item.label}
+              <span className={styles.optionKind}>タグ</span>
+              {item.tagName ?? item.id}
             </li>
           ))}
         </ul>
       )}
-      {open && keyword.trim().length > 0 && masterError && (
+      {open && keyword.trim().length > 0 && tagsError && (
         <p className={styles.errorHint} role="alert">
-          {masterError}
+          {tagsError}
         </p>
       )}
     </div>

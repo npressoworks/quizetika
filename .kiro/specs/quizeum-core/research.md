@@ -351,3 +351,136 @@ Overall: L / Medium
 - Discovery 種別: **Light（Extension）**
 - 外部調査: 不要
 
+---
+
+# Gap Analysis: quizeum-core（Phase 10 実装後 & Phase 11 — 2026-06-05）
+
+## Analysis Summary
+
+- **Phase 10（要件 16）**: **実装済み**。`listActiveTags`・`searchQuizzes({ tags })` 複数タグ AND・`quiz-tag-match` 分離・単体テスト（`quiz-list-active-tags.test.ts`, `quiz-search-tags-and.test.ts`）が存在。
+- **Phase 11（要件 17）**: **未着手**。`SearchFilters` に `format` なし。`searchQuizzes` 末尾フィルタに出題形式照合なし。
+- **scoped 検索（要件 17.4–5）**: **部分実装**。`filters.genreId` + `expandGenreIdsForQuery` によるジャンル固定 AND は既存。Phase 11 では `format` 追加とテスト強化のみでジャンルページ向け API 契約を完結可能。
+- **推奨（設計フェーズ）**: **Option A（既存 `searchQuizzes` 拡張）** — `SearchFilters.format?: QuizFormat` 追加、返却直前に `resolveQuizFormat` で後段フィルタ。新 API・インデックス不要。
+- **規模 / リスク**: Phase 11 のみ **S（1–2日）/ Low** — 既存パターン踏襲、UI 非包含。
+
+## Document Status
+
+- **入力**: `requirements.md` 要件 16–17、roadmap Phase 10–11、`src/services/quiz.ts`, `src/lib/quiz-format.ts`, `tests/services/quiz-search-tags-and.test.ts`
+- **手法**: gap-analysis.md フレームワーク、Grep/Read
+- **分析日**: 2026-06-05
+
+## 1. Requirement-to-Asset Map
+
+| 要件 | 期待 | 現状 | ギャップ |
+|------|------|------|----------|
+| 16.1–5 `listActiveTags` | 存続タグ一覧 | `quiz.ts` L87–101、`useActiveTags` | ✅ なし |
+| 16.6–13 タグ AND | `SearchFilters.tags` + AND 照合 | `buildTagMatchSpecs`, `intersectQuizzesById`, `quizMatchesAllTags` | ✅ なし |
+| 17.1 形式フィルタ | 指定形式のみ返却 | 未実装 | ❌ **Missing** |
+| 17.2 条件 AND 合成 | format + 既存フィルタ | genre/tags/difficulty あり、format なし | ❌ **Missing** |
+| 17.3 format 未指定 | 従来挙動維持 | 暗黙的に満たす（追加後も default 未指定で OK） | ⚠️ テスト要 |
+| 17.4–5 scoped genre | ジャンル固定 + 他条件 AND | `filters.genreId` + `expandGenreIdsForQuery` L817–824 | ✅ ロジックあり（format 追加後に結合テスト要） |
+| 17.6 判定規則一致 | UI ラベルと同一 | `resolveQuizFormat` が lib に存在、core 未使用 | ❌ **Missing**（import + filter） |
+| 17.7–8 境界 | UI/インデックス Out | 該当なし | ✅ |
+
+## 2. Current State Investigation
+
+### 再利用可能アセット
+
+| モジュール | 役割 |
+|-----------|------|
+| `src/services/quiz.ts` | `SearchFilters`, `searchQuizzes`, `listActiveTags`, `listActiveGenres` |
+| `src/lib/quiz-format.ts` | `resolveQuizFormat`, `QuizFormat` 型 |
+| `src/lib/quiz-format-labels.ts` | UI 側ラベル（core は format id のみ照合） |
+| `src/lib/quiz-tag-match.ts` | タグ AND 照合（形式フィルタも同様に lib 純関数化可） |
+| `tests/services/quiz-search-tags-and.test.ts` | タグ AND / genreId 結合テストのテンプレ |
+
+### 既存 `searchQuizzes` フロー（形式追加の挿入点）
+
+1. 母集団取得（keyword / tags / genreId / latest）
+2. needle 部分一致フィルタ
+3. タグ AND（`quizMatchesAllTags`）
+4. ジャンル展開フィルタ（`expandGenreIdsForQuery`）
+5. difficulty / questionCount フィルタ
+6. **← ここに `resolveQuizFormat` 一致フィルタを追加（Phase 11）**
+
+## 3. Implementation Approach Options
+
+### Option A: `searchQuizzes` 後段フィルタ拡張（推奨候補）
+
+- **変更**: `SearchFilters.format?: QuizFormat`、`searchQuizzes` 末尾で `resolveQuizFormat(quiz) === filters.format`
+- **Pros**: 最小 diff、Phase 9–10 パターン一致、インデックス不要
+- **Cons**: 母集団が `getLatestQuizzes(100)` 等のとき形式不一致クイズが母集団に含まれうる（keyword/tags/genre 指定時は問題小）
+- **Effort**: S / **Risk**: Low
+
+### Option B: 形式別 Firestore クエリ
+
+- **変更**: `where('format', '==', ...)` または composite index
+- **Pros**: 大規模データで理論上効率化
+- **Cons**: 要件 17.7 Out、旧データは `format` 欠落で `resolveQuizFormat` 必須 — 二重ロジック
+- **Effort**: M / **Risk**: Medium
+
+### Option C: 純関数 `quizMatchesFormat` を lib に分離（Hybrid）
+
+- **変更**: Option A + `src/lib/quiz-format-match.ts`（タグ match と対称）
+- **Pros**: 単体テスト容易、UI カルーセル定数と format id を共有しやすい
+- **Cons**: ファイル 1 つ増
+- **Effort**: S / **Risk**: Low
+
+## 4. Research Needed（設計フェーズへ）
+
+| 項目 | 内容 |
+|------|------|
+| 母集団上限 | keyword 空 + format のみ指定時、ベースを `getLatestQuizzes(100)` で足りるか（要件上は可。必要なら将来 `format` 専用取得） |
+| `mixed` 旧データ | `format` 無しクイズの推定形式がカルーセル選択と一致するか — フィクスチャで検証 |
+| scoped + sort | ジャンルページが `searchQuizzes` 切替時、ソート順をクライアント `sortQuizzesForList` で再適用するか（play-flow 設計） |
+
+## 5. Effort & Risk Summary
+
+| ワークストリーム | Effort | Risk |
+|-----------------|--------|------|
+| `SearchFilters.format` + 後段フィルタ | S | Low |
+| `quiz-format-match` 純関数 + テスト | S | Low |
+| scoped genre + format 結合テスト | S | Low |
+| **Phase 11 合計** | **S** | **Low** |
+| Phase 10 残差 | — | —（実装完了） |
+
+## 6. Design Phase Recommendations
+
+1. **Option A または C** を採用。Firestore index 新設は見送り。
+2. 形式判定は **`resolveQuizFormat` のみ** — `quiz.format` 直読み禁止（要件 17.6）。
+3. テスト: `quiz-search-format-filter.test.ts` — 各形式 1 件、`mixed` 推定、genreId + format AND、format 未指定 regression。
+4. play-flow への契約: `useHomeQuizFeed` / ジャンルページ hook が `format` を `searchQuizzes` 第 2 引数に渡す。
+
+---
+
+# Research & Design Decisions: quizeum-core（Phase 11 差分 — 2026-06-05）
+
+## Summary
+- **Feature**: `SearchFilters.format` + `searchQuizzes` 出題形式後段フィルタ + `quiz-format-match` lib
+- **Discovery Type**: Light（Extension）— Phase 10 `quiz-tag-match` パターン踏襲
+- **Key Findings**:
+  - Phase 10 実装済み。Phase 11 のみ未着手。
+  - `resolveQuizFormat` は `src/lib/quiz-format.ts` に既存。UI `QuizCard` と同一規則で足りる。
+  - scoped genre は `expandGenreIdsForQuery` 既存。形式追加は後段フィルタのみ。
+
+## Design Decisions
+
+### Decision: 後段 `quizMatchesFormat` フィルタ（Firestore index なし）
+- **Context**: 要件 17.7、gap analysis Option A。
+- **Selected**: 母集団取得（Phase 9/10）→ 既存 AND フィルタ → `quizMatchesFormat` → difficulty/questionCount。
+- **Rejected**: `where('format','==',...)` — 旧データ推定不可、二重ロジック。
+- **Rationale**: 探索母集団上限 100 件規模で十分。UI カードと判定 lib を共有。
+
+### Decision: `quiz-format-match.ts` を新規 lib に分離
+- **Context**: `quiz-tag-match` と対称。単体テスト容易。
+- **Selected**: `quizMatchesFormat` + `applyFormatFilter` 薄いラッパ。
+- **Rationale**: `searchQuizzes` 本体を肥大化させない。
+
+## Document Status（Phase 11）
+- 設計: `design.md` Phase 11 節追記済み
+- 外部調査: 不要
+
+### validate-design 反映（2026-06-05）
+- **パイプライン順序**: `needle → tags AND → genre → format → difficulty/questionCount` を canonical 順序として固定。
+- **レガシー形式推定**: `format` 未設定 + `questions: []` → `mixed` のみヒット。テストフィクスチャで期待値固定。
+

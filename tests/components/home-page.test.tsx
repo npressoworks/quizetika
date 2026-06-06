@@ -126,4 +126,21 @@ describe('Home Page UI', () => {
     expect(screen.getByText('JavaScript 基礎クイズ')).toBeInTheDocument();
     expect(screen.getByTestId('quiz-card-difficulty')).toBeInTheDocument();
   });
+
+  it('GenreNav は表示せず探索アコーディオンを表示すること', () => {
+    render(<Home />);
+
+    expect(screen.queryByTestId('genre-nav')).not.toBeInTheDocument();
+    expect(screen.getByTestId('explore-accordion-genre')).toBeInTheDocument();
+    expect(screen.getByTestId('explore-accordion-format')).toBeInTheDocument();
+  });
+
+  it('ジャンルアコーディオン展開後カルーセル選択で router.push しないこと', () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByTestId('explore-accordion-genre'));
+    fireEvent.click(screen.getByTestId('genre-carousel-card-programming'));
+
+    expect(push).not.toHaveBeenCalled();
+  });
 });

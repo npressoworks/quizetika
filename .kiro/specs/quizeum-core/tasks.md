@@ -406,6 +406,8 @@
 - **Phase 8**: 検証は `question-list-validation`、参照リンクは `linked-question`、自作検索フィルタは `lib/author-quiz-search.ts` に集約。`getBookmarkFeed` / `exportQuestionList` / `searchAuthorQuizzes` をサービス層に追加。設問リストプレイは `mode: 'question-list'`（`satisfiesQuestionListAttemptContract`）。リスト作成 UI は暫定 `listType: 'quiz'`（`quizeum-creator-dash-ui` で設問リスト選択を実装予定）。
 - **Phase 10**: タグ照合は `quiz-tag-match`、存続タグ一覧は `listActiveTags`（`canonicalId == null`）、複数タグ AND は `searchQuizzes` の `filters.tags`。UI サジェストは `quizeum-play-flow-ui` が `listActiveTags` に依存（core 10.x 完了後に play-flow 実装）。
 - Phase 10 実装（2026-06-06）: `quiz-tag-match`, `listActiveTags`, `searchQuizzes` tags AND。Jest 415 件 PASS。
+- **Phase 11**: 形式照合は `quiz-format-match`（`resolveQuizFormat` 使用）。`SearchFilters.format` + `searchQuizzes` 後段形式フィルタ（ジャンル直後）。探索 UI（アコーディオン・カルーセル・ジャンルページ検索）は `quizeum-play-flow-ui` が core 11.x 完了後に実装。
+- Phase 11 実装（2026-06-05）: `quiz-format-match`, `SearchFilters.format`, `searchQuizzes` format 後段フィルタ。Jest 421 件 PASS（format 関連 + 既存検索回帰）。
 
 ---
 
@@ -481,4 +483,51 @@
   - `getQuizzesByTag` および Phase 9 `searchQuizzes`（キーワードのみ）が Phase 10 変更後も期待どおり動作することを確認する
   - **完了状態**: `quiz-genre-query`・`quiz-search-universal` 関連テストがグリーンであること
   - _Depends: 10.5_
+  - _Boundary: Testing_
+
+---
+
+### 11. Phase 11 拡張 — 出題形式フィルタ付き複合検索（2026-06）
+
+> 設計: 形式照合は `quiz-format-match` に集約。判定は `resolveQuizFormat` 経由（UI カード表示と同一規則）。Firestore インデックス新設なし。探索 UI は `quizeum-play-flow-ui` が `searchQuizzes` 拡張に依存。
+
+- [x] 11.1 (P) クイズ×出題形式照合の純関数
+  - 単一クイズが指定出題形式を満たすかを `resolveQuizFormat` で判定する純関数を実装する（`quiz.format` 直読み禁止）
+  - クイズ配列に対する形式フィルタヘルパーを実装し、`format` 未指定時は入力配列をそのまま返す
+  - 単体テストで `format` フィールド一致、設問 `type` からの推定一致、不一致、未指定パススルーを検証する
+  - レガシーフィクスチャ `{ format: undefined, questions: [] }` が `mixed` フィルタのみ一致し、他形式では不一致となることを固定する
+  - **完了状態**: `quiz-format-match` 関連 Jest がグリーンであり、UI と同一 lib 規則で形式一致が判定できること
+  - _Requirements: 17.1, 17.6_
+  - _Boundary: quiz-format-match_
+
+- [x] 11.2 `searchQuizzes` への出題形式フィルタ拡張
+  - 複合検索フィルタに出題形式（`QuizFormat`）を追加し、未指定時は形式による追加絞り込みを行わない
+  - 後段フィルタの canonical 順序を `needle → tags AND → genre → format → difficulty/questionCount` とし、形式フィルタはジャンル直後・数値フィルタ直前に適用する
+  - ジャンル識別子固定の scoped 検索では既存 `expandGenreIdsForQuery` を維持し、他ジャンルのクイズを結果に含めない
+  - キーワード・タグ・ジャンル・難易度・問題数等の既存条件と形式フィルタを AND 合成する
+  - キーワード・タグ・ジャンルが空で形式のみ指定された場合は既存どおり最新公開クイズを母集団とし、後段で形式フィルタを適用する
+  - **完了状態**: `searchQuizzes('', { format: 'multiple-choice' })` が選択式クイズのみ返し、`searchQuizzes('', { genreId: 'science', format: 'lateral-thinking' })` が当該ジャンル内のウミガメ形式のみ返ること
+  - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.7_
+  - _Depends: 11.1_
+  - _Boundary: QuizService_
+
+- [x] 11.3 出題形式フィルタの単体・統合テスト
+  - 形式のみ、ジャンル+形式 scoped、キーワード+タグ+形式 AND、形式未指定時の Phase 10 回帰を検証するテストスイートを追加する
+  - Firestore インデックス新設なし（後段フィルタ）であることをモック母集団で確認する
+  - **完了状態**: 新規テストファイル（`quiz-format-match` / 形式フィルタ付き `searchQuizzes`）を Jest で実行した際にすべてグリーンであること
+  - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7_
+  - _Depends: 11.2_
+  - _Boundary: Testing_
+
+- [x] 11.4 Phase 11 統合検証
+  - 拡張済み `searchQuizzes`（`format` フィルタ）と Phase 10 タグ AND 検索・Phase 9 統合検索の既存パスが破壊されていないことを統合テストで検証する
+  - **完了状態**: Phase 11 関連 Jest がグリーンであり、`quiz-search-universal` 等の既存検索テストもパスすること
+  - _Depends: 11.3_
+  - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6, 17.7_
+
+- [ ]* 11.5 Phase 11 回帰スモーク（任意）
+  - `format` 未指定の `searchQuizzes` 呼び出し（キーワードのみ・タグのみ・ジャンルのみ）が Phase 11 変更後も Phase 10 と同一結果になることを確認する
+  - **完了状態**: 既存 `quiz-search-universal`・タグ AND 検索テストスイートがグリーンであること
+  - _Depends: 11.4_
+  - _Requirements: 17.3_
   - _Boundary: Testing_

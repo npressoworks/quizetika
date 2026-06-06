@@ -15,6 +15,8 @@
 
 **Phase 10（2026-06）**: ホーム統合検索のタグチップ化（スペース確定）とタグ・ジャンル名サジェスト、クイズカードの難易度を数値併記星表記（`★ N`）へ変更しジャンル・出題形式を表示、ジャンル／タグ一覧での `QuizCard` 共通化。タグマスタ読み取りおよび `searchQuizzes` の複数タグ AND 合成は `quizeum-core` Phase 10 に依存する。
 
+**Phase 11（2026-06）**: ホーム検索バー直下のアコーディオン（「ジャンルから探す」「出題形式で探す」）と横スクロールカードカルーセルによる**ホーム内フィルタ型**探索、`GenreNav` ピルナビの置換、ジャンル別一覧（`/genres/[genreName]`）への scoped 検索 UI 追加。出題形式フィルタは `quizeum-core` Phase 11（`SearchFilters.format`）に依存する。
+
 ### Goals
 - 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
 - プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
@@ -27,6 +29,7 @@
 - **Phase 8**: `/bookmarks` の3分類タブ、`getBookmarkFeed` 駆動の一覧、プレイ／結果画面の設問ブックマークトグル、設問リスト詳細の連続プレイ（`question-list` セッション + 次設問遷移）。
 - **Phase 9**: ホーム画面のファーストビュー最適化、検索バー上部優先、1行横スクロールジャンルピル、主要ジャンル以外の「すべて見る」折りたたみ、サムネイル・評価スター・「プレイする」ボタン付きクイズカードグリッド表示、検索中スケルトンプレースホルダー、クリアボタン・ネオン発光エフェクト付き統合検索。
 - **Phase 10**: `UnifiedSearchField` によるタグチップ＋タグ／ジャンルサジェスト、クイックサーチチップからのタグチップ追加、`QuizCard` の `★ N` 難易度・ジャンル・出題形式表示、探索一覧ページでのカード統一。
+- **Phase 11**: ホームのアコーディオン＋ジャンル／形式カルーセル（ホーム内フィルタ）、`GenreNav` ホーム参照の除去、探索フィルタ状態の一元管理（`format` 含む）、ジャンルページ scoped 検索（`ExploreSearchSection` 再利用）。
 
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizeum-creator-dash-ui` に委ねます）。
@@ -35,6 +38,7 @@
 - **Phase 6**: `metadata-resolution`・Firestore Rules・canonical 書き込み（`quizeum-core`）。クイズエディタのジャンルセレクト（`quizeum-creator-dash-ui`）。
 - **Phase 8**: リスト作成・`listType` 選択・設問のリストへの追加 UI（`quizeum-creator-dash-ui`）。`bookmarksCount` 更新・`attempts` 書き込みロジック（`quizeum-core`）。プロフィールのリストタイプ表示（`quizeum-auth-profile-ui`）。
 - **Phase 10**: `listActiveTags`（存続タグのみ・`quizeum-core` 要件 16）・`searchQuizzes.tags` AND 合成（`quizeum-core` 要件 16）。ジャンル／タグ一覧ページへの検索バー新設。クイズ詳細・プレイ画面の難易度表示変更。タグ新設申請・マージ UI（`quizeum-moderation-governance-ui`）。
+- **Phase 11**: 出題形式専用一覧ルート（`/formats/[format]`）、URL クエリによるフィルタ共有可能化、タグ別一覧への検索バー追加、カルーセル自動スライド・外部 carousel ライブラリ導入。`searchQuizzes` の形式照合ロジック（`quizeum-core`）。
 
 ---
 
@@ -53,6 +57,8 @@
 - **設問リストプレイ導線（Phase 8）**: リスト詳細の `listType` 分岐、設問リスト開始ボタン、`question-list` セッション保持、結果画面からの次設問遷移。
 - **ホーム画面・クイズ探索 UI の最適化（Phase 9）**: 検索バー上部配置、1行横スクロールジャンルナビ（ピル形式）、主要以外の折りたたみ（すべて見る）、サムネイル・評価スター・「プレイ」ボタン付き `QuizCard` コンポーネント、ローディング時の `SkeletonCard`、統合検索入力・クリア・フォーカス時のネオンエフェクトおよびクイックサーチチップ。
 - **統合検索のタグチップ化とサジェスト（Phase 10）**: `UnifiedSearchField`、タグチップ状態管理、`useActiveTags`、探索一覧での `QuizCard` 共通化とメタ表示拡張。
+- **探索アコーディオン・カルーセル（Phase 11）**: `ExploreAccordionsPanel`、`GenreCarousel`、`FormatCarousel`、ホーム内フィルタ型ジャンル／形式選択、`GenreNav` ホームからの除去。
+- **ジャンルページ scoped 検索 UI（Phase 11）**: `ExploreSearchSection`（`lockedGenreId` 付き）、`useExploreQuizFeed`、ソートタブと scoped 検索の分岐。
 
 ### Out of Boundary
 - Gemini APIとの対話やプロンプト生成のバックエンドロジック本体。
@@ -61,7 +67,7 @@
 
 ### Allowed Dependencies
 - **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
-- **`quizeum-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**, **`getBookmarkFeed`, `toggleBookmark`, `getQuestionsInList`, `saveAttempt`（`mode: 'question-list'`）（Phase 8）**, **`listActiveTags`（Phase 10）**, **`searchQuizzes` の `tags?: string[]` AND フィルタ（Phase 10）**
+- **`quizeum-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**, **`getBookmarkFeed`, `toggleBookmark`, `getQuestionsInList`, `saveAttempt`（`mode: 'question-list'`）（Phase 8）**, **`listActiveTags`（Phase 10）**, **`searchQuizzes` の `tags?: string[]` AND フィルタ（Phase 10）**, **`searchQuizzes` の `format?: QuizFormat` フィルタ（Phase 11・実装済み）**, **`sortQuizzesForList`（scoped 検索結果のクライアントソート・Phase 11）**
 - **サーバーAPIプロキシ**: `/api/attempt/ask-ai`, `/api/attempt/verify-truth`
 
 ### Revalidation Triggers
@@ -71,6 +77,7 @@
 - **Phase 6**: `GenreMetadata` フィールド変更、`getQuizzesByGenre` の C2 契約変更、`listActiveGenres` のフィルタ条件変更。
 - **Phase 8**: `BookmarkFeed` / `BookmarkedQuestionEntry` 形状変更、`QuestionInListEntry` 契約変更、`question-list` attempt フィールド追加、設問リストセッションキー仕様変更。
 - **Phase 10**: `TagMetadata` フィールド変更、`listActiveTags` フィルタ条件変更、`searchQuizzes` の `tags` AND 契約変更、`normalizeTag` 規則変更。
+- **Phase 11**: `SearchFilters.format` 許容値変更、`resolveQuizFormat` / `getFormatLabel` 規則変更（カルーセルラベルと連動）、要件 1.2 / 10.3 のホームジャンル遷移ルール改定（`GenreNav` 非表示）。
 
 ---
 
@@ -220,6 +227,32 @@ hooks/
 - `tests/components/home-page.test.tsx` — タグチップ・サジェスト・クイックチップ連携の更新。
 - `e2e/quiz-search.spec.ts` — Phase 10 検索チップ・カードメタの E2E 追加。
 
+### New Files（Phase 11）
+- `src/lib/explore-formats.ts` — カルーセル用出題形式定数（7 種、`QuizFormat` + `getFormatLabel` ラベル）（13.9）
+- `src/lib/explore-filter-active.ts` — `hasActiveExploreFilters` / `hasActiveScopedExploreFilters`（ホーム vs ジャンルページ scoped 判定）（13.15–13.17, 13.22）
+- `src/components/explore/explore-accordion.tsx` — 単一アコーディオン見出し＋パネル（`aria-expanded`）（13.1–13.3）
+- `src/components/explore/explore-accordions-panel.tsx` — ジャンル／形式の2アコーディオン＋カルーセル配置（13.1, 13.4, 13.9）
+- `src/components/explore/genre-carousel.tsx` — ジャンル横スクロールカード、`selectedGenreId`、トグル選択（13.4–13.8, 13.26）
+- `src/components/explore/format-carousel.tsx` — 出題形式横スクロールカード、`selectedFormat`、トグル選択（13.9–13.12, 13.26）
+- `src/components/explore/explore-search-section.tsx` — `UnifiedSearchField` + フィルタパネル（`lockedGenreId` 時ジャンルセレクト非表示）（13.15, 13.19–13.21, 13.27）
+- `src/components/explore/explore-carousel.module.css` — カルーセル scroll-snap・選択ハイライト共通スタイル
+- `src/hooks/useExploreQuizFeed.ts` — ホーム／scoped の取得分岐、`searchQuizzes` に `format` 渡し（13.16, 13.21）
+- `tests/components/genre-carousel.test.tsx` — 選択・再選択トグル・testid
+- `tests/components/format-carousel.test.tsx` — 形式選択・ラベル表示・testid
+- `tests/components/explore-search-section.test.tsx` — `lockedGenreId` 時ジャンル非表示
+- `tests/lib/explore-filter-active.test.ts` — scoped active 判定（固定ジャンルのみでは false）
+- `tests/hooks/useExploreQuizFeed.test.ts` — ホーム／scoped 分岐モック
+
+### Modified Files（Phase 11）
+- `src/lib/home-feed-filters.ts` — `format?: QuizFormat | ''` 追加。`hasActiveExploreFilters` を export（`hasActiveHomeSearchFilters` は format 非考慮のエイリアスまたは統合）。
+- `src/hooks/useHomeQuizFeed.ts` — `format` を `searchQuizzes` に渡す。後方互換のため `useExploreQuizFeed` へロジック移譲し re-export 可。
+- `src/app/page.tsx` — `GenreNav` 削除。`ExploreAccordionsPanel` + `ExploreSearchSection` 配置。`filterFormat` 状態、カルーセル↔検索バー同期、クリア時に形式選択も解除（13.13–13.18）。
+- `src/app/page.module.css` — アコーディオン・カルーセル余白スタイル。
+- `src/app/genres/[genreName]/page.tsx` — `ExploreSearchSection`（`lockedGenreId={genreId}`）追加。scoped 検索時 `useExploreQuizFeed`、未指定時 `getQuizzesByGenre` 維持（13.19–13.23）。
+- `src/components/explore/genre-nav.tsx` — `@deprecated Phase 11: ホームから除去。参照用にファイル残置` コメント追加。
+- `tests/components/home-page.test.tsx` — `GenreNav` 非表示、カルーセルフィルタ、クリア連動。
+- `e2e/quiz-search.spec.ts` — ジャンルカルーセルが `/genres` に遷移しないこと、形式カルーセル絞り込み。
+
 ### Modified Files（Phase 6）
 - `src/app/page.tsx` — `GENRES` 定数削除、`GenreNav`（遷移専用）+ `GenreSearchField` + `useHomeQuizFeed` + `usePlayedQuizIds`。
 - `src/app/api/user/played-quiz-ids/route.ts`（新規）— 本人の完了済み `quizId` 一覧（プレイ状況フィルタ用、読み取りのみ）。
@@ -227,7 +260,6 @@ hooks/
 - `src/app/genres/[genreName]/page.tsx` — マスタメタ表示、ソートタブ、`getQuizzesByGenre(..., sort)`。
 - `src/app/tags/[tagName]/page.tsx` — `getQuizzesByTag` + ソートタブ（任意でホームと同型）。
 - `src/app/quiz/review/page.tsx` — `REVIEW_GENRES` を `listActiveGenres` に置換。
-```
 
 ### Modified Files（Phase 5）
 - `src/app/quiz/[id]/page.tsx` — インラインLB表を `QuizDualLeaderboard` に置換。`sortLb` 等のクライアント並び替えを削除。
@@ -375,6 +407,69 @@ sequenceDiagram
     Home->>Feed: デバウンス後再検索
 ```
 
+### ホーム探索アコーディオン・カルーセルフロー（Phase 11）
+
+**UX 方針（確定）**
+- **レイアウト**: 統合検索バー直下に `ExploreAccordionsPanel`（ジャンル／形式）。`GenreNav` はホームから**描画しない**（要件 13.13）。
+- **ジャンルカード**: クリックで `filterGenreId` を設定／再クリックで解除。**`router.push('/genres/...')` 禁止**（要件 13.14）。`UnifiedSearchField` のジャンルサジェスト・`GenreCarousel`・フィルタパネルで `filterGenreId` を共有。
+- **形式カード**: クリックで `filterFormat` を設定／再クリックで解除。7 形式は `explore-formats.ts` 定数（`getFormatLabel` と一致）。
+- **検索合成**: Phase 10 に加え `searchQuizzes(..., { format: filterFormat })`（コア Phase 11）。全未指定時はタブ別 API。
+- **一括クリア**: 検索バー消去でキーワード・タグ・ジャンル・**形式**・カルーセル選択状態を解除（要件 13.18）。
+- **カルーセル UX**: CSS `overflow-x: auto` + `scroll-snap-type: x mandatory`。外部 carousel ライブラリ・自動スライドは Non-Goal。
+
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant Acc as ExploreAccordionsPanel
+    participant GC as GenreCarousel
+    participant FC as FormatCarousel
+    participant Home as HomePage
+    participant Feed as useExploreQuizFeed
+    participant Core as searchQuizzes
+
+    User->>GC: ジャンルカード選択
+    GC->>Home: onGenreSelect(genreId)
+    Home->>Home: filterGenreId 更新（サジェスト・パネル同期）
+    Home->>Feed: filters 更新
+    Feed->>Core: searchQuizzes(keyword, { genreId, format, tags, ... })
+    Core-->>Feed: Quiz[]
+    Feed-->>Home: グリッド更新（同一 URL）
+
+    User->>FC: 形式カード再選択
+    FC->>Home: onFormatSelect(undefined)
+    Home->>Feed: format 解除 → タブ別 or 残フィルタ検索
+```
+
+### ジャンルページ scoped 検索フロー（Phase 11）
+
+**分岐規則（確定）**
+- **固定ジャンル**: URL `genreName` を `lockedGenreId` として常に `searchQuizzes` の `genreId` に渡す（要件 13.20–13.21）。
+- **active 判定**: `hasActiveScopedExploreFilters(filters, lockedGenreId)` — キーワード・タグ・形式・数値フィルタ・プレイ状況のいずれかが指定されたときのみ scoped 検索。固定ジャンルのみでは **false**（要件 13.22）。
+- **取得**: active=false → `getQuizzesByGenre(lockedGenreId, limit, activeSort)`。active=true → `searchQuizzes` → **`sortQuizzesForList` でクライアント再ソート**（コア `searchQuizzes` に sort 引数なしのため）。
+- **UI**: `ExploreSearchSection` でジャンルセレクト非表示。プレイ状況フィルタはホーム同型で提供（要件 13.19 の「同型」解釈）。
+
+```mermaid
+sequenceDiagram
+    participant Page as GenreExplorePage
+    participant ESS as ExploreSearchSection
+    participant Feed as useExploreQuizFeed
+    participant Core as searchQuizzes / getQuizzesByGenre
+    participant Sort as sortQuizzesForList
+
+    Page->>ESS: lockedGenreId=genreId
+    ESS->>Page: filters 変更
+    alt scoped フィルタあり
+        Page->>Feed: useExploreQuizFeed(scoped)
+        Feed->>Core: searchQuizzes(kw, { genreId: locked, format, tags, ... })
+        Core-->>Feed: Quiz[]
+        Feed->>Sort: sortQuizzesForList(results, activeSort)
+        Sort-->>Page: グリッド
+    else フィルタなし
+        Page->>Core: getQuizzesByGenre(locked, limit, activeSort)
+        Core-->>Page: グリッド
+    end
+```
+
 ### ブックマーク3タブ読み込みフロー（Phase 8）
 
 ```mermaid
@@ -397,7 +492,7 @@ sequenceDiagram
 | Requirement | Summary | Components | Interfaces | Flows |
 |-------------|---------|------------|------------|-------|
 | 1.1 | ファーストビューの最適化 (バナー縮小・検索バー最上部配置) | `/` Page | CSS / DOM layout | - |
-| 1.2 | カテゴリー表示の整理 (ピル・横スクロール・「すべて見る」) | `GenreNav` | `listActiveGenres`, `useRouter` | - |
+| 1.2 | カテゴリー表示（Phase 11 で `GenreNav` 非表示。ジャンル探索はアコーディオン・カルーセルが正本） | `ExploreAccordionsPanel`, `GenreCarousel` | `listActiveGenres` | ホーム探索アコーディオン・カルーセルフロー |
 | 1.3 | コンテンツ優先レイアウト (グリッド表示・タブ視認性) | `/` Page | CSS grid layout | - |
 | 1.4 | 統合検索機能および UI/UX (検索クリア・ネオン・クイックサーチ・スケルトン) | `/` Page, `GenreSearchField`, `SkeletonCard` | `searchQuizzes`, `useHomeQuizFeed` | ホーム・ジャンル探索フロー |
 | 1.5 | クイズカード魅力向上 (サムネイル・プレイボタン・情報整理) | `QuizCard` | `Quiz` data representation | - |
@@ -438,9 +533,9 @@ sequenceDiagram
 | 9.6 | リプレイ: `leaderboardReplay` のみ | `QuizDualLeaderboard` | `getLeaderboardReplay` | - |
 | 9.7 | E2E `data-testid` | `QuizDualLeaderboard` | test ids | - |
 | 9.8 | 更新・マージなし（表示のみ） | `QuizDualLeaderboard` | — | Out of boundary |
-| 10.1 | 動的ジャンルナビ | `GenreNav`, `useActiveGenres` | `listActiveGenres` | ホーム・ジャンル探索フロー |
-| 10.2 | ハードコード GENRES 廃止 | `HomePage` | — | — |
-| 10.3 | `/genres/[id]` 遷移（アイコンのみ） | `GenreNav` | `useRouter` | — |
+| 10.1 | 動的ジャンルナビ（Phase 11: ホームは `GenreCarousel`。`GenreNav` は非正本） | `GenreCarousel`, `useActiveGenres` | `listActiveGenres` | ホーム探索アコーディオン・カルーセルフロー |
+| 10.2 | ハードコード GENRES 廃止 | `HomePage`, `GenreCarousel` | — | — |
+| 10.3 | ジャンル探索（Phase 11: ホームカルーセルは遷移せずフィルタ） | `GenreCarousel` | — | ホーム探索アコーディオン・カルーセルフロー |
 | 10.4 | `searchQuizzes`（フィルタ変更） | `useHomeQuizFeed` | `searchQuizzes` | — |
 | 10.4b | ジャンルサジェスト | `GenreSearchField` | `useActiveGenres` | — |
 | 10.4c | プレイ状況 | `usePlayedQuizIds` | `listUserPlayedQuizIds` | — |
@@ -472,6 +567,14 @@ sequenceDiagram
 | 12.19 | 探索一覧で QuizCard 統一 | `GenreExplorePage`, `TagExplorePage` | `QuizCard` | — |
 | 12.20 | 読み込み中スケルトン | `SkeletonCard` | — | — |
 | 12.21–12.22 | a11y・data-testid | `UnifiedSearchField`, `QuizCard` | — | — |
+| 13.1–13.3 | アコーディオン2セクション独立開閉 | `ExploreAccordion`, `ExploreAccordionsPanel` | — | ホーム探索アコーディオン・カルーセルフロー |
+| 13.4–13.8 | ジャンルカルーセル・ホーム内フィルタ・同期 | `GenreCarousel`, `HomePage` | `filterGenreId` | ホーム探索アコーディオン・カルーセルフロー |
+| 13.9–13.12 | 形式カルーセル・ホーム内フィルタ | `FormatCarousel`, `explore-formats` | `filterFormat`, `searchQuizzes.format` | ホーム探索アコーディオン・カルーセルフロー |
+| 13.13–13.14 | GenreNav 非表示・カルーセル遷移禁止 | `HomePage` | — | — |
+| 13.15–13.18 | フィルタ状態共有・AND 検索・クリア連動 | `ExploreSearchSection`, `useExploreQuizFeed`, `home-feed-filters` | `searchQuizzes` | ホーム統合検索フロー |
+| 13.19–13.23 | ジャンルページ scoped 検索 UI | `GenreExplorePage`, `ExploreSearchSection` | `lockedGenreId`, `hasActiveScopedExploreFilters` | ジャンルページ scoped 検索フロー |
+| 13.24–13.25 | Out of boundary（形式専用ルート・サーバー照合なし） | — | `quizeum-core` | — |
+| 13.26–13.27 | testid 契約 | `ExploreAccordionsPanel`, `GenreCarousel`, `FormatCarousel`, `ExploreSearchSection` | — | — |
 
 ---
 
@@ -481,8 +584,14 @@ sequenceDiagram
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
 |-----------|--------------|--------|--------------|------------------|-----------|
-| `HomePage` | UI / Page | クイズ探索・複合検索・タブ切替 | 1.1–1.5, 10.2–10.4, 12.1–12.15 | `UnifiedSearchField`, `useHomeQuizFeed`, `useActiveTags`, `usePlayedQuizIds`, `useAuth`, `QuizCard`, `SkeletonCard` | State |
-| `UnifiedSearchField` | UI / Component | タグチップ＋キーワード＋タグ／ジャンルサジェスト | 12.1–12.11, 12.21–12.22 | `useActiveTags`, `useActiveGenres`, `filter-search-suggestions` | State |
+| `HomePage` | UI / Page | クイズ探索・複合検索・タブ切替 | 1.1–1.5, 10.2–10.4, 12.1–12.15, 13.1–13.18 | `ExploreSearchSection`, `ExploreAccordionsPanel`, `useExploreQuizFeed`, `useActiveTags`, `usePlayedQuizIds`, `QuizCard` | State |
+| `ExploreAccordionsPanel` | UI / Component | ジャンル／形式アコーディオン＋カルーセル | 13.1–13.12, 13.26 | `GenreCarousel`, `FormatCarousel`, `useActiveGenres` | State |
+| `GenreCarousel` | UI / Component | ジャンル横スクロールカード・ホーム内フィルタ | 13.4–13.8, 13.26 | `listActiveGenres` | State |
+| `FormatCarousel` | UI / Component | 出題形式横スクロールカード | 13.9–13.12, 13.26 | `explore-formats`, `getFormatLabel` | State |
+| `ExploreSearchSection` | UI / Component | 統合検索＋フィルタパネル（ホーム／ジャンル共通） | 13.15–13.21, 13.27 | `UnifiedSearchField`, `GenreSearchField` | State |
+| `GenreExplorePage` | UI / Page | ジャンル固定 scoped 探索 | 7.2, 10.5–10.6, 13.19–13.23 | `ExploreSearchSection`, `useExploreQuizFeed`, `ExploreSortTabs` | State |
+| `useExploreQuizFeed` | Hook | タブ／scoped／searchQuizzes 分岐（format 含む） | 1.3, 10.4, 12.12–12.15, 13.16, 13.21–13.22 | `searchQuizzes`, tab APIs, `sortQuizzesForList` | State |
+| `UnifiedSearchField` | UI / Component | タグチップ＋キーワード＋タグ／ジャンルサジェスト | 12.1–12.11, 12.21–12.22, 13.8 | `useActiveTags`, `useActiveGenres`, `filter-search-suggestions` | State |
 | `GenreSearchField` | UI / Component | マスタ駆動ジャンルサジェスト（フィルタパネル用、検索バーと genreId 同期） | 1.4, 10.4, 12.9 | `useActiveGenres` | State |
 | `QuizCard` | UI / Component | サムネイル・★N 難易度・ジャンル・出題形式・プレイ導線 | 1.5, 7.2, 12.16–12.19, 12.22 | `quiz-format-labels`, `toggleBookmark` | State |
 | `useActiveTags` | Hook | `listActiveTags` 取得とエラー | 12.7, 12.10 | `listActiveTags` (P0) | State |
@@ -593,10 +702,13 @@ interface UnifiedSearchFieldProps {
 }
 ```
 
-##### State helpers（`home-feed-filters.ts` 拡張）
+##### State helpers（`home-feed-filters.ts` 拡張 — Phase 10 + Phase 11）
 ```typescript
+import type { QuizFormat } from '@/lib/quiz-format';
+
 export interface HomeFeedFilters {
   genreId: string;
+  format: QuizFormat | '';
   searchQuery: string;
   tagChips: string[];
   difficultyMin: number;
@@ -605,10 +717,20 @@ export interface HomeFeedFilters {
   maxQuestions: number;
 }
 
-// searchQuizzes 呼び出し契約（quizeum-core 要件 16）
+/** ホーム: いずれかの探索フィルタが active（format 含む） */
+export function hasActiveExploreFilters(filters: HomeFeedFilters): boolean;
+
+/** ジャンルページ: lockedGenreId 以外の条件が active のとき true */
+export function hasActiveScopedExploreFilters(
+  filters: HomeFeedFilters,
+  lockedGenreId: string
+): boolean;
+
+// searchQuizzes 呼び出し契約（quizeum-core Phase 10–11）
 export interface SearchFilters {
   genreId?: string;
-  tags?: string[]; // normalizeTag 済み、AND 一致（core が canonical 解決）
+  tags?: string[];
+  format?: QuizFormat;
   difficultyMin?: number;
   difficultyMax?: number;
   minQuestions?: number;
@@ -630,6 +752,104 @@ export function filterTagSuggestions(
 - `listActiveTags()` をマウント時に 1 回取得（`useActiveGenres` 対称）。
 - 返却タグは core 要件 16.1 の存続タグ（`canonicalId == null`）のみ。UI は追加フィルタしない。
 - `tagLabelById: Map<string, string>` を `tagName ?? id` で構築しサジェスト表示に利用。
+
+#### `ExploreAccordionsPanel` / `GenreCarousel` / `FormatCarousel`（Phase 11）
+
+| Field | Detail |
+|-------|--------|
+| Intent | ホーム検索バー直下の2アコーディオンと横スクロールカードカルーセル |
+| Requirements | 13.1–13.14, 13.26 |
+
+**Responsibilities & Constraints**
+- `ExploreAccordion`: 見出しボタン（`aria-expanded`）+ 折りたたみパネル。2 インスタンスは独立開閉（一方が他方を閉じない）。
+- `GenreCarousel`: `useActiveGenres` 由来のジャンルをカード表示（`displayName`, `iconImageUrl`, `description` 任意）。`selectedGenreId` と一致するカードに選択スタイル。クリックは `onGenreSelect(id | '')` — 再選択で空文字（解除）。**`useRouter` 禁止**。
+- `FormatCarousel`: `EXPLORE_FORMAT_OPTIONS`（7 形式）をカード表示。`selectedFormat` と一致でハイライト。再クリックで解除。
+- testid: `explore-accordion-genre` / `explore-accordion-format`、`genre-carousel`、`format-carousel`、`genre-carousel-card-{id}`、`format-carousel-card-{format}`。
+
+**Implementation Notes**
+- `GenreNav` のピル UI はホームから除去。`genre-nav.tsx` は `@deprecated` コメントのみ残置。
+- カルーセルは CSS scroll-snap。左右矢印は任意（Non-Goal 未指定のため初版は省略可）。
+
+#### `ExploreSearchSection`（Phase 11）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 統合検索バー＋フィルタパネルをホーム／ジャンルページで共有 |
+| Requirements | 13.15–13.21, 13.27 |
+
+**Contracts**: State [x]
+
+```typescript
+interface ExploreSearchSectionProps {
+  filters: HomeFeedFilters;
+  onFiltersChange: (patch: Partial<HomeFeedFilters>) => void;
+  onClearAll: () => void;
+  /** 指定時ジャンルセレクト非表示・scoped 固定 */
+  lockedGenreId?: string;
+  genres: GenreMetadata[];
+  tags: TagMetadata[];
+  genresLoading: boolean;
+  tagsLoading: boolean;
+  genresError: string | null;
+  tagsError: string | null;
+  playStatus: 'all' | 'unplayed' | 'played';
+  onPlayStatusChange: (v: 'all' | 'unplayed' | 'played') => void;
+  playStatusDisabled?: boolean;
+}
+```
+
+**Implementation Notes**
+- `lockedGenreId` 指定時、`UnifiedSearchField` のジャンルサジェスト選択は `lockedGenreId` を上書きしない（または非表示）。フィルタパネルの `GenreSearchField` は描画しない。
+- ジャンルページ root に `data-testid="genre-explore-search"`。
+
+#### `useExploreQuizFeed`（Phase 11）
+
+| Field | Detail |
+|-------|--------|
+| Intent | ホームタブ取得 vs `searchQuizzes` vs scoped 分岐（300ms デバウンス） |
+| Requirements | 13.16, 13.21, 13.22 |
+
+```typescript
+type ExploreFeedMode = 'home' | 'scoped';
+
+interface UseExploreQuizFeedOptions {
+  mode: ExploreFeedMode;
+  activeTab?: HomeFeedTab;
+  userId?: string;
+  filters: HomeFeedFilters;
+  lockedGenreId?: string;
+  activeSort?: QuizListSort;
+}
+
+function useExploreQuizFeed(options: UseExploreQuizFeedOptions): {
+  quizzes: Quiz[];
+  loading: boolean;
+  error: string | null;
+};
+```
+
+**分岐**
+- `mode: 'home'`: `hasActiveExploreFilters` → `searchQuizzes`（`format` 含む）。それ以外はタブ別 API。
+- `mode: 'scoped'`: `hasActiveScopedExploreFilters` → `searchQuizzes({ genreId: locked, format, ... })` → `sortQuizzesForList(..., activeSort)`。それ以外は `getQuizzesByGenre(locked, limit, activeSort)`。
+
+**Implementation Notes**
+- `useHomeQuizFeed` は thin wrapper として残すか、呼び出し元を `useExploreQuizFeed` に置換。
+- プレイ状況フィルタは hook 外で `applyPlayStatusFilter`（既存パターン維持）。
+
+#### `explore-formats.ts`（Phase 11）
+
+```typescript
+import type { QuizFormat } from '@/lib/quiz-format';
+
+export interface ExploreFormatOption {
+  id: QuizFormat;
+  label: string;
+}
+
+export const EXPLORE_FORMAT_OPTIONS: ExploreFormatOption[];
+// mixed, multiple-choice, text-input, quick-press, sorting, association, lateral-thinking
+// label は getFormatLabel(id) と同一文字列
+```
 
 #### `SkeletonCard`（Phase 9）
 
@@ -824,8 +1044,8 @@ function buildQuestionListPlayUrl(session: QuestionListSession, index: number): 
 
 ### E2E/UI Tests
 - **複合検索フィルタ（Phase 6）**:
-  - ジャンルアイコンクリックで `/genres/[id]` に遷移すること（ホーム URL のまま絞り込まないこと）。
-  - `GenreSearchField` でサジェスト選択後、デバウンス経由でグリッドが更新されること。
+  - ~~ジャンルアイコンクリックで `/genres/[id]` に遷移すること~~ → **Phase 11 改定**: ジャンルカルーセル選択で同一 URL のままグリッドが絞り込まれること（`/genres` へ遷移しないこと）。
+  - `GenreSearchField` / `UnifiedSearchField` でサジェスト選択後、デバウンス経由でグリッドが更新されること。
   - 認証済みで「未プレイのみ」選択時、プレイ済みクイズが一覧から除外されること。
 - **クイズ詳細・二系統リーダーボード（Phase 5）**:
   - `[data-testid="quiz-leaderboard"]` が表示されること。
@@ -860,6 +1080,22 @@ function buildQuestionListPlayUrl(session: QuestionListSession, index: number): 
   - `[data-testid="quiz-card-difficulty"]` が `★ 7` 形式（例）を含み、プログレスバー要素が存在しないこと。
   - `[data-testid="quiz-card-genre"]` と `[data-testid="quiz-card-format"]` がホーム・ジャンル一覧・タグ一覧のいずれでも表示されること。
   - ジャンル／タグ一覧で `QuizCard` の `href` によりカードクリックで `/quiz/[id]` へ遷移すること。`[data-testid="play-btn"]` が存在すること。
+
+- **探索アコーディオン・カルーセル（Phase 11）**:
+  - `[data-testid="explore-accordion-genre"]` 展開で `[data-testid="genre-carousel"]` が表示されること。
+  - ジャンルカード選択後 URL が `/` のまま、グリッド件数が絞り込まれること（`/genres/` へ遷移しないこと）。
+  - `[data-testid="format-carousel-card-multiple-choice"]` 選択で選択式クイズのみ表示されること。
+  - 検索バー消去でカルーセル選択ハイライトが解除されること。
+  - ホームに `[data-testid="genre-nav"]` が**存在しない**こと。
+- **ジャンルページ scoped 検索（Phase 11）**:
+  - `[data-testid="genre-explore-search"]` が表示され、キーワード入力で当該ジャンル内のみ結果が変わること。
+  - フィルタ未指定時はソートタブ切替で `getQuizzesByGenre` 相当の一覧が維持されること。
+
+### Unit Tests（Phase 11）
+- **`explore-filter-active`**: format 指定で active、scoped で locked genre のみでは false。
+- **`GenreCarousel` / `FormatCarousel`**: 選択・再選択トグル、testid、選択スタイル class。
+- **`ExploreSearchSection`**: `lockedGenreId` 時 `GenreSearchField` 非表示。
+- **`useExploreQuizFeed`**: home/scoped 分岐、`format` 引数、`sortQuizzesForList` 呼び出し（scoped + active）。
 
 ### Unit Tests（Phase 10）
 - **`filter-tag-suggestions` / `filter-search-suggestions`**:

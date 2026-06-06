@@ -16,6 +16,8 @@
 
 **Phase 10（2026-06）**: ホーム統合検索のタグチップ化を支える `listActiveTags`（存続タグマスタ一覧）と、`searchQuizzes` への複数タグ AND フィルタ（`SearchFilters.tags`）を追加する。タグ照合は `getQuizzesByTag` / 要件 11.3 と同一の canonical 優先＋legacy フォールバック規則を `quiz-tag-match` に集約する（UI サジェストは `quizeum-play-flow-ui` が担当）。
 
+**Phase 11（2026-06）**: ホーム内フィルタ型探索およびジャンル別一覧 scoped 検索を支える `SearchFilters.format`（出題形式）追加と、`searchQuizzes` 後段での `resolveQuizFormat` 一致フィルタを実装する。形式判定は UI カード表示（`quizeum-play-flow-ui`）と同一 lib 規則を用い、Firestore インデックス新設は行わない。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -28,6 +30,7 @@
 - クイズ・リスト・設問の分類ブックマーク、設問リスト CRUD/プレイ、自作クイズ検索、参照リンク設問の保存整合をコア層で一貫提供する。
 - 統合検索機能（ユニバーサル検索）のため、タイトル・説明・作者・タグ・ジャンルの並行ハイブリッド検索とクライアントデデュプ・フィルタロジックを最適化する。
 - **Phase 10**: タグマスタ一覧 API（`listActiveTags`）と、タグチップ配列による複数タグ AND 複合検索の一貫実装。
+- **Phase 11**: 出題形式（`format`）フィルタ付き複合検索。ジャンル固定 scoped 検索（`genreId` + 他条件 AND）の一貫実装。形式判定は `quiz-format-match` + `resolveQuizFormat` に集約。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -52,6 +55,7 @@
 - **Phase 8 — 参照リンク作問**: `searchAuthorQuizzes`、参照 ID のみの保存パス、Copy-on-Write 切り離し、共有設問の安全な参照解除。
 - **Phase 9 — 統合検索コアロジック**: `searchQuizzes` API 内における複数インデックス並行クエリ（タグ、作者名、ジャンル名等）、クライアント側マージ・重複排除、および大文字小文字を区別しない各種項目（タイトル、説明、作者名、タグ、ジャンル）の部分一致フィルタリング処理。
 - **Phase 10 — タグマスタ一覧とタグ AND 検索**: `listActiveTags`、`quiz-tag-match` 純関数、`searchQuizzes` の `filters.tags` 拡張。
+- **Phase 11 — 出題形式フィルタと scoped 検索**: `SearchFilters.format`、`quiz-format-match` 純関数、`searchQuizzes` 後段形式フィルタ（`resolveQuizFormat` 一致）。ジャンル固定 scoped 検索は既存 `genreId` + `expandGenreIdsForQuery` を維持。
 
 ### Out of Boundary
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
@@ -62,6 +66,7 @@
 - 管理者向けBAN/UNBAN操作画面のUIレイアウトおよび表示コンポーネント（`quizeum-admin-users-ui` が担当）。
 - **Phase 6**: ホーム/エディタ/ジャンル一覧の UI、ジャンル新設・マージ画面のレイアウト、既存クイズの一括 `genre` 物理書き換え、Cloud Functions への投票移行。
 - **Phase 8**: `/bookmarks` タブ UI、リスト/作問エディタのピッカー・DnD・検索パネル（`quizeum-play-flow-ui` / `quizeum-creator-dash-ui`）。プロフィールのリストタイプ別表示（`quizeum-auth-profile-ui`）。
+- **Phase 10–11**: ホーム／ジャンルページの探索 UI（タグチップ、アコーディオン、カルーセル、フィルタ状態管理）は `quizeum-play-flow-ui` が担当。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
@@ -79,6 +84,7 @@
 - `Attempt.mode` に `question-list` 追加、参照リンク設問の Copy-on-Write 契約変更。
 - `BookmarkFeed` / `BookmarkedQuestionEntry` レスポンス形状の変更。
 - **Phase 10**: `SearchFilters.tags` の意味変更、`listActiveTags` の存続タグ定義（`canonicalId == null`）変更、`quiz-tag-match` 照合規則変更。
+- **Phase 11**: `SearchFilters.format` の許容値集合変更、`quiz-format-match` / `resolveQuizFormat` 推定規則変更（`quizeum-play-flow-ui` のカード・カルーセル表示と連動再検証）。
 
 ---
 
@@ -153,6 +159,8 @@ src/
 ├── lib/
 │   ├── leaderboard-ranking.ts    # 順位比較・マージ・top5抽出 (9.4–9.6)
 │   ├── metadata-resolution.ts    # canonical 解決・マージ展開・クイズ保存用メタ適用 (2.x, 11.x) [Phase 6 新規]
+│   ├── quiz-format.ts            # resolveQuizFormat（形式推定）(17.x) [既存]
+│   ├── quiz-format-match.ts      # クイズ×出題形式照合（検索用）(17.x) [Phase 11 新規]
 │   └── quiz-tag-match.ts         # クイズ×タグ照合（AND 検索用）(16.x) [Phase 10 新規]
 ├── services/
 │   ├── attempt.ts                # saveAttempt内LB更新、listUserPlayHistory、review genreFilter (3.x, 9.x, 10.x, 3.7)
@@ -221,6 +229,12 @@ src/
 - `tests/services/quiz-list-active-tags.test.ts` — **新規**。存続タグのみ・ソート・空配列。
 - `tests/services/quiz-search-tags-and.test.ts` — **新規**。単一/複数タグ AND、キーワード併用、タグのみ、重複除去。
 
+**Phase 11 追加ファイル**:
+- `src/lib/quiz-format-match.ts` — **新規**。`resolveQuizFormat` を用いたクイズ×指定形式の一致判定（要件 17.1, 17.6）。
+- `src/services/quiz.ts` — `SearchFilters.format` 追加、`searchQuizzes` 後段に形式フィルタを挿入。
+- `tests/lib/quiz-format-match.test.ts` — **新規**。`format` フィールドあり／設問から推定／不一致。
+- `tests/services/quiz-search-format-filter.test.ts` — **新規**。形式のみ、genreId+format、tags+format+keyword、format 未指定 regression、scoped genre 漏れなし。
+
 ---
 
 ## System Flows
@@ -267,6 +281,31 @@ sequenceDiagram
     QS->>QS: id 付与 + tagName ソート
     QS-->>UI: TagMetadata[]
 ```
+
+### 出題形式フィルタ付き複合検索フロー（Phase 11）
+
+```mermaid
+sequenceDiagram
+    participant UI as play-flow-ui
+    participant QS as searchQuizzes
+    participant QFM as quiz-format-match
+    participant RF as resolveQuizFormat
+    participant DB as Firestore
+
+    UI->>QS: searchQuizzes(keyword, { format, genreId, tags, ... })
+    QS->>DB: Phase 9/10 母集団取得
+    QS->>QS: needle / tags AND / genre expand
+    QS->>QFM: applyFormatFilter after genre step
+    loop 各クイズ
+        QFM->>RF: resolveQuizFormat(quiz)
+        RF-->>QFM: QuizFormat
+        QFM-->>QS: match boolean
+    end
+    QS->>QS: difficulty / questionCount
+    QS-->>UI: Quiz[]
+```
+
+**フロー上の決定**: 形式フィルタは Firestore クエリに含めず、**ジャンルフィルタの直後・数値フィルタの直前**に後段 AND 適用する（要件 17.7）。Canonical 順序: `needle → tags AND → genre → format → difficulty/questionCount`。`format` 未指定時は当該ステップをスキップし Phase 10 挙動を維持する。`genreId` 固定 scoped 検索は既存 `expandGenreIdsForQuery` フィルタを変更せず、形式フィルタと AND 合成する。
 
 ### クイズリーダーボード更新フロー（`saveAttempt` / `verify-truth` 共通）
 
@@ -530,6 +569,10 @@ sequenceDiagram
 | 16.1–16.5 | 有効タグマスタ一覧 | `QuizService` | `listActiveTags` | タグマスタ読み取りフロー |
 | 16.6–16.13 | 複数タグ AND 複合検索 | `QuizService`, `quiz-tag-match` | `searchQuizzes`, `resolveCanonicalTagIds` | タグ AND 検索フロー |
 | 16.14–16.15 | サジェスト API 非対象 | — | Out of boundary | - |
+| 17.1–17.3 | 出題形式フィルタ | `QuizService`, `quiz-format-match` | `SearchFilters.format`, `resolveQuizFormat` | 形式フィルタ検索フロー |
+| 17.4–17.5 | ジャンル固定 scoped 検索 | `QuizService` | `searchQuizzes` + `expandGenreIdsForQuery` | 形式フィルタ検索フロー |
+| 17.6 | UI と同一形式判定 | `quiz-format-match` | `resolveQuizFormat` | - |
+| 17.7–17.8 | インデックス/UI Out | — | Out of boundary | - |
 | 12.1 | ユーザーのBANと監査ログ記録 | `ReputationService` / API Route | `/api/admin/users/ban` | - |
 | 12.2 | BAN解除と監査ログ記録 | `ReputationService` / API Route | `/api/admin/users/unban` | - |
 | 12.3 | BAN中の書き込み拒否と強制ログアウト | Security Rules / AuthContext | `isNotBanned()`, `quizeum_banned` Cookie | - |
@@ -547,8 +590,9 @@ sequenceDiagram
 |-----------|--------------|--------|--------------|--------------------------|-----------|
 | `UserService` | Service | ユーザープロフィール、称号、フォロー管理 | 1.2, 1.3, 5.1 | Firestore (P0) | Service, State |
 | `metadata-resolution` | Lib | canonical 解決・マージ ID 展開・タグマスタ ensure | 2.2, 2.4, 2.5, 11.x | Firestore (P0) | Pure functions + IO |
-| `QuizService` | Service | クイズ保存・一覧・検索・エクスポート | 2.1–2.9, 11.1–11.5, 16.1–16.13 | metadata-resolution (P0), quiz-tag-match (P0), Firestore (P0) | Service |
+| `QuizService` | Service | クイズ保存・一覧・検索・エクスポート | 2.1–2.9, 11.1–11.5, 16.1–16.13, 17.1–17.5 | metadata-resolution (P0), quiz-tag-match (P0), quiz-format-match (P0), Firestore (P0) | Service |
 | `quiz-tag-match` | Lib | クイズ×タグの canonical/legacy 照合（AND 用） | 16.7, 16.8 | normalizeTag (P0) | Pure functions |
+| `quiz-format-match` | Lib | クイズ×出題形式の一致判定（`resolveQuizFormat` 使用） | 17.1, 17.6 | quiz-format (P0) | Pure functions |
 | `TagMergeService` | Service | マージ投票・ジャンル新設（`tagMerge.ts`） | 7.4–7.8, 11.7 | Firestore (P0) | Service, State |
 | `leaderboard-ranking` | Lib | LB順位比較・マージ・top5 | 9.4, 9.5, 9.6 | - | Pure functions |
 | `AttemptService` | Service | 解答永続化、LB更新、本人プレイ履歴、オフライン同期 | 3.1, 3.2, 3.3, 3.4, 3.6, 5.5, 9.1–9.7, 10.1–10.3 | Firestore (P0), LocalStore (P1), leaderboard-ranking (P0) | Service, State, Batch |
@@ -624,7 +668,7 @@ export async function ensureTagMasters(
 
 #### `QuizService`
 - **Intent**: クイズの保存、編集、Zod検証、NGワード二重検証付き公開、ジャンル/タグ一覧・複合検索、エクスポート。
-- **Requirements**: `2.1–2.9, 11.1–11.5, 16.1–16.13`
+- **Requirements**: `2.1–2.9, 11.1–11.5, 16.1–16.13, 17.1–17.5`
 
 ```typescript
 export type QuizListSort = 'latest' | 'popular' | 'trending';
@@ -633,6 +677,8 @@ export interface SearchFilters {
   genreId?: string;
   /** 正規化済みタグ識別子の配列。複数指定時は AND（すべてを含むクイズのみ） */
   tags?: string[];
+  /** 出題形式。`resolveQuizFormat` 結果と一致するクイズのみ返す（Phase 11） */
+  format?: QuizFormat;
   difficultyMin?: number;
   difficultyMax?: number;
   minQuestions?: number;
@@ -686,7 +732,14 @@ export interface QuizService {
      - `needle` なし・タグなし → 既存どおり `genreId` または `getLatestQuizzes`。
   4. **キーワード部分一致**（`needle` あり時）— 既存フィルタを適用。
   5. **`quizMatchesAllTags(quiz, specs)`** で AND 絞り込み（`tags` 未指定時はスキップ）。
-  6. **ジャンル・数値フィルタ** — 既存どおり `expandGenreIdsForQuery` + difficulty/questionCount。
+  6. **ジャンルフィルタ** — `expandGenreIdsForQuery` + `genre` / `canonicalGenreId` 照合（`genreId` 未指定時はスキップ）。
+  7. **出題形式フィルタ（Phase 11）** — `filters.format` 指定時のみ `quizMatchesFormat` を適用（未指定時はスキップ）。
+  8. **数値フィルタ** — `difficultyMin/Max`, `minQuestions/maxQuestions`。
+- **Canonical パイプライン順序（Phase 9–11 統一）**: `母集団取得 → needle 部分一致 → tags AND → genre → format → difficulty/questionCount`。すべて AND 合成。実装はこの順序で後段フィルタを適用すること（デバッグ・テストの期待値固定用）。
+- **`searchQuizzes` 出題形式フィルタ拡張（Phase 11）** — 上記ステップ 7 の詳細:
+  1. 判定は **`quiz.format` 直読み禁止**。必ず `resolveQuizFormat({ format: quiz.format, questions: quiz.questions })` と比較（要件 17.6）。`QuizCard` / 形式カルーセルと同一 lib を使用。
+  2. **scoped 検索（要件 17.4–17.5）**: ジャンル別一覧ページは UI が `genreId` を常に渡す。ステップ 6 により他ジャンルは除外済み。形式・タグ・キーワードは追加 AND。
+  3. **母集団と形式のみ指定**: `needle` 空・`tags` 空・`genreId` 空・`format` あり → 既存どおり `getLatestQuizzes(100)` を母集団とし、ステップ 7 で形式フィルタ（上限 100 件は Phase 10 と同型の探索用途許容。Phase 11 Non-Goal）。
 - **Note**: リーダーボード更新は `AttemptService` / `verify-truth` に集約。
 
 #### `quiz-tag-match`（`src/lib/quiz-tag-match.ts`）
@@ -718,6 +771,33 @@ export function quizMatchesAllTags(
 
 - **照合順序**: (1) `quiz.canonicalTagIds` に `spec.canonicalId` が含まれる → 一致。(2) `quiz.tags` を `normalizeTag` した集合に `spec.normalizedInput` または `spec.canonicalId` が含まれる → 一致。(3) それ以外は不一致。
 - **Invariants**: `getQuizzesByTag` と同一規則。UI 層はチップ値として `normalizeTag` 済み `id` を渡す。
+
+#### `quiz-format-match`（`src/lib/quiz-format-match.ts`）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 単一クイズの有効出題形式が指定形式と一致するかを判定 |
+| Requirements | 17.1, 17.6 |
+
+```typescript
+import type { QuizFormat } from './quiz-format';
+
+/** resolveQuizFormat 結果と指定 format の厳密一致 */
+export function quizMatchesFormat(
+  quiz: Pick<Quiz, 'format' | 'questions'>,
+  format: QuizFormat
+): boolean;
+
+/** format 未指定時は true（フィルタ無効） */
+export function applyFormatFilter(
+  quizzes: Quiz[],
+  format?: QuizFormat
+): Quiz[];
+```
+
+- **判定規則**: `resolveQuizFormat(quiz) === format`。`quiz.format` が未設定の旧データは設問 `type` から推定（`quiz-format.ts` 既存ロジック）。
+- **レガシーデータ（validate-design 2026-06-05 反映）**: `quiz.format` 未設定かつ `questions` が空配列のとき、`resolveQuizFormat` は `'mixed'` を返す（既存 lib 挙動。要件 17.6 と一致）。このため **`format: 'mixed'` フィルタのみヒット**し、他形式フィルタでは不一致となる。テストフィクスチャ `{ format: undefined, questions: [] }` で期待値を固定する。
+- **Invariants**: `quizeum-play-flow-ui` の `QuizCard` / 形式カルーセルは同一 `QuizFormat` 型および `getFormatLabel` を使用。コアはラベル変換を行わない。
 
 #### `TagMergeService`（`src/services/tagMerge.ts`）
 - **Intent**: マージ提案・投票、ジャンル新設申請・可決の単一実装（`moderation.ts` のジャンルスタブは削除）。
@@ -1358,10 +1438,19 @@ function canDeleteQuestionDoc(
   - `searchQuizzes('', { tags: ['a','b'] })` がタグ a と b の両方を持つクイズのみ返すこと（legacy `tags` のみのクイズも canonical 解決で一致すれば含む）。
   - `searchQuizzes('keyword', { tags: ['x'] })` がキーワード部分一致 **かつ** タグ x を満たすクイズのみ返すこと。
   - `filters.tags` に重複指定しても結果が単一タグ指定と一致すること。
+- **Phase 11 — 出題形式フィルタ**:
+  - `searchQuizzes('', { format: 'multiple-choice' })` が選択式クイズのみ返すこと（`format` フィールドあり／設問推定の両方）。
+  - `searchQuizzes('', { genreId: 'science', format: 'lateral-thinking' })` が当該ジャンル内のウミガメ形式のみ返すこと（他ジャンル混入なし）。
+  - `searchQuizzes('keyword', { tags: ['js'], format: 'mixed' })` がキーワード・タグ・形式の AND を満たすこと。
+  - `format` 未指定時、Phase 10 regression が維持されること。
 
 ### Unit Tests（Phase 10）
 - **`quiz-tag-match`**: `canonicalTagIds` のみ一致、legacy `tags` のみ一致、マージ旧タグ文字列一致、不一致。
 - **`listActiveTags`**: 空コレクション、ソート安定、`canonicalId` フィルタ。
+
+### Unit Tests（Phase 11）
+- **`quiz-format-match`**: `format` フィールド一致、設問 type からの推定一致、不一致、`applyFormatFilter` の未指定パススルー。
+- **レガシーフィクスチャ**: `{ format: undefined, questions: [] }` は `mixed` フィルタのみ一致、`multiple-choice` 等では不一致。
 
 ### E2E / UI Tests
 - **解答中断と自動復旧**: プレイ中にブラウザを強制リロードし、`localStorage` から解答進捗が100%正しく復元され、プレイが継続できるかをシミュレート。
