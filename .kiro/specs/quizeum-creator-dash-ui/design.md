@@ -9,6 +9,8 @@
 
 **Phase 8（2026-06）**: リスト作成時の `listType` 選択、設問リスト編集（3ソース設問検索・アタッチ・DnD・エクスポート）、クイズエディタの過去自作クイズ検索パネルと参照リンク追加 UI を追加する。永続化・検証・Copy-on-Write は `quizeum-core`（実装済み）に依存する。
 
+**Phase 12（2026-06）**: 作問エディタの説明文・問題文・真相・解説文テキストエリアの自動伸長、過去自作クイズ検索の設問文・正解テキスト照合拡張、参照リンク成功フィードバック、設問文ヒット時のアコーディオン自動展開、リンク済み設問のリンク解除、テストプレイ後の編集画面ドラフト復元（設問重複防止）を追加する。設問照合の純関数と `searchAuthorQuizzes` パイプライン拡張は lib/service 層が担当し、UI は表示・フィードバックのみ。
+
 ### Goals
 - 設問の動的追加・削除、クイズタイプトグルを備えた直感的なクイズエディタの構築。
 - タグ入力時におけるリアルタイム「自動名寄せ」正規化と類似 canonical タグのインラインサジェスト警告UI。
@@ -18,11 +20,13 @@
 - クイズ一括エクスポートおよびリストパッケージエクスポートのクライアント側データダウンロード処理。
 - クイズリスト作成における、スムーズなクイズ検索アタッチおよびドラッグ＆ドロップ順序並べ替えUI。
 - **Phase 8**: 新規リストの `listType` 必須選択、設問リストのアタッチ／並び替え／エクスポート、自作クイズからの参照リンク設問追加。
+- **Phase 12**: 作問エディタ主要テキストエリアの自動伸長、過去自作クイズ検索の設問文・正解テキスト対応、参照リンク成功メッセージ、設問文ヒット時の自動展開、リンク解除、テストプレイ復帰時の設問数保持。
 
 ### Non-Goals
 - クイズデータのJSONインポート機能（仕様変更により機能が完全に廃止されたため、インポートに関連するUIエリアは一切設置しません）。
 - 管理者モデレーション画面および自治ガバナンスUI（`quizeum-moderation-governance-ui`が担当）。
 - **Phase 8**: ブックマーク3タブ・設問リスト連続プレイ遷移（`quizeum-play-flow-ui`）。プロフィールのリストタイプ別タブ（`quizeum-auth-profile-ui`）。
+- **Phase 12**: 作問エディタ以外の画面へのテキストエリア自動伸長一括適用。Firestore 全文検索インデックス新設。
 
 ---
 
@@ -37,16 +41,20 @@
 - **リストタイプ選択（Phase 8）**: 新規作成時の `quiz` / `question` 選択と作成後の読み取り専用表示。
 - **設問リスト編集 UI（Phase 8）**: 設問検索（3ソース）、アタッチ一覧、DnD 並び替え、設問リスト JSON エクスポートトリガー。
 - **参照リンク作問 UI（Phase 8）**: 自作クイズ検索パネル、参照設問のエディタ状態追加、視覚区別、CoW 保存前通知。
+- **テキストエリア自動伸長（Phase 12）**: `AutoGrowTextarea` コンポーネントと `QuizEditor` への適用（説明・問題文・真相・解説）。
+- **参照検索 UX 改善（Phase 12）**: 検索プレースホルダー更新、リンク／リンク解除成功インライン通知（7.13, 7.16）、設問文ヒット時のアコーディオン自動展開（7.15）。
+- **テストプレイ復帰（Phase 12）**: `sessionStorage` ドラフトの consume と `skipServerQuizLoadRef` による通常ロード抑止（要件 9）。
 
 ### Out of Boundary
 - クイズリストやクイズのJSONインポート用ファイルのアップロード処理（インポート機能は廃止されたため、本UIは一切のインポート機能を包含しません）。
 - **Phase 8**: リスト詳細の読み取り表示・連続プレイ開始（`quizeum-play-flow-ui` が実装済み。本スペックは編集導線と `listType` 作成時選択のみ）。
 - **Phase 8**: `listType` 永続化検証、参照リンクの Firestore 書き込み、設問 doc の CoW 実行（`quizeum-core`）。
+- **Phase 12**: 設問文・正解テキスト照合の純関数実装と `searchAuthorQuizzes` 内の設問バッチ取得（`src/lib/` + `src/services/author-quiz-search.ts`）。本スペックの UI コンポーネントから Firestore 直接クエリしてはならない。
 
 ### Allowed Dependencies
 - **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
 - **`quizeum-play-flow-ui`**: `/quiz/[id]` プレイ遷移
-- **`quizeum-core`**: `QuizService`, `QuizListService`, `ReviewService`, **`listActiveGenres`（Phase 6）**, **`createQuizList`（`listType`）, `addQuestionToList`, `removeQuestionFromList`, `reorderQuestionList`, `exportQuestionList`, `getQuestionsInList`, `searchAuthorQuizzes`, `getQuestionsByQuiz`, `getBookmarkedQuestions`, `saveQuiz` 参照パス（Phase 8）**
+- **`quizeum-core`**: `QuizService`, `QuizListService`, `ReviewService`, **`listActiveGenres`（Phase 6）**, **`createQuizList`（`listType`）, `addQuestionToList`, `removeQuestionFromList`, `reorderQuestionList`, `exportQuestionList`, `getQuestionsInList`, `searchAuthorQuizzes`（Phase 12: 設問文・正解テキスト照合拡張）, `getQuestionsByQuiz`, `getBookmarkedQuestions`, `saveQuiz` 参照パス（Phase 8）**
 - **`quizeum-play-flow-ui`（共有）**: `useActiveGenres` フック（`src/hooks/useActiveGenres.ts`）
 - **`quizeum-core`（読み取り）**: `searchQuizzes` — 他者公開クイズ経由の設問候補探索（Phase 8・UI 集約のみ）
 
@@ -54,6 +62,7 @@
 - `QuizService.saveQuiz` または `QuizListService.createQuizList` のシリアライズ仕様変更。
 - Zodによる公開バリデーションスキーマ (`quizPublishSchema`) の構成変更。
 - **Phase 8**: `CreateQuizListInput.listType` 契約変更、`QuestionListExportPackage` 形状変更、`searchAuthorQuizzes` パラメータ追加、参照リンク `linkKind` セマンティクス変更。
+- **Phase 12**: `question-search-text.ts` の正解テキスト抽出ルール変更、`filterAuthorQuizzesWithQuestions` シグネチャ変更、`AutoGrowTextarea` の props 契約変更、`consumeTestPlayDraftForEditor` / `TEST_PLAY_RESTORE_QUERY` 契約変更。
 
 ---
 
@@ -99,6 +108,8 @@ src/
     ├── charts/
     │   ├── analytics-chart.tsx    # 累計アナリティクス用グラフコンポーネント
     │   └── selection-pie.tsx      # 解答選択肢割合用パイチャートコンポーネント
+    ├── ui/
+    │   └── auto-grow-textarea.tsx       # 自動伸長 textarea (8.x) 【Phase 12 新規】
     ├── quiz/
     │   ├── genre-editor-select.tsx      # マスタ駆動ジャンル select (5.x)
     │   ├── author-quiz-reference-panel.tsx  # 過去自作クイズ検索 (7.x) 【Phase 8 新規】
@@ -112,8 +123,23 @@ hooks/
 ├── useQuestionAttachSearch.ts         # 3ソース設問候補集約 (6.4)
 └── useAuthorQuizReferenceSearch.ts    # 自作クイズ検索 (7.2)
 lib/
-└── question-attach-search.ts          # キーワードフィルタ純関数 (6.4)
+├── question-attach-search.ts          # キーワードフィルタ純関数 (6.4)
+├── question-search-text.ts            # 設問の検索対象テキスト抽出・表示並べ替え (7.11, 7.15) 【Phase 12 新規】
+├── test-play.ts                       # テストプレイ payload / 復帰 URL (9.x) 【既存・Phase 12 復帰ガード拡張】
+└── author-quiz-search.ts              # 自作クイズフィルタ (7.2, 7.11) 【Phase 12 拡張】
+services/
+└── author-quiz-search.ts              # searchAuthorQuizzes + 設問バッチ取得 (7.11) 【Phase 12 拡張】
 ```
+
+### Modified Files（Phase 12）
+- `src/components/ui/auto-grow-textarea.tsx`（新規）— `scrollHeight` 同期による自動伸長。`minRows` / `className` を透過。初回マウント時にも高さ同期。
+- `src/components/quiz/quiz-editor.tsx` — 説明文・問題文・真相・解説の4 `<textarea>` を `AutoGrowTextarea` に置換。インライン `minHeight` / 固定 `rows` を除去。
+- `src/app/quiz/create/create.module.css` — `.textarea` に `resize: vertical` 維持、`min-height` は `AutoGrowTextarea` の `minRows` と整合。
+- `src/lib/question-search-text.ts`（新規）— 設問タイプ別の検索対象テキスト抽出純関数。`questionTextMatchesKeyword` / `quizHasQuestionTextMatch` / `sortQuestionsForKeywordDisplay` を追加（7.15）。
+- `src/lib/author-quiz-search.ts` — `filterAuthorQuizzesWithQuestions` 追加。クイズメタ + 設問文 + 正解テキストの OR 照合。
+- `src/services/author-quiz-search.ts` — キーワード指定時に全自作クイズの `getQuestionsByQuiz` を `Promise.all` で並列取得し、lib フィルタへ渡す。`questionsByQuizId` を hook へ返却（パネル自動展開用）。
+- `src/components/quiz/author-quiz-reference-panel.tsx` — プレースホルダー更新、リンク／リンク解除成功 `role="status"` メッセージ（3秒後自動消去）、`onUnlinkQuestion` prop、`data-testid="unlink-reference-{id}"`、キーワード変更時の `expandedQuizIds` 自動設定（7.15）。
+- `src/components/quiz/quiz-editor.tsx` — `handleUnlinkReferenceQuestion`（最低1問ガード）、初期ロード effect のテストプレイ復帰競合防止（`skipServerQuizLoadRef` / `prevQuizIdRef` / `fetchQuiz` キャンセル、要件 9）。
 
 ### Modified Files（Phase 8）
 - `src/components/quiz-list/quiz-list-editor.tsx` — 新規時 `ListTypeSelector`、編集時 `listType` 読み取り専用、`question` 分岐で `QuestionListAttachPanel`（**`listId` 取得後のみ有効**）、初回保存で `createQuizList({ listType, questionIds: [] })`。
@@ -218,6 +244,108 @@ sequenceDiagram
     Editor->>Save: saveQuiz(questions with linkKind)
 ```
 
+### 過去自作クイズ検索の設問文・正解テキスト照合（Phase 12）
+
+**方針（確定）**
+- キーワード未指定時は従来どおりクイズ一覧全件（タグフィルタのみ適用可）。
+- キーワード指定時は `getQuizzesByAuthor` 後、**全候補クイズ**に対し `getQuestionsByQuiz` を並列取得（自作クイズ数は通常数十件以下のため許容。Firestore インデックス新設は行わない）。
+- 照合は `normalize-search-text` の `searchTextIncludes` を再利用。クイズメタ（title + description）**または** いずれかの設問が `questionMatchesKeyword` で一致すればヒット。
+- 正解テキスト抽出（`question-search-text.ts`）:
+
+| 設問タイプ | 検索対象（正解テキスト） |
+|-----------|------------------------|
+| `multiple-choice`, `true-false` | `choices` のうち `isCorrect === true` の `text` |
+| `text-input`, `quick-press`, `association` | `correctTextAnswerList` の各要素 |
+| `sorting` | `sortingItems` の各 `text` |
+| `lateral-thinking` | `truthKeywords` の各要素（`aiContextDetails` は GM 用のため検索対象外） |
+
+```mermaid
+sequenceDiagram
+    participant Panel as AuthorQuizReferencePanel
+    participant Hook as useAuthorQuizReferenceSearch
+    participant Svc as searchAuthorQuizzes
+    participant Lib as filterAuthorQuizzesWithQuestions
+    participant Q as getQuestionsByQuiz
+
+    Panel->>Hook: keyword 変更
+    Hook->>Svc: searchAuthorQuizzes({ authorId, keyword })
+    Svc->>Svc: getQuizzesByAuthor
+    alt keyword あり
+        Svc->>Q: Promise.all(getQuestionsByQuiz)
+        Q-->>Svc: Question[] per quiz
+        Svc->>Lib: filter with questions map
+    else keyword なし
+        Svc->>Lib: filterAuthorQuizzes (従来)
+    end
+    Lib-->>Hook: Quiz[]
+    Hook-->>Panel: 検索結果一覧 + questionsByQuizId
+    Note over Panel: 問題文ヒット時は expandedQuizIds に自動追加 (7.15)
+```
+
+### 設問文ヒット時のアコーディオン自動展開（Phase 12 追補）
+
+**方針（確定）**
+- `useAuthorQuizReferenceSearch` が返す `questionsByQuizId` をパネルが利用。キーワード変更のたびに `quizHasQuestionTextMatch` で問題文一致クイズを判定。
+- 問題文一致があるクイズは `expandedQuizIds` に自動追加し、`questionsByQuiz` キャッシュへ設問を投入。手動展開なしで一致設問を表示（7.15）。
+- 展開済みクイズ内の表示順は `sortQuestionsForKeywordDisplay`：問題文ヒット設問を先頭、正解テキストのみヒットを後続。
+
+### 参照リンク解除フロー（Phase 12 追補）
+
+```mermaid
+sequenceDiagram
+    participant Panel as AuthorQuizReferencePanel
+    participant Editor as QuizEditor
+
+    Note over Panel: linkedQuestionIds.has(id) のとき「リンク解除」表示 (7.14)
+    Panel->>Editor: onUnlinkQuestion(questionId)
+    Editor->>Editor: questions から filter（最低1問ガード）
+    Panel->>Panel: linkSuccessMessage「リンクを解除しました…」(7.16)
+```
+
+### テストプレイ編集画面復帰フロー（Phase 12 追補）
+
+**方針（確定）**
+- テストプレイ開始時 `saveTestPlayPayload(buildTestPlayPayload(quizData, sourcePath, authorId))`。復帰 URL は `buildTestPlayReturnUrl(sourcePath)` → `?fromTestPlay=1`。
+- 編集画面マウント時 `consumeTestPlayDraftForEditor` が payload を1回消費し session をクリア。成功時 `skipServerQuizLoadRef = true` で `getQuiz` / `addDefaultQuestion` を抑止。
+- **競合防止（バグ修正）**:
+  1. `fromTestPlay=1` かつ `user` 未確定の間は通常ロードを開始しない（6）。
+  2. `restoringFromTestPlay && user` で consume 失敗時も通常ロードへフォールバックせず `router.replace(sourcePath)` のみ（7）。
+  3. `skipServerQuizLoadRef` は `quizId` の**初回マウントではリセットしない**（`prevQuizIdRef` で実変更時のみリセット）。
+  4. 進行中 `fetchQuiz` は effect cleanup の `cancelled` と `skipServerQuizLoadRef` で完了後の `applyDraftToEditor` を抑止。
+
+```mermaid
+sequenceDiagram
+    participant Editor as QuizEditor
+    participant SS as sessionStorage
+    participant Router as Next Router
+
+    Note over Editor: handleTestPlay → saveTestPlayPayload
+    Editor->>Router: push /quiz/test-play/play
+    Router->>Editor: 復帰 ?fromTestPlay=1
+    alt user 未確定
+        Editor->>Editor: return（通常ロード抑止）
+    else consume 成功
+        Editor->>SS: consumeTestPlayDraftForEditor（clear）
+        Editor->>Editor: applyDraftToEditor / skipServerQuizLoadRef=true
+        Editor->>Router: replace(sourcePath)
+    else consume 失敗（既消費・欠落）
+        Editor->>Router: replace(sourcePath) のみ
+    end
+```
+
+### テキストエリア自動伸長フロー（Phase 12）
+
+```mermaid
+sequenceDiagram
+    participant Editor as QuizEditor
+    participant AG as AutoGrowTextarea
+
+    Editor->>AG: value 変更 (onChange)
+    AG->>AG: useLayoutEffect: height=auto → height=scrollHeight
+    Note over AG: 初回マウント・下書きロード時も同期
+    AG-->>Editor: 拡張済み textarea
+```
+
 ---
 
 ## Requirements Traceability
@@ -272,6 +400,24 @@ sequenceDiagram
 | 7.8 | 削除は参照解除のみ | `QuizEditor` | ローカル除去 | — |
 | 7.9 | saveQuiz へ参照 ID 送信 | `QuizEditor` | `QuizService.saveQuiz` | — |
 | 7.10 | 永続化ロジックなし | 全 Phase 8 UI | core のみ | Out of boundary |
+| 7.11 | 設問文・正解テキスト検索 | `question-search-text.ts`, `author-quiz-search.ts`, `searchAuthorQuizzes` | `filterAuthorQuizzesWithQuestions` | 設問照合フロー |
+| 7.12 | 検索対象プレースホルダー | `AuthorQuizReferencePanel` | — | — |
+| 7.13 | リンク成功メッセージ | `AuthorQuizReferencePanel` | `linkSuccessMessage` state | — |
+| 7.14 | リンク解除・重複リンク防止 | `AuthorQuizReferencePanel`, `QuizEditor` | `onUnlinkQuestion`, `linkedQuestionIds` | 参照リンク解除フロー |
+| 7.15 | 設問文ヒット時自動展開 | `AuthorQuizReferencePanel`, `question-search-text.ts` | `quizHasQuestionTextMatch`, `questionsByQuizId` | 設問文ヒット自動展開 |
+| 7.16 | リンク解除成功フィードバック | `AuthorQuizReferencePanel` | `linkSuccessMessage` | 参照リンク解除フロー |
+| 8.1 | 4種テキストエリア表示 | `QuizEditor`, `AutoGrowTextarea` | — | 自動伸長フロー |
+| 8.2 | 入力行数に応じた伸縮 | `AutoGrowTextarea` | `syncHeight` | 自動伸長フロー |
+| 8.3 | 手動リサイズ許可 | `create.module.css` `.textarea` | `resize: vertical` | — |
+| 8.4 | 単一行フィールド除外 | `QuizEditor` | 対象4フィールドのみ | — |
+| 8.5 | 下書き初回表示の高さ同期 | `AutoGrowTextarea` | mount `useLayoutEffect` | 自動伸長フロー |
+| 9.1 | テストプレイ開始時ドラフト保存 | `QuizEditor`, `test-play.ts` | `saveTestPlayPayload` | テストプレイ復帰フロー |
+| 9.2 | 復帰 URL に fromTestPlay | `test-play/result`, `test-play/play` | `buildTestPlayReturnUrl` | テストプレイ復帰フロー |
+| 9.3 | ドラフト1回消費復元 | `QuizEditor`, `consumeTestPlayDraftForEditor` | `TEST_PLAY_RESTORE_QUERY` | テストプレイ復帰フロー |
+| 9.4 | 復元後の設問数不変 | `QuizEditor` | `skipServerQuizLoadRef` | テストプレイ復帰フロー |
+| 9.5 | クエリ除去・重複防止 | `QuizEditor` | `router.replace` | テストプレイ復帰フロー |
+| 9.6 | ユーザー未確定時ロード抑止 | `QuizEditor` | auth gate | テストプレイ復帰フロー |
+| 9.7 | payload 欠落時の重複防止 | `QuizEditor` | no fallthrough to fetch | テストプレイ復帰フロー |
 
 ---
 
@@ -281,7 +427,8 @@ sequenceDiagram
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
 |-----------|--------------|--------|--------------|------------------|-----------|
-| `QuizEditor` | UI / Page | クイズの新規作成・編集、タグ警告、Zod検証 | 1.1–1.6, 5.1–5.7 | `QuizService`, `GenreEditorSelect` | FormState |
+| `QuizEditor` | UI / Page | クイズの新規作成・編集、タグ警告、Zod検証、テストプレイ復帰 | 1.1–1.6, 5.1–5.7, 7.16, 8.1–8.5, 9.1–9.7 | `QuizService`, `GenreEditorSelect`, `AutoGrowTextarea`, `test-play.ts` | FormState |
+| `AutoGrowTextarea` | UI / Component | 内容に応じた textarea 高さ同期 | 8.1–8.5 | — | Controlled |
 | `GenreEditorSelect` | UI / Component | マスタ駆動ジャンル `<select>` | 5.1–5.6 | `useActiveGenres` | Controlled |
 | `CreatorDashboard` | UI / Page | 作家アナリティクス、指摘解決、クイズエクスポート | 2.1, 2.2, 2.3, 2.4, 2.5 | `ReviewService`, `QuizService` | State |
 | `QuizListDetail` | UI / Page | クイズリストの閲覧、プレイ開始トラッキング | 3.1, 3.2, 3.3 | `QuizListService`, `useAuth` | State |
@@ -289,9 +436,88 @@ sequenceDiagram
 | `ListTypeSelector` | UI / Component | 新規リストの `quiz` / `question` 選択 | 6.1, 6.2 | — | Controlled |
 | `QuestionListAttachPanel` | UI / Component | 設問検索・アタッチ・DnD・解除 | 6.3–6.9 | `useQuestionAttachSearch`, question APIs | State |
 | `useQuestionAttachSearch` | Hook | 3ソース候補の取得とキーワードフィルタ | 6.4 | core read APIs | State |
-| `AuthorQuizReferencePanel` | UI / Component | 自作クイズ検索と参照リンク追加 | 7.1–7.5 | `searchAuthorQuizzes` | State |
+| `AuthorQuizReferencePanel` | UI / Component | 自作クイズ検索、参照リンク追加・解除、自動展開 | 7.1–7.5, 7.12–7.16 | `searchAuthorQuizzes`, `questionsByQuizId` | State |
 | `ReferenceQuestionBadge` | UI / Component | 参照リンク設問の視覚区別 | 7.6 | `linkKind` | Presentational |
-| `useAuthorQuizReferenceSearch` | Hook | キーワード・タグで自作クイズ検索 | 7.2 | `searchAuthorQuizzes` | State |
+| `useAuthorQuizReferenceSearch` | Hook | キーワード・タグで自作クイズ検索 | 7.2, 7.11 | `searchAuthorQuizzes` | State |
+| `question-search-text.ts` | Lib | 設問タイプ別検索対象テキスト抽出・表示並べ替え | 7.11, 7.15 | `Question` 型 | Pure |
+| `test-play.ts` | Lib | テストプレイ payload 保存・復帰 consume | 9.1–9.7 | `sessionStorage` | Pure / Browser |
+| `filterAuthorQuizzesWithQuestions` | Lib | クイズ+設問のキーワード OR 照合 | 7.11 | `searchTextIncludes` | Pure |
+
+#### `AutoGrowTextarea`（Phase 12）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 複数行テキスト入力の表示高さを内容に同期する |
+| Requirements | 8.1, 8.2, 8.3, 8.5 |
+
+**Responsibilities & Constraints**
+- 制御コンポーネント（`value` + `onChange` 必須）。ネイティブ `<textarea>` をラップ。
+- `useLayoutEffect` で `textarea.style.height = 'auto'` → `textarea.style.height = scrollHeight + 'px'` を実行。`value` 変更と初回マウントの両方で同期（8.5）。
+- `minRows`（デフォルト 3）から算出した `minHeight` を CSS で適用。手動 `resize: vertical` は親 `className` 経由で許可（8.3）。
+- `forwardRef` で ref 転送可能（将来のフォーカススクロール用）。追加 npm 依存なし。
+
+**Contracts**: Service [ ]
+
+```typescript
+interface AutoGrowTextareaProps
+  extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'rows'> {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  minRows?: number;
+  className?: string;
+}
+```
+
+##### `data-testid`
+| 要素 | test id |
+|------|---------|
+| ラッパー | 親から `data-testid` を渡す（例: `auto-grow-description`） |
+
+#### `question-search-text.ts`（Phase 12）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 設問タイプごとにキーワード照合対象の正解テキストを抽出 |
+| Requirements | 7.11 |
+
+**Contracts**: Service [x]（純関数）
+
+```typescript
+/** 設問の問題文 + タイプ別正解テキストをフラット配列で返す */
+export function getQuestionSearchableTexts(question: Question): string[];
+
+/** キーワードが問題文または正解テキストのいずれかに部分一致するか */
+export function questionMatchesKeyword(question: Question, keyword: string): boolean;
+
+/** キーワードが問題文に部分一致するか（7.15 自動展開判定用） */
+export function questionTextMatchesKeyword(question: Question, keyword: string): boolean;
+
+/** 問題文ヒットを先頭に並べ替えた表示用リスト（7.15） */
+export function sortQuestionsForKeywordDisplay(questions: Question[], keyword: string): Question[];
+
+/** クイズ内に問題文ヒット設問が1件以上あるか（7.15） */
+export function quizHasQuestionTextMatch(questions: Question[], keyword: string): boolean;
+```
+
+#### `AuthorQuizReferencePanel` リンク・解除・自動展開（Phase 12 拡張）
+
+| Field | Detail |
+|-------|--------|
+| Intent | リンク／解除操作の即時フィードバック、設問文ヒット時の自動展開 |
+| Requirements | 7.13, 7.14, 7.15, 7.16 |
+
+**Implementation Notes**
+- `handleLink` 成功時に `setLinkSuccessMessage(\`設問をリンクしました: …\`)` を設定。
+- `handleUnlink` 成功時に `setLinkSuccessMessage(\`リンクを解除しました: …\`)` を設定（7.16）。
+- `useEffect` + `setTimeout(3000)` でメッセージを自動クリア。`role="status"`、`data-testid="reference-link-success"`。
+- プレースホルダーを「タイトル・説明・問題文・正解で検索」に更新（7.12）。
+- 7.14: `linkedQuestionIds.has(q.id)` のとき「リンク解除」ボタン（`data-testid="unlink-reference-{id}"`）を表示。`onUnlinkQuestion(questionId)` を親へ委譲。重複リンクは `handleLink` 先頭で `return`。
+- 7.15: `keyword` / `questionsByQuizId` 変更時、`quizHasQuestionTextMatch` が true のクイズを `expandedQuizIds` に自動追加。`getDisplayQuestions` は `sortQuestionsForKeywordDisplay` を適用。
+
+##### `data-testid`（追補）
+| 要素 | test id |
+|------|---------|
+| リンク解除 | `unlink-reference-{questionId}` |
 
 #### `ListTypeSelector`（Phase 8）
 
@@ -373,6 +599,7 @@ interface QuestionListAttachPanelProps {
 interface AuthorQuizReferencePanelProps {
   authorId: string;
   onLinkQuestion: (question: Question) => void;
+  onUnlinkQuestion: (questionId: string) => void;
   linkedQuestionIds: Set<string>;
 }
 ```
@@ -397,6 +624,32 @@ interface AuthorQuizReferencePanelProps {
 - Zod 公開検証は `reference-readonly` 行をスキップ（参照先の正解定義を信頼）。`reference-owned-draft` 行は通常設問として検証。
 - 下書き保存／公開保存は既存 `saveQuiz` 呼び出しのまま。`linkKind: 'reference'` と元 `id` を payload に含める（7.9）。
 - エディタから参照を外す操作はローカル配列から除去するのみ（7.8）。`questions` コレクションの削除は行わない（7.10）。
+- 検索パネルからのリンク解除は `handleUnlinkReferenceQuestion` が `questions` を filter。設問が1問のみのときは `alert('最低1問は必要です。')` で抑止（7.14）。
+
+#### `QuizEditor` テストプレイ復帰（Phase 12 追補）
+
+| Field | Detail |
+|-------|--------|
+| Intent | テストプレイ後に sessionStorage ドラフトを復元し、設問重複なく編集を継続 |
+| Requirements | 9.1–9.7 |
+
+**Responsibilities & Constraints**
+- `handleTestPlay` で現行エディタ状態を `buildTestPlayPayload` → `saveTestPlayPayload`。
+- 初期ロード `useEffect` は `TEST_PLAY_RESTORE_QUERY`（`fromTestPlay`）を最優先で処理。`consumeTestPlayDraftForEditor` 成功時のみ `applyDraftToEditor`。
+- `skipServerQuizLoadRef` が true の間は `getQuiz` / `addDefaultQuestion` を実行しない。`prevQuizIdRef` により同一 `quizId` の再マウントでは skip を維持。
+- `fetchQuiz` は非同期完了前に effect が cleanup された場合、または復帰後に `skipServerQuizLoadRef` が true になった場合は `applyDraftToEditor` しない。
+
+**Contracts**: Service [x]（`src/lib/test-play.ts`）
+
+```typescript
+export const TEST_PLAY_RESTORE_QUERY = 'fromTestPlay';
+
+export function buildTestPlayReturnUrl(sourcePath: string): string;
+export function consumeTestPlayDraftForEditor(
+  expectedAuthorId: string,
+  sourcePath: string
+): (Omit<Quiz, 'id'> & { id?: string }) | null;
+```
 
 ---
 
@@ -411,6 +664,15 @@ interface AuthorQuizReferencePanelProps {
   - `addQuestionToList` が非公開親等で失敗した場合、トーストまたはインラインエラーでコアメッセージを表示し、一覧は変更しない。
 - **参照リンク保存失敗（Phase 8）**:
   - `saveQuiz` が `ReferenceLinkForbiddenError` 等で失敗した場合、公開をブロックしエラーリストに追加する。
+- **過去自作クイズ検索の設問取得失敗（Phase 12）**:
+  - 個別クイズの `getQuestionsByQuiz` が失敗した場合、当該クイズは設問照合なし（メタのみ）で評価し、全体検索は継続する。全件失敗時のみ `error` を表示。
+- **自動伸長の極端な長文（Phase 12）**:
+  - `maxLength` 属性は従来どおり適用（問題文 500 文字等）。高さは内容に追従するが、親スクロールで画面外に出る場合はブラウザ標準スクロールに委ねる。
+- **テストプレイ復帰の競合（Phase 12 追補）**:
+  - `fromTestPlay=1` 中に `user` 未確定で通常ロードが走ると設問が重複し得るため、認証確定まで effect を return する。
+  - payload 欠落時はクエリ除去のみ行い、`addDefaultQuestion` の連続実行や `fetchQuiz` との競合で設問数が増えないようフォールバックを禁止する。
+- **参照リンク解除（Phase 12 追補）**:
+  - エディタ上の設問が1問のみのときリンク解除は `alert` でブロックし、空クイズ状態を防ぐ。
 
 ---
 
@@ -442,3 +704,26 @@ interface AuthorQuizReferencePanelProps {
   - 3ソース候補のマージで `questionId` 重複が除去されること。キーワード部分一致が期待どおりフィルタされること。
 - **`filterAuthorQuizzes` 連携**:
   - `useAuthorQuizReferenceSearch` がキーワードを `searchAuthorQuizzes` に渡すこと（モック検証）。
+
+### Unit Tests（Phase 12）
+- **`question-search-text.ts`**:
+  - 各設問タイプで正解テキストのみが抽出されること（非正解選択肢・`aiContextDetails` は含まれないこと）。
+  - `questionMatchesKeyword` が問題文一致・正解テキスト一致・不一致を正しく判定すること。
+  - `quizHasQuestionTextMatch` / `sortQuestionsForKeywordDisplay` が問題文ヒット優先の並べ替えを行うこと（7.15）。
+- **`author-quiz-search.ts`（拡張）**:
+  - タイトル不一致でも設問文一致でクイズがヒットすること。
+  - タイトル・設問とも不一致のクイズが除外されること。
+- **`auto-grow-textarea.tsx`**:
+  - 複数行 `value` 設定時に `scrollHeight` 以上の `style.height` が適用されること（jsdom では `scrollHeight` モック）。
+
+### Integration / Component Tests（Phase 12）
+- **`AuthorQuizReferencePanel`**:
+  - リンククリック後 `[data-testid="reference-link-success"]` が表示され、問題文抜粋を含むこと。
+  - プレースホルダーが「問題文」「正解」を示す文言に更新されていること。
+  - 問題文キーワード一致時に `[data-testid="reference-quiz-questions-{quizId}"]` が手動展開なしで表示されること（7.15）。
+  - リンク済み設問に `[data-testid="unlink-reference-{id}"]` が表示され、クリックでエディタから除去されること（7.14）。
+- **`QuizEditor`（スモーク）**:
+  - 説明文・問題文フィールドが `AutoGrowTextarea`（または `data-testid`）で描画されること。
+- **テストプレイ復帰（9.x）**:
+  - `tests/lib/test-play.test.ts`: `consumeTestPlayDraftForEditor` が一致ドラフトを復元し session をクリアすること。
+  - 手動スモーク: 2問状態でテストプレイ → 編集画面復帰後も設問数が2問のままであること（重複 4 問化の再発防止）。

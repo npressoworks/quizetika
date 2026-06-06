@@ -32,7 +32,7 @@ async function questionsToCandidates(
 }
 
 async function fetchOwnPublished(authorId: string): Promise<QuestionAttachCandidate[]> {
-  const quizzes = await searchAuthorQuizzes({ authorId, includeDrafts: true });
+  const { quizzes } = await searchAuthorQuizzes({ authorId, includeDrafts: true });
   const published = quizzes.filter((q) => q.status === 'published');
   const groups = await Promise.all(
     published.map(async (quiz) => {

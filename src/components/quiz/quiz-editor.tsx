@@ -28,6 +28,7 @@ import {
 } from '@/lib/test-play';
 import { resolveQuizFormat } from '@/lib/quiz-format';
 import { getFormatLabel } from '@/lib/quiz-format-labels';
+import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
 import { AuthorQuizReferencePanel } from '@/components/quiz/author-quiz-reference-panel';
@@ -134,6 +135,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   const [cowNoticeIds, setCowNoticeIds] = useState<Set<string>>(new Set());
   /** テストプレイ復帰後に Firestore 取得でドラフトを上書きしない */
   const skipServerQuizLoadRef = useRef(false);
+  const prevQuizIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const onFocus = () => refetchGenres();
@@ -186,19 +188,28 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   };
 
   useEffect(() => {
-    skipServerQuizLoadRef.current = false;
+    if (prevQuizIdRef.current !== undefined && prevQuizIdRef.current !== quizId) {
+      skipServerQuizLoadRef.current = false;
+    }
+    prevQuizIdRef.current = quizId;
   }, [quizId]);
 
   // 編集モードの場合のデータ取得と所有者チェック
   useEffect(() => {
     if (authLoading) return;
 
-    if (skipServerQuizLoadRef.current) {
-      return;
-    }
-
     const sourcePath = getQuizEditorSourcePath(quizId);
     const restoringFromTestPlay = searchParams.get(TEST_PLAY_RESTORE_QUERY) === '1';
+
+    // 復帰クエリありのときはユーザー確定まで通常ロードを走らせない（競合で設問が重複するのを防ぐ）
+    if (restoringFromTestPlay && !user) return;
+
+    if (skipServerQuizLoadRef.current) {
+      if (restoringFromTestPlay) {
+        router.replace(sourcePath);
+      }
+      return;
+    }
 
     if (restoringFromTestPlay && user) {
       const draft = consumeTestPlayDraftForEditor(user.id, sourcePath);
@@ -209,6 +220,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
         router.replace(sourcePath);
         return;
       }
+      // 既に consume 済み、または payload 欠落 — 通常ロードにフォールバックしない
+      router.replace(sourcePath);
+      return;
     }
 
     if (!quizId) {
@@ -216,9 +230,12 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       return;
     }
 
+    let cancelled = false;
+
     const fetchQuiz = async () => {
       try {
         const quiz = await getQuiz(quizId);
+        if (cancelled || skipServerQuizLoadRef.current) return;
         if (quiz) {
           if (user && quiz.authorId !== user.id) {
             setUnauthorized(true);
@@ -230,13 +247,21 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
           setErrorText('対象のクイズが見つかりません。');
         }
       } catch (err: any) {
-        setErrorText('クイズの取得に失敗しました。');
+        if (!cancelled && !skipServerQuizLoadRef.current) {
+          setErrorText('クイズの取得に失敗しました。');
+        }
       } finally {
-        setInitialFetchLoading(false);
+        if (!cancelled && !skipServerQuizLoadRef.current) {
+          setInitialFetchLoading(false);
+        }
       }
     };
 
     fetchQuiz();
+
+    return () => {
+      cancelled = true;
+    };
   }, [quizId, user, authLoading, searchParams, router]);
 
   // 修正指摘からのスクロール連動 (要件 2.4)
@@ -394,6 +419,21 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       return;
     }
     setQuestions((prev) => [...prev, { ...question, linkKind: 'reference' }]);
+  };
+
+  const handleUnlinkReferenceQuestion = (questionId: string) => {
+    const idx = questions.findIndex((q) => q.id === questionId);
+    if (idx === -1) return;
+    if (questions.length <= 1) {
+      alert('最低1問は必要です。');
+      return;
+    }
+    setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+    setCowNoticeIds((prev) => {
+      const next = new Set(prev);
+      next.delete(questionId);
+      return next;
+    });
   };
 
   const handleDetachReferenceForEdit = (qIdx: number) => {
@@ -1072,7 +1112,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
             }}>
               {[
                 { id: 'mixed', label: '複合', icon: '🌀', desc: '選択式・記述式・並び替えを自由に組み合わせ可能' },
-                { id: 'multiple-choice', label: '選択式', icon: '📝', desc: '複数の選択肢から1つの正解を選ぶ定番クイズ' },
+                { id: 'multiple-choice', label: '選択式', icon: '☑️', desc: '複数の選択肢から1つの正解を選ぶ定番クイズ' },
                 { id: 'text-input', label: '記述式', icon: '✍️', desc: 'テキスト入力で正確な正解ワードを記述する問題' },
                 { id: 'quick-press', label: '早押し', icon: '⚡', desc: '問題が一文字ずつ表示され、回答ボタンを押して答える' },
                 { id: 'sorting', label: '並び替え', icon: '↕️', desc: 'バラバラの要素を正しい順番に並び替える形式' },
@@ -1149,11 +1189,13 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
               <div className={styles.formGroup}>
                 <label className={styles.label}>説明文</label>
-                <textarea
+                <AutoGrowTextarea
                   className={styles.textarea}
                   placeholder="クイズの概要や対象読者などを入力してください。"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  minRows={4}
+                  data-testid="auto-grow-description"
                 />
               </div>
 
@@ -1273,6 +1315,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
               <AuthorQuizReferencePanel
                 authorId={user.id}
                 onLinkQuestion={handleLinkReferenceQuestion}
+                onUnlinkQuestion={handleUnlinkReferenceQuestion}
                 linkedQuestionIds={linkedQuestionIds}
               />
             )}
@@ -1373,15 +1416,17 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
                   <div className={styles.formGroup}>
                     <label className={styles.label}>問題文（必須）</label>
-                    <textarea
+                    <AutoGrowTextarea
                       className={`${styles.textarea} ${filterValidationErrors(validationErrors, { field: 'questions', questionIndex: qIdx, questionField: 'questionText' }).length > 0 ? styles.inputError : ''}`}
                       placeholder="例: Reactにおいて、**useState** で管理するのは？"
                       value={q.questionText}
                       onChange={(e) => handleQuestionTextChange(qIdx, e.target.value)}
-                      style={{ minHeight: '80px', resize: 'vertical' }}
+                      style={{ resize: 'vertical' }}
+                      minRows={3}
                       required
                       minLength={5}
                       maxLength={500}
+                      data-testid={`auto-grow-question-text-${qIdx}`}
                     />
                     <MarkdownFieldHint />
                     <MarkdownPreview markdown={q.questionText} />
@@ -1736,7 +1781,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                           真相（ゲームマスター用の裏設定・解決情報）
                           <span style={{ color: 'var(--color-danger)' }}> *</span>
                         </label>
-                        <textarea
+                        <AutoGrowTextarea
                           className={`${styles.textarea} ${filterValidationErrors(validationErrors, { field: 'questions', questionIndex: qIdx, questionField: 'aiContextDetails' }).length > 0 ? styles.inputError : ''}`}
                           placeholder="AIがプレイヤーからの自由な質問に答える基準となる「真相（裏設定）」を、20文字以上2000文字以内で詳しく記述してください。"
                           value={q.aiContextDetails || ''}
@@ -1745,7 +1790,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                             nextQuestions[qIdx].aiContextDetails = e.target.value;
                             setQuestions(nextQuestions);
                           }}
-                          style={{ minHeight: '120px' }}
+                          style={{ resize: 'vertical' }}
+                          minRows={5}
+                          data-testid={`auto-grow-truth-${qIdx}`}
                         />
                         <FieldValidationMessages
                           errors={validationErrors}
@@ -1813,12 +1860,14 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
                   <div className={styles.formGroup} style={{ marginTop: '20px' }}>
                     <label className={styles.label}>正解後の解説文(任意)</label>
-                    <textarea
+                    <AutoGrowTextarea
                       className={styles.textarea}
                       placeholder="正解した/間違えた挑戦者へ表示する解説文を入力してください。"
                       value={q.explanation}
                       onChange={(e) => handleExplanationChange(qIdx, e.target.value)}
-                      style={{ minHeight: '80px' }}
+                      style={{ resize: 'vertical' }}
+                      minRows={3}
+                      data-testid={`auto-grow-explanation-${qIdx}`}
                     />
                   </div>
 

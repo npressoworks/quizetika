@@ -5,12 +5,13 @@ import {
   searchAuthorQuizzes,
   type SearchAuthorQuizzesParams,
 } from '@/services/author-quiz-search';
-import type { Quiz } from '@/types';
+import type { Question, Quiz } from '@/types';
 
 export function useAuthorQuizReferenceSearch(authorId: string | undefined) {
   const [keyword, setKeyword] = useState('');
   const [tag, setTag] = useState('');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [questionsByQuizId, setQuestionsByQuizId] = useState<Record<string, Question[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,12 +34,16 @@ export function useAuthorQuizReferenceSearch(authorId: string | undefined) {
 
     searchAuthorQuizzes(params)
       .then((result) => {
-        if (!cancelled) setQuizzes(result);
+        if (!cancelled) {
+          setQuizzes(result.quizzes);
+          setQuestionsByQuizId(result.questionsByQuizId);
+        }
       })
       .catch((e) => {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : '検索に失敗しました');
           setQuizzes([]);
+          setQuestionsByQuizId({});
         }
       })
       .finally(() => {
@@ -50,5 +55,5 @@ export function useAuthorQuizReferenceSearch(authorId: string | undefined) {
     };
   }, [authorId, keyword, tag]);
 
-  return { keyword, setKeyword, tag, setTag, quizzes, loading, error };
+  return { keyword, setKeyword, tag, setTag, quizzes, questionsByQuizId, loading, error };
 }

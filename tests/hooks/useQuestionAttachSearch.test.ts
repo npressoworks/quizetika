@@ -32,10 +32,13 @@ describe('useQuestionAttachSearch', () => {
   });
 
   it('own-published タブで公開クイズの設問候補を返す', async () => {
-    mockSearchAuthor.mockResolvedValue([
-      { id: 'quiz-1', title: '公開クイズ', status: 'published' },
-      { id: 'quiz-2', title: '下書き', status: 'draft' },
-    ]);
+    mockSearchAuthor.mockResolvedValue({
+      quizzes: [
+        { id: 'quiz-1', title: '公開クイズ', status: 'published' },
+        { id: 'quiz-2', title: '下書き', status: 'draft' },
+      ],
+      questionsByQuizId: {},
+    });
     mockGetQuestions.mockResolvedValue([
       { id: 'q1', questionText: 'JS の基礎', quizId: 'quiz-1' },
     ]);

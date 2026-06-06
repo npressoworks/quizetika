@@ -2,11 +2,11 @@
 
 ## Summary
 - **Feature**: quizeum-creator-dash-ui
-- **Discovery Scope**: Extension（Phase 8 — 既存エディタ・リスト編集の拡張）
+- **Discovery Scope**: Extension（Phase 12 — 作問エディタ UX 改善）
 - **Key Findings**:
-  - `quizeum-core` Phase 8 API は実装済み。`QuizListEditor` は新規作成時 `listType: 'quiz'` 固定が唯一のギャップ。
-  - 他者公開設問のキーワード検索用の専用 core API はなく、`searchQuizzes` + 設問フラット化で要件 6.4 を満たす。
-  - リスト詳細の `listType` 表示・設問一覧は `quizeum-play-flow-ui` が実装済み。本スペックは編集画面と参照リンク UI に集中。
+  - テキストエリア自動伸長の既存実装なし。`field-sizing: content` は未使用。`scrollHeight` 同期の小さな制御コンポーネントが最も確実。
+  - `filterAuthorQuizzes` はタイトル+説明のみ照合。設問照合には `getQuestionsByQuiz` のバッチ取得が必要だが、自作クイズ数は限定的でインデックス不要。
+  - リンク成功フィードバックは `success-client.tsx` の `copyToast` パターンを参考に、パネル内インライン `role="status"` で十分。
 
 ## Research Log
 
@@ -75,9 +75,60 @@
 - **参照設問の誤編集** — 読み取り専用デフォルト + CoW 警告（7.7）
 - **listType 作成忘れ** — 新規保存ボタンを `listType` 未選択時 disabled（6.1）
 
+## Research Log（Phase 12）
+
+### テキストエリア自動伸長
+- **Context**: 要件 8、既存 `quiz-editor.tsx` は固定 `minHeight`
+- **Sources Consulted**: `quiz-editor.tsx`, `create.module.css`, プロジェクト全体 grep（`field-sizing` / `autosize` なし）
+- **Findings**:
+  - 対象4フィールド: 説明、問題文、真相（`aiContextDetails`）、解説
+  - 新規 npm 依存はプロジェクト方針（Vanilla CSS、軽量）と不整合
+- **Implications**: `AutoGrowTextarea` を `src/components/ui/` に新設し4箇所に適用
+
+### 過去自作クイズ検索の設問照合
+- **Context**: 要件 7.11、現行 `matchesKeyword` は title+description のみ
+- **Sources Consulted**: `author-quiz-search.ts`, `lib/author-quiz-search.ts`, `canJudgeQuestion`（`test-play.ts`）
+- **Findings**:
+  - 正解テキストの型別ルールは `canJudgeQuestion` と対称（choices/correctTextAnswerList/truthKeywords/sortingItems）
+  - `aiContextDetails`（真相裏設定）は GM 専用のため検索対象外とする（要件の「正解テキスト」は truthKeywords を指す）
+  - `searchAuthorQuizzes` は既に `getQuizzesByAuthor` → `filterAuthorQuizzes` の2段構成
+- **Implications**: キーワード時のみ `Promise.all(getQuestionsByQuiz)` を service 層で実行し、lib に questions map を渡す
+
+### リンク成功フィードバック
+- **Context**: 要件 7.13、現行 `handleLink` はサイレント
+- **Findings**: グローバルトースト基盤なし。`copyToast` はボタン横インライン表示
+- **Implications**: パネル内 `linkSuccessMessage` state + 3秒自動消去。`role="status"` でアクセシビリティ確保
+
+## Architecture Pattern Evaluation（Phase 12）
+
+| Option | Description | Strengths | Risks | 判定 |
+|--------|-------------|-----------|-------|------|
+| A | CSS `field-sizing: content` のみ | 実装最小 | Safari 等の互換・初回高さずれ | 補助手段に留める |
+| B | `scrollHeight` 同期コンポーネント | 全ブラウザで予測可能、テスト容易 | 小コンポーネント追加 | **採用** |
+| C | textarea ライブラリ（react-textarea-autosize 等） | 実績あり | 新規依存、Vanilla CSS 方針と不整合 | 却下 |
+
+## Design Decisions（Phase 12）
+
+### Decision: 設問照合は service 層バッチ取得 + lib 純関数
+- **Context**: 要件 7.11、要件書は core 担当と記載
+- **Selected Approach**: `searchAuthorQuizzes` 内でキーワード時に設問を並列取得し、`filterAuthorQuizzesWithQuestions` で OR 照合
+- **Rationale**: 既存 Phase 8 パターン（`filterAuthorQuizzes` in lib）を拡張。UI hook は変更不要
+- **Trade-offs**: 自作クイズ多数時のレイテンシ — ローディング表示で緩和（既存 `loading` state 再利用）
+
+### Decision: 正解テキストから aiContextDetails を除外
+- **Context**: 要件 7.11 の「正解テキスト」解釈
+- **Selected Approach**: `truthKeywords` のみ（ウミガメ）。`aiContextDetails` は検索対象外
+- **Rationale**: 裏設定は長文かつ GM 専用。ユーザー向け「回答文」はキーワード群
+
+## Risks & Mitigations（Phase 12）
+- **自作クイズ大量時の検索レイテンシ** — キーワード未指定時は設問取得スキップ。キーワード時は既存 loading UI
+- **AutoGrow と手動 resize の競合** — `resize: vertical` 維持、自動伸長は最小高さ以上にのみ適用
+- **jsdom での scrollHeight テスト** — テスト内で `Object.defineProperty(el, 'scrollHeight', { value: N })` を使用
+
 ## References
 - `.kiro/specs/quizeum-core/design.md` — Phase 8 契約
 - `.kiro/specs/quizeum-play-flow-ui/design.md` — リスト詳細・設問リストプレイ（Out of boundary）
+- `src/lib/test-play.ts` — 設問タイプ別正解判定（Phase 12 正解テキスト抽出の対称ルール）
 - `src/components/quiz-list/quiz-list-editor.tsx` — 現行クイズリスト編集
 
 ## Document Status
