@@ -6,6 +6,8 @@ import { filterTagSuggestions } from '@/lib/filter-tag-suggestions';
 import { normalizeTag } from '@/services/quiz-validation';
 import type { TagMetadata } from '@/types';
 import styles from './unified-search-field.module.css';
+import { useSearchHistory } from '@/hooks/useSearchHistory';
+import { useWeeklyTopSearch } from '@/hooks/useWeeklyTrends';
 
 export interface UnifiedSearchFieldProps {
   tagChips: string[];
@@ -37,6 +39,9 @@ export function UnifiedSearchField({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
 
+  const { recentKeywords, addRecentKeyword } = useSearchHistory();
+  const { keywords: weeklyKeywords, tags: weeklyTags, loading: loadingWeekly, error: errorWeekly } = useWeeklyTopSearch();
+
   const suggestions = useMemo(
     () => filterTagSuggestions(tags, keyword),
     [tags, keyword]
@@ -63,6 +68,7 @@ export function UnifiedSearchField({
     if (token.startsWith('#')) token = token.slice(1);
     const normalized = normalizeTag(token);
     if (!normalized || tagChips.includes(normalized)) return false;
+    addRecentKeyword(normalized); // 履歴に追加
     onTagChipsChange([...tagChips, normalized]);
     return true;
   };
@@ -72,6 +78,7 @@ export function UnifiedSearchField({
   };
 
   const pickTag = (tagId: string) => {
+    addRecentKeyword(tagId); // 履歴に追加
     if (!tagChips.includes(tagId)) {
       onTagChipsChange([...tagChips, tagId]);
     }
@@ -127,10 +134,14 @@ export function UnifiedSearchField({
               }
               if (e.key === 'Enter') {
                 e.preventDefault();
+                const trimmed = keyword.trim();
                 if (open && suggestions.length > 0) {
                   pickTag(suggestions[highlight].id);
                 } else if (tryAddChip(keyword)) {
                   onKeywordChange('');
+                } else if (trimmed) {
+                  addRecentKeyword(trimmed); // キーワードを履歴に追加
+                  setOpen(false);
                 }
                 return;
               }
@@ -158,6 +169,93 @@ export function UnifiedSearchField({
           <X size={18} />
         </button>
       )}
+
+      {open && !keyword.trim() && tagChips.length === 0 && (
+        <div className={styles.smartSuggest} data-testid="search-smart-suggest" role="listbox">
+          {recentKeywords.length > 0 && (
+            <div data-testid="recent-keywords-section" className={styles.section}>
+              <div className={styles.sectionTitle}>最近の検索</div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {recentKeywords.map((word) => (
+                  <li
+                    key={word}
+                    role="option"
+                    className={styles.option}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      addRecentKeyword(word);
+                      const isTag = tagLabelById.has(word) || tags.some((t) => t.id === word);
+                      if (isTag) {
+                        pickTag(word);
+                      } else {
+                        onKeywordChange(word);
+                        setOpen(false);
+                      }
+                    }}
+                  >
+                    {tagLabelById.get(word) ?? word}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {!errorWeekly && (
+            <>
+              <div data-testid="weekly-top-tags-section" className={styles.section}>
+                <div className={styles.sectionTitle}>今週の人気タグ</div>
+                {loadingWeekly ? (
+                  <div className={styles.loading}>読み込み中...</div>
+                ) : (
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    {weeklyTags.map((tagId) => (
+                      <li
+                        key={tagId}
+                        role="option"
+                        className={styles.option}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          addRecentKeyword(tagId);
+                          pickTag(tagId);
+                        }}
+                      >
+                        <span className={styles.optionKind}>タグ</span>
+                        {tagLabelById.get(tagId) ?? tagId}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div data-testid="weekly-top-keywords-section" className={styles.section}>
+                <div className={styles.sectionTitle}>今週の人気キーワード</div>
+                {loadingWeekly ? (
+                  <div className={styles.loading}>読み込み中...</div>
+                ) : (
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                    {weeklyKeywords.map((word) => (
+                      <li
+                        key={word}
+                        role="option"
+                        className={styles.option}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          addRecentKeyword(word);
+                          onKeywordChange(word);
+                          setOpen(false);
+                        }}
+                      >
+                        {word}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {open && keyword.trim().length > 0 && !suggestDisabled && suggestions.length > 0 && (
         <ul className={styles.list} role="listbox">
           {suggestions.map((item, i) => (

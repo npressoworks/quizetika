@@ -531,3 +531,41 @@
   - _Depends: 11.4_
   - _Requirements: 17.3_
   - _Boundary: Testing_
+
+---
+
+### 12. Phase 12 拡張 — スマートサジェスト向けデータ提供と検索ログ（2026-06）
+
+- [ ] 12.1 (P) 検索ログ記録用モジュールと `writeSearchLog` の実装
+  - `src/lib/search-log.ts` を作成し、認証ユーザーが空でないキーワードまたはタグで検索した際に `search_logs` コレクションにログを記録する `writeSearchLog` を実装する。
+  - エラー発生時は呼び出し元（検索処理）を中断せず、エラーログ出力のみでサイレントに無視する。未認証時や空クエリ時は早期リターンする。
+  - **完了状態**: ユニットテストが通り、指定条件下で `search_logs` ドキュメントが正しく生成されること。
+  - _Requirements: 18.11, 18.12, 18.13, 18.14, 18.15, 18.16_
+  - _Boundary: search-log_
+
+- [ ] 12.2 週間人気ジャンル集計 API エンドポイントの実装
+  - `src/app/api/genres/weekly-top/route.ts` を作成し、直近7日間に完了した `attempts` の中からプレイ件数（完了数）の多い順にジャンルTop5を返すAPIを実装する。
+  - 不足分はダミーデータで埋めず、Next.js revalidate による30分（1800秒）キャッシュを適用する。
+  - **完了状態**: API が正しいソート順で `{ genres: GenreWeeklyEntry[] }` を返し、テストスイートがパスすること。
+  - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
+  - _Boundary: API Layer_
+
+- [ ] 12.3 週間人気ワード／タグ集計 API エンドポイントの実装
+  - `src/app/api/search/weekly-top/route.ts` を作成し、直近7日間の `search_logs` から人気ワードTop5および人気タグTop5を別フィールドとして返すAPIを実装する。
+  - revalidate による30分キャッシュを適用する。
+  - **完了状態**: API が `{ keywords: string[], tags: string[] }` を件数順ソートで返し、テストスイートがパスすること。
+  - _Requirements: 18.6, 18.7, 18.8, 18.9, 18.10_
+  - _Boundary: API Layer_
+
+- [ ] 12.4 統合検索 `searchQuizzes` へのログ記録組み込み
+  - `src/services/quiz.ts` の `searchQuizzes` 内で、検索キーワードやタグが存在する場合に `writeSearchLog` を fire-and-forget で呼び出すよう修正する。
+  - **完了状態**: `searchQuizzes` 呼び出しにより検索ログがサイレントに記録されるが、書き込み失敗時も検索処理自体は正常終了すること。
+  - _Requirements: 18.11, 18.12, 18.13_
+  - _Depends: 12.1_
+  - _Boundary: QuizService_
+
+- [ ] 12.5 Phase 12 統合検証
+  - 検索ログ記録、二系統の週間集計APIが正常に動作し、既存の検索機能が破壊されていないことを Jest で検証する。
+  - **完了状態**: スマートサジェストデータ提供機能に関連するテストスイートがすべてグリーンであること。
+  - _Depends: 12.2, 12.3, 12.4_
+

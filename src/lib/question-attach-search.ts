@@ -1,5 +1,7 @@
 import { searchTextIncludes } from '@/lib/normalize-search-text';
 
+export type QuestionAttachSource = 'own-published' | 'bookmarked' | 'public-explore';
+
 export interface QuestionAttachCandidate {
   questionId: string;
   questionText: string;

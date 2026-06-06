@@ -445,7 +445,7 @@
   - _Boundary: useExploreQuizFeed_
 
 - [x] 14.3 (P) アコーディオンとジャンル／形式カルーセル UI
-  - 独立開閉可能な2アコーディオン（「ジャンルから探す」「出題形式で探す」）と横スクロールカードカルーセルを実装する（CSS scroll-snap、外部 carousel ライブラリ不使用）
+  - 独立開閉可能な2アコーディオン（「ジャンルで絞り込む」「出題形式で絞り込む」）と横スクロールカードカルーセルを実装する（CSS scroll-snap、外部 carousel ライブラリ不使用）
   - ジャンルカード選択で `genreId` を設定／再選択で解除し、**ページ遷移しない**（`useRouter` 不使用）。形式カードも同一トグルパターン
   - 選択中カードのハイライト、`aria-expanded`、設計どおりの `data-testid`（accordion / carousel / card プレフィックス）を付与する
   - ジャンルカードは `listActiveGenres` 由来の表示名・アイコン（任意説明文）を表示する
@@ -498,4 +498,45 @@
   - _Depends: 14.7_
   - _Requirements: 13.4, 13.10, 13.14, 13.21_
   - _Boundary: Testing_
+
+---
+
+### 15. Phase 15 拡張 — スマートサジェストUIと履歴管理（2026-06）
+
+- [x] 15.1 (P) `localStorage` 直近検索履歴ユーティリティと React Hook の実装
+  - `src/lib/search-history.ts` を作成し、`localStorage` から履歴読み込みと追加・件数上限の切り詰めを行う純関数群を実装する（ジャンル履歴最大3件、ワード履歴最大5件）。
+  - `src/hooks/useSearchHistory.ts` を作成し、コンポーネントが状態同期した履歴を扱えるようにする。
+  - **完了状態**: 単体テストで、重複排除、上限切り詰め、先頭への追加が `localStorage` で正常に行われること。
+  - _Requirements: 14.17, 14.18, 14.19, 14.20_
+  - _Boundary: search-history_
+
+- [x] 15.2 (P) 週間人気トレンドデータ取得用 React Hook の実装
+  - `src/hooks/useWeeklyTrends.ts` を作成し、`GET /api/genres/weekly-top` および `GET /api/search/weekly-top` からそれぞれのデータを loading, error 状態とともに取得する処理を実装する。
+  - **完了状態**: データ取得状態が React コンポーネント向けに適切に公開され、モックテストがパスすること。
+  - _Requirements: 14.5, 14.13, 14.21_
+  - _Boundary: useWeeklyTrends_
+
+- [x] 15.3 `GenreSearchField` のスマートサジェスト対応
+  - `src/components/explore/genre-search-field.tsx` を修正し、フォーカス時に `data-testid="genre-smart-suggest"` を持つスマートサジェストを表示する。
+  - セクション 「最近検索したジャンル」(`data-testid="recent-genres-section"`)、「今週の人気ジャンル」(`data-testid="weekly-top-genres-section"`) を順に表示し、選択時は履歴保存を実行する。
+  - **完了状態**: 空入力時のフォーカスでドロップダウン表示、選択時に履歴更新、入力時は従来サジェストに切り替わること。
+  - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.8, 14.23_
+  - _Depends: 15.1, 15.2_
+  - _Boundary: GenreSearchField_
+
+- [x] 15.4 `UnifiedSearchField` のスマートサジェスト対応
+  - `src/components/explore/unified-search-field.tsx` を修正し、チップがなく入力が空のフォーカス時に `data-testid="search-smart-suggest"` を表示する。
+  - セクション 「最近の検索」(`data-testid="recent-keywords-section"`)、「今週の人気タグ」(`data-testid="weekly-top-tags-section"`)、「今週の人気キーワード」(`data-testid="weekly-top-keywords-section"`) を順に表示する。
+  - 入力がある、またはタグチップがあるときはスマートサジェストを非表示にして通常のタグサジェストを表示する。
+  - **完了状態**: 条件に応じたスマートサジェストの表示切替、選択時のチップ追加および履歴追加が正常に機能すること。
+  - _Requirements: 14.9, 14.10, 14.11, 14.12, 14.13, 14.14, 14.15, 14.16, 14.24_
+  - _Depends: 15.1, 15.2_
+  - _Boundary: UnifiedSearchField_
+
+- [x] 15.5 Phase 15 統合検証
+  - 各種スマートサジェストコンポーネントが仕様を満たすことを Jest で検証する。
+  - **完了状態**: スマートサジェスト関連 of テストがすべてグリーンであること。
+  - _Depends: 15.3, 15.4_
+  - _Boundary: Testing_
+
 

@@ -2,11 +2,11 @@ import type { GenreMetadata } from '@/types';
 import { normalizeSearchText } from '@/lib/normalize-search-text';
 
 /** 複合検索パネル用: displayName / genreId で部分一致サジェスト */
-export function filterGenreSuggestions(
-  genres: Pick<GenreMetadata, 'id' | 'displayName'>[],
+export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'displayName'>>(
+  genres: T[],
   query: string,
   maxResults = 8
-): Pick<GenreMetadata, 'id' | 'displayName'>[] {
+): T[] {
   const needle = normalizeSearchText(query);
   if (!needle) {
     return genres.slice(0, maxResults);
@@ -23,7 +23,7 @@ export function filterGenreSuggestions(
       else return null;
       return { genre: g, rank };
     })
-    .filter((x): x is { genre: Pick<GenreMetadata, 'id' | 'displayName'>; rank: number } => x != null);
+    .filter((x): x is { genre: T; rank: number } => x != null);
 
   scored.sort((a, b) => a.rank - b.rank || a.genre.displayName.localeCompare(b.genre.displayName, 'ja'));
   return scored.slice(0, maxResults).map((s) => s.genre);

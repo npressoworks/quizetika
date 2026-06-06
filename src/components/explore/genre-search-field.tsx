@@ -4,6 +4,8 @@ import React, { useId, useMemo, useRef, useState } from 'react';
 import { filterGenreSuggestions } from '@/lib/filter-genre-suggestions';
 import type { GenreMetadata } from '@/types';
 import styles from './genre-search-field.module.css';
+import { useSearchHistory } from '@/hooks/useSearchHistory';
+import { useWeeklyTopGenres } from '@/hooks/useWeeklyTrends';
 
 export interface GenreSearchFieldProps {
   genres: GenreMetadata[];
@@ -26,6 +28,21 @@ export function GenreSearchField({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
+
+  const { recentGenres, addRecentGenre } = useSearchHistory();
+  const { genres: weeklyTopGenres, loading: loadingWeekly, error: errorWeekly } = useWeeklyTopGenres();
+
+  const recentGenreMetadata = useMemo(() => {
+    return recentGenres
+      .map((id) => genres.find((g) => g.id === id))
+      .filter(Boolean) as GenreMetadata[];
+  }, [recentGenres, genres]);
+
+  const weeklyGenreMetadata = useMemo(() => {
+    return weeklyTopGenres
+      .map((w) => genres.find((g) => g.id === w.genreId))
+      .filter(Boolean) as GenreMetadata[];
+  }, [weeklyTopGenres, genres]);
 
   const suggestions = useMemo(
     () => filterGenreSuggestions(genres, query),
@@ -50,6 +67,7 @@ export function GenreSearchField({
   };
 
   const pick = (genre: Pick<GenreMetadata, 'id' | 'displayName'>) => {
+    addRecentGenre(genre.id);
     onChange(genre.id);
     onQueryChange('');
     setOpen(false);
@@ -58,6 +76,12 @@ export function GenreSearchField({
   const clear = () => {
     onChange('');
     onQueryChange('');
+    setOpen(false);
+  };
+
+  const pickSmart = (genre: Pick<GenreMetadata, 'id' | 'displayName'>) => {
+    addRecentGenre(genre.id);
+    onChange(genre.id);
     setOpen(false);
   };
 
@@ -101,7 +125,57 @@ export function GenreSearchField({
           }
         }}
       />
-      {open && suggestions.length > 0 && (
+      {open && !query.trim() && (
+        <div className={styles.smartSuggest} data-testid="genre-smart-suggest" role="listbox">
+          {recentGenreMetadata.length > 0 && (
+            <div data-testid="recent-genres-section" className={styles.section}>
+              <div className={styles.sectionTitle}>最近検索したジャンル</div>
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {recentGenreMetadata.map((g) => (
+                  <li
+                    key={g.id}
+                    role="option"
+                    className={styles.option}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      pickSmart(g);
+                    }}
+                  >
+                    {g.displayName}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          
+          {!errorWeekly && (
+            <div data-testid="weekly-top-genres-section" className={styles.section}>
+              <div className={styles.sectionTitle}>今週の人気ジャンル</div>
+              {loadingWeekly ? (
+                <div className={styles.loading}>読み込み中...</div>
+              ) : (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {weeklyGenreMetadata.map((g) => (
+                    <li
+                      key={g.id}
+                      role="option"
+                      className={styles.option}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        pickSmart(g);
+                      }}
+                    >
+                      {g.displayName}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && query.trim().length > 0 && suggestions.length > 0 && (
         <ul className={styles.list} role="listbox">
           {suggestions.map((g, i) => (
             <li

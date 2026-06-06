@@ -2,6 +2,10 @@ import { searchQuizzes } from '../../src/services/quiz';
 import { getDocs } from 'firebase/firestore';
 import type { Quiz } from '../../src/types';
 
+jest.mock('../../src/lib/search-log', () => ({
+  writeSearchLog: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('firebase/firestore', () => {
   const original = jest.requireActual('firebase/firestore');
   return {
@@ -168,5 +172,15 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
     });
 
     expect(filteredByQuestions.map(r => r.id)).toEqual(['2']);
+  });
+
+  test('userId が渡された場合、writeSearchLog がサイレントに呼び出されること', async () => {
+    const { writeSearchLog } = require('../../src/lib/search-log');
+    const { getDocs: mockGetDocs } = require('firebase/firestore');
+    mockGetDocs.mockResolvedValue({ docs: [] });
+
+    await searchQuizzes('検索ワード', { tags: ['tag1'] }, 'user-abc');
+
+    expect(writeSearchLog).toHaveBeenCalledWith('user-abc', '検索ワード', ['tag1'], undefined);
   });
 });

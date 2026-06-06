@@ -18,6 +18,8 @@
 
 **Phase 11（2026-06）**: ホーム内フィルタ型探索およびジャンル別一覧 scoped 検索を支える `SearchFilters.format`（出題形式）追加と、`searchQuizzes` 後段での `resolveQuizFormat` 一致フィルタを実装する。形式判定は UI カード表示（`quizeum-play-flow-ui`）と同一 lib 規則を用い、Firestore インデックス新設は行わない。
 
+**Phase 10 スマートサジェスト追記（2026-06-06）**: 検索フィールドの空クエリフォーカス時スマートサジェストを支える集計基盤を追加。`search_logs` コレクションへの検索ログ記録（`searchQuizzes` 内部で fire-and-forget）、週間人気ジャンル Top5 集計 API（`GET /api/genres/weekly-top`）、週間人気ワード／タグ Top5 集計 API（`GET /api/search/weekly-top`）を提供する。ユーザー個人履歴の保存は UI 側 `localStorage` のみで処理する。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -31,6 +33,7 @@
 - 統合検索機能（ユニバーサル検索）のため、タイトル・説明・作者・タグ・ジャンルの並行ハイブリッド検索とクライアントデデュプ・フィルタロジックを最適化する。
 - **Phase 10**: タグマスタ一覧 API（`listActiveTags`）と、タグチップ配列による複数タグ AND 複合検索の一貫実装。
 - **Phase 11**: 出題形式（`format`）フィルタ付き複合検索。ジャンル固定 scoped 検索（`genreId` + 他条件 AND）の一貫実装。形式判定は `quiz-format-match` + `resolveQuizFormat` に集約。
+- **Phase 10 スマートサジェスト**: `search_logs` コレクションへの検索ログ fire-and-forget 実装、週間ジャンル Top5 / 週間ワード·タグ Top5 集計 API Route の提供。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -56,6 +59,7 @@
 - **Phase 9 — 統合検索コアロジック**: `searchQuizzes` API 内における複数インデックス並行クエリ（タグ、作者名、ジャンル名等）、クライアント側マージ・重複排除、および大文字小文字を区別しない各種項目（タイトル、説明、作者名、タグ、ジャンル）の部分一致フィルタリング処理。
 - **Phase 10 — タグマスタ一覧とタグ AND 検索**: `listActiveTags`、`quiz-tag-match` 純関数、`searchQuizzes` の `filters.tags` 拡張。
 - **Phase 11 — 出題形式フィルタと scoped 検索**: `SearchFilters.format`、`quiz-format-match` 純関数、`searchQuizzes` 後段形式フィルタ（`resolveQuizFormat` 一致）。ジャンル固定 scoped 検索は既存 `genreId` + `expandGenreIdsForQuery` を維持。
+- **Phase 10 スマートサジェスト（2026-06-06 追記）**: `search_logs` コレクションのスキーマ（`userId`, `queryText`, `tags[]`, `genreId`, `loggedAt`）および TTL、`searchQuizzes` 内での fire-and-forget ログ書き込み。`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` の集計 API Route（server-side Firestore Admin SDK、Next.js revalidate: 1800）。ユーザー個人履歴の保存は UI 側 `localStorage` のみ（Core に記録しない）。
 
 ### Out of Boundary
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
@@ -67,6 +71,7 @@
 - **Phase 6**: ホーム/エディタ/ジャンル一覧の UI、ジャンル新設・マージ画面のレイアウト、既存クイズの一括 `genre` 物理書き換え、Cloud Functions への投票移行。
 - **Phase 8**: `/bookmarks` タブ UI、リスト/作問エディタのピッカー・DnD・検索パネル（`quizeum-play-flow-ui` / `quizeum-creator-dash-ui`）。プロフィールのリストタイプ別表示（`quizeum-auth-profile-ui`）。
 - **Phase 10–11**: ホーム／ジャンルページの探索 UI（タグチップ、アコーディオン、カルーセル、フィルタ状態管理）は `quizeum-play-flow-ui` が担当。
+- **Phase 10 スマートサジェスト — 境界外**: ユーザー個人の直近検索履歴の保存（`localStorage` のみ）、スマートサジェスト UI ドロップダウンのレンダリング（`quizeum-play-flow-ui`）。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
@@ -85,6 +90,7 @@
 - `BookmarkFeed` / `BookmarkedQuestionEntry` レスポンス形状の変更。
 - **Phase 10**: `SearchFilters.tags` の意味変更、`listActiveTags` の存続タグ定義（`canonicalId == null`）変更、`quiz-tag-match` 照合規則変更。
 - **Phase 11**: `SearchFilters.format` の許容値集合変更、`quiz-format-match` / `resolveQuizFormat` 推定規則変更（`quizeum-play-flow-ui` のカード・カルーセル表示と連動再検証）。
+- **Phase 10 スマートサジェスト**: `search_logs` コレクションの TTL・スキーマ変更、`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` のレスポンス形状変更、`searchQuizzes` の fire-and-forget ログ書き込み報啄ルール変更。
 
 ---
 
@@ -305,7 +311,73 @@ sequenceDiagram
     QS-->>UI: Quiz[]
 ```
 
-**フロー上の決定**: 形式フィルタは Firestore クエリに含めず、**ジャンルフィルタの直後・数値フィルタの直前**に後段 AND 適用する（要件 17.7）。Canonical 順序: `needle → tags AND → genre → format → difficulty/questionCount`。`format` 未指定時は当該ステップをスキップし Phase 10 挙動を維持する。`genreId` 固定 scoped 検索は既存 `expandGenreIdsForQuery` フィルタを変更せず、形式フィルタと AND 合成する。
+### 検索ログ fire-and-forget フロー（Phase 10 スマートサジェスト追記）
+
+```mermaid
+sequenceDiagram
+    participant UI as play-flow-ui
+    participant SQ as searchQuizzes
+    participant SL as search-log.ts
+    participant DB as Firestore (search_logs)
+
+    UI->>SQ: searchQuizzes(queryText, filters)
+    SQ->>SL: writeSearchLog(uid, queryText, tags, genreId)   
+    Note over SQ,SL: void返却・非待機（fire-and-forget）
+    SL-->>DB: search_logs.add(...)   
+    Note over SL,DB: 失敗しても SQ は継続
+    SQ->>SQ: 検索処理（Phase 9/10/11 パイプライン）
+    SQ-->>UI: Quiz[]
+```
+
+**フロー上の決定**:
+- `writeSearchLog` は `async` だが `await` せず `void` で呼び出す。完了を待たないため検索レイテンシに影響しない。
+- 未認証（uid なし）または空クエリの場合は `writeSearchLog` を呼び出さず早期リターン。
+- `search_logs` ドキュメントの内部エラーは `console.error` のみ（据広げしない）。
+
+### 週間人気ジャンル Top5 集計フロー（Phase 10 スマートサジェスト追記）
+
+```mermaid
+sequenceDiagram
+    participant UI as play-flow-ui
+    participant API as GET /api/genres/weekly-top
+    participant DB as Firestore (search_logs + plays)
+
+    UI->>API: GET /api/genres/weekly-top
+    Note over API: Next.js revalidate: 1800 (30分キャッシュ)
+    API->>DB: attemptsコレクションを直近で7日間で絞る
+    DB-->>API: attempts[]
+    API->>API: genreIdでグループ集計→ ソート→ Top5
+    API-->>UI: { genres: GenreWeeklyEntry[] }
+```
+
+**フロー上の決定**:
+- `attempts` コレクションを集計源とする（`completedAt >= now - 7日` フィルタ）。`search_logs` はアクセスログ疲の統計に使わず、実際のプレイ完了数を正確に反映するため `attempts` 連用。
+- `status === 'published'` で有効なジャンルがある attempt のみ集計対象（test-play attempt を含む不完全な attempt は失敗してもスキップ）。
+- API エラー時は HTTP 500 を返し、代替データフォールバックを和えない（要件 18.5）。
+
+### 週間人気ワード／タグ Top5 集計フロー（Phase 10 スマートサジェスト追記）
+
+```mermaid
+sequenceDiagram
+    participant UI as play-flow-ui
+    participant API as GET /api/search/weekly-top
+    participant DB as Firestore (search_logs)
+
+    UI->>API: GET /api/search/weekly-top
+    Note over API: Next.js revalidate: 1800
+    API->>DB: search_logsを loggedAt >= now-7日 で絞る
+    DB-->>API: SearchLogEntry[]
+    API->>API: queryText をグループ集計→ Top5 キーワード
+    API->>API: tags[] を展開集計→ Top5 タグ
+    API-->>UI: { keywords: string[], tags: string[] }
+```
+
+**フロー上の決定**:
+- `queryText` が空なログはキーワード集計から除外。`tags` が空のログはタグ集計から除外。
+- キーワードとタグは別フィールドで返す（要件 18.8）。
+- API エラー時は HTTP 500、代替データフォールバックなし（要件 18.10）。
+
+
 
 ### クイズリーダーボード更新フロー（`saveAttempt` / `verify-truth` 共通）
 
@@ -573,6 +645,10 @@ sequenceDiagram
 | 17.4–17.5 | ジャンル固定 scoped 検索 | `QuizService` | `searchQuizzes` + `expandGenreIdsForQuery` | 形式フィルタ検索フロー |
 | 17.6 | UI と同一形式判定 | `quiz-format-match` | `resolveQuizFormat` | - |
 | 17.7–17.8 | インデックス/UI Out | — | Out of boundary | - |
+| 18.1–18.5 | 週間人気ジャンル Top5 集計 | `GenresWeeklyTopAPI` | `GET /api/genres/weekly-top` | 週間ジャンル Top5 フロー |
+| 18.6–18.10 | 週間人気ワード／タグ Top5 集計 | `SearchWeeklyTopAPI` | `GET /api/search/weekly-top` | 週間ワード／タグ Top5 フロー |
+| 18.11–18.13 | 検索ログ記録（fire-and-forget） | `QuizService`, `search-log` | `writeSearchLog` | 検索ログ fire-and-forget フロー |
+| 18.14–18.16 | 境界明示（履歴は UI 側、Core 不保存） | — | Out of boundary | - |
 | 12.1 | ユーザーのBANと監査ログ記録 | `ReputationService` / API Route | `/api/admin/users/ban` | - |
 | 12.2 | BAN解除と監査ログ記録 | `ReputationService` / API Route | `/api/admin/users/unban` | - |
 | 12.3 | BAN中の書き込み拒否と強制ログアウト | Security Rules / AuthContext | `isNotBanned()`, `quizeum_banned` Cookie | - |
@@ -596,6 +672,9 @@ sequenceDiagram
 | `TagMergeService` | Service | マージ投票・ジャンル新設（`tagMerge.ts`） | 7.4–7.8, 11.7 | Firestore (P0) | Service, State |
 | `leaderboard-ranking` | Lib | LB順位比較・マージ・top5 | 9.4, 9.5, 9.6 | - | Pure functions |
 | `AttemptService` | Service | 解答永続化、LB更新、本人プレイ履歴、オフライン同期 | 3.1, 3.2, 3.3, 3.4, 3.6, 5.5, 9.1–9.7, 10.1–10.3 | Firestore (P0), LocalStore (P1), leaderboard-ranking (P0) | Service, State, Batch |
+| `/api/genres/weekly-top` | API Route | 週間人気ジャンル Top5 集計（attemptsコレクションかまの直近 7日間集計） | 18.1–18.5 | Firestore Admin SDK (P0) | HTTP GET, 30min cache |
+| `/api/search/weekly-top` | API Route | 週間人気ワード／タグ Top5 集計（search_logsから） | 18.6–18.10 | Firestore Admin SDK (P0) | HTTP GET, 30min cache |
+| `search-log` | Lib | fire-and-forget 検索ログ書き込み | 18.11–18.13 | Firestore (P0) | Pure function + IO |
 | `/api/user/play-history` | API Route | 本人プレイ履歴の認可付き取得 | 10.1, 10.4, 10.5 | AuthAdmin (P0), AttemptService (P0) | API |
 | `BookmarkService` | Service | クイズ・リストのブックマークアトミック管理 | 5.3 | Firestore (P0) | Service, State |
 | `QuizListService` | Service | リストの作成、ドラッグ＆ドロップ、パッケージング | 5.4, 5.6 | Firestore (P0), QuizService (P1) | Service, State |

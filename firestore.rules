@@ -255,6 +255,15 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------
+    // search_logs コレクションルール
+    // -----------------------------------------------------------------
+    match /search_logs/{logId} {
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // -----------------------------------------------------------------
     // flags (通報) コレクションルール
     // -----------------------------------------------------------------
     match /flags/{flagId} {

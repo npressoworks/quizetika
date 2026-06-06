@@ -504,3 +504,36 @@ Phase 11 目標:
 ### validate-design 反映（予定）
 - scoped 検索 + ソート同時指定時は UI 側 `sortQuizzesForList` で再ソート（core に sort 引数追加は Phase 11 Non-Goal）。
 
+---
+
+# Gap Analysis & Research Log: スマートサジェスト機能（Phase 10 追記 — 2026-06-06）
+
+## 1. 調査と分析のサマリー
+- **機能**: `GenreSearchField` および `UnifiedSearchField` のフォーカス時（空クエリ時）に、localStorage 履歴および週間人気トレンドTop5をドロップダウンサジェストする機能。
+- **実装アプローチ**: 
+  - クライアント側履歴 (`localStorage`) は安全かつ軽量に保つため、Firestore等には保存せずクライアントローカルで完結（重複排除、先頭挿入、件数制限）。
+  - 週間の人気ジャンル・タグ・キーワードは、attempts コレクションおよび search_logs コレクションから直近7日間のデータを集計する Route Handler を新設し、30分間のデータキャッシュ (`revalidate = 1800`) を適用。
+  - セキュリティ保護のため、未認証ユーザーからの検索については `search_logs` への非同期書き込みを行わない。
+
+## 2. 設計上の決定とトレードオフ
+
+### 決定: クライアント履歴の localStorage 完結
+- **Context**: ユーザーが検索した履歴をドロップダウンに表示する。
+- **Selected Approach**: `localStorage` を使用し、キー `quizeum_recent_search_genres` および `quizeum_recent_search_words` で管理。
+- **Rationale**: ユーザー個別の直近履歴をサーバーに送信・永続化するコストとプライバシーへの懸念を排除し、ミリ秒以下の即時応答を可能にするため。
+
+### 決定: API への30分キャッシュ適用
+- **Context**: `/api/genres/weekly-top` と `/api/search/weekly-top` は集計コスト（過去7日間の attempts や search_logs のスキャン）が高い。
+- **Selected Approach**: `export const revalidate = 1800` を設定。
+- **Rationale**: Firestoreの読み取りコスト (Read operations) を節約し、大量アクセス時も高速に応答するため。
+
+### 決定: 型定義のジェネリクス化 (`filterGenreSuggestions`)
+- **Context**: ジャンルカルーセルに `filterGenreSuggestions` の戻り値を渡す際、`Pick<GenreMetadata, 'id' | 'displayName'>[]` への縮退により TypeScript の型エラー（`GenreMetadata[]` への代入不可）が発生。
+- **Selected Approach**: `filterGenreSuggestions` の定義にジェネリクス `T extends Pick<GenreMetadata, 'id' | 'displayName'>` を導入。
+- **Rationale**: クエリフィルタ実行時にもオブジェクトの元の型情報を保持し、呼び出し側でのキャストや別オブジェクトの再ロードを防ぐため。
+
+## 3. リスクと緩和策
+- **キャッシュによるトレンド反映の遅延**: 新しくプレイされたクイズや検索履歴が最大30分間トレンドに載らないが、週間の集計であるため即時性は不要であり許容範囲内。
+- **エミュレータ未起動時の API エラー (ECONNREFUSED)**: ローカル開発および動作テスト時にエミュレータが起動していない場合、API がエラーを返す。これを防ぐため、`.env.local` にエミュレータ用環境変数を明記し、Next.js 起動時に `npm run emulators` が裏で動いていることを徹底。
+
+

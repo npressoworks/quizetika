@@ -294,6 +294,7 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
 
 ### Overview（本フェーズ）
 ホームの統合検索エリアで、タグ入力をスペース（または確定操作）でチップ化し、入力中にタグ名・ジャンル名のサジェストを表示する。あわせてクイズ一覧カードの難易度を☆表記に変更し、ジャンル名と出題形式をカード上に表示する。ジャンル／タグ一覧ページのインラインカードも `QuizCard` へ統一し表示項目を揃える。
+さらに、各検索フィールドのフォーカス時に「空クエリでも有益なサジェスト」を表示するスマートサジェスト機能を追加する（2026-06-06 追記）。
 
 ### Approach Decision（本フェーズ）
 - **Chosen**: チップ付き複合検索コンポーネント + クライアントサイドサジェスト + `QuizCard` 拡張・共通化
@@ -302,6 +303,7 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
   - チップなしでプレーンテキスト `#tag` のみ: 複数タグの AND 検索が曖昧で、サジェスト選択後の UX が弱い。
   - サーバー専用サジェスト API 新設: マスタ件数規模ではクライアントフィルタで十分。Firestore 読み取りは `listActiveGenres` と同型の1回取得で済む。
   - カード改修をホームのみに限定: ジャンル／タグ一覧が別実装のままだと表示不整合が残る。
+  - **週間集計: クライアントサイド直接集計**: `attempts` の全件スキャンは Firestore コスト爆発のため却下。Next.js API Route + サーバーサイドキャッシュ（`revalidate: 1800`）を採用。
 
 ### Scope（本フェーズ）
 - **In**:
@@ -311,11 +313,30 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
   - `/genres/[genreName]`・`/tags/[tagName]` のインラインカードを `QuizCard` に置換
   - `quizeum-core`: `listActiveTags()`（`metadata_tags` 有効タグ一覧、`listActiveGenres` 対称）
   - 共有ユーティリティ: `getFormatLabel` の `quiz-format.ts` 等への集約（エディタとカードで重複排除）
+  - **【スマートサジェスト追加・2026-06-06】**
+    - `GenreSearchField` フォーカス時（空クエリ）の初期表示:
+      1. ユーザ自身の直近検索ジャンル 最大3件（`localStorage` キー: `quizeum_recent_genres`）
+      2. 週間プレイ数の多いジャンル Top5（`/api/genres/weekly-top` から取得）
+      - 入力があれば従来の `filterGenreSuggestions` に切り替わる
+    - `UnifiedSearchField` フォーカス時（空クエリ・チップなし）の初期表示:
+      1. ユーザ自身の直近検索ワード 最大5件（`localStorage` キー: `quizeum_recent_keywords`）
+      2. 週間人気タグ Top5（`/api/search/weekly-top` → `topTags`）
+      3. 週間人気ワード Top5（`/api/search/weekly-top` → `topKeywords`）
+      - 入力があれば従来のタグサジェストに切り替わる
+    - 新規 Next.js API Route:
+      - `GET /api/genres/weekly-top` — `attempts`（`completedAt >= 7日前`）をジャンル別集計、Top5 返却。`revalidate: 1800`（30分キャッシュ）
+      - `GET /api/search/weekly-top` — `search_logs`（`searchedAt >= 7日前`）からキーワード／タグ別集計、各 Top5 返却。`revalidate: 1800`
+    - 新規 Firestore コレクション `search_logs`:
+      - フィールド: `type: 'keyword' | 'tag'`、`value: string`（タグID またはキーワード正規化済み）、`searchedAt: Timestamp`
+      - `searchQuizzes` 呼び出し時に Core サービス内でサイレント書き込み（認証状態に関わらず記録、ただし空クエリは除外）
+      - Security Rules: 書き込みは認証済みユーザのみ、読み取りは API Route（Admin SDK）のみ
 - **Out**:
   - ジャンル／タグ一覧ページへの検索バー新設（本フェーズはホーム検索エリアが正本）
   - タグ新設申請・マージ UI の変更（`quizeum-moderation-governance-ui`）
   - サーバー側ファジーサジェスト・全文検索エンジン導入
   - クイズ詳細・プレイ画面の難易度表示変更
+  - `search_logs` の自動パージ（TTL 設定は Cloud Functions 管轄 — 初版は蓄積のみ）
+  - 未認証ユーザの検索ログ収集
 
 ### Constraints（本フェーズ）
 - タグチップ正規化は既存タグマスタ／`searchQuizzes` のタグ照合規則と一致させる（小文字化・記号除去等）
@@ -323,18 +344,24 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
 - 難易度☆は 1〜10 スケールを視覚化（例: 塗りつぶし☆×難易度 + 空☆×残り、または ★ N 表記 — 実装前に要件で確定）
 - 出題形式は `resolveQuizFormat` + 日本語ラベル（選択式・記述式・ウミガメのスープ等）
 - Vanilla CSS / CSS Modules、既存ネオンデザインシステムを踏襲
+- **スマートサジェスト*ジャンルで絞り込むの履歴は `localStorage` のみ（Firestore への個人ログ保存なし）
+- **週間集計**: `/api/genres/weekly-top` は `attempts` コレクション、`/api/search/weekly-top` は `search_logs` コレクションを参照。各30分キャッシュ
+- **`search_logs` 書き込み**: 失敗しても検索処理をブロックしない（fire-and-forget / try-catch で握り潰し）
 
 ### Boundary Strategy（本フェーズ）
-- **Core**: `listActiveTags`、必要なら `searchQuizzes` のチップ配列引数の明確化
-- **Play-flow UI**: `TagChipSearchField`（仮称）、サジェスト UI、`QuizCard` 拡張、ジャンル／タグ一覧のカード統一、`useHomeQuizFeed` フィルタ状態拡張
-- **Shared seam**: タグ正規化・形式ラベルは lib に1か所集約
+- **Core**: `listActiveTags`、`searchQuizzes` のチップ配列引数の明確化、`search_logs` への書き込みロジック
+- **Play-flow UI**: `TagChipSearchField`（仮称）、サジェスト UI（スマートサジェスト含む）、`QuizCard` 拡張、ジャンル／タグ一覧のカード統一、`useHomeQuizFeed` フィルタ状態拡張
+- **API Routes (Core 寄り)**: `/api/genres/weekly-top`、`/api/search/weekly-top`（集計ロジック + サーバーキャッシュ）
+- **Shared seam**: タグ正規化・形式ラベルは lib に1か所集約。`localStorage` 操作は `src/lib/recent-search.ts`（仮称）に集約
 
 ## Existing Spec Updates（Phase 10・依存順）
-- [ ] quizeum-core -- `listActiveTags()`、タグマスタ読み取り API、`searchQuizzes` フィルタ引数（タグチップ配列）の型・結合ロジック明確化。Dependencies: none
-- [ ] quizeum-play-flow-ui -- ホーム検索のタグチップ＋タグ／ジャンルサジェスト、`QuizCard` の☆難易度・ジャンル・出題形式、ジャンル／タグ一覧での `QuizCard` 共通化。Dependencies: quizeum-core
+- [ ] quizeum-core -- `listActiveTags()`、タグマスタ読み取り API、`searchQuizzes` フィルタ引数（タグチップ配列）の型・結合ロジック明確化、`search_logs` 書き込み（fire-and-forget）。Dependencies: none
+- [ ] quizeum-play-flow-ui -- ホーム検索のタグチップ＋タグ／ジャンルサジェスト、`GenreSearchField` フォーカス時スマートサジェスト（直近3件+週間Top5）、`UnifiedSearchField` フォーカス時スマートサジェスト（直近ワード+週間人気ワード/タグ各5件）、`QuizCard` の☆難易度・ジャンル・出題形式、ジャンル／タグ一覧での `QuizCard` 共通化。Dependencies: quizeum-core
 
 ## Direct Implementation Candidates（Phase 10）
 - [ ] format-label-shared -- `getFormatLabel` を `src/lib/quiz-format.ts` 等へ抽出しエディタ・カードで共有
+- [ ] weekly-top-api-routes -- `src/app/api/genres/weekly-top/route.ts`、`src/app/api/search/weekly-top/route.ts` の新設（`attempts`・`search_logs` 集計 + `revalidate: 1800`）
+- [ ] recent-search-storage -- `src/lib/recent-search.ts` の新設（`localStorage` への直近ジャンル・キーワード読み書きユーティリティ）
 
 ## Specs (dependency order)
 （Phase 10 では新規 spec なし — 上記 Existing Spec Updates のみ）
@@ -344,7 +371,7 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
 ## Phase 11: 探索アコーディオン・カルーセル & ジャンルページ検索（2026-06-05 ディスカバリー）
 
 ### Overview（本フェーズ）
-ホーム画面の検索バー直下に「ジャンルから探す」「出題形式で探す」のアコーディオンを配置し、展開時にジャンルカード／出題形式カードの横スクロールカルーセルを表示する。カード選択は**ページ遷移せずホーム内のクイズグリッドを絞り込む**（ホーム内フィルタ型）。検索バー・フィルタパネルとフィルタ状態を共有し、ジャンルは検索バーのサジェストでも絞り込める。既存 `GenreNav`（ピル横スクロール）は本 UI に置き換える。あわせてジャンル別一覧（`/genres/[genreName]`）にも検索バーとフィルタを追加し、当該ジャンル内でのキーワード・タグ・難易度・出題形式等の絞り込みを可能にする。
+ホーム画面の検索バー直下に「ジャンルから探す」「出題形式で絞り込む」のアコーディオンを配置し、展開時にジャンルカード／出題形式カードの横スクロールカルーセルを表示する。カード選択は**ページ遷移せずホーム内のクイズグリッドを絞り込む**（ホーム内フィルタ型）。検索バー・フィルタパネルとフィルタ状態を共有し、ジャンルは検索バーのサジェストでも絞り込める。既存 `GenreNav`（ピル横スクロール）は本 UI に置き換える。あわせてジャンル別一覧（`/genres/[genreName]`）にも検索バーとフィルタを追加し、当該ジャンル内でのキーワード・タグ・難易度・出題形式等の絞り込みを可能にする。
 
 ### Approach Decision（本フェーズ）
 - **Chosen**: 共有探索フィルタ状態 + カルーセル選択 → `searchQuizzes` 連携（ホーム内フィルタ型）

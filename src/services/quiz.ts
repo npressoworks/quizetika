@@ -42,6 +42,7 @@ import {
 } from '../lib/quiz-tag-match';
 import { applyFormatFilter } from '../lib/quiz-format-match';
 import type { QuizFormat } from '../lib/quiz-format';
+import { writeSearchLog } from '../lib/search-log';
 
 export type { QuizListSort } from '../lib/metadata-resolution';
 
@@ -737,8 +738,13 @@ export async function getQuizzesByTag(
  */
 export async function searchQuizzes(
   queryText: string,
-  filters: SearchFilters = {}
+  filters: SearchFilters = {},
+  userId?: string
 ): Promise<Quiz[]> {
+  if (userId) {
+    writeSearchLog(userId, queryText, filters.tags, filters.genreId);
+  }
+
   const trimmedQuery = queryText.trim();
   const hasQuery = normalizeSearchText(trimmedQuery).length > 0;
   const tagSpecs = await buildTagMatchSpecs(filters.tags);

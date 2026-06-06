@@ -53,7 +53,7 @@ export function ExploreAccordionsPanel({
     <div className={styles.accordionsPanel}>
       <ExploreAccordion
         testId="explore-accordion-genre"
-        title="ジャンルから探す"
+        title="ジャンルで絞り込む"
         open={genreOpen}
         onToggle={() => setGenreOpen((v) => !v)}
       >
@@ -84,7 +84,7 @@ export function ExploreAccordionsPanel({
 
       <ExploreAccordion
         testId="explore-accordion-format"
-        title="出題形式で探す"
+        title="出題形式で絞り込む"
         open={formatOpen}
         onToggle={() => setFormatOpen((v) => !v)}
       >
