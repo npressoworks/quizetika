@@ -228,7 +228,7 @@ hooks/
 - `e2e/quiz-search.spec.ts` — Phase 10 検索チップ・カードメタの E2E 追加。
 
 ### New Files（Phase 11）
-- `src/lib/explore-formats.ts` — カルーセル用出題形式定数（7 種、`QuizFormat` + `getFormatLabel` ラベル）（13.9）
+- `src/lib/explore-formats.ts` — カルーセル用出題形式定数（7 種、`QuizFormat` + `getFormatLabel` ラベル、アイコン情報含む `ExploreFormatOption` 定義）。（13.9）
 - `src/lib/explore-filter-active.ts` — `hasActiveExploreFilters` / `hasActiveScopedExploreFilters`（ホーム vs ジャンルページ scoped 判定）（13.15–13.17, 13.22）
 - `src/components/explore/explore-accordion.tsx` — 単一アコーディオン見出し＋パネル（`aria-expanded`）（13.1–13.3）
 - `src/components/explore/explore-accordions-panel.tsx` — ジャンル／形式の2アコーディオン＋カルーセル配置（13.1, 13.4, 13.9）
@@ -250,6 +250,10 @@ hooks/
 - `src/app/page.module.css` — アコーディオン・カルーセル余白スタイル。
 - `src/app/genres/[genreName]/page.tsx` — `ExploreSearchSection`（`lockedGenreId={genreId}`）追加。scoped 検索時 `useExploreQuizFeed`、未指定時 `getQuizzesByGenre` 維持（13.19–13.23）。
 - `src/components/explore/genre-nav.tsx` — `@deprecated Phase 11: ホームから除去。参照用にファイル残置` コメント追加。
+- `src/components/explore/format-carousel.tsx` — 出題形式横スクロールカードにアイコン（絵文字）を追加表示。（13.9）
+- `src/app/quiz/[id]/page.tsx` — ジャンル表示をIDから日本語名＋ミニアイコンに変更、難易度を10段階の星（★/☆）ゲージに変更、出題形式バッジ（アイコン＋ラベル）を表示。（2.1）
+- `src/app/quiz/[id]/page.module.css` — クイズ詳細画面のジャンルミニアイコンおよびインライン配置用スタイルを追加。（2.1）
+- `src/lib/quiz-format-labels.ts` — 各形式に対応する絵文字アイコンを返却する `getFormatIcon` を追加。
 - `tests/components/home-page.test.tsx` — `GenreNav` 非表示、カルーセルフィルタ、クリア連動。
 - `e2e/quiz-search.spec.ts` — ジャンルカルーセルが `/genres` に遷移しないこと、形式カルーセル絞り込み。
 
@@ -624,7 +628,7 @@ sequenceDiagram
 
 **Responsibilities & Constraints**
 - クイズ固有の `thumbnailUrl` がある場合はアスペクト比を保って表示、ない場合はジャンルに基づくグラデーションプレースホルダーを表示。
-- タイトル、作成者名、**難易度（`★ {difficulty}`、1〜10 整数。プログレスバー禁止）**、**ジャンル表示名**、**出題形式ラベル**（`getFormatLabel(resolveQuizFormat(quiz))`）、評価（`reviewScore`）、「プレイする」ボタンを整理して表示。
+- タイトル、作成者名、**難易度（`★ {difficulty}`、1〜10 整数。プログレスバー禁止）**、**ジャンル表示名**、**出題形式ラベル**（形式絵文字アイコンと日本語ラベルの併記、`getFormatIcon(resolveQuizFormat(quiz))` + `getFormatLabel(resolveQuizFormat(quiz))`）、評価（`reviewScore`）、「プレイする」ボタンを整理して表示。
 - `genreDisplayName` prop が渡された場合はそれを優先。未指定時は `quiz.genre` をフォールバック表示。
 - ホバー時のネオン発光トランジション（Phase 9）を維持。
 - **ナビゲーション（確定）**: 任意 prop `href` が渡されたとき、カードルートを Next.js `Link` でラップしカード全体クリックでクイズ詳細へ遷移する。`href` 未指定時（ホーム）は従来どおり `div` + `onPlayClick`。いずれも「挑戦する」ボタンに `data-testid="play-btn"` を付与。
@@ -844,6 +848,7 @@ import type { QuizFormat } from '@/lib/quiz-format';
 export interface ExploreFormatOption {
   id: QuizFormat;
   label: string;
+  icon: string;
 }
 
 export const EXPLORE_FORMAT_OPTIONS: ExploreFormatOption[];
