@@ -6,6 +6,7 @@ import {
   getDocs,
   runTransaction,
   orderBy,
+  setDoc,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import { bookmarksRef, quizzesRef, quizListsRef, questionsRef, usersRef } from '../lib/firebase/firestore';
@@ -63,19 +64,55 @@ function sortBookmarksByCreatedAtDesc(bookmarkDocs: Bookmark[]): Bookmark[] {
 async function assertQuestionBookmarkable(questionId: string): Promise<Question> {
   const questionRef = doc(questionsRef, questionId);
   const questionSnap = await getDoc(questionRef);
+
+  let question: Question;
+
   if (!questionSnap.exists()) {
-    throw new Error('Target document does not exist.');
+    // 設問ドキュメントが存在しない場合、親クイズの非正規化データから検索してオンデマンドで復元する
+    const parentQuizQuery = query(quizzesRef, where('questionIds', 'array-contains', questionId));
+    const parentQuizSnap = await getDocs(parentQuizQuery);
+
+    if (parentQuizSnap.empty) {
+      throw new Error('Target document does not exist.');
+    }
+
+    const quizDoc = parentQuizSnap.docs[0];
+    const quiz = quizDoc.data() as Quiz;
+
+    assertParentQuizPublished(quiz.status);
+
+    const foundQuestion = quiz.questions?.find((q) => q.id === questionId);
+    if (!foundQuestion) {
+      throw new Error('Target document does not exist.');
+    }
+
+    const restoredQuestion: Question = {
+      ...foundQuestion,
+      id: questionId,
+      quizId: quiz.id,
+      authorId: quiz.authorId,
+      authorName: quiz.authorName,
+      authorAvatar: quiz.authorAvatar || '',
+      bookmarksCount: foundQuestion.bookmarksCount || 0,
+      correctCount: foundQuestion.correctCount || 0,
+      incorrectCount: foundQuestion.incorrectCount || 0,
+    };
+
+    await setDoc(questionRef, restoredQuestion);
+    question = restoredQuestion;
+  } else {
+    question = questionSnap.data() as Question;
+    if (!question.quizId) {
+      throw new Error('Target document does not exist.');
+    }
+    const quizSnap = await getDoc(doc(quizzesRef, question.quizId));
+    if (!quizSnap.exists()) {
+      throw new Error('Target document does not exist.');
+    }
+    const quiz = quizSnap.data() as Quiz;
+    assertParentQuizPublished(quiz.status);
   }
-  const question = questionSnap.data() as Question;
-  if (!question.quizId) {
-    throw new Error('Target document does not exist.');
-  }
-  const quizSnap = await getDoc(doc(quizzesRef, question.quizId));
-  if (!quizSnap.exists()) {
-    throw new Error('Target document does not exist.');
-  }
-  const quiz = quizSnap.data() as Quiz;
-  assertParentQuizPublished(quiz.status);
+
   return question;
 }
 

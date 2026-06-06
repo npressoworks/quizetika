@@ -1,8 +1,9 @@
 jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
 
-import { runTransaction, doc, getDocs } from 'firebase/firestore';
+import { runTransaction, doc, getDocs, setDoc } from 'firebase/firestore';
 import {
   saveAttempt,
+  createLateralAttemptSession,
   getFailedQuestions,
   updateFailedQuestions,
 } from '../../src/services/attempt';
@@ -21,6 +22,7 @@ jest.mock('firebase/firestore', () => {
     getDoc: jest.fn(),
     getDocs: jest.fn(),
     updateDoc: jest.fn(),
+    setDoc: jest.fn(),
     writeBatch: jest.fn(),
     increment: jest.fn((n) => n),
     arrayUnion: jest.fn((...items) => items),
@@ -214,5 +216,31 @@ describe('AttemptService - updateFailedQuestions', () => {
         totalFailedQuestionsCount: -1, // increment(-1) のダミー
       })
     );
+  });
+});
+
+describe('AttemptService - createLateralAttemptSession', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('未完了 attempt を作成し completedAt や playCount 更新は行わない', async () => {
+    const attemptId = await createLateralAttemptSession('user-1', 'quiz-lateral-1', ['q-lt-1']);
+
+    expect(attemptId).toBe('auto-generated-id');
+    expect(setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'auto-generated-id' }),
+      expect.objectContaining({
+        userId: 'user-1',
+        quizId: 'quiz-lateral-1',
+        score: 0,
+        totalQuestions: 1,
+        failedQuestionIds: ['q-lt-1'],
+        aiTurnCount: 0,
+        aiTurnLimit: 20,
+      })
+    );
+    expect(setDoc.mock.calls[0][1]).not.toHaveProperty('completedAt');
+    expect(runTransaction).not.toHaveBeenCalled();
   });
 });

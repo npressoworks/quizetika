@@ -62,7 +62,12 @@ const globalWithEmulators = global as typeof globalThis & {
   emulatorsConnected?: boolean;
 };
 
-if (process.env.NEXT_PUBLIC_ENV === 'test' && !globalWithEmulators.emulatorsConnected) {
+const useEmulators =
+  process.env.NEXT_PUBLIC_ENV === 'test' ||
+  (process.env.NODE_ENV === 'development' &&
+    !!process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST?.trim());
+
+if (useEmulators && !globalWithEmulators.emulatorsConnected) {
   // 1. Auth Emulator
   if (typeof window !== 'undefined') {
     const authHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
@@ -81,7 +86,11 @@ if (process.env.NEXT_PUBLIC_ENV === 'test' && !globalWithEmulators.emulatorsConn
 
   // 接続済みフラグをセット
   globalWithEmulators.emulatorsConnected = true;
-  console.log('[firebase-config] E2Eテスト環境用のFirebase Local Emulator Suiteに接続しました。');
+  const label =
+    process.env.NEXT_PUBLIC_ENV === 'test'
+      ? 'E2Eテスト環境'
+      : 'ローカル開発環境';
+  console.log(`[firebase-config] ${label}用のFirebase Local Emulator Suiteに接続しました。`);
 }
 
 export { app, auth, db, storage };

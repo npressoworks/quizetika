@@ -167,6 +167,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         transaction.update(attemptRef, {
           completedAt: now,
           score: attempt.totalQuestions,
+          failedQuestionIds: [],
           aiTruthAttempts: arrayUnion(newTruthAttempt),
         });
 

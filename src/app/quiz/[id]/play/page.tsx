@@ -10,7 +10,7 @@ import { useAuth } from '@/context/auth-context';
 import { getQuiz } from '@/services/quiz';
 import { usePlayState } from '@/hooks/usePlayState';
 import { useAiPlayState } from '@/hooks/useAiPlayState';
-import { saveAttempt, updateFailedQuestionsCount } from '@/services/attempt';
+import { saveAttempt, createLateralAttemptSession, updateFailedQuestionsCount } from '@/services/attempt';
 import { addPendingSyncAttempt, generateLocalId } from '@/services/attempt-session';
 import { toQuestionAnswerRecords } from '@/services/attempt-answer-display';
 import { Quiz, Attempt, Question } from '@/types';
@@ -265,22 +265,14 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
     if (playMode === 'lateral' && quiz && user && !lateralAttemptId) {
       const currentUserId = user.id;
       const currentQuizId = quiz.id;
-      const currentQuestionsLength = quiz.questions.length;
       async function initLateralAttempt() {
         try {
-          const newAttempt: Omit<Attempt, 'id' | 'completedAt'> = {
-            userId: currentUserId,
-            quizId: currentQuizId,
-            mode: 'normal',
-            score: 0,
-            totalQuestions: currentQuestionsLength,
-            elapsedSeconds: 0,
-            failedQuestionIds: [],
-            aiQuestionsHistory: [],
-            aiTurnCount: 0,
-            aiTurnLimit: 20,
-          };
-          const aid = await saveAttempt(newAttempt);
+          const questionIds = quiz!.questions.map((q) => q.id);
+          const aid = await createLateralAttemptSession(
+            currentUserId,
+            currentQuizId,
+            questionIds
+          );
           setLateralAttemptId(aid);
         } catch (e) {
           console.error('[QuizPlay] ウミガメセッション作成エラー:', e);

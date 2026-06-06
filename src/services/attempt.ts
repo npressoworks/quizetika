@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -147,6 +148,35 @@ export async function saveAttempt(
     }
 
     transaction.update(quizDocRef, quizUpdates);
+  });
+
+  return attemptDocRef.id;
+}
+
+/**
+ * ウミガメのスープ用: プレイ開始時に未完了 attempt を作成する。
+ * saveAttempt とは異なり completedAt 付与・スコア検証・playCount 更新は行わない。
+ */
+export async function createLateralAttemptSession(
+  userId: string,
+  quizId: string,
+  questionIds: string[]
+): Promise<string> {
+  const attemptDocRef = doc(attemptsCollection);
+  const totalQuestions = questionIds.length;
+
+  await setDoc(attemptDocRef, {
+    userId,
+    quizId,
+    listId: null,
+    mode: 'normal',
+    score: 0,
+    totalQuestions,
+    elapsedSeconds: 0,
+    failedQuestionIds: questionIds,
+    aiQuestionsHistory: [],
+    aiTurnCount: 0,
+    aiTurnLimit: 20,
   });
 
   return attemptDocRef.id;

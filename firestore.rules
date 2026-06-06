@@ -92,12 +92,30 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------
+    // follows コレクションルール
+    // -----------------------------------------------------------------
+    match /follows/{followId} {
+      allow read: if true;
+
+      allow create: if isAuthenticated() && isNotBanned()
+        && request.resource.data.followerId == request.auth.uid
+        && followId == request.auth.uid + '_' + request.resource.data.followingId;
+
+      allow delete: if isAuthenticated() && isNotBanned()
+        && resource.data.followerId == request.auth.uid;
+
+      allow update: if false;
+    }
+
+    // -----------------------------------------------------------------
     // quizzes コレクションルール
     // -----------------------------------------------------------------
     match /quizzes/{quizId} {
       // 読み取りルール:
       // 通常のクイズは誰でも閲覧可能。ただし保留状態 (suspended) は管理者・シニアモデレータのみ閲覧可能。
-      allow read: if !('status' in resource.data)
+      // 存在しないドキュメントへの get も許可（クライアントで null 判定できるようにする）
+      allow read: if resource == null
+        || !('status' in resource.data)
         || resource.data.status != 'suspended'
         || isSeniorModeratorOrAdmin()
         // 作成者本人も確認のため閲覧可能にする
@@ -225,7 +243,11 @@ service cloud.firestore {
     // bookmarks コレクションルール
     // -----------------------------------------------------------------
     match /bookmarks/{bookmarkId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // get で未作成ドキュメントを読むと resource は null（isBookmarked の存在確認）
+      allow read: if isAuthenticated() && (
+        resource == null
+        || resource.data.userId == request.auth.uid
+      );
 
       allow create: if isAuthenticated() && isNotBanned()
         && request.resource.data.userId == request.auth.uid
