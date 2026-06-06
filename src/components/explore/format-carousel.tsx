@@ -24,6 +24,9 @@ export function FormatCarousel({ selectedFormat, onSelect }: FormatCarouselProps
             aria-pressed={selected}
             onClick={() => onSelect(selected ? '' : option.id)}
           >
+            <div className={styles.cardIcon} aria-hidden>
+              {option.icon}
+            </div>
             <span className={styles.cardLabel}>{option.label}</span>
           </button>
         );

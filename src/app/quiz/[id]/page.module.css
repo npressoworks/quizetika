@@ -69,6 +69,20 @@
   font-weight: 700;
   color: var(--color-accent);
   text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.genreIconMini {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.genreIconMiniFallback {
+  font-size: 0.95rem;
 }
 
 .title {

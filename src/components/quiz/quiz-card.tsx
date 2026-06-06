@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Bookmark } from 'lucide-react';
 import type { Quiz } from '../../types';
 import { resolveQuizFormat } from '@/lib/quiz-format';
-import { getFormatLabel } from '@/lib/quiz-format-labels';
+import { getFormatLabel, getFormatIcon } from '@/lib/quiz-format-labels';
 import styles from './quiz-card.module.css';
 
 interface QuizCardProps {
@@ -47,9 +47,9 @@ export function QuizCard({
     }
   };
 
-  const formatLabel = getFormatLabel(
-    resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] })
-  );
+  const formatValue = resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] });
+  const formatLabel = getFormatLabel(formatValue);
+  const formatIcon = getFormatIcon(formatValue);
   const genreLabel = genreDisplayName ?? quiz.genre;
 
   const content = (
@@ -100,7 +100,7 @@ export function QuizCard({
             {genreLabel}
           </span>
           <span className={styles.formatLabel} data-testid="quiz-card-format">
-            {formatLabel}
+            {formatIcon} {formatLabel}
           </span>
         </div>
 

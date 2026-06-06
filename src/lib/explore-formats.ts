@@ -1,9 +1,10 @@
 import type { QuizFormat } from '@/lib/quiz-format';
-import { getFormatLabel } from '@/lib/quiz-format-labels';
+import { getFormatLabel, getFormatIcon } from '@/lib/quiz-format-labels';
 
 export interface ExploreFormatOption {
   id: QuizFormat;
   label: string;
+  icon: string;
 }
 
 const FORMAT_IDS: QuizFormat[] = [
@@ -19,4 +20,6 @@ const FORMAT_IDS: QuizFormat[] = [
 export const EXPLORE_FORMAT_OPTIONS: ExploreFormatOption[] = FORMAT_IDS.map((id) => ({
   id,
   label: getFormatLabel(id),
+  icon: getFormatIcon(id),
 }));
+

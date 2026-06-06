@@ -10,6 +10,9 @@ import { useAuth } from '@/context/auth-context';
 import { getQuiz } from '@/services/quiz';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { Quiz } from '@/types';
+import { useActiveGenres } from '@/hooks/useActiveGenres';
+import { resolveQuizFormat } from '@/lib/quiz-format';
+import { getFormatLabel, getFormatIcon } from '@/lib/quiz-format-labels';
 import styles from './page.module.css';
 
 interface PageProps {
@@ -19,6 +22,7 @@ interface PageProps {
 export default function QuizDetailPage({ params }: PageProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { genres: activeGenres } = useActiveGenres();
   
   // React 19 / Next.js 15 の params 解消
   const resolvedParams = use(params);
@@ -117,6 +121,12 @@ export default function QuizDetailPage({ params }: PageProps) {
     );
   }
 
+  const genreMeta = activeGenres.find((g) => g.id === quiz.genre);
+  
+  const diffVal = typeof quiz.difficulty === 'number' ? quiz.difficulty : parseInt(quiz.difficulty as any || '0', 10);
+  const diffNum = isNaN(diffVal) ? 0 : diffVal;
+  const stars = '★'.repeat(diffNum) + '☆'.repeat(Math.max(0, 10 - diffNum));
+
   // ウミガメスープ判定
   const isLateralThinkingQuiz = quiz.questions?.some((q) => q.type === 'lateral-thinking') ?? false;
   // 早押しクイズ判定
@@ -134,7 +144,18 @@ export default function QuizDetailPage({ params }: PageProps) {
         <div className={styles.detailCard}>
           <div className={styles.header}>
             <div className={styles.titleArea}>
-              <span className={styles.genre}>{quiz.genre}</span>
+              <span className={styles.genre}>
+                {genreMeta?.iconImageUrl ? (
+                  <img
+                    src={genreMeta.iconImageUrl}
+                    alt=""
+                    className={styles.genreIconMini}
+                  />
+                ) : (
+                  <span className={styles.genreIconMiniFallback}>📚</span>
+                )}
+                {genreMeta ? genreMeta.displayName : quiz.genre}
+              </span>
               <h1 className={styles.title}>{quiz.title}</h1>
             </div>
             <button
@@ -163,7 +184,12 @@ export default function QuizDetailPage({ params }: PageProps) {
                 </div>
               )
             )}
-            <div className={styles.difficultyBadge}>難易度: {quiz.difficulty} / 10</div>
+            <div className={styles.difficultyBadge} style={{ fontFamily: 'monospace' }}>
+              難易度: {stars}
+            </div>
+            <div className={styles.difficultyBadge}>
+              形式: {getFormatIcon(resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] }))} {getFormatLabel(resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] }))}
+            </div>
             <div className={styles.difficultyBadge}>問題数: {quiz.questionCount}問</div>
           </div>
 

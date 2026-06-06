@@ -19,3 +19,26 @@ export function getFormatLabel(fmt: string): string {
       return fmt;
   }
 }
+
+/** 出題形式のアイコン（エディタ・クイズカード共通） */
+export function getFormatIcon(fmt: string): string {
+  switch (fmt) {
+    case 'mixed':
+      return '🌀';
+    case 'multiple-choice':
+      return '📝';
+    case 'text-input':
+      return '✍️';
+    case 'quick-press':
+      return '⚡';
+    case 'sorting':
+      return '↕️';
+    case 'association':
+      return '💡';
+    case 'lateral-thinking':
+      return '🐢';
+    default:
+      return '❓';
+  }
+}
+
