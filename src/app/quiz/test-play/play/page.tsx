@@ -93,7 +93,7 @@ function TestPlayPageContent() {
     const result: TestPlayResult = {
       questionAnswers: toQuestionAnswerRecords(questionAnswers),
       correctCount: score,
-      totalQuestions: quiz.questions.length,
+      totalQuestions: (quiz.questions ?? []).length,
       elapsedSeconds,
       completedAt: Date.now(),
       failedQuestionIds: failedIds,
@@ -151,7 +151,7 @@ function TestPlayPageContent() {
   }, [currentIdx]);
 
   useEffect(() => {
-    if (!quiz || currentIdx >= quiz.questions.length) return;
+    if (!quiz || currentIdx >= (quiz.questions ?? []).length) return;
     const currentQuestion = quiz.questions[currentIdx];
 
     if (currentQuestion.type === 'sorting' && currentQuestion.sortingItems) {
@@ -226,7 +226,7 @@ function TestPlayPageContent() {
     );
   }
 
-  if (isFinished && currentIdx >= quiz.questions.length) {
+  if (isFinished && currentIdx >= (quiz.questions ?? []).length) {
     return (
       <div className={styles.container} style={{ textAlign: 'center', padding: '100px 0' }}>
         <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>全問終了しました！</p>
@@ -238,7 +238,7 @@ function TestPlayPageContent() {
   }
 
   const currentQuestion = quiz.questions[currentIdx];
-  const progressPercent = quiz.questions.length > 0 ? (answeredIds.length / quiz.questions.length) * 100 : 0;
+  const progressPercent = (quiz.questions ?? []).length > 0 ? (answeredIds.length / quiz.questions.length) * 100 : 0;
   const judgeable = canJudgeQuestion(currentQuestion);
 
   return (
@@ -276,7 +276,7 @@ function TestPlayPageContent() {
           <div className={styles.progressFill} style={{ width: `${progressPercent}%` }} />
         </div>
         <div className={styles.progressText}>
-          <span>解答済み: {answeredIds.length} / {quiz.questions.length} 問</span>
+          <span>解答済み: {answeredIds.length} / {(quiz.questions ?? []).length} 問</span>
           <span>経過時間: {elapsedSeconds} 秒</span>
         </div>
       </div>

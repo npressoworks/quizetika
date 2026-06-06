@@ -71,7 +71,7 @@ function TestPlayResultContent() {
     );
   }
 
-  const judgedCount = quiz.questions.filter((q) => canJudgeQuestion(q)).length;
+  const judgedCount = (quiz.questions ?? []).filter((q) => canJudgeQuestion(q)).length;
 
   return (
     <div className={styles.container}>
@@ -115,7 +115,7 @@ function TestPlayResultContent() {
           設問ごとの解説
         </h2>
 
-        {quiz.questions.map((q, idx) => {
+        {(quiz.questions ?? []).map((q, idx) => {
           const judgeable = canJudgeQuestion(q);
           const isCorrect = judgeable && !result.failedQuestionIds.includes(q.id);
           const hasStoredAnswers = result.questionAnswers.length > 0;

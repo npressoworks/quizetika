@@ -339,7 +339,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
   }
 
   // 早押しタイム統計の計算
-  const isQuickPressQuiz = quiz.format === 'quick-press' || quiz.questions.some((q) => q.type === 'quick-press');
+  const isQuickPressQuiz = quiz.format === 'quick-press' || (quiz.questions?.some((q) => q.type === 'quick-press') ?? false);
   let averagePressTime = 0;
   let fastestPressTime = 0;
   let showPressStats = false;
@@ -486,7 +486,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
           <button
             className="btn btn-secondary"
             style={{ flex: 1 }}
-            onClick={() => openFeedbackModal(quiz.questions[0] || { id: 'unknown', questionText: '全体' } as any)}
+            onClick={() => openFeedbackModal(quiz.questions?.[0] || { id: 'unknown', questionText: '全体' } as any)}
             disabled={!online}
           >
             <MessageSquare size={16} /> クイズ全体の指摘
@@ -575,7 +575,7 @@ function QuizResultPageContent({ quizId }: ContentProps) {
           設問ごとの解説
         </h2>
 
-        {quiz.questions.map((q, idx) => {
+        {(quiz.questions ?? []).map((q, idx) => {
           const isCorrect = !attempt.failedQuestionIds.includes(q.id);
           const hasStoredAnswers = (attempt.questionAnswers?.length ?? 0) > 0;
           return (

@@ -28,7 +28,7 @@ export function resolveQuizFormat(
     return quiz.format;
   }
 
-  const types = quiz.questions.map((q) => q.type);
+  const types = (quiz.questions ?? []).map((q) => q.type);
   if (types.length === 0) {
     return 'mixed';
   }

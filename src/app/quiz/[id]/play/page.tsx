@@ -62,7 +62,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
   const playQuestions = useMemo(() => {
     if (!quiz?.questions?.length) return [];
     if (questionListMode && questionIdParam) {
-      const q = quiz.questions.find((x) => x.id === questionIdParam);
+      const q = (quiz.questions ?? []).find((x) => x.id === questionIdParam);
       return q ? [q] : [];
     }
     return quiz.questions;
@@ -168,7 +168,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
 
   useEffect(() => {
     if (!quiz || questionListMode || !startAtQuestionId) return;
-    const idx = quiz.questions.findIndex((q) => q.id === startAtQuestionId);
+    const idx = (quiz.questions ?? []).findIndex((q) => q.id === startAtQuestionId);
     if (idx >= 0) setCurrentIdx(idx);
   }, [quiz, startAtQuestionId, questionListMode, setCurrentIdx]);
 
@@ -193,7 +193,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       listId,
       mode: currentMode,
       score: finalScore,
-      totalQuestions: isQuestionListPlay ? 1 : quiz.questions.length,
+      totalQuestions: isQuestionListPlay ? 1 : (quiz.questions ?? []).length,
       elapsedSeconds,
       failedQuestionIds: finalFailed,
       questionAnswers: toQuestionAnswerRecords(questionAnswers),
@@ -458,7 +458,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
 
   // ────────── UI レンダリング: ウミガメスープ ──────────
   if (playMode === 'lateral') {
-    const lateralQuestion = quiz.questions.find((q) => q.type === 'lateral-thinking');
+    const lateralQuestion = (quiz.questions ?? []).find((q) => q.type === 'lateral-thinking');
     return (
       <div className={styles.lateralContainer}>
         {/* 左カラム: AIチャット */}
@@ -1036,7 +1036,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
       {/* 模擬試験用の設問ナビゲーション */}
       {effectivePlayMode === 'exam' && (
         <div className={styles.examNavGrid}>
-          {quiz.questions.map((q, idx) => {
+          {(quiz.questions ?? []).map((q, idx) => {
             const isAnswered = answeredIds.includes(q.id);
             return (
               <button
