@@ -1,5 +1,8 @@
 import { auth } from '@/lib/firebase/config';
+import type { ProPricesResult } from '@/services/billing-prices';
 import type { PriceInterval } from '@/types/subscription';
+
+export type { ProPriceQuote, ProPricesResult } from '@/services/billing-prices';
 
 export type BillingApiErrorCode =
   | 'unauthorized'
@@ -109,6 +112,59 @@ async function postBillingApi(
   }
 
   return { sessionUrl };
+}
+
+function isValidProPriceQuote(value: unknown): value is ProPricesResult['monthly'] {
+  if (!value || typeof value !== 'object') return false;
+  const quote = value as Record<string, unknown>;
+  return (
+    typeof quote.amount === 'number' &&
+    quote.currency === 'jpy' &&
+    typeof quote.label === 'string'
+  );
+}
+
+function isValidProPricesResult(value: unknown): value is ProPricesResult {
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Record<string, unknown>;
+  return isValidProPriceQuote(result.monthly) && isValidProPriceQuote(result.yearly);
+}
+
+export async function fetchProPrices(): Promise<ProPricesResult> {
+  let response: Response;
+  try {
+    response = await fetch('/api/billing/prices');
+  } catch (error) {
+    console.error('[billing-client] network error:', error);
+    throw new BillingClientError({
+      code: 'network',
+      message: '通信に失敗しました。ネットワーク接続を確認して再度お試しください。',
+    });
+  }
+
+  const data = (await response.json().catch(() => ({}))) as ProPricesResult & {
+    error?: string;
+    message?: string;
+  };
+
+  if (!response.ok) {
+    throw new BillingClientError({
+      code: 'unknown',
+      message:
+        data.message ?? 'エラーが発生しました。しばらくしてから再度お試しください。',
+      httpStatus: response.status,
+    });
+  }
+
+  if (!isValidProPricesResult(data)) {
+    throw new BillingClientError({
+      code: 'unknown',
+      message: 'エラーが発生しました。しばらくしてから再度お試しください。',
+      httpStatus: response.status,
+    });
+  }
+
+  return data;
 }
 
 export async function startCheckoutSession(

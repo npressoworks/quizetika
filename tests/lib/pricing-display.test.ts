@@ -15,16 +15,16 @@ describe('pricing-display', () => {
   test('getFreePlanForUi: 無料プランの表示情報', () => {
     const plan = getFreePlanForUi();
     expect(plan.displayName).toBe('Free');
-    expect(plan.monthlyPriceLabel).toBe('¥0');
     expect(plan.featureBullets.some((f) => f.id === 'limited_ai_questions')).toBe(true);
+    expect('monthlyPriceLabel' in plan).toBe(false);
   });
 
-  test('getProPlanForUi: 月額・年額ラベルと特典 bullet を含む', () => {
+  test('getProPlanForUi: 特典 bullet を含み価格フィールドは持たない', () => {
     const plan = getProPlanForUi();
     expect(plan.displayName).toBe('Pro');
-    expect(plan.monthlyPriceLabel).toMatch(/¥/);
-    expect(plan.yearlyPriceLabel).toMatch(/¥/);
     expect(plan.featureBullets.length).toBeGreaterThanOrEqual(1);
     expect(plan.featureBullets[0].id).toBe('unlimited_ai_questions');
+    expect('monthlyPriceLabel' in plan).toBe(false);
+    expect('yearlyPriceLabel' in plan).toBe(false);
   });
 });

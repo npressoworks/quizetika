@@ -1,5 +1,6 @@
 import {
   BillingClientError,
+  fetchProPrices,
   getFirebaseIdToken,
   redirectToExternalUrl,
   startCheckoutSession,
@@ -113,5 +114,46 @@ describe('billing-client', () => {
   test('redirectToExternalUrl: 非 https URL は拒否', () => {
     expect(() => redirectToExternalUrl('http://evil.example')).toThrow(BillingClientError);
     expect(() => redirectToExternalUrl('javascript:alert(1)')).toThrow(BillingClientError);
+  });
+
+  test('fetchProPrices: 成功時に価格クォートを返す', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        monthly: { amount: 980, currency: 'jpy', label: '¥980/月' },
+        yearly: { amount: 9800, currency: 'jpy', label: '¥9,800/年' },
+        savingsLabel: '年額で約2ヶ月分お得',
+      }),
+    });
+
+    const result = await fetchProPrices();
+    expect(result.monthly.label).toBe('¥980/月');
+    expect(mockFetch).toHaveBeenCalledWith('/api/billing/prices');
+  });
+
+  test('fetchProPrices: 500 を unknown エラーにマップ', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'internal-error', message: '価格情報の取得に失敗しました。' }),
+    });
+
+    await expect(fetchProPrices()).rejects.toMatchObject({
+      apiError: {
+        code: 'unknown',
+        httpStatus: 500,
+      },
+    });
+  });
+
+  test('fetchProPrices: ネットワーク障害', async () => {
+    mockFetch.mockRejectedValue(new Error('network'));
+
+    await expect(fetchProPrices()).rejects.toMatchObject({
+      apiError: {
+        code: 'network',
+      },
+    });
   });
 });

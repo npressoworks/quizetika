@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Loader2, Sparkles } from 'lucide-react';
 import { getProPlanForUi } from '@/lib/pricing-display';
 import type { PricingUiCtaMode } from '@/lib/pricing-entitlement';
 import {
   BillingClientError,
+  fetchProPrices,
   redirectToExternalUrl,
   startCheckoutSession,
   startPortalSession,
 } from '@/lib/billing-client';
+import type { ProPricesResult } from '@/lib/billing-client';
 import type { PriceInterval } from '@/types/subscription';
 import styles from './pro-plan-card.module.css';
 
@@ -18,18 +20,66 @@ interface ProPlanCardProps {
   ctaMode: PricingUiCtaMode;
 }
 
+type ProPriceUiState =
+  | { status: 'loading' }
+  | { status: 'ready'; prices: ProPricesResult }
+  | { status: 'error' };
+
 export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
   const router = useRouter();
   const plan = getProPlanForUi();
   const [selectedInterval, setSelectedInterval] = useState<PriceInterval>('monthly');
+  const [priceState, setPriceState] = useState<ProPriceUiState>({ status: 'loading' });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPrices() {
+      setPriceState({ status: 'loading' });
+      try {
+        const prices = await fetchProPrices();
+        if (!cancelled) {
+          setPriceState({ status: 'ready', prices });
+        }
+      } catch {
+        if (!cancelled) {
+          setPriceState({ status: 'error' });
+        }
+      }
+    }
+
+    void loadPrices();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const showManageCta = ctaMode === 'manage' || alreadySubscribed;
+  const isIntervalDisabled =
+    loading || ctaMode === 'loading' || priceState.status !== 'ready';
+  const isPortalDisabled = loading || ctaMode === 'loading';
+  const isSubscribeDisabled =
+    loading ||
+    ctaMode === 'loading' ||
+    (priceState.status !== 'ready' && ctaMode === 'subscribe');
+
   const priceLabel =
-    selectedInterval === 'monthly'
-      ? plan.monthlyPriceLabel
-      : (plan.yearlyPriceLabel ?? plan.monthlyPriceLabel);
+    priceState.status === 'ready'
+      ? selectedInterval === 'monthly'
+        ? priceState.prices.monthly.label
+        : priceState.prices.yearly.label
+      : priceState.status === 'loading'
+        ? '読み込み中…'
+        : '価格を読み込めません';
+
+  const savingsLabel =
+    priceState.status === 'ready' && selectedInterval === 'yearly'
+      ? priceState.prices.savingsLabel
+      : undefined;
 
   const handleSubscribe = async () => {
     setErrorMessage(null);
@@ -50,6 +100,10 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
         return;
       }
 
+      if (priceState.status !== 'ready') {
+        return;
+      }
+
       const { sessionUrl } = await startCheckoutSession(selectedInterval);
       redirectToExternalUrl(sessionUrl);
     } catch (error) {
@@ -66,9 +120,6 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
     }
   };
 
-  const showManageCta = ctaMode === 'manage' || alreadySubscribed;
-  const isDisabled = loading || ctaMode === 'loading';
-
   return (
     <article className={`${styles.card} glass-card`} data-testid="pricing-pro-card">
       <div className={styles.header}>
@@ -81,7 +132,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
           type="button"
           className={`${styles.intervalBtn} ${selectedInterval === 'monthly' ? styles.intervalActive : ''}`}
           onClick={() => setSelectedInterval('monthly')}
-          disabled={isDisabled}
+          disabled={isIntervalDisabled}
           data-testid="pricing-interval-monthly"
           aria-pressed={selectedInterval === 'monthly'}
         >
@@ -91,7 +142,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
           type="button"
           className={`${styles.intervalBtn} ${selectedInterval === 'yearly' ? styles.intervalActive : ''}`}
           onClick={() => setSelectedInterval('yearly')}
-          disabled={isDisabled}
+          disabled={isIntervalDisabled}
           data-testid="pricing-interval-yearly"
           aria-pressed={selectedInterval === 'yearly'}
         >
@@ -99,10 +150,19 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
         </button>
       </div>
 
-      <p className={styles.price}>{priceLabel}</p>
-      {selectedInterval === 'yearly' && plan.yearlySavingsLabel && (
-        <p className={styles.savings}>{plan.yearlySavingsLabel}</p>
-      )}
+      <p
+        className={`${styles.price} ${priceState.status === 'error' ? styles.priceError : ''} ${priceState.status === 'loading' ? styles.priceLoading : ''}`}
+        data-testid={
+          priceState.status === 'error'
+            ? 'pricing-price-error'
+            : priceState.status === 'loading'
+              ? 'pricing-price-loading'
+              : 'pricing-price-ready'
+        }
+      >
+        {priceLabel}
+      </p>
+      {savingsLabel && <p className={styles.savings}>{savingsLabel}</p>}
 
       <ul className={styles.featureList}>
         {plan.featureBullets.map((feature) => (
@@ -124,7 +184,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
           type="button"
           className={`${styles.ctaBtn} btn btn-accent`}
           onClick={handleSubscribe}
-          disabled={isDisabled}
+          disabled={isPortalDisabled}
           data-testid="pricing-portal-btn"
           aria-label="契約内容を管理する"
         >
@@ -136,7 +196,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
           type="button"
           className={`${styles.ctaBtn} btn btn-accent`}
           onClick={handleSubscribe}
-          disabled={isDisabled}
+          disabled={isSubscribeDisabled}
           data-testid="pricing-subscribe-btn"
           aria-label={ctaMode === 'guest' ? 'ログインして Pro プランに加入する' : 'Pro プランに加入する'}
         >

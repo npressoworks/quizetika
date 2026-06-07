@@ -29,7 +29,7 @@ export function FreePlanCard({ ctaMode }: FreePlanCardProps) {
         <h2 className={styles.planName}>{plan.displayName}</h2>
       </div>
 
-      <p className={styles.price}>{plan.monthlyPriceLabel}</p>
+      <p className={styles.price}>¥0</p>
       <p className={styles.priceNote}>ずっと無料</p>
 
       <ul className={styles.featureList}>

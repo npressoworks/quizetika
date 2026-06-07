@@ -90,12 +90,89 @@
   - _Depends: 6.1_
   - _Requirements: 2, 9_
 
+### 7. Phase 2 — Upstream 価格取得 API（quizeum-core 実装・先行必須）
+
+- [x] 7.1 (P) JPY 価格ラベル整形の実装
+  - Stripe の `unit_amount`（JPY 整数）から「¥980/月」「¥9,800/年」形式の表示ラベルを生成する純関数を実装する。
+  - 月額 12 倍と年額の差分から「年額で約 N ヶ月分お得」を切り捨て整数で算出し、N が 1 未満のときは `savingsLabel` を省略する。
+  - **完了状態**: Jest で金額ラベル変換とお得ラベル計算の期待ケースがすべてグリーンであること。
+  - _Requirements: 10, 9_
+  - _Boundary: pricing-format_
+
+- [x] 7.2 Stripe 価格取得サービスの実装
+  - Pro 月額・年額の Price ID（`subscription-plans` 正本）で `stripe.prices.retrieve` を並列実行し、両方成功時のみクォートを返す。
+  - `currency` が `jpy` でない、または `unit_amount` が欠落している Price は失敗扱いとし、部分成功は許容しない。
+  - **完了状態**: Stripe mock テストで両価格取得成功と一方失敗時のエラー返却が検証できること。
+  - _Depends: 7.1_
+  - _Requirements: 1, 9_
+  - _Boundary: billing-prices_
+
+- [x] 7.3 価格取得 API ルートの実装
+  - 認証不要の `GET /api/billing/prices` を実装し、トップレベル `{ monthly, yearly, savingsLabel? }` 形状の JSON を返す（`pro.` ネストは使わない）。
+  - `export const revalidate = 3600` でキャッシュし、レスポンスに Stripe 秘密情報・Price ID を含めない。
+  - **完了状態**: API テストで 200 レスポンス形状と Stripe 失敗時の 500 が検証できること。
+  - _Depends: 7.2_
+  - _Requirements: 1, 9_
+  - _Boundary: Prices API route_
+
+### 8. Phase 2 — 表示マスタと価格取得クライアント
+
+- [x] 8.1 (P) 固定価格フィールドの除去と Free カードの ¥0 固定化
+  - 料金表示マスタから月額・年額・お得ラベルフィールドを削除し、プラン名称と特典 bullets のみを保持する。
+  - Free プランカードは表示マスタの価格フィールドを参照せず、コンポーネント内で `¥0` を固定表示する。
+  - 表示マスタの単体テストから価格 assertion を削除し、名称・特典の検証に更新する。
+  - **完了状態**: 表示マスタに価格フィールドが存在せず、Free カードが `¥0` を表示し、関連 Jest がグリーンであること。
+  - _Requirements: 1, 10_
+  - _Boundary: pricing-display, FreePlanCard_
+
+- [x] 8.2 価格取得クライアントの実装
+  - 購読 API クライアントに `fetchProPrices` を追加し、`GET /api/billing/prices` の成功レスポンスを型安全にパースする。
+  - ネットワーク障害および HTTP 500 を既存の課金クライアントエラー型にマップし、技術詳細は画面に露出しない。
+  - **完了状態**: `fetchProPrices` の Jest で 200 パースと network/500 失敗ケースがグリーンであること。
+  - _Depends: 7.3_
+  - _Requirements: 1, 7, 10_
+  - _Boundary: billing-client_
+
+### 9. Phase 2 — Pro カード動的価格 UI
+
+- [x] 9.1 Pro プランカードの動的価格状態機械の実装
+  - マウント時に `fetchProPrices` を 1 回呼び出し、`loading` / `ready` / `error` の 3 状態で価格表示領域を切り替える。
+  - `ready` 時は interval 選択に応じて月額・年額ラベルを表示し、年額選択時は `savingsLabel` を補足表示する。
+  - `error` 時は価格欄に「価格を読み込めません」を表示し、購読ボタンと月額／年額トグルを無効化する（代替固定金額は出さない）。
+  - `manage` モード時は価格 `error` でも契約管理 CTA を有効に維持する。特典一覧は価格成否に関わらず常時表示する。
+  - **完了状態**: Pro カードの Jest で loading 表示、error 時の文言・購読 disabled・Portal enabled、ready 時の interval 切替が検証できること。
+  - _Depends: 8.1, 8.2_
+  - _Requirements: 1, 2, 3, 7, 10_
+  - _Boundary: ProPlanCard_
+
+### 10. Phase 2 統合検証
+
+- [x] 10.1 Phase 2 統合テストと Phase 1 回帰確認
+  - 価格 API・価格取得クライアント・Pro カード動的価格の Jest/API テストを実行し、Phase 1 料金 UI テストを含む関連スイートがすべてグリーンであること。
+  - 要件 9 の境界（Webhook・プレイ画面誘導・価格取得サーバー実装の UI 側混在なし）を満たしていることを確認する。
+  - **完了状態**: Phase 2 追加テストと Phase 1 回帰テストがすべてパスすること。
+  - _Depends: 9.1_
+  - _Requirements: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10_
+
+- [ ]* 10.2 Phase 2 E2E 動的価格フロー検証（任意）
+  - Playwright で `/pricing` 表示後に Pro カードへ価格ラベルまたは「価格を読み込めません」が現れることを検証する。
+  - 価格エラー状態（API モック可）で購読ボタンが disabled であることを検証する。
+  - **完了状態**: E2E が価格表示またはエラー表示と購読 disabled を検証できること。
+  - _Depends: 10.1_
+  - _Requirements: 2, 9_
+
 ---
 
 ## Implementation Notes
 
+### Phase 1（完了）
 - **Upstream 前提**: `quizeum-core` Phase 14（購読開始 API、契約管理 API、`User.subscriptionTier`）が完了していること。
-- **表示価格**: `pricing-display.ts` の円ラベルは Stripe Dashboard の実金額と手動同期する（運用チェックリスト）。
 - **entitlement 同期**: core の `computeUserEntitlements` 規則変更時は `pricing-entitlement.ts` とテストを同時更新する。
 - **隣接スペック**: プレイ画面の `isPremium` 連携・AI 制限誘導は `quizeum-play-flow-ui` が担当（本スペック外）。
 - **Checkout フィードバック**: `router.replace` 後もバナー表示するため、クエリ検知結果をローカル state に保持する。
+
+### Phase 2（2026-06-08）
+- **実装順序**: タスク 7（core 価格 API）→ 8.2 → 9.1。タスク 8.1 は 7 と並行可能（`(P)`）。
+- **価格正本**: Stripe Price（`GET /api/billing/prices`）。`pricing-display.ts` の固定円ラベルは Phase 2 で廃止する。
+- **失敗時 UX**: 「価格を読み込めません」表示。ハードコード代替金額は使用しない（ディスカバリー確定方針）。
+- **core 境界**: タスク 7 のファイルは `quizeum-core` スペック境界だが、本ロードマップでは billing-ui Phase 2 の先行前提として同一 PR で実装してよい。

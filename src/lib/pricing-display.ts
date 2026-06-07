@@ -8,9 +8,6 @@ export interface PricingFeatureBullet {
 export interface PricingPlanDisplay {
   tier: 'free' | 'pro';
   displayName: string;
-  monthlyPriceLabel: string;
-  yearlyPriceLabel?: string;
-  yearlySavingsLabel?: string;
   featureBullets: readonly PricingFeatureBullet[];
 }
 
@@ -18,7 +15,6 @@ export const PRICING_PLANS_DISPLAY: readonly PricingPlanDisplay[] = [
   {
     tier: 'free',
     displayName: 'Free',
-    monthlyPriceLabel: '¥0',
     featureBullets: [
       {
         id: 'quiz_create_play',
@@ -33,9 +29,6 @@ export const PRICING_PLANS_DISPLAY: readonly PricingPlanDisplay[] = [
   {
     tier: 'pro',
     displayName: 'Pro',
-    monthlyPriceLabel: '¥980/月',
-    yearlyPriceLabel: '¥9,800/年',
-    yearlySavingsLabel: '年額で約2ヶ月分お得',
     featureBullets: [
       {
         id: 'unlimited_ai_questions',

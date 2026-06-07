@@ -64,6 +64,18 @@
   color: var(--text-main);
 }
 
+.priceLoading {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.priceError {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #ff8080;
+}
+
 .savings {
   margin: -12px 0 0;
   font-size: 0.85rem;
