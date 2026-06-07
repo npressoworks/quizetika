@@ -185,7 +185,7 @@ export default function QuizDetailPage({ params }: PageProps) {
               )
             )}
             <div className={styles.difficultyBadge} style={{ fontFamily: 'monospace' }}>
-              難易度: <span style={{ color: getDifficultyColor(diffNum) }}>{'★'.repeat(diffNum)}</span><span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 10 - diffNum))}</span>
+              難易度: <span style={{ color: getDifficultyColor(diffNum) }}>{'★'.repeat(diffNum)}</span><span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - diffNum))}</span>
             </div>
             <div className={styles.difficultyBadge}>
               形式: {getFormatIcon(resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] }))} {getFormatLabel(resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] }))}

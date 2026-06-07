@@ -4,6 +4,7 @@ import { Bookmark } from 'lucide-react';
 import type { Quiz } from '../../types';
 import { resolveQuizFormat } from '@/lib/quiz-format';
 import { getFormatLabel, getFormatIcon } from '@/lib/quiz-format-labels';
+import { getDifficultyColor } from '@/lib/difficulty-color';
 import styles from './quiz-card.module.css';
 
 interface QuizCardProps {
@@ -93,8 +94,9 @@ export function QuizCard({
         </div>
 
         <div className={styles.metaRow}>
-          <span className={styles.difficultyStar} data-testid="quiz-card-difficulty">
-            ★ {quiz.difficulty}
+          <span className={styles.difficultyStar} data-testid="quiz-card-difficulty" style={{ fontFamily: 'monospace' }}>
+            <span style={{ color: getDifficultyColor(quiz.difficulty) }}>{'★'.repeat(quiz.difficulty)}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - quiz.difficulty))}</span>
           </span>
           <span className={styles.genreLabel} data-testid="quiz-card-genre">
             {genreLabel}

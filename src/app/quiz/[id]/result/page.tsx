@@ -578,7 +578,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
                   {'★'.repeat(diffNum)}
                 </span>
                 <span style={{ color: 'var(--text-muted)' }}>
-                  {'☆'.repeat(Math.max(0, 10 - diffNum))}
+                  {'☆'.repeat(Math.max(0, 5 - diffNum))}
                 </span>
               </span>
             );
@@ -666,9 +666,9 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
           </div>
         </div>
 
-        {/* 2. 難易度投票 (1 - 10) */}
+        {/* 2. 難易度投票 (1 - 5) */}
         <div className={styles.difficultyVoteSection}>
-          <span className={styles.voteLabel}>あなたが感じた体感難易度を投票してください (1: 簡単 〜 10: 激難)</span>
+          <span className={styles.voteLabel}>あなたが感じた体感難易度を投票してください (1: 簡単 〜 5: 激難)</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontFamily: 'monospace' }}>
             <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>あなたの投票: </span>
             {difficultyVote !== null ? (
@@ -677,7 +677,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
                   {'★'.repeat(difficultyVote)}
                 </span>
                 <span style={{ color: 'var(--text-muted)' }}>
-                  {'☆'.repeat(Math.max(0, 10 - difficultyVote))}
+                  {'☆'.repeat(Math.max(0, 5 - difficultyVote))}
                 </span>
                 <span style={{ marginLeft: '8px', fontWeight: 'bold', color: 'var(--text-main)' }}>({difficultyVote})</span>
               </span>
@@ -686,7 +686,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
             )}
           </div>
           <div className={styles.difficultyBar}>
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((level) => (
+            {Array.from({ length: 5 }, (_, i) => i + 1).map((level) => (
               <button
                 key={level}
                 className={`${styles.diffCell} ${difficultyVote === level ? styles.diffCellSelected : ''}`}

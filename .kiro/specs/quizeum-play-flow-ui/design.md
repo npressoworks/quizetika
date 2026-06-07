@@ -33,6 +33,7 @@
 - **Phase 10**: `UnifiedSearchField` によるタグチップ＋タグ／ジャンルサジェスト、クイックサーチチップからのタグチップ追加、`QuizCard` の `★ N` 難易度・ジャンル・出題形式表示、探索一覧ページでのカード統一。
 - **Phase 11**: ホームのアコーディオン＋ジャンル／形式カルーセル（ホーム内フィルタ）、`GenreNav` ホーム参照の除去、探索フィルタ状態の一元管理（`format` 含む）、ジャンルページ scoped 検索（`ExploreSearchSection` 再利用）。
 - **Phase 12**: プレイ終了画面の削除と最後の設問解答時の自動遷移、難易度（★）の等幅ゲージのグラデーションカラー表示（詳細・結果）、結果画面でのヒント・質問回数表示、もう一度プレイするボタン、作者へのリンクと他のクイズおすすめ表示、結果ヘッダーでのクイズブックマーク、指摘カテゴリ別解除外、指摘ボタン横の通報ボタン表示と送信機能。
+- **Phase 13**: 難易度の5段階化（1〜10から1〜5への変更）に合わせて、詳細画面・結果画面・クイズカードの星ゲージ表示と難易度投票の選択肢を1〜5に変更し、HSLカラー算出も5分割に適合させます。
 
 
 ### Non-Goals
@@ -44,6 +45,7 @@
 - **Phase 10**: `listActiveTags`（存続タグのみ・`quizeum-core` 要件 16）・`searchQuizzes.tags` AND 合成（`quizeum-core` 要件 16）。ジャンル／タグ一覧ページへの検索バー新設。クイズ詳細・プレイ画面の難易度表示変更。タグ新設申請・マージ UI（`quizeum-moderation-governance-ui`）。
 - **Phase 11**: 出題形式専用一覧ルート（`/formats/[format]`）、URL クエリによるフィルタ共有可能化、タグ別一覧への検索バー追加、カルーセル自動スライド・外部 carousel ライブラリ導入。`searchQuizzes` の形式照合ロジック（`quizeum-core`）。
 - **Phase 12**: 指摘フィードバック・通報・ブックマークのFirestoreへの物理的な保存・カウントアップ・自動審査（`quizeum-core` が担当）。
+- **Phase 13**: 既存の難易度 6〜10 を持つクイズの自動マイグレーションスクリプトは UI スペックの対象外とします（読み取り互換/テストデータ修正に委ねます）。
 
 
 ---
@@ -270,7 +272,7 @@ hooks/
 - `e2e/quiz-search.spec.ts` — ジャンルカルーセルが `/genres` に遷移しないこと、形式カルーセル絞り込み。
 
 ### New Files（Phase 12）
-- [difficulty-color.ts](file:///d:/quizeum/src/lib/difficulty-color.ts) — 難易度(1〜10)に応じた HSL カラーを算出する共通ヘルパー。 (2.1b-1)
+- [difficulty-color.ts](file:///d:/quizeum/src/lib/difficulty-color.ts) — 難易度(1〜5)に応じた HSL カラーを算出する共通ヘルパー。 (2.1b-1)
 - [report-modal.tsx](file:///d:/quizeum/src/components/quiz/report-modal.tsx) / [report-modal.module.css](file:///d:/quizeum/src/components/quiz/report-modal.module.css) — 通報理由を入力・送信でき、`quizeum-core` の `flagContent`（または同等 API）を呼び出す通報モーダル。 (5.11a)
 
 ### Modified Files（Phase 12）
@@ -408,7 +410,7 @@ sequenceDiagram
 - **サジェスト**: 自由入力 1 文字以上でタグ候補（`listActiveTags`：core 要件 16 の存続タグのみ）とジャンル候補（`useActiveGenres`）をセクション分けまたはラベル付きで表示。タグ候補の**照合キーは `id`**、**表示ラベルは `tagName ?? id`**（`filter-tag-suggestions`）。
 - **ジャンル選択**: サジェストからジャンル選択時は `filters.genreId` を更新し、フィルタパネル内 `GenreSearchField` と同期。
 - **検索合成**: `searchQuizzes(keyword, { tags: tagChips, genreId, ... })` でキーワード・タグ AND・ジャンル・数値フィルタを AND 適用。全未指定時はタブ別 API。
-- **難易度表示**: カード上は `★ {difficulty}`（1〜10 整数）。プログレスバーは使用しない。
+- **難易度表示**: カード上は `★ {difficulty}`（1〜5 整数）。プログレスバーは使用しない。
 
 ```mermaid
 sequenceDiagram
@@ -691,7 +693,7 @@ sequenceDiagram
 
 **Responsibilities & Constraints**
 - クイズ固有の `thumbnailUrl` がある場合はアスペクト比を保って表示、ない場合はジャンルに基づくグラデーションプレースホルダーを表示。
-- タイトル、作成者名、**難易度（`★ {difficulty}`、1〜10 整数。プログレスバー禁止）**、**ジャンル表示名**、**出題形式ラベル**（形式絵文字アイコンと日本語ラベルの併記、`getFormatIcon(resolveQuizFormat(quiz))` + `getFormatLabel(resolveQuizFormat(quiz))`）、評価（`reviewScore`）、「プレイする」ボタンを整理して表示。
+- タイトル、作成者名、**難易度（`★ {difficulty}`、1〜5 整数。プログレスバー禁止）**、**ジャンル表示名**、**出題形式ラベル**（形式絵文字アイコンと日本語ラベルの併記、`getFormatIcon(resolveQuizFormat(quiz))` + `getFormatLabel(resolveQuizFormat(quiz))`）、評価（`reviewScore`）、「プレイする」ボタンを整理して表示。
 - `genreDisplayName` prop が渡された場合はそれを優先。未指定時は `quiz.genre` をフォールバック表示。
 - ホバー時のネオン発光トランジション（Phase 9）を維持。
 - **ナビゲーション（確定）**: 任意 prop `href` が渡されたとき、カードルートを Next.js `Link` でラップしカード全体クリックでクイズ詳細へ遷移する。`href` 未指定時（ホーム）は従来どおり `div` + `onPlayClick`。いずれも「挑戦する」ボタンに `data-testid="play-btn"` を付与。
@@ -1145,7 +1147,7 @@ function buildQuestionListPlayUrl(session: QuestionListSession, index: number): 
   - 消去ボタンでチップとキーワードがクリアされ、タブ別一覧に復帰すること。
   - 複数タグチップ時、両方のタグを含むクイズのみ表示されること（AND）。
 - **クイズカードメタ拡充（Phase 10）**:
-  - `[data-testid="quiz-card-difficulty"]` が `★ 7` 形式（例）を含み、プログレスバー要素が存在しないこと。
+  - `[data-testid="quiz-card-difficulty"]` が `★ 4` 形式（例）を含み、プログレスバー要素が存在しないこと。
   - `[data-testid="quiz-card-genre"]` と `[data-testid="quiz-card-format"]` がホーム・ジャンル一覧・タグ一覧のいずれでも表示されること。
   - ジャンル／タグ一覧で `QuizCard` の `href` によりカードクリックで `/quiz/[id]` へ遷移すること。`[data-testid="play-btn"]` が存在すること。
 
@@ -1171,7 +1173,7 @@ function buildQuestionListPlayUrl(session: QuestionListSession, index: number): 
 
 ### Unit Tests（Phase 12）
 - **`difficulty-color`**:
-  - 難易度1（緑）から難易度10（赤）まで、期待される HSL カラーコードが正しく算出されることを検証。
+  - 難易度1（緑）から難易度5（赤）まで、期待される HSL カラーコードが正しく算出されることを検証。
 - **`report-modal`**:
   - モーダル表示、通報理由入力、送信時の `flagContent` 呼び出しおよび引数を検証。
 
@@ -1296,13 +1298,13 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
 プレイから結果画面への自動遷移、難易度（★）の等幅ゲージのグラデーションカラー表示（詳細・結果共通）、結果詳細でのヒント・質問回数表示、もう一度プレイするボタン、作者へのリンクと他のクイズおすすめ表示、結果ヘッダーでのクイズブックマーク、指摘カテゴリ別解除外、指摘ボタン横の通報ボタン表示と送信機能の実装を行います。
 
 ### 1. 難易度星ゲージ（★）のグラデーションカラー
-難易度（1〜10）の値に応じて HSL カラースペースを用いて算出したカラーを `color` スタイルプロパティに適用します。
+難易度（1〜5）の値に応じて HSL カラースペースを用いて算出したカラーを `color` スタイルプロパティに適用します。
 * 算出ロジック:
   [difficulty-color.ts](file:///d:/quizeum/src/lib/difficulty-color.ts) に `getDifficultyColor(difficulty: number): string` を定義します。
   ```typescript
   export function getDifficultyColor(difficulty: number): string {
-    // 難易度1のとき Hue=120(緑), 難易度10のとき Hue=3(赤)
-    const hue = Math.max(0, 120 - (difficulty - 1) * 13);
+    // 難易度1のとき Hue=120(緑), 難易度5のとき Hue=0(赤)
+    const hue = Math.max(0, 120 - (difficulty - 1) * 30);
     return `hsl(${hue}, 100%, 45%)`;
   }
   ```

@@ -89,7 +89,7 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
       makeQuiz({ id: '1', title: 'JavaScript 入門', authorName: 'ユーザーA', genre: 'programming', tags: ['js'] }),
       makeQuiz({ id: '2', title: 'Python 基礎', authorName: 'ユーザーB', description: 'Pythonと機械学習', tags: ['python'] }),
       makeQuiz({ id: '3', title: 'React の世界', authorName: 'ユーザーA', genre: 'web-front', tags: ['react', 'js'] }),
-      makeQuiz({ id: '4', title: 'TypeScript 入門', authorName: 'ユーザーC', tags: ['ts', 'js'], difficulty: 8, questionCount: 15 }),
+      makeQuiz({ id: '4', title: 'TypeScript 入門', authorName: 'ユーザーC', tags: ['ts', 'js'], difficulty: 4, questionCount: 15 }),
     ];
 
     // getDocs がモックのデータを返すように設定
@@ -147,8 +147,8 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
   test('詳細フィルター（難易度、問題数、ジャンルID）が正しく適用されること', async () => {
     const mockQuizzes = [
       makeQuiz({ id: '1', title: 'JS 基礎', difficulty: 2, questionCount: 5, genre: 'programming' }),
-      makeQuiz({ id: '2', title: 'JS 応用', difficulty: 7, questionCount: 12, genre: 'programming' }),
-      makeQuiz({ id: '3', title: 'JS 達人', difficulty: 9, questionCount: 20, genre: 'programming' }),
+      makeQuiz({ id: '2', title: 'JS 応用', difficulty: 4, questionCount: 12, genre: 'programming' }),
+      makeQuiz({ id: '3', title: 'JS 達人', difficulty: 5, questionCount: 20, genre: 'programming' }),
     ];
 
     const { getDocs: mockGetDocs } = require('firebase/firestore');
@@ -160,8 +160,8 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
     });
 
     const filtered = await searchQuizzes('JS', {
-      difficultyMin: 5,
-      difficultyMax: 10,
+      difficultyMin: 4,
+      difficultyMax: 5,
     });
 
     expect(filtered.map(r => r.id)).toEqual(['2', '3']);

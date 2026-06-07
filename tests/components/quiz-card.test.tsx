@@ -16,7 +16,7 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
     title: 'JavaScript 基礎クイズ',
     description: 'JSの基礎知識を問います',
     thumbnailUrl: 'http://example.com/thumb.jpg',
-    difficulty: 7,
+    difficulty: 4,
     genre: 'programming',
     tags: ['js', 'frontend'],
     originalTags: [],
@@ -53,7 +53,7 @@ describe('QuizCard', () => {
     jest.clearAllMocks();
   });
 
-  it('難易度を ★ N 形式で表示しプログレスバーを持たない', () => {
+  it('難易度を 5段階の星ゲージ形式で表示しプログレスバーを持たない', () => {
     const { container } = render(
       <QuizCard
         quiz={makeQuiz()}
@@ -63,7 +63,7 @@ describe('QuizCard', () => {
       />
     );
 
-    expect(screen.getByTestId('quiz-card-difficulty')).toHaveTextContent('★ 7');
+    expect(screen.getByTestId('quiz-card-difficulty')).toHaveTextContent('★★★★☆');
     expect(container.querySelector('.progressBarBg')).toBeNull();
     expect(container.querySelector('.progressBar')).toBeNull();
   });

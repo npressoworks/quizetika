@@ -120,7 +120,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-  const [difficulty, setDifficulty] = useState(5);
+  const [difficulty, setDifficulty] = useState(3);
   const [genre, setGenre] = useState('');
   const [format, setFormat] = useState<'mixed' | 'multiple-choice' | 'text-input' | 'quick-press' | 'sorting' | 'association' | 'lateral-thinking'>('mixed');
   
@@ -1220,12 +1220,12 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   {/* 難易度スライダー */}
                   <div className={styles.formGroup} id="field-difficulty">
-                    <label className={styles.label}>難易度 (1 - 10)</label>
+                    <label className={styles.label}>難易度 (1 - 5)</label>
                     <div className={styles.sliderContainer}>
                       <input
                         type="range"
                         min="1"
-                        max="10"
+                        max="5"
                         className={styles.slider}
                         value={difficulty}
                         onChange={(e) => setDifficulty(parseInt(e.target.value))}

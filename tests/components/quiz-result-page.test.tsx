@@ -111,7 +111,7 @@ describe('QuizResultPage Component (Phase 12)', () => {
     description: 'テスト用クイズ記述',
     authorId: 'author-456',
     authorName: 'クイズ作者',
-    difficulty: 6,
+    difficulty: 3,
     genre: 'programming',
     format: 'association',
     questions: [
