@@ -31,6 +31,7 @@ export interface UseExploreQuizFeedOptions {
   lockedGenreId?: string;
   activeSort?: QuizListSort;
   limit?: number;
+  initialQuizzes?: Quiz[];
 }
 
 function buildSearchArgs(filters: HomeFeedFilters, genreIdOverride?: string) {
@@ -55,13 +56,20 @@ export function useExploreQuizFeed(options: UseExploreQuizFeedOptions) {
     lockedGenreId,
     activeSort = 'latest',
     limit = 30,
+    initialQuizzes,
   } = options;
 
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quizzes, setQuizzes] = useState<Quiz[]>(initialQuizzes || []);
+  const [loading, setLoading] = useState(!initialQuizzes);
   const [error, setError] = useState<string | null>(null);
+  const [isFirstRender, setIsFirstRender] = useState(true);
 
   useEffect(() => {
+    if (isFirstRender && initialQuizzes) {
+      setIsFirstRender(false);
+      return;
+    }
+
     let cancelled = false;
     const timer = setTimeout(async () => {
       setLoading(true);

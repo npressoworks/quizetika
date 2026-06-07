@@ -12,13 +12,18 @@ export interface UseActiveGenresResult {
   refetch: () => void;
 }
 
-export function useActiveGenres(): UseActiveGenresResult {
-  const [genres, setGenres] = useState<GenreMetadata[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useActiveGenres(initialGenres?: GenreMetadata[]): UseActiveGenresResult {
+  const [genres, setGenres] = useState<GenreMetadata[]>(initialGenres || []);
+  const [loading, setLoading] = useState(!initialGenres);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    // 初期データが存在し、かつリフレッシュ要求(tick > 0)がない場合はフェッチをスキップ
+    if (initialGenres && tick === 0) {
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -44,7 +49,7 @@ export function useActiveGenres(): UseActiveGenresResult {
     return () => {
       cancelled = true;
     };
-  }, [tick]);
+  }, [tick, initialGenres]);
 
   const genreLabelById = useMemo(() => {
     const map = new Map<string, string>();

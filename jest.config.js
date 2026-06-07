@@ -26,12 +26,9 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     // Firebase SDK は純粋関数テストでは不要なためモック化
     '^firebase/(.*)$': '<rootDir>/tests/__mocks__/firebase/$1.ts',
-    // src/lib/firebase/* へのインポートをモックに置き換え（絶対パスパターン）
-    '<rootDir>/src/lib/firebase/config': '<rootDir>/tests/__mocks__/firebase-config.ts',
-    '<rootDir>/src/lib/firebase/firestore': '<rootDir>/tests/__mocks__/firebase-firestore.ts',
-    // 相対パスでのインポートも対応
-    '^(\\.+/)*lib/firebase/config$': '<rootDir>/tests/__mocks__/firebase-config.ts',
-    '^(\\.+/)*lib/firebase/firestore$': '<rootDir>/tests/__mocks__/firebase-firestore.ts',
+    // src/lib/firebase/* へのインポートをモックに置き換え (Windows対応、相対・絶対パス不問)
+    'firebase[\\/]config$': '<rootDir>/tests/__mocks__/firebase-config.ts',
+    'firebase[\\/]firestore$': '<rootDir>/tests/__mocks__/firebase-firestore.ts',
   },
 
   // Firebase SDK が使用するグローバル環境を定義

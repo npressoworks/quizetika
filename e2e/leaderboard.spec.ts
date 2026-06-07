@@ -20,6 +20,9 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
     // 2. リーダーボードページへ遷移したことを確認
     await expect(page).toHaveURL(/\/leaderboard/);
 
+    // ロード中スケルトンが消えるのを待つ
+    await expect(page.getByTestId('leaderboard-global-skeleton')).toBeHidden({ timeout: 15000 });
+
     // 3. ランキング一覧が表示されることを確認
     const leaderboardList = page.locator('[data-testid="leaderboard-list"]').first()
       .or(page.locator('table').first())
@@ -86,9 +89,9 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
       await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動生成データです。');
 
-      const qTextarea = page.locator('textarea[placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"]').first();
+      const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
       await qTextarea.fill('テスト問題1');
-      const choiceInputs = page.locator('.choiceRow input[type="text"]');
+      const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
       await choiceInputs.nth(0).fill('useState'); // 正解
       await choiceInputs.nth(1).fill('useEffect');
       await choiceInputs.nth(2).fill('useContext');
@@ -100,7 +103,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
         await dialog.accept();
       });
 
-      await page.locator('text=公開').click();
+      await page.locator('button').filter({ hasText: /^公開$/ }).first().click();
       await expect.poll(() => publishDialog).toBe(true);
       await page.goto('/');
       await firstQuizCard.waitFor({ state: 'visible', timeout: 15000 });
@@ -112,8 +115,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
     await expect(page).toHaveURL(/\/quiz\/[\w-]+$/);
 
     // 2. クイズのリーダーボード情報を確認（詳細ページ内）
-    const quizLeaderboard = page.locator('[data-testid="quiz-leaderboard"]').first()
-      .or(page.locator('div').filter({ hasText: /初回プレイ|リプレイ|ランキング/ }).first());
+    const quizLeaderboard = page.locator('[data-testid="quiz-leaderboard"]').first();
 
     if (await quizLeaderboard.isVisible()) {
       await expect(quizLeaderboard).toBeVisible();
@@ -313,9 +315,9 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
       await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動生成データです。');
 
-      const qTextarea = page.locator('textarea[placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"]').first();
+      const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
       await qTextarea.fill('テスト問題1');
-      const choiceInputs = page.locator('.choiceRow input[type="text"]');
+      const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
       await choiceInputs.nth(0).fill('useState'); // 正解
       await choiceInputs.nth(1).fill('useEffect');
       await choiceInputs.nth(2).fill('useContext');
@@ -327,7 +329,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
         await dialog.accept();
       });
 
-      await page.locator('text=公開').click();
+      await page.locator('button').filter({ hasText: /^公開$/ }).first().click();
       await expect.poll(() => publishDialog).toBe(true);
       await page.goto('/');
       await firstQuizCard.waitFor({ state: 'visible', timeout: 15000 });
@@ -353,7 +355,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       // プレイページへ遷移することを確認
       await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
       // 5. クイズをプレイ（最初の選択肢をクリック）
-      const firstOption = page.locator('.optionBtn').first()
+      const firstOption = page.locator('button[class*="optionBtn"]').first()
         .or(page.locator('button').filter({ hasText: /選択肢|答え|useState/ }).first());
       await expect(firstOption).toBeVisible({ timeout: 5000 });
       await firstOption.click();

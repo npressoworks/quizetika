@@ -12,13 +12,18 @@ export interface UseActiveTagsResult {
   refetch: () => void;
 }
 
-export function useActiveTags(): UseActiveTagsResult {
-  const [tags, setTags] = useState<TagMetadata[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useActiveTags(initialTags?: TagMetadata[]): UseActiveTagsResult {
+  const [tags, setTags] = useState<TagMetadata[]>(initialTags || []);
+  const [loading, setLoading] = useState(!initialTags);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    // 初期データが存在し、かつリフレッシュ要求(tick > 0)がない場合はフェッチをスキップ
+    if (initialTags && tick === 0) {
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -41,7 +46,7 @@ export function useActiveTags(): UseActiveTagsResult {
     return () => {
       cancelled = true;
     };
-  }, [tick]);
+  }, [tick, initialTags]);
 
   const tagLabelById = useMemo(() => {
     const map = new Map<string, string>();

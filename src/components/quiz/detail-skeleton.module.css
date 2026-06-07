@@ -1,0 +1,118 @@
+.skeletonCard {
+  background: rgba(30, 30, 45, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.genre {
+  height: 20px;
+  width: 120px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.title {
+  height: 32px;
+  width: 70%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.badges {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  height: 28px;
+  width: 100px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+}
+
+.thumbnail {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 340px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.authorSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.authorInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.lineShort {
+  height: 12px;
+  width: 60px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.lineMedium {
+  height: 16px;
+  width: 120px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.description {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lineFull {
+  height: 16px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}

@@ -4,7 +4,7 @@
 import '@testing-library/jest-dom';
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import Home from '@/app/page';
+import { HomeClient } from '@/app/home-client';
 
 const push = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -65,8 +65,8 @@ const mockQuizzes = [
 ];
 
 let mockFeedLoading = false;
-jest.mock('@/hooks/useHomeQuizFeed', () => ({
-  useHomeQuizFeed: () => ({
+jest.mock('@/hooks/useExploreQuizFeed', () => ({
+  useExploreQuizFeed: () => ({
     quizzes: mockQuizzes,
     loading: mockFeedLoading,
     error: null,
@@ -91,7 +91,7 @@ describe('Home Page UI', () => {
   });
 
   it('検索バーに入力でき、消去ボタンでクリアされること', () => {
-    render(<Home />);
+    render(<HomeClient initialGenres={mockGenres} initialTags={[]} initialQuizzes={mockQuizzes} />);
 
     const input = screen.getByPlaceholderText(/クイズを検索/);
     fireEvent.change(input, { target: { value: 'TypeScript' } });
@@ -103,7 +103,7 @@ describe('Home Page UI', () => {
   });
 
   it('クイック検索チップをクリックするとタグチップが追加されること', () => {
-    render(<Home />);
+    render(<HomeClient initialGenres={mockGenres} initialTags={[]} initialQuizzes={mockQuizzes} />);
 
     const chip = screen.getByRole('button', { name: '#ウミガメのスープ' });
     fireEvent.click(chip);
@@ -113,7 +113,7 @@ describe('Home Page UI', () => {
 
   it('ロード中はスケルトンカードが表示されること', () => {
     mockFeedLoading = true;
-    render(<Home />);
+    render(<HomeClient initialGenres={mockGenres} initialTags={[]} initialQuizzes={mockQuizzes} />);
 
     const skeletons = screen.getAllByTestId('skeleton-card');
     expect(skeletons.length).toBe(6);
@@ -121,14 +121,14 @@ describe('Home Page UI', () => {
 
   it('ロード完了後はクイズカードが表示されること', () => {
     mockFeedLoading = false;
-    render(<Home />);
+    render(<HomeClient initialGenres={mockGenres} initialTags={[]} initialQuizzes={mockQuizzes} />);
 
     expect(screen.getByText('JavaScript 基礎クイズ')).toBeInTheDocument();
     expect(screen.getByTestId('quiz-card-difficulty')).toBeInTheDocument();
   });
 
   it('GenreNav は表示せず探索アコーディオンを表示すること', () => {
-    render(<Home />);
+    render(<HomeClient initialGenres={mockGenres} initialTags={[]} initialQuizzes={mockQuizzes} />);
 
     expect(screen.queryByTestId('genre-nav')).not.toBeInTheDocument();
     expect(screen.getByTestId('explore-accordion-genre')).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe('Home Page UI', () => {
   });
 
   it('ジャンルアコーディオン展開後カルーセル選択で router.push しないこと', () => {
-    render(<Home />);
+    render(<HomeClient initialGenres={mockGenres} initialTags={[]} initialQuizzes={mockQuizzes} />);
 
     fireEvent.click(screen.getByTestId('explore-accordion-genre'));
     fireEvent.click(screen.getByTestId('genre-carousel-card-programming'));

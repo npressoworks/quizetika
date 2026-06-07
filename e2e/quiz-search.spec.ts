@@ -16,6 +16,9 @@ test.describe('クイズ検索・探索機能 E2Eテスト', () => {
     // DOM読み込み完了まで待機（networkidleはFirebaseで使用不可）
     await page.waitForLoadState('domcontentloaded');
     
+    // ロード中スケルトンが消えるのを待つ
+    await expect(page.getByTestId('home-feed-skeleton')).toBeHidden({ timeout: 15000 });
+    
     // ページの主要コンテンツが表示されるまで待機（最大15秒）
     const searchInput = page.locator('input[placeholder="タイトル、説明文、作成者、タグでクイズを検索..."]');
     await expect(searchInput).toBeVisible({ timeout: 15000 });
@@ -55,9 +58,9 @@ test.describe('クイズ検索・探索機能 E2Eテスト', () => {
     await filterToggleBtn.click();
     
     // フィルターパネルが表示されることを確認
-    await expect(page.locator('text=難易度範囲 (1 - 10)')).toBeVisible();
-    await expect(page.locator('text=問題数')).toBeVisible();
-    await expect(page.locator('text=プレイ状況')).toBeVisible();
+    await expect(page.locator('text=難易度範囲 (1 - 10)').first()).toBeVisible();
+    await expect(page.locator('text=問題数').first()).toBeVisible();
+    await expect(page.locator('text=プレイ状況').first()).toBeVisible();
     
     // 8. 難易度の絞り込みを設定
     const diffMinInput = page.locator('input[type="number"]').first();
@@ -196,6 +199,9 @@ test.describe('クイズ検索・探索機能 E2Eテスト', () => {
 
     await page.goto('/genres/programming');
     await page.waitForLoadState('domcontentloaded');
+
+    // ロード中スケルトンが消えるのを待つ
+    await expect(page.getByTestId('explore-list-skeleton')).toBeHidden({ timeout: 15000 });
 
     await expect(page.getByTestId('genre-explore-page')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('genre-explore-search')).toBeVisible();

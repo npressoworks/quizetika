@@ -101,6 +101,20 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // -------------------------------------------------------------------
+  // 認証必須ルートへのアクセス制限 (bookmarks, notifications, creator/dashboard)
+  // -------------------------------------------------------------------
+  const authRequiredPaths = ['/bookmarks', '/notifications', '/creator/dashboard'];
+  const requiresAuth = authRequiredPaths.some(
+    (p) => pathname === p || pathname.startsWith(p + '/')
+  );
+
+  if (requiresAuth && !uid) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl, 307);
+  }
+
   return NextResponse.next();
 }
 

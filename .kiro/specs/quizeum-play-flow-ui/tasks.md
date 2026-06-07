@@ -289,6 +289,7 @@
 - **Phase 10**: 統合検索は `UnifiedSearchField` + `useActiveTags` + `filter-search-suggestions`。タグ AND 検索は `useHomeQuizFeed` → `searchQuizzes({ tags })`（core 10.x 完了後に実装）。カードは `★ N` + ジャンル + 出題形式、探索一覧は `QuizCard` + `href` 共通化。
 - Phase 10 実装（2026-06-06）: `UnifiedSearchField`, `useActiveTags`, `quiz-format-labels`, `QuizCard` 拡張、探索一覧共通化。Jest 430 件・build PASS。
 - **Phase 11**: ホームは `ExploreAccordionsPanel` + カルーセル（ホーム内フィルタ、`GenreNav` 非表示）。`useExploreQuizFeed` が `format` 含む home/scoped 分岐。ジャンルページは `ExploreSearchSection` + `lockedGenreId`。scoped 検索 + ソート同時時は `sortQuizzesForList` でクライアント再ソート。前提: `quizeum-core` Phase 11（`SearchFilters.format`）完了。
+- **Phase 19**: 主要画面を Server Component + `<Suspense>` 分割（`home-client`, `quiz-detail-client`, `quiz-result-client`, 探索・復習・LB・BM・通知各 `*-client`）。スケルトンは設計どおり `data-testid` 付与。`/bookmarks`, `/notifications` は middleware で `307` リダイレクト。Jest 548 件・build PASS・`e2e/streaming-skeleton.spec.ts` 7 件 PASS。
 
 ---
 
@@ -651,6 +652,40 @@
   - _Requirements: 5.4, 5.5_
   - _Depends: 18.1, 18.2_
   - _Boundary: Testing_
+
+### 19. Phase 12 拡張 — 非同期データフェッチとスケルトンロード表示（Streaming & Suspense）のUI実装（2026-06-07）
+
+- [x] 19.1 ホーム画面の Server Component 化と Suspense 導入 (P)
+  - `src/app/page.tsx` を Server Component に移行し、静的なヘッダーやサイドバー、検索バーの枠組みなどをサーバー側で即時描画・配信する。
+  - クイズフィードやカルーセルなどの非同期フェッチ領域を `<Suspense fallback={<GridSkeleton data-testid="home-feed-skeleton" />}>` 等でラップして Streaming を有効にする。
+  - _Requirements: 15.13, 15.14, 15.15_
+  - _Boundary: HomePage_
+- [x] 19.2 クイズ詳細画面の Server Component 化と Suspense 導入 (P)
+  - `src/app/quiz/[id]/page.tsx` を Server Component に移行し、静的な戻るボタン、コンテナ背景などを即座に表示する。
+  - 詳細情報メタ（タイトル、難易度星ゲージ等）と、リーダーボード（`QuizDualLeaderboard`）をそれぞれ個別の `<Suspense>` でラップして非同期描画する。
+  - スケルトンプレースホルダーに `data-testid="quiz-detail-skeleton"` および `data-testid="leaderboard-skeleton"` を付与する。
+  - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.11_
+  - _Boundary: QuizDetailPage_
+- [x] 19.3 クイズ結果画面の Server Component 化と Suspense 導入 (P)
+  - `src/app/quiz/[id]/result/page.tsx` を Server Component に移行し、静的なヘッダーや戻るボタンを即座に表示する。
+  - 結果サマリー・解説と、おすすめクイズをそれぞれ個別の `<Suspense>` でラップして非同期描画する。
+  - スケルトンプレースホルダーに `data-testid="quiz-result-skeleton"` および `data-testid="recommend-skeleton"` を付与する。
+  - _Requirements: 15.6, 15.7, 15.8, 15.9, 15.10, 15.12_
+  - _Boundary: QuizResultPage_
+- [x] 19.4 ジャンル・タグ一覧、弱点克服、総合リーダーボード、ブックマーク、通知画面の非同期最適化 (P)
+  - `/genres/[genreName]`, `/tags/[tagName]`, `/quiz/review`, `/leaderboard`, `/bookmarks`, `/notifications` をそれぞれ Server Component 化。
+  - 静的フレームの先行描画と、各画面専用のスケルトン表示（`data-testid` 付与）を実装する。
+  - _Requirements: 15.16, 15.17, 15.18, 15.19, 15.20, 15.21_
+  - _Boundary: PageRouterComponents_
+- [x] 19.5 認証必須画面における Middleware サーバーサイド認証保護の実装
+  - クライアントサイドでのマウント後リダイレクトによる白紙表示を防ぐため、`src/middleware.ts` を作成（または更新）し、Firebase セッション Cookie または認証 Cookie に基づいて `/bookmarks`, `/notifications` 等へのアクセスをサーバーサイドで即時リダイレクト（`307`）制御する。
+  - _Requirements: 11.2, 15.20_
+  - _Boundary: NextMiddleware_
+- [x] 19.6 非同期最適化の E2E テストと結合テストの更新
+  - Playwright 等の E2E テストにて、スケルトンの `data-testid` が正しく表示され、ロード完了後に非表示になり実データが表示されるシーケンスを検証する。
+  - _Requirements: 15.11, 15.12, 15.20, 15.21_
+  - _Boundary: Testing_
+
 
 
 

@@ -6,15 +6,16 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { auth } from '@/lib/firebase/config';
 import { signOut } from '@/lib/firebase/auth';
-import { 
-  Trophy, 
-  Bell, 
-  Bookmark, 
-  PlusCircle, 
-  BookOpen, 
-  User as UserIcon, 
-  LogOut, 
-  ChevronUp
+import {
+  Trophy,
+  Bell,
+  Bookmark,
+  PlusCircle,
+  BookOpen,
+  User as UserIcon,
+  LogOut,
+  ChevronUp,
+  Home
 } from 'lucide-react';
 import styles from './sidebar.module.css';
 
@@ -40,7 +41,7 @@ export const Sidebar: React.FC = () => {
   };
 
   const menuItems = [
-    { href: '/', label: 'ホーム', icon: <Trophy size={22} /> },
+    { href: '/', label: 'ホーム', icon: <Home size={22} /> },
   ];
 
   if (user) {
@@ -65,9 +66,9 @@ export const Sidebar: React.FC = () => {
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
           return (
-            <Link 
-              key={item.href} 
-              href={item.href} 
+            <Link
+              key={item.href}
+              href={item.href}
               className={`${styles.navLink} ${isActive ? styles.active : ''}`}
             >
               <span className={styles.iconWrapper}>{item.icon}</span>
@@ -78,8 +79,8 @@ export const Sidebar: React.FC = () => {
 
         {/* クリエイターダッシュボードへのリンク (ログイン時のみ) */}
         {user && (
-          <Link 
-            href="/creator/dashboard" 
+          <Link
+            href="/creator/dashboard"
             className={`${styles.navLink} ${pathname === '/creator/dashboard' ? styles.active : ''}`}
           >
             <span className={styles.iconWrapper}><BookOpen size={22} /></span>
@@ -106,8 +107,8 @@ export const Sidebar: React.FC = () => {
               <>
                 <div className={styles.backdrop} onClick={() => setPopupOpen(false)} />
                 <div className={`${styles.popupMenu} glass-card animate-fade-in`}>
-                  <Link 
-                    href={`/profile/${user.id}`} 
+                  <Link
+                    href={`/profile/${user.id}`}
                     className={styles.popupItem}
                     onClick={() => setPopupOpen(false)}
                   >
@@ -115,8 +116,8 @@ export const Sidebar: React.FC = () => {
                     <span>マイページ</span>
                   </Link>
                   <hr className={styles.divider} />
-                  <button 
-                    onClick={handleLogout} 
+                  <button
+                    onClick={handleLogout}
                     className={`${styles.popupItem} ${styles.logoutItem}`}
                   >
                     <LogOut size={18} />
@@ -126,15 +127,15 @@ export const Sidebar: React.FC = () => {
               </>
             )}
 
-            <button 
+            <button
               className={styles.profileBtn}
               onClick={() => setPopupOpen(!popupOpen)}
               data-testid="sidebar-profile-btn"
             >
-              <img 
-                src={user.avatarUrl} 
-                alt={user.displayName} 
-                className={styles.avatar} 
+              <img
+                src={user.avatarUrl}
+                alt={user.displayName}
+                className={styles.avatar}
               />
               <div className={styles.profileDetails}>
                 <span className={styles.profileName}>{user.displayName}</span>
