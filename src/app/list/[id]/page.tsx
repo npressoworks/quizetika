@@ -171,6 +171,7 @@ export default function QuizListDetailPage() {
                 disabled={questions.length === 0}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
                 data-testid="question-list-play-start"
+                data-analytics="quiz-question-list-play-start"
               >
                 <Play size={16} />
                 問題リストプレイ開始
@@ -181,6 +182,7 @@ export default function QuizListDetailPage() {
                 onClick={handleStartSequentialPlay}
                 disabled={quizzes.length === 0}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                data-analytics="quiz-list-play-start"
               >
                 <Play size={16} />
                 リストプレイ開始

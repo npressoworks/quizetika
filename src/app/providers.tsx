@@ -11,6 +11,10 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       person_profiles: 'identified_only',
       capture_pageview: false,
       capture_pageleave: true,
+      autocapture: {
+        dom_event_allowlist: ['click'], // clickイベントのみを対象にする（changeやsubmitは無視）
+        css_selector_allowlist: ['[data-analytics]'], // data-analytics 属性がある要素だけを収集対象にする
+      }
     })
   }, [])
 

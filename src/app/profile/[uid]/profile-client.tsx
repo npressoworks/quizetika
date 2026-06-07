@@ -263,6 +263,7 @@ export function ProfileClient() {
                       disabled={submittingFollow}
                       className={`btn ${followingState ? 'btn-secondary' : 'btn-accent'}`}
                       style={{ padding: '8px 32px', fontSize: '0.95rem' }}
+                      data-analytics="profile-follow-toggle"
                     >
                       {followingState ? 'フォロー解除' : 'フォローする'}
                     </button>
@@ -288,7 +289,7 @@ export function ProfileClient() {
                 </p>
               </div>
             </div>
-            <Link href="/quiz/review" className="btn btn-primary">
+            <Link href="/quiz/review" className="btn btn-primary" data-analytics="review-start-from-profile">
               <span>復習をはじめる</span>
               <ChevronRight size={18} />
             </Link>

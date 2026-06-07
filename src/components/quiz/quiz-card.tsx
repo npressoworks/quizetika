@@ -67,6 +67,7 @@ export function QuizCard({
           className={`${styles.bookmarkBtn} ${isBookmarked ? styles.active : ''}`}
           onClick={handleBookmarkClick}
           data-testid="quiz-card-bookmark-btn"
+          data-analytics="quiz-bookmark-toggle"
           aria-label="ブックマーク"
           type="button"
         >
@@ -110,6 +111,7 @@ export function QuizCard({
           className={styles.playBtn}
           onClick={handlePlayClick}
           data-testid="play-btn"
+          data-analytics="quiz-play-start-card"
           type="button"
         >
           挑戦する

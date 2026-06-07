@@ -1923,6 +1923,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           className="btn btn-secondary"
           onClick={() => handleSave('draft')}
           disabled={loading}
+          data-analytics="quiz-save-draft"
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <Save size={18} />
@@ -1933,6 +1934,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           className="btn btn-secondary"
           onClick={handleTestPlay}
           disabled={loading}
+          data-analytics="quiz-test-play"
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <Play size={18} />
@@ -1943,6 +1945,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           className="btn btn-primary"
           onClick={() => handleSave('published')}
           disabled={loading}
+          data-analytics="quiz-publish"
           style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
         >
           <Send size={18} />

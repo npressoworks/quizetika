@@ -225,6 +225,7 @@ export function ReviewClient({ initialGenres }: ReviewClientProps) {
             className={`btn btn-primary ${styles.startBtn}`}
             onClick={startReviewSession}
             disabled={loadingQuestions}
+            data-analytics="review-session-start"
             style={{ width: '100%', marginTop: '16px' }}
           >
             {loadingQuestions ? '間違い問題を読み込み中...' : '復習セッションを開始する'}

@@ -90,7 +90,7 @@ export const Sidebar: React.FC = () => {
 
         {/* 作問ボタン (ログイン時のみ) */}
         {user && (
-          <Link href="/quiz/create" className={styles.createBtn}>
+          <Link href="/quiz/create" className={styles.createBtn} data-analytics="nav-create-quiz">
             <PlusCircle size={22} />
             <span className={styles.createBtnLabel}>作問する</span>
           </Link>
@@ -119,6 +119,7 @@ export const Sidebar: React.FC = () => {
                   <button
                     onClick={handleLogout}
                     className={`${styles.popupItem} ${styles.logoutItem}`}
+                    data-analytics="auth-logout"
                   >
                     <LogOut size={18} />
                     <span>ログアウト</span>
@@ -144,7 +145,7 @@ export const Sidebar: React.FC = () => {
             </button>
           </div>
         ) : (
-          <Link href="/login" className={`${styles.loginBtn} btn btn-accent`}>
+          <Link href="/login" className={`${styles.loginBtn} btn btn-accent`} data-analytics="nav-login">
             <span>ログイン</span>
           </Link>
         )}

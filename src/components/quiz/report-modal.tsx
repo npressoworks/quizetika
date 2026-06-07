@@ -98,6 +98,7 @@ export function ReportModal({ isOpen, onClose, quizId, reporterId }: ReportModal
                 style={{ flex: 1, background: '#ff007f', borderColor: '#ff007f' }}
                 disabled={loading || !reason.trim()}
                 data-testid="report-submit-btn"
+                data-analytics="quiz-report-submit"
               >
                 {loading ? '送信中...' : '通報する'}
               </button>

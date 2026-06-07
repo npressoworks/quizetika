@@ -113,6 +113,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
             onClick={handleBookmarkToggle}
             disabled={bookmarkLoading}
             title="ブックマーク"
+            data-analytics="quiz-bookmark-toggle"
           >
             <Bookmark
               size={20}
@@ -323,7 +324,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
           </>
         )}
 
-        <button className={`btn btn-primary ${styles.playBtn}`} onClick={handlePlayStart} style={{ width: '100%', marginTop: '10px' }}>
+        <button className={`btn btn-primary ${styles.playBtn}`} onClick={handlePlayStart} style={{ width: '100%', marginTop: '10px' }} data-analytics="quiz-play-start-detail">
           {isLateralThinkingQuiz ? 'チャットを開始する' : isQuickPressQuiz ? '早押しを開始する' : 'プレイを開始する'}
         </button>
       </div>

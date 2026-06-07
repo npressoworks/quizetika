@@ -627,6 +627,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
               onClick={handleFollowToggle}
               disabled={!online || followLoading}
               data-testid="author-follow-btn"
+              data-analytics="quiz-result-follow-author"
             >
               {isFollowingAuthor ? (
                 <>
@@ -676,6 +677,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
             className="btn btn-primary"
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             data-testid="quiz-replay-btn"
+            data-analytics="quiz-result-replay"
           >
             もう一度プレイする
           </Link>
@@ -736,6 +738,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
               className={`${styles.voteBtn} ${voted === 'positive' ? styles.voteActive : ''}`}
               onClick={() => handleReviewVote('positive')}
               disabled={!online || voted !== null || user?.id === quiz.authorId}
+              data-analytics="quiz-review-vote-positive"
             >
               <ThumbsUp size={16} /> 良問
             </button>
@@ -743,6 +746,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
               className={`${styles.voteBtn} ${voted === 'negative' ? styles.voteActive : ''}`}
               onClick={() => handleReviewVote('negative')}
               disabled={!online || voted !== null || user?.id === quiz.authorId}
+              data-analytics="quiz-review-vote-negative"
             >
               <ThumbsDown size={16} /> 微妙
             </button>
@@ -807,6 +811,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
             onClick={handleReportClick}
             disabled={!online}
             data-testid="quiz-report-btn"
+            data-analytics="quiz-report-open"
           >
             <AlertTriangle size={16} /> クイズを通報
           </button>
@@ -828,6 +833,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
                   className="btn btn-primary"
                   onClick={handleNextQuestionClick}
                   data-testid="question-list-next"
+                  data-analytics="quiz-list-next-question"
                   style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                 >
                   <span>次の問題へ</span>
@@ -856,6 +862,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
               <button
                 className="btn btn-primary"
                 onClick={handleNextQuizClick}
+                data-analytics="quiz-list-next-quiz"
                 style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
                 <span>リストの次のクイズに進む</span>

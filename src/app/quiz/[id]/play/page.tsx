@@ -576,6 +576,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 type="submit"
                 className="btn btn-primary"
                 disabled={aiPlay.pending || !questionInput.trim() || aiPlay.turnCount >= 20 || truthPassed}
+                data-analytics="quiz-lateral-question-send"
               >
                 <Send size={16} />
               </button>
@@ -613,6 +614,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 onClick={handleTruthVerify}
                 disabled={!truthSummary.trim() || isTruthChecking || truthPassed}
                 style={{ width: '100%', marginTop: '10px' }}
+                data-analytics="quiz-lateral-truth-submit"
               >
                 {isTruthChecking ? 'AIが真相を判定中...' : '真相を送信する'}
               </button>
@@ -752,7 +754,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 required
                 autoComplete="off"
               />
-              <button type="submit" className="btn btn-primary">送信</button>
+              <button type="submit" className="btn btn-primary" data-analytics="quiz-answer-text-submit">送信</button>
             </form>
           );
         })()}
@@ -765,6 +767,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 type="button"
                 className={`${styles.startReadingBtn} btn`}
                 onClick={() => setIsReadingStarted(true)}
+                data-analytics="quiz-quickpress-reading-start"
                 style={{
                   width: '100%',
                   padding: '24px',
@@ -787,6 +790,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 type="button"
                 className={`${styles.quickPressBtn} btn`}
                 onClick={handleQuickPress}
+                data-analytics="quiz-quickpress-buzz"
                 style={{
                   width: '100%',
                   padding: '24px',
@@ -852,7 +856,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                   autoComplete="off"
                   disabled={!isQuickPressed}
                 />
-                <button type="submit" className="btn btn-primary">送信</button>
+                <button type="submit" className="btn btn-primary" data-analytics="quiz-quickpress-answer-submit">送信</button>
               </form>
             ) : (
               // 即時正誤フィードバック表示 & 次の問題へボタン
@@ -917,6 +921,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 <button
                   type="button"
                   className="btn btn-primary"
+                  data-analytics="quiz-quickpress-next"
                   style={{
                     width: '100%',
                     padding: '14px',
@@ -962,6 +967,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
             <button
               className="btn btn-primary"
               style={{ width: '100%', marginTop: '20px' }}
+              data-analytics="quiz-answer-sorting-submit"
               onClick={() => {
                 const sortedIds = sortingItems.map((item) => item.id).join(',');
                 handleAnswerSubmit(sortedIds);
@@ -1022,7 +1028,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                 required
                 autoComplete="off"
               />
-              <button type="submit" className="btn btn-accent">解答を送信</button>
+              <button type="submit" className="btn btn-accent" data-analytics="quiz-answer-association-submit">解答を送信</button>
             </form>
           </div>
         )}
@@ -1031,7 +1037,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
         {effectivePlayMode === 'flashcard' && (
           <div className={styles.flashcardArea}>
             {!showAnswer ? (
-              <button className="btn btn-accent" onClick={() => setShowAnswer(true)}>
+              <button className="btn btn-accent" onClick={() => setShowAnswer(true)} data-analytics="quiz-flashcard-reveal">
                 答えを見る
               </button>
             ) : (
@@ -1045,6 +1051,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                   <button
                     className="btn btn-primary"
                     style={{ flex: 1, background: '#00f5d4', color: '#111' }}
+                    data-analytics="quiz-flashcard-correct"
                     onClick={() => {
                       // 自己申告: 分かった (正解)
                       handleAnswerSubmit('correct');
@@ -1055,6 +1062,7 @@ function QuizPlayPageContent({ quizId }: ContentProps) {
                   <button
                     className="btn btn-outline"
                     style={{ flex: 1, borderColor: '#ff007f', color: '#ff007f' }}
+                    data-analytics="quiz-flashcard-incorrect"
                     onClick={() => {
                       // 自己申告: 分からなかった (不正解)
                       handleAnswerSubmit('incorrect');

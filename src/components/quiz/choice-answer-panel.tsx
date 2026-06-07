@@ -100,6 +100,7 @@ export function ChoiceAnswerPanel({
         className={`btn btn-primary ${styles.confirmBtn}`}
         disabled={disabled || selectedIds.length === 0}
         onClick={handleConfirm}
+        data-analytics="quiz-answer-confirm"
       >
         解答を確定する
       </button>

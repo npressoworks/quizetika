@@ -36,6 +36,7 @@ export const Header: React.FC = () => {
                 href="/quiz/create" 
                 className={styles.createBtn}
                 data-testid="mobile-header-create-btn"
+                data-analytics="nav-create-quiz"
               >
                 <PlusCircle size={20} />
               </Link>
@@ -50,7 +51,7 @@ export const Header: React.FC = () => {
               </Link>
             </div>
           ) : (
-            <Link href="/login" className={`${styles.loginBtn} btn btn-accent`}>
+            <Link href="/login" className={`${styles.loginBtn} btn btn-accent`} data-analytics="nav-login">
               ログイン
             </Link>
           )}

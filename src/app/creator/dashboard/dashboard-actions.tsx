@@ -38,6 +38,7 @@ export function DashboardActions() {
         type="button"
         className="btn btn-secondary"
         onClick={handleExportAll}
+        data-analytics="creator-export-all"
         style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
       >
         <Download size={16} />
@@ -47,6 +48,7 @@ export function DashboardActions() {
         type="button"
         className="btn btn-outline"
         onClick={() => router.push('/list/create')}
+        data-analytics="creator-create-list"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -63,6 +65,7 @@ export function DashboardActions() {
         type="button"
         className="btn btn-primary"
         onClick={() => router.push('/quiz/create')}
+        data-analytics="creator-create-quiz"
         style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
       >
         <Plus size={16} />
