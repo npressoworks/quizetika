@@ -153,3 +153,35 @@
 - Phase 5 実装済み: 本人のみ「プレイ履歴」第3タブ + `ProfilePlayHistoryPanel`。
 - **Phase 8**: 種別判定は `resolveListType` 必須。フィルタはクライアント絞り込み（API 再取得不要）。リスト CRUD は実装しない（8.8）。
 - Phase 8 実装（2026-06-06）: `profile-list-display` + `ProfileListCard` + `ProfileListsPanel`。Jest 375 件・build PASS。
+- Phase 9 実装（2026-06-07）: 認証・プロフィール画面を Server Component + Suspense + スケルトン化。`/profile/edit` を middleware 307 保護。
+
+### 9. Phase 12 拡張 — 認証・プロフィール画面の非同期表示最適化（Streaming & Suspense）のUI実装（2026-06-07）
+
+- [x] 9.1 ブックマーク一覧画面の Server Component 化と Suspense 導入 (P)
+  - `src/app/bookmarks/page.tsx` を Server Component に移行し、静的な戻るボタンやタブ等の外枠を即座にレンダリングする。
+  - ブックマークデータ一覧のフェッチ領域を `<Suspense fallback={<BookmarksSkeleton data-testid="bookmarks-skeleton" />}>` でラッピングして非同期描画する。
+  - _Requirements: 9.1, 9.2, 9.3, 9.7_
+  - _Boundary: BookmarksPage_
+- [x] 9.2 通知画面の Server Component 化と Suspense 導入 (P)
+  - `src/app/notifications/page.tsx` を Server Component に移行し、静的なヘッダー等の外枠を即座にレンダリングする。
+  - 通知一覧データのフェッチ領域を `<Suspense fallback={<NotificationsSkeleton data-testid="notifications-skeleton" />}>` でラッピングして非同期描画する。
+  - _Requirements: 9.4, 9.5, 9.6, 9.8_
+  - _Boundary: NotificationsPage_
+- [x] 9.3 プロフィール関連画面の非同期最適化 (P)
+  - プロフィール詳細（`/profile/[uid]`）および編集（`/profile/edit`）を Server Component に移行し、静的フレーム（戻るボタン、コンテナ等）を即時描画・配信する。
+  - プロフィール情報フェッチ領域を `<Suspense fallback={<ProfileDetailSkeleton data-testid="profile-skeleton" />}>` でラッピングして非同期描画する。
+  - _Requirements: 9.9, 9.10, 9.11, 9.14_
+  - _Boundary: ProfilePage_
+- [x] 9.4 その他関連画面の非同期最適化と a11y testid 付与 (P)
+  - フォロー一覧（`/connections`）やリアクション履歴（`/likes`）を Server Component 化し、静的フレームの先行描画とスケルトン（`data-testid` 付与）を実装する。
+  - _Requirements: 9.12, 9.13, 9.14_
+  - _Boundary: PageRouterComponents_
+- [x] 9.5 認証必須画面における Middleware サーバーサイド認証保護の実装
+  - 未ログインアクセス時にクライアント側リダイレクトによる白紙表示を防ぐため、`src/middleware.ts` を作成（または更新）し、サーバーサイドで即時リダイレクト（`307`）制御する。
+  - _Requirements: 1.2, 9.1, 9.4, 9.9_
+  - _Boundary: NextMiddleware_
+- [x] 9.6 非同期最適化の結合テスト・E2E テストの作成・更新
+  - 各非同期スケルトンの `data-testid`（`bookmarks-skeleton`, `notifications-skeleton`, `profile-skeleton`, `connections-skeleton`）を検証し、ロード後に実データが表示されるシーケンスを検証する。
+  - _Requirements: 9.7, 9.8, 9.14_
+  - _Boundary: Testing_
+

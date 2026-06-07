@@ -4,14 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { getNotifications, markAsRead, Notification } from '@/services/notification';
-import { 
-  UserPlus, 
-  CheckCircle, 
-  AlertTriangle, 
+import {
+  UserPlus,
+  CheckCircle,
+  AlertTriangle,
   Heart,
-  Bell, 
-  ArrowLeft, 
-  Check 
+  Bell,
+  Check,
 } from 'lucide-react';
 import { NotificationsSkeleton } from '@/components/ui/notifications-skeleton';
 import styles from './notifications.module.css';
@@ -123,32 +122,18 @@ export function NotificationsClient() {
   const hasUnread = notifications.some(n => !n.isRead);
 
   return (
-    <main className={styles.main} data-testid="notifications-page-container">
-      <div className={styles.container}>
-        <button 
-          onClick={() => router.push(`/profile/${currentUser.id}`)} 
-          className={styles.backButton}
-        >
-          <ArrowLeft size={16} />
-          <span>プロフィールに戻る</span>
-        </button>
+    <div data-testid="notifications-page-container">
+      {hasUnread && (
+        <div className={styles.cardHeader} style={{ paddingTop: 0, borderBottom: 'none' }}>
+          <span />
+          <button onClick={handleAllRead} className={styles.allReadBtn}>
+            <Check size={16} />
+            <span>すべて既読にする</span>
+          </button>
+        </div>
+      )}
 
-        <div className={`${styles.notificationsCard} glass-card animate-fade-in`}>
-          <div className={styles.cardHeader}>
-            <div className={styles.titleWrapper}>
-              <Bell size={24} className={styles.bellIcon} />
-              <h1 className={styles.title}>通知一覧</h1>
-            </div>
-            
-            {hasUnread && (
-              <button onClick={handleAllRead} className={styles.allReadBtn}>
-                <Check size={16} />
-                <span>すべて既読にする</span>
-              </button>
-            )}
-          </div>
-
-          <div className={styles.listContainer}>
+      <div className={styles.listContainer}>
             {notifications.length === 0 ? (
               <div className={styles.emptyState}>
                 <Bell size={40} className={styles.emptyIcon} />
@@ -194,9 +179,7 @@ export function NotificationsClient() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
       </div>
-    </main>
+    </div>
   );
 }

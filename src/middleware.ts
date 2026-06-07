@@ -104,7 +104,7 @@ export function middleware(request: NextRequest) {
   // -------------------------------------------------------------------
   // 認証必須ルートへのアクセス制限 (bookmarks, notifications, creator/dashboard)
   // -------------------------------------------------------------------
-  const authRequiredPaths = ['/bookmarks', '/notifications', '/creator/dashboard'];
+  const authRequiredPaths = ['/bookmarks', '/notifications', '/creator/dashboard', '/profile/edit'];
   const requiresAuth = authRequiredPaths.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );
