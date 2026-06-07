@@ -73,6 +73,25 @@ export function dedupeQuizzesById(quizzes: Quiz[]): Quiz[] {
   return [...map.values()];
 }
 
+function quizCreatedAtMs(val: unknown): number {
+  if (!val) return 0;
+  if (val instanceof Date) return val.getTime();
+  if (val && typeof val === 'object') {
+    const obj = val as Record<string, unknown>;
+    if (typeof obj.toDate === 'function') {
+      return (obj.toDate as () => Date)().getTime();
+    }
+    if (typeof obj.seconds === 'number') {
+      return obj.seconds * 1000;
+    }
+  }
+  if (typeof val === 'string' || typeof val === 'number') {
+    const date = new Date(val);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  return 0;
+}
+
 export function sortQuizzesForList(quizzes: Quiz[], sort: QuizListSort): Quiz[] {
   const copy = [...quizzes];
   if (sort === 'popular') {
@@ -80,7 +99,7 @@ export function sortQuizzesForList(quizzes: Quiz[], sort: QuizListSort): Quiz[] 
   } else if (sort === 'trending') {
     copy.sort((a, b) => b.bookmarksCount - a.bookmarksCount);
   } else {
-    copy.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    copy.sort((a, b) => quizCreatedAtMs(b.createdAt) - quizCreatedAtMs(a.createdAt));
   }
   return copy;
 }

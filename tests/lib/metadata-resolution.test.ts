@@ -83,6 +83,21 @@ describe('metadata-resolution (pure)', () => {
     const sorted = sortQuizzesForList([a, b], 'popular');
     expect(sorted[0].playCount).toBe(9);
   });
+
+  test('sortQuizzesForList: latest は Firestore Timestamp 風オブジェクトでも降順', () => {
+    const older = {
+      playCount: 0,
+      bookmarksCount: 0,
+      createdAt: { seconds: 100, toDate: () => new Date(100_000) },
+    } as Quiz;
+    const newer = {
+      playCount: 0,
+      bookmarksCount: 0,
+      createdAt: { seconds: 200, toDate: () => new Date(200_000) },
+    } as Quiz;
+    const sorted = sortQuizzesForList([older, newer], 'latest');
+    expect(sorted[0].createdAt).toBe(newer.createdAt);
+  });
 });
 
 describe('metadata-resolution (Firestore)', () => {
