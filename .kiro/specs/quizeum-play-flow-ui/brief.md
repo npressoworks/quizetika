@@ -1,61 +1,47 @@
-# Brief: quizeum-play-flow-ui
+# Brief: quizeum-play-flow-ui — Phase 12 追補（プレイ画面 Suspense）
 
 ## Problem
-ユーザーがクイズを探索し、詳細を確認して、プレイ（通常、ウミガメのスープ含む）を行い、結果を確認し、弱点克服やリーダーボードで学習や競い合いを楽しむための一連のUIフローが必要です。
+プレイヤーが `/quiz/[id]/play` や `/quiz/test-play/play` に遷移した際、画面全体が「プレイ環境を準備中...」テキストのみの白紙状態になり、詳細・結果画面で実現済みの即時レイアウト表示と体験が乖離している。
 
 ## Current State
-プレイフロー UI は Phase 5 まで実装済み。Phase 6 では `quizeum-core` API に未接続。ホームはハードコード `GENRES`・アイコンがインライン絞り込み・`playStatus` 未配線。
-
-## Phase 6 UX（確定）
-- ジャンル**アイコン**クリック → `/genres/[id]` 遷移のみ。
-- 複合検索パネルに **サジェスト付きジャンル入力**（件数増加対応）。
-- フィルタ変更で **デバウンス後 `searchQuizzes`**。
-- **プレイ状況**は認証ユーザーの完了 `attempts` に基づき一覧を後段絞り込み（要件 1.3 完遂）。
+- 本番プレイ: 全面 `'use client'`、`getQuiz` を useEffect で取得、ロード中は中央テキストのみ
+- test-play: 同様に Client のみ、`loadTestPlayPayload`（sessionStorage）を useEffect で読み込み
+- Phase 12 では意図的に Out とされ、タスク 19.x は詳細・結果・探索等のみ完了
 
 ## Desired Outcome
-カジュアルで洗練されたホーム画面からクイズを見つけ、複数のプレイモード（通常、模擬試験、フラッシュカード）で遊べ、特に「ウミガメのスープ」モードでは直感的でリッチな2カラムAI対話チャット（回答生成中の「・・・AIが質問を分析中です」のグレー表示等を含む）を利用でき、結果画面での評価投票や指摘送信がスムーズに行えること。
+- 両プレイ URL で静的フレーム（戻る、プログレス枠、問題エリア外枠）が即時表示される
+- データロード中は `PlaySkeleton`（`data-testid="quiz-play-skeleton"`）が表示され、完了後にインタラクティブなプレイ UI に差し替わる
+- localStorage セッション復元・ゲーム進行ロジックは既存どおり Client 側で動作する
 
 ## Approach
-Next.js App Routerでのダイナミックルーティングを使用し、レスポンシブなUIを CSS Modules でスタイリングします。ウミガメスープ用のチャットステートや、オフライン時のセッション永続化（localStorage）と自動同期をクライアントサイドで統合します。
+**本番プレイ**: 結果画面と同型 — `page.tsx`（Server）→ `QuizPlayLoader`（async, `getQuiz` + quick-press 難読化）→ `QuizPlayClient`（既存ロジック抽出）
+
+**test-play**: Server シェルで静的フレームのみ即時描画。クイズ draft は sessionStorage のため Server Loader 不可。`TestPlayClient` 内で payload 解決し、Suspense fallback に共有 `PlaySkeleton` を使用。
 
 ## Scope
-- **In**:
-  - ホーム画面 (`/`): クイズのタブ表示（新着・人気・トレンド・フォローTL）、複合検索フィルタ、主要ジャンルナビゲーション。
-  - クイズ詳細画面 (`/quiz/[id]`): クイズのメタ情報、難易度（1-10）、良問評価バッジ表示、歴代ハイスコアリーダーボード、3つのプレイモード選択UI。
-  - クイズプレイ画面 (`/quiz/[id]/play`): クイズの問題とタイマー、ヒント表示、セッション中断保護（localStorage）。
-    - **ウミガメのスープ（lateral-thinking）プレイ**: 2カラムレイアウト。左カラムはAI質問チャットUI（入力制限、ターン数表示、AI回答生成中はグレー文字で「・・・AIが質問を分析中です」と表示）、右カラムはスクロール可能なQ&A履歴リスト。真相回答入力とAI自動真相判定の合格/不合格フィードバック。
-    - **ゲストアクセス制限**: 未ログイン状態でウミガメスープにアクセスした場合、`/login` にリダイレクト。
-  - クイズ結果画面 (`/quiz/[id]/result`): 正解率・タイム結果、問題解説、👍/👎投票（悪問時は理由入力）、体感難易度投票、指摘送信モーダル、作家リアクション、SNS共有。オフライン時は非同期同期表示と一部無効化。
-  - 弱点克服（復習プレイ）画面 (`/quiz/review`): 間違えた問題の一括フェッチと、開始前のジャンル選択UI。
-  - 総合リーダーボード画面 (`/leaderboard`): プラットフォーム全体の各種ランキング。
-  - ブックマーク一覧画面 (`/bookmarks`): お気に入りクイズ・リストのトグル解除機能。
-  - タグ別クイズ一覧画面 (`/tags/[tagName]`): タグ付きクイズの人気・新着ソート表示。
-  - ジャンル別クイズ一覧画面 (`/genres/[genreName]`): ジャンルの紹介、マージ済みジャンルの仮想統合クイズ表示。
-- **Out**:
-  - クイズやリストの新規作成・編集画面（別スペック）。
+- **In**: `/quiz/[id]/play`（全モード）、`/quiz/test-play/play`、`PlaySkeleton`、quick-press 難読化の共通化
+- **Out**: レイアウト（サイドバー/ボトムナビ）変更、プレイロジック変更、Phase 13 billing 連携
 
 ## Boundary Candidates
-- `src/app/page.tsx`
-- `src/app/quiz/[id]/page.tsx`
-- `src/app/quiz/[id]/play/page.tsx`
-- `src/app/quiz/[id]/result/page.tsx`
-- `src/app/quiz/review/page.tsx`
-- `src/app/leaderboard/page.tsx`
-- `src/app/bookmarks/page.tsx`
-- `src/app/tags/[tagName]/page.tsx`
-- `src/app/genres/[genreName]/page.tsx`
+- Server `page.tsx` + static frame
+- `QuizPlayLoader` / `TestPlayClient` data boundary
+- `QuizPlayClient` interactive play (hooks, timers, AI)
+- `PlaySkeleton` shared component
 
 ## Out of Boundary
-- Gemini APIとのやり取りそのものや、認証・プロフィール系UI（他スペック）。
+- `quizeum-core` の `getQuiz` API 変更
+- test-play 結果画面
+- Middleware 追加（test-play は既存 Client auth リダイレクト維持可）
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-auth-profile-ui`, `quizeum-core`
-- **Downstream**: `quizeum-creator-dash-ui`
+- **Upstream**: `getQuiz`（本番）、`lib/test-play`（test-play）、既存 hooks
+- **Downstream**: E2E スケルトンシーケンス更新、Phase 13 プレイ画面 tier UI（並行可）
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core` の `AttemptService`, `BookmarkService` および各種API。
-- **Adjacent**: `quizeum-auth-profile-ui` (プロフィールからの弱点克服遷移など)
+- **Extends**: `quizeum-play-flow-ui` 要件 15
+- **Adjacent**: Phase 9 レイアウト除外、Phase 13 billing プレイ UI
 
 ## Constraints
-- **AI loading status**: 質問送信後、AIの回答が得られるまでの間、入力欄やチャット末尾に「・・・AIが質問を分析中です」とグレー文字で表示する。
-- **Styling**: 硬すぎず、カジュアルながらも洗練された現代的で温かみのあるデザイン。
+- Vanilla CSS / CSS Modules、既存 `play.module.css` 踏襲
+- test-play は sessionStorage 依存 — サーバーで draft 取得不可
+- quick-press 正解難読化は本番 Loader と test-play Client の両方で適用

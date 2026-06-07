@@ -467,6 +467,40 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
 
 ---
 
+## Phase 12 追補: プレイ画面の Suspense 最適化（2026-06-07 ディスカバリー）
+
+### Overview（本追補）
+Phase 12 当初 Out としていたクイズプレイ中画面についても、詳細・結果画面と同型の **RSC シェル + Suspense + Skeleton** パターンを適用する。アクセス時の「プレイ環境を準備中...」テキストのみの白紙待機を廃止し、静的フレーム（戻るボタン、プログレス枠、問題パネル外枠等）を即時描画する。ゲーム進行・localStorage セッション・解答インタラクションは Client Component に閉じ込め、データ取得境界のみ Suspense で分離する。
+
+### Approach Decision（本追補）
+- **Chosen**: 本番プレイは Server Loader（`getQuiz`）+ Client 本体 / test-play は Server シェル + Client sessionStorage ロード
+- **Why**: 本番 `/quiz/[id]/play` は Firestore から `getQuiz` でサーバー取得可能（結果画面と同型）。`/quiz/test-play/play` は draft が `sessionStorage` にありサーバーから読めないため、静的フレームのみ Server、クイズデータ解決は Client 内 Suspense + 共有 `PlaySkeleton` とする。
+- **Rejected alternatives**:
+  - test-play だけ Phase 12 対象外のまま: UX 不整合（同じ `/play` 系 URL でロード体験が異なる）
+  - test-play 用 Server API 新設: sessionStorage 依存の draft をサーバーへ送る必要があり初版スコープ過大
+
+### Scope（本追補）
+- **In**:
+  - `/quiz/[id]/play` — 全モード（normal / exam / flashcard / lateral / question-list）。`PlaySkeleton`（`data-testid="quiz-play-skeleton"`）、quick-press 難読化の Loader 移管
+  - `/quiz/test-play/play` — 静的フレーム即時表示 + Client 内 sessionStorage ロード + 同一 `PlaySkeleton`
+  - 既存 `usePlayState` / `useAiPlayState` / localStorage セッション保護ロジック（変更なし）
+- **Out**:
+  - サイドバー・ボトムナビのプレイ画面への表示（Phase 9 方針維持）
+  - プレイ中ゲームロジック・AI 制限・Stripe tier 連携（Phase 13 は別途）
+  - `/quiz/test-play/result`（結果画面は Phase 12 済みの対象外追補としない — 必要なら follow-up）
+
+### Boundary Strategy（本追補）
+- **Play-flow UI** が両プレイ画面の RSC 分割、`PlaySkeleton`、本番 Loader、test-play Client ロードを所有
+- **Shared seam**: `PlaySkeleton` を本番・test-play で共有。quick-press 難読化は lib 関数化して Loader と test-play Client で再利用
+
+## Existing Spec Updates（Phase 12 追補）
+- [ ] quizeum-play-flow-ui -- `/quiz/[id]/play` および `/quiz/test-play/play` の Server Component 化、静的フレーム即時描画、`PlaySkeleton` + Suspense 適用。Dependencies: none
+
+## Specs (dependency order)
+（Phase 12 追補 では新規 spec なし — 上記 Existing Spec Updates のみ）
+
+---
+
 ## Phase 13: Stripe サブスクリプション（Pro プラン・エンドツーエンド）（2026-06-07 ディスカバリー）
 
 ### Overview（本フェーズ）

@@ -1,0 +1,103 @@
+.skeletonRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.backBtn {
+  height: 32px;
+  width: 120px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.statusChip {
+  height: 24px;
+  width: 160px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+}
+
+.progressBar {
+  height: 8px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  width: 35%;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.progressMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metaLine {
+  height: 16px;
+  width: 140px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.quizCard {
+  background: rgba(30, 30, 45, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.questionType {
+  height: 20px;
+  width: 180px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.questionText {
+  height: 72px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.choice {
+  height: 48px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}

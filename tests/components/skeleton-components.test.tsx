@@ -12,6 +12,7 @@ import { RecommendSkeleton } from '@/components/quiz/recommend-skeleton';
 import { BookmarksSkeleton } from '@/components/ui/bookmarks-skeleton';
 import { ReviewSkeleton } from '@/components/ui/review-skeleton';
 import { NotificationsSkeleton } from '@/components/ui/notifications-skeleton';
+import { PlaySkeleton } from '@/components/quiz/play-skeleton';
 
 describe('Streaming skeleton components', () => {
   it('GridSkeleton は data-testid を受け取る', () => {
@@ -52,5 +53,10 @@ describe('Streaming skeleton components', () => {
   it('NotificationsSkeleton は既定 testid を付与する', () => {
     render(<NotificationsSkeleton />);
     expect(screen.getByTestId('notifications-skeleton')).toBeInTheDocument();
+  });
+
+  it('PlaySkeleton は既定 testid を付与する', () => {
+    render(<PlaySkeleton />);
+    expect(screen.getByTestId('quiz-play-skeleton')).toBeInTheDocument();
   });
 });

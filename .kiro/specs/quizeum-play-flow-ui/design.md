@@ -19,6 +19,8 @@
 
 **Phase 12（2026-06-06）**: クイズプレイ画面から結果画面への自動遷移、難易度（★）の等幅ゲージのグラデーションカラー表示（詳細・結果共通）、結果画面でのヒント・質問回数表示、もう一度プレイするボタン、作者プロフィールリンク、同じ作者の他のクイズ推薦、お疲れ様でしたカード上のクイズブックマークボタン、指摘カテゴリの「別解の追加要望」のクイズ全体指摘時の除外、指摘ボタン横の通報ボタン表示と通報モーダル連携。
 
+**Phase 12 追補（2026-06-07）**: 本番プレイ（`/quiz/[id]/play`）およびテストプレイ（`/quiz/test-play/play`）の RSC シェル + Suspense + `PlaySkeleton` 最適化。`QuizPlayLoader` / `QuizPlayClient` / `TestPlayClient` 分割。
+
 ### Goals
 - 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
 - プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
@@ -1438,5 +1440,185 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
   * 各ページのテストケースにおいて、ローディング中（`data-testid` のスケルトンが存在する状態）および描画完了後（スケルトンが `hidden` または DOM から削除され、実データが存在する状態）を検証。
   * 例: `await expect(page.locator('[data-testid="quiz-detail-skeleton"]')).toBeVisible();` から、ロード完了後に `toBeHidden()` となるフローを保証する。
 
+---
+
+## Phase 12 追補: プレイ画面の Suspense 最適化設計（2026-06-07）
+
+### 概要
+本番プレイ（`/quiz/[id]/play`）とテストプレイ（`/quiz/test-play/play`）を、Phase 12 で確立した **RSC シェル + Suspense + Skeleton** パターンに統合する。1130 行規模の Client モノリスを分割し、データ取得境界のみ Server / Suspense に移す。ゲーム進行（`usePlayState` / `useAiPlayState`、localStorage セッション、タイマー、AI チャット）は Client に閉じ込める。
+
+### Boundary Commitments
+
+| 境界 | 所有者 | 責務 |
+|------|--------|------|
+| `page.tsx`（Server） | Play-flow UI | 静的フレーム即時 HTML ストリーミング |
+| `QuizPlayLoader`（async Server） | Play-flow UI | `getQuiz`、quick-press 難読化、シリアライズ |
+| `QuizPlayClient`（Client） | Play-flow UI | 全プレイモードのインタラクション |
+| `TestPlayPage`（Server シェル） | Play-flow UI | 静的フレーム + Suspense ラップ |
+| `TestPlayClient`（Client） | Play-flow UI | sessionStorage payload 解決、テストプレイ UI |
+| `PlaySkeleton` | Play-flow UI | 本番・test-play 共有ロード UI |
+| `obfuscateQuickPressQuestions`（lib） | Play-flow UI | quick-press 難読化の共通化 |
+
+**Out of boundary**: `getQuiz` API 変更（Core）、Stripe tier UI（Phase 13）、`/quiz/test-play/result`
+
+### 1. ファイル構成
+
+```
+src/
+├── app/quiz/[id]/play/
+│   ├── page.tsx              # Server Component（静的フレーム + Suspense）
+│   └── quiz-play-client.tsx  # Client（既存 page.tsx ロジック移管）
+├── app/quiz/test-play/play/
+│   ├── page.tsx              # Server Component（静的フレーム + Suspense）
+│   └── test-play-client.tsx  # Client（sessionStorage ロード + UI）
+├── components/quiz/
+│   ├── play-skeleton.tsx
+│   └── play-skeleton.module.css
+└── lib/
+    └── quick-press-obfuscate.ts   # quick-press 問題の難読化ユーティリティ
+```
+
+### 2. 本番プレイ画面（`/quiz/[id]/play`）
+
+#### A. 静的フレーム (RSC)
+`page.tsx` が即時描画する要素:
+- 戻るリンク（クイズ詳細または探索へ）
+- プログレスバー枠（問題 n / 全 m のプレースホルダー）
+- 問題カード外枠（`play.module.css` の `.container` 相当）
+- ウミガメモード用 2 カラム外枠（モード判定前は通常枠で可。Client マウント後に lateral レイアウトへ切替）
+
+#### B. Suspense 境界
+
+```tsx
+// page.tsx（概念）
+export default async function QuizPlayPage({ params, searchParams }) {
+  const { id } = await params;
+  return (
+    <div className={styles.container}>
+      <PlayStaticFrame quizId={id} />
+      <Suspense fallback={<PlaySkeleton data-testid="quiz-play-skeleton" />}>
+        <QuizPlayLoader quizId={id} searchParams={await searchParams} />
+      </Suspense>
+    </div>
+  );
+}
+```
+
+#### C. QuizPlayLoader（async Server Component）
+1. `getQuiz(quizId)` を await
+2. `obfuscateQuickPressQuestions(quiz.questions)` を適用（既存 Client useEffect ロジックを lib へ抽出）
+3. クイズ未存在時はエラー UI を返す（スケルトンではなくメッセージ）
+4. `JSON.parse(JSON.stringify(quiz))` で Client へ渡す（結果画面と同型）
+5. `QuizPlayClient` に `initialQuiz` と `quizId` を props 渡し
+
+#### D. QuizPlayClient（Client Component）
+- 既存 `QuizPlayPageContent` を移管
+- `useState` + `useEffect` による `getQuiz` 呼び出しを**削除**し、`initialQuiz` prop を使用
+- `useSearchParams` は Client 内で維持（`mode`, `listId`, `questionId`, `qIndex` 等）
+- `useAuth` によるウミガメ未ログインリダイレクトは Client 内で維持
+- ブックマーク状態取得（`getBookmarkFeed`）は Client 内非同期のまま可
+
+### 3. テストプレイ画面（`/quiz/test-play/play`）
+
+sessionStorage の draft は Server から読めないため、データ境界は Client 内に置く。
+
+#### A. 静的フレーム (RSC)
+本番プレイと同一の `PlayStaticFrame` を共有（戻る先 URL のみ prop で差し替え）。
+
+#### B. Suspense 境界
+
+```tsx
+export default function TestPlayPage() {
+  return (
+    <div className={styles.container}>
+      <PlayStaticFrame backHref="/quiz/create" />
+      <Suspense fallback={<PlaySkeleton data-testid="quiz-play-skeleton" />}>
+        <TestPlayClient />
+      </Suspense>
+    </div>
+  );
+}
+```
+
+#### C. TestPlayClient
+1. `useSearchParams` + `useAuth` で認証・モード検証（既存ロジック維持）
+2. `loadTestPlayPayload(user.id)` で sessionStorage から draft 取得
+3. `prepareQuizForTestPlay` + `obfuscateQuickPressQuestions` を適用
+4. payload 欠落時はエラー UI（要件 29）
+5. 既存テストプレイ UI・`saveTestPlayResult` フローを維持
+
+### 4. PlaySkeleton コンポーネント
+
+`ResultSkeleton` / `DetailSkeleton` と同様の pulsing アニメーション（`.skeletonPulse` または既存 CSS 変数）を使用。
+
+| 要素 | 説明 |
+|------|------|
+| ヘッダー行 | 戻るボタン + タイマー枠 |
+| プログレスバー | 全幅バーの pulse |
+| 問題文 | 2〜3 行のテキストプレースホルダー |
+| 選択肢 | 4 行のボタン型プレースホルダー（通常モード想定。ウミガメは Client マウント後に 2 カラムへ切替） |
+
+- `data-testid="quiz-play-skeleton"`（デフォルト）
+- 本番・test-play で同一コンポーネントを import
+
+### 5. quick-press 難読化ユーティリティ
+
+```typescript
+// lib/quick-press-obfuscate.ts（概念）
+export function obfuscateQuickPressQuestions(questions: Question[]): Question[] {
+  return questions.map((q) => {
+    if (q.type !== 'quick-press') return q;
+    return {
+      ...q,
+      questionText: '',
+      correctTextAnswerList: q.correctTextAnswerList?.map((ans) =>
+        btoa(unescape(encodeURIComponent(ans)))
+      ) ?? [],
+    };
+  });
+}
+```
+
+- `QuizPlayLoader`（Server）と `TestPlayClient`（Client）の両方で呼び出す
+- 既存 `review-client.tsx` の inline 難読化とも将来的に共有可能（本フェーズでは play / test-play のみ）
+
+### 6. シーケンス（本番プレイ）
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant RSC as page.tsx (Server)
+    participant Loader as QuizPlayLoader
+    participant Client as QuizPlayClient
+    participant FS as Firestore via getQuiz
+
+    Browser->>RSC: GET /quiz/{id}/play
+    RSC-->>Browser: 静的フレーム HTML（即時）
+    RSC-->>Browser: PlaySkeleton（Suspense fallback）
+    Loader->>FS: getQuiz(id)
+    FS-->>Loader: Quiz
+    Loader->>Loader: obfuscateQuickPressQuestions
+    Loader-->>Browser: QuizPlayClient + initialQuiz
+    Client->>Client: usePlayState セッション復元
+    Browser-->>Browser: インタラクティブプレイ UI
+```
+
+### 7. テスト計画
+
+| testid | 検証 |
+|--------|------|
+| `quiz-play-skeleton` | ロード中 visible → データ到着後 hidden |
+| 本番プレイ E2E | 詳細からプレイ開始 → スケルトン → 問題 UI 表示 |
+| test-play E2E | エディタからテストプレイ → スケルトン → 問題 UI 表示 |
+
+### 8. トレーサビリティ
+
+| Req | 設計要素 |
+|-----|----------|
+| 15.22 | `page.tsx` 静的フレーム |
+| 15.23–15.24 | `QuizPlayLoader` + `PlaySkeleton` |
+| 15.25 | `QuizPlayClient`（既存 hooks 維持） |
+| 15.26–15.29 | `TestPlayPage` + `TestPlayClient` |
+| 15.30–15.32 | `PlaySkeleton` testid、レイアウト除外 |
 
 

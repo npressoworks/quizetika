@@ -650,3 +650,166 @@ Phase 11 目標:
   - 非同期ローディングにより、E2Eテストや単体テストがローディング状態のままアサーションに到達し失敗するリスク。
   - **緩和策**: スケルトン領域に明確な `data-testid` を付与し、テストコードでスケルトンの消失または実コンテンツの描画を待機（`waitFor` 等）するように設計する。
 
+---
+
+# Gap Analysis: プレイ画面 Suspense 最適化（Phase 12 追補 — 2026-06-07）
+
+## 1. 調査サマリー
+
+- **対象要件**: 要件 15 受け入れ基準 22–32（本番 `/quiz/[id]/play`、test-play `/quiz/test-play/play`、共有 `PlaySkeleton`）
+- **実装状況**: Phase 12 追補の新規資産は**未実装**。両プレイ画面は全面 `'use client'` のまま、ロード UI は中央テキスト（「プレイ環境を準備中...」「テストプレイを準備中...」）
+- **参照実装**: クイズ詳細・結果画面は Server Component + async Loader + Skeleton パターンが**完了済み**（`src/app/quiz/[id]/page.tsx`、`result/page.tsx`）
+- **レイアウト除外**: 要件 15.32 は**既に充足** — `layout-wrapper.tsx` / `sidebar.tsx` / `header.tsx` / `bottom-nav.tsx` が `pathname.includes('/play')` で非表示
+- **推奨方向**: design.md の Hybrid（RSC シェル + Client 本体分割）が既存コードベースと最も整合。Effort **M**、Risk **Medium**
+
+## 2. 現状調査（Current State）
+
+### 2.1 関連ファイル
+
+| ファイル | 行数規模 | 現状 |
+|----------|----------|------|
+| `src/app/quiz/[id]/play/page.tsx` | ~1130 | 全面 Client。`useEffect` + `getQuiz`、quick-press 難読化 inline、`React.Suspense` は `use(params)` のみ |
+| `src/app/quiz/test-play/play/page.tsx` | ~703 | 全面 Client。`loadTestPlayPayload`（sessionStorage）、テキスト fallback Suspense |
+| `src/components/quiz/play-skeleton.tsx` | — | **不存在** |
+| `src/lib/quick-press-obfuscate.ts` | — | **不存在** |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | — | **不存在** |
+
+### 2.2 再利用可能な既存資産
+
+| 資産 | 用途 |
+|------|------|
+| `getQuiz()` (`src/services/quiz.ts`) | 本番 Loader。結果・詳細 RSC で Server 側利用実績あり（Client Firebase SDK） |
+| `QuizResultClient` パターン | Server で fetch → `JSON.parse(JSON.stringify(quiz))` → Client props 渡し |
+| `DetailSkeleton` / `ResultSkeleton` | pulsing CSS・glassmorphism パターンの参照（`*.module.css` の `.pulse`） |
+| `usePlayState` / `useAiPlayState` | プレイ進行・localStorage セッション（変更不要、Client に残す） |
+| `lib/test-play.ts` | `loadTestPlayPayload`, `prepareQuizForTestPlay`, TTL エラー処理（test-play Client で継続利用） |
+| `play.module.css` | プレイ UI スタイル（Client 移管後も共有） |
+| `tests/components/skeleton-components.test.tsx` | Skeleton testid テストの追加先 |
+
+### 2.3 命名・パターン
+
+- Phase 12 完了画面: `page.tsx`（Server）→ async `*Loader` → `*Client`（Client）
+- Skeleton: `src/components/quiz/*-skeleton.tsx` + `data-testid` 必須
+- プレイ画面のみ Phase 12 当初 Out → 現行 monolith Client が残存
+
+## 3. 要件–資産マップ
+
+| 要件 ID | 必要能力 | 既存資産 | ギャップ |
+|---------|----------|----------|----------|
+| 15.22 | 本番プレイ静的フレーム SSR | 結果画面 RSC パターン | **Missing** — play `page.tsx` が Client |
+| 15.23 | 本番プレイ Skeleton | DetailSkeleton パターン | **Missing** — `PlaySkeleton` 未作成 |
+| 15.24 | クイズロード後 UI 差し替え | `QuizPlayPageContent` ロジック | **Partial** — ロジックは存在、Loader 分割未実施 |
+| 15.25 | セッション復元・進行維持 | `usePlayState`, `useAiPlayState` | **Exists** — Client 移管時の mount タイミングに注意 |
+| 15.26 | test-play 静的フレーム | なし | **Missing** |
+| 15.27 | test-play Skeleton | なし | **Missing** |
+| 15.28 | test-play UI 差し替え | `TestPlayPageContent` | **Partial** |
+| 15.29 | draft 欠落エラー UI | test-play 既存 `loadError` | **Exists** — Skeleton 非表示への組み込み要 |
+| 15.30 | `quiz-play-skeleton` testid | 他 Skeleton testid 実績 | **Missing** |
+| 15.31 | テキストのみロード禁止 | 現行 2 画面が違反 | **Constraint** — 要置換 |
+| 15.32 | `/play` レイアウト非表示 | layout コンポーネント群 | **Exists** — 変更不要 |
+
+## 4. 技術的ギャップ詳細
+
+### 4.1 本番プレイ — Server Loader 化
+
+- `getQuiz` は Firestore Client SDK 経由だが、詳細・結果 RSC と同じく Server Component から呼び出し可能（追加 API 不要）
+- 現行 Client `useEffect` 内の quick-press 難読化（`questionText: ''` + Base64 正解）を lib へ抽出する必要あり
+- **注意**: `review/review-client.tsx` では quick-press の `questionText` も Base64 化しており、play 画面とは**難読化規則が異なる**。本フェーズは play / test-play の既存 play 規則を lib 化するに留める（review 統合は Out）
+
+### 4.2 1130 行モノリス分割
+
+- `QuizPlayPageContent` を `quiz-play-client.tsx` へ移管が主作業
+- 複数プレイモード分岐（normal / exam / flashcard / lateral / question-list / list）が同一ファイルに集約 — 一括移管が安全（部分抽出は退行リスク大）
+- `useSearchParams` 依存: Server `page.tsx` で `searchParams` を await して props 渡し可能（Next.js 15 App Router）。Client 内 `useSearchParams` も Suspense 境界として残す選択肢あり
+
+### 4.3 `usePlayState` セッション復元タイミング
+
+- 現行: `questions: quiz?.questions \|\| []` で loading 中は空配列 → ロード後に questions 確定 → セッション復元 effect 実行
+- リファクタ後: Client mount 時点で `initialQuiz.questions` が揃っている → **復元タイミングが改善**される見込み
+- **リスク**: `isFinished` 自動完了 effect が旧 `loading` フラグに依存（`!loading` 条件）。Loader 分割後は quiz loading 状態を削除し、effect 条件の見直しが必要
+
+### 4.4 test-play — sessionStorage 制約
+
+- draft はブラウザ sessionStorage のみ — Server Loader **不可**（brief / design と一致）
+- 認証 (`useAuth`) + payload 読み込みは Client 必須
+- 現行は `authLoading \|\| loading` でテキスト表示 — Skeleton 化 + auth 待ちも Skeleton に統一する設計判断が必要
+
+### 4.5 静的フレームと Client ヘッダーの重複
+
+- ロード完了後の Client UI は既に「中断する」戻るリンク + プログレスバーを内包（`styles.header`, `styles.progressSection`）
+- Server 静的フレームを同構造で先行描画すると、**ロード完了時に二重表示**の可能性
+- **Research Needed（design フェーズ）**: (a) 静的フレームは Skeleton 内のみに含め Server shell は最小 container のみ、(b) Client マウント後に静的フレームをアンマウント、(c) 静的フレームを Client に統合し Server は container + Suspense のみ — のいずれかを確定
+
+### 4.6 ウミガメ（lateral）レイアウト
+
+- 2 カラム (`styles.lateralContainer`) は quiz ロード後に Client が分岐
+- 共有 `PlaySkeleton` は通常モード想定で可（design 方針）。lateral 専用 Skeleton は初版不要
+
+### 4.7 テスト
+
+- E2E: プレイ画面スケルトンシーケンスのテスト**未存在**（タスク 20.6 任意）
+- Unit: `skeleton-components.test.tsx` に `PlaySkeleton` 追加可能（タスク 20.2 と整合）
+
+## 5. 実装アプローチ Options
+
+### Option A: Client のみ Skeleton 差し替え（最小 diff）
+
+- 既存 `page.tsx` を Client のまま、`loading` 時の return を `PlaySkeleton` に変更
+- test-play も同様
+
+| Pros | Cons |
+|------|------|
+| diff 小、退行リスク低 | 要件 15.22 / 15.26（SSR 静的フレーム・Streaming）を**満たせない** |
+| 即日実装可能 | Phase 12 他画面との UX 一貫性不足 |
+
+**判定**: 要件未達のため非推奨
+
+### Option B: design.md 通り Full Hybrid 分割（推奨）
+
+- 本番: Server `page.tsx` + `QuizPlayLoader` + `QuizPlayClient`
+- test-play: Server shell + `TestPlayClient`（sessionStorage）
+- 共有: `PlaySkeleton`, `quick-press-obfuscate`
+
+| Pros | Cons |
+|------|------|
+| 結果画面と同型、要件 22–32 を網羅 | 1130 行移管で Effort M |
+| Streaming による体感速度向上 | 静的フレーム重複の設計判断が必要 |
+| quick-press 難読化の DRY 化 | E2E 更新コスト |
+
+**判定**: design.md / tasks 20.x と一致。**推奨**
+
+### Option C: 段階的 Hybrid（2 フェーズ）
+
+- Phase 1: `PlaySkeleton` + lib 抽出 + Client 内 Skeleton 化（15.23, 15.27, 15.30, 15.31）
+- Phase 2: RSC 分割（15.22, 15.26）
+
+| Pros | Cons |
+|------|------|
+| 中間リリース可能 | 2 回の touch で play/page.tsx を二度編集 |
+| Phase 1 だけでも 15.31 改善 | Phase 1 単独では Streaming 未達 |
+
+**判定**: 急ぎで Skeleton だけ先に出す場合の代替。spec tasks は Option B 一括想定
+
+## 6. Effort & Risk
+
+| 項目 | 評価 | 根拠 |
+|------|------|------|
+| **Effort** | **M**（3–7 日） | 2 画面 + 新規 3–4 ファイル + 1130 行移管 + 結合検証。新規 API / Core 変更なし |
+| **Risk** | **Medium** | セッション復元・自動結果遷移・lateral AI・question-list クエリ等、退行ポイントが多い。参照パターンは codebase 内に存在 |
+
+## 7. Design フェーズへ引き継ぐ Research Items
+
+1. **静的フレーム vs Client ヘッダー**: 二重 UI 回避策の確定（§4.5）
+2. **authLoading 中の UI**: Skeleton 継続表示 vs 認証完了まで Suspense 維持
+3. **`searchParams` 渡し**: Server props vs Client `useSearchParams` の境界（question-list / lateral モード）
+4. **「解答データを送信中...」**: 完了処理中テキスト（648 行付近）は 15.31 対象外か明示（プレイ中状態 vs 初回ロード）
+5. **quick-press lib の Server/Client 両対応**: `btoa(unescape(encodeURIComponent))` を Node RSC でそのまま使用可能（結果画面の `getQuiz` 実績と同様）
+
+## 8. 推奨（Design / Impl 向け）
+
+- **Preferred**: Option B（design.md / tasks 20.1–20.5 に従う）
+- **実装順序**: 20.1（lib）→ 20.2（Skeleton）→ 20.3 / 20.4 並行 → 20.5 統合検証
+- **Core 変更**: 不要（`getQuiz` 既存利用）
+- **Middleware 変更**: 不要（test-play は Client auth リダイレクト維持で可）
+- **既存 spec 更新**: design.md / tasks.md は生成済み — gap 分析結果と矛盾なし
+

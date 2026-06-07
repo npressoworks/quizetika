@@ -686,6 +686,55 @@
   - _Requirements: 15.11, 15.12, 15.20, 15.21_
   - _Boundary: Testing_
 
+### 20. Phase 12 追補 — プレイ画面の Suspense 最適化（2026-06-07）
+
+- [x] 20.1 (P) quick-press 難読化ユーティリティの共通化
+  - `src/lib/quick-press-obfuscate.ts` を新設し、quick-press 問題の `questionText` 空化と `correctTextAnswerList` の Base64 難読化を1か所に集約する。
+  - 本番 Loader と test-play Client の両方から import できることを確認する。
+  - _Requirements: 15.24, 15.28_
+  - _Boundary: quick-press-obfuscate_
+
+- [x] 20.2 (P) `PlaySkeleton` コンポーネントの実装
+  - `src/components/quiz/play-skeleton.tsx` と CSS Module を新設し、プログレスバー・問題文・選択肢枠の pulsing スケルトンを描画する。
+  - `data-testid="quiz-play-skeleton"` をデフォルト付与する。
+  - _Requirements: 15.23, 15.27, 15.30, 15.31_
+  - _Boundary: PlaySkeleton_
+
+- [x] 20.3 本番プレイ画面の Server Component 化と Loader 分割
+  - `src/app/quiz/[id]/play/page.tsx` を Server Component に移行し、静的フレーム（戻る、プログレス枠、コンテナ）を即時描画する。
+  - async `QuizPlayLoader` で `getQuiz` + 難読化を行い、`<Suspense fallback={<PlaySkeleton />}>` 内で `QuizPlayClient` に `initialQuiz` を渡す。
+  - 既存 `QuizPlayPageContent` を `quiz-play-client.tsx` へ移管し、Client 側の `getQuiz` useEffect を削除する。
+  - 全プレイモード（normal / exam / flashcard / lateral / question-list）の既存挙動を維持する。
+  - _Requirements: 15.22, 15.23, 15.24, 15.25, 15.31, 15.32_
+  - _Depends: 20.1, 20.2_
+  - _Boundary: QuizPlayPage_
+
+- [x] 20.4 テストプレイ画面の Server Component 化
+  - `src/app/quiz/test-play/play/page.tsx` を Server Component シェル + 共有静的フレーム + Suspense に移行する。
+  - `TestPlayClient` で sessionStorage payload 解決、難読化、既存テストプレイ UI を維持する。
+  - payload 欠落・期限切れ時のエラー UI と戻り導線を表示する。
+  - _Requirements: 15.26, 15.27, 15.28, 15.29, 15.30, 15.31, 15.32_
+  - _Depends: 20.1, 20.2_
+  - _Boundary: TestPlayPage_
+
+- [x] 20.5 Phase 12 追補 統合検証
+  - 本番・test-play 双方で静的フレームが即時表示され、ロード中は `quiz-play-skeleton` が表示されることを手動または自動テストで確認する。
+  - 「プレイ環境を準備中...」テキストのみの白紙表示がプライマリロード UI として使われていないことを確認する。
+  - localStorage セッション復元、ウミガメ AI、test-play 結果遷移が退行していないことを確認する。
+  - _Requirements: 15.22, 15.25, 15.28, 15.31_
+  - _Depends: 20.3, 20.4_
+  - _Boundary: Integration_
+
+## Implementation Notes
+
+- Phase 12 追補: 静的フレームの二重表示回避のため、Server `page.tsx` は `styles.container` + Suspense のみ。ヘッダー／プログレスの先行表示は `PlaySkeleton` 内に集約。
+- `QuizPlayClientBoundary` / `TestPlayClientBoundary` で `useSearchParams` 用の内側 Suspense を維持。
+
+- [ ]* 20.6 Phase 12 追補 E2E スモーク（任意）
+  - Playwright で本番プレイ・test-play のスケルトン表示 → 問題 UI 表示シーケンスを検証する。
+  - _Requirements: 15.30_
+  - _Depends: 20.5_
+  - _Boundary: Testing_
 
 
 
