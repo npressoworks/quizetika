@@ -228,8 +228,8 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
     async function loadBookmarks() {
       try {
         // 現在のクイズ全体のブックマーク状態を取得
-        const quizBookmarked = await isBookmarked(userId, quizIdStr);
-        setBookmarkedQuizIds(new Set(quizBookmarked ? [quizIdStr] : []));
+        const quizBookmarked = await isBookmarked(userId!, quizIdStr!);
+        setBookmarkedQuizIds(new Set(quizBookmarked ? [quizIdStr!] : []));
 
         // 各問題のブックマーク状態を取得
         const questionIds = quiz?.questions?.map((q) => q.id) || [];
@@ -238,7 +238,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
         await Promise.all(
           questionIds.map(async (qId) => {
             try {
-              const bookmarked = await isBookmarked(userId, qId);
+              const bookmarked = await isBookmarked(userId!, qId);
               if (bookmarked) {
                 bookmarkedIds.push(qId);
               }
@@ -266,7 +266,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
     }
     async function checkFollowStatus() {
       try {
-        const following = await isFollowing(userId, authorId);
+        const following = await isFollowing(userId!, authorId!);
         setIsFollowingAuthor(following);
       } catch (err) {
         console.error('[QuizResult] フォロー状態の取得失敗:', err);
@@ -277,13 +277,13 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
 
   // 指摘レポートの初期状態取得
   useEffect(() => {
-    if (!user || !quiz) {
+    if (!userId || !quizIdStr) {
       setOpenReports([]);
       return;
     }
     async function loadOpenReports() {
       try {
-        const reports = await getOpenReportsForQuiz(quiz.id, user.id);
+        const reports = await getOpenReportsForQuiz(quizIdStr!, userId!);
         setOpenReports(reports);
       } catch (err) {
         console.error('[QuizResult] 指摘レポート取得失敗:', err);
@@ -291,17 +291,17 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
       }
     }
     loadOpenReports();
-  }, [user, quiz]);
+  }, [userId, quizIdStr]);
 
   // 同じ作者のおすすめクイズを取得
   useEffect(() => {
-    if (!quiz?.authorId) return;
+    if (!authorId) return;
     async function loadRecommend() {
       try {
         setRecommendLoading(true);
-        const quizzes = await getQuizzesByAuthor(quiz.authorId);
+        const quizzes = await getQuizzesByAuthor(authorId!);
         // 自分（今プレイしたクイズ）を除外して最大3件
-        const filtered = quizzes.filter((q) => q.id !== quiz.id).slice(0, 3);
+        const filtered = quizzes.filter((q) => q.id !== quizIdStr).slice(0, 3);
         setRecommendQuizzes(filtered);
         setRecommendError(null);
       } catch (e) {
@@ -312,11 +312,13 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
       }
     }
     loadRecommend();
-  }, [quiz?.authorId, quiz?.id]);
+  }, [authorId, quizIdStr]);
 
   // 2.5 リスト内の次問題／次クイズ判定（問題リストを優先）
+  const hasQuiz = !!quiz;
+  const attemptMode = attempt?.mode;
   useEffect(() => {
-    if (!listId || !quiz) return;
+    if (!listId || !hasQuiz) return;
 
     const session = readQuestionListSession();
     if (session && session.listId === listId) {
@@ -335,7 +337,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
       return;
     }
 
-    if (attempt?.mode === 'question-list') {
+    if (attemptMode === 'question-list') {
       setIsQuestionListFlow(true);
       setQuestionListSessionMissing(true);
       setListLoading(false);
@@ -365,7 +367,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
       }
     }
     checkNextQuiz();
-  }, [listId, quiz, quizId, attempt]);
+  }, [listId, hasQuiz, quizId, attemptMode]);
 
   useEffect(() => {
     if (isLastInQuestionList) {
@@ -444,10 +446,10 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
     setFollowLoading(true);
     try {
       if (isFollowingAuthor) {
-        await unfollowUser(userId, authorId);
+        await unfollowUser(userId!, authorId!);
         setIsFollowingAuthor(false);
       } else {
-        await followUser(userId, authorId);
+        await followUser(userId!, authorId!);
         setIsFollowingAuthor(true);
       }
     } catch (err) {
@@ -473,12 +475,12 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
       } else {
         // 新規作成
         const report: Omit<FeedbackReport, 'id' | 'status' | 'createdAt'> = {
-          quizId: quiz.id,
-          quizTitle: quiz.title,
+          quizId: quiz!.id,
+          quizTitle: quiz!.title,
           questionId: targetQuestionId,
           questionText: selectedQuestion ? selectedQuestion.questionText : '全体',
           reporterId: user.id,
-          creatorId: quiz.authorId,
+          creatorId: quiz!.authorId,
           category: feedbackCategory,
           content: feedbackContent,
         };
@@ -486,7 +488,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
       }
 
       // 指摘レポート一覧を再取得
-      const updatedReports = await getOpenReportsForQuiz(quiz.id, user.id);
+      const updatedReports = await getOpenReportsForQuiz(quiz!.id, user.id);
       setOpenReports(updatedReports);
 
       setFeedbackSubmitted(true);
@@ -504,13 +506,13 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
 
   // 現クイズのブックマークトグル
   const handleCurrentQuizBookmarkToggle = async () => {
-    if (!user) {
+    if (!user || !quiz) {
       router.push('/login');
       return;
     }
     try {
-      const isCurrentlyBookmarked = bookmarkedQuizIds.has(quiz.id);
-      await toggleBookmark(user.id, quiz.id, 'quiz');
+      const isCurrentlyBookmarked = bookmarkedQuizIds.has(quiz!.id);
+      await toggleBookmark(user.id, quiz!.id, 'quiz');
       setBookmarkedQuizIds((prev) => {
         const next = new Set(prev);
         if (isCurrentlyBookmarked) {
@@ -647,8 +649,35 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
             : '👍 お疲れ様でした！ナイスプレイ！'}
         </h1>
 
-        <p style={{ margin: '-12px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)' }}>
+        <p style={{ margin: '-12px 0 0 0', fontSize: '0.95rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
           作者: <Link href={`/profile/${quiz.authorId}`} style={{ color: 'var(--color-primary)', textDecoration: 'underline', fontWeight: 600 }}>{quiz.authorName || '作成者'}</Link>
+          {user && user.id !== quiz.authorId && (
+            <button
+              className={`btn ${isFollowingAuthor ? 'btn-secondary' : 'btn-accent'}`}
+              style={{
+                padding: '2px 8px',
+                fontSize: '0.75rem',
+                height: 'auto',
+                minHeight: 'unset',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onClick={handleFollowToggle}
+              disabled={!online || followLoading}
+              data-testid="author-follow-btn"
+            >
+              {isFollowingAuthor ? (
+                <>
+                  <UserCheck size={12} /> フォロー中
+                </>
+              ) : (
+                <>
+                  <UserPlus size={12} /> フォロー
+                </>
+              )}
+            </button>
+          )}
         </p>
 
         <div className={styles.metaStats}>
@@ -658,7 +687,7 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             🎯 クリア率: <strong>{Math.round((attempt.score / attempt.totalQuestions) * 100)}</strong>%
           </span>
-          {quiz.type === 'lateral-thinking' && attempt.aiTurnCount !== undefined && (
+          {quiz.format === 'lateral-thinking' && attempt.aiTurnCount !== undefined && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               💬 質問回数: <strong>{attempt.aiTurnCount}</strong> 回
             </span>
@@ -822,25 +851,6 @@ export function QuizResultPageContent({ quizId }: ContentProps) {
           >
             <AlertTriangle size={16} /> クイズを通報
           </button>
-          {user && user.id !== quiz.authorId && (
-            <button
-              className={`btn ${isFollowingAuthor ? 'btn-secondary' : 'btn-accent'}`}
-              style={{ flex: 1 }}
-              onClick={handleFollowToggle}
-              disabled={!online || followLoading}
-              data-testid="author-follow-btn"
-            >
-              {isFollowingAuthor ? (
-                <>
-                  <UserCheck size={16} style={{ marginRight: '6px' }} /> フォロー中
-                </>
-              ) : (
-                <>
-                  <UserPlus size={16} style={{ marginRight: '6px' }} /> 作者をフォローする
-                </>
-              )}
-            </button>
-          )}
         </div>
 
         {/* リスト連続プレイナビゲーション */}

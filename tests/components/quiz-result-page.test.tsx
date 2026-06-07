@@ -39,6 +39,7 @@ jest.mock('@/services/quiz', () => ({
 jest.mock('@/services/bookmark', () => ({
   getBookmarkFeed: jest.fn(),
   toggleBookmark: jest.fn(),
+  isBookmarked: jest.fn().mockResolvedValue(false),
 }));
 
 jest.mock('@/services/user', () => ({
@@ -56,6 +57,8 @@ jest.mock('@/context/auth-context', () => ({
 jest.mock('@/services/review', () => ({
   submitReview: jest.fn(),
   submitFeedbackReport: jest.fn(),
+  getOpenReportsForQuiz: jest.fn().mockResolvedValue([]),
+  updateFeedbackReport: jest.fn(),
 }));
 
 // Lucide icon mocks
@@ -74,6 +77,8 @@ jest.mock('lucide-react', () => ({
   CheckCircle: () => <span>CheckCircle</span>,
   ChevronRight: () => <span>ChevronRight</span>,
   Bookmark: () => <span>Bookmark</span>,
+  UserPlus: () => <span>UserPlus</span>,
+  UserCheck: () => <span>UserCheck</span>,
 }));
 
 // Mock Firebase config
@@ -262,7 +267,7 @@ describe('QuizResultPage Component (Phase 12)', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('author-follow-btn')).toBeInTheDocument();
-      expect(screen.getByText('作者をフォローする')).toBeInTheDocument();
+      expect(screen.getByText('フォロー')).toBeInTheDocument();
     });
     expect(isFollowing).toHaveBeenCalledWith('test-user-id', 'author-456');
   });
