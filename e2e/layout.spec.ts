@@ -13,7 +13,7 @@ test.describe('Responsive Navigation Layout', () => {
     const header = page.locator('header'); // header.tsx uses <header className="...">
     await expect(header).toBeHidden();
 
-    const bottomNav = page.locator('nav').filter({ hasText: /ホーム|通知/ }); // bottomNav uses <nav className="...">
+    const bottomNav = page.locator('nav').filter({ has: page.locator('[data-testid="bottom-nav-home"]') });
     // または CSS クラスや display: none で非表示であることを検証
     await expect(bottomNav).toBeHidden();
   });

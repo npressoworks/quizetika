@@ -727,4 +727,62 @@ export function consumeTestPlayDraftForEditor(
   - 説明文・問題文フィールドが `AutoGrowTextarea`（または `data-testid`）で描画されること。
 - **テストプレイ復帰（9.x）**:
   - `tests/lib/test-play.test.ts`: `consumeTestPlayDraftForEditor` が一致ドラフトを復元し session をクリアすること。
-  - 手動スモーク: 2問状態でテストプレイ → 編集画面復帰後も問題数が2問のままであること（重複 4 問化の再発防止）。
+- 手動スモーク: 2問状態でテストプレイ → 編集画面復帰後も問題数が2問のままであること（重複 4 問化の再発防止）。
+
+---
+
+## Phase 12 クリエイター管理画面の非同期表示最適化設計（2026-06-07）
+
+### 概要
+作家ダッシュボード（`/creator/dashboard`）、クイズ作成・編集画面（`/quiz/create`, `/quiz/[id]/edit`）、およびリスト詳細・編集画面（`/list/...`）を Next.js App Router の Server Component として構築し、静的ページレイアウト（ヘッダー、タイトル枠、アクションボタン、サイドバー等）をサーバー側から即時描画・配信します。動的・非同期データが必要な領域については React Suspense と Skeleton を配置して順次ロード・描画を行います。
+
+### 1. ページ構造と Suspense 境界の定義
+
+#### A. 作家ダッシュボード画面（`/creator/dashboard`）
+* **静的フレーム (RSC)**: クリエイターヘッダー、サイドバー、「新規クイズ作成」「一括エクスポート」等のアクションメニュー。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * **累計統計データ**: `<Suspense fallback={<StatsSkeleton data-testid="stats-skeleton" />}>`
+    * プレイ数、いいね数、ブックマーク数などの集計数カード。
+  * **作成クイズ一覧**: `<Suspense fallback={<QuizListSkeleton data-testid="quiz-list-skeleton" />}>`
+    * クライアント側で作成した下書きおよび公開済みクイズのリスト行。
+  * **間違い指摘フィードバックキュー**: `<Suspense fallback={<FeedbackSkeleton data-testid="feedback-list-skeleton" />}>`
+    * 他ユーザーから寄せられた間違い指摘の一覧フィードバックカード。
+  * **アナリティクスグラフ**: `<Suspense fallback={<ChartsSkeleton data-testid="charts-skeleton" />}>`
+    * プレイ履歴のグラフや正解選択肢割合のビジュアルチャート（CSSベース）。
+
+#### B. クイズ作成・編集画面（`/quiz/create`, `/quiz/[id]/edit`）
+* **静的フレーム (RSC)**: 戻るボタン、入力フォームの静的枠（メタデータ入力枠、問題管理枠、保存・公開アクションエリア）。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * **編集対象のクイズデータおよびジャンル・タグマスタ**: `<Suspense fallback={<EditorFormSkeleton data-testid="quiz-editor-skeleton" />}>`
+    * 編集時の既存データ復元、動的なマスタプルダウンおよびサジェスト処理。
+
+#### C. リスト詳細・編集画面（`/list/[id]`, `/list/create`, `/list/[id]/edit`）
+* **静的フレーム (RSC)**: 戻るボタン、タイトル、コンテナのアウトライン。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * **リストデータおよび収録クイズ・問題データ**: `<Suspense fallback={<ListEditorSkeleton data-testid="list-editor-skeleton" />}>`
+    * アタッチ候補クイズ一覧や Drag & Drop リスト行。
+
+### 2. ミドルウェアによるサーバーサイド認証保護
+作家ダッシュボード（`/creator/dashboard`）やクイズ編集（`/quiz/[id]/edit`）は作成者本人の認証および認可が必要なため、Middleware (`src/middleware.ts`) を用いて Firebase セッションCookie を評価し、無効な場合は即座に `/login` にサーバーサイドリダイレクト（`307`）させます。マウント後のクライアントサイドリダイレクトによる白紙表示を防ぎます。
+
+### 3. Requirements Traceability
+
+| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
+| :--- | :--- | :--- | :--- | :--- |
+| 10.1 | 作家ダッシュボードの静的先行表示 | `src/app/creator/dashboard/page.tsx` | Server Component としてヘッダー等の枠組みを即時レンダリング。 | ユーザーアクセス時に即時描画・配信 |
+| 10.2 | 累計統計データのスケルトン表示 | `src/components/charts/stats-skeleton.tsx` | 統計データのロード中、カード用のスケルトンを表示する。 | `data-testid="stats-skeleton"` を付与 |
+| 10.3 | 累計統計データのコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | データロード完了後、統計カードを実データに差し替える。 | `<Suspense>` による非同期制御 |
+| 10.4 | 作成クイズ一覧のスケルトン表示 | `src/components/quiz/quiz-list-skeleton.tsx` | 自作クイズ一覧の取得中、リスト用のスケルトンを表示する。 | `data-testid="quiz-list-skeleton"` を付与 |
+| 10.5 | 作成クイズ一覧のコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | ロード完了後、スケルトンから実際のクイズ行に差し替える。 | `<Suspense>` による非同期制御 |
+| 10.6 | 指摘キューのスケルトン表示 | `src/components/quiz/feedback-skeleton.tsx` | 指摘フィードバックデータのロード中、スケルトンを表示する。 | `data-testid="feedback-list-skeleton"` を付与 |
+| 10.7 | 指摘キューのコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | ロード完了後、指摘フィードバックキューに差し替える。 | `<Suspense>` による非同期制御 |
+| 10.8 | アナリティクスグラフのスケルトン表示 | `src/components/charts/charts-skeleton.tsx` | チャート用データのロード中、グラフ用スケルトンを表示する。 | `data-testid="charts-skeleton"` を付与 |
+| 10.9 | アナリティクスグラフのコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | ロード完了後、実際のグラフ（CSSベース）に差し替える。 | `<Suspense>` による非同期制御 |
+| 10.10 | ダッシュボード用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="stats-skeleton"`, `quiz-list-skeleton` 等 |
+| 10.11 | 指摘・グラフ用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="feedback-list-skeleton"`, `charts-skeleton` |
+| 10.12 | クイズ作成・編集画面の静的先行表示 | `src/app/quiz/create/page.tsx`, `src/app/quiz/[id]/edit/page.tsx` | Server Component として戻るボタンやフォーム枠を即時描画。 | ユーザーアクセス時に即時描画・配信 |
+| 10.13 | クイズエディタデータのスケルトン表示 | `src/components/quiz/editor-skeleton.tsx` | クイズデータやマスタロード中、フォーム内にスケルトンを表示。 | `data-testid="quiz-editor-skeleton"` を付与 |
+| 10.14 | クイズエディタデータのコンテンツ置換 | `src/app/quiz/[id]/edit/page.tsx` | データロード完了後、実際のフォーム入力要素に差し替える。 | `<Suspense>` による非同期制御 |
+| 10.15 | リスト詳細・編集画面の静的先行表示 | 各リストページ `page.tsx` | Server Component として戻るボタンやコンテナ枠を即時描画。 | ユーザーアクセス時に即時描画・配信 |
+| 10.16 | リストデータのスケルトン表示 | `src/components/quiz-list/list-skeleton.tsx` | リストデータやアタッチ対象のロード中、スケルトンを表示。 | `data-testid="list-editor-skeleton"` を付与 |
+

@@ -39,15 +39,17 @@ export async function sendReaction(
   const userDocRef = doc(db, 'users', receiverId);
   
   await runTransaction(db, async (transaction) => {
-    // 1. すべての読み取り (READ) を先に実行
+    // 1. リアクション存在確認 (READ)
     const reactionSnap = await transaction.get(reactionDocRef);
-    const quizSnap = await transaction.get(quizDocRef);
-    const userSnap = await transaction.get(userDocRef);
 
     // 既に送信済みの場合は何もしない (冪等性維持)
     if (reactionSnap.exists()) {
       return;
     }
+
+    // 残りの読み取り (READ)
+    const quizSnap = await transaction.get(quizDocRef);
+    const userSnap = await transaction.get(userDocRef);
     
     if (!quizSnap.exists()) {
       throw new Error(`Quiz with ID ${quizId} not found`);

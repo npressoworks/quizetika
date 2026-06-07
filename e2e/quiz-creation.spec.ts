@@ -35,12 +35,12 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
 
     // 6. 第1問（デフォルト追加済み）の入力
     // 問題文
-    const q1Textarea = page.locator('textarea[placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"]').first();
+    const q1Textarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
     await expect(q1Textarea).toBeVisible();
     await q1Textarea.fill('Reactにおいて、コンポーネントのステートを管理するためのフックは次のうちどれ？');
 
     // 選択肢1 (正解) の入力 (第1問目の選択肢1)
-    const choiceInputs = page.locator('.choiceRow input[type="text"]');
+    const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
     await expect(choiceInputs.first()).toBeVisible();
     await choiceInputs.nth(0).fill('useState');
     await choiceInputs.nth(1).fill('useEffect');

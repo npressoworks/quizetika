@@ -11,7 +11,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     await page.goto('/');
     
     // 2. 「ログイン」ボタンが存在することを確認し、クリック
-    const loginLink = page.locator('text=ログイン');
+    const loginLink = page.locator('a').filter({ hasText: /^ログイン$/ }).first();
     await expect(loginLink).toBeVisible();
     await loginLink.click();
     
@@ -32,9 +32,9 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     
     // 7. アバターボタンをクリックしてドロップダウンを開く
     // avatarButton のクラスまたは画像要素を探してクリック
-    const avatarBtn = page.locator('header img').first();
+    const avatarBtn = page.locator('header img, aside img, nav img').filter({ visible: true }).first();
     await expect(avatarBtn).toBeVisible();
-    await avatarBtn.click();
+    await avatarBtn.click({ force: true });
     
     // 8. 「マイページ」リンクをクリック
     const myPageLink = page.locator('text=マイページ');
@@ -75,7 +75,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     
     // 11. ログアウト処理の検証
     // ヘッダーのアバターを再度クリックしてドロップダウンを開く
-    await avatarBtn.click();
+    await avatarBtn.click({ force: true });
     
     // 「ログアウト」ボタンをクリック
     const logoutBtn = page.locator('text=ログアウト');
@@ -84,7 +84,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     
     // 12. ログアウト成功後にホームページに戻り、「ログイン」リンクが再表示されることを確認
     await expect(page).toHaveURL('/');
-    await expect(page.locator('text=ログイン')).toBeVisible();
+    await expect(page.locator('a').filter({ hasText: /^ログイン$/ }).first()).toBeVisible();
     
     // コンテキストをクローズ
     await context.close();
@@ -102,7 +102,9 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     await e2eLoginBtn.click();
     await expect(page).toHaveURL('/');
 
-    await page.locator('header img').first().click();
+    const avatar = page.locator('header img, aside img, nav img').filter({ visible: true }).first();
+    await expect(avatar).toBeVisible({ timeout: 10000 });
+    await avatar.click({ force: true });
     await page.locator('text=マイページ').click();
     await expect(page).toHaveURL(/\/profile\//);
 

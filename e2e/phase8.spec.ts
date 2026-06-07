@@ -38,7 +38,7 @@ async function publishMinimalQuiz(page: Page, title: string) {
 
   await selectFirstGenre(page);
 
-  const qTextarea = page.locator('textarea[placeholder*="useState"]').first();
+  const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
   await expect(qTextarea).toBeVisible({ timeout: 15000 });
   await qTextarea.fill('Reactのフックでステート管理を行うのは？');
 
@@ -64,7 +64,9 @@ async function publishMinimalQuiz(page: Page, title: string) {
 }
 
 async function goToMyProfileListsTab(page: Page) {
-  await page.locator('header img').first().click();
+  const avatar = page.locator('header img, aside img, nav img').filter({ visible: true }).first();
+  await expect(avatar).toBeVisible({ timeout: 10000 });
+  await avatar.click({ force: true });
   await page.locator('text=マイページ').click();
   await expect(page).toHaveURL(/\/profile\//);
   await page.locator('button').filter({ hasText: '作成したリスト' }).click();

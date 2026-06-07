@@ -12,7 +12,7 @@ import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
 import { ExploreAccordionsPanel } from '@/components/explore/explore-accordions-panel';
 import { ExploreSearchSection } from '@/components/explore/explore-search-section';
 import { QuizCard } from '@/components/quiz/quiz-card';
-import { SkeletonCard } from '@/components/ui/skeleton-card';
+import { GridSkeleton } from '@/components/ui/grid-skeleton';
 import {
   DEFAULT_HOME_FEED_FILTERS,
   type HomeFeedFilters,
@@ -22,12 +22,16 @@ import type { QuizFormat } from '@/lib/quiz-format';
 import type { GenreMetadata, TagMetadata, Quiz } from '@/types';
 
 interface HomeClientProps {
-  initialGenres: GenreMetadata[];
-  initialTags: TagMetadata[];
-  initialQuizzes: Quiz[];
+  initialGenres?: GenreMetadata[];
+  initialTags?: TagMetadata[];
+  initialQuizzes?: Quiz[];
 }
 
-export function HomeClient({ initialGenres, initialTags, initialQuizzes }: HomeClientProps) {
+export function HomeClient({
+  initialGenres,
+  initialTags,
+  initialQuizzes,
+}: HomeClientProps = {}) {
   const router = useRouter();
   const { user, firebaseUser, loading: authLoading } = useAuth();
   
@@ -186,11 +190,7 @@ export function HomeClient({ initialGenres, initialTags, initialQuizzes }: HomeC
         )}
 
         {feedLoading ? (
-          <div className={styles.grid}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
+          <GridSkeleton data-testid="home-feed-skeleton" />
         ) : displayQuizzes.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
             該当するクイズが見つかりませんでした。

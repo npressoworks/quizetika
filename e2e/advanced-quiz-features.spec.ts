@@ -24,18 +24,28 @@ async function ensureSharedNormalQuiz(page: any, dialogMessages: string[]) {
   await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2Eテスト共通の自動生成クイズです。');
 
   // 第1問目の問題入力
-  const qTextarea = page.locator('textarea[placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"]').first();
+  const qTextarea = page.locator('textarea[placeholder*="Reactにおいて"]').first();
   await qTextarea.fill('Reactのフックでステート管理を行うのは？');
 
   // 選択肢の入力
-  const choiceInputs = page.locator('.choiceRow input[type="text"]');
+  const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
   await choiceInputs.nth(0).fill('useState'); // 正解
   await choiceInputs.nth(1).fill('useEffect');
   await choiceInputs.nth(2).fill('useContext');
   await choiceInputs.nth(3).fill('useRef');
 
+  // ジャンル選択
+  const genreSelect = page.getByTestId('genre-editor-select');
+  await expect(genreSelect).toBeVisible({ timeout: 5000 });
+  const firstGenre = genreSelect.locator('option[value]:not([value=""])').first();
+  await expect(firstGenre).toBeAttached({ timeout: 5000 });
+  const genreValue = await firstGenre.getAttribute('value');
+  if (genreValue) {
+    await genreSelect.selectOption(genreValue);
+  }
+
   // 公開
-  const publishBtn = page.locator('text=公開');
+  const publishBtn = page.locator('button').filter({ hasText: /^公開$/ }).first();
   await expect(publishBtn).toBeVisible();
   await publishBtn.click();
 
@@ -217,7 +227,7 @@ test.describe('高度なクイズ機能 E2Eテスト', () => {
 
       // 3. 模擬試験モードの特徴を確認
       // 最初の問題で選択肢をクリック
-      const option = page.locator('button.optionBtn, button').filter({ hasText: /useState/ }).first();
+      const option = page.locator('button[class*="optionBtn"], button').filter({ hasText: /useState/ }).first();
       if (await option.isVisible()) {
         await option.click();
 
@@ -271,16 +281,20 @@ test.describe('高度なクイズ機能 E2Eテスト', () => {
 
   test('F-1003: 弱点克服プレイ（復習プレイ）が正常に機能すること', async ({ page }) => {
     // 1. プロフィール画面へアクセス
-    const avatarBtn = page.locator('header img').first();
-    if (await avatarBtn.isVisible()) {
-      await avatarBtn.click();
-      
+    const profileBtn = page.locator('[data-testid="sidebar-profile-btn"]').first();
+    if (await profileBtn.isVisible()) {
+      await profileBtn.click({ force: true });
       const myPageLink = page.locator('text=マイページ');
       if (await myPageLink.isVisible()) {
         await myPageLink.click();
       }
     } else {
-      await page.goto('/profile');
+      const avatarLink = page.locator('header img, aside img, nav img').filter({ visible: true }).first();
+      if (await avatarLink.isVisible()) {
+        await avatarLink.click({ force: true });
+      } else {
+        await page.goto('/profile');
+      }
     }
 
     // 2. 弱点克服セクションを確認
@@ -379,7 +393,7 @@ test.describe('高度なクイズ機能 E2Eテスト', () => {
       await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
 
       // 6. 複数の問題に回答
-      const option = page.locator('button.optionBtn, button').filter({ hasText: /useState/ }).first();
+      const option = page.locator('button[class*="optionBtn"], button').filter({ hasText: /useState/ }).first();
       if (await option.isVisible()) {
         await option.click();
       }

@@ -422,4 +422,45 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
 ## Specs (dependency order)
 （Phase 11 では新規 spec なし — 上記 Existing Spec Updates のみ）
 
+---
 
+## Phase 12: SuspenseとStreamingによる表示最適化（レイアウト先行表示）
+
+### Overview（本フェーズ）
+クイズプレイ中画面を除く、quizeumの**すべての画面**においてアクセス時に白紙や無味乾燥な「ロード中...」表示を出すことを防ぎ、Next.jsのSuspenseとStreamingを利用して共通レイアウトおよび画面の静的フレーム（戻るボタン、タイトル枠、コンテナなど）を即座に描画する。データ解決や認証が必要な部分は `Suspense` の `fallback` としてスケルトン（Skeleton）を配置し、非同期にコンテンツを流し込む。これにより、全画面での体感速度向上とプレミアムなUXを実現する。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: RSC + Client Component + Suspense 分離方式
+- **Why**: 各画面の `page.tsx` をサーバーコンポーネント（Server Component）として設計することで、Next.jsが初期HTML（静的な枠組み）を即時ストリーミング可能になる。認証状態の監視や非同期データの取得は子コンポーネント（Client Component）に閉じ込め、それを `page.tsx` で `<Suspense>` で囲むことで、美しいスケルトン表示とシームレスなローディング体験が全画面で両立するため。
+- **Rejected alternatives**:
+  - クライアントサイドでのインラインスケルトン判定（アプローチB）: ファイル分割は防げるが、Next.jsのサーバーサイドからのストリーミング（Streaming）を活用できず、初期表示速度の改善幅が限定的となるため却下。
+
+### Scope（本フェーズ）
+- **In**:
+  - **すべてのページ（クイズプレイ中画面を除く）**の Server Component 化、静的フレーム（戻るボタン、ヘッダー、タイトル、背景コンテナ等）の先行描画。
+  - 対象画面：ホーム（`/`）、クイズ詳細（`/quiz/[id]`）、結果画面（`/quiz/[id]/result`）、弱点克服（`/quiz/review`）、総合リーダーボード（`/leaderboard`）、タグ別一覧（`/tags/[tagName]`）、ジャンル別一覧（`/genres/[genreName]`）、ブックマーク（`/bookmarks`）、通知（`/notifications`）、作家ダッシュボード（`/creator/dashboard`）、クイズ作成・編集（`/quiz/create`, `/quiz/[id]/edit`）、リスト作成・編集・詳細（`/list/*`）、プロフィール関連（`/profile/*`）、モデレーション管理（`/admin/moderation`）、コミュニティ管理（`/community/*`）、管理者ユーザー管理（`/admin/users`）等。
+  - 各画面に対応するスケルトンコンポーネントの整備（各UIスペックが担当）。
+  - ログイン必須の全画面（`/bookmarks`, `/notifications`, `/creator/dashboard`, `/list/create`, `/profile/edit` 等）に対する Next.js Middleware でのサーバーサイドリダイレクト（Cookie ベース認証）。
+- **Out**:
+  - クイズプレイ中画面（`/quiz/[id]/play` および `/quiz/test-play/play` など、`/play` パス下のプレイ中画面）。これらはゲームの進行管理上、クライアント側での即時ローディング制御が必須であるため対象外とする。
+
+### Boundary Strategy（本フェーズ）
+- **Play-flow UI** が `/quiz/[id]` や結果画面、探索画面等の表示最適化を担当。
+- **Creator-dash UI** が `/creator/dashboard` やクイズ・リスト編集画面等の表示最適化を担当。
+- **Auth-profile UI** が `/bookmarks` や `/notifications`、プロフィール関連画面等の表示最適化を担当。
+- **Admin Users UI** が `/admin/users` の表示最適化を担当.
+- **Moderation-governance UI** がモデレーションおよびコミュニティ関連画面の表示最適化を担当。
+- **Shared seam**: ミドルウェアのルーティング保護ルール (`src/middleware.ts`)、共通スケルトンコンポーネント。
+
+## Existing Spec Updates（Phase 12）
+- [ ] quizeum-play-flow-ui -- クイズプレイ中以外の全画面（ホーム、詳細、結果、探索、復習、リーダーボード）の Server Component 化、静的フレーム即時描画、および `Suspense` + `Skeleton` の適用。Dependencies: none
+- [ ] quizeum-creator-dash-ui -- 全所有画面（ダッシュボード、クイズ作成・編集、リスト作成・編集・詳細）の Server Component 化、静的フレーム即時描画、および `Suspense` + `Skeleton` の適用。Dependencies: none
+- [ ] quizeum-auth-profile-ui -- 全所有画面（ログイン、プロフィール、プロフィール編集、フォロー一覧、通知、いいね履歴）の Server Component 化、静的フレーム即時描画、および `Suspense` + `Skeleton` の適用。Dependencies: none
+- [ ] quizeum-admin-users-ui -- ユーザー管理画面 `/admin/users` の Server Component 化、静的フレーム即時描画、および `Suspense` + `Skeleton` の適用。Dependencies: none
+- [ ] quizeum-moderation-governance-ui -- モデレーション `/admin/moderation` およびコミュニティ管理画面（マージ申請、ジャンル新設等）の Server Component 化、静的フレーム即時描画、および `Suspense` + `Skeleton` の適用。Dependencies: none
+
+## Direct Implementation Candidates（Phase 12）
+- [ ] middleware-auth-protection -- ログイン必須の全画面に対する Next.js Middleware でのセッションCookieベースのログインガード追加（サーバーサイドリダイレクト）。
+
+## Specs (dependency order)
+（Phase 12 では新規 spec なし — 上記 Existing Spec Updates のみ）

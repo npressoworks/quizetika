@@ -111,12 +111,13 @@ describe('Home Page UI', () => {
     expect(screen.getAllByTestId('search-tag-chip').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('ロード中はスケルトンカードが表示されること', () => {
+  it('ロード中はフィード領域のみスケルトンが表示されること', () => {
     mockFeedLoading = true;
     render(<HomeClient initialGenres={mockGenres} initialTags={[]} initialQuizzes={mockQuizzes} />);
 
-    const skeletons = screen.getAllByTestId('skeleton-card');
-    expect(skeletons.length).toBe(6);
+    expect(screen.getByTestId('home-feed-skeleton')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/クイズを検索/)).toBeInTheDocument();
+    expect(screen.getByTestId('explore-accordion-genre')).toBeInTheDocument();
   });
 
   it('ロード完了後はクイズカードが表示されること', () => {

@@ -23,7 +23,7 @@ async function ensureQuizAndNavigate(page: any) {
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動シード');
     
     // 選択肢
-    const choiceInputs = page.locator('.choiceRow input[type="text"]');
+    const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
     try {
       await choiceInputs.first().waitFor({ state: 'visible', timeout: 3000 });
       if (await choiceInputs.first().isVisible()) {
@@ -38,7 +38,7 @@ async function ensureQuizAndNavigate(page: any) {
     page.once('dialog', async (dialog: any) => {
       await dialog.accept();
     });
-    await page.locator('text=公開').click();
+    await page.locator('button').filter({ hasText: /^公開$/ }).first().click();
     await page.waitForTimeout(1000);  }
 
   await page.goto('/');
@@ -163,7 +163,7 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
       // プレイページへ遷移することを確認
       await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
       // 3. クイズをプレイ（簡易的に最初の選択肢をクリック）
-      const firstOption = page.locator('.optionBtn').first()
+      const firstOption = page.locator('button[class*="optionBtn"]').first()
         .or(page.locator('button').filter({ hasText: /選択肢|答え|useState/ }).first());
       await expect(firstOption).toBeVisible({ timeout: 5000 });
       await firstOption.click();

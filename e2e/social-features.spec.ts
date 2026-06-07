@@ -23,7 +23,7 @@ async function ensureQuizAndNavigate(page: any) {
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動シード');
     
     // 選択肢
-    const choiceInputs = page.locator('.choiceRow input[type="text"]');
+    const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
     try {
       await choiceInputs.first().waitFor({ state: 'visible', timeout: 3000 });
       if (await choiceInputs.first().isVisible()) {
@@ -38,7 +38,7 @@ async function ensureQuizAndNavigate(page: any) {
     page.once('dialog', async (dialog: any) => {
       await dialog.accept();
     });
-    await page.locator('text=公開').click();
+    await page.locator('button').filter({ hasText: /^公開$/ }).first().click();
     await page.waitForTimeout(1000);  }
 
   await page.goto('/');
@@ -131,7 +131,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     await expect(firstCard).toBeVisible({ timeout: 10000 });
 
     // クイズカード内のお気に入り（星）ボタンを特定
-    const bookmarkBtn = firstCard.locator('button[title="ブックマーク"]').first();
+    const bookmarkBtn = firstCard.locator('button[aria-label="ブックマーク"]').first();
     await expect(bookmarkBtn).toBeVisible();
 
     const starIcon = bookmarkBtn.locator('svg').first();
@@ -210,7 +210,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
         break;
       }
 
-      const option = page.locator('.optionBtn').first();
+      const option = page.locator('button[class*="optionBtn"]').first();
       if (await option.isVisible()) {
         await option.click();
         await page.waitForTimeout(500);
@@ -347,7 +347,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
         break;
       }
 
-      const option = page.locator('.optionBtn').first();
+      const option = page.locator('button[class*="optionBtn"]').first();
       if (await option.isVisible()) {
         await option.click();
         await page.waitForTimeout(500);

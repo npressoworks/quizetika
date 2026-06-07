@@ -15,13 +15,14 @@ test.describe('クイズ検索・探索機能 E2Eテスト', () => {
     
     // DOM読み込み完了まで待機（networkidleはFirebaseで使用不可）
     await page.waitForLoadState('domcontentloaded');
-    
-    // ロード中スケルトンが消えるのを待つ
-    await expect(page.getByTestId('home-feed-skeleton')).toBeHidden({ timeout: 15000 });
-    
-    // ページの主要コンテンツが表示されるまで待機（最大15秒）
+
     const searchInput = page.locator('input[placeholder="タイトル、説明文、作成者、タグでクイズを検索..."]');
-    await expect(searchInput).toBeVisible({ timeout: 15000 });
+    await expect(searchInput).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('explore-accordion-genre')).toBeVisible();
+    await expect(page.getByTestId('explore-accordion-format')).toBeVisible();
+
+    // フィードのロード完了を待つ
+    await expect(page.getByTestId('home-feed-skeleton')).toBeHidden({ timeout: 15000 });
     
     // 2. 「人気順」タブに切り替える
     const popularTab = page.locator('text=人気順');

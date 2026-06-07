@@ -1345,7 +1345,98 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
   間違い指摘モーダルを開く際、対象が「クイズ全体への指摘」の場合のみ、カテゴリから「別解の追加要望」を除外または非表示にします (問題個別への指摘時のみ表示)。
 * **通報ボタンと通報モーダル**:
   指摘ボタンの横に通報用のボタン (`data-testid="quiz-report-btn"`) を新設します。
-  * ボタン押下で `ReportModal` ([report-modal.tsx](file:///d:/quizeum/src/components/quiz/report-modal.tsx)) を開きます。
   * `ReportModal` は通報理由 (reason) テキスト入力を提供し、送信時に `quizeum-core` の `flagContent(quizId, reporterId, reason)` を呼び出します。
+
+### 5. Requirements Traceability
+
+| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
+| :--- | :--- | :--- | :--- | :--- |
+| 15.1 | 詳細画面の静的フレーム先行表示 | `src/app/quiz/[id]/page.tsx` | Server Component として戻るボタンや外枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
+| 15.2 | 詳細データのスケルトン表示 | `src/components/quiz/detail-skeleton.tsx` | 詳細メタデータのロード中、専用プレースホルダーを表示する。 | `data-testid="quiz-detail-skeleton"` を付与 |
+| 15.3 | 詳細データのコンテンツ置換 | `src/app/quiz/[id]/page.tsx` | データロード完了後、スケルトンからコンテンツに差し替える。 | Suspense によるロード完了検知 |
+| 15.4 | リーダーボードの非同期スケルトン表示 | `src/components/quiz/leaderboard-skeleton.tsx` | リーダーボードデータのフェッチ中にスケルトンを表示する。 | `data-testid="leaderboard-skeleton"` を付与 |
+| 15.5 | リーダーボードのコンテンツ置換 | `src/app/quiz/[id]/page.tsx` | リーダーボードデータロード完了後、実際の表に差し替える。 | `<Suspense>` による非同期制御 |
+| 15.6 | 結果画面の静的フレーム先行表示 | `src/app/quiz/[id]/result/page.tsx` | Server Component としてヘッダー等の外枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
+| 15.7 | 結果データのスケルトン表示 | `src/components/quiz/result-skeleton.tsx` | 結果データのロード中、専用プレースホルダーを表示する。 | `data-testid="quiz-result-skeleton"` を付与 |
+| 15.8 | 結果データのコンテンツ置換 | `src/app/quiz/[id]/result/page.tsx` | データロード完了後、スケルトンから結果コンテンツに差し替える。 | `<Suspense>` による非同期制御 |
+| 15.9 | おすすめクイズのスケルトン表示 | `src/components/ui/skeleton-card.tsx` | おすすめクイズのフェッチ中、カード用のスケルトンを表示する。 | `data-testid="recommend-skeleton"` を付与 |
+| 15.10 | おすすめクイズのコンテンツ置換 | `src/app/quiz/[id]/result/page.tsx` | おすすめクイズロード完了後、実際のクイズカードに差し替える。 | `<Suspense>` による非同期制御 |
+| 15.11 | 詳細・LB用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="quiz-detail-skeleton"`, `data-testid="leaderboard-skeleton"` |
+| 15.12 | 結果・おすすめ用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="quiz-result-skeleton"`, `data-testid="recommend-skeleton"` |
+| 15.13 | ホーム画面の静的フレーム先行表示 | `src/app/page.tsx` | Server Component としてヘッダーやサイドバー、検索バー枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
+| 15.14 | ホームフィード・カルーセルのスケルトン表示 | `src/components/explore/carousel-skeleton.tsx`, `GridSkeleton` | データロード中、クイズグリッドやカルーセルにスケルトンを表示する。 | `data-testid="home-feed-skeleton"` を付与 |
+| 15.15 | ホームコンテンツの置換 | `src/app/page.tsx` | データロード完了後、スケルトンからフィードやカルーセルに差し替える。 | `<Suspense>` による非同期制御 |
+| 15.16 | ジャンル・タグページの静的フレーム先行表示 | `src/app/genres/[genreName]/page.tsx`, `src/app/tags/[tagName]/page.tsx` | Server Component として戻るボタンや検索バー等を即時描画する。 | ユーザーアクセス時に即時描画・配信 |
+| 15.17 | ジャンル・タグフィードのスケルトン表示 | `GridSkeleton` | クイズ一覧のロード中、カード用のスケルトンを表示する。 | `data-testid="explore-list-skeleton"` を付与 |
+| 15.18 | 弱点克服・総合LBの静的フレーム先行表示 | `src/app/quiz/review/page.tsx`, `src/app/leaderboard/page.tsx` | Server Component としてヘッダー等の枠組みを即時描画する。 | ユーザーアクセス時に即時描画・配信 |
+| 15.19 | 弱点克服・総合LBデータのスケルトン表示 | `ReviewSkeleton`, `GlobalLeaderboardSkeleton` | データロード中、各専用スケルトンを表示する。 | `data-testid="review-skeleton"`, `data-testid="leaderboard-global-skeleton"` を付与 |
+
+---
+
+## Phase 12 主要画面およびその他全画面の非同期表示最適化設計（2026-06-07）
+
+### 概要
+主要画面（クイズ詳細、結果、ホーム、探索、ブックマーク、通知、プロフィール、総合リーダーボード、弱点克服）を App Router の Server Component として構成し、Next.js の Streaming レンダリングを通じて静的な外枠（ヘッダー、戻るボタン、サイドバー等）をクライアントに即座に送信・表示します。その後、非同期に読み込まれる動的領域について React Suspense と Skeleton プレースホルダーを組み合わせて順次ロード・描画するシステム設計を行います。
+
+### 1. ページ構造と Suspense 境界の定義
+
+#### A. ホーム画面（`/`）
+* **静的フレーム (RSC)**: ヘッダー、サイドバー枠、検索バー枠（`UnifiedSearchField` 静的状態）、アコーディオンパネル枠。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * アコーディオン展開内のジャンル/形式カルーセル: `<Suspense fallback={<CarouselSkeleton />}>`
+  * クイズグリッド（新着/人気/トレンド等）: `<Suspense fallback={<GridSkeleton data-testid="home-feed-skeleton" />}>`
+
+#### B. クイズ詳細画面（`/quiz/[id]`）
+* **静的フレーム (RSC)**: 戻るボタン、大枠のコンテナ背景、およびメタ情報のアウトライン。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * クイズ詳細メタ情報（タイトル、説明、アバター、難易度等）: `<Suspense fallback={<DetailSkeleton data-testid="quiz-detail-skeleton" />}>`
+  * クイズ単位リーダーボード（`QuizDualLeaderboard`）: `<Suspense fallback={<LeaderboardSkeleton data-testid="leaderboard-skeleton" />}>`
+
+#### C. クイズ結果画面（`/quiz/[id]/result`）
+* **静的フレーム (RSC)**: 戻るボタン、ヘッダー、全体レイアウトフレーム。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * 結果詳細（スコア、経過時間、問題別正誤、マークダウン解説等）: `<Suspense fallback={<ResultSkeleton data-testid="quiz-result-skeleton" />}>`
+  * おすすめクイズ（同じ作者の他の公開クイズ）: `<Suspense fallback={<RecommendSkeleton data-testid="recommend-skeleton" />}>`
+
+#### D. 探索画面（ジャンル `/genres/[genreName]`, タグ `/tags/[tagName]`）
+* **静的フレーム (RSC)**: 戻るボタン、検索バー、ソートタブ、コンテナ。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * クイズカードグリッド: `<Suspense fallback={<GridSkeleton data-testid="explore-list-skeleton" />}>`
+
+#### E. その他の画面（ブックマーク `/bookmarks`, 通知 `/notifications`, 弱点克服 `/quiz/review`, 総合リーダーボード `/leaderboard`）
+* **ブックマーク**: タブヘッダー、戻るボタン等の静的枠を即時表示。動的エリアに `<Suspense fallback={<BookmarksSkeleton data-testid="bookmarks-skeleton" />}>` を配置。
+* **通知**: ヘッダー、既読ボタン等の枠を即時表示。動的エリアに `<Suspense fallback={<NotificationsSkeleton data-testid="notifications-skeleton" />}>` を配置。
+* **弱点克服**: ヘッダー、タイトル枠等の静的表示。動的エリアに `<Suspense fallback={<ReviewSkeleton data-testid="review-skeleton" />}>` を配置。
+* **総合リーダーボード**: タイトル、タブヘッダー等の静的表示。動的エリアに `<Suspense fallback={<GlobalLeaderboardSkeleton data-testid="leaderboard-global-skeleton" />}>` を配置。
+
+### 2. ミドルウェア (Middleware) によるサーバーサイド認証リダイレクト保護
+クライアントサイド（RSC から `<Suspense>` 内の Client Component に到達した後）で認証を判定してリダイレクト（`useAuth` によるログイン画面への遷移等）を行うと、一瞬白紙画面や不正なスケルトンが表示されてしまうため、サーバーサイドのミドルウェア (`src/middleware.ts`) でアクセス遮断を制御します。
+* **対象パス**: `/bookmarks`, `/notifications`, `/creator/dashboard` 等のログイン必須ルート。
+* **処理ロジック**: Firebase Session Cookie または 認証トークン Cookie を検証し、トークンが欠落または無効な場合は即座にステータスコード `307` で `/login?redirect=...` にサーバーサイドリダイレクトを行います。
+
+### 3. スケルトン（Skeleton）コンポーネント設計
+既存の `src/components/ui/skeleton-card.tsx` を拡張または別コンポーネントとして以下の Skeleton プレースホルダーを設計します：
+1. `StatsSkeleton`: ダッシュボードの統計数値カード用の脈動（pulsing）アニメーション枠。
+2. `FeedbackSkeleton`: 指摘フィードバックキューの一覧用のスケルトン行。
+3. `LeaderboardSkeleton`: ランキング順位とユーザー名のリストを模したスケルトンテーブル。
+4. `ProfileSkeleton`: アバター、フォロー数、実績バッジ領域をプレースホルダー描画するスケルトン。
+```css
+/* アニメーション共通クラス */
+.skeletonPulse {
+  background: linear-gradient(90deg, var(--neon-dark-bg) 25%, var(--neon-glow-dim) 50%, var(--neon-dark-bg) 75%);
+  background-size: 200% 100%;
+  animation: loadingPulse 1.5s infinite;
+}
+@keyframes loadingPulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+```
+
+### 4. テスト＆検証計画
+* **E2E自動テスト (Playwright / Jest)**:
+  * 各ページのテストケースにおいて、ローディング中（`data-testid` のスケルトンが存在する状態）および描画完了後（スケルトンが `hidden` または DOM から削除され、実データが存在する状態）を検証。
+  * 例: `await expect(page.locator('[data-testid="quiz-detail-skeleton"]')).toBeVisible();` から、ロード完了後に `toBeHidden()` となるフローを保証する。
+
 
 

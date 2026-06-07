@@ -74,3 +74,28 @@
 6. The Admin Moderation Screen shall display a loading state (e.g., disable the button, show a spinner) while the seeding request is in progress.
 7. Upon successful execution of the seeding process, the Admin Moderation Screen shall display a success message specifying the count of added/updated genres. If a failure occurs, it shall display an appropriate error alert.
 
+### Requirement 6: モデレーション関連画面の非同期表示最適化 (Asynchronous Data Fetch & Skeleton Loading) (Phase 12 追加)
+**目的:** コミュニティモデレータや管理者、一般プレイヤーとして、通報審査画面、マージリクエスト画面、ジャンル新設申請画面等にアクセスした際、画面全体の白紙ローディングを待つことなく、静的なサイドバー、ヘッダー、タイトル枠、タブ等が即座に表示され、データが揃った箇所から順番にコンテンツが表示されるようにしたい。これにより、待機時のストレスや画面の点滅による不快感を防ぐことができる。
+
+#### 受け入れ基準
+
+**管理者モデレーション審査画面における非同期表示最適化**
+1. When [管理者が通報審査画面（`/admin/moderation`）にアクセスしたとき], the [Moderation Governance UI] shall [サーバーコンポーネントとして管理者用サイドバー、ヘッダー、タイトル枠等の静的フレームを即座にレンダリングし、Next.jsのStreaming機能を通じてクライアントへ送信すること]。
+2. While [通報審査待ちクイズキューがロード中である間], the [Moderation Governance UI] shall [審査キュー表示エリアに専用 of スケルトンプレースホルダーを表示すること]。
+3. When [審査待ちクイズキューのロードが完了したとき], the [Moderation Governance UI] shall [スケルトン表示領域を、実際の審査待ちリストコンテンツに差し替えること]。
+
+**タグ/ジャンルマージリクエスト画面における非同期表示最適化**
+4. When [モデレータがマージリクエスト画面（`/community/merge`）にアクセスしたとき], the [Moderation Governance UI] shall [サーバーコンポーネントとしてヘッダー、戻るボタン、およびタブヘッダーを含む静的フレームを即座にレンダリングし、Next.jsのStreaming機能を通じてクライアントへ送信すること]。
+5. While [保留中のマージ提案データや投票状況がロード中である間], the [Moderation Governance UI] shall [投票一覧タブエリアに専用 of スケルトンプレースホルダーを表示すること]。
+6. When [マージ提案データのロードが完了したとき], the [Moderation Governance UI] shall [スケルトン表示領域を、実際の保留マージ提案リストおよび投票状況に差し替えること]。
+
+**ジャンル新設申請・投票画面における非同期表示最適化**
+7. When [ユーザーまたはモデレータがジャンル申請・投票画面（`/community/genres`）にアクセスしたとき], the [Moderation Governance UI] shall [サーバーコンポーネントとしてヘッダー、戻るボタン、および申請フォームの枠組み（タブ等）を含む静的フレームを即座にレンダリングし、Next.jsのStreaming機能を通じてクライアントへ送信すること]。
+8. While [保留中・履歴対象のジャンル申請データや投票状況がロード中である間], the [Moderation Governance UI] shall [投票タブや履歴タブのエリアに専用 of スケルトンプレースホルダーを表示すること]。
+9. When [ジャンル申請データのロードが完了したとき], the [Moderation Governance UI] shall [スケルトン表示領域を、実際の保留ジャンルリストや履歴コンテンツに差し替えること]。
+
+**アクセシビリティ・テスト支援**
+10. The [Moderation Governance UI] shall [通報審査キューのスケルトン領域に `data-testid="moderation-queue-skeleton"`、マージリクエスト投票のスケルトン領域に `data-testid="merge-requests-skeleton"` を付与すること]。
+11. The [Moderation Governance UI] shall [ジャンル申請・投票のスケルトン領域に `data-testid="genres-moderation-skeleton"` を付与すること]。
+
+

@@ -1,4 +1,4 @@
-﻿import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 test.describe('追加機能・複合テスト E2Eテスト', () => {
   
@@ -104,13 +104,20 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
 
   test('F-105: 称号バッジ自動付与機能が正常に動作すること', async ({ page }) => {
     // 1. プロフィール画面へアクセス
-    const avatarBtn = page.locator('header img').first();
-    await expect(avatarBtn).toBeVisible({ timeout: 10000 });
-    await avatarBtn.click();
-    
-    const myPageLink = page.locator('text=マイページ');
-    await expect(myPageLink).toBeVisible();
-    await myPageLink.click();
+    const viewport = page.viewportSize();
+    const isDesktop = viewport ? viewport.width >= 768 : true;
+    if (isDesktop) {
+      const profileBtn = page.locator('[data-testid="sidebar-profile-btn"]').first();
+      await expect(profileBtn).toBeVisible({ timeout: 10000 });
+      await profileBtn.click({ force: true });
+      const myPageLink = page.locator('text=マイページ');
+      await expect(myPageLink).toBeVisible();
+      await myPageLink.click();
+    } else {
+      const avatarLink = page.locator('header img').first();
+      await expect(avatarLink).toBeVisible({ timeout: 10000 });
+      await avatarLink.click({ force: true });
+    }
 
     // プロフィール画面であることを確認
     await expect(page).toHaveURL(/\/profile\//);
@@ -175,13 +182,20 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
 
   test('F-505: クイズリスト・パッケージエクスポート機能が正常に動作すること', async ({ page }) => {
     // 1. プロフィール画面へアクセス
-    const avatarBtn = page.locator('header img').first();
-    await expect(avatarBtn).toBeVisible({ timeout: 10000 });
-    await avatarBtn.click();
-    
-    const myPageLink = page.locator('text=マイページ');
-    await expect(myPageLink).toBeVisible();
-    await myPageLink.click();
+    const viewport = page.viewportSize();
+    const isDesktop = viewport ? viewport.width >= 768 : true;
+    if (isDesktop) {
+      const profileBtn = page.locator('[data-testid="sidebar-profile-btn"]').first();
+      await expect(profileBtn).toBeVisible({ timeout: 10000 });
+      await profileBtn.click({ force: true });
+      const myPageLink = page.locator('text=マイページ');
+      await expect(myPageLink).toBeVisible();
+      await myPageLink.click();
+    } else {
+      const avatarLink = page.locator('header img').first();
+      await expect(avatarLink).toBeVisible({ timeout: 10000 });
+      await avatarLink.click({ force: true });
+    }
 
     // 2. 自作リスト一覧を確認
     const myListsLink = page.locator('text=リスト').first()
@@ -223,7 +237,7 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
   test('タグ別クイズ一覧が正常に表示されること', async ({ page }) => {
     // 1. クイズ詳細ページへアクセス
     await page.goto('/');
-    const firstQuizCard = page.locator('article').first();
+    const firstQuizCard = page.locator('[data-testid="quiz-card"]').first();
     await expect(firstQuizCard).toBeVisible({ timeout: 10000 });
     await firstQuizCard.click();
 
@@ -247,33 +261,28 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
     }
   });
 
-  test('ジャンルアイコンからジャンル別一覧へ遷移できること', async ({ page }) => {
-    await page.goto('/');
-
-    const genreNav = page.getByTestId('genre-nav');
-    await expect(genreNav).toBeVisible({ timeout: 10000 });
-
-    const firstGenre = page.locator('[data-testid^="genre-nav-item-"]').first();
-    const testId = await firstGenre.getAttribute('data-testid');
-    if (!testId) {
-      test.skip();
-      return;
-    }
-
-    await firstGenre.click();
-    await expect(page).toHaveURL(/\/genres\//, { timeout: 10000 });
-    await expect(page.getByTestId('genre-explore-page')).toBeVisible();
+  test('ジャンル詳細ページが正常に表示されること', async ({ page }) => {
+    // テスト用のジャンル詳細へ直接アクセス
+    await page.goto('/genres/programming');
+    await expect(page.getByTestId('genre-explore-page')).toBeVisible({ timeout: 10000 });
   });
 
   test('プロフィール編集画面: フォローしているジャンルが管理できること', async ({ page }) => {
     // 1. プロフィール編集画面へアクセス
-    const avatarBtn = page.locator('header img').first();
-    await expect(avatarBtn).toBeVisible({ timeout: 10000 });
-    await avatarBtn.click();
-    
-    const myPageLink = page.locator('text=マイページ');
-    await expect(myPageLink).toBeVisible();
-    await myPageLink.click();
+    const viewport = page.viewportSize();
+    const isDesktop = viewport ? viewport.width >= 768 : true;
+    if (isDesktop) {
+      const profileBtn = page.locator('[data-testid="sidebar-profile-btn"]').first();
+      await expect(profileBtn).toBeVisible({ timeout: 10000 });
+      await profileBtn.click({ force: true });
+      const myPageLink = page.locator('text=マイページ');
+      await expect(myPageLink).toBeVisible();
+      await myPageLink.click();
+    } else {
+      const avatarLink = page.locator('header img').first();
+      await expect(avatarLink).toBeVisible({ timeout: 10000 });
+      await avatarLink.click({ force: true });
+    }
     
     // プロフィール画面へ遷移した後、「編集」ボタンをクリック
     await expect(page).toHaveURL(/\/profile\//);

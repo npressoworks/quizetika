@@ -27,9 +27,9 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('学習支援E2Eテスト用クイズです。');
 
     // 第1問の入力
-    const qTextarea = page.locator('textarea[placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"]').first();
+    const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
     await qTextarea.fill('テスト用問題1: 2+2=?');
-    const choiceInputs = page.locator('.choiceRow input[type="text"]');
+    const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
     await choiceInputs.nth(0).fill('4'); // 正解
     await choiceInputs.nth(1).fill('3');
     await choiceInputs.nth(2).fill('5');
@@ -37,8 +37,18 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     const expTextarea = page.locator('textarea[placeholder="正解した/間違えた挑戦者へ表示する解説文を入力してください。"]').first();
     await expTextarea.fill('2+2=4 です。');
 
+    // ジャンル選択
+    const genreSelect = page.getByTestId('genre-editor-select');
+    await expect(genreSelect).toBeVisible({ timeout: 5000 });
+    const firstGenre = genreSelect.locator('option[value]:not([value=""])').first();
+    await expect(firstGenre).toBeAttached({ timeout: 5000 });
+    const genreValue = await firstGenre.getAttribute('value');
+    if (genreValue) {
+      await genreSelect.selectOption(genreValue);
+    }
+
     // 公開
-    await page.locator('text=公開').click();
+    await page.locator('button').filter({ hasText: /^公開$/ }).first().click();
     await expect.poll(() => dialogMessages).toContain('クイズを公開しました！');
     await expect(page).toHaveURL(/\/creator\/dashboard/);
 
@@ -76,7 +86,7 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await expect(examNavBtn).toBeVisible();
 
     // 5. 正解の選択肢をクリックして回答
-    const correctChoice = page.locator('.optionBtn').filter({ hasText: '4' }).first()
+    const correctChoice = page.locator('button[class*="optionBtn"]').filter({ hasText: '4' }).first()
       .or(page.locator('button').filter({ hasText: '4' }).first())
       .or(page.locator('text=4').first());
     await expect(correctChoice).toBeVisible({ timeout: 5000 });
@@ -114,9 +124,9 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('フラッシュカードE2Eテスト用クイズです。');
 
     // 第1問の入力
-    const qTextarea = page.locator('textarea[placeholder="例: Reactにおいて、コンポーネントのステートを管理するためのフックは？"]').first();
+    const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
     await qTextarea.fill('フラッシュカードテスト: JavaScriptの配列の長さを返すプロパティは？');
-    const choiceInputs = page.locator('.choiceRow input[type="text"]');
+    const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
     await choiceInputs.nth(0).fill('length'); // 正解
     await choiceInputs.nth(1).fill('size');
     await choiceInputs.nth(2).fill('count');
@@ -124,7 +134,17 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     const expTextarea = page.locator('textarea[placeholder="正解した/間違えた挑戦者へ表示する解説文を入力してください。"]').first();
     await expTextarea.fill('Javaのarr.lengthプロパティで配列の長さが取得できます。');
 
-    await page.locator('text=公開').click();
+    // ジャンル選択
+    const genreSelect = page.getByTestId('genre-editor-select');
+    await expect(genreSelect).toBeVisible({ timeout: 5000 });
+    const firstGenre = genreSelect.locator('option[value]:not([value=""])').first();
+    await expect(firstGenre).toBeAttached({ timeout: 5000 });
+    const genreValue = await firstGenre.getAttribute('value');
+    if (genreValue) {
+      await genreSelect.selectOption(genreValue);
+    }
+
+    await page.locator('button').filter({ hasText: /^公開$/ }).first().click();
     await expect.poll(() => dialogMessages).toContain('クイズを公開しました！');
     await expect(page).toHaveURL(/\/creator\/dashboard/);
 
@@ -170,8 +190,8 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await page.goto('/');
 
     // アバターをクリックしてドロップダウンを開く
-    const avatarBtn = page.locator('header img').first();
-    await avatarBtn.click();
+    const avatarBtn = page.locator('header img, aside img, nav img').filter({ visible: true }).first();
+    await avatarBtn.click({ force: true });
 
     // 「マイページ」リンクをクリック
     const myPageLink = page.locator('text=マイページ');

@@ -399,5 +399,64 @@ export interface ProfileEditFormInput {
   - 問題リストカードで収録件数が `questionIds` ベースであること（`quizIds` を使っていないこと）。
   - カードクリックで `/list/[id]` へ遷移すること。
   - 本人0件時に `/list/create` 導線が表示されること。
-  - （任意）フィルタでクイズリストのみ／問題リストのみに絞れること。
-  - フィルタ適用で0件・全体1件以上のとき `profile-list-filter-empty` が表示され、フィルタ解除で一覧が復帰すること。
+- フィルタ適用で0件・全体1件以上のとき `profile-list-filter-empty` が表示され、フィルタ解除で一覧が復帰すること。
+
+---
+
+## Phase 12 認証・プロフィール画面の非同期表示最適化設計（2026-06-07）
+
+### 概要
+ブックマーク一覧（`/bookmarks`）、通知一覧（`/notifications`）、プロフィール詳細（`/profile/[uid]`）、プロフィール編集（`/profile/edit`）、フォロー/フォロワー一覧（`/profile/[uid]/connections`）、リアクション履歴（`/profile/[uid]/likes`）、およびログイン画面（`/login`）を Next.js の Server Component として構築し、静的外枠（ヘッダー、サイドバー、戻るボタン、タブコンテナ、タイトル等）をサーバー側から即時描画・配信します。その後、非同期に読み込まれる動的データが必要な領域については React Suspense と Skeleton プレースホルダーを組み合わせて順次ロード・描画する設計を行います。
+
+### 1. ページ構造と Suspense 境界の定義
+
+#### A. ブックマーク一覧画面（`/bookmarks`）
+* **静的フレーム (RSC)**: 戻るボタン、タイトル、「クイズ」「リスト」「問題」のタブヘッダー。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * **ブックマークデータ一覧**: `<Suspense fallback={<BookmarksSkeleton data-testid="bookmarks-skeleton" />}>`
+    * 選択されたタブに応じたクイズカード、リストカード、または問題行の一覧。
+
+#### B. 通知一覧画面（`/notifications`）
+* **静的フレーム (RSC)**: 戻るボタン、タイトル、「すべて既読にする」ボタン等のヘッダー要素。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * **通知リスト**: `<Suspense fallback={<NotificationsSkeleton data-testid="notifications-skeleton" />}>`
+    * アクティビティ通知一覧カードリスト。
+
+#### C. プロフィール詳細画面（`/profile/[uid]`）
+* **静的フレーム (RSC)**: 戻るボタン、アバター・ヘッダー枠、タブパネル（作成したクイズ、作成したリスト、プレイ履歴など）の静的外枠。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * **ユーザープロフィール詳細情報**（アバター画像、自己紹介、フォロー数、バッジ情報等）: `<Suspense fallback={<ProfileDetailSkeleton data-testid="profile-skeleton" />}>`
+  * **各タブのコンテンツ**（作成クイズ、作成リスト、プレイ履歴）: 各タブ内の非同期フェッチを Suspense で個別にハンドリング。
+
+#### D. プロフィール編集画面（`/profile/edit`）
+* **静的フレーム (RSC)**: 戻るボタン、保存ボタン枠、入力欄の静的フレーム。
+* **動的 / 非同期ロード領域 (Suspense)**:
+  * **初期入力値となるユーザー情報**: `<Suspense fallback={<FormSkeleton />}>`
+
+#### E. その他の画面（フォロー一覧 `/profile/[uid]/connections`, リアクション履歴 `/profile/[uid]/likes`, ログイン `/login`）
+* **フォロー/フォロワー一覧**: ヘッダー、戻るボタン、タブ枠の静的表示。動的リストエリアに `<Suspense fallback={<ConnectionsSkeleton data-testid="connections-skeleton" />}>` を配置。
+* **リアクション履歴**: タブ枠、戻るボタンの静的表示。動的リストエリアに `<Suspense fallback={<LikesSkeleton />}>` を配置。
+* **ログイン画面**: ヘッダーやロゴ、サインインコンテナの静的枠を即時表示。
+
+### 2. ミドルウェア (Middleware) によるサーバーサイド認証保護
+`/bookmarks` や `/notifications`、および `/profile/edit` へのアクセスは認証が必須です。クライアントコンポーネント内でのマウント後認証判定（`useAuth` 等）によるリダイレクトでは、一瞬スケルトンや白紙画面がチラつくため、Next.js Middleware (`src/middleware.ts`) で Firebase セッション Cookie を検証し、無効な場合は即座に `/login?redirect=...` へサーバーサイドリダイレクト（`307`）させます。
+
+### 3. Requirements Traceability
+
+| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
+| :--- | :--- | :--- | :--- | :--- |
+| 9.1 | ブックマーク画面の静的先行表示 | `src/app/bookmarks/page.tsx` | Server Component として戻るボタンやタブ等の外枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
+| 9.2 | ブックマークデータのスケルトン表示 | `src/components/bookmark/bookmarks-skeleton.tsx` | ブックマークデータのフェッチ中、専用のスケルトンプレースホルダーを表示する。 | `data-testid="bookmarks-skeleton"` を付与 |
+| 9.3 | ブックマークデータのコンテンツ置換 | `src/app/bookmarks/page.tsx` | データロード完了後、実際のブックマーク一覧コンテンツに差し替える。 | `<Suspense>` による非同期制御 |
+| 9.4 | 通知画面の静的先行表示 | `src/app/notifications/page.tsx` | Server Component としてヘッダー等の外枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
+| 9.5 | 通知データのスケルトン表示 | `src/components/notification/notifications-skeleton.tsx` | 通知データのロード中、専用のスケルトンプレースホルダーを表示する。 | `data-testid="notifications-skeleton"` を付与 |
+| 9.6 | 通知データのコンテンツ置換 | `src/app/notifications/page.tsx` | データロード完了後、実際の通知カードリストに差し替える。 | `<Suspense>` による非同期制御 |
+| 9.7 | ブックマーク用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="bookmarks-skeleton"` |
+| 9.8 | 通知用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="notifications-skeleton"` |
+| 9.9 | プロフィール関連画面 of 静的先行表示 | `src/app/profile/[uid]/page.tsx`, `src/app/profile/edit/page.tsx` | Server Component として戻るボタンやヘッダー枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
+| 9.10 | プロフィールデータ of スケルトン表示 | `src/components/profile/profile-skeleton.tsx` | プロフィールデータ（自己紹介、実績等）のロード中、スケルトンを表示。 | `data-testid="profile-skeleton"` を付与 |
+| 9.11 | プロフィールデータ of コンテンツ置換 | `src/app/profile/[uid]/page.tsx` | ロード完了後、実際のプロフィールコンテンツに差し替える。 | `<Suspense>` による非同期制御 |
+| 9.12 | その他関連画面 of 静的先行表示 | 各関連ページ `page.tsx` | Server Component としてヘッダー等の枠組みを即時描画。 | ユーザーアクセス時に即時描画・配信 |
+| 9.13 | 関連画面データ of スケルトン表示 | `src/components/profile/connections-skeleton.tsx` | フォロー一覧等のロード中、専用スケルトンを表示。 | `data-testid="connections-skeleton"` を付与 |
+| 9.14 | プロフィール・フォロー用スケルトン of testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="profile-skeleton"`, `connections-skeleton` |
+
