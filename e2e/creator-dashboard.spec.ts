@@ -5,6 +5,9 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   test('F-901: クリエイターダッシュボードが正常に表示されること', async ({ page }) => {
     // 1. クリエイターダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.getByTestId('stats-skeleton')).toBeHidden({ timeout: 15000 });
 
     // ダッシュボードページが表示されることを確認
     await expect(page.locator('h1').filter({ hasText: /ダッシュボード|クイズ管理/ }).first()).toBeVisible();
@@ -58,9 +61,9 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
 
   test('F-903: 称号バッジシステムが表示されること', async ({ page }) => {
     // 1. 自身のプロフィール画面へアクセス
-    const avatarBtn = page.locator('header img').first();
+    const avatarBtn = page.locator('header img, aside img, nav img').filter({ visible: true }).first();
     if (await avatarBtn.isVisible()) {
-      await avatarBtn.click();
+      await avatarBtn.click({ force: true });
       
       const myPageLink = page.locator('text=マイページ');
       if (await myPageLink.isVisible()) {
@@ -218,7 +221,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
     await expect(page.locator('h1').first()).toBeVisible();
 
     // 2. 新規クイズ作成ボタンをクリック
-    const createBtn = page.locator('button').filter({ hasText: /新規作成|作問/ }).first();
+    const createBtn = page.locator('button').filter({ hasText: 'クイズを新規作成' }).first();
     
     if (await createBtn.isVisible()) {
       await createBtn.click();

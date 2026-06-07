@@ -1,0 +1,53 @@
+import { test, expect } from '@playwright/test';
+
+test.describe('クリエイター画面 Streaming / Suspense スケルトン E2E', () => {
+
+  test('作家ダッシュボードで各スケルトンが消えコンテンツが表示されること', async ({ page }) => {
+    await page.goto('/creator/dashboard');
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.getByTestId('stats-skeleton')).toBeHidden({ timeout: 15000 });
+    await expect(page.getByTestId('charts-skeleton')).toBeHidden({ timeout: 15000 });
+    await expect(page.getByTestId('quiz-list-skeleton')).toBeHidden({ timeout: 15000 });
+    await expect(page.getByTestId('feedback-list-skeleton')).toBeHidden({ timeout: 15000 });
+
+    await expect(page.locator('h1').filter({ hasText: '作家ダッシュボード' })).toBeVisible();
+    await expect(page.getByTestId('stats-section')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('creator-quiz-list')).toBeVisible({ timeout: 15000 });
+  });
+
+  test('クイズ作成画面で quiz-editor-skeleton が消えエディタが表示されること', async ({ page }) => {
+    await page.goto('/quiz/create');
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.getByTestId('quiz-editor-skeleton')).toBeHidden({ timeout: 15000 });
+    await expect(
+      page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()
+    ).toBeVisible({ timeout: 15000 });
+  });
+
+  test('リスト作成画面で list-editor-skeleton が消えエディタが表示されること', async ({ page }) => {
+    await page.goto('/list/create');
+    await page.waitForLoadState('domcontentloaded');
+
+    await expect(page.getByTestId('list-editor-skeleton')).toBeHidden({ timeout: 15000 });
+    await expect(page.locator('h1').filter({ hasText: /リストを作成|リストを編集/ })).toBeVisible({
+      timeout: 15000,
+    });
+  });
+
+  test('未認証時に /creator/dashboard および /quiz/test-id/edit がログインへリダイレクトされること', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ storageState: undefined });
+    const page = await context.newPage();
+
+    for (const path of ['/creator/dashboard', '/quiz/e2e-creator-edit-probe/edit']) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/login/);
+      expect(new URL(page.url()).searchParams.get('redirect')).toBe(path);
+    }
+
+    await context.close();
+  });
+});

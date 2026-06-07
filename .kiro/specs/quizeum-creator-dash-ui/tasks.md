@@ -277,3 +277,31 @@
 - Phase 8 実装（2026-06-05）: `ListTypeSelector` / `QuestionListAttachPanel` / 参照パネル群、`QuizListEditor` listType 分岐、問題リスト作成後 `/edit` 遷移。Jest 366 件・build PASS。
 - **Phase 12**: 問題照合は `question-search-text.ts` + `filterAuthorQuizzesWithQuestions`。キーワード時のみ全自作クイズの問題を並列取得。`AutoGrowTextarea` は説明・問題文・真相・解説の4フィールドのみ。`aiContextDetails` は検索対象外（`truthKeywords` のみ）。
 - Phase 12 実装（2026-06-06）: `question-search-text` / `filterAuthorQuizzesWithQuestions` / `AutoGrowTextarea` / 参照パネル成功メッセージ。Jest 518 件・build PASS。
+- **Phase 9 (Streaming)**: ダッシュボードは Server 静的ヘッダー + `CreatorDashboardClient`（認証付きクライアント取得 + 4 種スケルトン）。クイズ／リストエディタは RSC Loader + `EditorFormSkeleton` / `ListEditorSkeleton`。middleware で `/quiz/[id]/edit` を 307 保護。Jest 554 件・`e2e/creator-streaming-skeleton.spec.ts` 5 件 PASS。
+
+### 9. Phase 12 拡張 — クリエイター管理画面の非同期表示最適化（Streaming & Suspense）のUI実装（2026-06-07）
+
+- [x] 9.1 作家ダッシュボードの Server Component 化と Suspense 導入 (P)
+  - `src/app/creator/dashboard/page.tsx` を Server Component に移行し、ヘッダー, サイドバー, アクションメニュー等をサーバー側で即時描画・配信する。
+  - アナリティクス統計カード, 自作クイズ一覧, 指摘キュー, アナリティクスグラフの領域を個別の `<Suspense fallback={<Skeleton />}>` に分離。
+  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 10.10, 10.11_
+  - _Boundary: CreatorDashboard_
+- [x] 9.2 クイズ作成・編集画面の Server Component 化と Suspense 導入 (P)
+  - `src/app/quiz/create/page.tsx` および `src/app/quiz/[id]/edit/page.tsx` を Server Component に移行し、入力フォームの静的外枠（保存アクションエリア等）を即時描画・配信する。
+  - 編集対象のクイズデータ, ジャンルマスタ, タグリスト等の非同期ロード領域を `<Suspense fallback={<EditorFormSkeleton data-testid="quiz-editor-skeleton" />}>` でラッピングして非同期描画する。
+  - _Requirements: 10.12, 10.13, 10.14_
+  - _Boundary: QuizEditor_
+- [x] 9.3 リスト詳細・編集画面の非同期最適化 (P)
+  - リスト作成・編集画面（`/list/create`, `/list/[id]/edit`）を Server Component に移行し、戻るボタンやコンテナ枠を即時表示する。
+  - アタッチ対象のロード領域等を `<Suspense fallback={<ListEditorSkeleton data-testid="list-editor-skeleton" />}>` でラッピングして非同期描画する。
+  - _Requirements: 10.15, 10.16_
+  - _Boundary: QuizListEditor_
+- [x] 9.4 認証必須画面における Middleware サーバーサイド認証保護の実装
+  - 作家ダッシュボード（`/creator/dashboard`）やクイズ編集画面（`/quiz/[id]/edit`）について、未ログインアクセス時にクライアント側リダイレクトによる白紙表示を防ぐため、`src/middleware.ts` を作成（または更新）し、サーバーサイドで即時リダイレクト（`307`）制御する。
+  - _Requirements: 10.1, 10.12_
+  - _Boundary: NextMiddleware_
+- [x] 9.5 非同期最適化の結合テスト・E2E テストの作成・更新
+  - 各ダッシュボード・エディタ関連のテストにおいて、非同期ロード中のスケルトン `data-testid`（`stats-skeleton`, `quiz-list-skeleton`, `feedback-list-skeleton`, `charts-skeleton`）を検証し、ロード後に実データが表示されるシーケンスをテストする。
+  - _Requirements: 10.10, 10.11_
+  - _Boundary: Testing_
+

@@ -1,6 +1,7 @@
-import React from 'react';
-import { QuizEditor } from '@/components/quiz/quiz-editor';
+import React, { Suspense } from 'react';
 import { Metadata } from 'next';
+import { EditorFormSkeleton } from '@/components/quiz/editor-skeleton';
+import { QuizEditorLoader } from './quiz-editor-loader';
 
 export const metadata: Metadata = {
   title: 'クイズ編集 | quizeum',
@@ -15,5 +16,9 @@ interface EditPageProps {
 
 export default async function QuizEditPage({ params }: EditPageProps) {
   const { id } = await params;
-  return <QuizEditor quizId={id} />;
+  return (
+    <Suspense fallback={<EditorFormSkeleton data-testid="quiz-editor-skeleton" />}>
+      <QuizEditorLoader quizId={id} />
+    </Suspense>
+  );
 }

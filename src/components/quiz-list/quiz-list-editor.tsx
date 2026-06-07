@@ -17,6 +17,7 @@ import {
 import { QuizList, Quiz, QuizListType, resolveListType } from '@/types';
 import { ListTypeSelector } from '@/components/quiz-list/list-type-selector';
 import { QuestionListAttachPanel } from '@/components/quiz-list/question-list-attach-panel';
+import { ListEditorSkeleton } from '@/components/quiz-list/list-skeleton';
 import styles from '@/app/list/create/edit.module.css';
 import {
   Save,
@@ -32,10 +33,11 @@ import {
 } from 'lucide-react';
 
 interface QuizListEditorProps {
-  listId?: string; // 編集モードの場合はIDが渡される
+  listId?: string;
+  initialList?: QuizList | null;
 }
 
-export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
+export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId, initialList }) => {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
@@ -77,7 +79,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
     const fetchList = async () => {
       if (!listId) return;
       try {
-        const listData = await getQuizList(listId);
+        const listData = initialList ?? (await getQuizList(listId));
         if (listData) {
           setTitle(listData.title);
           setDescription(listData.description);
@@ -105,7 +107,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
 
     fetchMyQuizzes();
     fetchList();
-  }, [listId, user, authLoading]);
+  }, [listId, user, authLoading, initialList]);
 
   // 検索フィルタ
   const handleSearch = (e: React.FormEvent) => {
@@ -267,7 +269,7 @@ export const QuizListEditor: React.FC<QuizListEditorProps> = ({ listId }) => {
   };
 
   if (authLoading || initialFetchLoading) {
-    return <div className={styles.container}>読み込み中...</div>;
+    return <ListEditorSkeleton data-testid="list-editor-skeleton" />;
   }
 
   return (

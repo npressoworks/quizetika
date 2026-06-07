@@ -115,6 +115,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl, 307);
   }
 
+  // -------------------------------------------------------------------
+  // クイズ編集: 認証済みユーザーのみ（所有者チェックはページ側）
+  // -------------------------------------------------------------------
+  if (/^\/quiz\/[^/]+\/edit$/.test(pathname) && !uid) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl, 307);
+  }
+
   return NextResponse.next();
 }
 

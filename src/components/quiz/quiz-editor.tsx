@@ -34,9 +34,14 @@ import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
 import { AuthorQuizReferencePanel } from '@/components/quiz/author-quiz-reference-panel';
 import { ReferenceQuestionBadge } from '@/components/quiz/reference-question-badge';
 import { isReferenceLinkQuestion } from '@/lib/linked-question';
+import { EditorFormSkeleton } from '@/components/quiz/editor-skeleton';
+import type { GenreMetadata, TagMetadata } from '@/types';
 
 interface QuizEditorProps {
-  quizId?: string; // 編集モードの場合はIDが渡される
+  quizId?: string;
+  initialGenres?: GenreMetadata[];
+  initialTags?: TagMetadata[];
+  initialQuiz?: Quiz | null;
 }
 
 const FieldValidationMessages: React.FC<{
@@ -103,15 +108,21 @@ const CANONICAL_TAGS = [
   'Git'
 ];
 
-export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
+export const QuizEditorContent: React.FC<QuizEditorProps> = ({
+  quizId,
+  initialGenres,
+  initialQuiz,
+}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { genres: activeGenres, loading: genresLoading, error: genresError, refetch: refetchGenres } =
-    useActiveGenres();
+    useActiveGenres(initialGenres);
 
   const [loading, setLoading] = useState(false);
-  const [initialFetchLoading, setInitialFetchLoading] = useState(!!quizId);
+  const [initialFetchLoading, setInitialFetchLoading] = useState(
+    !!quizId && !initialQuiz
+  );
   const [validationErrors, setValidationErrors] = useState<QuizPublishValidationError[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -230,6 +241,17 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
       return;
     }
 
+    if (initialQuiz) {
+      if (user && initialQuiz.authorId !== user.id) {
+        setUnauthorized(true);
+        setErrorText('このクイズを編集する権限がありません。');
+      } else {
+        applyDraftToEditor(initialQuiz);
+      }
+      setInitialFetchLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const fetchQuiz = async () => {
@@ -262,7 +284,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
     return () => {
       cancelled = true;
     };
-  }, [quizId, user, authLoading, searchParams, router]);
+  }, [quizId, user, authLoading, searchParams, router, initialQuiz]);
 
   // 修正指摘からのスクロール連動 (要件 2.4)
   useEffect(() => {
@@ -1028,7 +1050,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
   };
 
   if (authLoading || initialFetchLoading) {
-    return <div className={styles.container}>読み込み中...</div>;
+    return <EditorFormSkeleton data-testid="quiz-editor-skeleton" />;
   }
 
   if (!user) {
@@ -1933,7 +1955,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({ quizId }) => {
 
 export const QuizEditor: React.FC<QuizEditorProps> = (props) => {
   return (
-    <Suspense fallback={<div>エディタを読み込み中...</div>}>
+    <Suspense fallback={<EditorFormSkeleton data-testid="quiz-editor-skeleton" />}>
       <QuizEditorContent {...props} />
     </Suspense>
   );

@@ -1,6 +1,7 @@
-﻿import React from 'react';
-import { QuizListEditor } from '@/components/quiz-list/quiz-list-editor';
+﻿import React, { Suspense } from 'react';
 import { Metadata } from 'next';
+import { ListEditorSkeleton } from '@/components/quiz-list/list-skeleton';
+import { ListEditorLoader } from './list-editor-loader';
 
 export const metadata: Metadata = {
   title: '新規リスト作成 | quizeum',
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function QuizListCreatePage() {
-  return <QuizListEditor />;
+  return (
+    <Suspense fallback={<ListEditorSkeleton data-testid="list-editor-skeleton" />}>
+      <ListEditorLoader />
+    </Suspense>
+  );
 }
