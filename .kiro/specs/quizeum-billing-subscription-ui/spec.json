@@ -1,9 +1,9 @@
 {
-  "feature_name": "quizeum-core",
-  "created_at": "2026-05-28T22:25:42+09:00",
-  "updated_at": "2026-06-07T16:00:00+09:00",
+  "feature_name": "quizeum-billing-subscription-ui",
+  "created_at": "2026-06-07T20:00:00+09:00",
+  "updated_at": "2026-06-07T23:00:00+09:00",
   "language": "ja",
-  "phase": "tasks-generated",
+  "phase": "implementation-complete",
   "approvals": {
     "requirements": {
       "generated": true,

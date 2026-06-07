@@ -1,0 +1,133 @@
+import { auth } from '@/lib/firebase/config';
+import type { PriceInterval } from '@/types/subscription';
+
+export type BillingApiErrorCode =
+  | 'unauthorized'
+  | 'forbidden'
+  | 'already-subscribed'
+  | 'no-subscription'
+  | 'network'
+  | 'unknown';
+
+export interface BillingApiError {
+  code: BillingApiErrorCode;
+  message: string;
+  httpStatus?: number;
+}
+
+export class BillingClientError extends Error {
+  constructor(public readonly apiError: BillingApiError) {
+    super(apiError.message);
+    this.name = 'BillingClientError';
+  }
+}
+
+export async function getFirebaseIdToken(): Promise<string | null> {
+  if (!auth.currentUser) return null;
+  return auth.currentUser.getIdToken();
+}
+
+function mapErrorResponse(
+  status: number,
+  body: { error?: string; message?: string }
+): BillingApiError {
+  const fallbackMessage =
+    'エラーが発生しました。しばらくしてから再度お試しください。';
+  const message = body.message ?? fallbackMessage;
+
+  switch (status) {
+    case 401:
+      return { code: 'unauthorized', message: 'ログインが必要です', httpStatus: status };
+    case 403:
+      return { code: 'forbidden', message, httpStatus: status };
+    case 409:
+      return {
+        code: 'already-subscribed',
+        message: message || 'すでに Pro プランに契約中です',
+        httpStatus: status,
+      };
+    case 404:
+      return {
+        code: body.error === 'no-subscription' ? 'no-subscription' : 'unknown',
+        message,
+        httpStatus: status,
+      };
+    default:
+      return { code: 'unknown', message, httpStatus: status };
+  }
+}
+
+async function postBillingApi(
+  path: string,
+  body?: Record<string, unknown>
+): Promise<{ sessionUrl: string }> {
+  const token = await getFirebaseIdToken();
+  if (!token) {
+    throw new BillingClientError({
+      code: 'unauthorized',
+      message: 'ログインが必要です',
+    });
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (error) {
+    console.error('[billing-client] network error:', error);
+    throw new BillingClientError({
+      code: 'network',
+      message: '通信に失敗しました。ネットワーク接続を確認して再度お試しください。',
+    });
+  }
+
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    message?: string;
+    sessionUrl?: string;
+  };
+
+  if (!response.ok) {
+    const apiError = mapErrorResponse(response.status, data);
+    console.error('[billing-client] API error:', apiError);
+    throw new BillingClientError(apiError);
+  }
+
+  const sessionUrl = data.sessionUrl;
+  if (!sessionUrl || typeof sessionUrl !== 'string') {
+    throw new BillingClientError({
+      code: 'unknown',
+      message: 'エラーが発生しました。しばらくしてから再度お試しください。',
+      httpStatus: response.status,
+    });
+  }
+
+  return { sessionUrl };
+}
+
+export async function startCheckoutSession(
+  priceInterval: PriceInterval
+): Promise<{ sessionUrl: string }> {
+  return postBillingApi('/api/billing/checkout-session', { priceInterval });
+}
+
+export async function startPortalSession(): Promise<{ sessionUrl: string }> {
+  return postBillingApi('/api/billing/portal-session');
+}
+
+export function redirectToExternalUrl(sessionUrl: string): void {
+  if (!sessionUrl.startsWith('https://')) {
+    console.error('[billing-client] Invalid sessionUrl');
+    throw new BillingClientError({
+      code: 'unknown',
+      message: 'エラーが発生しました。しばらくしてから再度お試しください。',
+    });
+  }
+  window.location.assign(sessionUrl);
+}

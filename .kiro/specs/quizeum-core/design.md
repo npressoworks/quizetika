@@ -20,6 +20,8 @@
 
 **Phase 10 スマートサジェスト追記（2026-06-06）**: 検索フィールドの空クエリフォーカス時スマートサジェストを支える集計基盤を追加。`search_logs` コレクションへの検索ログ記録（`searchQuizzes` 内部で fire-and-forget）、週間人気ジャンル Top5 集計 API（`GET /api/genres/weekly-top`）、週間人気ワード／タグ Top5 集計 API（`GET /api/search/weekly-top`）を提供する。ユーザー個人履歴の保存は UI 側 `localStorage` のみで処理する。
 
+**Phase 13（2026-06-07）**: Stripe を前提とした Pro プラン・サブスクリプション基盤をコア層に追加する。`subscriptionTier`（`free` | `pro` | `premium`）によるエンタイトルメント、Checkout Session / Customer Portal Session API、Webhook による契約状態同期、および `ask-ai` の tier ベース制限判定を一貫実装する（プラン表示 UI は `quizeum-billing-subscription-ui` が担当）。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -34,7 +36,7 @@
 - **Phase 10**: タグマスタ一覧 API（`listActiveTags`）と、タグチップ配列による複数タグ AND 複合検索の一貫実装。
 - **Phase 11**: 出題形式（`format`）フィルタ付き複合検索。ジャンル固定 scoped 検索（`genreId` + 他条件 AND）の一貫実装。形式判定は `quiz-format-match` + `resolveQuizFormat` に集約。
 - **Phase 10 スマートサジェスト**: `search_logs` コレクションへの検索ログ fire-and-forget 実装、週間ジャンル Top5 / 週間ワード·タグ Top5 集計 API Route の提供。
-- **Phase 13 難易度5段階化**: `Quiz` 型の `difficulty`（1〜5）、`Attempt` 型の `difficultyVote`（1〜5）のデータモデル変更、公開バリデーションおよび難易度投票サービスの更新。
+- **Phase 13 Stripe サブスクリプション（2026-06）**: Pro プラン購読（Checkout / Webhook / Customer Portal）、`subscriptionTier` ベースのエンタイトルメント、水平思考 AI 質問制限の tier 連動、課金フィールドの Rules 保護。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -61,7 +63,7 @@
 - **Phase 10 — タグマスタ一覧とタグ AND 検索**: `listActiveTags`、`quiz-tag-match` 純関数、`searchQuizzes` の `filters.tags` 拡張。
 - **Phase 11 — 出題形式フィルタと scoped 検索**: `SearchFilters.format`、`quiz-format-match` 純関数、`searchQuizzes` 後段形式フィルタ（`resolveQuizFormat` 一致）。ジャンル固定 scoped 検索は既存 `genreId` + `expandGenreIdsForQuery` を維持。
 - **Phase 10 スマートサジェスト（2026-06-06 追記）**: `search_logs` コレクションのスキーマ（`userId`, `queryText`, `tags[]`, `genreId`, `loggedAt`）および TTL、`searchQuizzes` 内での fire-and-forget ログ書き込み。`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` の集計 API Route（server-side Firestore Admin SDK、Next.js revalidate: 1800）。ユーザー個人履歴の保存は UI 側 `localStorage` のみ（Core に記録しない）。
-- **Phase 13 — 難易度5段階化（2026-06）**: `Quiz.difficulty`（1〜5の整数）および `Attempt.difficultyVote`（1〜5の整数）の範囲制限、ならびに `submitDifficultyVote` および `validateQuizForPublish` におけるバリデーション範囲の更新。
+- **Phase 13 — Stripe サブスクリプション（2026-06）**: `users` の契約 tier・Stripe 識別子・契約状態フィールド、`subscription-plans` マスタ、`resolveUserEntitlements`、Checkout / Portal / Webhook API Routes、Webhook 冪等ログ（`stripe_processed_events`）、Firestore Rules による課金フィールドのクライアント書き込み遮断、`AskAiQuestionAPI` の tier 連動。
 
 ### Out of Boundary
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
@@ -74,11 +76,13 @@
 - **Phase 8**: `/bookmarks` タブ UI、リスト/作問エディタのピッカー・DnD・検索パネル（`quizeum-play-flow-ui` / `quizeum-creator-dash-ui`）。プロフィールのリストタイプ別表示（`quizeum-auth-profile-ui`）。
 - **Phase 10–11**: ホーム／ジャンルページの探索 UI（タグチップ、アコーディオン、カルーセル、フィルタ状態管理）は `quizeum-play-flow-ui` が担当。
 - **Phase 10 スマートサジェスト — 境界外**: ユーザー個人の直近検索履歴の保存（`localStorage` のみ）、スマートサジェスト UI ドロップダウンのレンダリング（`quizeum-play-flow-ui`）。
+- **Phase 13 — 課金 UI**: `/pricing` 画面、プランカード、購入・契約管理 CTA、Checkout 成功／キャンセル後の画面フィードバック（`quizeum-billing-subscription-ui`）。プレイ画面の残り質問数・制限誘導（`quizeum-play-flow-ui`）。Stripe Dashboard での Product/Price 作成・税設定。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
 - **アセットストレージ**: カバー画像やアバター画像を管理する Firebase Storage。
 - **バックエンド基盤**: ユーザー認証およびデータの永続化を行う Firebase Auth, Cloud Firestore。
+- **外部決済（Phase 13）**: Stripe Checkout Sessions API、Customer Portal、Webhook（署名検証）。
 
 ### Revalidation Triggers
 - `spec.json` の型定義（`User`, `Quiz`, `Attempt` 等）のスキーマ変更。
@@ -93,7 +97,7 @@
 - **Phase 10**: `SearchFilters.tags` の意味変更、`listActiveTags` の存続タグ定義（`canonicalId == null`）変更、`quiz-tag-match` 照合規則変更。
 - **Phase 11**: `SearchFilters.format` の許容値集合変更、`quiz-format-match` / `resolveQuizFormat` 推定規則変更（`quizeum-play-flow-ui` のカード・カルーセル表示と連動再検証）。
 - **Phase 10 スマートサジェスト**: `search_logs` コレクションの TTL・スキーマ変更、`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` のレスポンス形状変更、`searchQuizzes` の fire-and-forget ログ書き込み報啄ルール変更。
-- **Phase 13**: `Quiz.difficulty` および `Attempt.difficultyVote` のデータ型変更、公開バリデーション (`validateQuizForPublish`) および投票バリデーション (`submitDifficultyVote`) の上限範囲変更（10から5へ）。
+- **Phase 13**: `User` の `subscriptionTier` / 課金関連フィールド追加、`resolveUserEntitlements` の tier 解釈変更、Checkout / Portal / Webhook API のリクエスト・レスポンス形状変更、`subscription-plans` マスタへの `premium` tier 追加。
 
 ---
 
@@ -607,12 +611,15 @@ sequenceDiagram
 | 10.4        | 初回20件+カーソル                                     | `PlayHistoryAPI`                   | `GET /api/user/play-history`                | -                               |
 | 10.5        | 他人の履歴拒否                                        | `PlayHistoryAPI`                   | `GET /api/user/play-history`                | -                               |
 | 4.1         | 最大20回分の会話履歴を参照したステートフルAI質問      | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.2         | 無料ユーザーの1日20回制限                             | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.3         | 同一質問キャッシュ                                    | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.4         | プレイ画面2カラムレイアウト                           | UI Component                       | `LateralThinkingPlayView`                   | -                               |
-| 4.5         | 必須キーワード一致による即合格(AIバイパス)            | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
-| 4.6         | キーワード不足時のAIフォールバック真相判定            | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
-| 4.7         | 真相不合格時のAIアドバイスフィードバック              | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 4.2         | 無料 tier の1日20回制限                               | `AskAiQuestionAPI`, `EntitlementService` | `/api/attempt/ask-ai`                 | 質問対話フロー                  |
+| 4.3         | Pro 以上は AI 質問制限なし                            | `EntitlementService`               | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
+| 4.4         | サーバー側契約状態参照                                | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
+| 4.5         | 同一質問キャッシュ                                    | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
+| 4.6         | プレイ画面2カラムレイアウト                           | UI Component                       | `LateralThinkingPlayView`                   | -                               |
+| 4.7         | 必須キーワード一致による即合格(AIバイパス)            | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 4.8         | キーワード不足時のAIフォールバック真相判定            | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 4.9–4.11    | 真相判定合格/不合格フロー                             | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 19.1–19.23  | Stripe サブスクリプション（Phase 13）                  | `EntitlementService`, billing APIs | `/api/billing/*`, `/api/webhooks/stripe`      | 購読・Webhook フロー            |
 | 5.1         | フォロー/フォロワーアトミック更新                     | `UserService`                      | `followUser`                                | -                               |
 | 5.2         | タイムラインフィード表示                              | `QuizService`                      | `getFollowedTimeline`                       | -                               |
 | 5.3         | ブックマークアトミック更新                            | `BookmarkService`                  | `toggleBookmark`                            | -                               |
@@ -1525,6 +1532,12 @@ function canDeleteQuestionDoc(
   - `searchQuizzes('', { genreId: 'science', format: 'lateral-thinking' })` が当該ジャンル内のウミガメ形式のみ返すこと（他ジャンル混入なし）。
   - `searchQuizzes('keyword', { tags: ['js'], format: 'mixed' })` がキーワード・タグ・形式の AND を満たすこと。
   - `format` 未指定時、Phase 10 regression が維持されること。
+- **Phase 13 — Stripe サブスクリプション**:
+  - Checkout API: free ユーザーが `sessionUrl` を取得、active pro が 409 を返すこと。
+  - Portal API: active pro が `sessionUrl`、free が 404 を返すこと。
+  - Webhook: `customer.subscription.updated` で `subscriptionTier` / `isPremium` が同期されること。同一 `eventId` 二重送信で二重更新されないこと。
+  - ask-ai: active pro ユーザーが21回目も 429 にならないこと。free ユーザーは20回目で 429。
+  - Rules: クライアント SDK から `subscriptionTier` 変更が拒否されること。
 
 ### Unit Tests（Phase 10）
 - **`quiz-tag-match`**: `canonicalTagIds` のみ一致、legacy `tags` のみ一致、マージ旧タグ文字列一致、不一致。
@@ -1548,7 +1561,9 @@ function canDeleteQuestionDoc(
     - `isNotBanned()` は、`/users/$(request.auth.uid)` ドキュメントの `isBanned` フィールドが `true` でないことを検証する。これにより、不正アカウントによるデータ改ざんを完全に防ぐ。
   - **Phase 6**: `metadata_tags` / `metadata_genres` は read 全公開。create は認証ユーザー（タグは `canonicalId==null` 初期化）。update は `canonicalId` セットまたは `merged*Ids` の `hasAll` 拡張のみ（`detailed_design.md` §6.5）。`mergeRequests` / `genreRequests` はモデレータ権限で create/update を制限（`isModeratorOrAbove()`）。
   - **Phase 8**: `quizLists` の update は `authorId == request.auth.uid` を維持。`listType` 変更は create 後固定（update でのタイプ変更は拒否可）。問題リストへの追加はサーバー/クライアント双方で公開検証（Rules 単独では親クイズ状態まで検証困難なためサービス層が正本）。
+  - **Phase 13 — 課金フィールド保護**: `users` の `subscriptionTier`, `isPremium`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionStatus`, `currentPeriodEnd` は owner の create/update で変更不可。書き込みは Admin SDK（Webhook / billing API）のみ。`stripe_processed_events` はクライアントアクセス不可。
 - **APIキーの秘匿**:
+  - Stripe Secret Key / Webhook Secret はサーバー環境変数のみ。`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` のみクライアント露出可。
   - Google Gemini API キーなどの認証情報はNext.jsのサーバー環境変数としてのみ管理し、クライアントへは一切露出させません。
 
 ---
@@ -1560,3 +1575,297 @@ function canDeleteQuestionDoc(
   - ジャンルマージ展開・ブックマーク展開では `in` を最大10 ID ごとにチャンクし、並行フェッチ後にアプリ側で dedupe する。
 - **canonical 単一クエリ優先（Phase 6）**:
   - バックフィル済みクイズは `canonicalGenreId ==` の単一インデックスクエリのみで済み、マージ展開 `in` の回数を削減する。
+
+---
+
+## Phase 13: Stripe サブスクリプション（Pro プラン）
+
+### Overview（本フェーズ）
+ログインユーザーが Pro プランを Stripe Checkout で購読し、Webhook 同期後に水平思考 AI 質問の日次20回制限が解除されるエンドツーエンド基盤をコア層に実装する。Free は暗黙デフォルト（`free` tier）。初版販売は Pro のみ。`premium` はスキーマ予約。
+
+### Goals（Phase 13）
+- Checkout / Portal / Webhook による信頼できる契約状態の単一正本（Firestore `users`、Admin SDK 書き込み）。
+- `subscriptionTier` ベースのエンタイトルメント解決を `ask-ai` に集約適用。
+- 課金フィールドのクライアント改ざんを Rules で物理遮断。
+- `subscription-plans` マスタにより Premium 追加時の差分を最小化。
+
+### Non-Goals（Phase 13）
+- `/pricing` UI、プレイ画面誘導 UI、Stripe Elements によるアプリ内決済。
+- Premium 販売、§2.5 の他 Pro 特典、管理者手動 tier 付与。
+
+### Architecture Pattern（Phase 13）
+
+```mermaid
+sequenceDiagram
+    participant UI as Billing_UI
+    participant CheckoutAPI as CheckoutSessionAPI
+    participant PortalAPI as PortalSessionAPI
+    participant Stripe as Stripe
+    participant Webhook as StripeWebhookAPI
+    participant Ent as EntitlementService
+    participant FS as Firestore_Admin
+    participant AskAI as AskAiQuestionAPI
+
+    UI->>CheckoutAPI: POST checkout-session Bearer
+    CheckoutAPI->>Ent: resolve tier free only
+    CheckoutAPI->>Stripe: checkout.sessions.create
+    Stripe-->>UI: redirect Checkout
+    Stripe->>Webhook: subscription events
+    Webhook->>Ent: map price to tier
+    Ent->>FS: update users billing fields
+    UI->>PortalAPI: POST portal-session Bearer
+    PortalAPI->>Stripe: billingPortal.sessions.create
+    AskAI->>Ent: hasUnlimitedAiQuestions uid
+    Ent->>FS: read users latest
+```
+
+**選択パターン**: Server-authoritative entitlements + Stripe-hosted Checkout/Portal。クライアントはセッション URL のみ受け取り、契約状態は Webhook が正本。
+
+### Technology Stack（Phase 13 追加分）
+
+| Layer | Choice / Version | Role in Feature | Notes |
+|-------|------------------|-----------------|-------|
+| Backend | `stripe` ^22.2.0 | Checkout / Portal / Webhook 検証 | `new Stripe(secretKey)`、async/await のみ |
+| Data | Firestore Admin SDK | 課金フィールド書き込み | 既存 `getAdminFirestore()` を再利用 |
+| Config | 環境変数 | Price ID マッピング | `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` |
+
+Stripe ベストプラクティスに従い、Checkout Sessions API を使用する。`payment_method_types` は指定しない（dynamic payment methods 有効）。
+
+### File Structure Plan（Phase 13）
+
+#### Directory Structure
+```
+src/
+├── lib/
+│   ├── subscription-plans.ts       # paid tier 定義・Price ID マッピング
+│   └── stripe/
+│       └── server.ts               # Stripe シングルトンクライアント
+├── services/
+│   ├── subscription.ts             # Checkout/Portal 作成、Customer 解決
+│   └── entitlement.ts              # resolveUserEntitlements, tier 判定
+├── types/
+│   └── subscription.ts             # SubscriptionTier, SubscriptionStatus 等
+└── app/api/
+    ├── billing/
+    │   ├── checkout-session/route.ts
+    │   └── portal-session/route.ts
+    └── webhooks/
+        └── stripe/route.ts           # raw body 署名検証・冪等処理
+```
+
+#### Modified Files
+- `src/types/index.ts` — `User` に課金フィールド追加
+- `src/context/auth-context.tsx` — 読み取り時 `subscriptionTier` デフォルト `free`
+- `src/app/api/attempt/ask-ai/route.ts` — `resolveUserEntitlements` 利用
+- `firestore.rules` — 課金フィールドの owner 書き込み禁止
+- `docs/db_design.md` / `docs/api_specification.md` — 同期（direct impl 候補）
+
+### Requirements Traceability（Phase 13）
+
+| Requirement | Summary | Components | Interfaces | Flows |
+|-------------|---------|------------|------------|-------|
+| 4.2 | 無料 tier 日次20回制限 | `AskAiQuestionAPI`, `EntitlementService` | `/api/attempt/ask-ai` | AI 質問フロー |
+| 4.3 | Pro 以上は制限なし | `EntitlementService` | `/api/attempt/ask-ai` | AI 質問フロー |
+| 4.4 | サーバー側契約参照 | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI 質問フロー |
+| 19.1–19.4 | tier モデル・状態解釈 | `EntitlementService`, `User` 型 | — | — |
+| 19.5–19.8 | Checkout 購読開始 | `CheckoutSessionAPI`, `SubscriptionService` | `POST /api/billing/checkout-session` | 購読フロー |
+| 19.9–19.12 | Webhook 同期・冪等 | `StripeWebhookAPI`, `EntitlementService` | `POST /api/webhooks/stripe` | Webhook フロー |
+| 19.13–19.14 | Customer Portal | `PortalSessionAPI`, `SubscriptionService` | `POST /api/billing/portal-session` | 契約管理フロー |
+| 19.15–19.17 | エンタイトルメント適用 | `EntitlementService`, `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI 質問フロー |
+| 19.18–19.19 | 改ざん防止 | `firestore.rules`, Admin SDK のみ書込 | Rules | — |
+| 19.20–19.23 | 境界（UI 外） | — | — | — |
+
+### Components and Interfaces（Phase 13）
+
+| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
+|-----------|--------------|--------|--------------|------------------|-----------|
+| `subscription-plans.ts` | lib | paid tier・Price マッピングの単一正本 | 19.2, 19.3 | env Price IDs (P0) | State |
+| `EntitlementService` | service | tier 解釈・AI 無制限判定 | 4.2–4.4, 19.1–19.4, 19.15–19.17 | Firestore Admin (P0) | Service |
+| `SubscriptionService` | service | Stripe Customer / Session 作成 | 19.5–19.8, 19.13–19.14 | Stripe API (P0), EntitlementService (P0) | Service |
+| `CheckoutSessionAPI` | API Route | 購読開始セッション発行 | 19.5–19.8 | SubscriptionService (P0) | API |
+| `PortalSessionAPI` | API Route | 契約管理セッション発行 | 19.13–19.14 | SubscriptionService (P0) | API |
+| `StripeWebhookAPI` | API Route | 契約イベント同期 | 19.9–19.12 | Stripe, EntitlementService (P0) | API, Event |
+| `AskAiQuestionAPI` | API Route（改修） | tier ベース制限 | 4.2–4.4, 19.15–19.17 | EntitlementService (P0) | API |
+
+#### EntitlementService
+
+| Field | Detail |
+|-------|--------|
+| Intent | ユーザーの契約状態を単一規則で解釈し、機能ゲート判定を提供する |
+| Requirements | 4.2, 4.3, 4.4, 19.1–19.4, 19.15–19.17, 19.18, 19.19 |
+
+**Service Interface**
+```typescript
+type SubscriptionTier = 'free' | 'pro' | 'premium';
+type SubscriptionStatus =
+  | 'active' | 'trialing' | 'past_due' | 'canceled'
+  | 'incomplete' | 'unpaid' | 'paused';
+
+interface UserEntitlements {
+  subscriptionTier: SubscriptionTier;
+  subscriptionStatus: SubscriptionStatus | null;
+  currentPeriodEnd: Date | null;
+  hasPaidEntitlements: boolean;
+  hasUnlimitedAiQuestions: boolean;
+}
+
+interface EntitlementService {
+  resolveUserEntitlements(uid: string): Promise<UserEntitlements>;
+  applySubscriptionFromStripe(input: StripeSubscriptionSnapshot): Promise<void>;
+}
+```
+
+- **hasPaidEntitlements**: `subscriptionTier` が `pro` または `premium` かつ `subscriptionStatus` が `active` または `trialing`。
+- **hasUnlimitedAiQuestions**: `hasPaidEntitlements` または `moderationTier` が `moderator` / `senior_moderator`。
+- **isPremium 導出**: `hasPaidEntitlements` と同値で Webhook 更新時に `users.isPremium` も同期書き込み（`ask-ai` 後方互換）。
+- **未設定フィールド**: `subscriptionTier` 未設定は `free` として解釈。
+
+#### SubscriptionService
+
+**Service Interface**
+```typescript
+interface CreateCheckoutSessionInput {
+  uid: string;
+  email: string;
+  priceInterval: 'monthly' | 'yearly';
+}
+
+interface CreateCheckoutSessionResult {
+  sessionUrl: string;
+}
+
+interface CreatePortalSessionInput {
+  uid: string;
+}
+
+interface SubscriptionService {
+  createCheckoutSession(input: CreateCheckoutSessionInput): Promise<CreateCheckoutSessionResult>;
+  createPortalSession(input: CreatePortalSessionInput): Promise<{ sessionUrl: string }>;
+  getOrCreateStripeCustomer(uid: string, email: string): Promise<string>;
+}
+```
+
+**Checkout 契約**:
+- `mode: 'subscription'`
+- `client_reference_id`: Firebase `uid`
+- `customer`: 既存 `stripeCustomerId` または新規作成（`metadata.firebaseUid`）
+- `line_items`: `[{ price: envPriceId, quantity: 1 }]`
+- `success_url`: `{APP_URL}/pricing?checkout=success`
+- `cancel_url`: `{APP_URL}/pricing?checkout=canceled`
+- `payment_method_types` は省略（dynamic payment methods）
+
+**重複購読拒否（19.7）**: `resolveUserEntitlements` で `hasPaidEntitlements === true` のとき `409 already-subscribed`。
+
+#### CheckoutSessionAPI / PortalSessionAPI
+
+| Method | Endpoint | Request | Response | Errors |
+|--------|----------|---------|----------|--------|
+| POST | `/api/billing/checkout-session` | `{ priceInterval: 'monthly' \| 'yearly' }` + Bearer | `{ sessionUrl: string }` | 401, 409, 500 |
+| POST | `/api/billing/portal-session` | Bearer のみ | `{ sessionUrl: string }` | 401, 404, 500 |
+
+認証パターンは `ban/route.ts` と同一（`extractBearerToken` → `verifyFirebaseIdToken`）。BAN ユーザーは `403`。
+
+#### StripeWebhookAPI
+
+| Field | Detail |
+|-------|--------|
+| Intent | Stripe 契約イベントを冪等に Firestore へ反映 |
+| Requirements | 19.9–19.12 |
+
+**Runtime**: `nodejs`（Edge 不可）。**Body**: `await request.text()` で raw body を `stripe.webhooks.constructEvent` に渡す。
+
+**処理対象イベント**:
+- `checkout.session.completed` — `client_reference_id` から uid、`subscription` ID を取得
+- `customer.subscription.created` / `updated` / `deleted`
+- `invoice.payment_failed` — `past_due` 反映（grace: 期間終了まで `active` 維持は Stripe デフォルトに従う）
+
+**冪等性**: `stripe_processed_events/{eventId}` に Admin SDK で存在確認後処理。重複は `200` で即返却。
+
+**Price → tier マッピング**: `subscription-plans.ts` の `priceIdToTier` で解決。初版は Pro Price のみ → `pro`。未知 Price はログ警告し更新スキップ。
+
+### Data Models（Phase 13）
+
+#### `users` 追記フィールド
+
+| Field | Type | Writer | Notes |
+|-------|------|--------|-------|
+| `subscriptionTier` | `'free' \| 'pro' \| 'premium'` | Webhook / Admin | デフォルト `free` |
+| `stripeCustomerId` | `string?` | Webhook / Admin | |
+| `stripeSubscriptionId` | `string?` | Webhook / Admin | |
+| `subscriptionStatus` | `SubscriptionStatus?` | Webhook / Admin | |
+| `currentPeriodEnd` | `Timestamp?` | Webhook / Admin | |
+| `isPremium` | `boolean?` | Webhook / Admin | `hasPaidEntitlements` と同期 |
+
+#### `stripe_processed_events`（新規）
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `eventId` | `string` | Stripe `event.id`（ドキュメント ID） |
+| `type` | `string` | イベント種別 |
+| `processedAt` | `Timestamp` | |
+
+Rules: クライアント read/write 禁止（マッチなし → deny）。
+
+#### subscription-plans マスタ
+
+```typescript
+interface PaidTierDefinition {
+  tier: 'pro' | 'premium';
+  displayName: string;
+  priceIds: { monthly: string; yearly: string };
+  featureKeys: readonly ('unlimited_ai_questions')[];
+}
+
+export const PAID_TIER_DEFINITIONS: readonly PaidTierDefinition[];
+export function priceIdToTier(priceId: string): SubscriptionTier | null;
+export function hasFeature(tier: SubscriptionTier, feature: string): boolean;
+```
+
+初版 `PAID_TIER_DEFINITIONS` は Pro のみ。Premium 追加時は定義配列に1エントリ追加。
+
+### Error Handling（Phase 13）
+
+| Category | Response | Behavior |
+|----------|----------|----------|
+| 401 | 未認証 Checkout/Portal | ログイン要求メッセージ |
+| 409 | 既存有料契約で Checkout | `already-subscribed`、Portal 導線ヒント |
+| 404 | Portal で customer 未存在 | `no-subscription` |
+| 400 | 無効 `priceInterval` | バリデーションエラー |
+| 429 | ask-ai 制限（既存） | `limit-exceeded` + Pro 誘導文言 |
+| Webhook 署名失敗 | 400 | 状態更新なし、ログ記録 |
+
+### Security Considerations（Phase 13）
+
+**Firestore Rules（`users/{userId}` 更新）** — owner 更新時に以下を不変条件として追加:
+- `subscriptionTier`, `isPremium`, `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionStatus`, `currentPeriodEnd`
+
+**create 時**: 上記フィールドが未設定、または `subscriptionTier == 'free'` かつ `isPremium == false` のみ許可。
+
+**Webhook ルート**: Bearer 認証なし。Stripe 署名のみ。ミドルウェアは `/api` を除外済み。
+
+### Testing Strategy（Phase 13）
+
+**Unit Tests**
+- `priceIdToTier` — Pro monthly/yearly 解決、未知 ID → null
+- `resolveUserEntitlements` — free / active pro / canceled pro / moderator 免除
+- `hasFeature` — pro のみ `unlimited_ai_questions`
+
+**Integration Tests**
+- Checkout API: 有効トークン + free user → `sessionUrl`、既存 pro → 409
+- Portal API: pro user → `sessionUrl`、free user → 404
+- Webhook: 署名付き `customer.subscription.updated` モック → `users.subscriptionTier` 更新
+- Webhook 冪等: 同一 `eventId` 二重 POST → 単一更新
+- ask-ai: pro ユーザーで 21 回目も 200（カウンタ更新あり、429 なし）
+
+**E2E（Stripe テストモード）**
+- `/pricing` から Checkout 開始 URL 取得（UI スペックと連携）
+
+### Migration Strategy（Phase 13）
+
+1. Rules 更新（課金フィールド保護）を先にデプロイ。
+2. 型・`EntitlementService` 追加（既存 `isPremium` 読み取り互換）。
+3. Webhook エンドポイントを Stripe Dashboard に登録。
+4. Checkout / Portal API 有効化。
+5. `ask-ai` を `EntitlementService` に切替。
+
+既存 `isPremium: true` 手動設定ユーザーは Webhook 同期まで維持。長期は tier 正本へ移行。

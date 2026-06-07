@@ -28,6 +28,7 @@ import {
 } from '@/services/ask-ai-utils';
 import { AiQuestion, Attempt, Quiz } from '@/types';
 import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { computeUserEntitlements } from '@/services/entitlement';
 
 /** Gemini API クライアント（サーバーサイドでのみ使用） */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
@@ -89,17 +90,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // ── 認証済みのUIDを元にデータベースから安全にプレミアム状態を解決 ──
-    let isPremium = false;
+    // ── 認証済み UID からサーバー側でエンタイトルメントを解決（クライアント送信値は信頼しない）──
+    let hasUnlimitedAiQuestions = false;
     try {
       const userDocRef = doc(db, 'users', verifiedUid);
       const userSnap = await getDoc(userDocRef);
       if (userSnap.exists()) {
-        const userData = userSnap.data();
-        isPremium = userData.isPremium === true || ['moderator', 'senior_moderator'].includes(userData.moderationTier);
+        const entitlements = computeUserEntitlements(userSnap.data());
+        hasUnlimitedAiQuestions = entitlements.hasUnlimitedAiQuestions;
       }
     } catch (dbErr) {
-      console.error('[ask-ai] ユーザープレミアム情報の解決エラー (非致命的):', dbErr);
+      console.error('[ask-ai] ユーザーエンタイトルメント解決エラー (非致命的):', dbErr);
     }
 
     // ── Attempt ドキュメントを取得 ──────────────────────────
@@ -149,11 +150,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    if (isAiTurnLimitExceeded(currentDailyCount, isPremium ?? false)) {
+    if (isAiTurnLimitExceeded(currentDailyCount, hasUnlimitedAiQuestions)) {
       return NextResponse.json(
         {
           error: 'limit-exceeded',
-          message: '本日のこのクイズに対する質問上限（20回）に達しました。プレミアムプランで制限を解除できます。',
+          message: '本日のこのクイズに対する質問上限（20回）に達しました。Pro プランで制限を解除できます。',
         },
         { status: 429 }
       );
@@ -243,7 +244,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
     const newTurnCount = currentDailyCount + 1;
-    const turnsRemaining = isPremium
+    const turnsRemaining = hasUnlimitedAiQuestions
       ? null
       : Math.max(0, 20 - newTurnCount);
 

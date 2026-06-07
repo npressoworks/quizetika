@@ -484,3 +484,224 @@ Overall: L / Medium
 - **パイプライン順序**: `needle → tags AND → genre → format → difficulty/questionCount` を canonical 順序として固定。
 - **レガシー形式推定**: `format` 未設定 + `questions: []` → `mixed` のみヒット。テストフィクスチャで期待値固定。
 
+---
+
+# Research: quizeum-core — Phase 13 Stripe サブスクリプション（2026-06-07）
+
+## Summary
+- **Feature**: quizeum-core — Pro プラン Stripe サブスクリプション（Checkout / Webhook / Portal / Entitlements）
+- **Discovery Scope**: Extension（既存 `ask-ai` 制限・Admin SDK・auth-verify パターンを拡張）
+- **Key Findings**:
+  - `ask-ai` は既にサーバー側 `isPremium` 参照パターンを実装。`EntitlementService` へ集約すれば tier 拡張が容易。
+  - `firestore.rules` で課金フィールドが未保護 — showstopper。Rules を先にデプロイ。
+  - Stripe v22 + Checkout Sessions API が要件（リダイレクト Checkout）に最適。`payment_method_types` 省略で dynamic methods 有効。
+  - `.env.local` に Stripe キー・Webhook secret は既設定。`STRIPE_PRICE_PRO_MONTHLY/YEARLY` のみ追加必要。
+
+## Research Log
+
+### 既存 ask-ai エンタイトルメント
+- **Context**: 要件 4.2–4.4、19.15–19.17 の実装接点
+- **Sources**: `src/app/api/attempt/ask-ai/route.ts`, `src/services/ask-ai-utils.ts`
+- **Findings**: `isPremium` は Firestore 直読 + モデレーター免除。クライアント送信値は無視済み。プレイ UI は `isPremium: false` 固定（play-flow が修正担当）。
+- **Implications**: Core は `resolveUserEntitlements` に置換し、`hasUnlimitedAiQuestions` を export。`isPremium` 同期書き込みで後方互換。
+
+### Stripe 統合パターン
+- **Context**: エンドツーエンド購読フロー選定
+- **Sources**: `.agents/skills/stripe-best-practices/references/payments.md`, Stripe Checkout Sessions docs
+- **Findings**: Checkout Sessions + Customer Portal が初版に最適。Webhook は raw body + Node runtime 必須。冪等は `event.id` ドキュメントで十分。
+- **Implications**: `SubscriptionService` / `StripeWebhookAPI` を分離。Elements は Non-Goal。
+
+### Firestore Rules ギャップ
+- **Context**: 要件 19.18
+- **Sources**: `firestore.rules` users match block
+- **Findings**: `moderationTier` / `reputationScore` は保護済みだが `isPremium` / `subscriptionTier` は未保護
+- **Implications**: owner update に課金フィールド不変条件を追加。書き込みは `getAdminFirestore()` のみ
+
+## Architecture Pattern Evaluation
+
+| Option | Description | Strengths | Risks | Selected |
+|--------|-------------|-----------|-------|----------|
+| A. Full vertical slice | Checkout + Webhook + Portal + tier | E2E 価値完結 | Webhook 運用コスト | Yes |
+| B. Checkout only | 表示 + Checkout、Webhook 後回し | 早い | 購入後即時反映不可 | No |
+| C. Pricing Table embed | Stripe ホスト UI | 実装最小 | デザイン不整合、tier 拡張弱い | No |
+
+## Design Decisions
+
+### Decision: tier マスタ + `subscriptionTier` enum
+- **Context**: Pro のみ販売、Premium 将来追加
+- **Selected**: `subscription-plans.ts` に `PAID_TIER_DEFINITIONS` + `priceIdToTier`
+- **Rationale**: UI は `paidTiers.map()`、Webhook は priceId 解決のみ変更で Premium 追加可
+- **Trade-offs**: 機能差分は `featureKeys` で表現（初版は `unlimited_ai_questions` のみ）
+
+### Decision: `isPremium` 同期維持
+- **Context**: 既存 `ask-ai` が `isPremium === true` を参照
+- **Selected**: Webhook 更新時に `isPremium` を `hasPaidEntitlements` と同期書き込み
+- **Rationale**: 段階的移行。最終的に `EntitlementService` 単一参照へ収束可能
+
+### Decision: `stripe_processed_events` コレクション
+- **Context**: 要件 19.10 冪等性
+- **Selected**: `eventId` をドキュメント ID にした存在チェック
+- **Rationale**: シンプル、Firestore トランザクション不要
+
+## Risks & Mitigations
+- **Webhook 遅延** — Checkout 成功直後は UI が `refreshUser` + 短いポーリングまたは success パラメータで再取得を促す（billing-ui 側）
+- **Price ID 不一致** — 起動時 env バリデーション、`priceIdToTier` unknown はログ + スキップ
+- **既存手動 isPremium** — Migration 段階で維持。長期は tier 正本へ
+
+## References
+- [Stripe Checkout Sessions](https://docs.stripe.com/api/checkout/sessions) — 購読開始
+- [Stripe Customer Portal](https://docs.stripe.com/customer-management/portal-deep-dive) — 契約管理
+- [Stripe Webhooks](https://docs.stripe.com/webhooks) — 署名検証・raw body
+- `quizeum-billing-subscription-ui/brief.md` — UI 境界
+- `roadmap.md` Phase 13 — 依存順序
+
+---
+
+# Gap Analysis: quizeum-core — Phase 13 Stripe サブスクリプション（2026-06-07）
+
+## Analysis Summary
+
+- **スコープ**: 要件 19（サブスクリプション契約とエンタイトルメント）および要件 4.2–4.4（tier ベース AI 制限）の実装ギャップ。Wave 0–11 のコア機能は概ね実装済み。本分析は **未実装の Phase 13 Stripe** に焦点を当てる。
+- **現状**: Stripe npm 依存・`.env.local` の API キーは存在するが、**課金 API / Webhook / 型 / Rules / サービス層はゼロ**。`ask-ai` のみ ad-hoc な `isPremium` 直読（部分実装）。
+- **クリティカルギャップ**: `firestore.rules` で `isPremium` / `subscriptionTier` が未保護 → クライアント改ざん可能（showstopper）。
+- **推奨アプローチ**: 設計どおり **Option C（Hybrid）** — 新規 `entitlement.ts` / `subscription.ts` / billing API + `ask-ai` 改修 + Rules 更新。
+- **メタギャップ**: `tasks.md` の Phase 13 は旧「難易度5段階化」（完了済み）のまま。Stripe 用タスクの再生成が必要。
+
+## 1. Current State Investigation
+
+### 1.1 再利用可能な資産
+
+| 資産 | パス | 再利用方法 |
+|------|------|------------|
+| Bearer 認証パターン | `src/lib/firebase/auth-verify.ts` | Checkout / Portal API で同一 |
+| Admin Firestore | `src/lib/firebase/admin.ts` (`getAdminFirestore`) | Webhook・エンタイトルメント書き込み |
+| BAN API ルート構造 | `src/app/api/admin/users/ban/route.ts` | billing API の骨格 |
+| AI 制限純関数 | `src/services/ask-ai-utils.ts` (`isAiTurnLimitExceeded`) | `EntitlementService` から呼び出し継続可 |
+| ask-ai サーバー検証 | `src/app/api/attempt/ask-ai/route.ts` L92–103 | `EntitlementService` へ置換対象 |
+| Stripe パッケージ | `package.json` (`stripe` ^22.2.0) | 未 import — 導入のみ残 |
+| 環境変数（部分） | `.env.local` | `STRIPE_SECRET_KEY`, `WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` あり。**`STRIPE_PRICE_PRO_*` なし** |
+
+### 1.2 命名・レイヤー規約
+
+- API Routes: `src/app/api/<domain>/route.ts`
+- ビジネスロジック: `src/services/*.ts`
+- 共有型: `src/types/index.ts` または `src/types/subscription.ts`
+- lib 純関数: `src/lib/*.ts`
+- テスト: `tests/services/*.test.ts`, `tests/lib/*.test.ts`
+
+### 1.3 統合サーフェス（既存）
+
+- `users/{uid}` — プロフィール正本。課金フィールド未追加
+- `users/{uid}/dailyAiTurnCounts/{quizId}` — AI 日次カウンタ（ask-ai が使用、Rules 未マッチ → クライアント deny）
+- Firebase Auth ID Token — 全 billing API で必須
+
+## 2. Requirement-to-Asset Map（Phase 13）
+
+| Requirement | 必要アセット | 現状 | ギャップ |
+|-------------|-------------|------|----------|
+| 19.1 | デフォルト `free` tier | 暗黙（フィールドなし） | **Missing** — 型・読み取りデフォルト未定義 |
+| 19.2–19.3 | `subscriptionTier` enum + 拡張点 | なし | **Missing** |
+| 19.4 | 契約状態の一貫解釈 | なし | **Missing** — `EntitlementService` |
+| 19.5–19.8 | Checkout Session API | なし | **Missing** |
+| 19.9–19.12 | Webhook + 冪等 | なし | **Missing** |
+| 19.13–19.14 | Portal Session API | なし | **Missing** |
+| 19.15–19.17 | tier ベース AI 無制限 | `isPremium` 直読のみ | **Partial** — tier / status 未考慮 |
+| 19.18 | Rules 課金フィールド保護 | `moderationTier` のみ保護 | **Missing（Critical）** |
+| 19.19 | サーバー正本参照 | ask-ai は DB 直読（良） | **Partial** — クライアント `isPremium` 送信は無視済み |
+| 4.2 | 無料 20回制限 | 実装済み | **Constraint** — tier ではなく boolean |
+| 4.3 | Pro 無制限 | `isPremium===true` のみ | **Partial** — `subscriptionTier` 未連動 |
+| 4.4 | サーバー契約参照 | ask-ai で実装 | **Partial** — `EntitlementService` 未集約 |
+
+### 2.1 存在しないファイル（設計 vs 実装）
+
+```
+src/lib/subscription-plans.ts          — Missing
+src/lib/stripe/server.ts               — Missing
+src/services/entitlement.ts            — Missing
+src/services/subscription.ts           — Missing
+src/types/subscription.ts              — Missing
+src/app/api/billing/checkout-session/  — Missing
+src/app/api/billing/portal-session/    — Missing
+src/app/api/webhooks/stripe/           — Missing
+```
+
+### 2.2 改修が必要な既存ファイル
+
+| ファイル | 変更内容 |
+|----------|----------|
+| `src/types/index.ts` | `User` に課金フィールド追加 |
+| `src/app/api/attempt/ask-ai/route.ts` | `EntitlementService` 利用 |
+| `firestore.rules` | 課金フィールド不変 + `stripe_processed_events` deny |
+| `src/context/auth-context.tsx` | 読み取り時 `subscriptionTier` デフォルト（任意・UI 連携用） |
+| `docs/db_design.md`, `docs/api_specification.md` | 同期（direct impl） |
+
+### 2.3 隣接スペック（コア外だが E2E に必須）
+
+| 領域 | スペック | ギャップ |
+|------|--------|----------|
+| `/pricing` UI | `quizeum-billing-subscription-ui` | 未着手（spec 未 init） |
+| プレイ画面 tier 表示 | `quizeum-play-flow-ui` | `isPremium: false` 固定 |
+
+## 3. Implementation Approach Options
+
+### Option A: 既存 `ask-ai` のみ拡張
+
+- `ask-ai/route.ts` に Stripe ロジックを直書き、Webhook も単一ファイルに集約
+- **Trade-offs**: ファイル数最小 / 責務混在・テスト困難・Portal/Checkout 再利用不可
+- **評価**: Phase 13 エンドツーエンドには不適切
+
+### Option B: 設計どおり新規モジュール（推奨）
+
+- `entitlement.ts` + `subscription.ts` + 3 API Routes + `subscription-plans.ts` を新規作成
+- `ask-ai` は `EntitlementService` のみ依存
+- **Trade-offs**: 境界明確・テスト容易・ファイル増 / 初回実装コスト中程度
+- **評価**: `design.md` Phase 13 と一致。**推奨**
+
+### Option C: Hybrid（段階ロールアウト）
+
+1. Rules + `EntitlementService` + `ask-ai` 改修（セキュリティ先行）
+2. Webhook + Checkout + Portal
+3. docs / テスト / billing-ui 連携
+
+- **Trade-offs**: リスク分散 / 計画複雑
+- **評価**: 本番前の Rules 先行デプロイに有効。設計の Migration Strategy と整合
+
+## 4. Effort & Risk
+
+| 項目 | 評価 | 根拠 |
+|------|------|------|
+| **Effort** | **M（3–7日）** | 新規 7 ファイル + Rules + ask-ai 改修 + 結合テスト。UI は別スペック |
+| **Risk** | **Medium** | Webhook 署名・冪等・Stripe テストモード運用は既知パターン。未知技術なし |
+| **Blocker** | Rules 未更新 | 実装前に `deploy:rules` で課金フィールド保護必須 |
+
+## 5. Research Needed（設計フェーズへ引き継ぎ済み／残確認）
+
+| 項目 | 状態 |
+|------|------|
+| Stripe Checkout Sessions + subscription mode | design.md で決定済み |
+| Webhook raw body + Node runtime | design.md で決定済み |
+| **Stripe Dashboard Pro Product/Price 作成** | 運用タスク — `STRIPE_PRICE_PRO_MONTHLY/YEARLY` を `.env` に設定 |
+| Customer Portal 有効化（Dashboard） | 運用タスク |
+| ローカル Webhook 転送（`stripe listen`） | 開発時 Research Needed（手順のみ） |
+
+## 6. Spec / ドキュメント整合ギャップ
+
+| ドキュメント | 問題 |
+|-------------|------|
+| `tasks.md` §13 | 「難易度5段階化」完了済み — **要件 19 Stripe タスク未生成** |
+| `requirements.md` / `design.md` | Phase 13 = Stripe（整合） |
+| `User` 型 vs `ask-ai` 実行時 | `isPremium` が型にないが Firestore では参照（型ギャップ） |
+
+## 7. Recommendations for Implementation
+
+1. **`/kiro-spec-tasks quizeum-core -y`** で Phase 13 Stripe タスクを再生成（旧 §13 は完了のまま、新 §14 または Phase 13 差し替えを検討）
+2. 実装順序: **Rules → 型 + EntitlementService → Webhook → Checkout/Portal → ask-ai 切替 → テスト**
+3. 並行: `/kiro-spec-init quizeum-billing-subscription-ui` で UI スペック開始
+4. E2E は Stripe テストモード + `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
+
+## Document Status
+
+- **方法**: gap-analysis.md フレームワーク + コードベース Grep/Read
+- **入力**: `requirements.md`（要件 19）、`design.md`（Phase 13）、既存 `src/` / `firestore.rules`
+- **出力先**: 本節（`research.md` 追記）
+

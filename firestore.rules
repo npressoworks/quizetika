@@ -62,6 +62,54 @@ service cloud.firestore {
         );
     }
 
+    // 課金フィールドが create 時にクライアントから設定されていないか確認
+    function billingFieldsSafeOnCreate() {
+      return (
+        (!('subscriptionTier' in request.resource.data) || request.resource.data.subscriptionTier == 'free')
+        && (!('isPremium' in request.resource.data) || request.resource.data.isPremium == false)
+        && !('stripeCustomerId' in request.resource.data)
+        && !('stripeSubscriptionId' in request.resource.data)
+        && !('subscriptionStatus' in request.resource.data)
+        && !('currentPeriodEnd' in request.resource.data)
+      );
+    }
+
+    // 課金フィールドが update 時に変更されていないか確認
+    function billingFieldsUnchanged() {
+      return (
+        (
+          !('subscriptionTier' in resource.data)
+            ? (!('subscriptionTier' in request.resource.data) || request.resource.data.subscriptionTier == 'free')
+            : request.resource.data.subscriptionTier == resource.data.subscriptionTier
+        )
+        && (
+          !('isPremium' in resource.data)
+            ? !('isPremium' in request.resource.data)
+            : request.resource.data.isPremium == resource.data.isPremium
+        )
+        && (
+          !('stripeCustomerId' in resource.data)
+            ? !('stripeCustomerId' in request.resource.data)
+            : request.resource.data.stripeCustomerId == resource.data.stripeCustomerId
+        )
+        && (
+          !('stripeSubscriptionId' in resource.data)
+            ? !('stripeSubscriptionId' in request.resource.data)
+            : request.resource.data.stripeSubscriptionId == resource.data.stripeSubscriptionId
+        )
+        && (
+          !('subscriptionStatus' in resource.data)
+            ? !('subscriptionStatus' in request.resource.data)
+            : request.resource.data.subscriptionStatus == resource.data.subscriptionStatus
+        )
+        && (
+          !('currentPeriodEnd' in resource.data)
+            ? !('currentPeriodEnd' in request.resource.data)
+            : request.resource.data.currentPeriodEnd == resource.data.currentPeriodEnd
+        )
+      );
+    }
+
     // -----------------------------------------------------------------
     // users コレクションルール
     // -----------------------------------------------------------------
@@ -74,7 +122,8 @@ service cloud.firestore {
         // 一般ユーザーが勝手に特権ロールや高い評判スコアをセットできないようにする
         && request.resource.data.moderationTier == 'newcomer'
         && request.resource.data.reputationScore == 0
-        && request.resource.data.deleteStatus == 'active';
+        && request.resource.data.deleteStatus == 'active'
+        && billingFieldsSafeOnCreate();
         
       // 更新時のルール
       allow update: if isNotBanned() && (
@@ -83,6 +132,7 @@ service cloud.firestore {
         && request.resource.data.moderationTier == resource.data.moderationTier
         && request.resource.data.reputationScore == resource.data.reputationScore
         && request.resource.data.deleteStatus == resource.data.deleteStatus
+        && billingFieldsUnchanged()
         // 他ユーザーからリアクションを受けた際の totalReactionsCount の更新のみ許可
         || (
           isAuthenticated()
@@ -411,6 +461,13 @@ service cloud.firestore {
       allow read: if isSeniorModeratorOrAdmin();
       // クライアントからの直接の書き込み・変更・削除は完全に禁止（サーバーサイドAPIから特権実行のみ）
       allow write: if false;
+    }
+
+    // -----------------------------------------------------------------
+    // stripe_processed_events (Stripe Webhook 冪等ログ) コレクションルール
+    // -----------------------------------------------------------------
+    match /stripe_processed_events/{eventId} {
+      allow read, write: if false;
     }
   }
 }

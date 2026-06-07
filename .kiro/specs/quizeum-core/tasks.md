@@ -593,3 +593,93 @@
   - **完了状態**: コア層のすべてのテスト（Jest）が正常にパスすること。
   - _Depends: 13.1, 13.2_
 
+---
+
+### 14. Phase 14 拡張 — Stripe サブスクリプション（Pro プラン）（2026-06）
+
+> 要件 19・設計 Phase 13 に対応。旧 Phase 13（難易度5段階化）とは別フェーズ。
+
+- [x] 14.1 サブスクリプション基盤型・プラン定義・Stripe クライアント初期化
+  - `SubscriptionTier`（`free` | `pro` | `premium`）、`SubscriptionStatus`、課金関連フィールドを共通ユーザー型に追加し、未設定時は `free` として解釈する契約を型層に定義する
+  - 有料 tier 定義マスタ（初版 Pro のみ、月額/年額 Price ID マッピング、`priceIdToTier`）を単一モジュールに集約し、将来 Premium 追加時は定義配列への1エントリ追加で拡張可能にする
+  - Stripe サーバー SDK のシングルトン初期化と、起動時の必須環境変数（Secret Key、Webhook Secret、Pro Price ID 2種、`NEXT_PUBLIC_APP_URL`）検証を実装する
+  - **完了状態**: 型チェックが通り、Pro の Price ID から `pro` tier が解決され、必須 env 未設定時に明確なエラーが返ること
+  - _Requirements: 19.1, 19.2, 19.3, 19.4_
+  - _Boundary: subscription-plans, types_
+
+- [x] 14.2 Firestore Security Rules による課金フィールド保護
+  - `users` 更新時に `subscriptionTier`、`isPremium`、`stripeCustomerId`、`stripeSubscriptionId`、`subscriptionStatus`、`currentPeriodEnd` がオーナー操作で変更不可となるルールを追加する
+  - 新規ユーザー作成時は課金フィールド未設定、または `subscriptionTier == 'free'` かつ `isPremium == false` のみ許可する
+  - `stripe_processed_events` コレクションはクライアント read/write 不可とする（Admin SDK のみ書き込み）
+  - **完了状態**: `npm run deploy:rules` 後、クライアント SDK から `isPremium: true` への自己更新が Rules で拒否されること
+  - _Requirements: 19.18_
+  - _Depends: 14.1_
+  - _Boundary: firestore.rules_
+
+- [x] 14.3 エンタイトルメント解決サービスの実装
+  - ユーザーの契約 tier・契約状態・請求期間終了日時を一貫した規則で解釈し、`hasPaidEntitlements`（`pro`/`premium` かつ `active`/`trialing`）を返すサービスを実装する
+  - モデレーター/シニアモデレーターは契約 tier に関わらず AI 質問無制限と判定する既存特権免除を維持する
+  - Stripe サブスクリプションスナップショットから Firestore ユーザードキュメントへ tier・識別子・`isPremium` 同期書き込みを行う更新メソッドを実装する（Admin SDK 経由）
+  - **完了状態**: `free` / active `pro` / 解約済み `pro` / モデレーターの4ケースで `hasUnlimitedAiQuestions` が期待どおり判定されること
+  - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.11, 19.15, 19.16, 19.19_
+  - _Depends: 14.1_
+  - _Boundary: EntitlementService_
+
+- [x] 14.4 (P) Stripe 購読・契約管理サービスの実装
+  - Firebase UID とメールから Stripe Customer を取得または新規作成し、`metadata.firebaseUid` を付与して永続化する
+  - 認証済み無料ユーザー向けに Checkout Session（subscription モード、月額/年額選択、動的 payment methods）を発行し、リダイレクト URL を返す。既存有料契約者には 409 を返す
+  - 有効な有料契約者向けに Customer Portal Session を発行する。契約未保有者には 404 を返す
+  - **完了状態**: free ユーザーが Checkout URL を取得でき、active pro ユーザーが Portal URL を取得し、重複 Checkout は拒否されること
+  - _Requirements: 19.5, 19.7, 19.8, 19.13, 19.14_
+  - _Depends: 14.3_
+  - _Boundary: SubscriptionService_
+
+- [x] 14.5 (P) Stripe Webhook ハンドラの実装
+  - raw body + 署名検証（Node runtime）で Webhook を受信し、署名失敗時は状態更新せず 400 を返す
+  - `checkout.session.completed`、`customer.subscription.created/updated/deleted`、`invoice.payment_failed` を処理し、`priceIdToTier` で tier を解決してエンタイトルメントサービスへ委譲する
+  - `stripe_processed_events/{eventId}` による冪等処理を実装し、同一イベントの二重適用を防ぐ
+  - **完了状態**: テスト用署名付き subscription.updated イベントで `users.subscriptionTier` が `pro` に更新され、同一 eventId の再送で二重更新されないこと
+  - _Requirements: 19.9, 19.10, 19.11, 19.12_
+  - _Depends: 14.3_
+  - _Boundary: StripeWebhookAPI_
+
+- [x] 14.6 購読開始 API エンドポイントの実装
+  - Bearer 認証済みユーザーのみ `POST /api/billing/checkout-session` を受け付け、`priceInterval`（monthly/yearly）を検証して Checkout Session URL を返す
+  - 未認証リクエストは 401、BAN ユーザーは 403、既存有料契約は 409 を返す
+  - **完了状態**: 有効トークン + free ユーザーで `{ sessionUrl }` が返り、未認証で 401 になること
+  - _Requirements: 19.5, 19.6, 19.7_
+  - _Depends: 14.4_
+  - _Boundary: CheckoutSessionAPI_
+
+- [x] 14.7 契約管理 API エンドポイントの実装
+  - Bearer 認証済みかつ有料契約中ユーザーのみ `POST /api/billing/portal-session` で Customer Portal URL を返す
+  - 無料ユーザーは 404、未認証は 401、BAN ユーザーは 403 を返す
+  - **完了状態**: active pro ユーザーが Portal URL を取得し、free ユーザーが 404 になること
+  - _Requirements: 19.13, 19.14_
+  - _Depends: 14.4_
+  - _Boundary: PortalSessionAPI_
+
+- [x] 14.8 水平思考 AI 質問 API の tier ベース制限連携
+  - AI 質問 API がクライアント送信のプラン情報を盲信せず、エンタイトルメントサービスから最新の `hasUnlimitedAiQuestions` を参照して日次20回制限を判定する
+  - 無料 tier で上限到達時は 429 とともに Pro プラン購読で制限解除される旨のメッセージを返す
+  - 認証コンテキストのユーザープロフィール読み取り時に `subscriptionTier` 未設定を `free` として扱う（UI 連携用）
+  - **完了状態**: active pro ユーザーの21回目 AI 質問が 429 にならず、free ユーザーの20回目で 429 + Pro 誘導メッセージになること
+  - _Requirements: 4.2, 4.3, 4.4, 19.15, 19.17, 19.19_
+  - _Depends: 14.3_
+  - _Boundary: AskAiQuestionAPI, auth-context_
+
+- [x] 14.9 Phase 14 統合検証
+  - エンタイトルメント解決、Checkout/Portal API、Webhook 冪等、ask-ai tier 連携、Rules 拒否の Jest 結合テストを追加する
+  - 既存 `ask-ai-utils` テストおよび全コアテストスイートがグリーンであることを確認する
+  - **完了状態**: Phase 14 関連テストがすべてパスし、既存テストに回帰がないこと
+  - _Depends: 14.2, 14.5, 14.6, 14.7, 14.8_
+  - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6, 19.7, 19.8, 19.9, 19.10, 19.11, 19.12, 19.13, 19.14, 19.15, 19.16, 19.17, 19.18, 19.19, 4.2, 4.3, 4.4_
+  - _Boundary: Testing_
+
+- [ ]* 14.10 Phase 14 Stripe CLI 手動検証（任意）
+  - `stripe listen --forward-to localhost:3000/api/webhooks/stripe` で Checkout 完了後に Firestore の tier が `pro` に更新されることを手動確認する
+  - **完了状態**: テストモード Checkout → Webhook → `users.subscriptionTier === 'pro'` の一連フローがローカルで再現できること
+  - _Depends: 14.5, 14.6_
+  - _Requirements: 19.8, 19.9_
+  - _Boundary: Testing_
+

@@ -49,8 +49,9 @@ describe('Sidebar Component', () => {
     // ログインボタンがあること
     expect(screen.getByRole('link', { name: 'ログイン' })).toBeInTheDocument();
     
-    // ホームリンクはあるが、通知やブックマーク、作問、ダッシュボードはないこと
+    // ホーム・Proプランはあるが、通知やブックマーク、作問、ダッシュボードはないこと
     expect(screen.getByText('ホーム')).toBeInTheDocument();
+    expect(screen.getByText('Proプラン')).toBeInTheDocument();
     expect(screen.queryByText('通知')).not.toBeInTheDocument();
     expect(screen.queryByText('ブックマーク')).not.toBeInTheDocument();
     expect(screen.queryByText('作問する')).not.toBeInTheDocument();
@@ -76,12 +77,22 @@ describe('Sidebar Component', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     mockPathname = '/bookmarks';
     
-    const { container } = render(<Sidebar />);
+    render(<Sidebar />);
     
     // ブックマークリンクに active クラス（またはそれに類するスタイル）が付与されること
     // CSS modules をモックしてない場合はクラス名そのままでテストするか、テスト属性をチェック
     const bookmarkLink = screen.getByText('ブックマーク').closest('a');
     expect(bookmarkLink).toHaveClass('active');
+  });
+
+  it('/pricing パスで Proプラン メニューがアクティブ表示になる', () => {
+    mockUser = null;
+    mockPathname = '/pricing';
+
+    render(<Sidebar />);
+
+    const pricingLink = screen.getByText('Proプラン').closest('a');
+    expect(pricingLink).toHaveClass('active');
   });
 
   it('プロフィール領域をクリックするとポップアップメニュー（マイページ、ログアウト）が表示される', () => {

@@ -18,6 +18,7 @@ import { db } from '../lib/firebase/config';
 import { usersRef, followsRef, quizzesRef, quizListsRef } from '../lib/firebase/firestore';
 import { auth } from '../lib/firebase/config';
 import { User, Follow, Badge } from '../types';
+import { resolveSubscriptionTier } from '@/lib/subscription-plans';
 import { deleteImage } from './storage';
 
 /**
@@ -38,13 +39,24 @@ export interface ProfileValidationError {
 }
 
 /**
+ * Firestore から読み取ったユーザーレコードを正規化する
+ */
+export function normalizeUserRecord(user: User): User {
+  return {
+    ...user,
+    subscriptionTier: resolveSubscriptionTier(user.subscriptionTier),
+  };
+}
+
+/**
  * ユーザープロフィール情報を取得
  * @param uid Firebase Auth UID
  */
 export async function getUserProfile(uid: string): Promise<User | null> {
   const docRef = doc(usersRef, uid);
   const snap = await getDoc(docRef);
-  return snap.exists() ? snap.data() : null;
+  if (!snap.exists()) return null;
+  return normalizeUserRecord(snap.data() as User);
 }
 
 /**

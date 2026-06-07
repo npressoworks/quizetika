@@ -7,7 +7,6 @@ import { useAuth } from '@/context/auth-context';
 import { auth } from '@/lib/firebase/config';
 import { signOut } from '@/lib/firebase/auth';
 import {
-  Trophy,
   Bell,
   Bookmark,
   PlusCircle,
@@ -15,7 +14,8 @@ import {
   User as UserIcon,
   LogOut,
   ChevronUp,
-  Home
+  Home,
+  Sparkles,
 } from 'lucide-react';
 import styles from './sidebar.module.css';
 
@@ -42,6 +42,7 @@ export const Sidebar: React.FC = () => {
 
   const menuItems = [
     { href: '/', label: 'ホーム', icon: <Home size={22} /> },
+    { href: '/pricing', label: 'Proプラン', icon: <Sparkles size={22} /> },
   ];
 
   if (user) {

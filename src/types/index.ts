@@ -2,6 +2,10 @@
  * クイズ投稿SNS「quizeum」共通型定義
  */
 
+import type { SubscriptionStatus, SubscriptionTier } from './subscription';
+
+export type { SubscriptionTier, SubscriptionStatus } from './subscription';
+
 // 1. ユーザー情報 (Users)
 export interface User {
   id: string;             // Firebase Auth の uid
@@ -26,6 +30,12 @@ export interface User {
   isBanned?: boolean;      // BANフラグ
   bannedReason?: string;   // BAN理由
   bannedAt?: Date;         // BAN日時
+  subscriptionTier?: SubscriptionTier;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: SubscriptionStatus;
+  currentPeriodEnd?: Date;
+  isPremium?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
