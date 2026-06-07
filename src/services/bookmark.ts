@@ -61,6 +61,33 @@ function sortBookmarksByCreatedAtDesc(bookmarkDocs: Bookmark[]): Bookmark[] {
   );
 }
 
+/** createConverter が本文から id を除去するため、ドキュメント ID で直接取得する */
+async function fetchPublishedQuizzesByDocIds(quizIds: string[]): Promise<Quiz[]> {
+  const snaps = await Promise.all(quizIds.map((id) => getDoc(doc(quizzesRef, id))));
+  const quizzes: Quiz[] = [];
+  for (const snap of snaps) {
+    if (!snap.exists()) continue;
+    const quiz = snap.data();
+    if (quiz.status === 'published') {
+      quizzes.push(quiz);
+    }
+  }
+  return quizzes;
+}
+
+async function fetchPublishedListsByDocIds(listIds: string[]): Promise<QuizList[]> {
+  const snaps = await Promise.all(listIds.map((id) => getDoc(doc(quizListsRef, id))));
+  const lists: QuizList[] = [];
+  for (const snap of snaps) {
+    if (!snap.exists()) continue;
+    const list = snap.data();
+    if (list.isPublished) {
+      lists.push(list);
+    }
+  }
+  return lists;
+}
+
 async function assertQuestionBookmarkable(questionId: string): Promise<Question> {
   const questionRef = doc(questionsRef, questionId);
   const questionSnap = await getDoc(questionRef);
@@ -300,19 +327,7 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
 
   if (quizIds.length === 0) return [];
 
-  const quizzes: Quiz[] = [];
-  const chunkSize = 10;
-  for (let i = 0; i < quizIds.length; i += chunkSize) {
-    const chunk = quizIds.slice(i, i + chunkSize);
-    // 公開中のクイズのみに絞り込む (非公開クイズは除外)
-    const quizQuery = query(
-      quizzesRef,
-      where('id', 'in', chunk),
-      where('status', '==', 'published')
-    );
-    const quizSnap = await getDocs(quizQuery);
-    quizSnap.forEach((doc) => quizzes.push(doc.data()));
-  }
+  const quizzes = await fetchPublishedQuizzesByDocIds(quizIds);
 
   // 最新のブックマーク順を維持するためにソート
   const idToIndex = new Map(quizIds.map((id, index) => [id, index]));
@@ -340,18 +355,7 @@ export async function getBookmarkedLists(userId: string): Promise<QuizList[]> {
 
   if (listIds.length === 0) return [];
 
-  const lists: QuizList[] = [];
-  const chunkSize = 10;
-  for (let i = 0; i < listIds.length; i += chunkSize) {
-    const chunk = listIds.slice(i, i + chunkSize);
-    const listQuery = query(
-      quizListsRef,
-      where('id', 'in', chunk),
-      where('isPublished', '==', true)
-    );
-    const listSnap = await getDocs(listQuery);
-    listSnap.forEach((doc) => lists.push(doc.data()));
-  }
+  const lists = await fetchPublishedListsByDocIds(listIds);
 
   const idToIndex = new Map(listIds.map((id, index) => [id, index]));
   return lists.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
