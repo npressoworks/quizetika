@@ -47,3 +47,4 @@ next-env.d.ts
 /playwright/.auth
 
 *.log
+.env.local
