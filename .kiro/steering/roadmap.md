@@ -464,3 +464,64 @@ Quizeumの全体レイアウトを従来のヘッダー中心の構成から、P
 
 ## Specs (dependency order)
 （Phase 12 では新規 spec なし — 上記 Existing Spec Updates のみ）
+
+---
+
+## Phase 13: Stripe サブスクリプション（Pro プラン・エンドツーエンド）（2026-06-07 ディスカバリー）
+
+### Overview（本フェーズ）
+Stripe を前提に、有料プラン（初版は **Pro のみ**）の購読フローをエンドツーエンドで実装する。Free は全ユーザーのデフォルトのためプラン画面には表示しない。`/pricing` で Pro の特典・価格を提示し、Stripe Checkout で購読開始、Webhook で Firestore エンタイトルメントを更新、Customer Portal で契約管理、プレイ画面の AI 日次制限解除までを一気通貫で届ける。将来 **Premium** ティアを追加しやすいよう、`subscriptionTier`  enum とプラン定義マスタで拡張可能に設計する。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: フル垂直スライス — Stripe Checkout + Webhook + Customer Portal + tier ベースエンタイトルメント
+- **Why**: 表示のみでは購入後の価値が閉じない。既存 `ask-ai` がサーバー側 `isPremium` を参照しているため、Webhook による信頼できる tier 更新と Rules によるクライアント書き込み遮断が必須。Pro 単体販売でも tier マスタ化しておけば Premium 追加時に UI/API を最小差分で拡張できる。
+- **Rejected alternatives**:
+  - 表示 + Checkout のみ（Webhook 後回し）: 購入直後に制限が解除されず本番不可
+  - Stripe Pricing Table 埋め込み: Quizeum の Vanilla CSS デザインシステムとの統一が難しく、tier 拡張の制御も弱い
+  - 単一 `isPremium` boolean のみ: Premium 追加時に機能差分の表現が破綻する
+
+### Scope（本フェーズ）
+- **In**:
+  - `subscriptionTier: 'free' | 'pro' | 'premium'`（初版販売は `pro` のみ。`free` は暗黙デフォルト、`premium` はスキーマ予約）
+  - Firestore `users` への `stripeCustomerId`, `stripeSubscriptionId`, `subscriptionStatus`, `currentPeriodEnd` 等の追加
+  - `isPremium` は `tier !== 'free'` の導出（既存 `ask-ai` ゲートとの後方互換）
+  - Core: `POST /api/billing/checkout-session`, `POST /api/billing/portal-session`, `POST /api/webhooks/stripe`（raw body 署名検証・冪等）
+  - `firestore.rules`: billing フィールドのクライアント書き込み禁止
+  - UI: `/pricing`（Pro プランカード、月額/年額、Checkout/Portal CTA）
+  - Play-flow: プレイ画面の tier 連携、AI 制限到達時の `/pricing` 誘導、残り質問数表示の tier 反映
+  - ナビ導線（サイドバーまたはプロフィールポップアップ等）
+  - `docs/db_design.md`, `docs/api_specification.md`, `docs/screen_transition.md` の同期
+  - Stripe テストモードでの E2E / 結合テスト
+- **Out**:
+  - Free プランの比較表示
+  - Premium ティアの販売 UI（拡張ポイントのみ設計）
+  - §2.5 の他 Pro 特典（模擬試験分析、弱点克服無制限、広告非表示、プライベートクイズ等）— 初版 Pro 特典は **AI 質問無制限** のみ
+  - Stripe Elements によるアプリ内決済
+  - ギフティング / BtoB 法人ライセンス
+  - 管理者による手動 tier 付与 UI
+
+### Constraints（本フェーズ）
+- **Stripe v22**: `new Stripe(secretKey)` + async/await。Webhook は Node runtime・raw body 必須
+- **Defense-in-depth**: エンタイトルメント判定はサーバーが Firestore を引き直し。クライアント送信の `isPremium` は無視（既存 `ask-ai` パターン踏襲）
+- **環境変数**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- **Vanilla CSS**: 既存ネオンデザインシステムに準拠
+- **プラン拡張**: `src/lib/subscription-plans.ts`（仮）に paid tier 定義を集約。UI は `paidTiers.map()` で描画
+
+### Boundary Strategy（本フェーズ）
+- **Core** が Stripe API・Webhook・エンタイトルメント永続化・Rules・`resolveUserEntitlements` を所有
+- **Billing UI スペック** が `/pricing` と Checkout/Portal 起動・契約状態表示を所有
+- **Play-flow UI** がプレイ中の tier 表示・制限誘導のみ所有（購入処理は Core API を UI から呼ぶ）
+- **Shared seam**: tier → 機能ゲート（`hasProEntitlements` 等）は Core/lib に1か所集約
+
+## Existing Spec Updates（Phase 13・依存順）
+- [ ] quizeum-core -- `subscriptionTier` 型、Stripe Checkout/Portal サービス、Webhook ハンドラ、エンタイトルメント更新、Firestore Rules（billing フィールド保護）、`ask-ai` の tier 検証整合、`isPremium` 導出。Dependencies: none
+- [ ] quizeum-play-flow-ui -- プレイ画面 `isPremium`/tier 連携（auth から導出）、AI 制限インジケーター・上限ダイアログの `/pricing` 誘導。Dependencies: quizeum-core
+- [ ] quizeum-auth-profile-ui -- （任意・軽微）プロフィールまたは設定からの契約状態表示・Portal 導線。Dependencies: quizeum-core
+
+## Direct Implementation Candidates（Phase 13）
+- [ ] stripe-env-setup -- `.env.local` / デプロイ環境への Stripe キー・Price ID 設定、Stripe Dashboard で Pro Product/Price 作成手順を README または docs に記載
+- [ ] docs-sync-billing -- `docs/db_design.md`（users サブスクフィールド）、`docs/api_specification.md`（billing API）、`docs/screen_transition.md`（`/pricing` 追加）
+- [ ] firestore-rules-billing -- `isPremium` / `subscriptionTier` 等のクライアント書き込み遮断（viability チェックで検出された showstopper）
+
+## Specs (dependency order)
+- [ ] quizeum-billing-subscription-ui -- `/pricing` 画面、Pro プラン表示、Checkout/Portal CTA、契約状態 UI、ナビ導線。Dependencies: quizeum-core
