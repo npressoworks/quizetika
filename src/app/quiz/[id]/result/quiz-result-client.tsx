@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Check, X, ShieldAlert, Award, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle, ArrowLeft, CheckCircle, ChevronRight, Bookmark, UserPlus, UserCheck } from 'lucide-react';
@@ -33,10 +33,19 @@ interface QuizResultClientProps {
   quiz: Quiz;
   attemptId?: string;
   localId?: string;
+  initialAttempt?: Attempt | null;
+  initialAttemptError?: string | null;
   recommendChildren?: React.ReactNode;
 }
 
-export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: propLocalId, recommendChildren }: QuizResultClientProps) {
+export function QuizResultClient({
+  quiz,
+  attemptId: propAttemptId,
+  localId: propLocalId,
+  initialAttempt = null,
+  initialAttemptError = null,
+  recommendChildren,
+}: QuizResultClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -44,16 +53,20 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
   const attemptId = propAttemptId || searchParams.get('attemptId') || undefined;
   const localId = propLocalId || searchParams.get('localId') || undefined;
 
-  const [attempt, setAttempt] = useState<Attempt | null>(null);
-  const [attemptLoading, setAttemptLoading] = useState<boolean>(true);
-  const [attemptError, setAttemptError] = useState<string | null>(null);
+  const needsClientAttemptLoad =
+    !initialAttempt &&
+    (!initialAttemptError || !!localId) &&
+    !!(attemptId || localId);
+  const [attempt, setAttempt] = useState<Attempt | null>(initialAttempt);
+  const [attemptLoading, setAttemptLoading] = useState<boolean>(needsClientAttemptLoad);
+  const [attemptError, setAttemptError] = useState<string | null>(initialAttemptError);
 
   const [online, setOnline] = useState<boolean>(true);
   const [quickPressTimes, setQuickPressTimes] = useState<{ [questionId: string]: number } | null>(null);
 
   // 投票・リアクション状況
   const [voted, setVoted] = useState<'positive' | 'negative' | null>(null);
-  const [difficultyVote, setDifficultyVote] = useState<number | null>(null);
+  const [difficultyVote, setDifficultyVote] = useState<number | null>(initialAttempt?.difficultyVote ?? null);
   const [isFollowingAuthor, setIsFollowingAuthor] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState<boolean>(false);
   const [feedbackCategory, setFeedbackCategory] = useState<'typo' | 'fact' | 'alternative'>('typo');
@@ -84,8 +97,15 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
   // 特定の問題に対する間違い指摘用
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
 
-  // アテンプトの非同期ロード
+  // アテンプトの非同期ロード（localId やサーバー未取得時のみ）
   useEffect(() => {
+    if (initialAttempt) {
+      return;
+    }
+    if (initialAttemptError && !localId) {
+      return;
+    }
+
     async function loadAttempt() {
       setAttemptLoading(true);
       setAttemptError(null);
@@ -178,7 +198,7 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
     }
 
     loadAttempt();
-  }, [attemptId, localId, quiz.id, quiz.questionCount]);
+  }, [attemptId, localId, quiz.id, quiz.questionCount, initialAttempt, initialAttemptError]);
 
   // 1. オンライン状態の監視
   useEffect(() => {
@@ -571,6 +591,9 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
     }
   }
 
+  const diffVal = typeof quiz.difficulty === 'number' ? quiz.difficulty : parseInt(quiz.difficulty as any || '0', 10);
+  const diffNum = isNaN(diffVal) ? 0 : diffVal;
+
   return (
     <>
       {/* 優しいオフライン警告ヘッダー */}
@@ -585,7 +608,15 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
 
       {/* スコア結果サマリー */}
       <div className={styles.summaryCard}>
-        <div style={{ position: 'absolute', top: '20px', right: '20px' }}>
+        <div className={styles.summaryDifficultyBadge} data-testid="quiz-result-difficulty">
+          <span>難易度:</span>
+          <span className={styles.difficultyStars}>
+            <span style={{ color: getDifficultyColor(diffNum) }}>{'★'.repeat(diffNum)}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - diffNum))}</span>
+          </span>
+        </div>
+
+        <div className={styles.summaryBookmarkWrap}>
           <button
             className={`${styles.summaryBookmarkBtn} ${bookmarkedQuizIds.has(quiz.id) ? styles.summaryBookmarkBtnActive : ''}`}
             onClick={handleCurrentQuizBookmarkToggle}
@@ -656,21 +687,6 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
               💬 質問回数: <strong>{attempt.aiTurnCount}</strong> 回
             </span>
           )}
-          {(() => {
-            const diffVal = typeof quiz.difficulty === 'number' ? quiz.difficulty : parseInt(quiz.difficulty as any || '0', 10);
-            const diffNum = isNaN(diffVal) ? 0 : diffVal;
-            return (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace' }}>
-                難易度:
-                <span style={{ color: getDifficultyColor(diffNum) }}>
-                  {'★'.repeat(diffNum)}
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>
-                  {'☆'.repeat(Math.max(0, 5 - diffNum))}
-                </span>
-              </span>
-            );
-          })()}
         </div>
 
         <div style={{ display: 'flex', gap: '12px', width: '100%', maxWidth: '300px', marginTop: '8px' }}>
@@ -762,11 +778,9 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
             <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>あなたの投票: </span>
             {difficultyVote !== null ? (
               <span>
-                <span style={{ color: getDifficultyColor(difficultyVote) }}>
-                  {'★'.repeat(difficultyVote)}
-                </span>
-                <span style={{ color: 'var(--text-muted)' }}>
-                  {'☆'.repeat(Math.max(0, 5 - difficultyVote))}
+                <span className={styles.difficultyStars}>
+                  <span style={{ color: getDifficultyColor(difficultyVote) }}>{'★'.repeat(difficultyVote)}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - difficultyVote))}</span>
                 </span>
                 <span style={{ marginLeft: '8px', fontWeight: 'bold', color: 'var(--text-main)' }}>({difficultyVote})</span>
               </span>
@@ -1094,5 +1108,13 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
         />
       )}
     </>
+  );
+}
+
+export function QuizResultClientBoundary(props: QuizResultClientProps) {
+  return (
+    <Suspense fallback={<ResultSkeleton data-testid="quiz-result-skeleton" />}>
+      <QuizResultClient {...props} />
+    </Suspense>
   );
 }

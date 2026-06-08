@@ -1,9 +1,11 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { cookies } from 'next/headers';
 import { getQuiz, getQuizzesByAuthor } from '@/services/quiz';
-import { Quiz } from '@/types';
-import { QuizResultClient } from './quiz-result-client';
+import { getAttemptByIdForUser } from '@/services/attempt-server';
+import { Attempt, Quiz } from '@/types';
+import { QuizResultClientBoundary } from './quiz-result-client';
 import { RecommendListClient } from './recommend-list-client';
 import { ResultSkeleton } from '@/components/quiz/result-skeleton';
 import { RecommendSkeleton } from '@/components/quiz/recommend-skeleton';
@@ -15,12 +17,7 @@ interface PageProps {
 }
 
 export default async function QuizResultPage({ params, searchParams }: PageProps) {
-  const resolvedParams = await params;
-  const resolvedSearchParams = await searchParams;
-  const quizId = resolvedParams.id;
-
-  const attemptId = (resolvedSearchParams.attemptId as string) || undefined;
-  const localId = (resolvedSearchParams.localId as string) || undefined;
+  const { id: quizId } = await params;
 
   return (
     <div className={styles.container}>
@@ -30,11 +27,7 @@ export default async function QuizResultPage({ params, searchParams }: PageProps
       </Link>
 
       <Suspense fallback={<ResultSkeleton data-testid="quiz-result-skeleton" />}>
-        <QuizResultDetailLoader
-          quizId={quizId}
-          attemptId={attemptId}
-          localId={localId}
-        />
+        <QuizResultDetailLoader quizId={quizId} searchParams={searchParams} />
       </Suspense>
     </div>
   );
@@ -42,12 +35,26 @@ export default async function QuizResultPage({ params, searchParams }: PageProps
 
 interface DetailLoaderProps {
   quizId: string;
-  attemptId?: string;
-  localId?: string;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-async function QuizResultDetailLoader({ quizId, attemptId, localId }: DetailLoaderProps) {
-  // 1. クイズデータの読み込み
+function serializeAttempt(attempt: Attempt): Attempt {
+  return JSON.parse(
+    JSON.stringify({
+      ...attempt,
+      completedAt:
+        attempt.completedAt instanceof Date
+          ? attempt.completedAt.toISOString()
+          : attempt.completedAt,
+    })
+  );
+}
+
+async function QuizResultDetailLoader({ quizId, searchParams }: DetailLoaderProps) {
+  const resolvedSearchParams = await searchParams;
+  const attemptId = (resolvedSearchParams.attemptId as string) || undefined;
+  const localId = (resolvedSearchParams.localId as string) || undefined;
+
   const quiz = await getQuiz(quizId);
   if (!quiz) {
     return (
@@ -57,11 +64,34 @@ async function QuizResultDetailLoader({ quizId, attemptId, localId }: DetailLoad
     );
   }
 
+  let initialAttempt: Attempt | null = null;
+  let initialAttemptError: string | null = null;
+
+  if (attemptId) {
+    const cookieStore = await cookies();
+    const uid = cookieStore.get('quizeum_uid')?.value;
+
+    if (uid) {
+      try {
+        initialAttempt = await getAttemptByIdForUser(attemptId, uid);
+      } catch (e) {
+        console.error('[QuizResultDetailLoader] Attempt ロード失敗:', e);
+      }
+    }
+  } else if (!localId) {
+    initialAttemptError = '結果IDが指定されていません';
+  }
+
+  const plainQuiz = JSON.parse(JSON.stringify(quiz)) as Quiz;
+  const plainAttempt = initialAttempt ? serializeAttempt(initialAttempt) : null;
+
   return (
-    <QuizResultClient
-      quiz={quiz}
+    <QuizResultClientBoundary
+      quiz={plainQuiz}
       attemptId={attemptId}
       localId={localId}
+      initialAttempt={plainAttempt}
+      initialAttemptError={initialAttemptError}
       recommendChildren={
         <Suspense fallback={<RecommendSkeleton data-testid="recommend-skeleton" />}>
           <QuizResultRecommendLoader

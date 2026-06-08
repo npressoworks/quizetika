@@ -10,6 +10,21 @@
   animation: fadeIn 0.5s ease-out;
 }
 
+.backBtn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-weight: 500;
+  transition: var(--transition-fast);
+}
+
+.backBtn:hover {
+  color: var(--text-main);
+  transform: translateX(-4px);
+}
+
 /* オフライン警告ヘッダー */
 .offlineAlert {
   background: rgba(255, 0, 127, 0.1);
@@ -356,6 +371,35 @@
 /* 追加: クイズ全体お気に入りボタン */
 .summaryCard {
   position: relative;
+}
+
+.summaryDifficultyBadge {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-surface-solid);
+  border: 1px solid var(--border-light);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+}
+
+.difficultyStars {
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: 0;
+}
+
+.summaryBookmarkWrap {
+  position: absolute;
+  top: 20px;
+  right: 20px;
 }
 
 .summaryBookmarkBtn {
