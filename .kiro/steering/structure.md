@@ -19,8 +19,8 @@
 
 ### UIコンポーネント (UI Components)
 **Location**: `/src/components/`  
-**Purpose**: アプリケーション全体で再利用されるUIコンポーネント。再利用可能なUI部品（`/src/components/ui/`）と機能ドメイン別（`quiz/`, `bookmark/`, `profile/` 等）に分かれます。  
-**Example**: `/src/components/ui/skeleton-card.tsx`, `/src/components/quiz/quiz-dual-leaderboard.tsx`。
+**Purpose**: アプリケーション全体で再利用されるUIコンポーネント。再利用可能なUI部品（`/src/components/ui/`）と機能ドメイン別（`quiz/`, `bookmark/`, `profile/`, `explore/`, `charts/`, `sorting/`, `pricing/`, `quiz-list/`, `markdown/` 等）に分かれます。  
+**Example**: `/src/components/ui/skeleton-card.tsx`, `/src/components/quiz/quiz-dual-leaderboard.tsx`、`/src/components/explore/genre-nav.tsx`（ジャンルナビ）、`/src/components/charts/analytics-chart.tsx`（クリエイター統計）。
 
 ### サービス・ビジネスロジック (Services)
 **Location**: `/src/services/`  
@@ -34,8 +34,8 @@
 
 ### 純関数ライブラリ (Pure Logic Libraries)
 **Location**: `/src/lib/`  
-**Purpose**: UIに依存しない表示ヘルパー、セッション状態、検証・フィルタ等の純関数。サービス層のビジネスロジックとは分離し、コンポーネントやフックから呼び出す。Firebase 初期化は `/src/lib/firebase/` に集約（クライアント `config.ts` / `auth.ts`、サーバー `admin.ts` / `auth-verify.ts`）。XSS サニタイズは `/src/lib/security/`。  
-**Example**: `/src/lib/profile-list-display.ts`（リスト種別ラベル）、`/src/lib/question-list-session.ts`（問題リストプレイ進行）、`/src/lib/firebase/firestore.ts`。
+**Purpose**: UIに依存しない表示ヘルパー、セッション状態、検証・フィルタ等の純関数。サービス層のビジネスロジックとは分離し、コンポーネントやフックから呼び出す。Firebase 初期化は `/src/lib/firebase/` に集約（クライアント `config.ts` / `auth.ts`、サーバー `admin.ts` / `auth-verify.ts`）。XSS サニタイズは `/src/lib/security/`。Stripe サーバークライアントは `/src/lib/stripe/server.ts` に集約（クライアントバンドルへの秘密鍵漏洩を防止）。  
+**Example**: `/src/lib/profile-list-display.ts`（リスト種別ラベル）、`/src/lib/question-list-session.ts`（問題リストプレイ進行）、`/src/lib/firebase/firestore.ts`、`/src/lib/billing-client.ts`（Stripe Checkout局扭クライアント）。
 
 ### React コンテキスト (Context)
 **Location**: `/src/context/`  
@@ -60,6 +60,11 @@
 **Location**: `/tests/`（Jest）、`/e2e/`（Playwright）  
 **Purpose**: `tests/` は `src/` の構造をミラー（`tests/services/`, `tests/components/` 等）。Firebase は `tests/__mocks__/firebase/` でモック化。E2E は `e2e/*.spec.ts` に機能ドメイン別に配置。  
 **Example**: `/tests/services/reputation.test.ts`, `/e2e/layout.spec.ts`。
+
+### 静的テストデータ (Static Test Data)
+**Location**: `/src/data/`  
+**Purpose**: シードスクリプトから参照される要書データ（初期ジャンル・テストデータ）。本番ビルドには含まれず、スクリプトからのみ読み込まれる。  
+**Example**: `/src/data/initial_genres.json`, `/src/data/test_data.json`。
 
 ### 仕様と記憶 (Kiro Metadata)
 **Location**: `/.kiro/`  
@@ -101,6 +106,6 @@ import { LocalComponent } from './LocalComponent';
 - **UIとの境界分離**: コンポーネント側はUI表現とユーザーインタラクションに徹し、ビジネスロジックやデータフェッチの詳細は `services` 側のAPIやフックを呼び出す形に疎結合化します。
 
 ---
-_updated_at: 2026-06-05 — layout/context/firebase/security/middleware/tests パターンを追加_
+_updated_at: 2026-06-08 — explore/charts/sortingコンポーネント、Stripe lib、data/ディレクトリパターンを追加_
 
 _Document patterns, not file trees. New files following patterns shouldn't require updates_

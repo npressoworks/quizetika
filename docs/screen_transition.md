@@ -42,6 +42,9 @@ graph TD
     CommunityMerge["タグ/ジャンルマージリクエスト画面 (/community/merge)"]
     CommunityGenre["ジャンル新設申請・投票画面 (/community/genres)"]
 
+    %% 料金・サブスクリプション関連
+    Pricing["料金プラン画面 (/pricing)"]
+
     %% 遷移線の定義 (コアプレイフロー)
     Home -->|クイズ選択| QuizDetail
     Home -->|リスト選択| ListDetail
@@ -98,6 +101,11 @@ graph TD
     Home -.-|"ジャンル申請 (認証済み)"| CommunityGenre
     CommunityMerge -->|マージ対象タグ確認| TagSearch
     CommunityGenre -->|新設ジャンル確認| GenreSearch
+
+    %% 料金プランフロー
+    Home -.->|"料金・アップグレード"| Pricing
+    Pricing -->|サブスクリプション購入成功| Pricing
+    Pricing -->|ログインへの導線| Auth
 
     %% 注記としての共通遷移（図の簡略化のため線は省略）
     classDef note fill:#f9f,stroke:#333,stroke-width:2px;
@@ -379,3 +387,21 @@ graph TD
   * **投票タブ**: `status = 'pending'` のジャンル新設申請一覧を表示。モデレータ資格ユーザーが賛成/反対投票を行い、可決条件（重み付き賛成票 ≥ 5 かつ賛成率 ≥ 80%）を満たした時点でシステムが自動的に `metadata_genres` にドキュメントを作成し、全画面に即時反映。
 * **遷移ルール**:
   * 可決・否決されたリクエストは「承認済み / 否決済み」タブに移動し、履歴として閲覧可能。
+
+---
+
+### 2.22 料金プラン画面 (Page: `/pricing`)
+* **機能概要**:
+  * Free プランと Pro プランの2つの料金カードを並列表示。`GET /api/billing/prices` で取得した月額/年額の Price 情報をリアルタイムで反映する。
+  * **現在の契約状態表示**: `SubscriptionStatusBadge` によりログイン中ユーザーの現在プラン（`subscriptionTier`）と契約状態（`subscriptionStatus`）を表示。
+  * **CTA モードが切り替わる `resolvePricingUiState` ロジック**:
+    - **未ログイン**: 「まず無料で始める」（`/login` への導線）と「Pro へアップグレード」ボタンを表示。
+    - **Free ユーザー**: Pro プランカードの「Pro にアップグレード」ボタンで `POST /api/billing/checkout-session` を呼び出し Stripe Checkout へリダイレクト。
+    - **有料ユーザー** (`hasPaidEntitlements === true`): Pro プランカードの「プランを管理」ボタンで `POST /api/billing/portal-session` を呼び出し Stripe Customer Portal へリダイレクト。
+  * **Checkout 結果フィードバック**: Stripe から `?checkout=success` / `?checkout=canceled` で成功/キャンセルを判定し、`CheckoutFeedbackBanner` で結果を表示。完了後は `router.replace('/pricing')` で URL クリーンアップ。
+  * **Webhook 待機 UI**: `success` リダイレクト直後に Webhook 期到前のうち（`hasPaidEntitlements === false`）は「プランの反映を確認中...」のポーリングインジケーターを表示。
+* **遷移ルール**:
+  * 未ログイン状態で「Pro にアップグレード」をクリックすると「認証画面」へ遷移（ログイン後に項目へ自動遷移）。
+  * Checkout Session URL へのリダイレクトはブラウザツリー外部 URL への遷移（Stripe が引き受ける）。
+  * 購入完了後、Stripe から `/pricing?checkout=success` へリダイレクトされ、現在の買画面に留まる。
+

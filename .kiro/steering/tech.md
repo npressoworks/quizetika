@@ -13,6 +13,8 @@ Next.js（App Router）によるフルスタックフロントエンドと、Fir
 - **Runtime**: Node.js 20+
 - **Database / Auth**: Firebase 12.13.0 (Firestore, Authentication, Cloud Storage)
 - **AI**: Gemini API (`@google/generative-ai` 0.24.1)
+- **Payments**: Stripe (`stripe` ^22 / `@stripe/stripe-js` ^9) — サーバー側 Webhook + クライアント側 Checkout
+- **Analytics**: PostHog (`posthog-js` ^1) — プロダクト分析・イベントトラッキング
 
 ## 主要ライブラリ (Key Libraries)
 
@@ -67,8 +69,9 @@ npm run deploy:rules
 - **Vanilla CSSの採用**: UIは独自のプレミアムなデザインシステムを構築するため、TailwindCSSなどの汎用ユーティリティフレームワークは使用せず、柔軟で保守性の高い Vanilla CSS / CSS Modules を使用します。
 - **二重検証（Defense-in-Depth）**: フロントエンド（Cookie等）での権限チェックはUX向上のためだけに使用し、実際のデータ更新や操作はFirestoreセキュリティルール（`firestore.rules`）およびサーバーサイドでのトークン検証で厳格に認可します。
 - **画像のSVGアップロード禁止**: XSS（スクリプト埋め込み）攻撃を防ぐため、Firebase Storageへの画像アップロード（アイコン含む）は `PNG`, `JPEG`, `GIF` に限定し、セキュリティルールで容量・MIMEタイプを厳格にチェックします。
+- **Stripe課金フロー**: Stripe Checkout Session（サーバー生成）+ Webhook（`/api/webhooks/stripe`）でサブスクリプション状態を Firestore に同期。`src/lib/stripe/server.ts` にサーバー側クライアントを集約し、クライアントバンドルへの秘密鍵漏洩を防止する。
 
 ---
-_updated_at: 2026-06-05 — React 19、eslint-plugin-security、Emulator コマンド、Zod→手動バリデーション、レイアウト決定を反映_
+_updated_at: 2026-06-08 — Stripe課金・PostHog分析の追加を反映_
 
 _Document standards and patterns, not every dependency_

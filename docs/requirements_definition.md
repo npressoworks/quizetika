@@ -17,9 +17,14 @@
 
 ### 1.3 技術スタック
 - **Frontend / Fullstack**: Next.js (App Router, v16.2.6), React (v19.2.4), TypeScript
-- **Styling**: Tailwind CSS
-- **Backend / Database**: Firebase (Auth, Firestore)
-- **Validation**: Zod
+- **Styling**: **Vanilla CSS / CSS Modules**（TailwindCSS は使用しない。独自プレミアムデザインシステムを構築）
+- **Backend / Database**: Firebase (Auth, Firestore, Cloud Storage)
+- **Validation**: **手動バリデーション**（`quiz-validation.ts` / `collectQuestionTextValidationErrors` 等）。Zod は廃止済み。
+- **Payments**: Stripe (`stripe` ^22 / `@stripe/stripe-js` ^9)。Checkout Session + Webhook によるサブスクリプション管理。
+- **Analytics**: PostHog (`posthog-js` ^1)。プロダクト分析・イベントトラッキング。
+- **Animations**: Framer Motion
+- **Drag & Drop**: @dnd-kit (Core / Sortable)
+- **Sanitizer**: isomorphic-dompurify（XSS 防止）
 - **Icons**: Lucide React
 
 ---
@@ -48,8 +53,15 @@
 - **バイラル・拡散度**: SNS共有ボタン経由の流入数、クイズおよびリストの平均ブックマーク登録率。
 - **クオリティ＆満足度**: 投稿クイズの平均評価レーティング、間違い指摘に対する作成者の修正完了率（通知トリガー率）、モデレーションにおける違反コンテンツの迅速な排除率（非公開化スピード）。
 
-### 2.5 マネタイズモデル（将来的な展望）
-- **プレミアムプラン（サブスクリプション）**: 模擬試験モードの詳細分析、弱点克服プレイの無制限化、広告非表示、プライベートクイズ（非公開のクイズリストを特定グループ内だけで共有する機能）などの高度な機能提供。
+### 2.5 マネタイズモデル
+
+#### 実装済み機能
+- **Pro/Premium プラン（Stripe サブスクリプション）**: Stripe Checkout Session による月額/年額サブスクリプション購入。`/pricing` ページで Free / Pro の2プランを提示。Stripe Webhook（`/api/webhooks/stripe`）により購読状態を Firestore の `users` コレクションへリアルタイム同期。
+  - **AI ターン制限解除**: Free ユーザーは同一クイズに1日最大20回のAI質問制限。Pro/Premium ユーザーおよびモデレーター以上の権限保持者は無制限（`hasUnlimitedAiQuestions`）。
+  - **Customer Portal**: Stripe Billing Portal（`/api/billing/portal-session`）によるプラン変更・解約をセルフサービスで提供。
+  - **権限解決**: `src/services/entitlement.ts` の `resolveUserEntitlements` がサーバー側で最新の課金状態を引き直し、特権昇格攻撃を防止。
+
+#### 将来的な展望
 - **クリエイター支援（ギフティング/サポート）**: プレイヤーが素晴らしいクイズ作家にお礼や金銭的な支援を送ることで、良質なコンテンツ制作が経済的にも報われるエコシステムを構築。
 - **教育・企業向け連携（BtoB）**: 学校、学習塾、企業内研修向けにクイズ形式の試験・学習パッケージを提供する法人ライセンス販売。
 
