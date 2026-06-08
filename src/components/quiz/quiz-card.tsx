@@ -1,10 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
-import { Bookmark } from 'lucide-react';
+import { Bookmark, ThumbsUp } from 'lucide-react';
 import type { Quiz } from '../../types';
 import { resolveQuizFormat } from '@/lib/quiz-format';
-import { getFormatLabel, getFormatIcon } from '@/lib/quiz-format-labels';
 import { getDifficultyColor } from '@/lib/difficulty-color';
+import { formatReviewScorePercent } from '@/services/review-utils';
+import { FormatLabel } from '@/components/quiz/format-label';
 import styles from './quiz-card.module.css';
 
 interface QuizCardProps {
@@ -49,8 +50,6 @@ export function QuizCard({
   };
 
   const formatValue = resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] });
-  const formatLabel = getFormatLabel(formatValue);
-  const formatIcon = getFormatIcon(formatValue);
   const genreLabel = genreDisplayName ?? quiz.genre;
 
   const content = (
@@ -83,7 +82,10 @@ export function QuizCard({
         <div className={styles.titleRow}>
           <h3 className={styles.title}>{quiz.title}</h3>
           {quiz.reviewScore != null && (
-            <span className={styles.rating}>★ {quiz.reviewScore.toFixed(1)}</span>
+            <span className={styles.rating} data-testid="quiz-card-review-score">
+              <ThumbsUp size={14} aria-hidden />
+              {formatReviewScorePercent(quiz.reviewScore)}
+            </span>
           )}
         </div>
 
@@ -102,9 +104,11 @@ export function QuizCard({
           <span className={styles.genreLabel} data-testid="quiz-card-genre">
             {genreLabel}
           </span>
-          <span className={styles.formatLabel} data-testid="quiz-card-format">
-            {formatIcon} {formatLabel}
-          </span>
+          <FormatLabel
+            format={formatValue}
+            className={styles.formatLabel}
+            testId="quiz-card-format"
+          />
         </div>
 
         <button

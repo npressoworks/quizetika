@@ -1,4 +1,4 @@
-import { getFormatLabel } from '@/lib/quiz-format-labels';
+import { getFormatDescription, getFormatLabel } from '@/lib/quiz-format-labels';
 
 describe('getFormatLabel', () => {
   it('既知の形式に日本語ラベルを返す', () => {
@@ -10,5 +10,16 @@ describe('getFormatLabel', () => {
 
   it('未知の形式はそのまま返す', () => {
     expect(getFormatLabel('custom-format')).toBe('custom-format');
+  });
+});
+
+describe('getFormatDescription', () => {
+  it('既知の形式に説明文を返す', () => {
+    expect(getFormatDescription('multiple-choice')).toContain('選択肢');
+    expect(getFormatDescription('lateral-thinking')).toContain('水平思考');
+  });
+
+  it('未知の形式はラベルを返す', () => {
+    expect(getFormatDescription('custom-format')).toBe('custom-format');
   });
 });

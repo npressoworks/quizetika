@@ -285,6 +285,13 @@
   color: var(--text-muted);
 }
 
+.reviewScoreMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-success);
+}
+
 .statusBadge {
   font-size: 0.75rem;
   font-weight: 600;

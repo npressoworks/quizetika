@@ -9,6 +9,7 @@
 
 import {
   calculateReviewScore,
+  formatReviewScorePercent,
   getReviewBadge,
   canVote,
 } from '../../src/services/review-utils';
@@ -34,6 +35,25 @@ describe('calculateReviewScore', () => {
     const score = calculateReviewScore(3, 7);
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('formatReviewScorePercent', () => {
+  test('0.0〜1.0の比率スコアを整数パーセントに整形する', () => {
+    expect(formatReviewScorePercent(0.856)).toBe('86%');
+    expect(formatReviewScorePercent(1)).toBe('100%');
+    expect(formatReviewScorePercent(0)).toBe('0%');
+  });
+
+  test('0〜100のパーセント値はそのまま整形する', () => {
+    expect(formatReviewScorePercent(92.3)).toBe('92%');
+    expect(formatReviewScorePercent(100)).toBe('100%');
+    expect(formatReviewScorePercent(85)).toBe('85%');
+  });
+
+  test('null/undefinedの場合はnullを返す', () => {
+    expect(formatReviewScorePercent(null)).toBeNull();
+    expect(formatReviewScorePercent(undefined)).toBeNull();
   });
 });
 

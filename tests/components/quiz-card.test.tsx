@@ -31,7 +31,7 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
     negativeCount: 0,
     tempPositiveCount: 0,
     tempNegativeCount: 0,
-    reviewScore: 4.5,
+    reviewScore: 0.85,
     reviewBadge: null,
     isReviewMasked: false,
     activeResetRequestId: null,
@@ -81,6 +81,21 @@ describe('QuizCard', () => {
 
     expect(screen.getByTestId('quiz-card-genre')).toHaveTextContent('コンピュータ・IT');
     expect(screen.getByTestId('quiz-card-format')).toHaveTextContent('選択式');
+    fireEvent.mouseEnter(screen.getByTestId('quiz-card-format'));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('選択肢');
+  });
+
+  it('良問率をいいねアイコン付きのパーセント表示する', () => {
+    render(
+      <QuizCard
+        quiz={makeQuiz({ reviewScore: 92.3 })}
+        isBookmarked={false}
+        onBookmarkToggle={mockBookmarkToggle}
+        onPlayClick={mockPlayClick}
+      />
+    );
+
+    expect(screen.getByTestId('quiz-card-review-score')).toHaveTextContent('92%');
   });
 
   it('プレイボタンに play-btn testid がある', () => {

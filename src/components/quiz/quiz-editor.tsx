@@ -27,7 +27,7 @@ import {
   TEST_PLAY_RESTORE_QUERY,
 } from '@/lib/test-play';
 import { resolveQuizFormat } from '@/lib/quiz-format';
-import { getFormatLabel } from '@/lib/quiz-format-labels';
+import { getFormatLabel, getFormatDescription } from '@/lib/quiz-format-labels';
 import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
@@ -1133,13 +1133,13 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
             marginTop: '8px'
           }}>
             {[
-              { id: 'mixed', label: '複合', icon: '🌀', desc: '選択式・記述式・並び替えを自由に組み合わせ可能' },
-              { id: 'multiple-choice', label: '選択式', icon: '☑️', desc: '複数の選択肢から1つの正解を選ぶ定番クイズ' },
-              { id: 'text-input', label: '記述式', icon: '✍️', desc: 'テキスト入力で正確な正解ワードを記述する問題' },
-              { id: 'quick-press', label: '早押し', icon: '⚡', desc: '問題が一文字ずつ表示され、回答ボタンを押して答える' },
-              { id: 'sorting', label: '並び替え', icon: '↕️', desc: 'バラバラの要素を正しい順番に並び替える形式' },
-              { id: 'association', label: '連想', icon: '💡', desc: '段階的に開示されるヒントから正解を推測する' },
-              { id: 'lateral-thinking', label: 'ウミガメのスープ', icon: '🐢', desc: 'AIが真相の判定を行う状況構築型・水平思考' },
+              { id: 'mixed', label: '複合', icon: '🌀' },
+              { id: 'multiple-choice', label: '選択式', icon: '☑️' },
+              { id: 'text-input', label: '記述式', icon: '✍️' },
+              { id: 'quick-press', label: '早押し', icon: '⚡' },
+              { id: 'sorting', label: '並び替え', icon: '↕️' },
+              { id: 'association', label: '連想', icon: '💡' },
+              { id: 'lateral-thinking', label: 'ウミガメのスープ', icon: '🐢' },
             ].map((item) => {
               const isActive = format === item.id;
               return (
@@ -1179,7 +1179,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
                     </span>
                   </div>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: 0 }}>
-                    {item.desc}
+                    {getFormatDescription(item.id)}
                   </p>
                 </div>
               );

@@ -38,6 +38,28 @@ export function getReviewBadge(score: number | null): string | null {
   return '悪問';
 }
 
+/**
+ * 良問率を 0〜100 のパーセント値に正規化する。
+ * 0.0〜1.0 の比率と 0〜100 のパーセント値の両方に後方互換で対応する。
+ */
+export function normalizeReviewScoreToPercent(
+  score: number | null | undefined
+): number | null {
+  if (score === null || score === undefined) return null;
+  return score <= 1 ? score * 100 : score;
+}
+
+/**
+ * 良問率をパーセント表示用文字列に整形する
+ */
+export function formatReviewScorePercent(
+  score: number | null | undefined
+): string | null {
+  const percent = normalizeReviewScoreToPercent(score);
+  if (percent === null) return null;
+  return `${Math.round(percent)}%`;
+}
+
 /* ==========================================================================
    投票権チェック
    ========================================================================== */

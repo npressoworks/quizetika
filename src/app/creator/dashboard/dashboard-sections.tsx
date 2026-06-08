@@ -6,10 +6,12 @@ import { AnalyticsChart } from '@/components/charts/analytics-chart';
 import { SelectionPie } from '@/components/charts/selection-pie';
 import { Quiz, FeedbackReport } from '@/types';
 import styles from './dashboard.module.css';
+import { formatReviewScorePercent } from '@/services/review-utils';
 import {
   Play,
   Bookmark,
   Star,
+  ThumbsUp,
   FileText,
   Edit3,
   AlertCircle,
@@ -164,7 +166,13 @@ export function QuizListSection({ quizzes }: { quizzes: Quiz[] }) {
                       {quiz.status === 'published' ? '公開中' : '下書き'}
                     </span>
                     <span>プレイ: {quiz.playCount || 0}回</span>
-                    <span>★ {quiz.reviewScore !== null ? `${quiz.reviewScore}%` : '-'}</span>
+                    <span
+                      className={styles.reviewScoreMeta}
+                      data-testid="creator-quiz-review-score"
+                    >
+                      <ThumbsUp size={14} aria-hidden />
+                      {formatReviewScorePercent(quiz.reviewScore) ?? '-'}
+                    </span>
                   </div>
                 </div>
                 <div className={styles.quizActions}>

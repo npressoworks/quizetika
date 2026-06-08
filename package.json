@@ -15,7 +15,11 @@
     "test:e2e:headed": "playwright test --headed",
     "deploy:rules": "firebase deploy --only firestore:rules --project quizeum-77bc6",
     "seed:test-data": "node scripts/seed-test-data.mjs",
-    "seed:test-data:emulator": "node scripts/seed-test-data.mjs --emulator"
+    "seed:test-data:emulator": "node scripts/seed-test-data.mjs --emulator",
+    "db:reset": "node scripts/reset-firestore.mjs --confirm",
+    "db:reset:emulator": "node scripts/reset-firestore.mjs --emulator",
+    "db:reset-and-seed": "node scripts/reset-firestore.mjs --confirm && node scripts/seed-test-data.mjs",
+    "db:reset-and-seed:emulator": "node scripts/reset-firestore.mjs --emulator && node scripts/seed-test-data.mjs --emulator"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -11,7 +11,8 @@ import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { Quiz } from '@/types';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { resolveQuizFormat } from '@/lib/quiz-format';
-import { getFormatLabel, getFormatIcon } from '@/lib/quiz-format-labels';
+import { formatReviewScorePercent } from '@/services/review-utils';
+import { FormatLabel } from '@/components/quiz/format-label';
 import styles from './page.module.css';
 
 interface QuizDetailClientProps {
@@ -87,6 +88,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
 
   const isLateralThinkingQuiz = quiz.questions?.some((q) => q.type === 'lateral-thinking') ?? false;
   const isQuickPressQuiz = quiz.format === 'quick-press' || (quiz.questions?.some((q) => q.type === 'quick-press') ?? false);
+  const formatValue = resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] });
 
   return (
     <>
@@ -117,7 +119,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
           >
             <Bookmark
               size={20}
-              color={bookmarked ? '#00ff66' : 'var(--text-muted)'}
+              color={bookmarked ? '#00ff66' : 'currentColor'}
               fill={bookmarked ? '#00ff66' : 'none'}
             />
           </button>
@@ -131,7 +133,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
             ) : (
               <div className={styles.badgeGlow}>
                 <Award size={16} />
-                🏅 {quiz.reviewBadge} (良問率: {Math.round((quiz.reviewScore ?? 0) * 100)}%)
+                🏅 {quiz.reviewBadge} (良問率: {formatReviewScorePercent(quiz.reviewScore) ?? '0%'})
               </div>
             )
           )}
@@ -139,7 +141,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
             難易度: <span style={{ color: getDifficultyColor(diffNum) }}>{'★'.repeat(diffNum)}</span><span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - diffNum))}</span>
           </div>
           <div className={styles.difficultyBadge}>
-            形式: {getFormatIcon(resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] }))} {getFormatLabel(resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] }))}
+            形式: <FormatLabel format={formatValue} testId="quiz-detail-format" />
           </div>
           <div className={styles.difficultyBadge}>問題数: {quiz.questionCount}問</div>
         </div>
