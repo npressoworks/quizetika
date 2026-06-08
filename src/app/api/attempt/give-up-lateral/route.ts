@@ -2,14 +2,13 @@
  * 水平思考クイズ諦め API
  * POST /api/attempt/give-up-lateral
  *
- * プレイヤーが諦めた場合、attempt を不合格完了として記録し、解説テキストを返す。
+ * Phase 17: attempt を不合格完了として記録する（真相・解説は返却しない）
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminFirestore } from '@/lib/firebase/admin';
 import { normalizeElapsedSeconds } from '@/lib/format-play-elapsed';
-import { getLateralRevealText } from '@/services/lateral-give-up-utils';
 import { Attempt, Quiz } from '@/types';
 import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
 
@@ -74,7 +73,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'no-lateral-question' }, { status: 400 });
     }
 
-    const revealText = getLateralRevealText(lateralQuestion);
     const now = new Date();
     const savedElapsedSeconds = normalizeElapsedSeconds(
       elapsedSeconds,
@@ -98,7 +96,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     });
 
-    return NextResponse.json({ revealText });
+    return NextResponse.json({ completed: true });
   } catch (error) {
     console.error('[give-up-lateral] 予期しないエラー:', error);
     return NextResponse.json({ error: 'internal-error' }, { status: 500 });

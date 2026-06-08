@@ -237,10 +237,25 @@ describe('AttemptService - createLateralAttemptSession', () => {
         totalQuestions: 1,
         failedQuestionIds: ['q-lt-1'],
         aiTurnCount: 0,
-        aiTurnLimit: 20,
+        aiTurnLimit: 30,
+        listId: null,
+        mode: 'normal',
       })
     );
     expect(setDoc.mock.calls[0][1]).not.toHaveProperty('completedAt');
     expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  test('listId を渡すと attempt に保存し mode を list にする', async () => {
+    await createLateralAttemptSession('user-1', 'quiz-lateral-1', ['q-lt-1'], 'list-abc');
+
+    expect(setDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'auto-generated-id' }),
+      expect.objectContaining({
+        listId: 'list-abc',
+        mode: 'list',
+        aiTurnLimit: 30,
+      })
+    );
   });
 });

@@ -29,6 +29,18 @@ function computeHasPaidEntitlements(user: User | null): boolean {
   );
 }
 
+/** 水平思考 AI 質問の無制限可否（クライアント表示用。制限判定の正本はサーバー） */
+export function hasUnlimitedAiQuestionsForUser(user: User | null): boolean {
+  if (!user) return false;
+  if (
+    user.moderationTier === 'moderator' ||
+    user.moderationTier === 'senior_moderator'
+  ) {
+    return true;
+  }
+  return computeHasPaidEntitlements(user);
+}
+
 export function resolvePricingUiState(
   user: User | null,
   authLoading: boolean

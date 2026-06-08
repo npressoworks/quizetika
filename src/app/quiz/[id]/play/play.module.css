@@ -678,6 +678,19 @@
   color: #ff007f;
 }
 
+.lateralGiveUpNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.limitProLink {
+  color: var(--accent-primary, #6366f1);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
 .truthRevealPanel {
   padding: 16px;
   border-radius: var(--radius-md);

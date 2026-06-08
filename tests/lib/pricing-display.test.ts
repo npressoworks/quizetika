@@ -15,7 +15,10 @@ describe('pricing-display', () => {
   test('getFreePlanForUi: 無料プランの表示情報', () => {
     const plan = getFreePlanForUi();
     expect(plan.displayName).toBe('Free');
-    expect(plan.featureBullets.some((f) => f.id === 'limited_ai_questions')).toBe(true);
+    const limited = plan.featureBullets.find((f) => f.id === 'limited_ai_questions');
+    expect(limited).toBeDefined();
+    expect(limited?.label).toContain('30回');
+    expect(limited?.label).toContain('150回');
     expect('monthlyPriceLabel' in plan).toBe(false);
   });
 

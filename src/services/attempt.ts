@@ -160,7 +160,8 @@ export async function saveAttempt(
 export async function createLateralAttemptSession(
   userId: string,
   quizId: string,
-  questionIds: string[]
+  questionIds: string[],
+  listId?: string | null
 ): Promise<string> {
   const attemptDocRef = doc(attemptsCollection);
   const totalQuestions = questionIds.length;
@@ -168,15 +169,15 @@ export async function createLateralAttemptSession(
   await setDoc(attemptDocRef, {
     userId,
     quizId,
-    listId: null,
-    mode: 'normal',
+    listId: listId ?? null,
+    mode: listId ? 'list' : 'normal',
     score: 0,
     totalQuestions,
     elapsedSeconds: 0,
     failedQuestionIds: questionIds,
     aiQuestionsHistory: [],
     aiTurnCount: 0,
-    aiTurnLimit: 20,
+    aiTurnLimit: 30,
   });
 
   return attemptDocRef.id;

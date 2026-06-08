@@ -81,12 +81,13 @@ describe('POST /api/attempt/give-up-lateral', () => {
     mockAttemptRef.get.mockResolvedValue({ exists: true, data: () => attemptData, id: 'att-1' });
   });
 
-  it('諦め時に explanation を返し attempt を完了する', async () => {
+  it('諦め時に completed のみ返し revealText を含まない', async () => {
     const res = await POST(buildRequest({ attemptId: 'att-1', userId: 'uid-1' }));
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.revealText).toBe('プレイヤー向けの解説');
+    expect(body.completed).toBe(true);
+    expect(body.revealText).toBeUndefined();
     expect(mockRunTransaction).toHaveBeenCalled();
   });
 

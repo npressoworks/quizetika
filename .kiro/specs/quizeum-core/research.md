@@ -750,3 +750,133 @@ src/app/api/webhooks/stripe/           — Missing
 - **方法**: コードベース Read + requirements Phase 14
 - **出力先**: `design.md` Phase 14 節、`research.md` 本節
 
+---
+
+# Gap Analysis: quizeum-core — Phase 17 ウミガメ認証・二層制限・諦めフロー改定（2026-06-08）
+
+## Analysis Summary
+
+- **スコープ**: 要件 4（Phase 17 節）および要件 19 のエンタイトルメント整合。隣接 UI（`quizeum-play-flow-ui` / `quizeum-billing-subscription-ui`）は要件境界外だがギャップ表に参照として記載。
+- **実装済み（部分）**: ウミガメのみログイン必須の骨格、サーバー側 `resolveUserEntitlements`、クイズ別 `dailyAiTurnCounts`、同一質問キャッシュ（サーバー完全一致）、Pro 向け `limit-exceeded` API 文言、クイズ詳細の「会員登録してプレイする」ボタン。
+- **主要ギャップ**: 制限値 20→30/150 未反映、横断日次カウンタ未実装、キャッシュ正規化のサーバー/クライアント不一致、諦め時の真相表示（API+UI）、チャット内ナビ、プレイ画面の entitlements 未連携と Pro 誘導 UI 不足。
+- **推奨（設計フェーズ）**: Option C（Hybrid）— `ask-ai-utils.ts` を制限・正規化の単一正本に拡張し、API・クライアント・表示文言を同期。諦め API は `revealText` 廃止、UI は play-flow スペックでチャット内 CTA へ移行。
+- **規模/リスク**: **M**（3–7日相当の変更面）、**Low–Medium**（横断カウンタのトランザクション原子性のみ設計要検討）。
+
+## Document Status
+
+- **入力**: `requirements.md`（Phase 17）、`spec.json`（`requirements.approved: false`）、既存 `src/` / `tests/` / `docs/`
+- **方法**: gap-analysis.md フレームワーク + Grep/Read
+- **注意**: 要件は未承認だが、ギャップ分析は設計判断の入力として実施
+
+## 1. 要件 → 資産マッピング（Phase 17）
+
+| 要件 ID | 期待動作 | 現行資産 | 状態 | ギャップ詳細 |
+|--------|----------|----------|------|-------------|
+| 4.1 | 未登録時ボタン「会員登録してプレイする」 | `quiz-detail-client.tsx` L330–336 | ✅ 実装済 | play-flow-ui 境界。テスト未整備 |
+| 4.2 | 未登録のウミガメ開始→ログイン誘導 | `quiz-detail-client.tsx` L72–74、`quiz-play-client.tsx` L86–88 | ⚠️ 部分 | 詳細は `redirect` 付き。プレイ直アクセスは `/login` のみ（戻り先なし） |
+| 4.3 | 他モードはゲスト可 | 通常プレイ `user?.id \|\| 'guest'` | ✅ 実装済 | 横断確認のみ |
+| 4.4 | 認証済みで lateral attempt 作成 | `createLateralAttemptSession` (`attempt.ts`) | ✅ 実装済 | `listId` は常に `null`（4.23 と関連） |
+| 4.5 | AI 質問（履歴20件） | `ask-ai/route.ts` + Gemini | ✅ 実装済 | — |
+| 4.6 | 無料：同一クイズ 30回/日 | `FREE_TIER_DAILY_TURN_LIMIT = 20`、`ask-ai/route.ts` | ❌ 未実装 | 定数・API・`attempt.aiTurnLimit: 20`・UI 表示すべて 20 |
+| 4.7 | 無料：横断 150回/日 | なし | ❌ 未実装 | `dailyAiTurnCounts` は `{quizId}` のみ。グローバル doc 未設計 |
+| 4.8 | Pro 無制限 | `entitlement.ts` `hasUnlimitedAiQuestions` | ✅ 実装済 | 上限値変更後もロジックは流用可 |
+| 4.9 | サーバー側 tier 判定 | `ask-ai/route.ts` `resolveUserEntitlements` | ✅ 実装済 | — |
+| 4.10 | 正規化一致で全カウンタ非消費 | クライアント: `useAiPlayState` 正規化 / サーバー: `findCachedAnswer` 完全一致 | ⚠️ 部分 | 表記ゆれで API 呼び出し＆カウント発生。クライアント重複時は履歴に毎回追加（表示上の重複） |
+| 4.11 | 上限到達→質問拒否・真相可・Pro 誘導 | API: `limit-exceeded` + Pro 文言 / UI: 汎用エラー | ⚠️ 部分 | 上限値誤り。`/pricing` リンクなし。`turnsRemaining` はクイズ別のみ |
+| 4.12–4.20 | レイアウト・真相判定・経過時間 | `quiz-play-client.tsx`、`verify-truth/route.ts` | ✅ 実装済 | ルール説明に「最大20回」表記が残存（L731） |
+| 4.21 | 諦め→真相非表示 | `give-up-lateral/route.ts` → `revealText`、UI 右パネル表示 | ❌ 未実装 | Phase 16 仕様のまま。テストも `revealText` 期待 |
+| 4.22 | チャット内「結果画面へ」 | 右パネル内ボタン（真相表示後） | ❌ 未実装 | チャット内 CTA なし |
+| 4.23 | リスト文脈で「次の問題へ」 | なし | ❌ 未実装 | lateral は `listId` 未伝播。結果画面の list ナビは別実装 |
+| 4.24–4.27 | 入力ロック・完了保存・API 認証 | 既存 give-up / verify-truth | ✅ 実装済 | 4.21–4.23 と組み合わせて UI 改修が必要 |
+| 19.11, 19.15, 19.17–18 | tier と 30/150 制限整合 | `requirements` 更新済 / コードは 20 | ❌ 未実装 | 要件と実装の乖離 |
+
+## 2. 現行アーキテクチャ（関連モジュール）
+
+| モジュール | 役割 | Phase 17 への影響 |
+|-----------|------|------------------|
+| `src/services/ask-ai-utils.ts` | キャッシュ検索・制限判定定数 | **拡張先**: 正規化関数、30/150 定数、二重制限判定、エラーコード |
+| `src/app/api/attempt/ask-ai/route.ts` | AI 質問 API | 横断カウンタ読み書き、制限種別付き 429、正規化キャッシュ |
+| `src/hooks/useAiPlayState.ts` | クライアント質問状態 | 正規化の共通化、サーバー `turnsRemaining` 同期、Pro メッセージ |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | ウミガメ UI | 諦め UI、チャット CTA、`isPremium` ハードコード除去、制限表示 |
+| `src/app/api/attempt/give-up-lateral/route.ts` | 諦め API | `revealText` 返却廃止、完了のみ |
+| `src/services/attempt.ts` | lateral session 作成 | `aiTurnLimit: 30`、`listId` 引き継ぎ検討 |
+| `src/lib/pricing-display.ts` | 料金表示文言 | 「20回」→「30回/クイズ・150回/日」 |
+| `src/services/entitlement.ts` | tier 解決 | 変更不要（上限ロジックは ask-ai 側） |
+| `docs/*.md` | 正本ドキュメント | 20回制限・諦め解説開示の記述が旧仕様 |
+
+## 3. 実装アプローチ Options
+
+### Option A: 既存モジュール拡張のみ
+
+- `ask-ai-utils` に `normalizeQuestionText`、 `FREE_TIER_PER_QUIZ_LIMIT`、`FREE_TIER_GLOBAL_DAILY_LIMIT`、`checkAiTurnLimits()` を追加。
+- `ask-ai/route.ts` で `dailyAiTurnCounts/_global`（または設計で決める reserved doc ID）を同一トランザクションで更新。
+- `give-up-lateral` から `revealText` 削除。UI は `quiz-play-client` のみ改修。
+
+**Trade-offs**: 最小ファイル数、既存パターン踏襲。`ask-ai-utils` がやや肥大化。
+
+### Option B: 新規 `ai-turn-limit.ts` サービス
+
+- 制限・カウンタ・正規化を専用モジュールに分離。API は薄いオーケストレーション。
+
+**Trade-offs**: 責務分離は明確。新規境界のテスト・import 増。現規模ではやや過剰。
+
+### Option C: Hybrid（推奨）
+
+- **Core**: Option A と同様に `ask-ai-utils` を正本化。諦めは `lateral-give-up-utils` は残し API 応答のみ変更。
+- **Play UI**（play-flow 境界）: チャット内ナビ、`listId` 有無でボタン出し分け、ログイン `redirect` 統一。
+- **Billing UI**（billing 境界）: `pricing-display.ts` 文言更新。
+- **Docs**: `docs-sync-phase17` タスクで `api_specification.md` / `detailed_design.md` / `screen_transition.md` 同期。
+
+**Trade-offs**: スペック境界と一致。コア・UI・docs の3ストリーム並行可能。
+
+## 4. Research Needed（設計フェーズへ持ち越し）
+
+| 項目 | 内容 |
+|------|------|
+| 横断カウンタの doc ID | `dailyAiTurnCounts/_global` vs 別コレクション。Firestore Rules 影響 |
+| 二重制限のトランザクション | クイズ別 + 横断を1トランザクションで increment する際の読み取り順序 |
+| `limit-exceeded` のサブタイプ | `per-quiz` / `global-daily` を `error` フィールドで区別（要件 19.18） |
+| lateral + リスト連続プレイ | `createLateralAttemptSession` が `listId` を受け取るか。問題リストの lateral 親クイズの遷移 URL |
+| 諦め後の結果画面 | 真相を結果画面でも出さないか（要件はプレイ画面のみ明示。結果画面は別確認可） |
+| `turnsRemaining` レスポンス | クイズ別・横断の2値を返すか、表示優先ルール |
+
+## 5. テストギャップ
+
+| テスト | 現状 | 必要な更新 |
+|--------|------|-----------|
+| `tests/services/ask-ai-utils.test.ts` | 20回制限・厳格キャッシュ | 30/150、正規化キャッシュ、二重制限 |
+| `tests/api/give-up-lateral.test.ts` | `revealText` 期待 | 非返却・完了のみ |
+| `tests/api/ask-ai*.test.ts` | **なし**（統合除外コメント） | 新規 API 統合テスト推奨（制限・キャッシュ） |
+| `tests/lib/pricing-display.test.ts` | 文言 id のみ検証 | 30/150 文言アサーション |
+| `tests/services/useAiPlayState.test.ts` | モック正規化のみ | フック本体または統合テスト不足 |
+
+## 6. Effort & Risk
+
+| ラベル | 評価 | 根拠 |
+|--------|------|------|
+| **Effort** | **M** | 6–10 ファイル + docs + 隣接 UI 2 スペック。新規インフラ不要 |
+| **Risk** | **Low–Medium** | 既存 Stripe/entitlement パターン流用。横断カウンタ原子性と list 連続プレイのみ設計要確認 |
+
+## 7. 設計フェーズへの推奨事項
+
+1. **正本**: `ask-ai-utils.ts` に制限定数・正規化・`AiTurnLimitResult` 型を集約（design Boundary Commitments）。
+2. **API 契約**: `limit-exceeded` に `limitType: 'per-quiz' \| 'global-daily'` を追加。キャッシュヒット時は `turnsRemaining` に両残数を含めるか設計で決定。
+3. **諦め API**: 成功応答は `{ completed: true }` のみ（`revealText` 破壊的変更 — クライアント同時デプロイ）。
+4. **タスク分割案**: (T1) utils+API 制限、(T2) キャッシュ正規化、(T3) give-up API+UI、(T4) play UI Pro 誘導・entitlements、(T5) pricing-display + docs。
+5. **隣接スペック**: `quizeum-play-flow-ui` / `quizeum-billing-subscription-ui` の requirements 追従を design で明示。
+
+## 8. 設計フェーズ確定事項（2026-06-08）
+
+| 持ち越し項目 | 設計決定 |
+|-------------|---------|
+| 横断カウンタ doc ID | `users/{uid}/dailyAiTurnCounts/_global`（reserved ID） |
+| 二重制限トランザクション | attempt + per-quiz + global を単一 Transaction で increment |
+| `limit-exceeded` サブタイプ | `limitType: 'per-quiz' \| 'global-daily'` |
+| lateral + リスト連続プレイ | `createLateralAttemptSession` が `listId` を受け取り attempt に保存 |
+| 諦め後の結果画面 | プレイ画面のみ真相非表示を要件化。結果画面は現行どおり真相を出さない |
+| `turnsRemaining` | `{ perQuiz, globalDaily }` の2値を成功応答に含める |
+
+**Synthesis**: Option C（Hybrid）採用。`ask-ai-utils.ts` を正本化し、諦め API は応答のみ変更、UI は play-flow / billing 境界に委譲。
+
+**Document Status（Phase 17 設計）**: `design.md` Phase 17 節に反映済。`spec.json` → `phase: design-generated`。
+

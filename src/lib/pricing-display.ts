@@ -22,7 +22,7 @@ export const PRICING_PLANS_DISPLAY: readonly PricingPlanDisplay[] = [
       },
       {
         id: 'limited_ai_questions',
-        label: 'ウミガメAIへの質問は1日20回まで',
+        label: 'ウミガメAIへの質問は同一クイズ30回/日・全クイズ横断150回/日まで',
       },
     ],
   },
@@ -32,7 +32,7 @@ export const PRICING_PLANS_DISPLAY: readonly PricingPlanDisplay[] = [
     featureBullets: [
       {
         id: 'unlimited_ai_questions',
-        label: 'ウミガメAIへの質問が1日20回制限なし',
+        label: 'ウミガメAIへの質問が日次制限なし',
       },
     ],
   },

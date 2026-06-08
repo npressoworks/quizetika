@@ -26,10 +26,13 @@ import { QuestionBookmarkToggle } from '@/components/bookmark/question-bookmark-
 import {
   readQuestionListSession,
   syncQuestionListSessionIndex,
+  buildQuestionListPlayUrl,
 } from '@/lib/question-list-session';
 import { PlaySkeleton } from '@/components/quiz/play-skeleton';
 import { useElapsedSeconds } from '@/hooks/useElapsedSeconds';
 import { formatPlayElapsedSeconds } from '@/lib/format-play-elapsed';
+import { hasUnlimitedAiQuestionsForUser } from '@/lib/pricing-entitlement';
+import { FREE_TIER_PER_QUIZ_LIMIT } from '@/services/ask-ai-utils';
 
 interface QuizPlayClientProps {
   quizId: string;
@@ -84,9 +87,11 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   useEffect(() => {
     if (authLoading) return;
     if (playMode === 'lateral' && !user) {
-      router.push('/login');
+      const query = searchParams.toString();
+      const redirectPath = `/quiz/${quizId}/play${query ? `?${query}` : ''}`;
+      router.push(`/login?redirect=${encodeURIComponent(redirectPath)}`);
     }
-  }, [authLoading, playMode, user, router]);
+  }, [authLoading, playMode, user, router, quizId, searchParams]);
 
   useEffect(() => {
     if (!user) {
@@ -275,8 +280,9 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const [truthAdvice, setTruthAdvice] = useState<string | null>(null);
   const [truthPassed, setTruthPassed] = useState<boolean>(false);
   const [truthGaveUp, setTruthGaveUp] = useState<boolean>(false);
-  const [revealText, setRevealText] = useState<string | null>(null);
   const [isGivingUp, setIsGivingUp] = useState<boolean>(false);
+  const [lateralListNextUrl, setLateralListNextUrl] = useState<string | null>(null);
+  const lateralListId = searchParams.get('listId');
   const lateralPlayEnded = truthPassed || truthGaveUp;
   const lateralInputLocked = lateralPlayEnded || isGivingUp;
   const lateralElapsedSeconds = useElapsedSeconds(
@@ -291,10 +297,12 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       async function initLateralAttempt() {
         try {
           const questionIds = quiz!.questions.map((q) => q.id);
+          const listIdParam = searchParams.get('listId');
           const aid = await createLateralAttemptSession(
             currentUserId,
             currentQuizId,
-            questionIds
+            questionIds,
+            listIdParam
           );
           setLateralAttemptId(aid);
         } catch (e) {
@@ -303,16 +311,54 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       }
       initLateralAttempt();
     }
-  }, [playMode, quiz, user, lateralAttemptId]);
+  }, [playMode, quiz, user, lateralAttemptId, searchParams]);
+
+  const hasUnlimitedAiQuestions = hasUnlimitedAiQuestionsForUser(user);
 
   // ウミガメスープ用AIプレイステートフック
   const aiPlay = useAiPlayState({
     attemptId: lateralAttemptId || '',
     userId: user?.id || '',
-    isPremium: false,
+    hasUnlimitedAiQuestions,
     initialHistory: [],
     initialTurnCount: 0,
   });
+
+  useEffect(() => {
+    if (!truthGaveUp || !lateralListId || !quiz) return;
+    const activeListId = lateralListId;
+
+    const questionListModeActive = searchParams.get('mode') === 'question-list';
+    if (questionListModeActive) {
+      const session = readQuestionListSession();
+      if (session?.listId === activeListId) {
+        const nextIndex = session.currentIndex + 1;
+        if (nextIndex < session.entries.length) {
+          setLateralListNextUrl(buildQuestionListPlayUrl(session, nextIndex));
+        }
+      }
+      return;
+    }
+
+    async function resolveNextQuizUrl() {
+      try {
+        const { getQuizList } = await import('@/services/quiz-list');
+        const listData = await getQuizList(activeListId);
+        if (!listData?.quizIds) return;
+        const currentIdx = listData.quizIds.indexOf(quiz.id);
+        if (currentIdx !== -1 && currentIdx < listData.quizIds.length - 1) {
+          const nextQuizId = listData.quizIds[currentIdx + 1];
+          setLateralListNextUrl(
+            `/quiz/${nextQuizId}/play?listId=${activeListId}&mode=list`
+          );
+        }
+      } catch (err) {
+        console.error('[QuizPlay] リスト次問題URL解決失敗:', err);
+      }
+    }
+
+    resolveNextQuizUrl();
+  }, [truthGaveUp, lateralListId, quiz, searchParams]);
 
   const chatHistoryEndRef = useRef<HTMLDivElement>(null);
 
@@ -320,7 +366,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   useEffect(() => {
     if (playMode !== 'lateral') return;
     chatHistoryEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [playMode, aiPlay.history, aiPlay.pending, aiPlay.pendingQuestion, lateralPlayEnded, revealText, isTruthChecking, truthSummary]);
+  }, [playMode, aiPlay.history, aiPlay.pending, aiPlay.pendingQuestion, lateralPlayEnded, truthGaveUp, isTruthChecking, truthSummary]);
 
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -381,7 +427,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     if (isGivingUp || lateralPlayEnded || !lateralAttemptId || !user) return;
 
     const confirmed = window.confirm(
-      '諦めて回答を見ますか？\nこのプレイは不合格として記録され、チャットと真相提出はできなくなります。'
+      '諦めますか？\nこのプレイは不合格として記録され、チャットと真相提出はできなくなります。'
     );
     if (!confirmed) return;
 
@@ -406,12 +452,14 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         throw new Error(data.message || '諦め処理に失敗しました');
       }
 
-      setRevealText(data.revealText || '作成者が解説を設定していません。');
+      if (!data.completed) {
+        throw new Error('諦め処理に失敗しました');
+      }
       setTruthAdvice(null);
       setTruthGaveUp(true);
     } catch (e) {
       console.error('[give-up-lateral] 送信エラー:', e);
-      window.alert('回答の表示に失敗しました。時間を置いてから再試行してください。');
+      window.alert('諦め処理に失敗しました。時間を置いてから再試行してください。');
     } finally {
       setIsGivingUp(false);
     }
@@ -533,7 +581,12 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           <div className={styles.chatHeader}>
             <div className={styles.chatTitle}>👻 ウミガメチャット (AI判定)</div>
             <div className={styles.chatHeaderMeta}>
-              <span className={styles.turnCounter}>質問数: {aiPlay.turnCount} / 20</span>
+              <span className={styles.turnCounter}>
+                質問数:{' '}
+                {hasUnlimitedAiQuestions
+                  ? aiPlay.turnCount
+                  : `${aiPlay.perQuizUsed} / ${FREE_TIER_PER_QUIZ_LIMIT}`}
+              </span>
               <span className={styles.elapsedCounter}>
                 <Timer size={14} aria-hidden="true" />
                 経過時間: {formatPlayElapsedSeconds(lateralElapsedSeconds)}
@@ -609,7 +662,31 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
             )}
             {truthGaveUp && (
               <div className={`${styles.chatBubble} ${styles.bubbleSystem}`}>
-                📖 諦めて回答を表示しました。サイドパネルで真相を確認できます。
+                プレイを終了しました。下のボタンから結果画面へ進めます。
+              </div>
+            )}
+            {truthGaveUp && (
+              <div className={styles.lateralGiveUpNav}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() =>
+                    router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`)
+                  }
+                  data-analytics="quiz-lateral-give-up-result"
+                >
+                  結果画面へ
+                </button>
+                {lateralListNextUrl && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => router.push(lateralListNextUrl)}
+                    data-analytics="quiz-lateral-give-up-next"
+                  >
+                    次の問題へ
+                  </button>
+                )}
               </div>
             )}
             <div ref={chatHistoryEndRef} aria-hidden="true" />
@@ -619,7 +696,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           <div className={styles.chatInputArea}>
             {aiPlay.errorMsg && lateralInputMode === 'question' && (
               <div className={styles.chatInputError}>
-                ⚠️ {aiPlay.errorMsg}
+                ⚠️ {aiPlay.errorMsg}{' '}
+                <Link href="/pricing" className={styles.limitProLink}>
+                  Pro プランを見る
+                </Link>
               </div>
             )}
             {truthAdvice && !lateralPlayEnded && lateralInputMode === 'truth' && (
@@ -658,13 +738,17 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                     type="text"
                     className={styles.chatInput}
                     placeholder={
-                      aiPlay.turnCount >= 20
+                      aiPlay.questionLimitReached
                         ? '質問の上限に達しました。「回答する」から真相を提出できます'
                         : 'AIに質問する (例: 男は一人でしたか？)...'
                     }
                     value={questionInput}
                     onChange={(e) => setQuestionInput(e.target.value)}
-                    disabled={aiPlay.isAwaitingResponse || aiPlay.turnCount >= 20 || lateralInputLocked}
+                    disabled={
+                      aiPlay.isAwaitingResponse ||
+                      aiPlay.questionLimitReached ||
+                      lateralInputLocked
+                    }
                   />
                   <button
                     type="submit"
@@ -672,7 +756,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                     disabled={
                       aiPlay.isAwaitingResponse ||
                       !questionInput.trim() ||
-                      aiPlay.turnCount >= 20 ||
+                      aiPlay.questionLimitReached ||
                       lateralInputLocked
                     }
                     aria-busy={aiPlay.isAwaitingResponse}
@@ -710,7 +794,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                 disabled={isGivingUp || isTruthChecking || !lateralAttemptId}
                 data-analytics="quiz-lateral-give-up"
               >
-                {isGivingUp ? '処理中...' : '諦めて回答を見る'}
+                {isGivingUp ? '処理中...' : '諦める'}
               </button>
             )}
           </div>
@@ -728,30 +812,16 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                 <li>謎を読み、<strong>「質問する」</strong>でAIに質問して手がかりを集めましょう</li>
                 <li>AIは<strong>「はい」「いいえ」「関係ありません」「判断できません」</strong>で答えます</li>
                 <li>「男は一人でしたか？」のように、<strong>はい／いいえで答えられる質問</strong>がおすすめです</li>
-                <li>質問は1回<strong>100文字以内</strong>・<strong>最大20回</strong>（上限後も真相の提出はできます）</li>
+                <li>
+                  質問は1回<strong>100文字以内</strong>・無料プランは<strong>同一クイズ30回/日</strong>
+                  ・<strong>全クイズ横断150回/日</strong>（上限後も真相の提出はできます）
+                </li>
                 <li>真相が見えたら<strong>「回答する」</strong>で<strong>100〜1000文字</strong>の要約を送信</li>
-                <li>解けないときは<strong>「諦めて回答を見る」</strong>で答えを確認できます</li>
+                <li>解けないときは<strong>「諦める」</strong>でプレイを終了できます（真相は表示されません）</li>
               </ul>
             </div>
           </div>
 
-          {truthGaveUp && revealText && (
-            <div className={styles.infoCard}>
-              <div className={styles.truthRevealPanel} data-testid="lateral-truth-reveal">
-                <div className={styles.truthRevealTitle}>真相・解説</div>
-                <MarkdownContent markdown={revealText} />
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ width: '100%', marginTop: '16px' }}
-                  onClick={() => router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`)}
-                  data-analytics="quiz-lateral-give-up-result"
-                >
-                  結果画面へ
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );

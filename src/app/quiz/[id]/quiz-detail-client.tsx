@@ -327,7 +327,13 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
         )}
 
         <button className={`btn btn-primary ${styles.playBtn}`} onClick={handlePlayStart} style={{ width: '100%', marginTop: '10px' }} data-analytics="quiz-play-start-detail">
-          {isLateralThinkingQuiz ? 'チャットを開始する' : isQuickPressQuiz ? '早押しを開始する' : 'プレイを開始する'}
+          {isLateralThinkingQuiz
+            ? user
+              ? 'チャットを開始する'
+              : '会員登録してプレイする'
+            : isQuickPressQuiz
+              ? '早押しを開始する'
+              : 'プレイを開始する'}
         </button>
       </div>
     </>

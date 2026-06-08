@@ -26,11 +26,13 @@
 
 **Phase 16（2026-06）**: 水平思考プレイ画面の UX 改修。真相入力をチャット下部へ統合（「質問する」／「回答する」切替）、諦め API・解説開示、経過時間表示、不合格時の固定2種フィードバック、諦め／合格時の入力ロックとグレーアウト、プレイヤー向けルール説明。
 
+**Phase 17（2026-06-08）**: 水平思考の認証・二層 AI 質問制限・諦めフロー改定。未登録はウミガメのみ会員必須。無料 tier は同一クイズ 30回/日 + 全クイズ横断 150回/日。質問正規化キャッシュで全カウンタ非消費。上限到達時は `limitType` 付き Pro 誘導。諦め時は真相非表示とチャット内ナビ（結果画面へ／リスト文脈で次の問題へ）。Phase 16 の諦め解説開示は本フェーズで上書き廃止。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
 - ユーザー退会時、アトミックな書き込み制限（最大500件）を回避しつつ即時Auth物理削除と非同期ジョブによる関連データの安全なクレンジングを完了する。
-- 水平思考クイズにおいて、セキュアなサーバーサイド呼び出し、ターン制限（1日20回）、および同一質問キャッシュによる低コストで高精度なAI判定を実装する。
+- 水平思考クイズにおいて、セキュアなサーバーサイド呼び出し、二層ターン制限（無料：同一クイズ30回/日・全クイズ横断150回/日）、正規化同一質問キャッシュによる低コストで高精度なAI判定を実装する。
 - 初回プレイ／リプレイの二系統リーダーボードを、単一の順位比較ロジックで一貫更新し、不正なクライアント改ざんをサーバー側トランザクションで防ぐ。
 - 本人プレイ履歴をページング付きで安全に返却する（他ユーザーからの取得は拒否）。
 - ジャンル・タグの仮想統合を保存・一覧・弱点克服フィルタまで一貫適用し、canonical 単一クエリで探索性能を確保する（legacy フォールバック併用）。
@@ -43,6 +45,7 @@
 - **Phase 13 Stripe サブスクリプション（2026-06）**: Pro プラン購読（Checkout / Webhook / Customer Portal）、`subscriptionTier` ベースのエンタイトルメント、水平思考 AI 質問制限の tier 連動、課金フィールドの Rules 保護。
 - **Phase 14 真相 AI 意味判定（2026-06）**: `buildVerifyTruthPrompt` に `truthKeywords` をエッセンス参照として組み込み、`verify-truth` ルートからキーワード即合格バイパスを除去する。
 - **Phase 16 水平思考プレイ UX（2026-06）**: チャット統合入力、諦め API、経過時間、固定不合格メッセージ、`quiz-play-client` レイアウト改修。
+- **Phase 17 ウミガメ認証・制限・諦め改定（2026-06）**: 二層日次制限、`normalizeQuestionText` キャッシュ、横断カウンタ、`limitType` 付き 429、諦め API の真相非返却、attempt `listId` 引き継ぎ。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -57,7 +60,7 @@
 - **データ永続化と整合性**: `users`, `quizzes`, `quizLists`, `follows`, `bookmarks`, `attempts`, `feedbackReports`, `flags`, `reactions`, `notifications`, `metadata_genres`, `metadata_tags`, `mergeRequests`, `genreRequests`, `quizReviews`, `reviewResetRequests`, `adminLogs`（BAN/UNBAN等の監査ログ）などのFirestoreスキーマおよびトランザクション設計。
 - **アカウント削除プロセス**: Next.js API Routeを経由した即時Auth物理削除と、Cloud Tasks/Cloud Functionsを連動させた非同期ジョブ分割によるアトミックバッチ匿名化。
 - **ユーザーBAN/UNBAN処理とアクセス制限**: `users` の `isBanned` 等のアカウント状態管理、管理者用APIルート、Firestore Security Rulesによるデータ書き込み制限（`isNotBanned()`）、および認証セッション無効化のトリガー（クッキー `quizeum_banned` を使用した強制遷移）。
-- **水平思考プレイ判定ロジック**: サーバーAPIを仲介するGemini API連携（直近最大20回分の会話履歴参照を伴うステートフル化）、同一質問キャッシュ一致判定、1日同一クイズ20回制限（無料ユーザー）、**Phase 14**: 真相提出時は裏設定・真相キーワード（エッセンス）・プレイヤー要約を AI に渡す意味判定（常時 AI 呼び出し、文字列一致バイパスなし）。
+- **水平思考プレイ判定ロジック**: サーバーAPIを仲介するGemini API連携（直近最大20回分の会話履歴参照を伴うステートフル化）、**Phase 17**: 正規化同一質問キャッシュ（全カウンタ非消費）、二層日次制限（無料：同一クイズ30回/日・`dailyAiTurnCounts/_global` で横断150回/日）、`limit-exceeded` + `limitType`、**Phase 14**: 真相提出時は裏設定・真相キーワード（エッセンス）・プレイヤー要約を AI に渡す意味判定（常時 AI 呼び出し、文字列一致バイパスなし）。**Phase 17**: 諦め API は不合格完了のみ（`revealText` 非返却）。
 - **メタデータ管理（Phase 6 拡張）**: 表記揺れタグの自動名寄せ、タグマスタ自動 create、ジャンルマスタ検証、`canonicalGenreId` / `canonicalTagIds` 書き込み時解決、C2 一覧クエリ、`listActiveGenres` / `searchQuizzes`、ガバナンス単一経路（`tagMerge.ts`）、`metadata_*` Security Rules。
 - **オフライン/セッション保護**: クライアントローカル永続ストレージでの進捗永続化およびオンライン復帰時の自動バッチ同期。
 - **クイズリーダーボード（初回／リプレイ）**: `quizzes.leaderboardFirstPlay` / `quizzes.leaderboardReplay` の更新ロジック、順位比較、トランザクション内の attempt 回数判定。
@@ -85,6 +88,7 @@
 - **Phase 13 — 課金 UI**: `/pricing` 画面、プランカード、購入・契約管理 CTA、Checkout 成功／キャンセル後の画面フィードバック（`quizeum-billing-subscription-ui`）。プレイ画面の残り質問数・制限誘導（`quizeum-play-flow-ui`）。Stripe Dashboard での Product/Price 作成・税設定。
 - **Phase 14**: テストプレイのローカル `truthKeywords` 部分一致判定（`checkTruthKeywordsLocally` / `test-play-client.tsx`）。
 - **Phase 16**: 水平思考本番プレイ UI（`quiz-play-client.tsx`）のチャット統合入力・諦め・経過時間・ルール説明（`quizeum-play-flow-ui` 境界と重複するが実装はコア play ルート）。
+- **Phase 17 — プレイ/課金 UI**: 未登録向けボタン表記、制限到達 Pro 誘導（`/pricing`）、諦め後チャット内ナビ、ルール説明の上限数値更新（`quizeum-play-flow-ui`）。Free プラン上限説明（`quizeum-billing-subscription-ui` の `pricing-display.ts`）。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
@@ -106,6 +110,7 @@
 - **Phase 11**: `SearchFilters.format` の許容値集合変更、`quiz-format-match` / `resolveQuizFormat` 推定規則変更（`quizeum-play-flow-ui` のカード・カルーセル表示と連動再検証）。
 - **Phase 10 スマートサジェスト**: `search_logs` コレクションの TTL・スキーマ変更、`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` のレスポンス形状変更、`searchQuizzes` の fire-and-forget ログ書き込み報啄ルール変更。
 - **Phase 13**: `User` の `subscriptionTier` / 課金関連フィールド追加、`resolveUserEntitlements` の tier 解釈変更、Checkout / Portal / Webhook API のリクエスト・レスポンス形状変更、`subscription-plans` マスタへの `premium` tier 追加。
+- **Phase 17**: `FREE_TIER_PER_QUIZ_LIMIT` / `FREE_TIER_GLOBAL_DAILY_LIMIT` の変更、`dailyAiTurnCounts/_global` doc 契約変更、`limit-exceeded` の `limitType` 追加、諦め API 応答形状変更（`revealText` 廃止）、`normalizeQuestionText` 規則変更。
 
 ---
 
@@ -205,7 +210,7 @@ src/
 - `src/services/verify-truth-utils.ts` — **Phase 14**: `buildVerifyTruthPrompt` に `truthKeywords` 引数を追加しエッセンス参照をプロンプトへ組み込む。**Phase 16**: 不合格 REASON 指示と固定2種 `advice` 正規化。`verifyKeywords` はテストプレイ向けに維持。
 - `src/app/api/attempt/ask-ai/route.ts` — Firestore から履歴を取得して直近20回分の履歴を Gemini に渡しステートフルな呼び出しを行うよう修正。
 - `src/app/api/attempt/verify-truth/route.ts` — **Phase 14**: キーワード即合格バイパスを削除し、常に AI 意味判定を実行。**Phase 16**: Admin SDK 化、クライアント計測 `elapsedSeconds` の保存、不合格 `advice` の固定2種正規化。
-- `src/app/api/attempt/give-up-lateral/route.ts` — **Phase 16 新規**。諦め時の attempt 不合格完了、`getLateralRevealText` による解説返却、`playCount` 更新。
+- `src/app/api/attempt/give-up-lateral/route.ts` — **Phase 16 新規**、**Phase 17**: `revealText` 返却廃止、不合格完了のみ。
 - `src/services/lateral-give-up-utils.ts` — **Phase 16 新規**。諦め時表示テキスト解決（`explanation` 優先、未設定時 `aiContextDetails`）。
 - `src/hooks/useElapsedSeconds.ts` — **Phase 16 新規**。プレイ中の経過秒数カウント。
 - `src/lib/format-play-elapsed.ts` — **Phase 16 新規**。経過時間の表示フォーマットと API 保存用正規化。
@@ -441,22 +446,22 @@ sequenceDiagram
     API->>DB: attempts/{id} の対話履歴を取得
     DB-->>API: attemptsData
     
-    alt 同一質問がセッションキャッシュに存在
-        API-->>Client: キャッシュ回答を返却 (isFromCache = true)
-        Note over API: AI呼び出しなし、ターンカウント消費なし
+    alt 正規化一致でセッションキャッシュに存在 (Phase 17)
+        API-->>Client: キャッシュ回答 (isFromCache = true)
+        Note over API: AI呼び出しなし。attempt・クイズ別・横断カウンタすべて非消費
     else キャッシュなし
-        API->>DB: ユーザーの当日質問数を取得
-        DB-->>API: dailyTurnCount
-        alt 無料ユーザーかつ制限超過 (count >= 20)
-            API-->>Client: Error: limit-exceeded
+        API->>DB: dailyAiTurnCounts/{quizId} と /_global を取得
+        DB-->>API: perQuizCount, globalCount
+        alt 無料ユーザーかつ per-quiz >= 30 または global >= 150
+            API-->>Client: 429 limit-exceeded + limitType
         else 制限内
             API->>DB: クイズの裏設定 (aiContextDetails) を取得
             DB-->>API: aiContextDetails
             API->>API: 履歴から直近最大20回分をマッピング
             API->>AI: Gemini Chat API で履歴付きで呼び出し (ステートフル)
             AI-->>API: 判定結果 (Yes/No/Irrelevant/Unknown) + コメント
-            API->>DB: 質問履歴アトミック追加 & ターン数+1
-            API-->>Client: 判定結果とAIコメントを返却
+            API->>DB: 履歴追加 & attempt.aiTurnCount++ & 両カウンタ++ (Transaction)
+            API-->>Client: 判定結果、turnsRemaining (perQuiz/global)
         end
     end
     deactivate API
@@ -494,7 +499,7 @@ sequenceDiagram
     deactivate API
 ```
 
-### 水平思考クイズ — 諦めて回答を見るフロー（Phase 16）
+### 水平思考クイズ — 諦めフロー（Phase 17、Phase 16 解説開示を廃止）
 
 ```mermaid
 sequenceDiagram
@@ -504,16 +509,15 @@ sequenceDiagram
     participant API as 諦めAPI (/api/attempt/give-up-lateral)
     participant DB as Firestore (Admin SDK)
 
-    Player->>Client: 「諦めて回答を見る」を確認
+    Player->>Client: 諦め操作を確認
     Client->>API: giveUp(attemptId, userId, elapsedSeconds)
     activate API
     API->>DB: attempt 本人確認・未完了チェック
-    API->>DB: クイズから lateral 問題を取得
-    API->>API: getLateralRevealText(explanation 優先)
     API->>DB: attempt 不合格完了、elapsedSeconds保存、playCount++ (Transaction)
-    API-->>Client: { revealText }
+    API-->>Client: { completed: true }（revealText なし）
     deactivate API
-    Client->>Client: 質問・真相入力をロック、解説をサイドパネル表示
+    Client->>Client: 入力ロック、チャット内にナビボタン表示
+    Note over Client: 常に「結果画面へ」。listId ありなら「次の問題へ」も表示
 ```
 
 ### ユーザー退会・非同期データクレンジングフロー
@@ -643,19 +647,21 @@ sequenceDiagram
 | 10.3        | 表示用メタデータ                                      | `AttemptService`                   | `listUserPlayHistory`                       | -                               |
 | 10.4        | 初回20件+カーソル                                     | `PlayHistoryAPI`                   | `GET /api/user/play-history`                | -                               |
 | 10.5        | 他人の履歴拒否                                        | `PlayHistoryAPI`                   | `GET /api/user/play-history`                | -                               |
-| 4.1         | 最大20回分の会話履歴を参照したステートフルAI質問      | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.2         | 無料 tier の1日20回制限                               | `AskAiQuestionAPI`, `EntitlementService` | `/api/attempt/ask-ai`                 | 質問対話フロー                  |
-| 4.3         | Pro 以上は AI 質問制限なし                            | `EntitlementService`               | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.4         | サーバー側契約状態参照                                | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.5         | 同一質問キャッシュ                                    | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.6         | プレイ画面2カラム（チャット＋ルール／解説）           | UI Component                       | `quiz-play-client` (lateral)                | -                               |
-| 4.13        | チャット統合入力（質問／回答切替）                    | UI Component                       | `quiz-play-client`                          | -                               |
-| 4.14        | プレイ中経過時間（チャットヘッダー）                  | `useElapsedSeconds`                | `format-play-elapsed`                       | -                               |
-| 4.15        | 諦め API・解説開示                                    | `GiveUpLateralAPI`                 | `/api/attempt/give-up-lateral`              | 諦めフロー                      |
-| 4.16        | 諦め／合格時の入力ロック・グレーアウト                | UI Component                       | `quiz-play-client`                          | -                               |
-| 4.17        | 完了時 elapsedSeconds 保存                            | `VerifyTruthAPI`, `GiveUpLateralAPI` | verify-truth, give-up-lateral               | 真相判定／諦めフロー            |
-| 4.18        | プレイヤー向けルール説明（右パネル）                  | UI Component                       | `quiz-play-client`                          | -                               |
-| 4.19        | 真相／諦め API の Admin SDK + 本人確認                | API Routes                         | verify-truth, give-up-lateral               | -                               |
+| 4.1–4.4     | ウミガメ会員必須・attempt 作成                        | `quiz-detail-client`, `AttemptService` | `createLateralAttemptSession`               | 認証フロー                      |
+| 4.5         | 最大20回分の会話履歴を参照したステートフルAI質問      | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
+| 4.6–4.7     | 無料 tier 二層制限（30/クイズ・150/日横断）           | `ask-ai-utils`, `AskAiQuestionAPI` | `checkAiTurnLimits`, `dailyAiTurnCounts`    | 質問対話フロー                  |
+| 4.8–4.9     | Pro 無制限・サーバー側 tier 参照                      | `EntitlementService`, `AskAiQuestionAPI` | `/api/attempt/ask-ai`                     | 質問対話フロー                  |
+| 4.10        | 正規化キャッシュ（全カウンタ非消費）                  | `ask-ai-utils`                     | `normalizeQuestionText`, `findCachedAnswer` | 質問対話フロー                  |
+| 4.11        | 上限到達・Pro 誘導（真相提出は継続可）                | `AskAiQuestionAPI`                 | `limit-exceeded` + `limitType`              | 質問対話フロー                  |
+| 4.12        | プレイ画面2カラム（チャット＋ルール）                 | UI Component                       | `quiz-play-client` (lateral)                | -                               |
+| 4.19        | チャット統合入力（質問／回答切替）                    | UI Component                       | `quiz-play-client`                          | -                               |
+| 4.20        | プレイ中経過時間（チャットヘッダー）                  | `useElapsedSeconds`                | `format-play-elapsed`                       | -                               |
+| 4.21        | 諦め・真相非表示・不合格完了                          | `GiveUpLateralAPI`                 | `/api/attempt/give-up-lateral`              | 諦めフロー（Phase 17）          |
+| 4.22–4.23   | チャット内ナビ（結果／次の問題）                      | UI Component                       | `quiz-play-client`                          | 諦めフロー（play-flow-ui）      |
+| 4.24        | 諦め／合格時の入力ロック・グレーアウト                | UI Component                       | `quiz-play-client`                          | -                               |
+| 4.25        | 完了時 elapsedSeconds 保存                            | `VerifyTruthAPI`, `GiveUpLateralAPI` | verify-truth, give-up-lateral               | 真相判定／諦めフロー            |
+| 4.26        | プレイヤー向けルール説明（右パネル）                  | UI Component                       | `quiz-play-client`                          | -                               |
+| 4.27        | 真相／諦め API の認証・本人確認                       | API Routes                         | verify-truth, give-up-lateral               | -                               |
 | 4.7         | 裏設定・エッセンス・要約の AI 意味判定                | `VerifyTruthAPI`, `verify-truth-utils` | `buildVerifyTruthPrompt`, `/api/attempt/verify-truth` | 真相判定フロー          |
 | 4.8         | 文字列完全一致を合格条件としない                      | `verify-truth-utils`               | `buildVerifyTruthPrompt`                    | 真相判定フロー                  |
 | 4.9         | キーワードをエッセンス参照として AI に指示            | `verify-truth-utils`               | `buildVerifyTruthPrompt`                    | 真相判定フロー                  |
@@ -736,9 +742,9 @@ sequenceDiagram
 | `/api/admin/users/ban`      | API Route    | 管理者用ユーザーBAN API                                                | 12.1                                             | AuthAdmin (P0), ReputationService (P0)                                                | API                   |
 | `/api/admin/users/unban`    | API Route    | 管理者用ユーザーUNBAN API                                              | 12.2                                             | AuthAdmin (P0), ReputationService (P0)                                                | API                   |
 | `/api/user/delete-account`  | API Route    | 即時Auth物理削除とCloud Tasksジョブ登録                                | 1.4                                              | AuthAdmin (P0), CloudTasks (P0)                                                       | API                   |
-| `/api/attempt/ask-ai`       | API Route    | 水平思考クイズのAI質問判定 (ターン制限・キャッシュ)                    | 4.1, 4.2, 4.3                                    | Gemini API (P0), Firestore (P0)                                                       | API                   |
-| `/api/attempt/verify-truth` | API Route    | 水平思考のAI意味的真相判定（Phase 14: 常時 AI、Phase 16: 固定不合格メッセージ・経過秒数） | 4.7–4.12, 4.17, 4.19              | Gemini API (P0), Firestore Admin (P0), verify-truth-utils (P0)                        | API                   |
-| `/api/attempt/give-up-lateral` | API Route | 水平思考の諦め・解説開示・不合格完了（Phase 16）                       | 4.15, 4.17, 4.19                                 | Firestore Admin (P0), lateral-give-up-utils (P0)                                      | API                   |
+| `/api/attempt/ask-ai`       | API Route    | 水平思考 AI 質問（二層制限・正規化キャッシュ・Phase 17）               | 4.5–4.11, 4.8–4.9                                | Gemini API (P0), Firestore (P0), ask-ai-utils (P0), EntitlementService (P0)           | API                   |
+| `/api/attempt/verify-truth` | API Route    | 水平思考のAI意味的真相判定（Phase 14/16）                              | 4.13–4.18, 4.25, 4.27                            | Gemini API (P0), Firestore Admin (P0), verify-truth-utils (P0)                        | API                   |
+| `/api/attempt/give-up-lateral` | API Route | 水平思考の諦め・不合格完了（Phase 17: 真相非返却）                     | 4.21, 4.25, 4.27                                 | Firestore Admin (P0)                                                                  | API                   |
 
 ---
 
@@ -1511,8 +1517,8 @@ function canDeleteQuestionDoc(
   - オンライン復帰を自動検知した際、バックグラウンドで溜まった未同期履歴を一括で Firestore に同期します。
 - **NGワード自動検出・コンテンツ保留**:
   - サーバーサイドでのNGワード検証で不適切表現を検知した場合は、トランザクションを強制ロールバックし、`quizzes.status` を自動的に `'suspended'` に設定した上で、作成者への警告通知を送信します。
-- **ウミガメスープ制限超過**:
-  - 1日20回の質問上限を超過した場合、API Routeは `429 Too Many Requests` (Error: `limit-exceeded`) を返却し、画面側でプレミアムプランへの誘導を含めた警告ダイアログをインライン表示します。
+- **ウミガメスープ制限超過（Phase 17）**:
+  - 無料ユーザーが同一クイズ30回/日または全クイズ横断150回/日のいずれかに到達した場合、API Route は `429`（`error: limit-exceeded`, `limitType: per-quiz | global-daily`）を返却する。真相提出 API は引き続き利用可能。プレイ UI は Pro プラン（`/pricing`）への誘導を表示する（`quizeum-play-flow-ui` 境界）。
 - **メタデータ検証（Phase 6）**:
   - 無効ジャンル・未解決タグで `saveQuiz` が失敗した場合、`validation-error` としてフィールド `genre` / `tags` にメッセージを返す（クライアントはエディタで表示）。
 - **Phase 8 — ブックマーク/リスト**:
@@ -1530,7 +1536,7 @@ function canDeleteQuestionDoc(
 - **`resolveLeaderboardBoard`**: prior 件数 0 → `firstPlay`、1以上 → `replay`。
 - **タグ正規化の検証**: `normalizeTag` が全半角トリム、小文字化、記号排除を完璧に行うかを検証。
 - **称号バッジ条件判定**: 累計プレイ数が条件（例：100回）を満たした際に、正確に該当バッジを配列に追加するロジックをモック検証。
-- **同一質問キャッシュの検証**: 完全一致する質問が `aiQuestionsHistory` に存在する場合に、AIを呼び出さずキャッシュの回答を返すことを単体テスト。
+- **同一質問キャッシュの検証（Phase 17）**: `normalizeQuestionText` により表記ゆれ一致時に AI を呼び出さず、クイズ別・横断・`aiTurnCount` いずれも増加しないこと。
 - **真相判定プロンプト（Phase 14）**: `buildVerifyTruthPrompt` が裏設定・`truthKeywords`・プレイヤー要約を含み、エッセンス意味判定の指示を含むこと。
 - **真相判定不合格正規化（Phase 16）**: `parseTruthVerifyResponse` が AI 生出力を固定2文言に正規化すること。
 - **必須キーワード検証ロジック（テストプレイ用）**: `verifyKeywords` / `checkTruthKeywordsLocally` が全半角正規化を行い部分一致判定できること（本番 `verify-truth` ルートからは呼び出さない）。
@@ -1551,10 +1557,11 @@ function canDeleteQuestionDoc(
   - 真相提出時に常に Gemini API を呼び出し、キーワード文言が要約に無くてもエッセンスが捉えられていれば合格となること（モック AI）。
   - キーワードが要約に全て含まれていても、AI が不合格と判定した場合は不合格となること（文字列バイパス廃止の確認）。
   - AI 失敗時に 503 を返し、文字列一致による代替合格を行わないこと。
-- **ウミガメスーププレイ UX（Phase 16）**:
+- **ウミガメスーププレイ UX（Phase 16/17）**:
   - 不合格時 `advice` が「必須要素が足りていません。」または「提出された内容は真相と異なります。」のいずれかのみであること。
-  - 諦め API が `revealText` を返し attempt を `score: 0` で完了すること。
+  - 諦め API が `revealText` を返さず `completed: true` のみ返し attempt を `score: 0` で完了すること（Phase 17）。
   - 合格・諦め時にクライアント送信 `elapsedSeconds` が attempt に保存されること。
+  - `limit-exceeded` が `limitType` を区別し、30回目（per-quiz）と150回目（global）で正しい型を返すこと。
 - **saveQuiz canonical**: 下書き保存後 `canonicalGenreId` / `canonicalTagIds` が非空であること。
 - **getQuizzesByGenre**: マージ済み旧ジャンル `genre` のクイズが canonical クエリまたは fallback で返ること。
 - **voteGenreRequest**: 可決後 `listActiveGenres` に新ジャンルが含まれること。
@@ -1586,7 +1593,7 @@ function canDeleteQuestionDoc(
   - Checkout API: free ユーザーが `sessionUrl` を取得、active pro が 409 を返すこと。
   - Portal API: active pro が `sessionUrl`、free が 404 を返すこと。
   - Webhook: `customer.subscription.updated` で `subscriptionTier` / `isPremium` が同期されること。同一 `eventId` 二重送信で二重更新されないこと。
-  - ask-ai: active pro ユーザーが21回目も 429 にならないこと。free ユーザーは20回目で 429。
+  - ask-ai: active pro ユーザーが31回目（per-quiz）・151回目（global）も 429 にならないこと。free ユーザーは per-quiz 30回目または global 150回目で 429 + `limitType`。
   - Rules: クライアント SDK から `subscriptionTier` 変更が拒否されること。
 
 ### Unit Tests（Phase 10）
@@ -1631,7 +1638,7 @@ function canDeleteQuestionDoc(
 ## Phase 13: Stripe サブスクリプション（Pro プラン）
 
 ### Overview（本フェーズ）
-ログインユーザーが Pro プランを Stripe Checkout で購読し、Webhook 同期後に水平思考 AI 質問の日次20回制限が解除されるエンドツーエンド基盤をコア層に実装する。Free は暗黙デフォルト（`free` tier）。初版販売は Pro のみ。`premium` はスキーマ予約。
+ログインユーザーが Pro プランを Stripe Checkout で購読し、Webhook 同期後に水平思考 AI 質問の二層日次制限（無料：30/クイズ・150/日横断）が解除されるエンドツーエンド基盤をコア層に実装する。Free は暗黙デフォルト（`free` tier）。初版販売は Pro のみ。`premium` はスキーマ予約。
 
 ### Goals（Phase 13）
 - Checkout / Portal / Webhook による信頼できる契約状態の単一正本（Firestore `users`、Admin SDK 書き込み）。
@@ -1714,9 +1721,9 @@ src/
 
 | Requirement | Summary | Components | Interfaces | Flows |
 |-------------|---------|------------|------------|-------|
-| 4.2 | 無料 tier 日次20回制限 | `AskAiQuestionAPI`, `EntitlementService` | `/api/attempt/ask-ai` | AI 質問フロー |
-| 4.3 | Pro 以上は制限なし | `EntitlementService` | `/api/attempt/ask-ai` | AI 質問フロー |
-| 4.4 | サーバー側契約参照 | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI 質問フロー |
+| 4.6–4.7 | 無料 tier 二層制限（30/150） | `ask-ai-utils`, `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI 質問フロー |
+| 4.8 | Pro 以上は制限なし | `EntitlementService` | `/api/attempt/ask-ai` | AI 質問フロー |
+| 4.9 | サーバー側契約参照 | `AskAiQuestionAPI` | `/api/attempt/ask-ai` | AI 質問フロー |
 | 19.1–19.4 | tier モデル・状態解釈 | `EntitlementService`, `User` 型 | — | — |
 | 19.5–19.8 | Checkout 購読開始 | `CheckoutSessionAPI`, `SubscriptionService` | `POST /api/billing/checkout-session` | 購読フロー |
 | 19.9–19.12 | Webhook 同期・冪等 | `StripeWebhookAPI`, `EntitlementService` | `POST /api/webhooks/stripe` | Webhook フロー |
@@ -1881,7 +1888,7 @@ export function hasFeature(tier: SubscriptionTier, feature: string): boolean;
 | 409 | 既存有料契約で Checkout | `already-subscribed`、Portal 導線ヒント |
 | 404 | Portal で customer 未存在 | `no-subscription` |
 | 400 | 無効 `priceInterval` | バリデーションエラー |
-| 429 | ask-ai 制限（既存） | `limit-exceeded` + Pro 誘導文言 |
+| 429 | ask-ai 制限（Phase 17 二層） | `limit-exceeded` + `limitType` + Pro 誘導文言 |
 | Webhook 署名失敗 | 400 | 状態更新なし、ログ記録 |
 
 ### Security Considerations（Phase 13）
@@ -2085,3 +2092,177 @@ export function getLateralRevealText(question: Question): string;
 **Unit**: `getLateralRevealText` の優先順、`formatPlayElapsedSeconds` / `normalizeElapsedSeconds`、`parseTruthVerifyResponse` の REASON 正規化。
 
 **Integration**: `give-up-lateral` の認証・409（完了済み）・`revealText` 返却。`verify-truth` の不合格 `advice` 固定文言。
+
+---
+
+## Phase 17: ウミガメ認証・二層制限・諦めフロー改定（2026-06-08）
+
+### Design Decision
+
+| 項目 | 方針 |
+|------|------|
+| 正本モジュール | **Option C（Hybrid）**: 制限定数・正規化・キャッシュ検索を `ask-ai-utils.ts` に集約。API はオーケストレーション、UI は play-flow / billing 境界 |
+| 二層制限 | 無料: 同一クイズ **30回/日**（`dailyAiTurnCounts/{quizId}`）+ 全クイズ横断 **150回/日**（`dailyAiTurnCounts/_global`）。JST 深夜0時リセットは既存 `getJstDateKey()` を流用 |
+| 制限判定順 | Pro 有効契約 → スキップ。キャッシュヒット → 全カウンタ非消費。新規質問 → per-quiz と global の**両方**をチェックし、先に到達した方の `limitType` を返却 |
+| 正規化キャッシュ | `normalizeQuestionText`: trim → lowercase → 空白文字（半角・全角 `\u3000`）除去。サーバー `findCachedAnswer` とクライアント `useAiPlayState` が同一関数を import |
+| カウンタ更新 | 新規 AI 呼び出し成功時のみ、同一 Firestore Transaction で `attempt.aiTurnCount++`、`dailyAiTurnCounts/{quizId}.count++`、`dailyAiTurnCounts/_global.count++` |
+| `turnsRemaining` | 成功応答に `{ perQuiz: number \| null, globalDaily: number \| null }` を返却（Pro は両方 `null`）。キャッシュヒット時も現残数を返し UI 同期 |
+| 諦め API | 成功応答は `{ completed: true }` のみ。`getLateralRevealText` / `revealText` は本番 API から除去（破壊的変更、クライアント同時デプロイ） |
+| 諦め UI | 真相・解説を右パネル／チャットに表示しない。チャット内 CTA: 常に「結果画面へ」。`attempt.listId != null` のとき「次の問題へ」も表示（`quizeum-play-flow-ui`） |
+| lateral `listId` | `createLateralAttemptSession` がクエリ `listId` を受け取り attempt に保存。リスト連続プレイ文脈のナビ出し分けに使用 |
+| 認証 | ウミガメのみ会員必須（他モードはゲスト可）。詳細画面ボタン表記は play-flow-ui。プレイ直アクセスは `/login?redirect=...` で戻り先付与を推奨 |
+| entitlements | `quiz-play-client` の `isPremium: false` ハードコードを廃止し、サーバー `resolveUserEntitlements` 結果を props または初期データで受け取る |
+
+### `normalizeQuestionText` 契約
+
+```typescript
+/** 前後空白除去・小文字化・空白文字統一（半角/全角） */
+export function normalizeQuestionText(text: string): string;
+
+/** 正規化一致で履歴を検索。ヒット時は isFromCache 付きコピーを返す */
+export function findCachedAnswer(
+  questionText: string,
+  history: AiQuestion[]
+): AiQuestion | null;
+```
+
+クライアントのインライン正規化（`useAiPlayState` L31–36）を廃止し、上記を単一 import に統一する。
+
+### `checkAiTurnLimits` 契約
+
+```typescript
+export const FREE_TIER_PER_QUIZ_LIMIT = 30;
+export const FREE_TIER_GLOBAL_DAILY_LIMIT = 150;
+export const DAILY_AI_TURN_GLOBAL_DOC_ID = '_global' as const;
+
+export type AiTurnLimitType = 'per-quiz' | 'global-daily';
+
+export interface AiTurnLimitCheckInput {
+  perQuizCount: number;
+  globalDailyCount: number;
+  hasUnlimitedAiQuestions: boolean;
+}
+
+export interface AiTurnLimitCheckResult {
+  exceeded: boolean;
+  limitType?: AiTurnLimitType;
+  turnsRemaining: { perQuiz: number | null; globalDaily: number | null };
+}
+
+export function checkAiTurnLimits(input: AiTurnLimitCheckInput): AiTurnLimitCheckResult;
+```
+
+### `ask-ai` API 応答契約（Phase 17 追記）
+
+**成功（200）**:
+```typescript
+{
+  answerType: AiAnswerType;
+  aiComment: string;
+  isFromCache: boolean;
+  turnsRemaining: { perQuiz: number | null; globalDaily: number | null };
+}
+```
+
+**制限超過（429）**:
+```typescript
+{
+  error: 'limit-exceeded';
+  limitType: 'per-quiz' | 'global-daily';
+  message: string; // Pro 購読で解除される旨
+}
+```
+
+真相提出 API（`verify-truth`）は制限対象外。上限到達後も真相検証は継続可能（要件 4.11）。
+
+### `give-up-lateral` API 応答契約（Phase 17 改定）
+
+**成功（200）**:
+```typescript
+{ completed: true }
+```
+
+`revealText` フィールドは返却しない。`lateral-give-up-utils.ts` はテスト・将来用途のため残置可だが本番ルートからは呼ばない。
+
+### Firestore: `dailyAiTurnCounts` スキーマ
+
+パス: `users/{uid}/dailyAiTurnCounts/{docId}`
+
+| docId | 意味 | フィールド |
+|-------|------|-----------|
+| `{quizId}` | クイズ別日次 | `count: number`, `dateKey: string`（JST `YYYY-MM-DD`） |
+| `_global` | 全クイズ横断日次 | 同上 |
+
+`dateKey` が当日と異なる場合は Transaction 内で `count` を 0 にリセットしてから increment。Rules は既存 `users/{uid}` サブコレクション方針に従い Admin SDK のみ書き込み。
+
+### File Structure Plan（Phase 17）
+
+#### Modified Files（コア）
+| ファイル | 責務 |
+|----------|------|
+| `src/services/ask-ai-utils.ts` | 定数 30/150、`normalizeQuestionText`、`checkAiTurnLimits`、`findCachedAnswer` 正規化対応、`AskAiResponse.turnsRemaining` 形状変更 |
+| `src/app/api/attempt/ask-ai/route.ts` | 横断カウンタ読み書き、二重制限 429 + `limitType`、Transaction で3カウンタ同期 |
+| `src/hooks/useAiPlayState.ts` | 共有正規化 import、クライアント側 20 回ガード削除（サーバー正本）、`limitType` エラー処理 |
+| `src/app/api/attempt/give-up-lateral/route.ts` | `revealText` 除去、`{ completed: true }` のみ |
+| `src/services/attempt.ts` | `aiTurnLimit: 30`、`createLateralAttemptSession` に `listId` 引き継ぎ |
+| `tests/services/ask-ai-utils.test.ts` | 30/150、正規化キャッシュ、二重制限、`limitType` |
+| `tests/api/give-up-lateral.test.ts` | `revealText` 非期待、`completed: true` のみ |
+
+#### 隣接スペック境界（本スペックは契約のみ定義、実装は各 UI スペック）
+| ファイル | スペック | 責務 |
+|----------|---------|------|
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | `quizeum-play-flow-ui` | Pro 誘導（`/pricing`）、諦め後チャット CTA、`entitlements` 連携、ルール説明 30/150 |
+| `src/app/quiz/[id]/quiz-detail-client.tsx` | `quizeum-play-flow-ui` | 未登録「会員登録してプレイする」（✅ 実装済） |
+| `src/lib/pricing-display.ts` | `quizeum-billing-subscription-ui` | Free プラン「30回/クイズ・150回/日横断」文言 |
+
+#### New Files（推奨）
+| ファイル | 責務 |
+|----------|------|
+| `tests/api/ask-ai-limits.test.ts` | ask-ai 統合テスト（モック Firestore + entitlements） |
+
+### Requirements Traceability（Phase 17）
+
+| Requirement | Summary | Components | Interfaces |
+|-------------|---------|------------|------------|
+| 4.1 | 未登録ボタン表記 | `quiz-detail-client` | play-flow-ui |
+| 4.2 | 未登録ウミガメ→ログイン誘導 | `quiz-detail-client`, `quiz-play-client` | `/login?redirect=` |
+| 4.3 | 他モードはゲスト可 | 通常プレイ attempt 作成 | `guest` userId |
+| 4.4 | 認証済み lateral attempt | `createLateralAttemptSession` | `attempt.ts` |
+| 4.5 | AI 質問（履歴20件） | `AskAiQuestionAPI` | `/api/attempt/ask-ai` |
+| 4.6 | 同一クイズ 30回/日 | `ask-ai-utils`, `ask-ai/route` | `FREE_TIER_PER_QUIZ_LIMIT` |
+| 4.7 | 横断 150回/日 | `ask-ai-utils`, `ask-ai/route` | `dailyAiTurnCounts/_global` |
+| 4.8 | Pro 無制限 | `EntitlementService` | `hasUnlimitedAiQuestions` |
+| 4.9 | サーバー側 tier 判定 | `ask-ai/route` | `resolveUserEntitlements` |
+| 4.10 | 正規化キャッシュ非消費 | `ask-ai-utils` | `normalizeQuestionText` |
+| 4.11 | 上限 Pro 誘導・真相可 | `ask-ai/route`, play UI | `limit-exceeded` |
+| 4.12–4.20 | レイアウト・真相・経過時間 | 既存 Phase 14/16 資産 | verify-truth, play UI |
+| 4.21 | 諦め真相非表示 | `give-up-lateral/route` | `{ completed: true }` |
+| 4.22 | チャット内「結果画面へ」 | `quiz-play-client` | play-flow-ui |
+| 4.23 | リスト文脈「次の問題へ」 | `quiz-play-client`, `attempt.listId` | play-flow-ui |
+| 4.24–4.27 | 入力ロック・完了保存・認証 | 既存 Phase 16 資産 | verify-truth, give-up |
+
+### Testing Strategy（Phase 17）
+
+**Unit（`ask-ai-utils`）**
+- `normalizeQuestionText('  Hello　World  ')` と `'hello world'` が同一キーになること。
+- per-quiz 29→30 で `limitType: 'per-quiz'`、global 149→150 で `limitType: 'global-daily'`。
+- Pro（`hasUnlimitedAiQuestions: true`）は常に `exceeded: false`。
+- 正規化一致キャッシュで `checkAiTurnLimits` を呼ばずに応答組み立て可能であること（API 統合で検証）。
+
+**Integration**
+- `ask-ai`: Transaction が per-quiz + global + attempt を原子的に更新すること（モック）。
+- `give-up-lateral`: 200 で `revealText` キーが存在しないこと。attempt `score: 0`, `completedAt` 設定。
+- `createLateralAttemptSession`: `listId` クエリパラメータが attempt に保存されること。
+
+**Regression**
+- Phase 14 真相 AI 意味判定、Phase 16 固定不合格メッセージ・経過秒数は維持。
+
+### Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| 横断カウンタの Transaction 競合 | 読み取り順序を固定（attempt → per-quiz doc → global doc）。失敗時は 503 で再試行可能に |
+| `revealText` 廃止の破壊的変更 | API と play UI を同一デプロイ。テストを Phase 17 契約に更新 |
+| クライアント/server 正規化不一致 | `normalizeQuestionText` を `ask-ai-utils` に単一化し双方 import |
+| `listId` 未伝播で 4.23 未達 | lateral attempt 作成時に URL `listId` を必ず引き継ぐ |
+| 結果画面での真相表示 | 要件はプレイ画面のみ明示。結果画面は真相を出さない現行方針を維持（別途確認可） |

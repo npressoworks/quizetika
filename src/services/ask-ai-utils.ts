@@ -4,10 +4,11 @@
  * API Route (/api/attempt/ask-ai) から呼び出される、
  * Firestore や外部 API に依存しない純粋なビジネスロジック。
  *
- * Boundary: AskAiQuestionAPI (Task 2.4)
- * Requirements: 4.1, 4.2, 4.3
+ * Boundary: AskAiQuestionAPI (Phase 17)
+ * Requirements: 4.6, 4.7, 4.10
  */
 
+import { Content } from '@google/generative-ai';
 import { AiQuestion } from '../types';
 
 /* ==========================================================================
@@ -19,6 +20,11 @@ import { AiQuestion } from '../types';
  */
 export type AiAnswerType = 'yes' | 'no' | 'irrelevant' | 'unknown';
 
+export interface TurnsRemaining {
+  perQuiz: number | null;
+  globalDaily: number | null;
+}
+
 /**
  * AI 質問 API のレスポンス型
  */
@@ -26,40 +32,66 @@ export interface AskAiResponse {
   answerType: AiAnswerType;
   aiComment: string;
   isFromCache: boolean;
-  /** キャッシュヒット時 or ターン消費時 */
-  turnsRemaining: number | null;
+  turnsRemaining: TurnsRemaining;
+}
+
+export type AiTurnLimitType = 'per-quiz' | 'global-daily';
+
+export interface AiTurnLimitCheckInput {
+  perQuizCount: number;
+  globalDailyCount: number;
+  hasUnlimitedAiQuestions: boolean;
+}
+
+export interface AiTurnLimitCheckResult {
+  exceeded: boolean;
+  limitType?: AiTurnLimitType;
+  turnsRemaining: TurnsRemaining;
 }
 
 /* ==========================================================================
    定数
    ========================================================================== */
 
-/** 無料ユーザーの1日あたりの最大AI質問ターン数 */
-export const FREE_TIER_DAILY_TURN_LIMIT = 20;
+/** 無料ユーザーの同一クイズ1日あたりの最大AI質問ターン数 */
+export const FREE_TIER_PER_QUIZ_LIMIT = 30;
+
+/** 無料ユーザーの全クイズ横断1日あたりの最大AI質問ターン数 */
+export const FREE_TIER_GLOBAL_DAILY_LIMIT = 150;
+
+/** 横断日次カウンタ用の予約 doc ID */
+export const DAILY_AI_TURN_GLOBAL_DOC_ID = '_global' as const;
+
+/** @deprecated Phase 17: FREE_TIER_PER_QUIZ_LIMIT を使用 */
+export const FREE_TIER_DAILY_TURN_LIMIT = FREE_TIER_PER_QUIZ_LIMIT;
 
 /* ==========================================================================
-   キャッシュ検索
+   正規化・キャッシュ検索
    ========================================================================== */
 
 /**
- * 同一質問がセッションキャッシュ（aiQuestionsHistory）に存在するか検索する。
- * 検索は文字列の完全一致（大文字・小文字を区別）で行う。
- *
- * キャッシュヒット時は `isFromCache = true` としてコピーを返す。
- * ターン数は消費しない。
- *
- * @param questionText プレイヤーが入力した質問文
- * @param history セッション内の過去Q&A履歴
- * @returns キャッシュヒットした場合はコピーされたエントリ、なければ null
+ * 質問文を正規化する（trim → 小文字化 → 空白文字統一）
+ */
+export function normalizeQuestionText(text: string): string {
+  return text.trim().toLowerCase().replace(/[\s\u3000]/g, '');
+}
+
+/**
+ * 正規化一致でセッションキャッシュ（aiQuestionsHistory）を検索する。
+ * ヒット時は `isFromCache = true` としてコピーを返す（ターン数は消費しない）。
  */
 export function findCachedAnswer(
   questionText: string,
   history: AiQuestion[]
 ): AiQuestion | null {
-  const cached = history.find((entry) => entry.questionText === questionText);
+  const normalized = normalizeQuestionText(questionText);
+  const cached = history.find(
+    (entry) =>
+      normalizeQuestionText(entry.questionText) === normalized &&
+      entry.answerType !== 'unknown'
+  );
   if (!cached) return null;
 
-  // キャッシュヒットフラグを立てたコピーを返す
   return {
     ...cached,
     isFromCache: true,
@@ -71,21 +103,55 @@ export function findCachedAnswer(
    ========================================================================== */
 
 /**
- * 無料ユーザーの1日ターン制限を超過しているか判定する。
- *
- * - 無料ユーザー（isPremium = false）: currentTurnCount >= 20 で超過
- * - プレミアムユーザー（isPremium = true）: 常に制限なし
- *
- * @param currentTurnCount 当日の現在のターン使用数
- * @param isPremium プレミアムユーザーかどうか
- * @returns 制限超過している場合 true
+ * 無料ユーザーの二層日次制限（同一クイズ30回 / 横断150回）を判定する。
+ */
+export function checkAiTurnLimits(input: AiTurnLimitCheckInput): AiTurnLimitCheckResult {
+  const { perQuizCount, globalDailyCount, hasUnlimitedAiQuestions } = input;
+
+  if (hasUnlimitedAiQuestions) {
+    return {
+      exceeded: false,
+      turnsRemaining: { perQuiz: null, globalDaily: null },
+    };
+  }
+
+  const perQuizRemaining = Math.max(0, FREE_TIER_PER_QUIZ_LIMIT - perQuizCount);
+  const globalRemaining = Math.max(0, FREE_TIER_GLOBAL_DAILY_LIMIT - globalDailyCount);
+
+  if (perQuizCount >= FREE_TIER_PER_QUIZ_LIMIT) {
+    return {
+      exceeded: true,
+      limitType: 'per-quiz',
+      turnsRemaining: { perQuiz: 0, globalDaily: globalRemaining },
+    };
+  }
+
+  if (globalDailyCount >= FREE_TIER_GLOBAL_DAILY_LIMIT) {
+    return {
+      exceeded: true,
+      limitType: 'global-daily',
+      turnsRemaining: { perQuiz: perQuizRemaining, globalDaily: 0 },
+    };
+  }
+
+  return {
+    exceeded: false,
+    turnsRemaining: { perQuiz: perQuizRemaining, globalDaily: globalRemaining },
+  };
+}
+
+/**
+ * @deprecated Phase 17: checkAiTurnLimits を使用
  */
 export function isAiTurnLimitExceeded(
   currentTurnCount: number,
   isPremium: boolean
 ): boolean {
-  if (isPremium) return false;
-  return currentTurnCount >= FREE_TIER_DAILY_TURN_LIMIT;
+  return checkAiTurnLimits({
+    perQuizCount: currentTurnCount,
+    globalDailyCount: 0,
+    hasUnlimitedAiQuestions: isPremium,
+  }).exceeded;
 }
 
 /* ==========================================================================
@@ -94,16 +160,6 @@ export function isAiTurnLimitExceeded(
 
 /**
  * ステートレスなAI一問一答プロンプトを構築する。
- *
- * プロンプトの要件:
- * - 裏設定（aiContextDetails）をシステムコンテキストとして提供
- * - プレイヤーの質問を提示
- * - 回答は YES / NO / IRRELEVANT / UNKNOWN の4択のみ
- * - 短い日本語コメントを添える
- *
- * @param aiContextDetails クイズの裏設定（ゲームマスター用の真相情報）
- * @param questionText プレイヤーが入力した質問文
- * @returns Gemini API に渡す完成したプロンプト文字列
  */
 export function buildAiPrompt(aiContextDetails: string, questionText: string): string {
   return `あなたは「ウミガメのスープ」（水平思考パズル）のゲームマスターです。
@@ -127,12 +183,6 @@ ${questionText}
    AIレスポンスパース
    ========================================================================== */
 
-/**
- * Gemini API のレスポンステキストから AiAnswerType とコメントを抽出する
- *
- * @param responseText Gemini API から返ってきた生テキスト
- * @returns { answerType, aiComment }
- */
 export function parseAiResponse(responseText: string): {
   answerType: AiAnswerType;
   aiComment: string;
@@ -144,25 +194,19 @@ export function parseAiResponse(responseText: string): {
   if (firstLine.includes('はい')) answerType = 'yes';
   else if (firstLine.includes('いいえ')) answerType = 'no';
   else if (firstLine.includes('関係ありません')) answerType = 'irrelevant';
-  // それ以外は unknown
 
   const aiComment = lines.slice(1).join('\n').trim() || '';
 
   return { answerType, aiComment };
 }
 
-import { Content } from '@google/generative-ai';
-
 /**
  * 過去の対話履歴を Gemini API の Content[] 形式に変換する（最大20件分）
- *
- * @param history 過去の質問履歴
- * @returns Gemini Content配列
  */
 export function mapHistoryToGeminiContents(
   history: { questionText: string; answerType: string; aiComment?: string }[]
 ): Content[] {
-  const recent = history.slice(-20); // 直近20回
+  const recent = history.slice(-20);
   return recent.flatMap((item) => {
     let answerText = '';
     if (item.answerType === 'yes') answerText = 'はい';
@@ -181,12 +225,6 @@ export function mapHistoryToGeminiContents(
   });
 }
 
-/**
- * Gemini Chat API用のシステムインストラクションを構築する
- *
- * @param aiContextDetails クイズの裏設定
- * @returns システムインストラクションプロンプト
- */
 export function buildAiSystemInstruction(aiContextDetails: string): string {
   return `あなたは「ウミガメのスープ」（水平思考パズル）のゲームマスターです。
 ユーザーから寄せられる質問に対して、以下の【裏設定】に基づいて回答ルールに従って答えてください。

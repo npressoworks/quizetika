@@ -2,15 +2,8 @@
  * AI質問判定API Route
  * POST /api/attempt/ask-ai
  *
- * 処理フロー:
- * 1. 認証トークンを検証
- * 2. Firestore から現在の attempt を取得し、キャッシュ照合
- * 3. キャッシュヒット → AI呼び出しなし、ターン消費なしで即時返却
- * 4. 無料ユーザーの1日20回質問制限チェック (dailyAiTurnCounts による日付別管理)
- * 5. Gemini API に質問を送信（ステートレス）
- * 6. 結果を attempt の aiQuestionsHistory にアトミック追加、および制限カウンターの更新
+ * Phase 17: 二層日次制限（30/クイズ・150/日横断）、正規化キャッシュ、limitType 付き 429
  *
- * Requirements: 4.1, 4.2, 4.3
  * Boundary: AskAiQuestionAPI
  */
 
@@ -20,24 +13,23 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminFirestore } from '@/lib/firebase/admin';
 import {
   findCachedAnswer,
-  isAiTurnLimitExceeded,
+  checkAiTurnLimits,
   parseAiResponse,
   mapHistoryToGeminiContents,
   buildAiSystemInstruction,
+  DAILY_AI_TURN_GLOBAL_DOC_ID,
+  FREE_TIER_PER_QUIZ_LIMIT,
+  FREE_TIER_GLOBAL_DAILY_LIMIT,
+  type AiTurnLimitType,
 } from '@/services/ask-ai-utils';
 import { AiQuestion, Attempt, Quiz } from '@/types';
 import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
 import { resolveUserEntitlements } from '@/services/entitlement';
 
-/** Gemini API クライアント（サーバーサイドでのみ使用） */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
-/**
- * 日本時間の今日の日付文字列 (YYYY-MM-DD) を取得するヘルパー
- */
 function getTodayString(): string {
   const d = new Date();
-  // 日本標準時 (JST) での日付を YYYY-MM-DD フォーマットで取得
   const jstOffset = 9 * 60 * 60 * 1000;
   const jstDate = new Date(d.getTime() + jstOffset);
   const yyyy = jstDate.getUTCFullYear();
@@ -46,9 +38,23 @@ function getTodayString(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function readDailyCount(
+  data: { count?: number; lastUpdatedDate?: string } | undefined,
+  todayStr: string
+): number {
+  if (!data || data.lastUpdatedDate !== todayStr) return 0;
+  return data.count ?? 0;
+}
+
+function limitExceededMessage(limitType: AiTurnLimitType): string {
+  if (limitType === 'per-quiz') {
+    return `本日のこのクイズに対する質問上限（${FREE_TIER_PER_QUIZ_LIMIT}回）に達しました。Pro プランで制限を解除できます。`;
+  }
+  return `本日の全クイズ横断の質問上限（${FREE_TIER_GLOBAL_DAILY_LIMIT}回）に達しました。Pro プランで制限を解除できます。`;
+}
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // ── リクエストボディのパース ────────────────────────────
     const body = await request.json();
     const { attemptId, questionText, userId } = body as {
       attemptId: string;
@@ -56,7 +62,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       userId: string;
     };
 
-    // 入力バリデーション
     if (!attemptId || !questionText || !userId) {
       return NextResponse.json(
         { error: 'missing-params', message: 'attemptId, questionText, userId は必須です' },
@@ -71,7 +76,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // ── トークン検証による認証チェック ────────────────────
     const token = extractBearerToken(request);
     const verifiedUid = await verifyFirebaseIdToken(token, userId);
 
@@ -85,7 +89,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const db = getAdminFirestore();
 
-    // ── 認証済み UID からサーバー側でエンタイトルメントを解決（クライアント送信値は信頼しない）──
     let hasUnlimitedAiQuestions = false;
     try {
       const entitlements = await resolveUserEntitlements(verifiedUid);
@@ -94,7 +97,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.error('[ask-ai] ユーザーエンタイトルメント解決エラー (非致命的):', dbErr);
     }
 
-    // ── Attempt ドキュメントを取得 ──────────────────────────
     const attemptRef = db.collection('attempts').doc(attemptId);
     const attemptSnap = await attemptRef.get();
 
@@ -107,7 +109,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const attempt = attemptSnap.data() as Attempt;
 
-    // セキュリティ: 本人のAttemptのみ操作可能
     if (attempt.userId !== verifiedUid) {
       return NextResponse.json(
         { error: 'unauthorized', message: '他のユーザーのプレイ記録は操作できません' },
@@ -116,46 +117,60 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const history: AiQuestion[] = attempt.aiQuestionsHistory ?? [];
+    const todayStr = getTodayString();
 
-    // ── キャッシュ検索（同一質問は AI を呼ばず即時返却）────
+    const perQuizCountRef = db
+      .collection('users')
+      .doc(userId)
+      .collection('dailyAiTurnCounts')
+      .doc(attempt.quizId);
+    const globalCountRef = db
+      .collection('users')
+      .doc(userId)
+      .collection('dailyAiTurnCounts')
+      .doc(DAILY_AI_TURN_GLOBAL_DOC_ID);
+
+    const [perQuizSnap, globalSnap] = await Promise.all([
+      perQuizCountRef.get(),
+      globalCountRef.get(),
+    ]);
+
+    const perQuizCount = readDailyCount(
+      perQuizSnap.data() as { count?: number; lastUpdatedDate?: string },
+      todayStr
+    );
+    const globalDailyCount = readDailyCount(
+      globalSnap.data() as { count?: number; lastUpdatedDate?: string },
+      todayStr
+    );
+
+    const limitCheck = checkAiTurnLimits({
+      perQuizCount,
+      globalDailyCount,
+      hasUnlimitedAiQuestions,
+    });
+
     const cached = findCachedAnswer(questionText, history);
     if (cached) {
       return NextResponse.json({
         answerType: cached.answerType,
         aiComment: cached.aiComment,
         isFromCache: true,
-        turnsRemaining: null,
+        turnsRemaining: limitCheck.turnsRemaining,
       });
     }
 
-    // ── 1日同一クイズ20回制限チェック ────────────────────────
-    const todayStr = getTodayString();
-    const dailyCountDocRef = db
-      .collection('users')
-      .doc(userId)
-      .collection('dailyAiTurnCounts')
-      .doc(attempt.quizId);
-    const dailyCountSnap = await dailyCountDocRef.get();
-
-    let currentDailyCount = 0;
-    if (dailyCountSnap.exists) {
-      const dailyData = dailyCountSnap.data() as { count: number; lastUpdatedDate: string };
-      if (dailyData.lastUpdatedDate === todayStr) {
-        currentDailyCount = dailyData.count;
-      }
-    }
-
-    if (isAiTurnLimitExceeded(currentDailyCount, hasUnlimitedAiQuestions)) {
+    if (limitCheck.exceeded && limitCheck.limitType) {
       return NextResponse.json(
         {
           error: 'limit-exceeded',
-          message: '本日のこのクイズに対する質問上限（20回）に達しました。Pro プランで制限を解除できます。',
+          limitType: limitCheck.limitType,
+          message: limitExceededMessage(limitCheck.limitType),
         },
         { status: 429 }
       );
     }
 
-    // ── クイズの裏設定を取得 ────────────────────────────────
     const quizRef = db.collection('quizzes').doc(attempt.quizId);
     const quizSnap = await quizRef.get();
 
@@ -177,7 +192,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // ── Gemini API に質問を送信（会話履歴を含めたステートフル対話）──
     const model = genAI.getGenerativeModel({
       model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
       systemInstruction: buildAiSystemInstruction(aiContextDetails),
@@ -206,11 +220,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         answerType: 'unknown',
         aiComment: 'AIが応答できませんでした。もう一度お試しください。',
         isFromCache: false,
-        turnsRemaining: null,
+        turnsRemaining: limitCheck.turnsRemaining,
       });
     }
 
-    // ── 結果を アトミックトランザクションで保存 ─────────────────
     const newEntry: AiQuestion = {
       id: `${attemptId}_${Date.now()}`,
       questionText,
@@ -220,34 +233,39 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       createdAt: new Date(),
     };
 
+    const nextPerQuizCount = perQuizCount + 1;
+    const nextGlobalCount = globalDailyCount + 1;
+
     await db.runTransaction(async (transaction) => {
-      // 1. attempt の対話履歴と質問数インクリメント
       transaction.update(attemptRef, {
         aiQuestionsHistory: FieldValue.arrayUnion(newEntry),
         aiTurnCount: FieldValue.increment(1),
       });
 
-      // 2. 1日20回制限のカウンタをインクリメント・本日日付に更新
       transaction.set(
-        dailyCountDocRef,
-        {
-          count: FieldValue.increment(1),
-          lastUpdatedDate: todayStr,
-        },
+        perQuizCountRef,
+        { count: nextPerQuizCount, lastUpdatedDate: todayStr },
+        { merge: true }
+      );
+
+      transaction.set(
+        globalCountRef,
+        { count: nextGlobalCount, lastUpdatedDate: todayStr },
         { merge: true }
       );
     });
 
-    const newTurnCount = currentDailyCount + 1;
-    const turnsRemaining = hasUnlimitedAiQuestions
-      ? null
-      : Math.max(0, 20 - newTurnCount);
+    const afterLimit = checkAiTurnLimits({
+      perQuizCount: nextPerQuizCount,
+      globalDailyCount: nextGlobalCount,
+      hasUnlimitedAiQuestions,
+    });
 
     return NextResponse.json({
       answerType,
       aiComment,
       isFromCache: false,
-      turnsRemaining,
+      turnsRemaining: afterLimit.turnsRemaining,
     });
   } catch (error) {
     console.error('[ask-ai] 予期しないエラー:', error);
