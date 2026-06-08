@@ -22,6 +22,10 @@
 
 **Phase 13（2026-06-07）**: Stripe を前提とした Pro プラン・サブスクリプション基盤をコア層に追加する。`subscriptionTier`（`free` | `pro` | `premium`）によるエンタイトルメント、Checkout Session / Customer Portal Session API、Webhook による契約状態同期、および `ask-ai` の tier ベース制限判定を一貫実装する（プラン表示 UI は `quizeum-billing-subscription-ui` が担当）。
 
+**Phase 14（2026-06-08）**: 水平思考クイズの真相自動判定を、必須キーワード文字列全一致による AI バイパス（旧 B2 ハイブリッド）から、裏設定・真相キーワード・プレイヤー要約を AI に渡す意味判定へ改定する。本番 `/api/attempt/verify-truth` は常に AI 呼び出しとし、テストプレイのローカルキーワード判定は変更しない。
+
+**Phase 16（2026-06）**: 水平思考プレイ画面の UX 改修。真相入力をチャット下部へ統合（「質問する」／「回答する」切替）、諦め API・解説開示、経過時間表示、不合格時の固定2種フィードバック、諦め／合格時の入力ロックとグレーアウト、プレイヤー向けルール説明。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -37,6 +41,8 @@
 - **Phase 11**: 出題形式（`format`）フィルタ付き複合検索。ジャンル固定 scoped 検索（`genreId` + 他条件 AND）の一貫実装。形式判定は `quiz-format-match` + `resolveQuizFormat` に集約。
 - **Phase 10 スマートサジェスト**: `search_logs` コレクションへの検索ログ fire-and-forget 実装、週間ジャンル Top5 / 週間ワード·タグ Top5 集計 API Route の提供。
 - **Phase 13 Stripe サブスクリプション（2026-06）**: Pro プラン購読（Checkout / Webhook / Customer Portal）、`subscriptionTier` ベースのエンタイトルメント、水平思考 AI 質問制限の tier 連動、課金フィールドの Rules 保護。
+- **Phase 14 真相 AI 意味判定（2026-06）**: `buildVerifyTruthPrompt` に `truthKeywords` をエッセンス参照として組み込み、`verify-truth` ルートからキーワード即合格バイパスを除去する。
+- **Phase 16 水平思考プレイ UX（2026-06）**: チャット統合入力、諦め API、経過時間、固定不合格メッセージ、`quiz-play-client` レイアウト改修。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -51,7 +57,7 @@
 - **データ永続化と整合性**: `users`, `quizzes`, `quizLists`, `follows`, `bookmarks`, `attempts`, `feedbackReports`, `flags`, `reactions`, `notifications`, `metadata_genres`, `metadata_tags`, `mergeRequests`, `genreRequests`, `quizReviews`, `reviewResetRequests`, `adminLogs`（BAN/UNBAN等の監査ログ）などのFirestoreスキーマおよびトランザクション設計。
 - **アカウント削除プロセス**: Next.js API Routeを経由した即時Auth物理削除と、Cloud Tasks/Cloud Functionsを連動させた非同期ジョブ分割によるアトミックバッチ匿名化。
 - **ユーザーBAN/UNBAN処理とアクセス制限**: `users` の `isBanned` 等のアカウント状態管理、管理者用APIルート、Firestore Security Rulesによるデータ書き込み制限（`isNotBanned()`）、および認証セッション無効化のトリガー（クッキー `quizeum_banned` を使用した強制遷移）。
-- **水平思考プレイ判定ロジック**: サーバーAPIを仲介するGemini API連携（直近最大20回分の会話履歴参照を伴うステートフル化）、同一質問キャッシュ一致判定、1日同一クイズ20回制限（無料ユーザー）、必須キーワード全一致による即正解チェックとAIフォールバックによるハイブリッド真相判定（B2方式）。
+- **水平思考プレイ判定ロジック**: サーバーAPIを仲介するGemini API連携（直近最大20回分の会話履歴参照を伴うステートフル化）、同一質問キャッシュ一致判定、1日同一クイズ20回制限（無料ユーザー）、**Phase 14**: 真相提出時は裏設定・真相キーワード（エッセンス）・プレイヤー要約を AI に渡す意味判定（常時 AI 呼び出し、文字列一致バイパスなし）。
 - **メタデータ管理（Phase 6 拡張）**: 表記揺れタグの自動名寄せ、タグマスタ自動 create、ジャンルマスタ検証、`canonicalGenreId` / `canonicalTagIds` 書き込み時解決、C2 一覧クエリ、`listActiveGenres` / `searchQuizzes`、ガバナンス単一経路（`tagMerge.ts`）、`metadata_*` Security Rules。
 - **オフライン/セッション保護**: クライアントローカル永続ストレージでの進捗永続化およびオンライン復帰時の自動バッチ同期。
 - **クイズリーダーボード（初回／リプレイ）**: `quizzes.leaderboardFirstPlay` / `quizzes.leaderboardReplay` の更新ロジック、順位比較、トランザクション内の attempt 回数判定。
@@ -77,6 +83,8 @@
 - **Phase 10–11**: ホーム／ジャンルページの探索 UI（タグチップ、アコーディオン、カルーセル、フィルタ状態管理）は `quizeum-play-flow-ui` が担当。
 - **Phase 10 スマートサジェスト — 境界外**: ユーザー個人の直近検索履歴の保存（`localStorage` のみ）、スマートサジェスト UI ドロップダウンのレンダリング（`quizeum-play-flow-ui`）。
 - **Phase 13 — 課金 UI**: `/pricing` 画面、プランカード、購入・契約管理 CTA、Checkout 成功／キャンセル後の画面フィードバック（`quizeum-billing-subscription-ui`）。プレイ画面の残り質問数・制限誘導（`quizeum-play-flow-ui`）。Stripe Dashboard での Product/Price 作成・税設定。
+- **Phase 14**: テストプレイのローカル `truthKeywords` 部分一致判定（`checkTruthKeywordsLocally` / `test-play-client.tsx`）。
+- **Phase 16**: 水平思考本番プレイ UI（`quiz-play-client.tsx`）のチャット統合入力・諦め・経過時間・ルール説明（`quizeum-play-flow-ui` 境界と重複するが実装はコア play ルート）。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
@@ -194,9 +202,15 @@ src/
 - `src/services/quiz.ts` — クイズ公開時バリデーション（ウミガメスープにおけるキーワード設定検証）等を追加。
 - `src/services/quiz-validation.ts` — ウミガメスープ形式の時、必須キーワードが最低1つ指定されているかどうかの検証を追加。
 - `src/services/ask-ai-utils.ts` — 会話履歴を反映したシステムインラインプロンプト構築と Gemini Chat API 連携用マッピングロジックを追加。
-- `src/services/verify-truth-utils.ts` — 登録必須キーワードがすべて含まれているかを検証する `verifyKeywords` 正規化判定関数を追加。
+- `src/services/verify-truth-utils.ts` — **Phase 14**: `buildVerifyTruthPrompt` に `truthKeywords` 引数を追加しエッセンス参照をプロンプトへ組み込む。**Phase 16**: 不合格 REASON 指示と固定2種 `advice` 正規化。`verifyKeywords` はテストプレイ向けに維持。
 - `src/app/api/attempt/ask-ai/route.ts` — Firestore から履歴を取得して直近20回分の履歴を Gemini に渡しステートフルな呼び出しを行うよう修正。
-- `src/app/api/attempt/verify-truth/route.ts` — 必須キーワード一致による即合格（AIバイパス）とAIフォールバックを組み合わせたハイブリッド判定処理を追加。
+- `src/app/api/attempt/verify-truth/route.ts` — **Phase 14**: キーワード即合格バイパスを削除し、常に AI 意味判定を実行。**Phase 16**: Admin SDK 化、クライアント計測 `elapsedSeconds` の保存、不合格 `advice` の固定2種正規化。
+- `src/app/api/attempt/give-up-lateral/route.ts` — **Phase 16 新規**。諦め時の attempt 不合格完了、`getLateralRevealText` による解説返却、`playCount` 更新。
+- `src/services/lateral-give-up-utils.ts` — **Phase 16 新規**。諦め時表示テキスト解決（`explanation` 優先、未設定時 `aiContextDetails`）。
+- `src/hooks/useElapsedSeconds.ts` — **Phase 16 新規**。プレイ中の経過秒数カウント。
+- `src/lib/format-play-elapsed.ts` — **Phase 16 新規**。経過時間の表示フォーマットと API 保存用正規化。
+- `src/app/quiz/[id]/play/quiz-play-client.tsx` — **Phase 16**: チャット統合入力（質問／回答切替）、諦め UI、経過時間、ルール説明、入力ロック。
+- `src/app/quiz/[id]/play/play.module.css` — **Phase 16**: 入力モード切替・統合真相入力・グレーアウト・ルール説明スタイル。
 - `src/components/quiz/quiz-editor.tsx` — ウミガメスープ形式の問題作成時に、タグ風UIで必須キーワードを追加・削除できるフォームを追加。
 - `src/types/index.ts` — `leaderboardFirstPlay` / `leaderboardReplay`、`PlayHistoryEntry` 等を追加。
 - `src/lib/leaderboard-ranking.ts` — **新規**。順位比較・ユーザー1枠マージ・上位5抽出の純関数。
@@ -448,7 +462,7 @@ sequenceDiagram
     deactivate API
 ```
 
-### 水平思考クイズ（ウミガメのスープ）B2 ハイブリッド真相自動判定フロー
+### 水平思考クイズ（ウミガメのスープ）AI 意味的真相自動判定フロー（Phase 14）
 
 ```mermaid
 sequenceDiagram
@@ -459,28 +473,47 @@ sequenceDiagram
     participant AI as Gemini API
     participant DB as Firestore (Database)
 
-    Player->>Client: 真相要約を提出 (最大1000文字)
-    Client->>API: verifyTruth(attemptId, truthSummary)
+    Player->>Client: 「回答する」で真相要約を提出 (100〜1000文字)
+    Client->>API: verifyTruth(attemptId, truthSummary, elapsedSeconds)
     activate API
-    API->>DB: クイズの登録キーワード (truthKeywords) と裏設定を取得
+    API->>DB: truthKeywords と aiContextDetails を取得 (Admin SDK)
     DB-->>API: truthKeywords, aiContextDetails
-    
-    alt すべての必須キーワードが要約に含まれている (B2即合格)
-        Note over API: AI呼び出しをバイパスして即合格判定
-        API->>DB: attempt完了マーク、履歴追加、リーダーボード更新 (Transaction)
-        API-->>Client: 判定結果合格 (isCorrect = true)
-    else キーワードが一部不足 (AIフォールバック判定)
-        API->>AI: 要約を裏設定と照合するプロンプトを送信
-        AI-->>API: 判定結果 (CORRECT / INCORRECT) + アドバイス
+    API->>AI: 裏設定 + エッセンスキーワード + プレイヤー要約のプロンプトを送信
+    alt AI 判定成功
+        AI-->>API: VERDICT + REASON (MISSING_ESSENCE / UNRELATED)
         alt AIによる合格判定
-            API->>DB: attempt完了マーク、履歴追加、リーダーボード更新 (Transaction)
-            API-->>Client: 判定結果合格 (isCorrect = true)
+            API->>DB: attempt完了、elapsedSeconds保存、LB更新 (Transaction)
+            API-->>Client: { isCorrect: true, advice: null }
         else AIによる不合格判定
             API->>DB: 不合格履歴の追加
-            API-->>Client: 判定結果不合格 & AIからのアドバイス返却
+            API-->>Client: { isCorrect: false, advice: 固定2種のいずれか }
         end
+    else AI 利用不能
+        API-->>Client: 503 ai-error（再試行可能、文字列一致代替合格なし）
     end
     deactivate API
+```
+
+### 水平思考クイズ — 諦めて回答を見るフロー（Phase 16）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player as プレイヤー
+    participant Client as プレイ画面 (/play)
+    participant API as 諦めAPI (/api/attempt/give-up-lateral)
+    participant DB as Firestore (Admin SDK)
+
+    Player->>Client: 「諦めて回答を見る」を確認
+    Client->>API: giveUp(attemptId, userId, elapsedSeconds)
+    activate API
+    API->>DB: attempt 本人確認・未完了チェック
+    API->>DB: クイズから lateral 問題を取得
+    API->>API: getLateralRevealText(explanation 優先)
+    API->>DB: attempt 不合格完了、elapsedSeconds保存、playCount++ (Transaction)
+    API-->>Client: { revealText }
+    deactivate API
+    Client->>Client: 質問・真相入力をロック、解説をサイドパネル表示
 ```
 
 ### ユーザー退会・非同期データクレンジングフロー
@@ -615,10 +648,19 @@ sequenceDiagram
 | 4.3         | Pro 以上は AI 質問制限なし                            | `EntitlementService`               | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
 | 4.4         | サーバー側契約状態参照                                | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
 | 4.5         | 同一質問キャッシュ                                    | `AskAiQuestionAPI`                 | `/api/attempt/ask-ai`                       | 質問対話フロー                  |
-| 4.6         | プレイ画面2カラムレイアウト                           | UI Component                       | `LateralThinkingPlayView`                   | -                               |
-| 4.7         | 必須キーワード一致による即合格(AIバイパス)            | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
-| 4.8         | キーワード不足時のAIフォールバック真相判定            | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
-| 4.9–4.11    | 真相判定合格/不合格フロー                             | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 4.6         | プレイ画面2カラム（チャット＋ルール／解説）           | UI Component                       | `quiz-play-client` (lateral)                | -                               |
+| 4.13        | チャット統合入力（質問／回答切替）                    | UI Component                       | `quiz-play-client`                          | -                               |
+| 4.14        | プレイ中経過時間（チャットヘッダー）                  | `useElapsedSeconds`                | `format-play-elapsed`                       | -                               |
+| 4.15        | 諦め API・解説開示                                    | `GiveUpLateralAPI`                 | `/api/attempt/give-up-lateral`              | 諦めフロー                      |
+| 4.16        | 諦め／合格時の入力ロック・グレーアウト                | UI Component                       | `quiz-play-client`                          | -                               |
+| 4.17        | 完了時 elapsedSeconds 保存                            | `VerifyTruthAPI`, `GiveUpLateralAPI` | verify-truth, give-up-lateral               | 真相判定／諦めフロー            |
+| 4.18        | プレイヤー向けルール説明（右パネル）                  | UI Component                       | `quiz-play-client`                          | -                               |
+| 4.19        | 真相／諦め API の Admin SDK + 本人確認                | API Routes                         | verify-truth, give-up-lateral               | -                               |
+| 4.7         | 裏設定・エッセンス・要約の AI 意味判定                | `VerifyTruthAPI`, `verify-truth-utils` | `buildVerifyTruthPrompt`, `/api/attempt/verify-truth` | 真相判定フロー          |
+| 4.8         | 文字列完全一致を合格条件としない                      | `verify-truth-utils`               | `buildVerifyTruthPrompt`                    | 真相判定フロー                  |
+| 4.9         | キーワードをエッセンス参照として AI に指示            | `verify-truth-utils`               | `buildVerifyTruthPrompt`                    | 真相判定フロー                  |
+| 4.10        | AI 失敗時は再試行・代替合格なし                       | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 4.11–4.12   | 真相判定合格/不合格フロー                             | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
 | 19.1–19.23  | Stripe サブスクリプション（Phase 13）                  | `EntitlementService`, billing APIs | `/api/billing/*`, `/api/webhooks/stripe`      | 購読・Webhook フロー            |
 | 5.1         | フォロー/フォロワーアトミック更新                     | `UserService`                      | `followUser`                                | -                               |
 | 5.2         | タイムラインフィード表示                              | `QuizService`                      | `getFollowedTimeline`                       | -                               |
@@ -695,7 +737,8 @@ sequenceDiagram
 | `/api/admin/users/unban`    | API Route    | 管理者用ユーザーUNBAN API                                              | 12.2                                             | AuthAdmin (P0), ReputationService (P0)                                                | API                   |
 | `/api/user/delete-account`  | API Route    | 即時Auth物理削除とCloud Tasksジョブ登録                                | 1.4                                              | AuthAdmin (P0), CloudTasks (P0)                                                       | API                   |
 | `/api/attempt/ask-ai`       | API Route    | 水平思考クイズのAI質問判定 (ターン制限・キャッシュ)                    | 4.1, 4.2, 4.3                                    | Gemini API (P0), Firestore (P0)                                                       | API                   |
-| `/api/attempt/verify-truth` | API Route    | 水平思考クイズのAI真相自動判定とフィードバック                         | 4.5, 4.6, 4.7                                    | Gemini API (P0), Firestore (P0)                                                       | API                   |
+| `/api/attempt/verify-truth` | API Route    | 水平思考のAI意味的真相判定（Phase 14: 常時 AI、Phase 16: 固定不合格メッセージ・経過秒数） | 4.7–4.12, 4.17, 4.19              | Gemini API (P0), Firestore Admin (P0), verify-truth-utils (P0)                        | API                   |
+| `/api/attempt/give-up-lateral` | API Route | 水平思考の諦め・解説開示・不合格完了（Phase 16）                       | 4.15, 4.17, 4.19                                 | Firestore Admin (P0), lateral-give-up-utils (P0)                                      | API                   |
 
 ---
 
@@ -1488,7 +1531,9 @@ function canDeleteQuestionDoc(
 - **タグ正規化の検証**: `normalizeTag` が全半角トリム、小文字化、記号排除を完璧に行うかを検証。
 - **称号バッジ条件判定**: 累計プレイ数が条件（例：100回）を満たした際に、正確に該当バッジを配列に追加するロジックをモック検証。
 - **同一質問キャッシュの検証**: 完全一致する質問が `aiQuestionsHistory` に存在する場合に、AIを呼び出さずキャッシュの回答を返すことを単体テスト。
-- **必須キーワード検証ロジック**: `verifyKeywords` 関数が全半角正規化を行い、大文字小文字に関わらずキーワード合致を正確に判定できるかをテスト。
+- **真相判定プロンプト（Phase 14）**: `buildVerifyTruthPrompt` が裏設定・`truthKeywords`・プレイヤー要約を含み、エッセンス意味判定の指示を含むこと。
+- **真相判定不合格正規化（Phase 16）**: `parseTruthVerifyResponse` が AI 生出力を固定2文言に正規化すること。
+- **必須キーワード検証ロジック（テストプレイ用）**: `verifyKeywords` / `checkTruthKeywordsLocally` が全半角正規化を行い部分一致判定できること（本番 `verify-truth` ルートからは呼び出さない）。
 - **会話履歴マッピング検証**: 履歴から直近20回の Q&A ペアが正しく Gemini SDK の `Content[]` 型にマッピングされることを単体テスト。
 - **canonical 解決**: `resolveCanonicalGenreId` が `canonicalId` チェーンを辿ること、循環で reject すること。
 - **in チャンク**: `chunkIdsForInQuery` が 10 件上限で分割すること。
@@ -1502,9 +1547,14 @@ function canDeleteQuestionDoc(
 - **リプレイLB**: 2回目の `saveAttempt` が `leaderboardReplay` のみ更新し、初回LB上の当該ユーザー行を変更しないこと。
 - **本人プレイ履歴API**: 有効トークンで 200、他ユーザー指定相当の不正アクセスで 403、test-play 除外を検証。
 - **退会時非同期クレンジング**: API Routeに退会リクエストを送信し、Auth物理削除完了とCloud Tasksへのジョブ登録、およびFirestore匿名化が整合性高く動作することを検証。
-- **ウミガメスープB2ハイブリッド真相判定**:
-  - 必須キーワードが揃っている場合にAIを呼び出さず、即時Firestoreを更新して合格レスポンスを返す統合テスト。
-  - キーワードが不足している場合にGemini APIを呼び出し、AIの評価に基づいて合格またはアドバイスを返す統合テスト。
+- **ウミガメスープ AI 意味的真相判定（Phase 14）**:
+  - 真相提出時に常に Gemini API を呼び出し、キーワード文言が要約に無くてもエッセンスが捉えられていれば合格となること（モック AI）。
+  - キーワードが要約に全て含まれていても、AI が不合格と判定した場合は不合格となること（文字列バイパス廃止の確認）。
+  - AI 失敗時に 503 を返し、文字列一致による代替合格を行わないこと。
+- **ウミガメスーププレイ UX（Phase 16）**:
+  - 不合格時 `advice` が「必須要素が足りていません。」または「提出された内容は真相と異なります。」のいずれかのみであること。
+  - 諦め API が `revealText` を返し attempt を `score: 0` で完了すること。
+  - 合格・諦め時にクライアント送信 `elapsedSeconds` が attempt に保存されること。
 - **saveQuiz canonical**: 下書き保存後 `canonicalGenreId` / `canonicalTagIds` が非空であること。
 - **getQuizzesByGenre**: マージ済み旧ジャンル `genre` のクイズが canonical クエリまたは fallback で返ること。
 - **voteGenreRequest**: 可決後 `listActiveGenres` に新ジャンルが含まれること。
@@ -1869,3 +1919,169 @@ export function hasFeature(tier: SubscriptionTier, feature: string): boolean;
 5. `ask-ai` を `EntitlementService` に切替。
 
 既存 `isPremium: true` 手動設定ユーザーは Webhook 同期まで維持。長期は tier 正本へ移行。
+
+---
+
+## Phase 14: ウミガメのスープ真相判定 — AI 意味判定への改定（2026-06-08）
+
+### Design Decision
+
+| 項目 | 旧（B2 ハイブリッド） | 新（Phase 14） |
+|------|----------------------|----------------|
+| 合格経路 | `verifyKeywords` 全一致 → AI バイパス即合格 | 常に AI 意味判定 |
+| キーワードの役割 | 文字列部分一致のゲート | AI へのエッセンス参照材料 |
+| AI 失敗時 | キーワード全一致なら合格可能 | 503 返却、代替合格なし |
+| テストプレイ | ローカル部分一致（変更なし） | 同左（Out of boundary） |
+
+**採用理由**: 作問者が登録する `truthKeywords` は「到達すべき核心のヒント」であり、プレイヤーの自然な表現（同義語・言い換え）を文字列一致で弾くと誤不合格が発生する。裏設定とキーワードを併せて AI に渡すことで、意図を保ちつつ表現揺れを許容できる。
+
+**却下した代替案**:
+- キーワード全一致時のみバイパス維持 — 要件 4.8「文字列完全一致を合格条件としない」と矛盾。
+- クライアント側判定 — セキュリティ・一貫性のためサーバー API のみが正本。
+
+### Architecture Integration
+
+- **変更範囲は VerifyTruthAPI 境界に閉じる**: `verify-truth-utils.ts`（プロンプト）+ `verify-truth/route.ts`（分岐削除）+ 単体テスト。
+- **API レスポンス形状は不変**: `{ isCorrect: boolean, advice: string | null }`（`isBypass` は docs のみの記述で実装に存在しない）。
+- **LB 更新・認証・履歴追加ロジックは不変**: 合格時トランザクション、不合格時 `aiTruthAttempts` 追加は現行のまま。
+
+### `buildVerifyTruthPrompt` 契約（改修）
+
+```typescript
+/**
+ * 真相判定プロンプトを構築する（Phase 14: truthKeywords をエッセンス参照に含める）
+ */
+export function buildVerifyTruthPrompt(
+  aiContextDetails: string,
+  playerTruth: string,
+  truthKeywords: string[]
+): string;
+```
+
+**プロンプトに追加するセクション（要旨）**:
+- `【必須エッセンス（作問者が指定した核心的要素）】` — `truthKeywords` を箇条書き
+- 判定基準追記: エッセンスの**意味**がプレイヤー要約に反映されていれば合格可。キーワードの文言そのものの出現は不要。ただし裏設定の核心的因果関係との整合は必須。
+- 既存のセキュリティ防衛ルール（プロンプトインジェクション無視）は維持。
+
+### File Structure Plan（Phase 14）
+
+#### Modified Files
+| ファイル | 責務 |
+|----------|------|
+| `src/services/verify-truth-utils.ts` | `buildVerifyTruthPrompt` シグネチャ拡張、エッセンスセクション追加。`verifyKeywords` は export 維持（テストプレイ／単体テスト用） |
+| `src/app/api/attempt/verify-truth/route.ts` | `verifyKeywords` 分岐削除。`buildVerifyTruthPrompt(..., truthKeywords)` を常時呼び出し |
+| `tests/services/verify-truth-utils.test.ts` | プロンプトにキーワード・エッセンス指示が含まれるテスト追加。`buildVerifyTruthPrompt` 呼び出しを3引数に更新 |
+
+#### Out of Scope（変更しない）
+| ファイル | 理由 |
+|----------|------|
+| `src/lib/test-play.ts` (`checkTruthKeywordsLocally`) | 要件・境界でテストプレイは現状維持 |
+| `src/app/quiz/test-play/play/test-play-client.tsx` | 同上 |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | Phase 14 時点では API 契約不変。Phase 16 でプレイ UX を改修済み |
+| `src/types/index.ts` | `truthKeywords` 型は既存のまま |
+
+#### Direct Implementation Candidate
+- `docs-sync-truth-verify` — `docs/api_specification.md`, `docs/detailed_design.md`, `docs/requirements_definition.md` の B2 ハイブリッド記述を Phase 14 に同期
+
+### Requirements Traceability（Phase 14）
+
+| Requirement | Summary | Components | Interfaces | Flows |
+|-------------|---------|------------|------------|-------|
+| 4.7 | 3要素を AI に渡す意味判定 | `VerifyTruthAPI`, `verify-truth-utils` | `buildVerifyTruthPrompt`, `/api/attempt/verify-truth` | 真相判定フロー |
+| 4.8 | 文字列一致を合格条件としない | `verify-truth-utils` | `buildVerifyTruthPrompt` | 真相判定フロー |
+| 4.9 | キーワードをエッセンス参照に | `verify-truth-utils` | `buildVerifyTruthPrompt` | 真相判定フロー |
+| 4.10 | AI 失敗時再試行・代替合格なし | `VerifyTruthAPI` | `/api/attempt/verify-truth` | 真相判定フロー |
+| 4.11–4.12 | 合格/不合格後処理 | `VerifyTruthAPI` | `/api/attempt/verify-truth` | 真相判定フロー |
+
+### Testing Strategy（Phase 14）
+
+**Unit**
+- `buildVerifyTruthPrompt('裏', '要約', ['キーワードA'])` が裏設定・要約・キーワード・エッセンス判定指示を含む。
+- `truthKeywords` が空配列でもプロンプトが生成され、AI 判定可能（公開時は最低1件必須だが実行時フォールバックは `[]` 許容）。
+
+**Integration（モック Gemini）**
+- ルートが `verifyKeywords` を呼ばず常に `generateContent` を呼ぶ。
+- モック CORRECT → LB 更新・`completedAt` 設定。
+- モック INCORRECT → `advice` 返却、attempt 未完了。
+- Gemini 例外 → 503 `ai-error`。
+
+### Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| 毎回 AI 呼び出しでコスト・レイテンシ増 | 要件上のトレードオフとして受容。質問キャッシュ（4.5）とは独立 |
+| AI の過寛容判定 | エッセンス＋裏設定の両方参照をプロンプトで明示。作問者は `aiContextDetails` で詳細を保持 |
+| 回帰: キーワード全一致で即合格していたプレイ | 意図的な仕様変更。E2E で意味判定ケースを追加検討 |
+
+---
+
+## Phase 16: 水平思考プレイ UX 改修（2026-06）
+
+### Design Decision
+
+| 項目 | 方針 |
+|------|------|
+| 真相入力 | 右カラムの独立フォームを廃止し、チャット下部で「質問する」／「回答する」を切替 |
+| 諦め | 専用 API で解説のみ返却（`explanation` 優先）。裏設定は諦め確定後にのみサーバー経由で開示 |
+| 不合格フィードバック | AI 生出力をそのまま表示せず、`REASON: MISSING_ESSENCE` / `UNRELATED` を固定2文言に正規化 |
+| 経過時間 | クライアントで1秒刻みカウント。チャットヘッダーのみ表示。完了時に API へ送信して永続化 |
+| 入力ロック | 合格・諦め（および諦め処理中）で質問・真相・モード切替を無効化。送信ボタンはグレーアウト |
+| ルール説明 | 右パネルにプレイヤー向け要点のみ（システム内部のキャッシュ・判定詳細は記載しない） |
+
+### `parseTruthVerifyResponse` 契約（Phase 16 追記）
+
+不合格時の `advice` は常に次のいずれか:
+
+- `TRUTH_FAILURE_MISSING_ESSENCE` → 「必須要素が足りていません。」
+- `TRUTH_FAILURE_UNRELATED` → 「提出された内容は真相と異なります。」
+
+プロンプトは AI に `REASON: MISSING_ESSENCE` / `REASON: UNRELATED` のみ出力させ、3行目以降のヒント出力を禁止する。
+
+### `getLateralRevealText` 契約
+
+```typescript
+export function getLateralRevealText(question: Question): string;
+```
+
+優先順: `question.explanation`（trim 後非空）→ `question.aiContextDetails` → フォールバック文言。
+
+### File Structure Plan（Phase 16）
+
+#### New Files
+| ファイル | 責務 |
+|----------|------|
+| `src/app/api/attempt/give-up-lateral/route.ts` | 諦め・不合格完了・解説返却 |
+| `src/services/lateral-give-up-utils.ts` | 解説テキスト解決 |
+| `src/hooks/useElapsedSeconds.ts` | 経過秒数フック |
+| `src/lib/format-play-elapsed.ts` | 表示フォーマット・`normalizeElapsedSeconds` |
+| `tests/api/give-up-lateral.test.ts` | 諦め API テスト |
+| `tests/services/lateral-give-up-utils.test.ts` | 解説テキスト単体テスト |
+| `tests/lib/format-play-elapsed.test.ts` | フォーマット単体テスト |
+
+#### Modified Files
+| ファイル | 責務 |
+|----------|------|
+| `src/services/verify-truth-utils.ts` | 不合格 REASON 指示、固定メッセージ正規化 |
+| `src/app/api/attempt/verify-truth/route.ts` | Admin SDK、`elapsedSeconds` 保存 |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | 統合入力 UI、諦め、経過時間、ルール説明 |
+| `src/app/quiz/[id]/play/play.module.css` | スタイル |
+
+### Requirements Traceability（Phase 16）
+
+| Requirement | Summary | Components | Interfaces |
+|-------------|---------|------------|------------|
+| 4.6 | 2カラム（チャット＋ルール／解説） | `quiz-play-client` | lateral レイアウト |
+| 4.12 | 不合格は固定2種メッセージ | `verify-truth-utils` | `parseTruthVerifyResponse` |
+| 4.13 | 質問／回答切替 | `quiz-play-client` | チャット入力欄 |
+| 4.14 | 経過時間表示 | `useElapsedSeconds`, `format-play-elapsed` | チャットヘッダー |
+| 4.15 | 諦め・解説開示 | `GiveUpLateralAPI`, `lateral-give-up-utils` | `/api/attempt/give-up-lateral` |
+| 4.16 | 入力ロック・グレーアウト | `quiz-play-client` | `lateralInputLocked` |
+| 4.17 | 経過秒数永続化 | verify-truth, give-up-lateral | `elapsedSeconds` body |
+| 4.18 | プレイヤー向けルール説明 | `quiz-play-client` | 右パネル |
+| 4.19 | Admin SDK + 本人確認 | API Routes | Bearer + `verifyFirebaseIdToken` |
+
+### Testing Strategy（Phase 16）
+
+**Unit**: `getLateralRevealText` の優先順、`formatPlayElapsedSeconds` / `normalizeElapsedSeconds`、`parseTruthVerifyResponse` の REASON 正規化。
+
+**Integration**: `give-up-lateral` の認証・409（完了済み）・`revealText` 返却。`verify-truth` の不合格 `advice` 固定文言。

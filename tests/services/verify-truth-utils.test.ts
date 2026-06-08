@@ -1,37 +1,74 @@
 /**
- * Task 2.5 単体テスト: AI真相自動判定ロジック（純粋関数）
+ * Phase 15 単体テスト: AI真相自動判定ロジック（純粋関数）
  *
  * テスト対象:
- * - buildVerifyTruthPrompt: 真相判定プロンプト構築
+ * - buildVerifyTruthPrompt: 真相判定プロンプト構築（エッセンスキーワード含む）
  * - parseTruthVerifyResponse: AIレスポンスのパース（合否・アドバイス抽出）
+ * - verifyKeywords: テストプレイ向けローカル判定
  */
 
 import {
   buildVerifyTruthPrompt,
   parseTruthVerifyResponse,
+  TRUTH_FAILURE_MISSING_ESSENCE,
+  TRUTH_FAILURE_UNRELATED,
   verifyKeywords,
 } from '../../src/services/verify-truth-utils';
 
+const DEFAULT_KEYWORDS: string[] = [];
+
+function prompt(
+  context = '裏設定',
+  truth = 'プレイヤーの解答',
+  keywords: string[] = DEFAULT_KEYWORDS
+): string {
+  return buildVerifyTruthPrompt(context, truth, keywords);
+}
+
 describe('buildVerifyTruthPrompt', () => {
   test('プロンプトに裏設定が含まれる', () => {
-    const prompt = buildVerifyTruthPrompt('男は海の上でスープを飲んでいた', 'スープを飲むのをやめた');
-    expect(prompt).toContain('男は海の上でスープを飲んでいた');
+    const result = prompt('男は海の上でスープを飲んでいた', 'スープを飲むのをやめた');
+    expect(result).toContain('男は海の上でスープを飲んでいた');
   });
 
   test('プロンプトにプレイヤーの真相要約が含まれる', () => {
-    const prompt = buildVerifyTruthPrompt('裏設定', 'プレイヤーの解答');
-    expect(prompt).toContain('プレイヤーの解答');
+    expect(prompt('裏設定', 'プレイヤーの解答')).toContain('プレイヤーの解答');
   });
 
   test('プロンプトにCORRECT/INCORRECT の判定指示が含まれる', () => {
-    const prompt = buildVerifyTruthPrompt('裏設定', '解答');
-    expect(prompt).toMatch(/CORRECT|INCORRECT/i);
+    expect(prompt('裏設定', '解答')).toMatch(/CORRECT|INCORRECT/i);
   });
 
   test('1000文字の真相要約を受け付ける', () => {
     const longAnswer = 'あ'.repeat(1000);
-    const prompt = buildVerifyTruthPrompt('裏設定', longAnswer);
-    expect(prompt).toContain(longAnswer);
+    expect(prompt('裏設定', longAnswer)).toContain(longAnswer);
+  });
+
+  test('必須エッセンスキーワードがプロンプトに含まれる', () => {
+    const result = prompt('裏設定', '要約', ['ウミガメ', '遭難']);
+    expect(result).toContain('ウミガメ');
+    expect(result).toContain('遭難');
+    expect(result).toContain('必須エッセンス');
+  });
+
+  test('エッセンスの意味判定指示がプロンプトに含まれる', () => {
+    const result = prompt('裏設定', '要約', ['キーワードA']);
+    expect(result).toContain('文言そのものが真相要約に出現していなくても');
+    expect(result).toContain('文字列の完全一致を合格条件としない');
+  });
+
+  test('不合格時は2種類のREASONのみを出力するよう指示する', () => {
+    const result = prompt('裏設定', '要約', ['キーワードA']);
+    expect(result).toContain('REASON: MISSING_ESSENCE');
+    expect(result).toContain('REASON: UNRELATED');
+    expect(result).toContain('3行目以降を一切出力しない');
+  });
+
+  test('キーワードが空配列でもプロンプトを生成する', () => {
+    const result = prompt('裏設定', '要約', []);
+    expect(result).toContain('裏設定');
+    expect(result).toContain('要約');
+    expect(result).toContain('裏設定のみを参照して判定');
   });
 });
 
@@ -46,26 +83,37 @@ describe('parseTruthVerifyResponse', () => {
     expect(result.isCorrect).toBe(false);
   });
 
-  test('不合格時のレスポンスにアドバイスが含まれる', () => {
-    const result = parseTruthVerifyResponse('VERDICT: INCORRECT\nヒント: 犯人の動機を再考してください。');
-    expect(result.advice).toContain('ヒント');
+  test('MISSING_ESSENCE は必須要素不足の固定メッセージに変換する', () => {
+    const result = parseTruthVerifyResponse('VERDICT: INCORRECT\nREASON: MISSING_ESSENCE');
+    expect(result.isCorrect).toBe(false);
+    expect(result.advice).toBe(TRUTH_FAILURE_MISSING_ESSENCE);
+  });
+
+  test('UNRELATED は真相と異なる旨の固定メッセージに変換する', () => {
+    const result = parseTruthVerifyResponse('VERDICT: INCORRECT\nREASON: UNRELATED');
+    expect(result.isCorrect).toBe(false);
+    expect(result.advice).toBe(TRUTH_FAILURE_UNRELATED);
+  });
+
+  test('AIが詳細ヒントを返しても固定メッセージに正規化する', () => {
+    const result = parseTruthVerifyResponse(
+      'VERDICT: INCORRECT\nヒント: 犯人の動機を再考してください。'
+    );
+    expect(result.advice).toBe(TRUTH_FAILURE_MISSING_ESSENCE);
   });
 
   test('合格時は advice が null または空', () => {
     const result = parseTruthVerifyResponse('VERDICT: CORRECT\n素晴らしい！');
-    // 合格時はアドバイス不要
     expect(result.isCorrect).toBe(true);
   });
 
   test('判定不明な場合は isCorrect = false として安全側に倒す', () => {
     const result = parseTruthVerifyResponse('何かエラーが起きました');
     expect(result.isCorrect).toBe(false);
+    expect(result.advice).toBe(TRUTH_FAILURE_MISSING_ESSENCE);
   });
 });
 
-/* ============================================================
-   verifyKeywords のテスト
-   ============================================================ */
 describe('verifyKeywords', () => {
   const keywords = ['ウミガメ', 'スープ', '遭難', 'React18'];
 
@@ -76,7 +124,6 @@ describe('verifyKeywords', () => {
 
   test('キーワードが1つでも欠けている場合に false を返す', () => {
     const summary = '男は遭難し、ウミガメのスープを飲んだ。';
-    // 'React18' が含まれていないため不合格
     expect(verifyKeywords(summary, keywords)).toBe(false);
   });
 

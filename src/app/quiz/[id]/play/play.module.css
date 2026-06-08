@@ -15,7 +15,7 @@
   margin: 0 auto;
   padding: 24px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 32px;
   height: calc(100vh - 120px);
 }
@@ -354,10 +354,43 @@
   color: var(--text-main);
 }
 
+.chatHeaderMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
 .turnCounter {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+.elapsedCounter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: monospace;
+  color: var(--color-primary);
+}
+
+.infoCardTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 8px;
+}
+
+.infoCardTitleRow .infoCardTitle {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .chatHistory {
@@ -454,9 +487,62 @@
   gap: 12px;
 }
 
+.chatInputError {
+  color: #ff007f;
+  font-size: 0.85rem;
+}
+
+.truthAdviceBanner {
+  color: #ffb703;
+  font-size: 0.85rem;
+  background: rgba(255, 183, 3, 0.08);
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 183, 3, 0.2);
+}
+
+.chatModeToggle {
+  display: flex;
+  gap: 8px;
+}
+
+.chatModeBtn {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.chatModeBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--text-main);
+}
+
+.chatModeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chatModeBtnActive {
+  background: rgba(157, 78, 221, 0.15);
+  border-color: var(--color-primary);
+  color: var(--text-main);
+}
+
 .chatInputForm {
   display: flex;
   gap: 10px;
+  width: 100%;
+}
+
+.chatInputForm:has(.chatTruthForm) {
+  flex-direction: column;
 }
 
 .chatInput {
@@ -466,6 +552,38 @@
   border-radius: var(--radius-md);
   padding: 12px 16px;
   color: var(--text-main);
+}
+
+.chatTruthForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.chatTruthTextarea {
+  width: 100%;
+  min-height: 110px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.chatTruthSubmitBtn {
+  width: 100%;
+}
+
+.truthSubmitLabel {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.85;
+  margin-bottom: 4px;
 }
 
 /* 右カラム: 問題設定とQ&A一覧 */
@@ -494,6 +612,31 @@
   padding-bottom: 8px;
 }
 
+.lateralRules {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  line-height: 1.65;
+}
+
+.lateralRulesLead {
+  margin: 0;
+}
+
+.lateralRulesList {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lateralRulesList li::marker {
+  color: var(--text-muted);
+}
+
 .verifyTruthPanel {
   display: flex;
   flex-direction: column;
@@ -511,6 +654,42 @@
   color: var(--text-main);
   font-size: 0.95rem;
   resize: none;
+}
+
+.lateralLockedBtn:disabled {
+  background: rgba(120, 120, 130, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none !important;
+}
+
+.giveUpBtn {
+  width: 100%;
+  margin-top: 8px;
+  border-color: var(--border-light);
+  color: var(--text-muted);
+}
+
+.giveUpBtn:hover:not(:disabled) {
+  border-color: #ff007f;
+  color: #ff007f;
+}
+
+.truthRevealPanel {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 183, 3, 0.35);
+  background: rgba(255, 183, 3, 0.08);
+}
+
+.truthRevealTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffb703;
+  margin-bottom: 12px;
 }
 
 /* アニメーション */

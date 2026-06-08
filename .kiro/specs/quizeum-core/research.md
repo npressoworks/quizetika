@@ -705,3 +705,48 @@ src/app/api/webhooks/stripe/           — Missing
 - **入力**: `requirements.md`（要件 19）、`design.md`（Phase 13）、既存 `src/` / `firestore.rules`
 - **出力先**: 本節（`research.md` 追記）
 
+---
+
+# Research: Phase 14 — ウミガメのスープ真相判定 AI 意味判定改定（2026-06-08）
+
+## Summary
+
+- **Feature**: `verify-truth` の B2 ハイブリッド（キーワード全一致 → AI バイパス）を廃止し、裏設定 + `truthKeywords` + プレイヤー要約の AI 意味判定に一本化。
+- **Discovery type**: Extension（light）— 既存 `VerifyTruthAPI` 境界内の分岐・プロンプト改修のみ。
+- **変更ファイル**: `verify-truth-utils.ts`, `verify-truth/route.ts`, `verify-truth-utils.test.ts`（+ docs 同期）。
+
+## Research Log
+
+### 1. 現行実装
+
+| 箇所 | 挙動 |
+|------|------|
+| `route.ts` L112–135 | `verifyKeywords` 全一致 → 即 `isCorrect=true`、else AI |
+| `buildVerifyTruthPrompt` | `aiContextDetails` + `playerTruth` のみ（キーワード未渡し） |
+| `test-play.ts` | `checkTruthKeywordsLocally` — 独立実装、本番 API 非使用 |
+
+### 2. 要件とのギャップ
+
+| 要件 | 現行 | 必要な変更 |
+|------|------|------------|
+| 4.7 | キーワード検証が先 | AI に3要素を渡す |
+| 4.8 | 全一致で即合格 | バイパス削除 |
+| 4.9 | キーワードは AI 非参照 | プロンプトにエッセンス追加 |
+| 4.10 | キーワード全一致なら AI 不要 | AI 失敗時 503 のみ |
+
+### 3. 設計判断
+
+- **Build**: 既存 Gemini 連携・`parseTruthVerifyResponse` を再利用。新規 API・型不要。
+- **Keep**: `verifyKeywords` export（テストプレイ／単体テスト）。`checkTruthKeywordsLocally` は触らない。
+- **Reject**: キーワード一致の高速パス維持（要件 4.8 と矛盾）。
+
+### 4. リスク
+
+- コスト増: 真相提出のたびに Gemini 1 回 — 要件で明示されたトレードオフ。
+- `docs/` 正本に B2 / `isBypass` 記述が残存 — `docs-sync-truth-verify` で同期。
+
+## Document Status
+
+- **方法**: コードベース Read + requirements Phase 14
+- **出力先**: `design.md` Phase 14 節、`research.md` 本節
+

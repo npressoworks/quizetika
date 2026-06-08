@@ -28,6 +28,8 @@ import {
   syncQuestionListSessionIndex,
 } from '@/lib/question-list-session';
 import { PlaySkeleton } from '@/components/quiz/play-skeleton';
+import { useElapsedSeconds } from '@/hooks/useElapsedSeconds';
+import { formatPlayElapsedSeconds } from '@/lib/format-play-elapsed';
 
 interface QuizPlayClientProps {
   quizId: string;
@@ -268,10 +270,18 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const [lateralAttemptId, setLateralAttemptId] = useState<string | null>(null);
   const [truthSummary, setTruthSummary] = useState<string>('');
   const [questionInput, setQuestionInput] = useState<string>('');
-  const [showTruthForm, setShowTruthForm] = useState<boolean>(false);
+  const [lateralInputMode, setLateralInputMode] = useState<'question' | 'truth'>('question');
   const [isTruthChecking, setIsTruthChecking] = useState<boolean>(false);
   const [truthAdvice, setTruthAdvice] = useState<string | null>(null);
   const [truthPassed, setTruthPassed] = useState<boolean>(false);
+  const [truthGaveUp, setTruthGaveUp] = useState<boolean>(false);
+  const [revealText, setRevealText] = useState<string | null>(null);
+  const [isGivingUp, setIsGivingUp] = useState<boolean>(false);
+  const lateralPlayEnded = truthPassed || truthGaveUp;
+  const lateralInputLocked = lateralPlayEnded || isGivingUp;
+  const lateralElapsedSeconds = useElapsedSeconds(
+    playMode === 'lateral' && !!user && !lateralPlayEnded
+  );
 
   // 初回ロード時にウミガメスープ用の空の Attempt を自動生成
   useEffect(() => {
@@ -310,20 +320,26 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   useEffect(() => {
     if (playMode !== 'lateral') return;
     chatHistoryEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [playMode, aiPlay.history, aiPlay.pending, aiPlay.pendingQuestion, truthPassed]);
+  }, [playMode, aiPlay.history, aiPlay.pending, aiPlay.pendingQuestion, lateralPlayEnded, revealText, isTruthChecking, truthSummary]);
 
-  // ウミガメ 質問送信
-  const handleQuestionSend = async (e: React.FormEvent) => {
+  const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!questionInput.trim() || aiPlay.isAwaitingResponse) return;
-    const text = questionInput.trim();
-    setQuestionInput('');
-    await aiPlay.askQuestion(text);
+    if (lateralInputLocked) return;
+
+    if (lateralInputMode === 'question') {
+      if (!questionInput.trim() || aiPlay.isAwaitingResponse) return;
+      const text = questionInput.trim();
+      setQuestionInput('');
+      await aiPlay.askQuestion(text);
+      return;
+    }
+
+    await handleTruthVerify();
   };
 
   // ウミガメ 真相回答判定送信
   const handleTruthVerify = async () => {
-    if (!truthSummary.trim() || isTruthChecking || !lateralAttemptId || !user) return;
+    if (!truthSummary.trim() || isTruthChecking || lateralInputLocked || !lateralAttemptId || !user) return;
     setIsTruthChecking(true);
     setTruthAdvice(null);
     try {
@@ -339,6 +355,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           userId: user.id,
           truthSummary,
           displayName: user.displayName,
+          elapsedSeconds: lateralElapsedSeconds,
         }),
       });
 
@@ -350,13 +367,53 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`);
         }, 3000);
       } else {
-        setTruthAdvice(data.advice || '真相にはまだ遠いようです。もう一度AIとの対話を見直してみましょう。');
+        setTruthAdvice(data.advice || null);
       }
     } catch (e) {
       console.error('[verify-truth] 送信エラー:', e);
       setTruthAdvice('判定サーバーでエラーが発生しました。時間を置いてから再試行してください。');
     } finally {
       setIsTruthChecking(false);
+    }
+  };
+
+  const handleGiveUpLateral = async () => {
+    if (isGivingUp || lateralPlayEnded || !lateralAttemptId || !user) return;
+
+    const confirmed = window.confirm(
+      '諦めて回答を見ますか？\nこのプレイは不合格として記録され、チャットと真相提出はできなくなります。'
+    );
+    if (!confirmed) return;
+
+    setIsGivingUp(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/attempt/give-up-lateral', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          attemptId: lateralAttemptId,
+          userId: user.id,
+          elapsedSeconds: lateralElapsedSeconds,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || '諦め処理に失敗しました');
+      }
+
+      setRevealText(data.revealText || '作成者が解説を設定していません。');
+      setTruthAdvice(null);
+      setTruthGaveUp(true);
+    } catch (e) {
+      console.error('[give-up-lateral] 送信エラー:', e);
+      window.alert('回答の表示に失敗しました。時間を置いてから再試行してください。');
+    } finally {
+      setIsGivingUp(false);
     }
   };
 
@@ -475,7 +532,13 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         <div className={styles.chatColumn}>
           <div className={styles.chatHeader}>
             <div className={styles.chatTitle}>👻 ウミガメチャット (AI判定)</div>
-            <div className={styles.turnCounter}>質問数: {aiPlay.turnCount} / 20</div>
+            <div className={styles.chatHeaderMeta}>
+              <span className={styles.turnCounter}>質問数: {aiPlay.turnCount} / 20</span>
+              <span className={styles.elapsedCounter}>
+                <Timer size={14} aria-hidden="true" />
+                経過時間: {formatPlayElapsedSeconds(lateralElapsedSeconds)}
+              </span>
+            </div>
           </div>
 
           <div className={styles.chatHistory}>
@@ -526,41 +589,130 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
               </div>
             )}
 
+            {isTruthChecking && truthSummary.trim() && (
+              <div className={`${styles.chatBubble} ${styles.bubbleUser}`}>
+                <span className={styles.truthSubmitLabel}>【真相解答】</span>
+                {truthSummary}
+              </div>
+            )}
+            {isTruthChecking && (
+              <div className={styles.chatPending}>
+                <span>・・・AIが真相を判定中です</span>
+              </div>
+            )}
+
             {/* 合格クリアアニメーション (Task 4.3) */}
             {truthPassed && (
               <div className={`${styles.chatBubble} ${styles.bubbleSystem}`}>
                 🎉 【合格】素晴らしい！見事に真相を解き明かしました！結果画面へ遷移します...
               </div>
             )}
+            {truthGaveUp && (
+              <div className={`${styles.chatBubble} ${styles.bubbleSystem}`}>
+                📖 諦めて回答を表示しました。サイドパネルで真相を確認できます。
+              </div>
+            )}
             <div ref={chatHistoryEndRef} aria-hidden="true" />
           </div>
 
-          {/* 入力欄 */}
+          {/* 入力欄（質問 / 真相解答を切り替え） */}
           <div className={styles.chatInputArea}>
-            {aiPlay.errorMsg && (
-              <div style={{ color: '#ff007f', fontSize: '0.85rem', marginBottom: '8px' }}>
+            {aiPlay.errorMsg && lateralInputMode === 'question' && (
+              <div className={styles.chatInputError}>
                 ⚠️ {aiPlay.errorMsg}
               </div>
             )}
-            <form onSubmit={handleQuestionSend} className={styles.chatInputForm}>
-              <input
-                type="text"
-                className={styles.chatInput}
-                placeholder={aiPlay.turnCount >= 20 ? "質問の上限に達しました" : "AIに質問する (例: 男は一人でしたか？)..."}
-                value={questionInput}
-                onChange={(e) => setQuestionInput(e.target.value)}
-                disabled={aiPlay.isAwaitingResponse || aiPlay.turnCount >= 20 || truthPassed}
-              />
+            {truthAdvice && !lateralPlayEnded && lateralInputMode === 'truth' && (
+              <div className={styles.truthAdviceBanner}>
+                💡 <strong>判定結果:</strong> {truthAdvice}
+              </div>
+            )}
+            <div className={styles.chatModeToggle} role="tablist" aria-label="入力モード">
               <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={aiPlay.isAwaitingResponse || !questionInput.trim() || aiPlay.turnCount >= 20 || truthPassed}
-                aria-busy={aiPlay.isAwaitingResponse}
-                data-analytics="quiz-lateral-question-send"
+                type="button"
+                role="tab"
+                aria-selected={lateralInputMode === 'question'}
+                className={`${styles.chatModeBtn} ${lateralInputMode === 'question' ? styles.chatModeBtnActive : ''}`}
+                onClick={() => setLateralInputMode('question')}
+                disabled={lateralInputLocked}
+                data-analytics="quiz-lateral-mode-question"
               >
-                <Send size={16} />
+                質問する
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={lateralInputMode === 'truth'}
+                className={`${styles.chatModeBtn} ${lateralInputMode === 'truth' ? styles.chatModeBtnActive : ''}`}
+                onClick={() => setLateralInputMode('truth')}
+                disabled={lateralInputLocked}
+                data-analytics="quiz-lateral-mode-truth"
+              >
+                回答する
+              </button>
+            </div>
+            <form onSubmit={handleChatSubmit} className={styles.chatInputForm}>
+              {lateralInputMode === 'question' ? (
+                <>
+                  <input
+                    type="text"
+                    className={styles.chatInput}
+                    placeholder={
+                      aiPlay.turnCount >= 20
+                        ? '質問の上限に達しました。「回答する」から真相を提出できます'
+                        : 'AIに質問する (例: 男は一人でしたか？)...'
+                    }
+                    value={questionInput}
+                    onChange={(e) => setQuestionInput(e.target.value)}
+                    disabled={aiPlay.isAwaitingResponse || aiPlay.turnCount >= 20 || lateralInputLocked}
+                  />
+                  <button
+                    type="submit"
+                    className={`btn btn-primary ${lateralPlayEnded || isGivingUp ? styles.lateralLockedBtn : ''}`}
+                    disabled={
+                      aiPlay.isAwaitingResponse ||
+                      !questionInput.trim() ||
+                      aiPlay.turnCount >= 20 ||
+                      lateralInputLocked
+                    }
+                    aria-busy={aiPlay.isAwaitingResponse}
+                    data-analytics="quiz-lateral-question-send"
+                  >
+                    <Send size={16} />
+                  </button>
+                </>
+              ) : (
+                <div className={styles.chatTruthForm}>
+                  <textarea
+                    className={styles.chatTruthTextarea}
+                    placeholder="解き明かした真相のストーリーを100文字〜1000文字以内で要約して入力してください..."
+                    value={truthSummary}
+                    onChange={(e) => setTruthSummary(e.target.value)}
+                    disabled={isTruthChecking || lateralInputLocked}
+                    maxLength={1000}
+                  />
+                  <button
+                    type="submit"
+                    className={`btn btn-accent ${styles.chatTruthSubmitBtn} ${lateralPlayEnded || isGivingUp ? styles.lateralLockedBtn : ''}`}
+                    disabled={!truthSummary.trim() || isTruthChecking || lateralInputLocked}
+                    data-analytics="quiz-lateral-truth-submit"
+                  >
+                    {isTruthChecking ? '判定中...' : '真相を送信する'}
+                  </button>
+                </div>
+              )}
             </form>
+            {!lateralPlayEnded && (
+              <button
+                type="button"
+                className={`btn btn-outline ${styles.giveUpBtn}`}
+                onClick={handleGiveUpLateral}
+                disabled={isGivingUp || isTruthChecking || !lateralAttemptId}
+                data-analytics="quiz-lateral-give-up"
+              >
+                {isGivingUp ? '処理中...' : '諦めて回答を見る'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -568,38 +720,38 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         <div className={styles.infoColumn}>
           <div className={styles.infoCard}>
             <div className={styles.infoCardTitle}>ウミガメのスープ（水平思考クイズ）</div>
-            <p style={{ fontSize: '0.95rem', color: 'var(--text-main)', lineHeight: '1.6' }}>
-              出題された不思議な物語の裏にある「真相」を暴いてください。<br />
-              チャットでAIに手がかりとなる質問を投げ、状況を把握できたら、以下のフォームから「最終的な真相の要約」を提出してください。
-            </p>
-          </div>
-
-          <div className={styles.infoCard}>
-            <div className={styles.infoCardTitle}>真相を解き明かす</div>
-            <div className={styles.verifyTruthPanel}>
-              <textarea
-                className={styles.verifyTextarea}
-                placeholder="あなたが解き明かした真相のストーリーを100文字〜1000文字以内で要約して入力してください..."
-                value={truthSummary}
-                onChange={(e) => setTruthSummary(e.target.value)}
-                disabled={isTruthChecking || truthPassed}
-              />
-              {truthAdvice && (
-                <div style={{ color: '#ffb703', fontSize: '0.85rem', background: 'rgba(255, 183, 3, 0.08)', padding: '12px', borderRadius: '4px', border: '1px solid rgba(255, 183, 3, 0.2)' }}>
-                  💡 <strong>AIからのヒント:</strong> {truthAdvice}
-                </div>
-              )}
-              <button
-                className="btn btn-accent"
-                onClick={handleTruthVerify}
-                disabled={!truthSummary.trim() || isTruthChecking || truthPassed}
-                style={{ width: '100%', marginTop: '10px' }}
-                data-analytics="quiz-lateral-truth-submit"
-              >
-                {isTruthChecking ? 'AIが真相を判定中...' : '真相を送信する'}
-              </button>
+            <div className={styles.lateralRules}>
+              <p className={styles.lateralRulesLead}>
+                不思議な出来事の<strong>真相</strong>を推理して解き明かすパズルです。
+              </p>
+              <ul className={styles.lateralRulesList}>
+                <li>謎を読み、<strong>「質問する」</strong>でAIに質問して手がかりを集めましょう</li>
+                <li>AIは<strong>「はい」「いいえ」「関係ありません」「判断できません」</strong>で答えます</li>
+                <li>「男は一人でしたか？」のように、<strong>はい／いいえで答えられる質問</strong>がおすすめです</li>
+                <li>質問は1回<strong>100文字以内</strong>・<strong>最大20回</strong>（上限後も真相の提出はできます）</li>
+                <li>真相が見えたら<strong>「回答する」</strong>で<strong>100〜1000文字</strong>の要約を送信</li>
+                <li>解けないときは<strong>「諦めて回答を見る」</strong>で答えを確認できます</li>
+              </ul>
             </div>
           </div>
+
+          {truthGaveUp && revealText && (
+            <div className={styles.infoCard}>
+              <div className={styles.truthRevealPanel} data-testid="lateral-truth-reveal">
+                <div className={styles.truthRevealTitle}>真相・解説</div>
+                <MarkdownContent markdown={revealText} />
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ width: '100%', marginTop: '16px' }}
+                  onClick={() => router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`)}
+                  data-analytics="quiz-lateral-give-up-result"
+                >
+                  結果画面へ
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -660,7 +812,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         </div>
         <div className={styles.progressText}>
           <span>解答済み: {answeredIds.length} / {playQuestions.length} 問</span>
-          <span>経過時間: {elapsedSeconds} 秒</span>
+          <span>
+            <Timer size={14} aria-hidden="true" style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+            経過時間: {formatPlayElapsedSeconds(elapsedSeconds)}
+          </span>
         </div>
       </div>
 
