@@ -27,6 +27,7 @@ import {
   TEST_PLAY_RESTORE_QUERY,
 } from '@/lib/test-play';
 import { resolveQuizFormat } from '@/lib/quiz-format';
+import { DifficultyVoteStars } from '@/components/quiz/difficulty-vote-stars';
 import { getFormatLabel, getFormatDescription } from '@/lib/quiz-format-labels';
 import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
@@ -131,7 +132,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-  const [difficulty, setDifficulty] = useState(3);
+  const [difficulty, setDifficulty] = useState<number | null>(null);
   const [genre, setGenre] = useState('');
   const [format, setFormat] = useState<'mixed' | 'multiple-choice' | 'text-input' | 'quick-press' | 'sorting' | 'association' | 'lateral-thinking'>('mixed');
 
@@ -190,7 +191,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     setTitle(draft.title);
     setDescription(draft.description);
     setThumbnailUrl(draft.thumbnailUrl);
-    setDifficulty(draft.difficulty);
+    setDifficulty(
+      draft.difficulty >= 1 && draft.difficulty <= 5 ? draft.difficulty : null
+    );
     setGenre(draft.genre);
     setTags(draft.tags ?? []);
     setOriginalTags(draft.originalTags ?? []);
@@ -896,7 +899,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       title,
       description,
       thumbnailUrl,
-      difficulty,
+      difficulty: difficulty ?? 0,
       genre,
       tags,
       originalTags,
@@ -947,7 +950,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       title,
       description,
       thumbnailUrl,
-      difficulty,
+      difficulty: difficulty ?? 0,
       genre,
       tags,
       originalTags,
@@ -1017,7 +1020,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           title,
           description,
           thumbnailUrl,
-          difficulty,
+          difficulty: difficulty ?? 0,
           genre,
           tags,
           originalTags,
@@ -1240,20 +1243,13 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
 
               {/* 右: 難易度・ジャンル・タグ */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* 難易度スライダー */}
+                {/* 難易度（星） */}
                 <div className={styles.formGroup} id="field-difficulty">
                   <label className={styles.label}>難易度 (1 - 5)</label>
-                  <div className={styles.sliderContainer}>
-                    <input
-                      type="range"
-                      min="1"
-                      max="5"
-                      className={styles.slider}
-                      value={difficulty}
-                      onChange={(e) => setDifficulty(parseInt(e.target.value))}
-                    />
-                    <span className={styles.sliderValue}>{difficulty}</span>
-                  </div>
+                  <DifficultyVoteStars
+                    value={difficulty}
+                    onVote={setDifficulty}
+                  />
                   <FieldValidationMessages errors={validationErrors} field="difficulty" />
                 </div>
 

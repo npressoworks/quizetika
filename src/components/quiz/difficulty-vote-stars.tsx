@@ -27,7 +27,8 @@ export function DifficultyVoteStars({
     >
       {levels.map((level) => {
         const isFilled = value !== null && level <= value;
-        const starColor = getDifficultyColor(value !== null && level <= value ? value : level);
+        const starColor =
+          value !== null && isFilled ? getDifficultyColor(value) : 'var(--text-muted)';
 
         return (
           <button

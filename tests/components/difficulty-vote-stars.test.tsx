@@ -26,6 +26,16 @@ describe('DifficultyVoteStars', () => {
     expect(stars[4]).toHaveTextContent('☆');
   });
 
+  it('未投票時は全て ☆ で色を付けない', () => {
+    render(<DifficultyVoteStars value={null} onVote={jest.fn()} />);
+
+    const stars = screen.getAllByRole('button');
+    stars.forEach((star) => {
+      expect(star).toHaveTextContent('☆');
+      expect(star).toHaveStyle({ color: 'var(--text-muted)' });
+    });
+  });
+
   it('disabled 時はクリックできない', () => {
     const onVote = jest.fn();
     render(<DifficultyVoteStars value={null} onVote={onVote} disabled />);
