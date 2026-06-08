@@ -199,7 +199,7 @@ describe('QuizResultPage Component (Phase 12)', () => {
     expect(screen.getByTestId('quiz-replay-btn')).toBeInTheDocument();
   });
 
-  test('連想クイズの表示ヒント履歴が localStorage からロードされて描画されること', async () => {
+  test('連想クイズの表示ヒント履歴がアコーディオン展開後に描画されること', async () => {
     const hintsCache = [
       {
         questionId: 'q-1',
@@ -212,10 +212,27 @@ describe('QuizResultPage Component (Phase 12)', () => {
     render(<QuizResultPageContent quiz={mockQuiz as any} attempt={mockAttempt as any} />);
 
     await waitFor(() => {
-      expect(screen.getByText(/開示したヒント.*2件/)).toBeInTheDocument();
+      expect(screen.getByTestId('result-question-accordion-q-1')).toBeInTheDocument();
     });
+
+    expect(screen.queryByText(/開示したヒント.*2件/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('result-question-accordion-q-1'));
+
+    expect(screen.getByText(/開示したヒント.*2件/)).toBeInTheDocument();
     expect(screen.getByText(/ヒント.*1:.*ヒントA/)).toBeInTheDocument();
     expect(screen.getByText(/ヒント.*2:.*ヒントB/)).toBeInTheDocument();
+  });
+
+  test('体感難易度投票が ★ UI で表示されクリックできること', async () => {
+    render(<QuizResultPageContent quiz={mockQuiz as any} attempt={mockAttempt as any} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('difficulty-vote-stars')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('difficulty-vote-star-4')).toBeInTheDocument();
+    expect(screen.queryByTestId('difficulty-vote-star-1')).toBeInTheDocument();
   });
 
   test('同じ作者のおすすめクイズが最大3件取得されて描画されること', async () => {

@@ -36,6 +36,9 @@
 - **Phase 11**: ホームのアコーディオン＋ジャンル／形式カルーセル（ホーム内フィルタ）、`GenreNav` ホーム参照の除去、探索フィルタ状態の一元管理（`format` 含む）、ジャンルページ scoped 検索（`ExploreSearchSection` 再利用）。
 - **Phase 12**: プレイ終了画面の削除と最後の問題解答時の自動遷移、難易度（★）の等幅ゲージのグラデーションカラー表示（詳細・結果）、結果画面でのヒント・質問回数表示、もう一度プレイするボタン、作者へのリンクと他のクイズおすすめ表示、結果ヘッダーでのクイズブックマーク、指摘カテゴリ別解除外、指摘ボタン横の通報ボタン表示と送信機能。
 - **Phase 13**: 難易度の5段階化（1〜10から1〜5への変更）に合わせて、詳細画面・結果画面・クイズカードの星ゲージ表示と難易度投票の選択肢を1〜5に変更し、HSLカラー算出も5分割に適合させます。
+- **Phase 14**: 結果画面の問題ごと回答・解説アコーディオン（初期 closed）、体感難易度投票の ★ クリック UI、`ResultQuestionDetailsAccordion` / `DifficultyVoteStars` コンポーネント抽出。
+
+**Phase 14（2026-06-08）**: クイズ結果画面（本番・テストプレイ）において、各問題の回答サマリーと解説（および連想／ウミガメの結果詳細）をアコーディオン化（初期は閉じた状態）し、体感難易度投票 UI をクリック可能な ★5個に置き換える。`difficultyVote` 永続化は既存 `handleDifficultyVote` / Firestore `updateDoc` を維持。
 
 
 ### Non-Goals
@@ -48,6 +51,7 @@
 - **Phase 11**: 出題形式専用一覧ルート（`/formats/[format]`）、URL クエリによるフィルタ共有可能化、タグ別一覧への検索バー追加、カルーセル自動スライド・外部 carousel ライブラリ導入。`searchQuizzes` の形式照合ロジック（`quizeum-core`）。
 - **Phase 12**: 指摘フィードバック・通報・ブックマークのFirestoreへの物理的な保存・カウントアップ・自動審査（`quizeum-core` が担当）。
 - **Phase 13**: 既存の難易度 6〜10 を持つクイズの自動マイグレーションスクリプトは UI スペックの対象外とします（読み取り互換/テストデータ修正に委ねます）。
+- **Phase 14**: `difficultyVote` の永続化ロジック・API・スキーマ変更、難易度スケール変更、クイズ詳細／クイズカードの難易度表示変更、探索画面アコーディオンの変更。
 
 
 ---
@@ -74,6 +78,8 @@
 - **結果詳細情報の拡充 (Phase 12)**: 連想クイズのヒント一覧（開示数）、ウミガメスープの質問回数の表示。
 - **結果画面の各種ナビゲーション・おすすめ (Phase 12)**: もう一度プレイするボタン、作者のプロフィールリンク、作者の他の公開クイズを取得して `QuizCard` で最大3件表示するおすすめセクション。
 - **結果画面のアクション強化 (Phase 12)**: 結果サマリーカード上のクイズ全体のブックマークトグル、指摘モーダルの全体指摘時「別解の追加」カテゴリ非表示、指摘ボタン横の通報ボタン表示と通報モーダル連携。
+- **結果画面の回答・解説アコーディオン (Phase 14)**: 各問題行の回答サマリー・解説・ヒント履歴の折りたたみ（初期 closed）、問題ごとの独立開閉状態。
+- **体感難易度投票 ★ UI (Phase 14)**: 数値ボタングリッドの廃止、クリック可能な ★5個、`getDifficultyColor` によるグラデーション表示、オフライン非活性。
 
 
 ### Out of Boundary
@@ -1620,5 +1626,195 @@ sequenceDiagram
 | 15.25 | `QuizPlayClient`（既存 hooks 維持） |
 | 15.26–15.29 | `TestPlayPage` + `TestPlayClient` |
 | 15.30–15.32 | `PlaySkeleton` testid、レイアウト除外 |
+
+---
+
+## Phase 14: 結果画面の解説アコーディオン化と難易度投票 UI 改善
+
+### 1. 概要
+
+本番結果画面（`QuizResultClient`）およびテストプレイ結果画面（`test-play/result/page.tsx`）の UX を改善する。**Presentation-only** の変更であり、Core API・`Attempt` スキーマ・`handleDifficultyVote` の永続化契約は変更しない。
+
+| 変更 | 現状 | 目標 |
+|------|------|------|
+| 問題詳細 | 回答・解説が常時展開 | 回答サマリー・解説・ヒント履歴をアコーディオン内に配置、**初期 closed** |
+| 難易度投票 | `difficultyBar` + 数値 `diffCell`（1〜5） | クリック可能な ★5個（`DifficultyVoteStars`） |
+
+### 2. Boundary Commitments（Phase 14）
+
+**This Spec Owns**
+- `ResultQuestionDetailsAccordion` — 問題行内の折りたたみ UI と開閉状態
+- `DifficultyVoteStars` — 体感難易度投票の ★ インタラクション表示
+- `result.module.css` のアコーディオン・星投票スタイル
+- 本番・テストプレイ結果画面への組み込み
+
+**Out of Boundary**
+- `difficultyVote` の Firestore 書き込みロジック（既存 `updateDoc` 維持）
+- `getDifficultyColor` の色計算アルゴリズム変更（既存 lib 再利用）
+- クイズ詳細・`QuizCard` の難易度表示
+- `ExploreAccordion`（ホーム探索）の変更
+
+**Allowed Dependencies**
+- `getDifficultyColor`（`src/lib/difficulty-color.ts`）
+- 既存 `handleDifficultyVote(level: number)` コールバック
+- 既存 `formatUserAnswer` / `formatCorrectAnswer` / `parseMarkdownToHtml`
+
+**Revalidation Triggers**
+- 要件 16 のアコーディオン折りたたみ対象範囲の変更（問題文を含める等）
+- 難易度スケール（1〜5 以外）への変更
+
+### 3. Architecture Pattern
+
+**Selected**: 既存結果画面 Client コンポーネントへの **子コンポーネント抽出**（Extension / Simple UI）
+
+- 新規 npm 依存なし
+- `ExploreAccordion` は `explore-carousel.module.css` に結合しており、結果画面スタイルと責務が異なるため**直接再利用しない**
+- ARIA パターン（`button` + `aria-expanded` + `aria-controls`）は `ExploreAccordion` と同型で新規実装
+
+```mermaid
+flowchart TB
+  subgraph ResultPages["結果画面"]
+    QRC["QuizResultClient"]
+    TPR["test-play/result/page.tsx"]
+  end
+  subgraph NewComponents["新規コンポーネント"]
+    RQA["ResultQuestionDetailsAccordion"]
+    DVS["DifficultyVoteStars"]
+  end
+  subgraph Existing["既存"]
+    GDC["getDifficultyColor"]
+    HND["handleDifficultyVote"]
+  end
+  QRC --> RQA
+  QRC --> DVS
+  TPR --> RQA
+  DVS --> GDC
+  DVS --> HND
+```
+
+### 4. File Structure Plan
+
+```
+src/
+├── components/quiz/
+│   ├── result-question-details-accordion.tsx   # 新規: 回答・解説・ヒントの折りたたみ
+│   ├── result-question-details-accordion.module.css
+│   ├── difficulty-vote-stars.tsx               # 新規: ★5個投票 UI
+│   └── difficulty-vote-stars.module.css
+├── app/quiz/[id]/result/
+│   ├── quiz-result-client.tsx                  # 変更: アコーディオン・星投票へ差し替え
+│   └── result.module.css                       # 変更: diffCell 廃止、accordion 調整
+└── app/quiz/test-play/result/
+    └── page.tsx                                # 変更: ResultQuestionDetailsAccordion 適用
+```
+
+| ファイル | 責務 |
+|----------|------|
+| `result-question-details-accordion.tsx` | 折りたたみトリガー、パネル表示、`aria-expanded`、`data-testid` |
+| `difficulty-vote-stars.tsx` | ★1〜5 のクリック、`disabled`（オフライン）、選択状態の塗りつぶし表示 |
+| `quiz-result-client.tsx` | 問題 map 内で `answerSummary` / `explanationBox` / `hintHistoryBox` を Accordion に移管；`difficultyBar` を `DifficultyVoteStars` に置換 |
+| `test-play/result/page.tsx` | 本番と同型のアコーディオン構造を適用（難易度投票はテストプレイに無い場合は対象外） |
+
+### 5. Component Contracts
+
+#### ResultQuestionDetailsAccordion
+
+```typescript
+export interface ResultQuestionDetailsAccordionProps {
+  questionId: string;
+  /** 初期は false（要件 16.2） */
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}
+```
+
+**表示構造（各 `questionItem` 内）**
+
+| 常時表示 | アコーディオン内（初期 closed） |
+|----------|--------------------------------|
+| `itemHeader`（第N問・正誤・早押し時間） | `answerSummary`（あなたの回答 / 正解） |
+| `questionText`（MarkdownContent） | `explanationBox`（解説がある場合） |
+| ブックマーク・指摘ボタン | `hintHistoryBox`（連想クイズ時） |
+
+**State**: 親またはコンポーネント内 `useState<boolean>`。問題ごとに独立（要件 16.4）。親で `Record<string, boolean>` を保持しても可。
+
+**Trigger ラベル**: 「回答と解説を表示」／「回答と解説を隠す」（展開状態で切替）。Chevron（▸ / ▾）を併記。
+
+**testid**: `data-testid={`result-question-accordion-${questionId}`}`（要件 16.14）
+
+#### DifficultyVoteStars
+
+```typescript
+export interface DifficultyVoteStarsProps {
+  value: number | null;
+  onVote: (level: number) => void;
+  disabled?: boolean;
+  maxLevel?: number; // default 5
+}
+```
+
+**Interaction**
+- 第 N 個の ★ をクリック → `onVote(N)` を呼ぶ（要件 16.8）
+- `value === k` のとき ★1〜k を塗りつぶし、`k+1`〜5 を空星 ☆（要件 16.10）
+- 各 ★ の色は `getDifficultyColor(starIndex)` を適用（ホバー時は該当レベル色、選択済みは `value` の色で強調）（要件 16.9）
+- `disabled === true`（オフライン）時は `pointer-events: none` + `opacity` 低下（要件 16.11）
+
+**testid**: コンテナ `difficulty-vote-stars`、各星 `difficulty-vote-star-{N}`（要件 16.14）
+
+**削除対象**: `quiz-result-client.tsx` 内の `difficultyBar` / `diffCell` マークアップおよび `result.module.css` の `.difficultyBar` / `.diffCell` / `.diffCellSelected`（未使用化後に削除）
+
+### 6. System Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Accordion as ResultQuestionDetailsAccordion
+    participant Stars as DifficultyVoteStars
+    participant Client as QuizResultClient
+    participant FS as Firestore attempts
+
+    User->>Accordion: クリック（折りたたみ見出し）
+    Accordion->>Accordion: toggle expanded
+    Note over Accordion: 回答・解説・ヒントを表示/非表示
+
+    User->>Stars: ★3 をクリック
+    Stars->>Client: onVote(3)
+    Client->>Client: setDifficultyVote(3)
+    Client->>FS: updateDoc difficultyVote: 3
+```
+
+### 7. Requirements Traceability（要件 16）
+
+| Req | 設計要素 |
+|-----|----------|
+| 16.1 | `itemHeader` + `questionText` 常時表示、`ResultQuestionDetailsAccordion` はその下 |
+| 16.2 | `defaultOpen={false}` |
+| 16.3 | Accordion `onToggle` |
+| 16.4 | 問題ごと独立 state |
+| 16.5 | `hintHistoryBox` を Accordion `children` に含める |
+| 16.6 | `test-play/result/page.tsx` へ同一コンポーネント |
+| 16.7–16.11 | `DifficultyVoteStars` |
+| 16.12 | Out of boundary（設計 §2） |
+| 16.13–16.14 | ARIA + testid |
+
+### 8. Testing Strategy
+
+| 種別 | 検証項目 |
+|------|----------|
+| **Unit** | `DifficultyVoteStars`: クリックで `onVote(N)`、オフライン `disabled`、投票済み `value=3` で ★3+☆2 表示 |
+| **Unit** | `ResultQuestionDetailsAccordion`: 初期 closed、トグルで children 表示、`aria-expanded` 切替 |
+| **E2E** | 本番結果画面: 各問題の回答・解説が初期非表示 → 見出しクリックで表示 |
+| **E2E** | 本番結果画面: ★4 クリック → 投票表示更新（既存 difficulty vote フロー維持） |
+| **E2E** | テストプレイ結果: アコーディオン挙動が本番と一致 |
+
+### 9. Error Handling & Risks
+
+| リスク | 緩和 |
+|--------|------|
+| 解説なし・回答のみの問題で空アコーディオン | 見出しは常に表示。中身が空でも開閉可能（回答サマリーは常に存在） |
+| 長いクイズで state 肥大化 | `Record<string, boolean>` は展開した問題のみ true — 問題数上限は既存クイズ制約に従う |
+| 既存 E2E が数値ボタンを参照 | `difficulty-vote-star-{N}` testid へセレクタ更新 |
+
+**Effort**: S（1〜2 日）— 新規 2 コンポーネント + 2 画面差し替え + 軽量テスト
 
 

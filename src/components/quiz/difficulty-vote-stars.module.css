@@ -1,0 +1,28 @@
+.starsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.starBtn {
+  background: none;
+  border: none;
+  padding: 4px;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.starBtn:hover:not(:disabled) {
+  transform: scale(1.12);
+}
+
+.starBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.starBtnFilled {
+  text-shadow: 0 0 8px currentColor;
+}

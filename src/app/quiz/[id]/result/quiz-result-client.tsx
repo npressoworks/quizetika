@@ -25,6 +25,8 @@ import {
   peekNextQuestionListEntry,
 } from '@/lib/question-list-session';
 import { ResultSkeleton } from '@/components/quiz/result-skeleton';
+import { ResultQuestionDetailsAccordion } from '@/components/quiz/result-question-details-accordion';
+import { DifficultyVoteStars } from '@/components/quiz/difficulty-vote-stars';
 import styles from './result.module.css';
 
 interface QuizResultClientProps {
@@ -772,24 +774,11 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
               <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>未投票</span>
             )}
           </div>
-          <div className={styles.difficultyBar}>
-            {Array.from({ length: 5 }, (_, i) => i + 1).map((level) => (
-              <button
-                key={level}
-                className={`${styles.diffCell} ${difficultyVote === level ? styles.diffCellSelected : ''}`}
-                style={{
-                  borderColor: difficultyVote === level ? getDifficultyColor(level) : 'var(--border-light)',
-                  boxShadow: difficultyVote === level ? `0 0 8px ${getDifficultyColor(level)}` : 'none',
-                  color: difficultyVote === level ? '#fff' : getDifficultyColor(level),
-                  background: difficultyVote === level ? getDifficultyColor(level) : 'rgba(255, 255, 255, 0.02)'
-                }}
-                onClick={() => handleDifficultyVote(level)}
-                disabled={!online}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
+          <DifficultyVoteStars
+            value={difficultyVote}
+            onVote={handleDifficultyVote}
+            disabled={!online}
+          />
         </div>
 
         {/* 指摘・通報ボタン */}
@@ -964,56 +953,58 @@ export function QuizResultClient({ quiz, attemptId: propAttemptId, localId: prop
                 className={styles.questionTextResult}
               />
 
-              <div className={styles.answerSummary}>
-                <div className={styles.answerRow}>
-                  <span className={styles.answerLabel}>あなたの回答</span>
-                  <span className={`${styles.answerValue} ${isCorrect ? styles.answerValueCorrect : styles.answerValueIncorrect}`}>
-                    {formatUserAnswer(
-                      q,
-                      getUserAnswerRaw(attempt.questionAnswers, q.id),
-                      attempt.mode,
-                      hasStoredAnswers
-                    )}
-                  </span>
-                </div>
-                <div className={styles.answerRow}>
-                  <span className={styles.answerLabel}>正解</span>
-                  <span className={`${styles.answerValue} ${styles.answerValueCorrect}`}>
-                    {formatCorrectAnswer(q)}
-                  </span>
-                </div>
-              </div>
-
-              {q.explanation && (
-                <div className={styles.explanationBox}>
-                  <div className={styles.explanationTitle}>💡 解説</div>
-                  <p
-                    style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.6' }}
-                    dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(q.explanation) }}
-                  />
-                </div>
-              )}
-
-              {q.type === 'association' && (() => {
-                const questionHintData = revealedHints.find((h) => h.questionId === q.id);
-                const hintsToShow = questionHintData?.revealedHints || [];
-                return (
-                  <div className={styles.hintHistoryBox}>
-                    <div className={styles.hintHistoryTitle}>🔍 開示したヒント ({hintsToShow.length}件)</div>
-                    {hintsToShow.length > 0 ? (
-                      <ul className={styles.hintHistoryList}>
-                        {hintsToShow.map((hint, hIdx) => (
-                          <li key={hIdx} className={styles.hintHistoryItem}>
-                            ヒント {hIdx + 1}: {hint}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className={styles.hintHistoryEmpty}>ヒントは表示されませんでした。</p>
-                    )}
+              <ResultQuestionDetailsAccordion questionId={q.id}>
+                <div className={styles.answerSummary}>
+                  <div className={styles.answerRow}>
+                    <span className={styles.answerLabel}>あなたの回答</span>
+                    <span className={`${styles.answerValue} ${isCorrect ? styles.answerValueCorrect : styles.answerValueIncorrect}`}>
+                      {formatUserAnswer(
+                        q,
+                        getUserAnswerRaw(attempt.questionAnswers, q.id),
+                        attempt.mode,
+                        hasStoredAnswers
+                      )}
+                    </span>
                   </div>
-                );
-              })()}
+                  <div className={styles.answerRow}>
+                    <span className={styles.answerLabel}>正解</span>
+                    <span className={`${styles.answerValue} ${styles.answerValueCorrect}`}>
+                      {formatCorrectAnswer(q)}
+                    </span>
+                  </div>
+                </div>
+
+                {q.explanation && (
+                  <div className={styles.explanationBox}>
+                    <div className={styles.explanationTitle}>💡 解説</div>
+                    <p
+                      style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.6' }}
+                      dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(q.explanation) }}
+                    />
+                  </div>
+                )}
+
+                {q.type === 'association' && (() => {
+                  const questionHintData = revealedHints.find((h) => h.questionId === q.id);
+                  const hintsToShow = questionHintData?.revealedHints || [];
+                  return (
+                    <div className={styles.hintHistoryBox}>
+                      <div className={styles.hintHistoryTitle}>🔍 開示したヒント ({hintsToShow.length}件)</div>
+                      {hintsToShow.length > 0 ? (
+                        <ul className={styles.hintHistoryList}>
+                          {hintsToShow.map((hint, hIdx) => (
+                            <li key={hIdx} className={styles.hintHistoryItem}>
+                              ヒント {hIdx + 1}: {hint}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className={styles.hintHistoryEmpty}>ヒントは表示されませんでした。</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </ResultQuestionDetailsAccordion>
             </article>
           );
         })}

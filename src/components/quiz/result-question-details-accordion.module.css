@@ -1,0 +1,38 @@
+.accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.accordionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  background: rgba(30, 30, 45, 0.45);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.accordionHeader:hover {
+  border-color: rgba(0, 245, 212, 0.25);
+  background: rgba(0, 245, 212, 0.05);
+}
+
+.accordionChevron {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.accordionPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

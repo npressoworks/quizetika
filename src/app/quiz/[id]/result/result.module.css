@@ -167,41 +167,6 @@
   gap: 12px;
 }
 
-.difficultyBar {
-  display: flex;
-  gap: 8px;
-  width: 100%;
-  overflow-x: auto;
-  padding: 4px 0;
-}
-
-.diffCell {
-  flex: 1;
-  min-width: 32px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  border: 1px solid var(--border-light);
-  background: rgba(255, 255, 255, 0.02);
-  font-weight: 700;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.diffCell:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  background: rgba(0, 245, 212, 0.05);
-}
-
-.diffCellSelected {
-  background: var(--color-accent);
-  color: var(--text-inverse);
-  border-color: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
-}
-
 /* 指摘・お礼ボタンバー */
 .actionBtnRow {
   display: flex;

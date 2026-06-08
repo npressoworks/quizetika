@@ -736,5 +736,69 @@
   - _Depends: 20.5_
   - _Boundary: Testing_
 
+### 21. Phase 14 — 結果画面の解説アコーディオン化と難易度投票 UI 改善（2026-06-08）
+
+- [x] 21.1 (P) 問題回答・解説アコーディオンコンポーネントの実装
+  - 各問題行で回答サマリー・解説・ヒント履歴を折りたたみ表示するアコーディオンコンポーネントと専用 CSS Module を新設する。
+  - 初期状態は閉じた状態（`defaultOpen={false}`）とし、見出しクリックで展開／折りたたみを切り替える。
+  - 問題ごとに開閉状態が独立すること（他問題の開閉に影響されないこと）をコンポーネント内 state で保証する。
+  - 見出しに `aria-expanded` を付与し、`data-testid="result-question-accordion-{questionId}"` を設定する。
+  - トリガーラベルは「回答と解説を表示」／「回答と解説を隠す」で展開状態に応じて切り替わること。
+  - _Requirements: 16.2, 16.3, 16.4, 16.13, 16.14_
+  - _Boundary: ResultQuestionDetailsAccordion_
+
+- [x] 21.2 (P) 体感難易度投票 ★ コンポーネントの実装
+  - クリック可能な ★5個で体感難易度（1〜5）を投票するコンポーネントと専用 CSS Module を新設する。
+  - 第 N 個の ★ クリックで `onVote(N)` を呼び出し、投票済み値に応じて塗りつぶし ★ と空星 ☆ を表示する。
+  - 各 ★ に `getDifficultyColor` によるグラデーションカラーを適用する。
+  - `disabled` 時（オフライン）はクリック不可・視覚的に非活性とする。
+  - `data-testid="difficulty-vote-stars"` および各星に `data-testid="difficulty-vote-star-{N}"` を付与する。
+  - _Requirements: 16.7, 16.8, 16.9, 16.10, 16.11, 16.14_
+  - _Boundary: DifficultyVoteStars_
+
+- [x] 21.3 本番クイズ結果画面への統合
+  - 本番結果画面クライアントで、各問題の `answerSummary`・`explanationBox`・`hintHistoryBox` をアコーディオン内に移管する。
+  - 第 N 問・正誤ラベル・問題文・ブックマーク／指摘ボタンはアコーディオン外に常時表示する。
+  - 既存の数値ボタン難易度投票（`difficultyBar` / `diffCell`）を ★ 投票コンポーネントに置き換え、既存 `handleDifficultyVote` コールバックを接続する。
+  - 未使用となった `result.module.css` の `.difficultyBar` / `.diffCell` スタイルを削除する。
+  - 結果画面を開いた直後、各問題の回答・解説が非表示であり、難易度投票が ★ UI で表示されること。
+  - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.7, 16.8, 16.9, 16.10, 16.11_
+  - _Depends: 21.1, 21.2_
+  - _Boundary: QuizResultClient_
+
+- [x] 21.4 テストプレイ結果画面へのアコーディオン統合
+  - テストプレイ結果画面に同一のアコーディオンコンポーネントを適用し、本番結果画面と同規則（初期 closed、回答・解説の折りたたみ）とする。
+  - テストプレイ結果画面を開いた直後、各問題の回答・解説が非表示であること。
+  - _Requirements: 16.6_
+  - _Depends: 21.1_
+  - _Boundary: TestPlayResultPage_
+
+- [x] 21.5 (P) Phase 14 単体テストの追加
+  - アコーディオンコンポーネントの初期 closed、トグル後の children 表示、`aria-expanded` 切替を検証するテストを追加する。
+  - ★ 投票コンポーネントのクリックで `onVote(N)` 呼び出し、`disabled` 時の非活性、投票済み `value=3` で ★3+☆2 表示を検証するテストを追加する。
+  - _Requirements: 16.3, 16.4, 16.8, 16.10, 16.11_
+  - _Depends: 21.1, 21.2_
+  - _Boundary: Testing_
+
+- [x] 21.6 Phase 14 統合検証
+  - 本番結果画面でアコーディオン見出しクリックにより回答・解説が表示されること、★ クリックで難易度投票が更新されることを手動または自動テストで確認する。
+  - オフライン時に ★ 投票が非活性であること、連想クイズのヒント履歴がアコーディオン内に含まれることを確認する。
+  - 既存の結果画面機能（ブックマーク、指摘、おすすめクイズ、リスト連続プレイ）が退行していないことを確認する。
+  - _Requirements: 16.1, 16.2, 16.3, 16.5, 16.7, 16.8, 16.11_
+  - _Depends: 21.3, 21.4, 21.5_
+  - _Boundary: Integration_
+
+- [ ]* 21.7 Phase 14 E2E スモーク（任意）
+  - Playwright で本番結果画面の「初期非表示 → アコーディオン展開 → ★ 投票」のシーケンスを検証する。
+  - テストプレイ結果画面でもアコーディオン挙動が本番と一致することを検証する。
+  - _Requirements: 16.2, 16.6, 16.8_
+  - _Depends: 21.6_
+  - _Boundary: Testing_
+
+## Implementation Notes (Phase 14)
+
+- 要件 16.12（`difficultyVote` 永続化ロジック変更の対象外）は意図的にタスク化しない。既存 `handleDifficultyVote` / `updateDoc` を維持する。
+- `ExploreAccordion` は探索画面専用のため結果画面では新規コンポーネントを使用する（design.md Phase 14 §3）。
+
 
 

@@ -16,6 +16,7 @@ import {
 } from '@/lib/test-play';
 import { formatCorrectAnswer, formatUserAnswer, getUserAnswerRaw } from '@/services/attempt-answer-display';
 import { Quiz } from '@/types';
+import { ResultQuestionDetailsAccordion } from '@/components/quiz/result-question-details-accordion';
 import styles from '@/app/quiz/[id]/result/result.module.css';
 
 function TestPlayResultContent() {
@@ -155,38 +156,42 @@ function TestPlayResultContent() {
                 className={styles.questionTextResult}
               />
 
-              {judgeable && (
-                <div className={styles.answerSummary}>
-                  <div className={styles.answerRow}>
-                    <span className={styles.answerLabel}>あなたの回答</span>
-                    <span
-                      className={`${styles.answerValue} ${isCorrect ? styles.answerValueCorrect : styles.answerValueIncorrect}`}
-                    >
-                      {formatUserAnswer(
-                        q,
-                        getUserAnswerRaw(result.questionAnswers, q.id),
-                        'normal',
-                        hasStoredAnswers
-                      )}
-                    </span>
-                  </div>
-                  <div className={styles.answerRow}>
-                    <span className={styles.answerLabel}>正解</span>
-                    <span className={`${styles.answerValue} ${styles.answerValueCorrect}`}>
-                      {formatCorrectAnswer(q)}
-                    </span>
-                  </div>
-                </div>
-              )}
+              {(judgeable || q.explanation) && (
+                <ResultQuestionDetailsAccordion questionId={q.id}>
+                  {judgeable && (
+                    <div className={styles.answerSummary}>
+                      <div className={styles.answerRow}>
+                        <span className={styles.answerLabel}>あなたの回答</span>
+                        <span
+                          className={`${styles.answerValue} ${isCorrect ? styles.answerValueCorrect : styles.answerValueIncorrect}`}
+                        >
+                          {formatUserAnswer(
+                            q,
+                            getUserAnswerRaw(result.questionAnswers, q.id),
+                            'normal',
+                            hasStoredAnswers
+                          )}
+                        </span>
+                      </div>
+                      <div className={styles.answerRow}>
+                        <span className={styles.answerLabel}>正解</span>
+                        <span className={`${styles.answerValue} ${styles.answerValueCorrect}`}>
+                          {formatCorrectAnswer(q)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
-              {q.explanation && (
-                <div className={styles.explanationBox}>
-                  <div className={styles.explanationTitle}>💡 解説</div>
-                  <p
-                    className={styles.explanationText}
-                    dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(q.explanation) }}
-                  />
-                </div>
+                  {q.explanation && (
+                    <div className={styles.explanationBox}>
+                      <div className={styles.explanationTitle}>💡 解説</div>
+                      <p
+                        className={styles.explanationText}
+                        dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(q.explanation) }}
+                      />
+                    </div>
+                  )}
+                </ResultQuestionDetailsAccordion>
               )}
             </article>
           );

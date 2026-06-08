@@ -813,3 +813,58 @@ Phase 11 目標:
 - **Middleware 変更**: 不要（test-play は Client auth リダイレクト維持で可）
 - **既存 spec 更新**: design.md / tasks.md は生成済み — gap 分析結果と矛盾なし
 
+---
+
+# Gap Analysis: quizeum-play-flow-ui (結果画面アコーディオン & ★投票 — Phase 14 / 2026-06-08)
+
+## Summary
+
+- **スコープ**: 要件 16 — 結果画面の回答・解説アコーディオン（初期 closed）、体感難易度投票の ★ クリック UI
+- **分類**: Extension / Simple UI（Presentation-only）
+- **Discovery 種別**: Light（既存コードベースパターン分析）
+
+## Research Log
+
+### R14.1 現状実装
+
+| 領域 | 現状 | ギャップ |
+|------|------|----------|
+| 問題詳細 | `quiz-result-client.tsx` L967–1016: `answerSummary`・`explanationBox`・`hintHistoryBox` が常時表示 | アコーディオン化・初期 closed |
+| 難易度投票 | L775–792: `difficultyBar` + 数値 `diffCell` 1〜5 | ★ クリック UI（要件 5.2a / 16.7 は未充足） |
+| テストプレイ結果 | `test-play/result/page.tsx` L182–187: 解説常時表示 | 本番と同型アコーディオン |
+| 色計算 | `getDifficultyColor`（1〜5、30°ステップ）| 再利用可、変更不要 |
+
+### R14.2 既存アコーディオンパターン
+
+- `ExploreAccordion`（`src/components/explore/explore-accordion.tsx`）: `button` + `aria-expanded` + chevron — **パターン参照可**
+- スタイルは `explore-carousel.module.css` に結合 → 結果画面用に**別 CSS Module** で同型実装（build、explore への依存は避ける）
+
+### R14.3 Build vs. Adopt
+
+| 選択肢 | 判定 |
+|--------|------|
+| `ExploreAccordion` 直接 import | 却下（探索専用スタイル・testId 契約が異なる） |
+| 汎用 `CollapsiblePanel` を shared に新設 | 却下（現時点で利用箇所は結果画面のみ — 過剰抽象化） |
+| `ResultQuestionDetailsAccordion` + `DifficultyVoteStars` を `components/quiz/` に新設 | **採用** |
+
+### R14.4 統合リスク
+
+| リスク | 緩和 |
+|--------|------|
+| 既存 E2E が `diffCell` を参照 | `difficulty-vote-star-{N}` へ更新 |
+| オフライン非活性 | 既存 `online` state を `DifficultyVoteStars.disabled` に渡す |
+| `handleDifficultyVote` 変更不要 | `onVote(level)` のシグネチャ維持 |
+
+## Design Decisions
+
+1. **アコーディオン範囲**: 問題文・ヘッダーは常時表示。回答・解説・ヒントのみ折りたたみ（discovery 合意どおり）
+2. **状態管理**: 問題ごと独立 `boolean`（親 `Record<string, boolean>` または Accordion 内 state）
+3. **難易度投票**: 数値グリッド削除、`DifficultyVoteStars` に一本化。永続化は既存 `updateDoc({ difficultyVote })`
+
+## Effort & Risk
+
+| 項目 | 評価 |
+|------|------|
+| Effort | **S**（1〜2 日） |
+| Risk | **Low** — Core 変更なし、既存コールバック維持 |
+
