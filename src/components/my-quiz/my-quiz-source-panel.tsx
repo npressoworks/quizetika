@@ -20,18 +20,22 @@ export function MyQuizSourcePanel({ flags, onChange }: MyQuizSourcePanelProps) {
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>取得元</h2>
-      <div className={styles.sourceGrid}>
-        {SOURCES.map((src) => (
-          <label key={src.key} className={styles.sourceLabel}>
-            <input
-              type="checkbox"
-              checked={flags[src.key]}
-              onChange={(e) => onChange({ ...flags, [src.key]: e.target.checked })}
+      <div className={styles.sourceChipGrid} role="group" aria-label="問題の取得元">
+        {SOURCES.map((src) => {
+          const active = flags[src.key];
+          return (
+            <button
+              key={src.key}
+              type="button"
+              className={`${styles.sourceChip} ${active ? styles.sourceChipActive : ''}`}
+              aria-pressed={active}
               data-testid={src.testId}
-            />
-            <span>{src.label}</span>
-          </label>
-        ))}
+              onClick={() => onChange({ ...flags, [src.key]: !active })}
+            >
+              {src.label}
+            </button>
+          );
+        })}
       </div>
     </section>
   );

@@ -13,6 +13,7 @@ interface MyQuizPreviewBarProps {
   filteredCount: number;
   effectivePlayCount: number;
   hasAnySource: boolean;
+  poolLoading?: boolean;
   buildEntries: () => MyQuizSessionEntry[];
 }
 
@@ -20,10 +21,12 @@ export function MyQuizPreviewBar({
   filteredCount,
   effectivePlayCount,
   hasAnySource,
+  poolLoading = false,
   buildEntries,
 }: MyQuizPreviewBarProps) {
   const router = useRouter();
-  const canStart = hasAnySource && filteredCount > 0 && effectivePlayCount > 0;
+  const canStart =
+    !poolLoading && hasAnySource && filteredCount > 0 && effectivePlayCount > 0;
 
   const handleStart = () => {
     const entries = buildEntries();
@@ -36,7 +39,7 @@ export function MyQuizPreviewBar({
 
   return (
     <section className={styles.previewBar}>
-      {!hasAnySource ? (
+      {poolLoading ? null : !hasAnySource ? (
         <p className={styles.emptyHint}>取得元を1つ以上選択してください。</p>
       ) : filteredCount === 0 ? (
         <p className={styles.emptyHint}>条件に一致する問題がありません。フィルタや取得元を調整してください。</p>

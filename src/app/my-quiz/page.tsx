@@ -8,8 +8,15 @@ export const metadata = {
 
 export default function MyQuizPage() {
   return (
-    <div className={styles.container}>
-      <Suspense fallback={<div data-testid="my-quiz-skeleton">読み込み中...</div>}>
+    <div className={styles.container} data-testid="my-quiz-page">
+      <header>
+        <h1 className={styles.title}>マイクイズ</h1>
+        <p className={styles.desc}>
+          自作・ブックマークから問題を集め、フィルタして連続プレイできます。
+        </p>
+      </header>
+
+      <Suspense fallback={null}>
         <MyQuizClient />
       </Suspense>
     </div>

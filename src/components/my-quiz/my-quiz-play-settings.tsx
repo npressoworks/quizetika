@@ -8,6 +8,7 @@ interface MyQuizPlaySettingsProps {
   settings: MyQuizPlaySettingsState;
   filteredCount: number;
   effectivePlayCount: number;
+  poolLoading?: boolean;
   onChange: (settings: MyQuizPlaySettingsState) => void;
 }
 
@@ -22,6 +23,7 @@ export function MyQuizPlaySettings({
   settings,
   filteredCount,
   effectivePlayCount,
+  poolLoading = false,
   onChange,
 }: MyQuizPlaySettingsProps) {
   const clamped =
@@ -32,17 +34,20 @@ export function MyQuizPlaySettings({
     <section className={styles.section} data-testid="my-quiz-play-settings">
       <h2 className={styles.sectionTitle}>出題設定</h2>
 
-      <div className={styles.presetRow}>
+      <div className={styles.segmentGroup} role="radiogroup" aria-label="出題数">
         {PRESETS.map((p) => (
-          <label key={p.value} className={styles.presetLabel}>
-            <input
-              type="radio"
-              name="countPreset"
-              checked={settings.countPreset === p.value}
-              onChange={() => onChange({ ...settings, countPreset: p.value })}
-            />
+          <button
+            key={p.value}
+            type="button"
+            role="radio"
+            aria-checked={settings.countPreset === p.value}
+            className={`${styles.segmentBtn} ${
+              settings.countPreset === p.value ? styles.segmentBtnActive : ''
+            }`}
+            onClick={() => onChange({ ...settings, countPreset: p.value })}
+          >
             {p.label}
-          </label>
+          </button>
         ))}
       </div>
 
@@ -59,22 +64,28 @@ export function MyQuizPlaySettings({
         />
       )}
 
-      <label className={styles.sourceLabel}>
-        <input
-          type="checkbox"
-          checked={settings.shuffle}
-          onChange={(e) => onChange({ ...settings, shuffle: e.target.checked })}
-          data-testid="my-quiz-shuffle-toggle"
-        />
-        <span>シャッフルして出題</span>
-      </label>
+      <div className={styles.toggleRow}>
+        <label className={styles.toggleSwitch} htmlFor="my-quiz-shuffle">
+          <input
+            id="my-quiz-shuffle"
+            type="checkbox"
+            checked={settings.shuffle}
+            onChange={(e) => onChange({ ...settings, shuffle: e.target.checked })}
+            data-testid="my-quiz-shuffle-toggle"
+          />
+          <span className={styles.toggleSlider} aria-hidden />
+        </label>
+        <span className={styles.toggleLabel}>シャッフルして出題</span>
+      </div>
 
-      <p className={styles.previewText} data-testid="my-quiz-question-count-preview">
-        対象 {filteredCount} 問 / 出題 {effectivePlayCount} 問
-        {clamped && filteredCount > 0 && (
-          <span className={styles.hint}>（プール件数に合わせて自動調整）</span>
-        )}
-      </p>
+      {!poolLoading && (
+        <p className={styles.previewText} data-testid="my-quiz-question-count-preview">
+          対象 {filteredCount} 問 / 出題 {effectivePlayCount} 問
+          {clamped && filteredCount > 0 && (
+            <span className={styles.hint}>（プール件数に合わせて自動調整）</span>
+          )}
+        </p>
+      )}
     </section>
   );
 }
