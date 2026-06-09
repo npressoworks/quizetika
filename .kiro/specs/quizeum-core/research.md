@@ -880,3 +880,24 @@ src/app/api/webhooks/stripe/           — Missing
 
 **Document Status（Phase 17 設計）**: `design.md` Phase 17 節に反映済。`spec.json` → `phase: design-generated`。
 
+---
+
+## Phase 18: 模擬試験・フラッシュカード LB 非対象（2026-06-09）
+
+### Summary
+既存 `leaderboard-update.ts` の `isLeaderboardEligibleAttempt` を拡張し `exam` / `flashcard` を除外する。prior 件数は `countPriorCompletedAttempts` が既に全モードをカウントしているため、追加スキーマ不要で「exam 先プレイ → 通常は replay のみ」を満たす。
+
+### Research Log
+
+| Topic | Findings | Implications |
+|-------|----------|--------------|
+| 現行 eligibility | guest / test-play のみ除外 | exam / flashcard を同関数に追加 |
+| prior count | LB 対象試行保存時のみ query、フィルタは completedAt のみ | 変更不要。exam 後 normal で prior >= 1 |
+| verify-truth | トランザクション前に全モード prior 集計済 | `buildLeaderboardUpdatesForQuiz` 経由で自動除外 |
+
+### Design Decisions
+1. **Option A 採用** — 単一関数拡張。別カウンタやユーザーフラグは不要。
+2. **後方互換** — 既存 LB エントリは削除しない（新規更新のみ制御）。
+
+**Document Status（Phase 18 設計）**: `design.md` Phase 18 節に反映済。
+

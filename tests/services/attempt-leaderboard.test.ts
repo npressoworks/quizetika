@@ -152,4 +152,136 @@ describe('saveAttempt - Phase 5 leaderboards', () => {
     );
     expect(updateArg.leaderboardFirstPlay).toBeUndefined();
   });
+
+  test('模擬試験モード完了時は両LBを更新せず playCount のみ増加すること', async () => {
+    const mockTransaction = {
+      get: jest.fn().mockImplementation((ref) => {
+        if (ref.id === quizId) {
+          return { exists: () => true, data: () => mockQuiz() };
+        }
+        return {
+          exists: () => true,
+          data: () => ({ displayName: 'Tester' }),
+        };
+      }),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
+      callback(mockTransaction)
+    );
+
+    await saveAttempt({
+      userId,
+      quizId,
+      mode: 'exam',
+      score: 5,
+      totalQuestions: 5,
+      elapsedSeconds: 120,
+      failedQuestionIds: [],
+      aiTurnCount: 0,
+      aiTurnLimit: null,
+    });
+
+    const updateArg = mockTransaction.update.mock.calls.find(
+      (c: unknown[]) => (c[0] as { id: string }).id === quizId
+    )?.[1];
+    expect(updateArg.playCount).toBe(1);
+    expect(updateArg.leaderboardFirstPlay).toBeUndefined();
+    expect(updateArg.leaderboardReplay).toBeUndefined();
+  });
+
+  test('exam 先プレイ後の通常モードはリプレイLBのみ更新されること', async () => {
+    const { getDocs } = require('firebase/firestore');
+    (getDocs as jest.Mock).mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'prior-exam',
+          data: () => ({ completedAt: new Date(), mode: 'exam' }),
+        },
+      ],
+    });
+
+    const mockTransaction = {
+      get: jest.fn().mockImplementation((ref) => {
+        if (ref.id === quizId) {
+          return { exists: () => true, data: () => mockQuiz() };
+        }
+        return {
+          exists: () => true,
+          data: () => ({ displayName: 'Tester' }),
+        };
+      }),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
+      callback(mockTransaction)
+    );
+
+    await saveAttempt({
+      userId,
+      quizId,
+      mode: 'normal',
+      score: 5,
+      totalQuestions: 5,
+      elapsedSeconds: 60,
+      failedQuestionIds: [],
+      aiTurnCount: 0,
+      aiTurnLimit: null,
+    });
+
+    const updateArg = mockTransaction.update.mock.calls.find(
+      (c: unknown[]) => (c[0] as { id: string }).id === quizId
+    )?.[1];
+    expect(updateArg.leaderboardReplay).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId, score: 5 }),
+      ])
+    );
+    expect(updateArg.leaderboardFirstPlay).toBeUndefined();
+  });
+
+  test('弱点克服モードは引き続き初回プレイLBに反映されること', async () => {
+    const mockTransaction = {
+      get: jest.fn().mockImplementation((ref) => {
+        if (ref.id === quizId) {
+          return { exists: () => true, data: () => mockQuiz() };
+        }
+        return {
+          exists: () => true,
+          data: () => ({ displayName: 'Tester' }),
+        };
+      }),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
+      callback(mockTransaction)
+    );
+
+    await saveAttempt({
+      userId,
+      quizId,
+      mode: 'review',
+      score: 2,
+      totalQuestions: 5,
+      elapsedSeconds: 30,
+      failedQuestionIds: ['q1', 'q2', 'q3'],
+      aiTurnCount: 0,
+      aiTurnLimit: null,
+    });
+
+    const updateArg = mockTransaction.update.mock.calls.find(
+      (c: unknown[]) => (c[0] as { id: string }).id === quizId
+    )?.[1];
+    expect(updateArg.leaderboardFirstPlay).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId, score: 2 }),
+      ])
+    );
+  });
 });

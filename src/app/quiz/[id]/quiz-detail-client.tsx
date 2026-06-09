@@ -4,12 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Bookmark, Play, Award, Timer, Layers, HelpCircle, Edit } from 'lucide-react';
+import { Bookmark, Play, Award, Timer, Layers, HelpCircle, Edit, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { getDifficultyColor } from '@/lib/difficulty-color';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { Quiz } from '@/types';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
+import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
 import { resolveQuizFormat } from '@/lib/quiz-format';
 import { formatReviewScorePercent } from '@/services/review-utils';
 import { FormatLabel } from '@/components/quiz/format-label';
@@ -23,6 +24,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { genres: activeGenres } = useActiveGenres();
+  const { playedQuizIds, loading: playedStatusLoading } = usePlayedQuizIds(user?.id);
 
   const [bookmarked, setBookmarked] = useState<boolean>(false);
   const [selectedMode, setSelectedMode] = useState<'normal' | 'exam' | 'flashcard'>('normal');
@@ -87,6 +89,10 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
 
   const isLateralThinkingQuiz = quiz.questions?.some((q) => q.type === 'lateral-thinking') ?? false;
   const isQuickPressQuiz = quiz.format === 'quick-press' || (quiz.questions?.some((q) => q.type === 'quick-press') ?? false);
+  const hasPlayedThisQuiz = Boolean(user && playedQuizIds?.has(quiz.id));
+  const showPlayStatus = Boolean(user && !playedStatusLoading && playedQuizIds !== null);
+  const showLeaderboardWarning =
+    !isLateralThinkingQuiz && !isQuickPressQuiz && !hasPlayedThisQuiz;
   const formatValue = resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] });
 
   return (
@@ -143,6 +149,21 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
             形式: <FormatLabel format={formatValue} testId="quiz-detail-format" />
           </div>
           <div className={styles.difficultyBadge}>問題数: {quiz.questionCount}問</div>
+          {showPlayStatus && (
+            <div
+              className={`${styles.playStatusBadge} ${hasPlayedThisQuiz ? styles.playStatusPlayed : styles.playStatusUnplayed}`}
+              data-testid="quiz-detail-play-status"
+            >
+              {hasPlayedThisQuiz ? (
+                <>
+                  <CheckCircle2 size={14} aria-hidden />
+                  プレイ済み
+                </>
+              ) : (
+                '未プレイ'
+              )}
+            </div>
+          )}
         </div>
 
         {/* サムネイル */}
@@ -306,6 +327,18 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
               ? '早押しを開始する'
               : 'プレイを開始する'}
         </button>
+
+        {showLeaderboardWarning && (
+          <div
+            className={styles.modeLeaderboardWarning}
+            data-testid="play-mode-leaderboard-warning"
+          >
+            <AlertTriangle size={16} aria-hidden />
+            <p>
+              模擬試験モード・フラッシュカードモードの記録は、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。先にこれらのモードでプレイした場合、のちに通常モードでプレイしても初回プレイランキングには掲載されません（リプレイランキングのみ対象となります）。
+            </p>
+          </div>
+        )}
       </div>
     </>
   );

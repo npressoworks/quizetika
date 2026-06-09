@@ -28,6 +28,8 @@
 
 **Phase 17（2026-06-08）**: 水平思考の認証・二層 AI 質問制限・諦めフロー改定。未登録はウミガメのみ会員必須。無料 tier は同一クイズ 30回/日 + 全クイズ横断 150回/日。質問正規化キャッシュで全カウンタ非消費。上限到達時は `limitType` 付き Pro 誘導。諦め時は真相非表示とチャット内ナビ（結果画面へ／リスト文脈で次の問題へ）。Phase 16 の諦め解説開示は本フェーズで上書き廃止。
 
+**Phase 18（2026-06-09）**: 模擬試験（`exam`）・フラッシュカード（`flashcard`）完了試行をクイズ単位リーダーボード（初回プレイ・リプレイ）の登録対象外とする。初回／リプレイ振り分け用の prior 完了件数は**全永続化モード**（test-play 除く）をカウントし、先に exam/flashcard で完了したユーザーは以降の通常モード等の登録対象試行をリプレイ側のみに振り分ける。判定ロジックは `leaderboard-update.ts` に集約する。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -46,6 +48,7 @@
 - **Phase 14 真相 AI 意味判定（2026-06）**: `buildVerifyTruthPrompt` に `truthKeywords` をエッセンス参照として組み込み、`verify-truth` ルートからキーワード即合格バイパスを除去する。
 - **Phase 16 水平思考プレイ UX（2026-06）**: チャット統合入力、諦め API、経過時間、固定不合格メッセージ、`quiz-play-client` レイアウト改修。
 - **Phase 17 ウミガメ認証・制限・諦め改定（2026-06）**: 二層日次制限、`normalizeQuestionText` キャッシュ、横断カウンタ、`limitType` 付き 429、諦め API の真相非返却、attempt `listId` 引き継ぎ。
+- **Phase 18 模擬試験・フラッシュカード LB 非対象（2026-06）**: `isLeaderboardEligibleAttempt` によるモード除外、全モード prior 件数カウントによる初回権利消滅、`saveAttempt` / `verify-truth` 共通更新パス。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -89,6 +92,7 @@
 - **Phase 14**: テストプレイのローカル `truthKeywords` 部分一致判定（`checkTruthKeywordsLocally` / `test-play-client.tsx`）。
 - **Phase 16**: 水平思考本番プレイ UI（`quiz-play-client.tsx`）のチャット統合入力・諦め・経過時間・ルール説明（`quizeum-play-flow-ui` 境界と重複するが実装はコア play ルート）。
 - **Phase 17 — プレイ/課金 UI**: 未登録向けボタン表記、制限到達 Pro 誘導（`/pricing`）、諦め後チャット内ナビ、ルール説明の上限数値更新（`quizeum-play-flow-ui`）。Free プラン上限説明（`quizeum-billing-subscription-ui` の `pricing-display.ts`）。
+- **Phase 18 — モード選択警告 UI**: 模擬試験・フラッシュカードのランキング非対象および初回プレイ権利消滅の事前告知（`quizeum-play-flow-ui`）。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
@@ -111,6 +115,7 @@
 - **Phase 10 スマートサジェスト**: `search_logs` コレクションの TTL・スキーマ変更、`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` のレスポンス形状変更、`searchQuizzes` の fire-and-forget ログ書き込み報啄ルール変更。
 - **Phase 13**: `User` の `subscriptionTier` / 課金関連フィールド追加、`resolveUserEntitlements` の tier 解釈変更、Checkout / Portal / Webhook API のリクエスト・レスポンス形状変更、`subscription-plans` マスタへの `premium` tier 追加。
 - **Phase 17**: `FREE_TIER_PER_QUIZ_LIMIT` / `FREE_TIER_GLOBAL_DAILY_LIMIT` の変更、`dailyAiTurnCounts/_global` doc 契約変更、`limit-exceeded` の `limitType` 追加、諦め API 応答形状変更（`revealText` 廃止）、`normalizeQuestionText` 規則変更。
+- **Phase 18**: `isLeaderboardEligibleAttempt` の除外モード集合変更、`countPriorCompletedAttempts` のカウント対象（全モード／test-play 除外）変更。
 
 ---
 
@@ -415,19 +420,27 @@ sequenceDiagram
     participant DB as Firestore
 
     Svc->>DB: トランザクション開始
-    Svc->>DB: 当該 userId+quizId の完了済み attempts 件数を取得（新規 attempt 作成前）
-    alt 完了済み件数 == 0（今回が初回完了）
-        Note over Svc: 対象 board = firstPlay
-    else 完了済み件数 >= 1（リプレイ）
-        Note over Svc: 対象 board = replay（firstPlay は変更しない）
+    Svc->>DB: 当該 userId+quizId の完了済み attempts 件数を取得（新規 attempt 作成前・**全モード**・test-play 除く）
+    alt 当該試行の mode が exam または flashcard
+        Note over Svc: LB 更新スキップ（attempt 保存・playCount++ のみ）
+    else 登録対象モード（normal / review / list / question-list / lateral 合格等）
+        alt 完了済み件数 == 0（今回が初回完了）
+            Note over Svc: 対象 board = firstPlay
+        else 完了済み件数 >= 1（リプレイ）
+            Note over Svc: 対象 board = replay（firstPlay は変更しない）
+        end
+        Svc->>Rank: isStrictlyBetter / mergeUserEntryAndTakeTop5
+        Rank-->>Svc: 更新後配列（最大5件）
+        Svc->>DB: leaderboardFirstPlay または leaderboardReplay 更新
     end
-    Svc->>Rank: isStrictlyBetter / mergeUserEntryAndTakeTop5
-    Rank-->>Svc: 更新後配列（最大5件）
-    Svc->>DB: attempts 作成、playCount++、leaderboardFirstPlay または leaderboardReplay 更新
-    Svc->>DB: コミット
+    Svc->>DB: attempts 作成、playCount++、コミット
 ```
 
-**フロー上の決定**: 全問正解チェックは行わない。ゲスト・`test-play` は LB 更新対象外（attempt 永続化自体が行われない）。
+**フロー上の決定（Phase 18 改定）**:
+- 全問正解チェックは行わない。ゲスト・`test-play` は LB 更新対象外（attempt 永続化自体が行われない）。
+- **`exam` / `flashcard`**: attempt は永続化するが、初回・リプレイいずれの LB も更新しない。
+- **prior 件数カウント**: LB 登録対象の試行を保存するときのみ `countPriorCompletedAttempts` を呼ぶが、カウント対象は**モードを問わない**完了済み永続化試行（test-play 除く）。先に exam/flashcard のみ完了したユーザーは、次の normal 等で prior >= 1 となり **replay のみ**更新される。
+- **`verify-truth`**: 合格完了時も同一 `buildLeaderboardUpdatesForQuiz` 経路。prior 件数はトランザクション前に全モードで集計（既存実装を維持）。
 
 ### 水平思考クイズ（ウミガメのスープ）ステートフルAI質問対話フロー
 
@@ -634,14 +647,19 @@ sequenceDiagram
 | 3.5         | プレイ結果画面（良問評価・難易度投票）                | `ReviewService`                    | `submitReview`                              | -                               |
 | 3.6         | 永続化試行保存とLB更新委譲                            | `AttemptService`                   | `saveAttempt`                               | リーダーボード更新フロー        |
 | 3.7         | 弱点克服ジャンルフィルタ（マージ展開）                | `AttemptService`                   | `getFailedQuestions`                        | -                               |
-| 9.1         | 永続化完了時のLB評価                                  | `AttemptService`                   | `saveAttempt`                               | リーダーボード更新フロー        |
-| 9.2         | 初回完了は firstPlay のみ                             | `AttemptService`                   | `saveAttempt` (tx)                          | リーダーボード更新フロー        |
-| 9.3         | 2回目以降は replay のみ                               | `AttemptService`                   | `saveAttempt` (tx)                          | リーダーボード更新フロー        |
-| 9.4         | 正解数優先・同点タイム順                              | `leaderboard-ranking.ts`           | `compareLeaderboard`                        | -                               |
-| 9.5         | ユーザー1枠・厳密優位時のみ差し替え                   | `leaderboard-ranking.ts`           | `mergeUserEntryAndTakeTop5`                 | -                               |
-| 9.6         | 上位5件保持                                           | `leaderboard-ranking.ts`           | `mergeUserEntryAndTakeTop5`                 | -                               |
-| 9.7         | 全問正解不要                                          | `AttemptService`                   | `saveAttempt`                               | -                               |
-| 9.8         | ウミガメ合格時の同一LB規則                            | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 9.1         | 永続化完了時のLB評価（登録対象モードのみ）                        | `leaderboard-update.ts`            | `isLeaderboardEligibleAttempt`              | リーダーボード更新フロー        |
+| 9.2         | exam/flashcard は LB 非登録                                       | `leaderboard-update.ts`            | `isLeaderboardEligibleAttempt`              | リーダーボード更新フロー        |
+| 9.3         | prior 件数は全モード（test-play 除く）                            | `AttemptService`, `verify-truth`   | `countPriorCompletedAttempts`               | リーダーボード更新フロー        |
+| 9.4         | prior 0 → firstPlay のみ                                          | `leaderboard-ranking.ts`           | `resolveLeaderboardBoard`                   | リーダーボード更新フロー        |
+| 9.5         | prior >= 1 → replay のみ                                          | `leaderboard-ranking.ts`           | `resolveLeaderboardBoard`                   | リーダーボード更新フロー        |
+| 9.6         | exam 先 → 通常は replay のみ                                      | `AttemptService`                   | `saveAttempt` (tx)                          | リーダーボード更新フロー        |
+| 9.7         | 正解数優先・同点タイム順                                          | `leaderboard-ranking.ts`           | `compareLeaderboard`                        | -                               |
+| 9.8         | ユーザー1枠・厳密優位時のみ差し替え                               | `leaderboard-ranking.ts`           | `mergeUserEntryAndTakeTop5`                 | -                               |
+| 9.9         | 上位5件保持                                                       | `leaderboard-ranking.ts`           | `mergeUserEntryAndTakeTop5`                 | -                               |
+| 9.10        | 全問正解不要                                                      | `AttemptService`                   | `saveAttempt`                               | -                               |
+| 9.11        | ウミガメ合格時の同一LB規則                                        | `VerifyTruthAPI`                   | `/api/attempt/verify-truth`                 | 真相判定フロー                  |
+| 9.12        | review/list/question-list は引き続き登録対象                      | `leaderboard-update.ts`            | `isLeaderboardEligibleAttempt`              | -                               |
+| 9.13–9.14   | モード選択警告 UI は Out                                          | —                                  | `quizeum-play-flow-ui`                      | Out of boundary                 |
 | 10.1        | 本人履歴・完了日時降順                                | `AttemptService` / PlayHistoryAPI  | `listUserPlayHistory`                       | -                               |
 | 10.2        | test-play 除外                                        | `AttemptService`                   | `listUserPlayHistory`                       | -                               |
 | 10.3        | 表示用メタデータ                                      | `AttemptService`                   | `listUserPlayHistory`                       | -                               |
@@ -728,8 +746,9 @@ sequenceDiagram
 | `quiz-tag-match`            | Lib          | クイズ×タグの canonical/legacy 照合（AND 用）                          | 16.7, 16.8                                       | normalizeTag (P0)                                                                     | Pure functions        |
 | `quiz-format-match`         | Lib          | クイズ×出題形式の一致判定（`resolveQuizFormat` 使用）                  | 17.1, 17.6                                       | quiz-format (P0)                                                                      | Pure functions        |
 | `TagMergeService`           | Service      | マージ投票・ジャンル新設（`tagMerge.ts`）                              | 7.4–7.8, 11.7                                    | Firestore (P0)                                                                        | Service, State        |
-| `leaderboard-ranking`       | Lib          | LB順位比較・マージ・top5                                               | 9.4, 9.5, 9.6                                    | -                                                                                     | Pure functions        |
-| `AttemptService`            | Service      | 解答永続化、LB更新、本人プレイ履歴、オフライン同期                     | 3.1, 3.2, 3.3, 3.4, 3.6, 5.5, 9.1–9.7, 10.1–10.3 | Firestore (P0), LocalStore (P1), leaderboard-ranking (P0)                             | Service, State, Batch |
+| `leaderboard-ranking`       | Lib          | LB順位比較・マージ・top5・board 振り分け                               | 9.4, 9.5, 9.6, 9.7–9.9                       | -                                                                                     | Pure functions        |
+| `leaderboard-update`        | Lib          | LB 登録対象判定・更新ペイロード組み立て                                | 9.1, 9.2, 9.12                               | leaderboard-ranking (P0)                                                              | Pure functions        |
+| `AttemptService`            | Service      | 解答永続化、LB更新、本人プレイ履歴、オフライン同期                     | 3.1, 3.2, 3.3, 3.4, 3.6, 5.5, 9.1–9.11, 10.1–10.3 | Firestore (P0), LocalStore (P1), leaderboard-update (P0), leaderboard-ranking (P0)  | Service, State, Batch |
 | `/api/genres/weekly-top`    | API Route    | 週間人気ジャンル Top5 集計（attemptsコレクションかまの直近 7日間集計） | 18.1–18.5                                        | Firestore Admin SDK (P0)                                                              | HTTP GET, 30min cache |
 | `/api/search/weekly-top`    | API Route    | 週間人気ワード／タグ Top5 集計（search_logsから）                      | 18.6–18.10                                       | Firestore Admin SDK (P0)                                                              | HTTP GET, 30min cache |
 | `search-log`                | Lib          | fire-and-forget 検索ログ書き込み                                       | 18.11–18.13                                      | Firestore (P0)                                                                        | Pure function + IO    |
@@ -947,8 +966,8 @@ export function applyFormatFilter(
 ```
 
 #### `leaderboard-ranking`（純関数ライブラリ）
-- **Intent**: 要件9の順位規則を単一実装に集約し、`saveAttempt` と `verify-truth` の重複を排除する。
-- **Requirements**: `9.4, 9.5, 9.6`
+- **Intent**: 要件9の順位規則および初回／リプレイ board 振り分けを単一実装に集約する。
+- **Requirements**: `9.4, 9.5, 9.7–9.9`
 
 ```typescript
 export type LeaderboardBoard = 'firstPlay' | 'replay';
@@ -974,9 +993,32 @@ export function resolveLeaderboardBoard(priorCompletedAttemptCount: number): Lea
 ```
 - **Invariants**: ソートは `score` 降順 → `elapsedSeconds` 昇順。返却配列は最大5要素。同一 `userId` は最大1件。
 
+#### `leaderboard-update`（純関数ライブラリ）
+- **Intent**: LB 登録対象モードの判定と、`saveAttempt` / `verify-truth` 共通の更新ペイロード組み立てを集約する（Phase 18）。
+- **Requirements**: `9.1, 9.2, 9.3, 9.6, 9.12`
+
+```typescript
+/** guest / test-play / exam / flashcard を除外。review, list, question-list, normal 等は対象 */
+export function isLeaderboardEligibleAttempt(
+  attempt: Pick<Attempt, 'userId' | 'mode'>
+): boolean;
+
+export function buildLeaderboardUpdatesForQuiz(
+  quiz: Quiz,
+  priorCompletedCount: number,
+  entry: LeaderboardRecord,
+  mode: Attempt['mode']
+): { board: LeaderboardBoard; updates: LeaderboardFieldUpdates } | null;
+```
+
+- **Invariants**:
+  - `exam` / `flashcard` は `null` を返し LB フィールド更新なし。
+  - `priorCompletedCount` は呼び出し元が**全モード**の完了件数（test-play 除く）を渡す。`resolveLeaderboardBoard(priorCompletedCount)` で `firstPlay` / `replay` を決定。
+  - 登録対象外モードでも attempt 永続化・`playCount++` は `AttemptService` 側で継続（本モジュールは LB 更新のみ担当）。
+
 #### `AttemptService`
 - **Intent**: プレイ結果の永続化、トランザクション内リーダーボード更新、本人プレイ履歴クエリ、オフライン同期。
-- **Requirements**: `3.1, 3.2, 3.3, 3.4, 3.6, 5.5, 9.1–9.7, 10.1–10.3`
+- **Requirements**: `3.1, 3.2, 3.3, 3.4, 3.6, 5.5, 9.1–9.11, 10.1–10.3`
 
 ```typescript
 export interface AttemptService {
@@ -1007,7 +1049,10 @@ export interface PlayHistoryPage {
 }
 ```
 - **Preconditions (`saveAttempt`)**: `userId` がゲストでないこと。`score` / `totalQuestions` / `failedQuestionIds` の整合性検証は現行どおり。
-- **Postconditions (`saveAttempt`)**: トランザクション内で prior 完了件数に基づき `firstPlay` または `replay` を更新。新記録が既存ユーザーエントリより優位でない場合は当該ユーザーのエントリは差し替えないが、他ユーザーとの競合で top5 から外れる可能性は許容する。
+- **Postconditions (`saveAttempt`)**: トランザクション内で prior 完了件数（全モード・test-play 除く）に基づき、**登録対象モードのみ** `firstPlay` または `replay` を更新。`exam` / `flashcard` は attempt 保存のみ。
+- **Implementation Notes（Phase 18）**:
+  - `countPriorCompletedAttempts` は LB 登録対象試行保存時のみ呼び出すが、フィルタは `completedAt != null` のみ（モード不問）。
+  - 既存の `priorCompletedCount = isLeaderboardEligible ? count(...) : 0` パターンを維持。exam 保存時は count 不要（LB スキップ）。
 - **Implementation Notes**: クイズタイトルは `quizzes` を `quizId` でバッチ取得して `PlayHistoryEntry` に埋める。カーソルは `completedAt` + `attemptId` の不透明エンコード（例: Base64 JSON）。
 - **Phase 6 (`getFailedQuestions`)**: `genreFilter` 指定時は `expandGenreIdsForQuery(genreFilter)` で ID 集合を得て、`quiz.genre` または `quiz.canonicalGenreId` が集合に含まれるかでフィルタ。
 
@@ -1534,6 +1579,7 @@ function canDeleteQuestionDoc(
 - **リーダーボード順位**: `compareLeaderboardRecords` が正解数優先・同点タイム短い方上位を満たすこと。
 - **リーダーボードマージ**: 同一ユーザーの非優位記録で差し替えないこと、優位記録で差し替えること、5件超過時に下位が落ちること。
 - **`resolveLeaderboardBoard`**: prior 件数 0 → `firstPlay`、1以上 → `replay`。
+- **`isLeaderboardEligibleAttempt`（Phase 18）**: `exam` / `flashcard` が `false` であること。`normal` / `review` / `list` が `true` であること。
 - **タグ正規化の検証**: `normalizeTag` が全半角トリム、小文字化、記号排除を完璧に行うかを検証。
 - **称号バッジ条件判定**: 累計プレイ数が条件（例：100回）を満たした際に、正確に該当バッジを配列に追加するロジックをモック検証。
 - **同一質問キャッシュの検証（Phase 17）**: `normalizeQuestionText` により表記ゆれ一致時に AI を呼び出さず、クイズ別・横断・`aiTurnCount` いずれも増加しないこと。
@@ -1549,8 +1595,11 @@ function canDeleteQuestionDoc(
 - **canDeleteQuestionDoc**: 他クイズが `questionIds` に含むとき `false`。
 
 ### Integration Tests
-- **初回プレイLB**: 1回目の `saveAttempt` が `leaderboardFirstPlay` のみ更新し `leaderboardReplay` を変更しないこと。
-- **リプレイLB**: 2回目の `saveAttempt` が `leaderboardReplay` のみ更新し、初回LB上の当該ユーザー行を変更しないこと。
+- **初回プレイLB**: 1回目の `saveAttempt`（`mode: normal`）が `leaderboardFirstPlay` のみ更新し `leaderboardReplay` を変更しないこと。
+- **リプレイLB**: 2回目の `saveAttempt`（`mode: normal`）が `leaderboardReplay` のみ更新し、初回LB上の当該ユーザー行を変更しないこと。
+- **exam/flashcard 非登録（Phase 18）**: `mode: exam` または `flashcard` の `saveAttempt` 後、両 LB 配列が更新されないこと（`playCount` は増加）。
+- **exam 先 → 通常は replay のみ（Phase 18）**: 同一 user+quiz で exam 完了後に normal 完了すると、`leaderboardReplay` のみ更新され `leaderboardFirstPlay` は空のままであること。
+- **normal 先 → exam → normal**: 初回 normal で firstPlay 登録後、exam は LB 不変、3回目 normal は replay のみ更新すること。
 - **本人プレイ履歴API**: 有効トークンで 200、他ユーザー指定相当の不正アクセスで 403、test-play 除外を検証。
 - **退会時非同期クレンジング**: API Routeに退会リクエストを送信し、Auth物理削除完了とCloud Tasksへのジョブ登録、およびFirestore匿名化が整合性高く動作することを検証。
 - **ウミガメスープ AI 意味的真相判定（Phase 14）**:
@@ -2266,3 +2315,77 @@ export function checkAiTurnLimits(input: AiTurnLimitCheckInput): AiTurnLimitChec
 | クライアント/server 正規化不一致 | `normalizeQuestionText` を `ask-ai-utils` に単一化し双方 import |
 | `listId` 未伝播で 4.23 未達 | lateral attempt 作成時に URL `listId` を必ず引き継ぐ |
 | 結果画面での真相表示 | 要件はプレイ画面のみ明示。結果画面は真相を出さない現行方針を維持（別途確認可） |
+
+---
+
+## Phase 18: 模擬試験・フラッシュカード LB 非対象（2026-06-09）
+
+### 1. Boundary Commitments
+
+| Owns | Out of Boundary |
+|------|-----------------|
+| `isLeaderboardEligibleAttempt` の `exam` / `flashcard` 除外 | クイズ詳細の警告 UI（`quizeum-play-flow-ui`） |
+| prior 件数の全モードカウント契約（`countPriorCompletedAttempts`） | プラットフォーム総合 `/leaderboard` |
+| `saveAttempt` / `verify-truth` の LB 更新分岐 | 既存 LB 表示 UI・E2E（play-flow 側は警告のみ追加） |
+| `tests/lib/leaderboard-update.test.ts`（新規） | docs 同期（Direct Implementation 可） |
+
+### 2. Design Decision
+
+**採用: 単一関数拡張（Option A）**
+
+`leaderboard-update.ts` の `isLeaderboardEligibleAttempt` に `exam` / `flashcard` を追加除外するのみ。prior 件数は既存 `countPriorCompletedAttempts`（モード不問）を維持し、初回権利消滅を自然に実現する。
+
+| Option | 説明 | 不採用理由 |
+|--------|------|-----------|
+| A. `isLeaderboardEligibleAttempt` 拡張 | 最小差分、既存フロー維持 | — **採用** |
+| B. 別途 `countRankingEligibleAttempts` | 登録対象モードのみカウント | exam 先プレイ後の replay 振り分けが破綻 |
+| C. `firstPlayConsumed` ユーザーフラグ | 明示的権利消滅 | スキーマ追加・マイグレーション過大 |
+
+### 3. File Structure Plan（Phase 18）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/lib/leaderboard-update.ts` | **Modify** | `exam` / `flashcard` 除外、`buildLeaderboardUpdatesForQuiz` 契約維持 |
+| `src/services/attempt.ts` | **Verify** | prior count 呼び出し条件は現状維持（変更不要想定） |
+| `src/app/api/attempt/verify-truth/route.ts` | **Verify** | prior 全モードカウントは現状維持 |
+| `tests/lib/leaderboard-update.test.ts` | **New** | モード別 eligibility、build 結果 null/非 null |
+| `tests/services/attempt-leaderboard.test.ts` | **Modify** | exam 非登録、exam→normal replay の統合ケース |
+
+### 4. Requirements Traceability（Phase 18）
+
+| Req | Summary | Component | Notes |
+|-----|---------|-----------|-------|
+| 9.1 | 登録対象のみ LB 評価 | `isLeaderboardEligibleAttempt` | |
+| 9.2 | exam/flashcard 非登録 | 同上 | 両 board 対象外 |
+| 9.3 | 除外モード集合 | 同上 | guest, test-play, exam, flashcard |
+| 9.4–9.5 | prior 全モード → board | `countPriorCompletedAttempts` + `resolveLeaderboardBoard` | |
+| 9.6 | exam 先 → replay のみ | `saveAttempt` 統合テスト | |
+| 9.7–9.11 | 順位規則・ウミガメ | 既存 Phase 5 資産 | 変更なし |
+| 9.12 | review/list 等は対象維持 | `isLeaderboardEligibleAttempt` | 明示テスト |
+| 9.13–9.14 | 警告 UI Out | play-flow-ui | |
+
+### 5. Testing Strategy（Phase 18）
+
+**Unit（`leaderboard-update.test.ts`）**
+- `isLeaderboardEligibleAttempt({ mode: 'exam' })` → `false`
+- `isLeaderboardEligibleAttempt({ mode: 'flashcard' })` → `false`
+- `isLeaderboardEligibleAttempt({ mode: 'normal' })` → `true`（認証済 userId）
+- `buildLeaderboardUpdatesForQuiz(..., mode: 'exam')` → `null`
+
+**Integration（`attempt-leaderboard.test.ts`）**
+- exam 完了後 `leaderboardFirstPlay` / `leaderboardReplay` いずれも undefined
+- exam → normal: replay のみ更新、firstPlay 空
+
+**Regression**
+- 既存初回／リプレイ LB テスト（normal のみ）維持
+
+### 6. Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| 既存 exam 完了データが LB に残存 | 本フェーズは新規更新のみ制御。過去データの手動削除は Out |
+| verify-truth と saveAttempt の prior 集計差異 | verify-truth は既に全モードカウント。saveAttempt も count 関数はモード不問で統一 |
+
+**Effort**: **XS**（半日）— 1 関数 + テスト追加
+
+**Document Status（Phase 18 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。

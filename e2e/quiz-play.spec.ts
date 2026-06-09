@@ -68,6 +68,7 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
 
     // 4. クイズ詳細画面からプレイを開始する
     await expect(page).toHaveURL(/\/quiz\//);
+    await expect(page.getByTestId('play-mode-leaderboard-warning')).toBeVisible();
     const startPlayBtn = page.locator('text=プレイを開始する');
     await expect(startPlayBtn).toBeVisible();
     await startPlayBtn.click();

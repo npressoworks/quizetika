@@ -300,17 +300,14 @@ export function usePlayState({
       const result = recordAnswer(answerTextOrChoiceId);
       if (!result) return;
 
-      if (!manualAdvance && mode !== 'exam') {
+      if (!manualAdvance) {
         setFeedbackPending(false);
         setLastAnswerResult(null);
-        if (currentIdx < questions.length - 1) {
-          setCurrentIdx((prev) => prev + 1);
-        } else {
-          setShowAnswer(false);
-        }
+        setShowAnswer(false);
+        setCurrentIdx((prev) => (prev < questions.length - 1 ? prev + 1 : prev));
       }
     },
-    [recordAnswer, manualAdvance, mode, currentIdx, questions.length]
+    [recordAnswer, manualAdvance, questions.length]
   );
 
   useEffect(() => {

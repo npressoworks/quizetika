@@ -115,6 +115,58 @@ describe('usePlayState manualAdvance', () => {
   });
 });
 
+describe('usePlayState exam mode', () => {
+  beforeEach(() => {
+    localStorageMock.clear();
+    jest.clearAllMocks();
+  });
+
+  test('回答確定後に次の問題へ自動で進む', () => {
+    const { result } = renderHook(() =>
+      usePlayState({
+        quizId: 'quiz-1',
+        userId: 'user-1',
+        mode: 'exam',
+        questions,
+        persistSession: false,
+        manualAdvance: false,
+      })
+    );
+
+    act(() => {
+      result.current.handleAnswerSubmit('wrong');
+    });
+
+    expect(result.current.currentIdx).toBe(1);
+    expect(result.current.feedbackPending).toBe(false);
+    expect(result.current.answeredIds).toContain('q1');
+  });
+
+  test('最終問回答後は currentIdx を維持し isFinished になる', () => {
+    const { result } = renderHook(() =>
+      usePlayState({
+        quizId: 'quiz-1',
+        userId: 'user-1',
+        mode: 'exam',
+        questions,
+        persistSession: false,
+        manualAdvance: false,
+      })
+    );
+
+    act(() => {
+      result.current.handleAnswerSubmit('answer1');
+    });
+
+    act(() => {
+      result.current.handleAnswerSubmit('answer2');
+    });
+
+    expect(result.current.currentIdx).toBe(1);
+    expect(result.current.isFinished).toBe(true);
+  });
+});
+
 describe('usePlayState flashcard', () => {
   beforeEach(() => {
     localStorageMock.clear();

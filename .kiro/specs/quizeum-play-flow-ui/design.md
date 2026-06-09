@@ -38,8 +38,18 @@
 - **Phase 13**: 難易度の5段階化（1〜10から1〜5への変更）に合わせて、詳細画面・結果画面・クイズカードの星ゲージ表示と難易度投票の選択肢を1〜5に変更し、HSLカラー算出も5分割に適合させます。
 - **Phase 14**: 結果画面の問題ごと回答・解説アコーディオン（初期 closed）、体感難易度投票の ★ クリック UI、`ResultQuestionDetailsAccordion` / `DifficultyVoteStars` コンポーネント抽出。
 
-**Phase 14（2026-06-08）**: クイズ結果画面（本番・テストプレイ）において、各問題の回答サマリーと解説（および連想／ウミガメの結果詳細）をアコーディオン化（初期は閉じた状態）し、体感難易度投票 UI をクリック可能な ★5個に置き換える。`difficultyVote` 永続化は既存 `handleDifficultyVote` / Firestore `updateDoc` を維持。
+**Phase 16（2026-06-09）**: 早押し形式（`quick-press`）の通常モードプレイにおける、区間累計の経過時間計測・問読み修了後の制限時間カウントダウン開始・不正解時の正解非表示・問題カードの初期レイアウト拡大を改定する。早押しタイム（押下〜回答秒数）の既存仕様は維持する。
 
+**Phase 19（2026-06-09）**: クイズ詳細のプレイモード選択パネルに、模擬試験・フラッシュカードがクイズ単位リーダーボード（初回プレイ・リプレイ）の対象外であること、および先にこれらでプレイした場合は以降の通常モードでも初回プレイランキングに掲載されない旨の警告を表示する（LB 登録ルールは `quizeum-core` Phase 18）。
+
+### Goals
+- 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
+- プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
+- ウミガメのスーププレイにおける、2カラムレイアウトおよびAI回答生成中の「・・・AIが質問を分析中です」（グレー文字表示）を含むリッチなチャットインタラクション。
+- クイズ完了後の👍/👎評価、難易度投票、クローズド間違い指摘、作成者フォローボタン表示UIの実装。
+- オフライン時におけるプレイ進行・結果確認のフォールバック処理。
+- クイズ作成者本人に対する編集動線UIの提供、および他ユーザーによる直接編集URLアクセス時の認可保護（ガード）。
+- **Phase 19**: 模擬試験・フラッシュカードのランキング非対象を、プレイ開始前のモード選択画面で明示する。
 
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizeum-creator-dash-ui` に委ねます）。
@@ -80,12 +90,14 @@
 - **結果画面のアクション強化 (Phase 12)**: 結果サマリーカード上のクイズ全体のブックマークトグル、指摘モーダルの全体指摘時「別解の追加」カテゴリ非表示、指摘ボタン横の通報ボタン表示と通報モーダル連携。
 - **結果画面の回答・解説アコーディオン (Phase 14)**: 各問題行の回答サマリー・解説・ヒント履歴の折りたたみ（初期 closed）、問題ごとの独立開閉状態。
 - **体感難易度投票 ★ UI (Phase 14)**: 数値ボタングリッドの廃止、クリック可能な ★5個、`getDifficultyColor` によるグラデーション表示、オフライン非活性。
+- **模擬試験・フラッシュカード LB 警告（Phase 19）**: プレイモード選択パネル内の静的警告文、`data-testid="play-mode-leaderboard-warning"`、早押し固定・ウミガメ専用 UI では非表示。
 
 
 ### Out of Boundary
 - Gemini APIとの対話やプロンプト生成のバックエンドロジック本体。
 - 認証状態の監視およびユーザープロフィールそのものの編集UI（`quizeum-auth-profile-ui`が担当）。
 - Firestore へのリーダーボード書き込み、`compareLeaderboardRecords` / `mergeUserEntryAndTakeTop5` の呼び出し（`quizeum-core`）。
+- **Phase 19**: LB 登録判定・初回／リプレイ振り分けロジック（`quizeum-core` Phase 18）。プレイ画面・結果画面での追加警告。
 
 ### Allowed Dependencies
 - **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
@@ -566,6 +578,7 @@ sequenceDiagram
 | 2.1          | クイズ詳細メタ情報表示                                                                          | `/quiz/[id]` Page                                                                   | `QuizService`                                    | -                                          |
 | 2.2          | 良問評価バッジとマスク制御                                                                      | `/quiz/[id]` Page                                                                   | `ReviewService`                                  | -                                          |
 | 2.3          | 3つのプレイモード選択UI                                                                         | `/quiz/[id]` Page                                                                   | Mode Panel                                       | -                                          |
+| 2.3a         | LB 非対象警告（exam/flashcard）                                                                 | `QuizDetailClient`                                                                  | `play-mode-leaderboard-warning`                  | -                                          |
 | 2.4          | プレイ画面へのリダイレクト遷移                                                                  | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
 | 2.5          | 作成者本人用「クイズ編集」ボタンの表示                                                          | `/quiz/[id]` Page                                                                   | `useAuth`                                        | -                                          |
 | 2.6          | 編集ボタンクリック時のクイズ編集画面遷移                                                        | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
@@ -2292,4 +2305,71 @@ sequenceDiagram
 | **Generalization** | `QuestionElapsedPolicy` で早押し／標準を統一インターフェース化。実装は 2 分岐のみ |
 | **Build vs Adopt** | 新規 npm 依存なし。`play-elapsed.ts` は既存 `useElapsedSeconds` パターンの純関数抽出 |
 | **Simplification** | `PostAnswerFeedback` は変更せず呼び出し側で正解非表示。専用フラグ prop は追加しない |
+
+---
+
+## Phase 19: 模擬試験・フラッシュカード LB 警告（2026-06-09）
+
+### 1. Boundary Commitments
+
+| Owns | Out of Boundary |
+|------|-----------------|
+| クイズ詳細プレイパネル内の警告文表示 | LB 登録ロジック（`quizeum-core` Phase 18） |
+| 警告の表示条件（3モード UI 表示時のみ） | プレイ中・結果画面での再警告 |
+| `page.module.css` の警告スタイル | docs 同期（任意） |
+| E2E / component testid | |
+
+### 2. UI Design
+
+**配置**: `QuizDetailClient` の `.playPanel` 内、3モード選択ブロック（通常・模擬試験・フラッシュカード）の**直上**に共通注意ブロックを1つ配置。
+
+**表示条件**:
+```typescript
+const showLeaderboardWarning =
+  !isLateralThinkingQuiz && !isQuickPressQuiz;
+```
+
+**文案（確定案）**:
+> 模擬試験モード・フラッシュカードモードの記録は、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。先にこれらのモードでプレイした場合、のちに通常モードでプレイしても初回プレイランキングには掲載されません（リプレイランキングのみ対象となります）。
+
+**スタイル**: クラス `.modeLeaderboardWarning`（`page.module.css`）。琥珀系ボーダー + `AlertTriangle` アイコン。
+
+**Markup**:
+```tsx
+<div
+  className={styles.modeLeaderboardWarning}
+  data-testid="play-mode-leaderboard-warning"
+>
+  <AlertTriangle size={16} aria-hidden />
+  <p>{/* 文案 */}</p>
+</div>
+```
+
+### 3. File Structure Plan（Phase 19）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/app/quiz/[id]/quiz-detail-client.tsx` | **Modify** | 警告ブロック条件付きレンダリング |
+| `src/app/quiz/[id]/page.module.css` | **Modify** | `.modeLeaderboardWarning` |
+| `e2e/learning-support.spec.ts` または `e2e/quiz-play.spec.ts` | **Modify** | 警告 testid 存在確認 |
+
+### 4. Requirements Traceability（Phase 19）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 19.1–19.2 | 表示条件 | `QuizDetailClient` |
+| 19.4–19.5 | 文案・配置 | 同上 |
+| 19.9 | testid | `play-mode-leaderboard-warning` |
+| 2.3a | 要件 2 追記 | 同上 |
+
+### 5. Testing Strategy（Phase 19）
+
+| 種別 | 検証 |
+|------|------|
+| **Component** | 通常クイズで警告表示、ウミガメ・早押しで非表示 |
+| **E2E** | `[data-testid="play-mode-leaderboard-warning"]` visible |
+
+**Effort**: **XS**（半日）
+
+**Document Status（Phase 19 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。
 

@@ -14,6 +14,9 @@ export function isLeaderboardEligibleAttempt(
   if (attemptData.mode === 'test-play') {
     return false;
   }
+  if (attemptData.mode === 'exam' || attemptData.mode === 'flashcard') {
+    return false;
+  }
   return true;
 }
 

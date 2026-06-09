@@ -931,3 +931,15 @@ Phase 11 目標:
 | Effort | **S**（1〜2 日） |
 | Risk | **Low** — 新規依存なし、Core API 不変 |
 
+---
+
+## Phase 19: 模擬試験・フラッシュカード LB 警告（2026-06-09）
+
+### Summary
+`QuizDetailClient` のプレイパネルに静的警告を追加。Core Phase 18 の LB ルールをユーザーへ事前告知するのみ。ロジック変更なし。
+
+### Design Decisions
+1. 共通注意ブロック1つ（モード説明への分散挿入なし）。
+2. 早押し固定・ウミガメ専用 UI では警告非表示（該当モード選択 UI が無いため）。
+
+**Document Status（Phase 19 設計）**: `design.md` Phase 19 節に反映済。
