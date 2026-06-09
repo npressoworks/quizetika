@@ -36,6 +36,39 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(bottomNav).toBeVisible();
   });
 
+  test('PC sidebar search navigates to /search with correct active state', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto('/');
+
+    const homeLink = page.getByTestId('nav-home');
+    const searchLink = page.getByTestId('nav-search');
+
+    await expect(homeLink).toHaveAttribute('class', /active/);
+    await expect(searchLink).not.toHaveAttribute('class', /active/);
+
+    await searchLink.click();
+    await expect(page).toHaveURL(/\/search(?:\?.*)?$/);
+
+    await expect(searchLink).toHaveAttribute('class', /active/);
+    await expect(homeLink).not.toHaveAttribute('class', /active/);
+  });
+
+  test('Mobile bottom nav search navigates to /search with correct active state', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto('/');
+
+    const homeLink = page.getByTestId('bottom-nav-home');
+    const searchLink = page.getByTestId('bottom-nav-search');
+
+    await expect(homeLink).toHaveAttribute('class', /active/);
+
+    await searchLink.click();
+    await expect(page).toHaveURL(/\/search(?:\?.*)?$/);
+
+    await expect(searchLink).toHaveAttribute('class', /active/);
+    await expect(homeLink).not.toHaveAttribute('class', /active/);
+  });
+
   test('Play page (/quiz/[id]/play) hides all navigation elements on all viewports', async ({ page }) => {
     // プレイ画面にアクセス (テスト用の仮クイズID)
     await page.goto('/quiz/test-quiz-id/play');

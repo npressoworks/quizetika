@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronUp,
   Home,
+  Search,
   Sparkles,
 } from 'lucide-react';
 import styles from './sidebar.module.css';
@@ -40,8 +41,17 @@ export const Sidebar: React.FC = () => {
     }
   };
 
+  const isNavItemActive = (href: string): boolean => {
+    if (href === '/') return pathname === '/';
+    if (href === '/search') {
+      return pathname === '/search' || (pathname?.startsWith('/search/') ?? false);
+    }
+    return pathname === href;
+  };
+
   const menuItems = [
-    { href: '/', label: 'ホーム', icon: <Home size={22} /> },
+    { href: '/', label: 'ホーム', icon: <Home size={22} />, testId: 'nav-home' },
+    { href: '/search', label: '検索', icon: <Search size={22} />, testId: 'nav-search' },
     { href: '/pricing', label: 'Proプラン', icon: <Sparkles size={22} /> },
   ];
 
@@ -65,12 +75,13 @@ export const Sidebar: React.FC = () => {
       {/* Navigation Links */}
       <nav className={styles.navMenu}>
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = isNavItemActive(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`${styles.navLink} ${isActive ? styles.active : ''}`}
+              {...(item.testId ? { 'data-testid': item.testId } : {})}
             >
               <span className={styles.iconWrapper}>{item.icon}</span>
               <span className={styles.label}>{item.label}</span>

@@ -14,7 +14,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 // Mock auth context
-let mockUser: any = null;
+let mockUser: { id: string; avatarUrl?: string; displayName?: string } | null = null;
 jest.mock('@/context/auth-context', () => ({
   useAuth: () => ({
     user: mockUser,
@@ -28,36 +28,54 @@ describe('BottomNav Component', () => {
     mockUser = null;
   });
 
-  it('未ログイン時はホームへのリンクのみを表示する', () => {
+  it('未ログイン時はホームと検索の2リンクを表示する', () => {
     mockUser = null;
     render(<BottomNav />);
-    
-    expect(screen.getByRole('link')).toBeInTheDocument();
-    // ラベルが存在しないか、もしくはアイコンのaria-label/テキストなどで「ホーム」のみであることを確認
+
     const links = screen.getAllByRole('link');
-    expect(links.length).toBe(1);
+    expect(links.length).toBe(2);
     expect(screen.getByTestId('bottom-nav-home')).toBeInTheDocument();
+    expect(screen.getByTestId('bottom-nav-search')).toBeInTheDocument();
     expect(screen.queryByTestId('bottom-nav-notifications')).not.toBeInTheDocument();
   });
 
-  it('ログイン時はホーム、通知、ブックマーク、プロフィールの4リンクを表示する', () => {
+  it('ログイン時はホーム、検索、通知、ブックマーク、プロフィールの5リンクを表示する', () => {
     mockUser = { id: 'user-123', avatarUrl: 'avatar.png' };
     render(<BottomNav />);
-    
+
     const links = screen.getAllByRole('link');
-    expect(links.length).toBe(4);
-    
+    expect(links.length).toBe(5);
+
     expect(screen.getByTestId('bottom-nav-home')).toBeInTheDocument();
+    expect(screen.getByTestId('bottom-nav-search')).toBeInTheDocument();
     expect(screen.getByTestId('bottom-nav-notifications')).toBeInTheDocument();
     expect(screen.getByTestId('bottom-nav-bookmarks')).toBeInTheDocument();
     expect(screen.getByTestId('bottom-nav-profile')).toBeInTheDocument();
+  });
+
+  it('/ ではホームのみ active', () => {
+    mockUser = null;
+    mockPathname = '/';
+    render(<BottomNav />);
+
+    expect(screen.getByTestId('bottom-nav-home')).toHaveClass('active');
+    expect(screen.getByTestId('bottom-nav-search')).not.toHaveClass('active');
+  });
+
+  it('/search では検索のみ active', () => {
+    mockUser = null;
+    mockPathname = '/search';
+    render(<BottomNav />);
+
+    expect(screen.getByTestId('bottom-nav-search')).toHaveClass('active');
+    expect(screen.getByTestId('bottom-nav-home')).not.toHaveClass('active');
   });
 
   it('アクティブなパスに合致するアイテムがハイライト表示される', () => {
     mockUser = { id: 'user-123', avatarUrl: 'avatar.png' };
     mockPathname = '/notifications';
     render(<BottomNav />);
-    
+
     const activeLink = screen.getByTestId('bottom-nav-notifications');
     expect(activeLink).toHaveClass('active');
   });

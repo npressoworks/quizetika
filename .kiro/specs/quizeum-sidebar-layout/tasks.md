@@ -76,3 +76,38 @@
   - *検証結果*: サイドバーおよびボトムナビの認証分岐に関する Jest テストスイートがパスすること。
   - _Requirements: 1.3, 1.4, 2.1, 2.2_
   - _Boundary: Sidebar, BottomNav_
+
+---
+
+## 5. Phase 22: ホーム／検索 IA 分離に伴うナビ更新（2026-06-09）
+
+- [x] 5.1 サイドバーへの検索導線と active 判定
+  - ホーム直後に「検索」（`/search`）メニュー項目を追加し、`Search` アイコンと `data-testid="nav-search"` を付与する
+  - ホーム項目に `data-testid="nav-home"` を付与する
+  - パスが `/` のときのみホームを active、`/search` のときのみ検索を active とし、両方同時ハイライトしないこと
+  - **完了状態**: Sidebar から `/search` へ遷移でき、各パスで正しい項目のみ active になること
+  - _Requirements: 1.1, 1.6, 1.7, 1.8, 1.9, 1.10, 5.1, 5.4_
+  - _Boundary: Sidebar_
+
+- [x] 5.2 ボトムナビへの検索導線と5アイコン配置
+  - ログイン時: ホーム・検索・通知・ブックマーク・プロフィールの5リンクを均等配置する
+  - 未ログイン時: ホーム・検索の2リンクを表示する
+  - `data-testid="bottom-nav-home"`（`/`）と `data-testid="bottom-nav-search"`（`/search`）を付与する
+  - `/` と `/search` でそれぞれ正しいリンクのみ active になること
+  - **完了状態**: 375px 幅で5（または2）アイコンが表示され、検索タップで `/search` へ遷移すること
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 5.3, 5.5_
+  - _Boundary: BottomNav_
+
+- [x] 5.3 (P) Phase 22 ナビ更新のテスト
+  - Sidebar / BottomNav の active 判定と検索リンク存在をコンポーネントテストで検証する
+  - 既存レイアウト E2E に `/search` 遷移と active 状態のアサーションを追加する
+  - **完了状態**: 関連 Jest / Playwright がグリーンであること
+  - _Requirements: 5.2, 5.6_
+  - _Depends: 5.1, 5.2_
+  - _Boundary: Testing_
+
+## Implementation Notes (Phase 22)
+
+- 実装順: 5.1 と 5.2 は並行可。5.3 は両方完了後。
+- ディスカバリーホーム・検索画面コンテンツは `quizeum-play-flow-ui` Phase 27 が担当。
+- ロゴリンクは引き続き `/` を正とする（要件 5.2）。

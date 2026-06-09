@@ -51,6 +51,7 @@ describe('Sidebar Component', () => {
     
     // ホーム・Proプランはあるが、通知やブックマーク、作問、ダッシュボードはないこと
     expect(screen.getByText('ホーム')).toBeInTheDocument();
+    expect(screen.getByText('検索')).toBeInTheDocument();
     expect(screen.getByText('Proプラン')).toBeInTheDocument();
     expect(screen.queryByText('通知')).not.toBeInTheDocument();
     expect(screen.queryByText('ブックマーク')).not.toBeInTheDocument();
@@ -71,6 +72,24 @@ describe('Sidebar Component', () => {
     // ログインユーザーのアバター・表示名が表示されること
     expect(screen.getByText('ななみ')).toBeInTheDocument();
     expect(screen.getByAltText('ななみ')).toBeInTheDocument();
+  });
+
+  it('/ ではホームのみ active', () => {
+    mockUser = null;
+    mockPathname = '/';
+    render(<Sidebar />);
+
+    expect(screen.getByTestId('nav-home')).toHaveClass('active');
+    expect(screen.getByTestId('nav-search')).not.toHaveClass('active');
+  });
+
+  it('/search では検索のみ active', () => {
+    mockUser = null;
+    mockPathname = '/search';
+    render(<Sidebar />);
+
+    expect(screen.getByTestId('nav-search')).toHaveClass('active');
+    expect(screen.getByTestId('nav-home')).not.toHaveClass('active');
   });
 
   it('現在のパスと一致するメニューがアクティブ表示になる', () => {

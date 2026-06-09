@@ -4,8 +4,16 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { Trophy, Bell, Bookmark, User as UserIcon } from 'lucide-react';
+import { Home, Search, Bell, Bookmark, User as UserIcon } from 'lucide-react';
 import styles from './bottom-nav.module.css';
+
+function isHomeActive(pathname: string | null): boolean {
+  return pathname === '/';
+}
+
+function isSearchActive(pathname: string | null): boolean {
+  return pathname === '/search' || (pathname?.startsWith('/search/') ?? false);
+}
 
 export const BottomNav: React.FC = () => {
   const { user } = useAuth();
@@ -18,34 +26,42 @@ export const BottomNav: React.FC = () => {
 
   return (
     <nav className={`${styles.bottomNav} glass-card`}>
-      <Link 
-        href="/" 
-        className={`${styles.navLink} ${pathname === '/' ? styles.active : ''}`}
+      <Link
+        href="/"
+        className={`${styles.navLink} ${isHomeActive(pathname) ? styles.active : ''}`}
         data-testid="bottom-nav-home"
       >
-        <Trophy size={22} />
+        <Home size={22} />
+      </Link>
+
+      <Link
+        href="/search"
+        className={`${styles.navLink} ${isSearchActive(pathname) ? styles.active : ''}`}
+        data-testid="bottom-nav-search"
+      >
+        <Search size={22} />
       </Link>
 
       {user ? (
         <>
-          <Link 
-            href="/notifications" 
+          <Link
+            href="/notifications"
             className={`${styles.navLink} ${pathname === '/notifications' ? styles.active : ''}`}
             data-testid="bottom-nav-notifications"
           >
             <Bell size={22} />
           </Link>
-          
-          <Link 
-            href="/bookmarks" 
+
+          <Link
+            href="/bookmarks"
             className={`${styles.navLink} ${pathname === '/bookmarks' ? styles.active : ''}`}
             data-testid="bottom-nav-bookmarks"
           >
             <Bookmark size={22} />
           </Link>
-          
-          <Link 
-            href={`/profile/${user.id}`} 
+
+          <Link
+            href={`/profile/${user.id}`}
             className={`${styles.navLink} ${pathname && pathname.includes(`/profile/${user.id}`) ? styles.active : ''}`}
             data-testid="bottom-nav-profile"
           >
