@@ -20,8 +20,8 @@ test.describe('Streaming / Suspense スケルトン E2E', () => {
       await playBtn.click();
       navigatedToDetail = true;
     } else {
-      await page.goto('/');
-      await expect(page.getByTestId('home-feed-skeleton')).toBeHidden({ timeout: 15000 });
+      await page.goto('/search');
+      await expect(page.getByTestId('search-feed-skeleton')).toBeHidden({ timeout: 15000 });
       const homePlayBtn = page.getByTestId('play-btn').first();
       if ((await homePlayBtn.count()) > 0) {
         await homePlayBtn.click();

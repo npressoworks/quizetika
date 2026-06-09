@@ -1103,7 +1103,7 @@
   - _Depends: 26.5_
   - _Boundary: Integration_
 
-- [ ]* 26.7 Phase 21 E2E スモーク（任意）
+- [x]* 26.7 Phase 21 E2E スモーク（任意）
   - Playwright でホームのスクロール追加読み込みと sticky 検索バーを検証する
   - _Requirements: 21.2, 21.10, 21.18_
   - _Depends: 26.6_
@@ -1187,7 +1187,7 @@
   - _Depends: 27.7, quizeum-sidebar-layout 5.3_
   - _Boundary: Integration_
 
-- [ ]* 27.9 Phase 22 E2E スモーク（任意）
+- [x]* 27.9 Phase 22 E2E スモーク（任意）
   - Playwright でディスカバリー「もっと見る」・ジャンルクリック・検索フィルタチップ常時表示を検証する
   - _Requirements: 22.6, 22.7, 22.8, 22.15, 22.24, 22.26_
   - _Depends: 27.8_
@@ -1197,6 +1197,7 @@
 
 - `GenreCarousel` は filter モードでも `useRouter` を呼ぶため、テストでは `next/navigation` のモックが必要。
 - 新着「もっと見る」は `serialize` 既定で `tab=latest` を省略するため、深いリンクは `/search?tab=latest` を明示指定。
+- Phase 21 E2E（26.7）は探索 UX 移設後 `/search` で無限スクロール・sticky を検証（`quiz-search.spec.ts` 内）。
 - 実装順: 27.1・27.2（並行）→ 27.3。27.4（移設）は 27.3 と並行可だが同一ファイル移動のため順序注意。27.5 は core 21.3 後。27.6 は 27.5 後。
 - `/` の正本はディスカバリーホーム、探索 UX の正本は `/search`（要件 1 Phase 22 改定）。
 - パーソナライズドおすすめ・ジャンル／タグ一覧 URL 共通化は対象外。
