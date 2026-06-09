@@ -81,18 +81,36 @@ export function ConnectionsClient() {
     }
   }, [uid, currentUser]);
 
-  const handleFollowToggle = async (targetId: string) => {
+  const handleFollowToggle = async (targetUser: User) => {
     if (!currentUser || togglingId) return;
-    setTogglingId(targetId);
+    setTogglingId(targetUser.id);
     try {
-      const isCurrentlyFollowing = !!myFollowingMap[targetId];
+      const isCurrentlyFollowing = !!myFollowingMap[targetUser.id];
       if (isCurrentlyFollowing) {
-        await unfollowUser(currentUser.id, targetId);
-        setMyFollowingMap(prev => ({ ...prev, [targetId]: false }));
+        await unfollowUser(currentUser.id, targetUser.id);
       } else {
-        await followUser(currentUser.id, targetId);
-        setMyFollowingMap(prev => ({ ...prev, [targetId]: true }));
+        await followUser(currentUser.id, targetUser.id);
       }
+
+      const [following, followers] = await Promise.all([
+        getFollowingUsers(uid),
+        getFollowerUsers(uid),
+      ]);
+      setFollowingList(following);
+      setFollowersList(followers);
+      setProfileUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              followingCount: following.length,
+              followersCount: followers.length,
+            }
+          : null
+      );
+      setMyFollowingMap((prev) => ({
+        ...prev,
+        [targetUser.id]: !isCurrentlyFollowing,
+      }));
     } catch (err) {
       console.error('Failed to toggle follow status in list:', err);
     } finally {
@@ -173,7 +191,7 @@ export function ConnectionsClient() {
                       {/* フォロートグルボタン (自分以外のユーザーカードにのみ表示) */}
                       {!isMe && currentUser && (
                         <button
-                          onClick={() => handleFollowToggle(targetUser.id)}
+                          onClick={() => handleFollowToggle(targetUser)}
                           disabled={isBtnToggling}
                           className={`btn ${isFollowedByMe ? 'btn-secondary' : 'btn-accent'} ${styles.followBtn}`}
                         >
