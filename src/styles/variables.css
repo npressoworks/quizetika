@@ -3,6 +3,8 @@
    ========================================================================== */
 
 :root {
+  --body-gradient-1: rgba(157, 78, 221, 0.08);
+  --body-gradient-2: rgba(0, 245, 212, 0.08);
   /* Color Palette - Neon Dark & Deep Purple Future Theme */
   --bg-main: #0a0813;
   --bg-surface: rgba(20, 16, 36, 0.6);
@@ -56,6 +58,8 @@
 
 /* Light Mode Override (将来的な拡張用プレースホルダー) */
 [data-theme='light'] {
+  --body-gradient-1: rgba(123, 44, 191, 0.06);
+  --body-gradient-2: rgba(0, 187, 249, 0.05);
   --bg-main: #f7f6fa;
   --bg-surface: rgba(255, 255, 255, 0.7);
   --bg-surface-solid: #ffffff;
@@ -72,8 +76,28 @@
   --text-main: #181528;
   --text-muted: #6f6b80;
   
+  --text-inverse: #ffffff;
+
   --border-light: rgba(24, 21, 40, 0.08);
+  --border-glow: rgba(123, 44, 191, 0.15);
   --glass-bg: rgba(255, 255, 255, 0.65);
   --glass-border: 1px solid rgba(24, 21, 40, 0.08);
   --glass-shadow: 0 8px 32px 0 rgba(123, 44, 191, 0.08);
+  --shadow-neon-primary: 0 0 12px var(--color-primary-glow);
+  --shadow-neon-accent: 0 0 12px var(--color-accent-glow);
+}
+
+[data-theme='dark'] {
+  --bg-main: #0a0813;
+  --bg-surface: rgba(20, 16, 36, 0.6);
+  --bg-surface-solid: #151126;
+  --bg-input: rgba(10, 8, 19, 0.8);
+  --text-main: #f3f0fc;
+  --text-muted: #9f9bb3;
+  --text-inverse: #0a0813;
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-glow: rgba(157, 78, 221, 0.2);
+  --glass-bg: rgba(25, 20, 48, 0.45);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }

@@ -16,8 +16,8 @@
 body {
   background-color: var(--bg-main);
   background-image: 
-    radial-gradient(circle at 10% 20%, rgba(157, 78, 221, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(0, 245, 212, 0.08) 0%, transparent 40%);
+    radial-gradient(circle at 10% 20%, var(--body-gradient-1, rgba(157, 78, 221, 0.08)) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, var(--body-gradient-2, rgba(0, 245, 212, 0.08)) 0%, transparent 40%);
   background-attachment: fixed;
   color: var(--text-main);
   font-family: var(--font-family);

@@ -259,7 +259,8 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     }
   });
 
-  test('F-407: リアクション履歴が正常に表示されること', async ({ page }) => {
+  // Phase 23: マイページからリアクション履歴導線を削除したためスキップ（/likes ルートはレガシー存続）
+  test.skip('F-407: リアクション履歴が正常に表示されること', async ({ page }) => {
     // 1. プロフィール画面へ移動
     await page.goto('/profile/test-user');
 

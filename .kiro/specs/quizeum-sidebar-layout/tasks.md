@@ -111,3 +111,66 @@
 - 実装順: 5.1 と 5.2 は並行可。5.3 は両方完了後。
 - ディスカバリーホーム・検索画面コンテンツは `quizeum-play-flow-ui` Phase 27 が担当。
 - ロゴリンクは引き続き `/` を正とする（要件 5.2）。
+
+---
+
+## 6. Phase 23: リスト・マイクイズ・設定ナビ拡張（2026-06-09）
+
+- [x] 6.1 サイドバーへのリスト・マイクイズ導線と active 判定
+  - ログイン時のみ、ホーム・検索の直後（通知・ブックマークの前）に「リスト」（`/lists`）と「マイクイズ」（`/my-quiz`）を追加する（`List` / `ClipboardList` アイコン）
+  - 未ログイン時は両項目を非表示とし、既存のログインボタン導線を維持する
+  - `isNavItemActive` を拡張し、`/lists` および `/lists/` 配下（例: `/lists/create`）で「リスト」のみ active、`/my-quiz` および `/my-quiz/` 配下で「マイクイズ」のみ active とする
+  - `data-testid="nav-lists"` と `data-testid="nav-my-quiz"` を付与する
+  - **完了状態**: デスクトップ幅でログイン時に Sidebar から `/lists`・`/my-quiz` へ遷移でき、各パスで正しい項目のみ active になること
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
+  - _Boundary: Sidebar_
+
+- [x] 6.2 サイドバーアカウントポップアップへの設定リンク
+  - フッターアカウントボタンで開くポップアップに、「マイページ」の直下・区切り線（`<hr>`）の上に「設定」（`/settings`）リンクを追加する（`Settings` アイコン、`data-testid="sidebar-settings-link"`）
+  - クリック時は `/settings` へ遷移しポップアップを閉じる
+  - `/settings` 表示中の Sidebar 主要ナビ active 化は初版では行わない（任意）
+  - **完了状態**: ポップアップを開くと `sidebar-settings-link` が表示され、クリックで `/settings` へ遷移してポップアップが閉じること
+  - _Requirements: 6.8, 6.9, 6.10, 6.11_
+  - _Boundary: Sidebar_
+  - _Depends: 6.1_
+
+- [x] 6.3 (P) モバイル Header プロフィールポップアップ
+  - 767px 以下かつログイン時、Header アバターの `<Link>` 直行を廃止し、Sidebar と同型のポップアップシート入口（`data-testid="header-profile-btn"`）に変更する
+  - ポップアップ（`data-testid="header-profile-popup"`）にリスト・マイクイズ・マイページ・設定・ログアウトを表示し、到達先は Sidebar と同一ルート（`/lists`・`/my-quiz`・`/settings`・`/profile/${user.id}`）とする
+  - `data-testid="header-nav-lists"`、`header-nav-my-quiz`、`header-settings-link` を付与する
+  - BottomNav は 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、プロフィールタップは引き続きマイページ直行とする
+  - **完了状態**: 375px 幅で Header アバタータップ → ポップアップから「リスト」「マイクイズ」「設定」へ遷移できること
+  - _Requirements: 6.12, 6.13_
+  - _Boundary: Header_
+
+- [x] 6.4 (P) Phase 23 コンポーネントテスト（Sidebar / Header）
+  - Sidebar: 未ログイン時 `nav-lists` / `nav-my-quiz` 不在、ログイン時表示・testid、`/lists`・`/lists/create`・`/my-quiz` での active、ポップアップ内 `sidebar-settings-link` の表示とクリック時閉じる挙動
+  - Header: `header-profile-btn` → ポップアップ表示 → `header-nav-lists` / `header-nav-my-quiz` / `header-settings-link` の存在
+  - **完了状態**: 関連 Jest コンポーネントテストがグリーンであること
+  - _Requirements: 6.1, 6.2, 6.5, 6.6, 6.7, 6.8, 6.10, 6.12, 6.13_
+  - _Depends: 6.1, 6.2, 6.3_
+  - _Boundary: Testing_
+
+- [x] 6.5 Phase 23 ナビ E2E 検証
+  - Desktop: Sidebar「リスト」→ `/lists`、Sidebar ポップアップ「設定」→ `/settings` 遷移を Playwright で検証する
+  - Mobile 375px: Header アバター → ポップアップ → 「マイクイズ」→ `/my-quiz` 遷移を検証する
+  - BottomNav 5 項目維持・プロフィール直行の回帰を確認する
+  - **完了状態**: 既存レイアウト E2E に Phase 23 アサーションが追加され、ローカルでパスすること
+  - _Requirements: 6.3, 6.4, 6.9, 6.12, 6.13_
+  - _Depends: 6.1, 6.2, 6.3_
+  - _Boundary: Testing_
+
+- [ ]* 6.5* Phase 23 E2E 拡張（任意・MVP 後）
+  - 6.5 の Desktop / Mobile シナリオを CI 常時実行に組み込む、または `/lists/create` 子ルート active の E2E を追加する
+  - **完了状態**: 6.5 コアシナリオが CI で安定してグリーンであること（本タスクは 6.5 完了後に実施可）
+  - _Requirements: 6.5, 6.6_
+  - _Depends: 6.5_
+  - _Boundary: Testing_
+
+## Implementation Notes (Phase 23)
+
+- **実装順**: 6.1 と 6.3 は並行可。6.2 は 6.1 完了後。6.4 は 6.1–6.3 完了後。6.5 は 6.1–6.3 完了後（6.4 と並行可）。6.5* は任意。
+- **BottomNav**: Phase 23 では変更なし。モバイルのリスト・マイクイズ・設定到達は Header ポップアップ（案 A）が担う。
+- **layout.tsx**: `ThemeProvider` 統合は `quizeum-user-settings-ui` が担当。本フェーズでは `layout.tsx` を変更しない。
+- **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizeum-lists-discovery-ui`）、6.15 マイクイズ UI（`quizeum-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizeum-user-settings-ui`）、6.17 マイページリアクション履歴削除（`quizeum-auth-profile-ui`）。
+- **要件カバレッジ**: 6.1–6.13 を 6.1–6.5 にマッピング。6.14–6.17 は Out of scope として Implementation Notes に記録。

@@ -36,6 +36,8 @@
 
 **Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）向けに既存一覧 API（トレンド Top 10・新着 Top 10・有効ジャンル一覧）を再利用し、検索画面（`/search`）向け URL クエリと探索タブ／フィルタ状態の相互変換 lib（`search-url-state.ts`）を追加する。UI・ナビは隣接スペックが担当。
 
+**Phase 23（2026-06-09）**: リスト探索（`/lists`）向け `searchLists`、マイクイズ（`/my-quiz`）向け4ソース問題プール合成（`buildMyQuizQuestionPool`）、アドホック連続プレイ用 `my-quiz-session`、および `Attempt.mode: 'my-quiz'` と `saveAttempt` の1問単位検証バイパスをコア層に追加する。UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が担当。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -58,6 +60,7 @@
 - **Phase 20 〇×問題形式（2026-06）**: `true-false` の第一級 format 化、固定選択肢 lib、公開検証・形式解決・ラベル整合。
 - **Phase 21 ホームフィード段階的取得（2026-06）**: `PaginatedQuizResult`、タブ別ページ API、複合検索のページ分割、カーソル encode/decode lib。
 - **Phase 22 ホーム／検索 IA（2026-06）**: ディスカバリーホーム向け Top 10 一覧再利用、`search-url-state.ts` による URL ↔ 探索状態変換。
+- **Phase 23 リスト探索・マイクイズ Core API（2026-06）**: `searchLists`、`buildMyQuizQuestionPool`、`my-quiz-session`、`my-quiz` 試行記録、`saveAttempt` 1問契約。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -2781,3 +2784,359 @@ export function buildSearchUrlQuery(state: Partial<SearchUrlState>): string;
 **Effort**: **S**（1日）
 
 **Document Status（Phase 22 設計）**: 本節に反映。
+
+---
+
+## Phase 23: リスト探索・マイクイズ Core API
+
+### 1. Overview
+
+Phase 23 は、隣接 UI スペック（`quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui`）が消費する3つのコア契約を追加する。(1) 公開／本人非公開リストのキーワード探索 `searchLists`、(2) 4ソース統合の問題プール `buildMyQuizQuestionPool`、(3) 保存リストなし連続プレイ用 `my-quiz-session` と `Attempt.mode: 'my-quiz'` 試行記録。既存 `question-list-session` / `question-attach-search` / `dedupeQuestionCandidates` パターンを拡張し、新規 ranking エンジンやサーバー側セッション永続化は行わない。
+
+**定数**:
+- `DEFAULT_LIST_SEARCH_LIMIT = 50`（`searchLists` 既定上限）
+- `MY_QUIZ_SESSION_KEY = 'quizeum_my_quiz_session'`（`question-list-session` とキー分離）
+
+### 2. Boundary Commitments（Phase 23）
+
+| Owns | Out |
+|------|-----|
+| `searchLists`（`quiz-list.ts`） | リスト探索ページ UI（`/lists`） |
+| `buildMyQuizQuestionPool` / `MyQuizQuestionCandidate` | マイクイズフィルタ UI・出題数設定 |
+| `my-quiz-session.ts`（sessionStorage CRUD + URL） | プレイ画面レイアウト（my-quiz-ui が最小拡張） |
+| `Attempt.mode: 'my-quiz'`、`sessionId?` | Sidebar / BottomNav ナビ追加 |
+| `saveAttempt` 1問契約（`question-list` / `my-quiz`） | マイクイズ URL 共有可能化・プリセット保存 |
+| Firestore composite index 2件（`quizLists`） | リアクション履歴削除・テーマ永続化 |
+
+**Allowed dependencies**: 既存 `getLatestQuizLists` / `getQuizListsByAuthor` クエリパターン、`bookmark.ts` 取得 API、`author-quiz-search.ts`、`question-attach-search.ts` の dedupe、`resolveQuizFormat`、`resolveListType`。
+
+**Revalidation triggers**: `searchLists` 引数変更、`MyQuizQuestionCandidate` フィールド追加、セッション URL クエリ変更、`saveAttempt` 検証規則変更は隣接 UI スペックの再検証が必要。
+
+### 3. Architecture
+
+```mermaid
+flowchart TB
+  subgraph ListsDiscovery["quizeum-lists-discovery-ui"]
+    ULS[useListsSearch]
+  end
+  subgraph MyQuizUI["quizeum-my-quiz-ui"]
+    UMP[useMyQuizPool]
+    MQS[my-quiz-session]
+    QPC[quiz-play-client mode=my-quiz]
+  end
+  subgraph Core["quizeum-core"]
+    SL[searchLists]
+    POOL[buildMyQuizQuestionPool]
+    SESS[my-quiz-session.ts]
+    SA[saveAttempt]
+  end
+  FS[(Firestore quizLists / quizzes / bookmarks)]
+  SS[(sessionStorage)]
+  ULS --> SL
+  SL --> FS
+  UMP --> POOL
+  POOL --> FS
+  MQS --> SESS
+  SESS --> SS
+  QPC --> SESS
+  QPC --> SA
+  SA --> FS
+```
+
+**データフロー要約**:
+1. **リスト探索**: UI → `searchLists({ visibility, keyword?, authorId?, limit? })` → Firestore クエリ → in-memory キーワード filter → `QuizList[]`
+2. **マイクイズプール**: UI → `buildMyQuizQuestionPool(userId, flags)` → 4ソース並行収集 → `dedupeQuestionCandidates` 相当で merge → `MyQuizQuestionCandidate[]`（UI 側フィルタは core 外）
+3. **マイクイズプレイ**: UI が出題リスト確定 → `initMyQuizSession(sessionId, entries)` → `buildMyQuizPlayUrl` → 各問完了時 `saveAttempt({ mode: 'my-quiz', totalQuestions: 1, sessionId?, ... })`
+
+### 4. Data Models & Contracts
+
+#### 4.1 searchLists（`src/services/quiz-list.ts`）
+
+```typescript
+import type { QuizList } from '@/types';
+
+/** リスト探索の公開/非公開区分 */
+export type ListSearchVisibility = 'public' | 'private';
+
+export interface SearchListsParams {
+  /** public: isPublished === true のみ / private: authorId 本人かつ isPublished === false */
+  visibility: ListSearchVisibility;
+  /** タイトル・説明への部分一致（case-insensitive）。空・未指定はフィルタなし */
+  keyword?: string;
+  /** visibility === 'private' のとき必須 */
+  authorId?: string;
+  /** 取得上限。未指定時 DEFAULT_LIST_SEARCH_LIMIT（50） */
+  limit?: number;
+}
+
+export const DEFAULT_LIST_SEARCH_LIMIT = 50;
+
+export async function searchLists(params: SearchListsParams): Promise<QuizList[]>;
+```
+
+**Preconditions**:
+- `visibility === 'private'` のとき `authorId` が非空文字列。未指定・空文字は `throw new Error(...)`（要件 23.3）
+
+**Query 規則**:
+| visibility | Firestore クエリ | 後段 filter |
+|------------|------------------|-------------|
+| `public` | `where('isPublished','==',true)` + `orderBy('createdAt','desc')` + `limit(n)` | keyword in-memory |
+| `private` | `where('authorId','==',uid)` + `where('isPublished','==',false)` + `orderBy('createdAt','desc')` + `limit(n)` | keyword in-memory |
+
+**Keyword filter**（in-memory）:
+- `searchTextIncludes(title, keyword) || searchTextIncludes(description ?? '', keyword)`（`normalize-search-text` 利用、`getLatestQuizLists` 後段 filter と同型）
+- キーワード trim 後空文字 → filter スキップ
+
+**Postconditions**:
+- 返却配列は `createdAt` 降順（要件 23.7）
+- 件数 ≤ `limit ?? DEFAULT_LIST_SEARCH_LIMIT`（要件 23.8–23.9）
+- public 結果に `isPublished === false` を含まない（要件 23.1, 23.4）
+- private 結果に `authorId !== params.authorId` を含まない（要件 23.2）
+- 各要素の種別は `resolveListType(list)` で解釈可能（要件 23.10）
+
+#### 4.2 buildMyQuizQuestionPool（`src/lib/my-quiz-pool.ts`）
+
+```typescript
+import type { QuizFormat } from '@/types';
+
+export type MyQuizSource =
+  | 'own'
+  | 'bookmarked-quiz'
+  | 'bookmarked-list'
+  | 'bookmarked-question';
+
+export interface MyQuizQuestionCandidate {
+  questionId: string;
+  questionText: string;
+  parentQuizId: string;
+  parentQuizTitle: string;
+  source: MyQuizSource;
+  genreId: string;
+  tags: string[];
+  format: QuizFormat;
+  /** 親クイズ difficulty（1–5） */
+  difficulty: number;
+}
+
+export interface MyQuizSourceFlags {
+  ownQuizzes: boolean;
+  bookmarkedQuizzes: boolean;
+  bookmarkedLists: boolean;
+  bookmarkedQuestions: boolean;
+}
+
+export async function buildMyQuizQuestionPool(
+  userId: string,
+  flags: MyQuizSourceFlags
+): Promise<MyQuizQuestionCandidate[]>;
+```
+
+**4ソース収集規則**（有効フラグのみ。全 false → 空配列 — 要件 24.6）:
+
+| Source | フラグ | 取得経路 | 公開制約 |
+|--------|--------|----------|----------|
+| `own` | `ownQuizzes` | `searchAuthorQuizzes({ authorId: userId, includeDrafts: true })` → 各 `getQuestionsByQuiz` | 公開・下書き・非公開すべて（要件 24.2） |
+| `bookmarked-quiz` | `bookmarkedQuizzes` | `getBookmarkedQuizzes(userId)` → 各クイズの全問題 | 公開済みのみ（bookmark feed 既存規則） |
+| `bookmarked-list` | `bookmarkedLists` | `getBookmarkedLists(userId)` → `resolveListType === 'quiz'` のみ → `getQuizzesInList` → 各クイズの問題 | 公開済みクイズの問題のみ。問題リストの直接メンバーは除外（要件 24.4） |
+| `bookmarked-question` | `bookmarkedQuestions` | `enrichBookmarkedQuestions(userId)` | 親クイズ公開済みのみ（要件 24.5, 24.9） |
+
+**Merge / dedupe**:
+- ソース priority 順に flat 化: `own` → `bookmarked-quiz` → `bookmarked-list` → `bookmarked-question`
+- `dedupeQuestionCandidates`（`question-attach-search.ts`）を再利用し `questionId` 先勝ち（要件 24.8）
+- 候補→`MyQuizQuestionCandidate` 変換時に `resolveQuizFormat(parentQuiz)` で `format` を付与
+
+**認証**: 呼び出し元（UI / Server Action）が `userId` を渡す。core 関数内では Firebase Auth を直接参照しない（既存 service 層パターン）。
+
+#### 4.3 my-quiz-session（`src/lib/my-quiz-session.ts`）
+
+`question-list-session.ts` と同型の sessionStorage lib。`listId` の代わりに `sessionId`（UUID v4、呼び出し元が生成）を保持する。
+
+```typescript
+export const MY_QUIZ_SESSION_KEY = 'quizeum_my_quiz_session';
+
+export interface MyQuizSessionEntry {
+  questionId: string;
+  parentQuizId: string;
+}
+
+export interface MyQuizSession {
+  sessionId: string;
+  entries: MyQuizSessionEntry[];
+  currentIndex: number;
+}
+
+export function initMyQuizSession(sessionId: string, entries: MyQuizSessionEntry[]): void;
+export function readMyQuizSession(): MyQuizSession | null;
+export function syncMyQuizSessionIndex(index: number): void;
+export function advanceMyQuizSession(): MyQuizSessionEntry | null;
+export function peekNextMyQuizEntry(): MyQuizSessionEntry | null;
+export function clearMyQuizSession(): void;
+
+/** プレイ画面 URL（mode=my-quiz 専用） */
+export function buildMyQuizPlayUrl(session: MyQuizSession, index: number): string;
+```
+
+**URL 契約**（`buildMyQuizPlayUrl` 出力）:
+
+```
+/quiz/{parentQuizId}/play?mode=my-quiz&sessionId={uuid}&questionId={id}&qIndex={n}
+```
+
+**Postconditions**:
+- `QUESTION_LIST_SESSION_KEY`（`quizeum_question_list_session`）とは別キーで衝突しない（要件 25.5）
+- URL `qIndex` と `currentIndex` は `syncMyQuizSessionIndex` で同期（`question-list` 同型 — 要件 25.2）
+- セッション欠落時 `readMyQuizSession()` は `null`（要件 25.4。UI がエラー表示）
+
+**Out of scope**: サーバー永続化、URL によるセッション共有（要件 25.14）
+
+#### 4.4 Attempt.mode `my-quiz`（`src/types/index.ts`）
+
+```typescript
+export interface Attempt {
+  // ...
+  /**
+   * `my-quiz`: マイクイズ連続プレイ（問題ごとに1 attempt、親 `quizId`、`totalQuestions: 1`）
+   * `question-list`: 問題リスト連続プレイ（同上、`listId` 必須）
+   */
+  mode:
+    | 'normal'
+    | 'exam'
+    | 'flashcard'
+    | 'review'
+    | 'list'
+    | 'question-list'
+    | 'my-quiz'
+    | 'test-play';
+  listId?: string | null;
+  /** マイクイズセッション ID（`my-quiz` モード時のみ任意付与） */
+  sessionId?: string | null;
+  // ...
+}
+
+/** マイクイズプレイ attempt の契約 */
+export function satisfiesMyQuizAttemptContract(
+  attempt: Pick<Attempt, 'mode' | 'quizId' | 'totalQuestions'>
+): boolean {
+  return (
+    attempt.mode === 'my-quiz' &&
+    !!attempt.quizId &&
+    attempt.totalQuestions === 1
+  );
+}
+```
+
+**試行記録規則**（要件 25.6–25.9）:
+- `mode: 'my-quiz'`、`totalQuestions: 1`、`quizId` = 当該問題の親クイズ ID
+- `sessionId` は任意（URL クエリから UI が付与）
+- `listId` は不要（`null` / 省略）
+
+**リーダーボード**（要件 25.10）:
+- `isLeaderboardEligibleAttempt` は変更不要。`my-quiz` は `question-list` と同様 **登録対象**（`exam` / `flashcard` / `test-play` / guest のみ除外 — 既存 `leaderboard-update.test.ts` の `question-list` 期待に整合）
+- 各問題1 attempt のため、同一親クイズに対する prior 件数は連続プレイ中に増加し、2問目以降はリプレイ board のみ更新されうる（既存振り分け規則をそのまま適用）
+
+**プレイ履歴**（要件 25.11）:
+- `listUserPlayHistory` は `NON_PERSISTED_PLAY_MODES` に `my-quiz` を含めない → 履歴に含める
+
+#### 4.5 saveAttempt 1問契約修正（`src/services/attempt.ts`）
+
+現行 L92–95 は親クイズの全問題数と `totalQuestions` を常に照合するため、`question-list` / `my-quiz` の1問試行で誤って reject する。**1問モードのみ検証パスを分岐**する。
+
+```typescript
+function isSingleQuestionAttemptMode(mode: Attempt['mode']): boolean {
+  return mode === 'question-list' || mode === 'my-quiz';
+}
+```
+
+**検証分岐**:
+
+| 検証 | 通常モード | `question-list` / `my-quiz` |
+|------|------------|----------------------------|
+| `totalQuestions` vs クイズ全問数 | 一致必須 | **`totalQuestions === 1` のみ必須**（全問数照合スキップ — 要件 25.8） |
+| `failedQuestionIds` | クイズ内 ID の subset | 同上（当該1問 ID のみ — 要件 25.9） |
+| `score` vs 計算 | `actualTotalQuestions - failed.length` | **`1 - failedQuestionIds.length`（0 または 1）** |
+| `question-list` 契約 | — | `listId` 非空（既存 `satisfiesQuestionListAttemptContract`） |
+| `my-quiz` 契約 | — | `satisfiesMyQuizAttemptContract`（`sessionId` は任意） |
+
+**実装位置**: `runTransaction` 内、L91 付近。`actualTotalQuestions` は通常モードのみ使用。1問モードでは `expectedTotal = 1` 固定。
+
+### 5. Firestore Indexes（Phase 23）
+
+`firestore.indexes.json` に以下を追加（`getLatestQuizLists` / private 探索クエリ用。現行ファイルに未登録）:
+
+```json
+{
+  "collectionGroup": "quizLists",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "isPublished", "order": "ASCENDING" },
+    { "fieldPath": "createdAt", "order": "DESCENDING" }
+  ]
+},
+{
+  "collectionGroup": "quizLists",
+  "queryScope": "COLLECTION",
+  "fields": [
+    { "fieldPath": "authorId", "order": "ASCENDING" },
+    { "fieldPath": "isPublished", "order": "ASCENDING" },
+    { "fieldPath": "createdAt", "order": "DESCENDING" }
+  ]
+}
+```
+
+### 6. File Structure Plan（Phase 23）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/services/quiz-list.ts` | **Modify** | `searchLists`, `SearchListsParams`, `DEFAULT_LIST_SEARCH_LIMIT` |
+| `src/lib/my-quiz-pool.ts` | **New** | `buildMyQuizQuestionPool`, 型定義, 4ソース収集 |
+| `src/lib/my-quiz-session.ts` | **New** | sessionStorage CRUD, `buildMyQuizPlayUrl` |
+| `src/lib/question-attach-search.ts` | **Modify**（任意） | `MyQuizSource` 用に dedupe の入力型をジェネリック化するか、pool 側で adapter |
+| `src/types/index.ts` | **Modify** | `Attempt.mode` + `sessionId`, `satisfiesMyQuizAttemptContract` |
+| `src/services/attempt.ts` | **Modify** | `saveAttempt` 1問検証分岐 |
+| `firestore.indexes.json` | **Modify** | `quizLists` composite 2件 |
+| `tests/services/search-lists.test.ts` | **New** | public/private/keyword/authorId 必須 |
+| `tests/lib/my-quiz-pool.test.ts` | **New** | 4ソース merge, dedupe, published 除外 |
+| `tests/lib/my-quiz-session.test.ts` | **New** | round-trip, URL, キー分離 |
+| `tests/services/attempt-single-question.test.ts` | **New** | `question-list` / `my-quiz` saveAttempt 成功、全問数不一致 reject しない |
+| `tests/lib/leaderboard-update.test.ts` | **Modify** | `my-quiz` eligibility 追加 |
+
+**変更なし（再利用）**: `bookmark.ts`, `author-quiz-search.ts`, `question-list-session.ts`, `leaderboard-update.ts`（eligibility ロジック本体）
+
+### 7. Requirements Traceability（Phase 23）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 23.1–23.4 | 公開/非公開区分 | `searchLists` visibility 分岐 |
+| 23.5–23.6 | キーワード絞り込み | in-memory filter |
+| 23.7–23.9 | 並び・件数上限 | Firestore orderBy + `DEFAULT_LIST_SEARCH_LIMIT` |
+| 23.10 | リスト種別 | `resolveListType`（既存） |
+| 23.11–23.13 | 境界 Out | lists-discovery UI |
+| 24.1–24.6 | 4ソース統合 | `buildMyQuizQuestionPool` |
+| 24.7–24.9 | メタデータ・dedupe | `MyQuizQuestionCandidate`, `dedupeQuestionCandidates` |
+| 24.10–24.12 | 境界 Out | my-quiz UI |
+| 25.1–25.5 | アドホックセッション | `my-quiz-session.ts` |
+| 25.6–25.9 | 試行記録・saveAttempt | `Attempt`, `saveAttempt` |
+| 25.10–25.11 | LB・履歴 | `isLeaderboardEligibleAttempt`（既存）, play history |
+| 25.12–25.14 | 境界 Out | my-quiz-ui play client |
+
+### 8. Testing Strategy（Phase 23）
+
+| 種別 | 検証 |
+|------|------|
+| **Unit** | `searchLists` public — `isPublished false` 除外、keyword 部分一致 |
+| **Unit** | `searchLists` private — `authorId` 未指定で throw、他人リスト除外 |
+| **Unit** | `searchLists` — 既定 limit 50、createdAt 降順 |
+| **Unit** | `buildMyQuizQuestionPool` — 全 flags false → `[]` |
+| **Unit** | `buildMyQuizQuestionPool` — 同一 questionId 重複時先勝ち（own 優先） |
+| **Unit** | `buildMyQuizQuestionPool` — bookmark 経路で非公開親クイズ除外 |
+| **Unit** | `my-quiz-session` — init/read/advance/peek/clear、URL に `mode=my-quiz` |
+| **Unit** | `MY_QUIZ_SESSION_KEY` ≠ `QUESTION_LIST_SESSION_KEY` |
+| **Integration** | `saveAttempt` `my-quiz` — 親クイズ10問でも `totalQuestions:1` で成功 |
+| **Integration** | `saveAttempt` `question-list` — 同上（回帰） |
+| **Integration** | `saveAttempt` `my-quiz` — `failedQuestionIds` に存在しない ID で reject |
+| **Regression** | `isLeaderboardEligibleAttempt({ mode: 'my-quiz' }) === true` |
+| **Regression** | 通常 `normal` モード — 全問数不一致は従来どおり reject |
+
+**Effort**: **M**（2〜3日）
+
+**Document Status（Phase 23 設計）**: 本節に反映。

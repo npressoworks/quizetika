@@ -154,6 +154,7 @@
 - **Phase 8**: 種別判定は `resolveListType` 必須。フィルタはクライアント絞り込み（API 再取得不要）。リスト CRUD は実装しない（8.8）。
 - Phase 8 実装（2026-06-06）: `profile-list-display` + `ProfileListCard` + `ProfileListsPanel`。Jest 375 件・build PASS。
 - Phase 9 実装（2026-06-07）: 認証・プロフィール画面を Server Component + Suspense + スケルトン化。`/profile/edit` を middleware 307 保護。
+- **Phase 23**: 本人 `profileActions` からリアクション履歴 `Link` 削除のみ。`/profile/[uid]/likes` ルート・`LikesClient` はレガシー変更なし。E2E F-407 は直接実装候補 `remove-reaction-history-e2e` と連携。
 
 ### 9. Phase 12 拡張 — 認証・プロフィール画面の非同期表示最適化（Streaming & Suspense）のUI実装（2026-06-07）
 
@@ -184,4 +185,33 @@
   - 各非同期スケルトンの `data-testid`（`bookmarks-skeleton`, `notifications-skeleton`, `profile-skeleton`, `connections-skeleton`）を検証し、ロード後に実データが表示されるシーケンスを検証する。
   - _Requirements: 9.7, 9.8, 9.14_
   - _Boundary: Testing_
+
+### 10. Phase 23: リアクション履歴導線削除（2026-06-09）
+
+> **前提**: リアクション機能は廃止方向。`/profile/[uid]/likes` ルート・`LikesClient`・`ReactionService` はレガシーとして変更しない（直接 URL アクセスのみ存続可）。
+
+- [x] 10.1 本人プロフィール `profileActions` からリアクション履歴導線を削除
+  - `src/app/profile/[uid]/profile-client.tsx` の本人（`isMyProfile`）向け `profileActions` から、`/profile/[uid]/likes` への `Link`（Heart アイコン付き「リアクション履歴」）を削除する。
+  - 未使用となる `Heart`（`lucide-react`）import を削除する。
+  - `data-testid="profile-reaction-history-link"` 等の導線用 testid は付与しない。
+  - **完了状態**: 本人プロフィールの `profileActions` に「プロフィールの編集」のみ表示され、「リアクション履歴」リンクが DOM に存在しないこと。弱点克服セクション・他ユーザー側フォローボタンは従来どおり。
+  - _Requirements: 2.7, 6.1, 10.1, 10.2, 10.3, 10.6_
+  - _Boundary: ProfileClient_
+
+- [ ]* 10.2 (P) ProfileClient RTL — 本人プロフィールに「リアクション履歴」テキストが無いこと（任意）
+  - 本人プロフィール描画時、`profileActions` 領域に「リアクション履歴」テキストが存在しないことを RTL で検証する（専用テストファイル新規作成可）。
+  - 「プロフィールの編集」リンクは表示されることを併せて確認する。
+  - **完了状態**: 該当 RTL テストがグリーン、または本タスクをスキップして 10.1 の手動確認のみで充足すること。
+  - _Depends: 10.1_
+  - _Requirements: 2.7, 10.1_
+  - _Boundary: ProfileClient-RTL_
+
+- [x] 10.3 E2E F-407 と直接実装候補 `remove-reaction-history-e2e` の整合
+  - `e2e/social-features.spec.ts` の `F-407: リアクション履歴が正常に表示されること` は、プロフィール上の「リアクション履歴」リンククリックを前提とするため、**削除** または **`test.skip` + Phase 23 理由コメント** とする。
+  - 直接実装候補 `remove-reaction-history-e2e`（roadmap Wave 23）と方針を一致させ、同一 PR または直後の follow-up で整理する。
+  - likes ルート直接 URL（`/profile/{uid}/likes`）の E2E は本フェーズ必須範囲外（レガシー存続）。
+  - **完了状態**: F-407 が明示的に skip/削除され、導線削除後に E2E スイートが意図どおりパスまたはスキップ理由が記録されていること。
+  - _Depends: 10.1_
+  - _Requirements: 10.7_
+  - _Boundary: E2E-social-features_
 

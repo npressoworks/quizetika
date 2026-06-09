@@ -59,11 +59,12 @@ describe('isLeaderboardEligibleAttempt - Phase 18', () => {
     expect(isLeaderboardEligibleAttempt({ userId, mode: 'flashcard' })).toBe(false);
   });
 
-  test('normal / review / list / question-list は対象', () => {
+  test('normal / review / list / question-list / my-quiz は対象', () => {
     expect(isLeaderboardEligibleAttempt({ userId, mode: 'normal' })).toBe(true);
     expect(isLeaderboardEligibleAttempt({ userId, mode: 'review' })).toBe(true);
     expect(isLeaderboardEligibleAttempt({ userId, mode: 'list' })).toBe(true);
     expect(isLeaderboardEligibleAttempt({ userId, mode: 'question-list' })).toBe(true);
+    expect(isLeaderboardEligibleAttempt({ userId, mode: 'my-quiz' })).toBe(true);
   });
 });
 

@@ -24,6 +24,13 @@ import {
   buildQuestionListPlayUrl,
   peekNextQuestionListEntry,
 } from '@/lib/question-list-session';
+import {
+  readMyQuizSession,
+  advanceMyQuizSession,
+  clearMyQuizSession,
+  buildMyQuizPlayUrl,
+  peekNextMyQuizEntry,
+} from '@/lib/my-quiz-session';
 import { ResultSkeleton } from '@/components/quiz/result-skeleton';
 import { ResultQuestionDetailsAccordion } from '@/components/quiz/result-question-details-accordion';
 import { DifficultyVoteStars } from '@/components/quiz/difficulty-vote-stars';
@@ -85,6 +92,10 @@ export function QuizResultClient({
   const [nextQuestionListUrl, setNextQuestionListUrl] = useState<string | null>(null);
   const [isLastInQuestionList, setIsLastInQuestionList] = useState(false);
   const [questionListSessionMissing, setQuestionListSessionMissing] = useState(false);
+  const [isMyQuizFlow, setIsMyQuizFlow] = useState(false);
+  const [nextMyQuizUrl, setNextMyQuizUrl] = useState<string | null>(null);
+  const [isLastInMyQuiz, setIsLastInMyQuiz] = useState(false);
+  const [myQuizSessionMissing, setMyQuizSessionMissing] = useState(false);
   const [bookmarkedQuestionIds, setBookmarkedQuestionIds] = useState<Set<string>>(new Set());
   const [bookmarkedQuizIds, setBookmarkedQuizIds] = useState<Set<string>>(new Set());
 
@@ -381,8 +392,37 @@ export function QuizResultClient({
     loadOpenReports();
   }, [userId, quizIdStr]);
 
-  // リスト連続プレイ判定
+  const myQuizSessionId = searchParams.get('sessionId');
+
+  // マイクイズ連続プレイ判定
   const attemptMode = attempt?.mode;
+  useEffect(() => {
+    if (attemptMode !== 'my-quiz') return;
+    const session = readMyQuizSession();
+    if (session && myQuizSessionId && session.sessionId === myQuizSessionId) {
+      setIsMyQuizFlow(true);
+      const nextEntry = peekNextMyQuizEntry();
+      if (nextEntry) {
+        setNextMyQuizUrl(buildMyQuizPlayUrl(session, session.currentIndex + 1));
+        setIsLastInMyQuiz(false);
+        setMyQuizSessionMissing(false);
+      } else {
+        setNextMyQuizUrl(null);
+        setIsLastInMyQuiz(true);
+      }
+      return;
+    }
+    setIsMyQuizFlow(true);
+    setMyQuizSessionMissing(true);
+  }, [attemptMode, myQuizSessionId]);
+
+  useEffect(() => {
+    if (isLastInMyQuiz && attemptMode === 'my-quiz') {
+      clearMyQuizSession();
+    }
+  }, [isLastInMyQuiz, attemptMode]);
+
+  // リスト連続プレイ判定
   useEffect(() => {
     if (!listId || !attemptMode) return;
 
@@ -476,6 +516,20 @@ export function QuizResultClient({
       const session = readQuestionListSession();
       if (session) {
         router.push(buildQuestionListPlayUrl(session, session.currentIndex));
+      }
+    }
+  };
+
+  const handleNextMyQuizClick = () => {
+    if (!online) {
+      alert('現在オフラインのため、次の問題に進むことはできません。');
+      return;
+    }
+    const nextEntry = advanceMyQuizSession();
+    if (nextEntry) {
+      const session = readMyQuizSession();
+      if (session) {
+        router.push(buildMyQuizPlayUrl(session, session.currentIndex));
       }
     }
   };
@@ -850,8 +904,41 @@ export function QuizResultClient({
           </button>
         </div>
 
+        {/* マイクイズ連続プレイ */}
+        {isMyQuizFlow && (
+          <div className={styles.listNavigation}>
+            {myQuizSessionMissing ? (
+              <div style={{ textAlign: 'center', padding: '16px', marginTop: '16px', color: 'var(--text-muted)', background: 'var(--glass-bg)', borderRadius: 'var(--radius-md)' }}>
+                <p>マイクイズの続きを再生できません。</p>
+                <Link href="/my-quiz" className="btn btn-secondary" style={{ marginTop: '12px', display: 'inline-flex' }}>
+                  マイクイズへ戻る
+                </Link>
+              </div>
+            ) : nextMyQuizUrl ? (
+              <button
+                className="btn btn-primary"
+                onClick={handleNextMyQuizClick}
+                data-testid="my-quiz-next"
+                style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              >
+                <span>次の問題へ</span>
+                <ChevronRight size={18} />
+              </button>
+            ) : isLastInMyQuiz ? (
+              <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
+                <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
+                  マイクイズを完了しました！
+                </p>
+                <Link href="/my-quiz" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  マイクイズへ戻る
+                </Link>
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {/* リスト連続プレイ */}
-        {listId && (
+        {listId && !isMyQuizFlow && (
           <div className={styles.listNavigation}>
             {isQuestionListFlow ? (
               questionListSessionMissing ? (

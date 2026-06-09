@@ -1,7 +1,7 @@
 # Research & Design Decisions: quizeum-auth-profile-ui
 
 ## Summary
-- **Feature**: quizeum-auth-profile-ui（Phase 5: 本人プレイ履歴 / Phase 8: 作成リスト listType 表示）
+- **Feature**: quizeum-auth-profile-ui（Phase 5: 本人プレイ履歴 / Phase 8: 作成リスト listType 表示 / **Phase 23: リアクション履歴導線削除**）
 - **Discovery Scope**: Extension（Light）
 - **Key Findings**:
   - Phase 5（プレイ履歴）は `ProfilePlayHistoryPanel` + `play-history-client` で実装済み。
@@ -80,4 +80,51 @@
   - **緩和策**: Middleware で事前に Cookie をチェックしてリダイレクトさせることで、白紙や保護画面のスケルトンを一切挟まず、即時に `/login` を描画させる。
 - **テスト自動化 (Playwright/Jest) への影響**:
   - 各非同期スケルトンに testid (`bookmarks-skeleton`, `notifications-skeleton`, `profile-skeleton`, `connections-skeleton`) を付与し、テストのロード待機処理を確実に行えるようにする。
+
+---
+
+# Phase 23: リアクション履歴導線削除（2026-06-09）
+
+## Summary
+- **Feature**: 本人プロフィールから「リアクション履歴」UI 導線の削除（要件 10）
+- **Discovery Scope**: Extension（Minimal）— 単一コンポーネントの Link 削除
+- **Key Findings**:
+  - 導線は `profile-client.tsx` L250–257 の `isMyProfile` 分岐内 `Link` + `Heart` アイコンのみ。
+  - `/profile/[uid]/likes` ルートと `LikesClient` はレガシー存続。改修不要。
+  - E2E F-407（`e2e/social-features.spec.ts`）はプロフィール導線前提のため、直接実装候補 `remove-reaction-history-e2e` と連携して skip/削除。
+
+## Research Log
+
+### リアクション履歴導線の所在（Phase 23）
+- **Context**: 要件 10 — 廃止機能への迷い込み防止。
+- **Sources Consulted**: `src/app/profile/[uid]/profile-client.tsx` L240–272、`requirements.md` 要件 2.7 / 6 / 10。
+- **Findings**: 本人 `profileActions` に「プロフィールの編集」と「リアクション履歴」の2ボタン。他ユーザーはフォローボタンのみ。likes ルートは `likes/page.tsx` + `likes-client.tsx` で独立存続。
+- **Implications**: 最小差分は `Link` ブロック削除と `Heart` import 削除のみ。ルート・サービス層は触らない。
+- **Status**: 設計確定。
+
+### E2E F-407 との整合（Phase 23）
+- **Context**: 要件 10.7、roadmap 直接実装候補 `remove-reaction-history-e2e`。
+- **Findings**: F-407 は `/profile/test-user` から「リアクション|いいね」リンクをクリックし `/likes` へ遷移する流れ。導線削除後はリンク不可。
+- **Selected**: E2E 更新は直接実装候補が担当。本スペック実装タスクでは F-407 整理を同一 PR または直後の follow-up で行う旨をタスク境界に明記。
+- **Status**: 設計確定。
+
+## Design Decisions
+
+### Decision: 導線のみ削除、ルートはレガシー存続
+- **Rationale**: 要件 10.4 — 即時 404 化は follow-up。直接 URL ブックマーク等への配慮と変更最小化。
+- **Trade-offs**: likes 画面は discoverability なく残る — 意図的（廃止方向機能）。
+
+### Decision: ProfileClient 単体変更に限定
+- **Rationale**: 導線は1ファイル1箇所。`page.tsx`（RSC シェル）は `ProfileClient` 委譲のため変更不要。
+- **Trade-offs**: 将来 likes ルート削除時は別フェーズで一括整理。
+
+## Risks & Mitigations
+- **F-407 E2E 失敗** — 導線削除と E2E skip/削除の実装順序をタスクで明示。直接実装候補と同一 Wave で実施推奨。
+- **Heart import 未削除** — ESLint unused import で検出。実装時に import 整理を必須化。
+
+## References
+- `src/app/profile/[uid]/profile-client.tsx` — 削除対象導線
+- `src/app/profile/[uid]/likes/likes-client.tsx` — レガシー（変更なし）
+- `e2e/social-features.spec.ts` L262–286 — F-407
+- `.kiro/steering/roadmap.md` — Direct Implementation Candidates
 

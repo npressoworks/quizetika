@@ -25,6 +25,14 @@ jest.mock('@/context/auth-context', () => ({
   }),
 }));
 
+jest.mock('@/lib/firebase/config', () => ({
+  auth: {},
+}));
+
+jest.mock('@/lib/firebase/auth', () => ({
+  signOut: jest.fn(() => Promise.resolve()),
+}));
+
 describe('Header Component (Mobile Mini Header)', () => {
   beforeEach(() => {
     mockPathname = '/';
@@ -46,12 +54,13 @@ describe('Header Component (Mobile Mini Header)', () => {
     expect(screen.queryByAltText('avatar')).not.toBeInTheDocument();
   });
 
-  it('ログイン時は作問ボタンとアバターを表示し、ログインボタンを非表示にする', () => {
+  it('ログイン時は作問ボタンとプロフィールボタンを表示し、ログインボタンを非表示にする', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Header />);
     
     expect(screen.queryByRole('link', { name: 'ログイン' })).not.toBeInTheDocument();
     expect(screen.getByTestId('mobile-header-create-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('header-profile-btn')).toBeInTheDocument();
     expect(screen.getByAltText('ななみ')).toBeInTheDocument();
   });
 

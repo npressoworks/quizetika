@@ -25,7 +25,6 @@ import {
   Sparkles, 
   User as UserIcon,
   Shield,
-  Heart,
   Grid,
   List,
   History,
@@ -246,14 +245,6 @@ export function ProfileClient() {
                       style={{ padding: '8px 24px', fontSize: '0.9rem' }}
                     >
                       プロフィールの編集
-                    </Link>
-                    <Link 
-                      href={`/profile/${uid}/likes`} 
-                      className="btn btn-outline"
-                      style={{ padding: '8px 16px', fontSize: '0.9rem' }}
-                    >
-                      <Heart size={16} />
-                      <span>リアクション履歴</span>
                     </Link>
                   </>
                 ) : (

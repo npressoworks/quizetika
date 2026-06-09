@@ -59,11 +59,13 @@ describe('Sidebar Component', () => {
     expect(screen.queryByText('ダッシュボード')).not.toBeInTheDocument();
   });
 
-  it('ログイン時は主要メニュー（通知、ブックマーク、作問、ダッシュボード）を表示する', () => {
+  it('ログイン時は主要メニュー（リスト、マイクイズ、通知、ブックマーク、作問、ダッシュボード）を表示する', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
     
     expect(screen.getByText('ホーム')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-lists')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-my-quiz')).toBeInTheDocument();
     expect(screen.getByText('通知')).toBeInTheDocument();
     expect(screen.getByText('ブックマーク')).toBeInTheDocument();
     expect(screen.getByText('作問する')).toBeInTheDocument();
@@ -114,20 +116,32 @@ describe('Sidebar Component', () => {
     expect(pricingLink).toHaveClass('active');
   });
 
-  it('プロフィール領域をクリックするとポップアップメニュー（マイページ、ログアウト）が表示される', () => {
+  it('未ログイン時は nav-lists / nav-my-quiz を表示しない', () => {
+    mockUser = null;
+    render(<Sidebar />);
+    expect(screen.queryByTestId('nav-lists')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('nav-my-quiz')).not.toBeInTheDocument();
+  });
+
+  it('/lists でリストのみ active', () => {
+    mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
+    mockPathname = '/lists';
+    render(<Sidebar />);
+    expect(screen.getByTestId('nav-lists')).toHaveClass('active');
+    expect(screen.getByTestId('nav-my-quiz')).not.toHaveClass('active');
+  });
+
+  it('プロフィール領域をクリックするとポップアップ（マイページ、設定、ログアウト）が表示される', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
     
-    // 最初はポップアップメニューがないこと
     expect(screen.queryByText('マイページ')).not.toBeInTheDocument();
-    expect(screen.queryByText('ログアウト')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sidebar-settings-link')).not.toBeInTheDocument();
     
-    // プロフィールボタンをクリック
-    const profileBtn = screen.getByTestId('sidebar-profile-btn');
-    fireEvent.click(profileBtn);
+    fireEvent.click(screen.getByTestId('sidebar-profile-btn'));
     
-    // ポップアップメニューが表示されること
     expect(screen.getByText('マイページ')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-settings-link')).toBeInTheDocument();
     expect(screen.getByText('ログアウト')).toBeInTheDocument();
   });
 });

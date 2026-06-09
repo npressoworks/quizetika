@@ -5,6 +5,8 @@
 
 **Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）と検索画面（`/search`）の IA 分離に伴い、Sidebar / BottomNav に「検索」導線を追加し、アクティブ状態を区別する。
 
+**Phase 23（2026-06-09）**: ログイン時 Sidebar に「リスト」（`/lists`）・「マイクイズ」（`/my-quiz`）を追加し、アカウントポップアップに「設定」（`/settings`）を追加する。モバイルは BottomNav 5 項目を維持し、Header アバターのプロフィールポップアップで代替到達手段を提供する。
+
 ### Goals
 - PC/タブレットサイズにおいて、画面左端にナビゲーション項目を一元化した左サイドバーを導入する。
 - モバイルサイズ（767px以下）において、画面下部に主要遷移先を配置したボトムナビゲーションを導入し、上部ヘッダーを軽量なミニヘッダーへとリファクタリングする。
@@ -26,10 +28,12 @@
 - `layout.tsx` におけるレイアウト構造の統合。
 - デバイス幅に応じた余白（パディング）制御および `/play` プレイ画面除外ロジック。
 - **Phase 22**: Sidebar / BottomNav への「検索」（`/search`）導線、`/` と `/search` のアクティブ状態区別、`data-testid` 付与。
+- **Phase 23**: Sidebar ログイン時「リスト」「マイクイズ」導線、ポップアップ「設定」導線、active 判定、`data-testid` 付与。モバイル Header プロフィールポップアップによる `/lists`・`/my-quiz`・`/settings` 到達手段。
 
 ### Out of Boundary
 - `useAuth` フックおよび Firebase 認証状態の管理（`quizeum-auth-profile-ui` に依存）。
 - プロフィール画面、通知画面、ブックマーク画面、作問画面などの各ルーティング遷移先の中身（コンテンツ部）。
+- **Phase 23**: リスト探索・マイクイズ・設定各ページのコンテンツ UI、`ThemeProvider` / `layout.tsx` へのテーマ Provider 統合（`quizeum-user-settings-ui` が担当）。
 
 ### Allowed Dependencies
 - **`useAuth`** (from `@/context/auth-context`): ログイン状態、ユーザー情報、アバター画像の取得。
@@ -366,3 +370,195 @@ function isSearchActive(pathname: string | null): boolean {
 **Effort**: **S**（0.5–1日）
 
 **Document Status（Phase 22 設計）**: 本節に反映。
+
+---
+
+## Phase 23: リスト・マイクイズ・設定ナビ拡張
+
+### 1. Overview
+
+ログインユーザー向けに Sidebar 主要ナビへ「リスト」（`/lists`）と「マイクイズ」（`/my-quiz`）を追加し、Sidebar フッターのアカウントポップアップに「設定」（`/settings`）を挿入する。未ログイン時はリスト・マイクイズを非表示とし、既存のログインボタン導線を維持する。
+
+モバイル（767px 以下）では BottomNav を 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、**Header のアバタータップで Sidebar と同型のプロフィールポップアップ（シート）** を開き、リスト・マイクイズ・設定・マイページ・ログアウトへ到達できるようにする。BottomNav のプロフィールタップは従来どおりマイページ直行を維持し、Header アバターがモバイル専用の拡張メニュー入口となる。
+
+`layout.tsx` への `ThemeProvider` 統合は **本フェーズのスコープ外** とし、`quizeum-user-settings-ui` が Provider を所有する。本スペックはシェル（Sidebar / Header / BottomNav / LayoutWrapper）のナビ整合のみを担当する。
+
+### 2. Boundary Commitments（Phase 23）
+
+| Owns | Out |
+|------|-----|
+| Sidebar ログイン時「リスト」「マイクイズ」項目追加 | リスト探索ページ UI（`quizeum-lists-discovery-ui`） |
+| Sidebar ポップアップ「設定」リンク（`/settings`） | マイクイズページ UI（`quizeum-my-quiz-ui`） |
+| `isListsActive` / `isMyQuizActive` active 判定 | 設定ページ・ThemeProvider（`quizeum-user-settings-ui`） |
+| `data-testid`: `nav-lists`, `nav-my-quiz`, `sidebar-settings-link` | マイページからのリアクション履歴削除（`quizeum-auth-profile-ui`） |
+| モバイル Header プロフィールポップアップ（代替到達手段） | `layout.tsx` への ThemeProvider 追加 |
+
+**layout.tsx 協調メモ**: `quizeum-user-settings-ui` が `ThemeProvider` と inline テーマ初期化 script を `layout.tsx` に追加する。本フェーズでは `layout.tsx` を変更しない（ThemeProvider 未導入状態でも Sidebar / Header のナビ拡張は独立して実装可能）。両スペックのマージ順は user-settings → sidebar-layout を推奨。
+
+### 3. Navigation Items
+
+#### Sidebar `menuItems`（ログイン時のみ追加）
+
+```typescript
+// ログイン時、通知・ブックマークの直前に挿入
+if (user) {
+  menuItems.push(
+    { href: '/lists', label: 'リスト', icon: <List size={22} />, testId: 'nav-lists' },
+    { href: '/my-quiz', label: 'マイクイズ', icon: <ClipboardList size={22} />, testId: 'nav-my-quiz' },
+    { href: '/notifications', label: '通知', icon: <Bell size={22} /> },
+    { href: '/bookmarks', label: 'ブックマーク', icon: <Bookmark size={22} /> }
+  );
+}
+```
+
+- **リスト** アイコン: `lucide-react` の `List`
+- **マイクイズ** アイコン: `lucide-react` の `ClipboardList`（代替候補: `BookMarked`。視認性比較後に確定可）
+- 配置順: ホーム → 検索 → Proプラン → **リスト** → **マイクイズ** → 通知 → ブックマーク → ダッシュボード → 作問
+- 未ログイン時: リスト・マイクイズは `menuItems.push` しない（Req 6.2）
+
+#### Sidebar アカウントポップアップ（ログイン時）
+
+```tsx
+<Link href={`/profile/${user.id}`} className={styles.popupItem} onClick={() => setPopupOpen(false)}>
+  <UserIcon size={18} />
+  <span>マイページ</span>
+</Link>
+<Link
+  href="/settings"
+  className={styles.popupItem}
+  onClick={() => setPopupOpen(false)}
+  data-testid="sidebar-settings-link"
+>
+  <Settings size={18} />  {/* lucide-react Settings */}
+  <span>設定</span>
+</Link>
+<hr className={styles.divider} />
+<button onClick={handleLogout} ...>ログアウト</button>
+```
+
+- 「設定」は **マイページの直下・区切り線（`<hr>`）の上** に配置（Req 6.8）
+- クリック時: `/settings` へ遷移し `setPopupOpen(false)`（Req 6.9）
+- `/settings` 表示中の Sidebar 主要ナビ active 化は **任意**（Req 6.11）。初版は active なしでよい
+
+#### BottomNav（767px 以下）— 変更最小
+
+| 状態 | 表示リンク | Phase 23 変更 |
+|------|-----------|---------------|
+| 未ログイン | ホーム、検索 | なし |
+| ログイン | ホーム、検索、通知、ブックマーク、プロフィール | **なし**（5 項目維持） |
+
+- BottomNav プロフィールは引き続き `/profile/${user.id}` 直行
+- リスト・マイクイズ・設定への到達は Header ポップアップが担う（Req 6.12–6.13）
+
+#### モバイル Header プロフィールポップアップ（推奨案）
+
+現状 Header アバターは `<Link href={/profile/...}>` で直行している。Phase 23 では Sidebar と同型のポップアップパターンに変更する。
+
+```tsx
+// header.tsx — ログイン時アバター
+<button
+  className={styles.avatarBtn}
+  onClick={() => setPopupOpen(!popupOpen)}
+  data-testid="header-profile-btn"
+  aria-expanded={popupOpen}
+>
+  <img src={user.avatarUrl} alt={user.displayName} className={styles.avatar} />
+</button>
+{popupOpen && (
+  <div className={styles.profileSheet} data-testid="header-profile-popup">
+    <Link href="/lists" data-testid="header-nav-lists" onClick={close}>リスト</Link>
+    <Link href="/my-quiz" data-testid="header-nav-my-quiz" onClick={close}>マイクイズ</Link>
+    <Link href={`/profile/${user.id}`} onClick={close}>マイページ</Link>
+    <Link href="/settings" data-testid="header-settings-link" onClick={close}>設定</Link>
+    <button onClick={handleLogout}>ログアウト</button>
+  </div>
+)}
+```
+
+**モバイル代替案（設計記録）**
+
+| 案 | 概要 | 評価 |
+|----|------|------|
+| **A（推奨）** | Header アバター → ポップアップシート（リスト・マイクイズ・設定含む） | BottomNav 5 項目維持。Sidebar ポップアップと UX 一貫。Header に既存アバターあり |
+| B | BottomNav プロフィール長押し / 二段タップでシート | 発見性低。既存 E2E（プロフィール直行）への影響大 |
+| C | BottomNav に 6–7 項目追加 | タップ領域過密。非推奨 |
+| D | ハンバーガーメニュー復活 | Phase 1 で削除済み。回帰リスク |
+
+初版は **案 A** を採用。`header.module.css` にポップアップ／バックドロップスタイルを追加（Sidebar の `popupMenu` / `popupItem` パターンを参考に共通化は任意、初版は Header 内完結で可）。
+
+### 4. Active Path Logic
+
+```typescript
+function isListsActive(pathname: string | null): boolean {
+  return pathname === '/lists' || (pathname?.startsWith('/lists/') ?? false);
+}
+
+function isMyQuizActive(pathname: string | null): boolean {
+  return pathname === '/my-quiz' || (pathname?.startsWith('/my-quiz/') ?? false);
+}
+```
+
+`isNavItemActive` を拡張:
+
+```typescript
+const isNavItemActive = (href: string): boolean => {
+  if (href === '/') return pathname === '/';
+  if (href === '/search') {
+    return pathname === '/search' || (pathname?.startsWith('/search/') ?? false);
+  }
+  if (href === '/lists') return isListsActive(pathname);
+  if (href === '/my-quiz') return isMyQuizActive(pathname);
+  return pathname === href;
+};
+```
+
+- `/lists/create` 等の子ルートもリスト active（Req 6.5）
+- `/my-quiz/...` 子ルートもマイクイズ active（Req 6.6）
+- `/settings` は Sidebar 主要ナビに含めないため active 判定不要（Req 6.11）
+
+### 5. File Structure Plan（Phase 23）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/components/layout/sidebar.tsx` | **Modify** | リスト・マイクイズ menuItems、設定ポップアップ、`isNavItemActive` 拡張、`Settings`/`List`/`ClipboardList` import |
+| `src/components/layout/sidebar.module.css` | **Modify** | （必要時）ナビ項目増のスクロール・余白調整 |
+| `src/components/layout/header.tsx` | **Modify** | モバイルアバター → ポップアップシート、リスト・マイクイズ・設定・マイページ・ログアウト |
+| `src/components/layout/header.module.css` | **Modify** | ポップアップシート・バックドロップ・avatarBtn スタイル |
+| `src/components/layout/bottom-nav.tsx` | **—** | Phase 23 変更なし（5 項目維持） |
+| `tests/components/sidebar.test.tsx` | **Modify** | リスト・マイクイズ表示/非表示、active、設定リンク、testid |
+| `tests/components/header.test.tsx` | **New or Modify** | モバイルポップアップ、リスト・マイクイズ・設定到達 |
+
+**変更しないファイル**: `layout.tsx`（ThemeProvider は user-settings が担当）、`layout-wrapper.tsx`、`bottom-nav.module.css`
+
+### 6. Requirements Traceability（Phase 23）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 6.1 | ログイン時 Sidebar にリスト・マイクイズ | `sidebar.tsx` |
+| 6.2 | 未ログイン時非表示 | `sidebar.tsx` |
+| 6.3–6.4 | クリックで `/lists` / `/my-quiz` 遷移 | `sidebar.tsx` |
+| 6.5–6.6 | lists / my-quiz active（startsWith） | `sidebar.tsx` |
+| 6.7 | testid `nav-lists`, `nav-my-quiz` | `sidebar.tsx` |
+| 6.8–6.10 | ポップアップ設定リンク | `sidebar.tsx` |
+| 6.11 | `/settings` active 任意 | —（初版: 主要ナビ active なし） |
+| 6.12–6.13 | モバイル代替到達（同一ルート） | `header.tsx` |
+| 6.14–6.17 | 隣接スペック境界 | Out of scope |
+
+### 7. Testing Strategy（Phase 23）
+
+| 種別 | 検証 |
+|------|------|
+| **Component** | 未ログイン: `nav-lists` / `nav-my-quiz` 不在 |
+| **Component** | ログイン: リスト・マイクイズ表示、`nav-lists` / `nav-my-quiz` testid |
+| **Component** | `/lists` で `nav-lists` active、`/lists/create` でも active |
+| **Component** | `/my-quiz` で `nav-my-quiz` active |
+| **Component** | ポップアップ開閉 → `sidebar-settings-link` 表示 → クリックで閉じる |
+| **Component** | Header `header-profile-btn` → ポップアップ → `header-nav-lists` / `header-settings-link` |
+| **E2E** | Desktop: Sidebar「リスト」→ `/lists` 遷移 |
+| **E2E** | Desktop: Sidebar ポップアップ「設定」→ `/settings` 遷移 |
+| **E2E** | Mobile 375px: Header アバター → ポップアップ → 「マイクイズ」→ `/my-quiz` |
+| **Regression** | BottomNav 5 項目・プロフィール直行が維持されること |
+
+**Effort**: **S**（0.5–1日）
+
+**Document Status（Phase 23 設計）**: 本節に反映。

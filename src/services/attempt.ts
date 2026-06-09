@@ -19,7 +19,15 @@ import {
 import { db } from '../lib/firebase/config';
 import { expandGenreIdsForQuery, quizMatchesGenreFilter } from '../lib/metadata-resolution';
 import { quizzesRef, usersRef } from '../lib/firebase/firestore';
-import { Attempt, Quiz, Question, PlayHistoryPage, PlayHistoryEntry } from '../types';
+import {
+  Attempt,
+  Quiz,
+  Question,
+  PlayHistoryPage,
+  PlayHistoryEntry,
+  satisfiesMyQuizAttemptContract,
+  satisfiesQuestionListAttemptContract,
+} from '../types';
 import {
   buildLeaderboardUpdatesForQuiz,
   isLeaderboardEligibleAttempt,
@@ -53,6 +61,10 @@ import {
 
 const attemptsCollection = collection(db, 'attempts');
 
+function isSingleQuestionAttemptMode(mode: Attempt['mode']): boolean {
+  return mode === 'question-list' || mode === 'my-quiz';
+}
+
 /* ==========================================================================
    Attempt 保存
    ========================================================================== */
@@ -75,6 +87,7 @@ export async function saveAttempt(
   const payload: Omit<Attempt, 'id'> = {
     ...attemptData,
     listId: attemptData.listId ?? null, // undefined は Firestore がエラーを吐くため、ここで null に変換
+    sessionId: attemptData.sessionId ?? null,
     completedAt,
   };
 
@@ -90,12 +103,36 @@ export async function saveAttempt(
 
     // ── セキュリティ対策（チート防止のためのサーバーサイド二重検証） ──
     const actualTotalQuestions = quiz.questions?.length ?? 0;
-    if (attemptData.totalQuestions !== actualTotalQuestions) {
-      throw new Error(`問題数の不整合が検知されました。期待される問題数: ${actualTotalQuestions}, 送信された問題数: ${attemptData.totalQuestions}`);
+    const quizQuestionIds = new Set((quiz.questions ?? []).map((q) => q.id));
+
+    if (isSingleQuestionAttemptMode(attemptData.mode)) {
+      if (attemptData.totalQuestions !== 1) {
+        throw new Error(
+          `1問プレイモードでは totalQuestions は 1 である必要があります。送信値: ${attemptData.totalQuestions}`
+        );
+      }
+      if (
+        attemptData.mode === 'question-list' &&
+        !satisfiesQuestionListAttemptContract(attemptData)
+      ) {
+        throw new Error('question-list モードの attempt 契約を満たしていません');
+      }
+      if (
+        attemptData.mode === 'my-quiz' &&
+        !satisfiesMyQuizAttemptContract(attemptData)
+      ) {
+        throw new Error('my-quiz モードの attempt 契約を満たしていません');
+      }
+      if (attemptData.failedQuestionIds.length > 1) {
+        throw new Error('1問プレイモードでは failedQuestionIds は最大1件です');
+      }
+    } else if (attemptData.totalQuestions !== actualTotalQuestions) {
+      throw new Error(
+        `問題数の不整合が検知されました。期待される問題数: ${actualTotalQuestions}, 送信された問題数: ${attemptData.totalQuestions}`
+      );
     }
 
     // 送信された間違えた問題IDがすべて該当クイズに存在するか検証
-    const quizQuestionIds = new Set((quiz.questions ?? []).map((q) => q.id));
     for (const failedId of attemptData.failedQuestionIds) {
       if (!quizQuestionIds.has(failedId)) {
         throw new Error(`該当クイズに存在しない不正な問題IDが解答履歴に含まれています: ${failedId}`);
@@ -103,7 +140,9 @@ export async function saveAttempt(
     }
 
     // 計算上の正解数と送信されたスコア（score）が合致するか検証
-    const calculatedScore = actualTotalQuestions - attemptData.failedQuestionIds.length;
+    const calculatedScore = isSingleQuestionAttemptMode(attemptData.mode)
+      ? 1 - attemptData.failedQuestionIds.length
+      : actualTotalQuestions - attemptData.failedQuestionIds.length;
     if (attemptData.score !== calculatedScore) {
       throw new Error(`スコアデータの不整合が検知されました。計算スコア: ${calculatedScore}, 送信スコア: ${attemptData.score}`);
     }

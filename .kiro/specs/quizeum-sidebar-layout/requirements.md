@@ -6,6 +6,8 @@
 
 **Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）と検索画面（`/search`）の IA 分離に伴い、Sidebar および BottomNav に「検索」導線を追加し、ホーム（`/`）と検索（`/search`）のアクティブ状態を区別して表示します（各画面のコンテンツは `quizeum-play-flow-ui` が担当）。
 
+**Phase 23（2026-06-09）**: リスト探索（`/lists`）・マイクイズ（`/my-quiz`）・設定（`/settings`）へのナビ導線を追加します。Sidebar に「リスト」「マイクイズ」を追加し、アカウントポップアップに「設定」を追加します。各画面のコンテンツは隣接スペックが担当します。モバイル BottomNav への項目追加は過密のため、本フェーズでは Sidebar 優先とし、モバイル向け到達手段は設計で確定します。
+
 ## Boundary Context
 - **In scope**:
   - デスクトップ・タブレットサイズ用の縦型左サイドバー（Sidebar）の表示とメニュー統合。
@@ -15,6 +17,7 @@
   - レスポンシブに応じたメインコンテンツの余白（パディング/マージン）の自動調整。
   - ログイン状態に応じたメニュー項目・ユーザー情報の動的切り替え。
   - **Phase 22**: Sidebar および BottomNav への「検索」（`/search`）導線追加、ホーム（`/`）と検索（`/search`）のアクティブハイライト区別。
+  - **Phase 23**: Sidebar への「リスト」（`/lists`）・「マイクイズ」（`/my-quiz`）導線追加（ログイン時のみ）。アカウントポップアップへの「設定」（`/settings`）導線追加。`/lists`・`/my-quiz`・`/settings` のアクティブハイライト。モバイル向けリスト／マイクイズ到達手段（BottomNav 以外のパターンを含む）。
 - **Out of scope**:
   - クイズプレイ画面（`/play`）におけるナビゲーションレイアウトの表示（非表示のまま維持）。
   - サイドバーまたはボトムナビ上の未読通知バッジ等のリアルタイム更新システム（静的なプレースホルダー表示枠のみをスコープとする）。
@@ -22,6 +25,7 @@
   - ログイン状態やユーザーアバター画像、メールアドレスなどの基本情報は、既存の認証状態（`useAuth` フック）から提供されること。
   - サイドバー等のリンクから遷移する各画面（ホーム、通知、ブックマーク等）のメインコンテンツ自体は、本スペックの管轄外（既存の各UIスペックが所有）であること。
   - **Phase 22**: ディスカバリーホームおよび検索画面のカルーセル・フィルタ UI は `quizeum-play-flow-ui` が提供すること。検索 URL クエリ契約は `quizeum-core` が提供すること。
+  - **Phase 23**: リスト探索ページ（`/lists`）は `quizeum-lists-discovery-ui`、マイクイズページ（`/my-quiz`）は `quizeum-my-quiz-ui`、設定ページおよびテーマ切替は `quizeum-user-settings-ui` が提供すること。`layout.tsx` への ThemeProvider 統合は `quizeum-user-settings-ui` が担当し、本スペックはシェル構造の整合に協調すること。
 
 ## Requirements
 
@@ -77,3 +81,33 @@
 4. The Sidebar Component shall 「検索」項目に `data-testid="nav-search"`、「ホーム」項目に `data-testid="nav-home"` を付与すること。
 5. The Bottom Navigation Component shall 検索リンクに `data-testid="bottom-nav-search"`、ホームリンクに `data-testid="bottom-nav-home"` を付与すること（既存 `bottom-nav-home` がある場合は `/` 向けとして維持）。
 6. The Sidebar Component shall [ディスカバリーホームのカルーセル内容・検索画面のフィルタ UI を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当）]。
+
+### Requirement 6: リスト・マイクイズ・設定へのナビ拡張（Phase 23）
+**Objective:** As a ログインユーザー, I want リスト探索・マイクイズ・設定へナビからアクセスできること, so that 個人向け学習機能と表示設定に素早く到達できる。
+
+#### Acceptance Criteria
+
+**Sidebar 主要ナビ（ログイン時）**
+1. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「リスト」（`/lists`）および「マイクイズ」（`/my-quiz`）のメニュー項目を主要ナビゲーションに含めること。
+2. When ユーザーが未ログイン状態であるとき, the Sidebar Component shall 「リスト」および「マイクイズ」のメニュー項目を非表示にすること。
+3. When ユーザーが Sidebar の「リスト」項目をクリックしたとき, the Sidebar Component shall リスト探索画面（`/lists`）へ遷移すること。
+4. When ユーザーが Sidebar の「マイクイズ」項目をクリックしたとき, the Sidebar Component shall マイクイズ画面（`/my-quiz`）へ遷移すること。
+5. While 現在のパスが `/lists` または `/lists/` で始まるとき, the Sidebar Component shall 「リスト」項目をアクティブ状態としてハイライト表示すること。
+6. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「マイクイズ」項目をアクティブ状態としてハイライト表示すること。
+7. The Sidebar Component shall 「リスト」項目に `data-testid="nav-lists"`、「マイクイズ」項目に `data-testid="nav-my-quiz"` を付与すること。
+
+**アカウントポップアップ（設定導線）**
+8. When ログインユーザーが Sidebar フッターのアカウントボタンを操作しポップアップを開いたとき, the Sidebar Component shall 「マイページ」リンクの下、区切り線の上に「設定」リンク（`/settings`）を表示すること。
+9. When ユーザーがポップアップ内の「設定」をクリックしたとき, the Sidebar Component shall 設定画面（`/settings`）へ遷移し、ポップアップを閉じること。
+10. The Sidebar Component shall ポップアップ内の「設定」リンクに `data-testid="sidebar-settings-link"` を付与すること。
+11. While 現在のパスが `/settings` または `/settings/` で始まるとき, the Sidebar Component shall ポップアップを開いた状態の視覚的強調は不要とし、主要ナビのアクティブ表示は設計で任意とする（設定はポップアップ経由のため、主要ナビ項目のアクティブ化は必須としない）。
+
+**モバイル到達手段**
+12. While 画面幅が767px以下かつユーザーがログイン状態であるとき, the Navigation Layout shall リスト探索画面（`/lists`）およびマイクイズ画面（`/my-quiz`）へ到達できる導線を少なくとも1つ提供すること（初版は BottomNav への直接追加を必須としない。プロフィールポップアップ、ヘッダーメニュー、または同等の代替導線を設計で選択してよい）。
+13. When モバイル向けに BottomNav へ「リスト」「マイクイズ」を追加しない設計を採用した場合, the Navigation Layout shall 代替導線の到達先が Sidebar と同一ルート（`/lists`・`/my-quiz`）であること。
+
+**境界・隣接**
+14. The Sidebar Component shall [リスト探索ページの検索・公開/非公開タブ UI を本要件の範囲に含めない（`quizeum-lists-discovery-ui` が担当）]。
+15. The Sidebar Component shall [マイクイズのフィルタ・出題数・プレイ開始 UI を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
+16. The Sidebar Component shall [設定ページのテーマ切替 UI および ThemeProvider 実装を本要件の範囲に含めない（`quizeum-user-settings-ui` が担当）]。
+17. The Sidebar Component shall [マイページからのリアクション履歴導線削除を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。

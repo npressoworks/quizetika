@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Suspense } from "react";
 import { AuthProvider } from "@/context/auth-context";
+import { ThemeProvider } from "@/context/theme-context";
 import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 import { PostHogProvider } from "./providers";
 import { PostHogPageView } from "./PostHogPageView";
+import { getThemeInitScript } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: "quizeum - クイズ投稿・管理SNS",
@@ -19,16 +21,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: getThemeInitScript() }} />
+      </head>
       <body>
         <PostHogProvider>
           <Suspense fallback={null}>
             <PostHogPageView />
           </Suspense>
           <AuthProvider>
-            <LayoutWrapper>
-              {children}
-            </LayoutWrapper>
+            <ThemeProvider>
+              <LayoutWrapper>
+                {children}
+              </LayoutWrapper>
+            </ThemeProvider>
           </AuthProvider>
         </PostHogProvider>
       </body>

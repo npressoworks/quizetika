@@ -1,7 +1,9 @@
 # Technical Design Document: quizeum-auth-profile-ui
 
 ## Overview
-本ドキュメントは、クイズ投稿SNS「quizeum」におけるユーザー認証・プロフィール関連UIの技術設計仕様を定義します。ユーザー認証の入り口、個人プロフィールの閲覧・編集、ソーシャルフォロー連携、リアクション履歴、およびアクティビティ通知一覧を含む、アプリケーション全体の基本構造となる画面群を構築します。
+本ドキュメントは、クイズ投稿SNS「quizeum」におけるユーザー認証・プロフィール関連UIの技術設計仕様を定義します。ユーザー認証の入り口、個人プロフィールの閲覧・編集、ソーシャルフォロー連携、およびアクティビティ通知一覧を含む、アプリケーション全体の基本構造となる画面群を構築します。
+
+**Phase 23（2026-06-09）**: 廃止方向のリアクション機能に伴い、本人プロフィールから「リアクション履歴」UI 導線を削除する。`/profile/[uid]/likes` ルートはレガシーとして存続し、直接 URL アクセス時のみ `LikesPage` が応答する（新規導線の追加・画面改修は行わない）。
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフロントエンド構成に加え、CSS Modulesによる親しみやすく洗練されたデザインシステムを実装し、Firebase AuthおよびFirestore上の `UserService` とのインターフェース接続を行います。
 
@@ -16,12 +18,14 @@
 - 退会処理中（`delete_pending`）の404フォールバック。
 - **Phase 5**: プレイ履歴専用タブ、カーソルページング、クイズ詳細へのリンク、E2E `data-testid` 契約。
 - **Phase 8**: リストカードの `listType` バッジ、種別に応じた収録件数、任意フィルタ、E2E `data-testid` 契約。
+- **Phase 23**: 本人プロフィール `profileActions` からリアクション履歴リンク（Heart アイコン付き）の削除。編集・弱点克服等の現行有効導線は維持。
 
 ### Non-Goals
 - クイズプレイ・作成・モデレーション画面（各専用スペック）。
 - `attempts` 永続化・プレイ履歴API・`test-play` 除外ロジック（`quizeum-core`）。
 - 他ユーザープロフィールからのプレイ履歴閲覧。
 - **Phase 8**: リスト作成・編集・`listType` 選択 UI（`quizeum-creator-dash-ui`）。ブックマーク3タブ・問題リストプレイ（`quizeum-play-flow-ui`）。
+- **Phase 23**: `/profile/[uid]/likes` ルートの削除・404化、`LikesClient` / `ReactionService` の改修、リアクションデータのマイグレーション、E2E F-407 の削除本体（直接実装候補 `remove-reaction-history-e2e` が担当。本スペックは導線削除とテスト方針の整合のみ）。
 
 ---
 
@@ -34,6 +38,7 @@
 - **クライアント側権限保護**: `delete_pending` 閲覧時の404。
 - **Phase 5**: `ProfilePlayHistoryPanel` — 本人プロフィール第3タブ「プレイ履歴」の取得・表示・追加読み込み。
 - **Phase 8**: `ProfileListsPanel` / `ProfileListCard` — 「作成したリスト」タブの `listType` 表示・件数・任意フィルタ・詳細遷移。
+- **Phase 23**: `ProfileClient` — 本人 `profileActions` からリアクション履歴導線の削除（`/profile/[uid]/likes` ルート本体はレガシー存続）。
 
 ### Out of Boundary
 - Firestoreセキュリティルール、バッジ自動付与サーバー処理。
@@ -197,6 +202,7 @@ sequenceDiagram
 | 2.4         | フォロー・フォロー解除のインタラクション       | `/profile/[uid]` Page                     | `UserService.followUser`              | -                |
 | 2.5         | 退会処理中アカウントへのアクセス制御           | `/profile/[uid]` Page                     | `UserService` (deleteStatus)          | -                |
 | 2.6         | 本人プロフィールのプレイ履歴表示領域           | `ProfilePage`, `ProfilePlayHistoryPanel`  | Tab `history`                         | プレイ履歴フロー |
+| 2.7         | 本人プロフィールにリアクション履歴導線なし     | `ProfileClient`                           | `profileActions`（Phase 23）          | -                |
 | 3.1         | プロフィール編集入力フォーム                   | `/profile/edit` Page                      | Input Form                            | -                |
 | 3.2         | 表示名30字・自己紹介200字制限                  | `/profile/edit` Page                      | Form Validation (Zod)                 | -                |
 | 3.3         | 編集保存とプロフィール画面への遷移             | `/profile/edit` Page                      | `UserService.updateProfile`           | -                |
@@ -204,8 +210,8 @@ sequenceDiagram
 | 4.2         | フォローカードとダイレクトトグル               | `/profile/[uid]/connections` Page         | UserCard, `UserService`               | -                |
 | 5.1         | 通知の時系列一覧表示                           | `/notifications` Page                     | Notification List                     | -                |
 | 5.2         | 指摘完了通知クリックによる遷移                 | `/notifications` Page                     | Click-to-QuizDetail                   | -                |
-| 6.1         | 送受信リアクションのタブ表示                   | `/profile/[uid]/likes` Page               | Tab UI                                | -                |
-| 6.2         | リアクションカードと遷移                       | `/profile/[uid]/likes` Page               | LikeCard                              | -                |
+| 6.1         | プロフィールから likes への新規導線なし（レガシー） | —                                    | 要件 10 優先（Phase 23）              | -                |
+| 6.2         | likes ルート存続時の既存表示（改修任意・レガシー） | `LikesPage`, `LikesClient`            | `ReactionService`（メンテナンス対象外） | -                |
 | 7.1         | 本人のみ「プレイ履歴」専用タブ                 | `ProfilePage`, `ProfilePlayHistoryPanel`  | Tab `history`                         | プレイ履歴フロー |
 | 7.2         | Bearer で履歴取得                              | `play-history-client`                     | `GET /api/user/play-history`          | プレイ履歴フロー |
 | 7.3         | 行: タイトルリンク・スコア・モード・日時・時間 | `ProfilePlayHistoryPanel`                 | `getAttemptModeLabel`                 | -                |
@@ -223,6 +229,14 @@ sequenceDiagram
 | 8.7         | 任意 listType フィルタ                         | `ProfileListsPanel`                       | クライアント filter                   | リスト表示フロー |
 | 8.8         | listType CRUD なし                             | —                                         | Out of boundary                       | -                |
 | 8.9         | E2E testid                                     | `ProfileListCard`                         | data-testid                           | -                |
+| 10.1        | 本人プロフィールにリアクション履歴導線なし     | `ProfileClient`                           | `profileActions`                      | -                |
+| 10.2        | 編集・弱点克服等の現行有効導線のみ             | `ProfileClient`                           | Link `/profile/edit`, 復習セクション  | -                |
+| 10.3        | 他ユーザープロフィールに likes 導線なし        | `ProfileClient`                           | フォローボタンのみ（従来どおり）      | -                |
+| 10.4        | `/profile/[uid]/likes` ルート即時削除不要      | —                                         | Out of boundary（レガシー存続）       | -                |
+| 10.5        | リアクションデータ・送信 UI 削除は対象外       | —                                         | Out of boundary                       | -                |
+| 10.6        | 導線用 testid を付与しない                     | `ProfileClient`                           | `profile-reaction-history-link` 禁止  | -                |
+| 10.7        | E2E F-407 更新は直接実装候補と整合             | —                                         | `remove-reaction-history-e2e`         | -                |
+| 10.8        | 設定・Sidebar 導線は対象外                     | —                                         | `quizeum-user-settings-ui` 等         | -                |
 
 ---
 
@@ -233,14 +247,15 @@ sequenceDiagram
 | Component                 | Domain/Layer   | Intent                                                    | Req Coverage            | Key Dependencies           | Contracts      |
 | ------------------------- | -------------- | --------------------------------------------------------- | ----------------------- | -------------------------- | -------------- |
 | `LoginPage`               | UI / Page      | 認証の開始とリダイレクト制御                              | 1.1, 1.2, 1.3, 1.4, 1.5 | `useAuth`, Firebase Auth   | State          |
-| `ProfilePage`             | UI / Page      | プロフィール閲覧、3タブ（本人時）、フォロー、退会チェック | 2.1–2.6, 7.1, 8.1       | `UserService`, `useAuth`   | State          |
+| `ProfileClient`           | UI / Client    | プロフィール閲覧 UI、本人アクション、タブ、フォロー       | 2.1–2.7, 7.1, 8.1, 10.1–10.3 | `UserService`, `useAuth` | State          |
+| `ProfilePage`             | UI / Page      | プロフィール RSC シェル、Suspense 境界                    | 9.9–9.11                | `ProfileClient`            | Server         |
 | `ProfileListsPanel`       | UI / Component | 作成リストタブの一覧・空状態・任意フィルタ                | 8.1, 8.6, 8.7           | `ProfileListCard`          | State          |
 | `ProfileListCard`         | UI / Component | リスト1件のカード（種別・件数・リンク）                   | 8.2–8.5, 8.9            | `profile-list-display`     | Presentational |
 | `ProfilePlayHistoryPanel` | UI / Component | プレイ履歴専用タブの一覧・ページング                      | 7.2–7.7                 | `play-history-client` (P0) | State, API     |
 | `ProfileEditPage`         | UI / Page      | プロフィール表示名・自己紹介の編集・バリデーション        | 3.1, 3.2, 3.3           | `UserService`, Zod Schema  | FormState      |
 | `ConnectionsPage`         | UI / Page      | フォロー/フォロワーのタブ切替一覧と直接フォロー制御       | 4.1, 4.2                | `UserService`              | State          |
 | `NotificationsPage`       | UI / Page      | アクティビティ通知一覧の表示と詳細遷移                    | 5.1, 5.2                | `NotificationService`      | State          |
-| `LikesPage`               | UI / Page      | リアクション送信・獲得履歴のタブ表示と遷移                | 6.1, 6.2                | `ReactionService`          | State          |
+| `LikesPage`               | UI / Page      | リアクション履歴（レガシー・直接 URL のみ）               | 6.2（メンテナンス対象外） | `ReactionService`        | State          |
 | `Header`                  | UI / Layout    | グローバルナビゲーションおよびログインアバターの表示      | -                       | `useAuth`                  | State          |
 
 #### `ProfilePlayHistoryPanel`（Phase 5）
@@ -459,4 +474,96 @@ export interface ProfileEditFormInput {
 | 9.12 | その他関連画面 of 静的先行表示 | 各関連ページ `page.tsx` | Server Component としてヘッダー等の枠組みを即時描画。 | ユーザーアクセス時に即時描画・配信 |
 | 9.13 | 関連画面データ of スケルトン表示 | `src/components/profile/connections-skeleton.tsx` | フォロー一覧等のロード中、専用スケルトンを表示。 | `data-testid="connections-skeleton"` を付与 |
 | 9.14 | プロフィール・フォロー用スケルトン of testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="profile-skeleton"`, `connections-skeleton` |
+
+---
+
+## Phase 23: リアクション履歴導線削除（2026-06-09）
+
+### 概要
+廃止方向のリアクション機能に伴い、本人プロフィール（`/profile/[uid]`）の `profileActions` 領域から「リアクション履歴」ボタン（Heart アイコン付き `Link` → `/profile/[uid]/likes`）を削除する。`/profile/[uid]/likes` ルート、`likes/page.tsx`、`likes-client.tsx`（`LikesClient`）、`ReactionService` は**レガシーとして変更しない**（直接 URL アクセス時の既存表示は存続可）。
+
+### 境界
+
+#### This Phase Owns
+- `ProfileClient` の本人向け `profileActions` からリアクション履歴 `Link` の削除。
+- 未使用になる `Heart`（`lucide-react`）import の削除。
+- 要件 10・要件 2.7・要件 6（レガシー）に対するトレーサビリティ更新。
+
+#### Out of Boundary
+- `/profile/[uid]/likes` ルートファイルの削除・404 化。
+- `LikesClient` / `LikesPage` / `ReactionService` の改修。
+- リアクション送信 UI、Firestore `reactions` データの削除・マイグレーション。
+- E2E `e2e/social-features.spec.ts` F-407 の削除・スキップ本体（**直接実装候補** `remove-reaction-history-e2e` が担当。本スペックは方針整合と導線削除のみ）。
+- 設定画面（`/settings`）および Sidebar ポップアップ「設定」導線（`quizeum-user-settings-ui` / `quizeum-sidebar-layout`）。
+
+### 現状ギャップ
+`src/app/profile/[uid]/profile-client.tsx` L250–257 に、本人プロフィール時のみ表示されるリアクション履歴導線が残存している。
+
+```tsx
+<Link href={`/profile/${uid}/likes`} className="btn btn-outline" ...>
+  <Heart size={16} />
+  <span>リアクション履歴</span>
+</Link>
+```
+
+Phase 23 実装後、本人プロフィールの `profileActions` は「プロフィールの編集」のみ（弱点克服セクション等の他導線は従来どおり）となる。
+
+### File Structure Plan
+
+| ファイル | 操作 | 責務 |
+| --- | --- | --- |
+| `src/app/profile/[uid]/profile-client.tsx` | **Modify** | `isMyProfile` 時のリアクション履歴 `Link` 削除、`Heart` import 削除 |
+| `src/app/profile/[uid]/likes/page.tsx` | 変更なし | レガシールート（直接 URL） |
+| `src/app/profile/[uid]/likes/likes-client.tsx` | 変更なし | レガシー一覧 UI |
+| `e2e/social-features.spec.ts` | **Skip/Update**（直接実装候補） | F-407 — プロフィールから likes へ遷移する前提が無効化されるため削除または `test.skip` |
+| プロフィール関連単体テスト | 該当なし | `ProfileClient` 専用テストは現状未存在。必要なら RTL で `profileActions` に「リアクション履歴」テキストが無いことを検証（任意） |
+
+### 変更詳細（`ProfileClient`）
+
+**Before（本人 `profileActions`）**
+- 「プロフィールの編集」
+- 「リアクション履歴」（`/profile/[uid]/likes`）
+
+**After（本人 `profileActions`）**
+- 「プロフィールの編集」のみ
+
+**制約**
+- `data-testid="profile-reaction-history-link"` 等の導線用 testid は付与しない（要件 10.6）。
+- 他ユーザープロフィール側は従来どおりフォローボタンのみ（要件 10.3）。
+
+### Requirements Traceability（Phase 23）
+
+| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
+| :--- | :--- | :--- | :--- | :--- |
+| 2.7 | 本人プロフィールにリアクション履歴導線を表示しない | `ProfileClient` | `profileActions` から likes `Link` 削除 | 本人閲覧時 |
+| 6.1 | プロフィールから likes への新規導線を追加しない | — | 要件 10 が優先。導線削除で充足 | — |
+| 6.2 | likes ルート存続時は既存表示可（改修任意） | `LikesPage`, `LikesClient` | 本フェーズ変更なし | 直接 URL のみ |
+| 10.1 | 本人プロフィールにリアクション履歴導線なし | `ProfileClient` | `profileActions` | — |
+| 10.2 | 編集・現行有効導線のみ | `ProfileClient` | `/profile/edit`、復習セクション | — |
+| 10.3 | 他ユーザープロフィールに likes 導線なし | `ProfileClient` | フォローボタンのみ | — |
+| 10.4 | likes ルート即時削除不要 | — | Out of boundary | — |
+| 10.5 | リアクションデータ削除は対象外 | — | Out of boundary | — |
+| 10.6 | 導線用 testid 付与禁止 | `ProfileClient` | testid なし | — |
+| 10.7 | E2E F-407 と直接実装候補の整合 | — | `remove-reaction-history-e2e` | 実装タスクで連携 |
+| 10.8 | 設定・Sidebar 導線は対象外 | — | 隣接スペック | — |
+
+### Testing Strategy（Phase 23）
+
+#### 手動確認
+- ログイン中ユーザーが自身のプロフィールを開いたとき、`profileActions` に「リアクション履歴」リンクが存在しないこと。
+- 「プロフィールの編集」リンクが表示され、`/profile/edit` へ遷移できること。
+- `totalFailedQuestionsCount > 0` 時の弱点克服セクションが従来どおり表示されること。
+- 他ユーザープロフィールでフォローボタンのみ表示されること（回帰）。
+
+#### E2E 連携（直接実装候補）
+- **`remove-reaction-history-e2e`**: `e2e/social-features.spec.ts` の `F-407: リアクション履歴が正常に表示されること` は、プロフィール上の「リアクション履歴」リンククリックを前提としているため、導線削除後は **削除** または **`test.skip` + 理由コメント** とする。
+- F-407 は `text=いいね` / `リアクション` テキストでリンクを探索するため、導線削除後は `if (await likesLink.isVisible())` 分岐で実質 no-op になるが、テスト意図が無効化されるため明示的な整理を推奨。
+- likes ルート自体の E2E（直接 URL `/profile/{uid}/likes`）は本フェーズの必須範囲外（ルートレガシー存続）。
+
+#### 単体テスト
+- 現状 `ProfileClient` 専用テストなし。追加する場合は RTL で本人プロフィール描画時に `リアクション履歴` テキストが DOM に無いことを検証（任意・最小）。
+
+### Revalidation Triggers
+- 将来 `/profile/[uid]/likes` を 404 化する follow-up 実施時 — `LikesPage` 行および Phase 12 E 節の likes Suspense 記述を再検証。
+- リアクション機能完全削除時 — `ReactionService` 依存コンポーネントの一括整理が別スペック／直接実装候補となる。
 

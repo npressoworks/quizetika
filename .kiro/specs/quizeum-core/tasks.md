@@ -1052,3 +1052,114 @@
 - 実装順: 21.1 → 21.2 → 21.3 → 21.4 → 21.5。`quizeum-play-flow-ui` Phase 27.5 は 21.3 完了後に着手。
 - URL 変換 lib の適用対象は `/search` ルートのみ（要件 22.17）。
 - 新 ranking エンジン・ジャンル／タグ一覧 URL 共通化は対象外。
+
+---
+
+### 22. Phase 23: リスト探索・マイクイズ Core API（2026-06-09）
+
+> 要件 23–25・設計 Phase 23 に対応。`searchLists`、`buildMyQuizQuestionPool`、`my-quiz-session`、`Attempt.mode: 'my-quiz'` 試行記録、`saveAttempt` 1問契約。UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が担当。
+
+- [x] 22.1 リスト探索用一覧取得 API の実装
+  - 公開リスト（`isPublished === true`）と本人非公開リスト（作者一致かつ非公開）を区分して Firestore から取得する `searchLists` を実装する
+  - 探索パラメータ型（公開/非公開区分・キーワード・作者 ID・取得上限）と初版既定上限定数（50 件）を定義する
+  - キーワード指定時はタイトル・説明文への大文字小文字を区別しない部分一致で in-memory 絞り込みを行う（既存一覧 API の後段 filter と同型）
+  - 非公開探索時に作者 ID が未指定または空の場合はエラーを返し、他人の非公開リストを結果に含めない
+  - 返却配列を作成日時降順で並べ、公開結果に非公開リストを含めない
+  - 各リストの種別は既存 `resolveListType` 規則で解釈可能にする
+  - **完了状態**: `searchLists` が public/private/keyword/limit 契約を満たし、型チェックが通ること
+  - _Requirements: 23.1, 23.2, 23.3, 23.4, 23.5, 23.6, 23.7, 23.8, 23.9, 23.10_
+  - _Boundary: QuizListService_
+
+- [x] 22.2 (P) リスト探索 API の単体テスト
+  - public 結果から `isPublished === false` が除外されること、keyword 部分一致、private 時の `authorId` 必須 throw、他人リスト除外を検証する
+  - 既定 limit 50・`createdAt` 降順・空キーワード時の全件返却を検証する
+  - **完了状態**: `tests/services/search-lists.test.ts` がグリーンであること
+  - _Requirements: 23.1, 23.2, 23.3, 23.4, 23.5, 23.6, 23.7, 23.8, 23.9_
+  - _Depends: 22.1_
+  - _Boundary: Testing_
+
+- [x] 22.3 Firestore 複合インデックス（リスト探索クエリ）
+  - `quizLists` コレクション向けに `isPublished` + `createdAt` 降順、および `authorId` + `isPublished` + `createdAt` 降順の複合インデックスを定義する
+  - 公開リスト探索・本人非公開リスト探索クエリがインデックスエラーにならないこと
+  - **完了状態**: `firestore.indexes.json` に Phase 23 エントリ 2 件が追加されていること
+  - _Requirements: 23.1, 23.2, 23.7_
+  - _Boundary: firestore.indexes.json_
+
+- [x] 22.4 マイクイズ用4ソース問題プール合成の実装
+  - 有効化された取得元のみを統合し、問題候補配列を返す `buildMyQuizQuestionPool` を実装する
+  - 4ソース（自作クイズ・ブックマーククイズ・ブックマークリスト内クイズ・ブックマーク問題）の収集規則を設計どおり適用する（問題リスト直接メンバーはブックマークリスト経路から除外）
+  - 全取得元フラグ false 時は空配列を返す
+  - 各候補に問題 ID・問題文・親クイズ ID/タイトル・取得元種別・ジャンル・タグ・出題形式・難易度を付与する
+  - 複数取得元で同一問題 ID が重複する場合は先勝ちで1件に統合する（既存 dedupe 規則と整合）
+  - ブックマーク経路では親クイズが公開済みでない問題を候補に含めない
+  - **完了状態**: 4ソース merge/dedupe/published 除外が設計契約どおり動作し、型チェックが通ること
+  - _Requirements: 24.1, 24.2, 24.3, 24.4, 24.5, 24.6, 24.7, 24.8, 24.9_
+  - _Boundary: my-quiz-pool_
+
+- [x] 22.5 (P) マイクイズ問題プールの単体テスト
+  - 全 flags false → 空配列、同一 questionId 重複時の先勝ち（own 優先）、ブックマーク経路での非公開親除外を検証する
+  - 候補メタデータ（format・difficulty・source 等）が期待どおり付与されることを検証する
+  - **完了状態**: `tests/lib/my-quiz-pool.test.ts` がグリーンであること
+  - _Requirements: 24.1, 24.2, 24.3, 24.4, 24.5, 24.6, 24.7, 24.8, 24.9_
+  - _Depends: 22.4_
+  - _Boundary: Testing_
+
+- [x] 22.6 マイクイズアドホックセッション管理の実装
+  - sessionStorage 上でセッション ID・出題順序付き問題エントリ・現在インデックスを保持する CRUD を実装する（既存問題リストセッションとキー分離）
+  - セッション読み取り、インデックス同期、次問題への進行、次エントリ参照のみ（非進行）、セッションクリア、プレイ画面 URL 生成を提供する
+  - プレイ URL に `mode=my-quiz`・`sessionId`・`questionId`・`qIndex` を含める
+  - セッション欠落時は `null` を返し、呼び出し側がエラー表示可能とする
+  - **完了状態**: init/read/advance/peek/clear/URL 生成の round-trip が動作し、問題リストセッションキーと衝突しないこと
+  - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
+  - _Boundary: my-quiz-session_
+
+- [x] 22.7 (P) マイクイズセッションの単体テスト
+  - sessionStorage round-trip、URL に `mode=my-quiz` が含まれること、`MY_QUIZ_SESSION_KEY` ≠ 問題リストセッションキーを検証する
+  - `syncMyQuizSessionIndex` による URL `qIndex` と `currentIndex` の同期を検証する
+  - **完了状態**: `tests/lib/my-quiz-session.test.ts` がグリーンであること
+  - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
+  - _Depends: 22.6_
+  - _Boundary: Testing_
+
+- [x] 22.8 `my-quiz` プレイモードの試行型契約拡張
+  - 解答履歴のプレイモードに `my-quiz` を追加し、任意の `sessionId` フィールドを定義する
+  - マイクイズ attempt 契約（`mode: 'my-quiz'`・親クイズ ID 必須・`totalQuestions: 1`）を満たすか判定するヘルパを型層に追加する
+  - `listId` は不要（省略または null）であることを型コメントで明示する
+  - **完了状態**: 型チェックが通り、`satisfiesMyQuizAttemptContract` が契約どおり true/false を返すこと
+  - _Requirements: 25.6, 25.7, 25.10, 25.11_
+  - _Boundary: types_
+
+- [x] 22.9 `saveAttempt` の1問単位検証分岐
+  - `question-list` / `my-quiz` モードでは親クイズ全問題数との照合をスキップし、`totalQuestions === 1` のみ必須とする
+  - 1問モードの `score` は `1 - failedQuestionIds.length`（0 または 1）で検証し、`failedQuestionIds` は当該1問 ID のみ許可する
+  - `question-list` は既存契約（`listId` 必須）を維持し、`my-quiz` は `satisfiesMyQuizAttemptContract` を適用する（`sessionId` は任意）
+  - 通常モードの全問数不一致 reject 挙動は変更しない
+  - **完了状態**: 親クイズ10問でも `totalQuestions: 1` の `my-quiz` / `question-list` 試行が保存成功し、通常モードの全問数不一致は従来どおり reject されること
+  - _Requirements: 25.6, 25.8, 25.9_
+  - _Depends: 22.8_
+  - _Boundary: AttemptService_
+
+- [x] 22.10 (P) 1問単位試行保存の単体・統合テスト
+  - `saveAttempt` の `my-quiz` 成功パス、`question-list` 回帰、存在しない `failedQuestionIds` での reject を検証する
+  - `isLeaderboardEligibleAttempt({ mode: 'my-quiz' }) === true` の回帰を追加する
+  - **完了状態**: `tests/services/attempt-single-question.test.ts` および更新した leaderboard テストがグリーンであること
+  - _Requirements: 25.6, 25.8, 25.9, 25.10_
+  - _Depends: 22.8, 22.9_
+  - _Boundary: Testing_
+
+- [x] 22.11 Phase 23 統合検証
+  - `searchLists`、`buildMyQuizQuestionPool`、セッション lib、`saveAttempt` 1問契約が設計どおり連携することを統合テストで検証する
+  - コアテストスイート全体がグリーンであることを確認する
+  - 要件 23.11–23.13、24.10–24.12、25.12–25.14（UI 境界）は隣接スペックタスクに委譲されていることを確認する
+  - **完了状態**: Phase 23 関連 Jest がすべてグリーンであり、`quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が import 可能な API 契約が揃っていること
+  - _Depends: 22.2, 22.3, 22.5, 22.7, 22.10_
+  - _Requirements: 23.1, 23.2, 23.3, 23.4, 23.5, 23.6, 23.7, 23.8, 23.9, 23.10, 24.1, 24.2, 24.3, 24.4, 24.5, 24.6, 24.7, 24.8, 24.9, 25.1, 25.2, 25.3, 25.4, 25.5, 25.6, 25.7, 25.8, 25.9, 25.10, 25.11_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 23)
+
+- 実装順: 22.1/22.3/22.4/22.6/22.8（並行可）→ 22.2/22.5/22.7/22.10（各実装直後）→ 22.9（22.8 後）→ 22.11。lists-discovery-ui Phase 1 は 22.1 完了後、my-quiz-ui Phase 1 は 22.4 完了後に着手可能。
+- 正本: リスト探索は `quiz-list.ts` の `searchLists`、問題プールは `my-quiz-pool.ts`、セッションは `my-quiz-session.ts`（キー `quizeum_my_quiz_session`）。dedupe は `question-attach-search.ts` を再利用。
+- `saveAttempt` 1問契約は `question-list` 回帰を含む。LB eligibility 本体は変更不要（`my-quiz` は `question-list` と同方針で登録対象）。
+- サーバー側セッション永続化・マイクイズ URL 共有可能化・フィルタプリセット保存は対象外（要件 25.14、24.11）。
+- Phase 23 実装完了（2026-06-09）: Jest 158 suites / 805 tests グリーン。隣接 UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が import 可能。

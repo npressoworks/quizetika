@@ -1,0 +1,25 @@
+.toggleGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleBtn {
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  font-size: 0.95rem;
+}
+
+.toggleBtn:hover {
+  color: var(--text-main);
+  border-color: var(--border-glow);
+}
+
+.toggleBtn.active {
+  color: var(--text-main);
+  background: rgba(157, 78, 221, 0.15);
+  border-color: var(--color-primary);
+}

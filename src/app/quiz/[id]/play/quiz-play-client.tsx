@@ -31,6 +31,10 @@ import {
   syncQuestionListSessionIndex,
   buildQuestionListPlayUrl,
 } from '@/lib/question-list-session';
+import {
+  readMyQuizSession,
+  syncMyQuizSessionIndex,
+} from '@/lib/my-quiz-session';
 import { PlaySkeleton } from '@/components/quiz/play-skeleton';
 import { useElapsedSeconds } from '@/hooks/useElapsedSeconds';
 import { formatPlayElapsedSeconds } from '@/lib/format-play-elapsed';
@@ -49,9 +53,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
 
   const rawMode = searchParams.get('mode') || 'normal';
   const questionListMode = rawMode === 'question-list';
-  const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral' | 'list' | 'question-list';
+  const myQuizMode = rawMode === 'my-quiz';
+  const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral' | 'list' | 'question-list' | 'my-quiz';
   const effectivePlayMode: 'normal' | 'exam' | 'flashcard' | 'lateral' =
-    questionListMode || rawMode === 'list'
+    questionListMode || myQuizMode || rawMode === 'list'
       ? 'normal'
       : (rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral');
   const questionIdParam = searchParams.get('questionId');
@@ -61,16 +66,16 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const [online, setOnline] = useState<boolean>(true);
   const [bookmarkedQuestionIds, setBookmarkedQuestionIds] = useState<Set<string>>(new Set());
 
-  const isNormalFeedbackFlow = playMode === 'normal' && !questionListMode;
+  const isNormalFeedbackFlow = playMode === 'normal' && !questionListMode && !myQuizMode;
 
   const playQuestions = useMemo(() => {
     if (!quiz?.questions?.length) return [];
-    if (questionListMode && questionIdParam) {
+    if ((questionListMode || myQuizMode) && questionIdParam) {
       const q = (quiz.questions ?? []).find((x) => x.id === questionIdParam);
       return q ? [q] : [];
     }
     return quiz.questions;
-  }, [quiz, questionListMode, questionIdParam]);
+  }, [quiz, questionListMode, myQuizMode, questionIdParam]);
 
   // 1. オンライン・オフライン判定の監視
   useEffect(() => {
@@ -119,6 +124,25 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       if (!Number.isNaN(idx)) syncQuestionListSessionIndex(idx);
     }
   }, [questionListMode, searchParams]);
+
+  useEffect(() => {
+    if (!myQuizMode) return;
+    const qIndex = searchParams.get('qIndex');
+    const sessionId = searchParams.get('sessionId');
+    if (qIndex == null || !sessionId) return;
+    const session = readMyQuizSession();
+    if (session?.sessionId === sessionId) {
+      const idx = parseInt(qIndex, 10);
+      if (!Number.isNaN(idx)) syncMyQuizSessionIndex(idx);
+    }
+  }, [myQuizMode, searchParams]);
+
+  const myQuizSessionId = searchParams.get('sessionId');
+  const myQuizSessionMissing =
+    myQuizMode &&
+    (!myQuizSessionId ||
+      readMyQuizSession()?.sessionId !== myQuizSessionId ||
+      playQuestions.length === 0);
 
   const [isReadingStarted, setIsReadingStarted] = useState<boolean>(false);
   const [isQuickPressed, setIsQuickPressed] = useState<boolean>(false);
@@ -194,9 +218,13 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     finalFailed = failedIds
   ): Omit<Attempt, 'id' | 'completedAt'> => {
     const listId = searchParams.get('listId') || undefined;
+    const sessionId = searchParams.get('sessionId') || undefined;
     const isQuestionListPlay = questionListMode && !!listId;
+    const isMyQuizPlay = myQuizMode;
     let currentMode: Attempt['mode'];
-    if (isQuestionListPlay) {
+    if (isMyQuizPlay) {
+      currentMode = 'my-quiz';
+    } else if (isQuestionListPlay) {
       currentMode = 'question-list';
     } else if (listId) {
       currentMode = 'list';
@@ -213,9 +241,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       userId: user?.id || 'guest',
       quizId: quiz!.id,
       listId,
+      sessionId: isMyQuizPlay ? sessionId : undefined,
       mode: currentMode,
       score: finalScore,
-      totalQuestions: isQuestionListPlay ? 1 : (quiz!.questions ?? []).length,
+      totalQuestions: isQuestionListPlay || isMyQuizPlay ? 1 : (quiz!.questions ?? []).length,
       elapsedSeconds,
       failedQuestionIds: finalFailed,
       questionAnswers: toQuestionAnswerRecords(questionAnswers),
@@ -678,6 +707,19 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     return (
       <div className={styles.container}>
         <p>クイズが見つかりませんでした。</p>
+      </div>
+    );
+  }
+
+  if (myQuizSessionMissing) {
+    return (
+      <div className={styles.container} style={{ textAlign: 'center', padding: '48px 20px' }}>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
+          マイクイズのセッションが見つかりません。再度マイクイズから開始してください。
+        </p>
+        <Link href="/my-quiz" className="btn btn-primary">
+          マイクイズへ戻る
+        </Link>
       </div>
     );
   }

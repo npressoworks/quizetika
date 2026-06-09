@@ -960,3 +960,56 @@ src/app/api/webhooks/stripe/           — Missing
 
 **Document Status（Phase 22 設計）**: `design.md` Phase 22 節に反映済。
 
+---
+
+## Phase 23: リスト探索・マイクイズ Core API（2026-06-09）
+
+### Summary
+
+`quiz-list.ts` に `searchLists`（公開/本人非公開 + in-memory keyword、`DEFAULT_LIST_SEARCH_LIMIT=50`）を追加。マイクイズは `my-quiz-pool.ts` で4ソース合成、`my-quiz-session.ts` で `question-list-session` 同型の sessionStorage 契約、`Attempt.mode: 'my-quiz'` + 任意 `sessionId` を追加。`saveAttempt` は `question-list` / `my-quiz` の1問試行で親クイズ全問数検証をバイパス（`totalQuestions=1` 固定検証）。LB は `question-list` と同方針（eligible）。Firestore に `quizLists` の `isPublished+createdAt` / `authorId+isPublished+createdAt` 複合 index を追加。
+
+### Discovery Type
+
+**Extension（light）** — 既存 `getLatestQuizLists` / `getQuizListsByAuthor` / `question-list-session` / `question-attach-search` / `bookmark.ts` / `leaderboard-update.test.ts` パターンの拡張。外部 API 調査不要。
+
+### Research Log
+
+| Topic | Findings | Implications |
+|-------|----------|--------------|
+| リスト一覧 | `getLatestQuizLists` が `isPublished+orderBy createdAt` を既使用。`searchLists` 未実装 | public クエリは既存パターン流用 + keyword 後段 filter |
+| 非公開探索 | `getQuizListsByAuthor(uid, true)` は公開/非公開混在。探索は `isPublished===false` 限定が必要 | 専用 composite query + `authorId` 必須バリデーション |
+| インデックス | `firestore.indexes.json` に `isPublished+createdAt` および `authorId+isPublished+createdAt`（listType なし）が未登録 | Phase 23 で2件追加 |
+| 問題プール | `useQuestionAttachSearch` が own/bookmarked 収集済。ブックマークリスト経路は `getQuizzesInList` | `buildMyQuizQuestionPool` に集約。問題リスト型 bookmark list は除外 |
+| Dedupe | `dedupeQuestionCandidates` が questionId 先勝ち | ソース priority 順 flat 化後に reuse |
+| セッション | `question-list-session.ts` が CRUD + URL 生成の正本 | `my-quiz-session` は `sessionId` + `mode=my-quiz` URL。別 sessionStorage キー |
+| saveAttempt | L92–95 が常に `quiz.questions.length` と照合 | `question-list` も現状バグ潜在。1問モード分岐で両方修正 |
+| LB | `isLeaderboardEligibleAttempt` は exam/flashcard/test-play/guest のみ除外 | `my-quiz` は追加除外不要（`question-list` と同 eligible） |
+
+### Architecture Pattern Evaluation
+
+| Option | searchLists keyword | my-quiz session | Verdict |
+|--------|---------------------|-----------------|---------|
+| A. Firestore prefix 検索 | composite + 全文近似 | サーバー session doc | 過剰 |
+| B. 取得後 in-memory filter + sessionStorage（採用） | 既存 normalize-search-text | question-list 同型 | **採用** |
+| C. クライアントのみ（Core なし） | UI が全件 fetch | — | 要件 23/24/25 違反 |
+
+### Design Decisions
+
+1. **`searchLists` in `quiz-list.ts`** — service 層に配置（lists-discovery-ui 契約どおり）。keyword は in-memory（初版 limit 50 内で十分）。
+2. **`my-quiz-pool.ts` 新設** — UI フィルタは core 外。pool は raw 候補のみ返却。
+3. **`mode=my-quiz` URL** — `question-list` と分離し、play client 分岐を明確化（my-quiz-ui 所有）。
+4. **`saveAttempt` 分岐** — `isSingleQuestionAttemptMode` で検証パス共有。通常モード挙動は不変。
+5. **LB** — 新規ポリシー不要。既存 eligible 集合に `my-quiz` が自然包含されることをテストで固定。
+
+### Risks
+
+| Risk | Mitigation |
+|------|------------|
+| 4ソース N+1 クエリ | 初版は既存 attach search と同程度。将来バッチ化は follow-up |
+| private `authorId` 漏洩 | サーバー側 query + 未指定 throw。Rules は既存 author 制約 |
+| saveAttempt 分岐漏れ | 専用テスト + `question-list` 回帰 |
+
+**Synthesis**: Build — 新規 lib 2本 + service 拡張 + types/attempt 最小変更。Adopt — dedupe/session/bookmark 既存パターン。
+
+**Document Status（Phase 23 設計）**: `design.md` Phase 23 節に反映済。
+

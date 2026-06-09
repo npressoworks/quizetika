@@ -17,6 +17,9 @@ import {
   Home,
   Search,
   Sparkles,
+  List,
+  ClipboardList,
+  Settings,
 } from 'lucide-react';
 import styles from './sidebar.module.css';
 
@@ -46,6 +49,16 @@ export const Sidebar: React.FC = () => {
     if (href === '/search') {
       return pathname === '/search' || (pathname?.startsWith('/search/') ?? false);
     }
+    if (href === '/lists') {
+      return (
+        pathname === '/lists' ||
+        (pathname?.startsWith('/lists/') ?? false) ||
+        (pathname?.startsWith('/list/') ?? false)
+      );
+    }
+    if (href === '/my-quiz') {
+      return pathname === '/my-quiz' || (pathname?.startsWith('/my-quiz/') ?? false);
+    }
     return pathname === href;
   };
 
@@ -56,6 +69,10 @@ export const Sidebar: React.FC = () => {
   ];
 
   if (user) {
+    menuItems.splice(2, 0,
+      { href: '/lists', label: 'リスト', icon: <List size={22} />, testId: 'nav-lists' },
+      { href: '/my-quiz', label: 'マイクイズ', icon: <ClipboardList size={22} />, testId: 'nav-my-quiz' }
+    );
     menuItems.push(
       { href: '/notifications', label: '通知', icon: <Bell size={22} /> },
       { href: '/bookmarks', label: 'ブックマーク', icon: <Bookmark size={22} /> }
@@ -126,6 +143,15 @@ export const Sidebar: React.FC = () => {
                   >
                     <UserIcon size={18} />
                     <span>マイページ</span>
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className={styles.popupItem}
+                    onClick={() => setPopupOpen(false)}
+                    data-testid="sidebar-settings-link"
+                  >
+                    <Settings size={18} />
+                    <span>設定</span>
                   </Link>
                   <hr className={styles.divider} />
                   <button

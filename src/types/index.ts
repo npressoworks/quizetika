@@ -215,8 +215,19 @@ export interface Attempt {
   /**
    * プレイモード。
    * `question-list`: 問題リスト連続プレイ（問題ごとに1 attempt、`listId` + 親 `quizId`、`totalQuestions: 1`）
+   * `my-quiz`: マイクイズ連続プレイ（問題ごとに1 attempt、親 `quizId`、`totalQuestions: 1`。`listId` は不要）
    */
-  mode: 'normal' | 'exam' | 'flashcard' | 'review' | 'list' | 'question-list' | 'test-play';
+  mode:
+    | 'normal'
+    | 'exam'
+    | 'flashcard'
+    | 'review'
+    | 'list'
+    | 'question-list'
+    | 'my-quiz'
+    | 'test-play';
+  /** マイクイズセッション ID（`my-quiz` モード時のみ任意付与） */
+  sessionId?: string | null;
   score: number;          // 正解数
   totalQuestions: number; // 全問題数
   elapsedSeconds: number; // 経過秒数
@@ -278,6 +289,17 @@ export function satisfiesQuestionListAttemptContract(
   return (
     attempt.mode === 'question-list' &&
     !!attempt.listId &&
+    !!attempt.quizId &&
+    attempt.totalQuestions === 1
+  );
+}
+
+/** マイクイズプレイ attempt の契約を満たすか（`sessionId` は任意） */
+export function satisfiesMyQuizAttemptContract(
+  attempt: Pick<Attempt, 'mode' | 'quizId' | 'totalQuestions'>
+): boolean {
+  return (
+    attempt.mode === 'my-quiz' &&
     !!attempt.quizId &&
     attempt.totalQuestions === 1
   );

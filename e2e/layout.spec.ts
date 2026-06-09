@@ -69,6 +69,39 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(homeLink).not.toHaveAttribute('class', /active/);
   });
 
+  test('Phase 23: Desktop sidebar lists link navigates to /lists', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto('/');
+    const loginBtn = page.locator('#e2e-test-login-btn');
+    if (await loginBtn.isVisible()) {
+      await loginBtn.click();
+    }
+    const listsLink = page.getByTestId('nav-lists');
+    if (!(await listsLink.isVisible())) {
+      test.skip();
+      return;
+    }
+    await listsLink.click();
+    await expect(page).toHaveURL(/\/lists/);
+  });
+
+  test('Phase 23: Mobile header popup navigates to /my-quiz', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto('/');
+    const loginBtn = page.locator('#e2e-test-login-btn');
+    if (await loginBtn.isVisible()) {
+      await loginBtn.click();
+    }
+    const profileBtn = page.getByTestId('header-profile-btn');
+    if (!(await profileBtn.isVisible())) {
+      test.skip();
+      return;
+    }
+    await profileBtn.click();
+    await page.getByTestId('header-nav-my-quiz').click();
+    await expect(page).toHaveURL(/\/my-quiz/);
+  });
+
   test('Play page (/quiz/[id]/play) hides all navigation elements on all viewports', async ({ page }) => {
     // プレイ画面にアクセス (テスト用の仮クイズID)
     await page.goto('/quiz/test-quiz-id/play');

@@ -13,6 +13,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { quizListsRef, quizzesRef } from '../lib/firebase/firestore';
+import { searchTextIncludes } from '../lib/normalize-search-text';
 import { QuizList, Quiz, Question, QuizListType, resolveListType } from '../types';
 import { getQuestion } from './question';
 import {
@@ -111,6 +112,72 @@ export async function removeQuizFromList(listId: string, quizId: string): Promis
 /* ==========================================================================
    クイズリストの取得機能
    ========================================================================== */
+
+/** リスト探索の公開/非公開区分 */
+export type ListSearchVisibility = 'public' | 'private';
+
+export interface SearchListsParams {
+  /** public: isPublished === true のみ / private: authorId 本人かつ isPublished === false */
+  visibility: ListSearchVisibility;
+  /** タイトル・説明への部分一致（case-insensitive）。空・未指定はフィルタなし */
+  keyword?: string;
+  /** visibility === 'private' のとき必須 */
+  authorId?: string;
+  /** 取得上限。未指定時 DEFAULT_LIST_SEARCH_LIMIT（50） */
+  limit?: number;
+}
+
+export const DEFAULT_LIST_SEARCH_LIMIT = 50;
+
+function filterListsByKeyword(lists: QuizList[], keyword?: string): QuizList[] {
+  const trimmed = keyword?.trim();
+  if (!trimmed) return lists;
+  return lists.filter(
+    (list) =>
+      searchTextIncludes(list.title, trimmed) ||
+      searchTextIncludes(list.description ?? '', trimmed)
+  );
+}
+
+/**
+ * 公開／本人非公開リストをキーワードで探索する
+ */
+export async function searchLists(params: SearchListsParams): Promise<QuizList[]> {
+  const limitCount = params.limit ?? DEFAULT_LIST_SEARCH_LIMIT;
+
+  if (params.visibility === 'private') {
+    const authorId = params.authorId?.trim();
+    if (!authorId) {
+      throw new Error('非公開リスト探索には authorId が必須です');
+    }
+    const q = query(
+      quizListsRef,
+      where('authorId', '==', authorId),
+      where('isPublished', '==', false),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+    const snap = await getDocs(q);
+    const lists = snap.docs.map((d) => d.data() as QuizList);
+    return filterListsByKeyword(
+      lists.filter((list) => list.authorId === authorId && !list.isPublished),
+      params.keyword
+    );
+  }
+
+  const q = query(
+    quizListsRef,
+    where('isPublished', '==', true),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount)
+  );
+  const snap = await getDocs(q);
+  const lists = snap.docs.map((d) => d.data() as QuizList);
+  return filterListsByKeyword(
+    lists.filter((list) => list.isPublished),
+    params.keyword
+  );
+}
 
 /**
  * 新着の公開クイズリストを取得
