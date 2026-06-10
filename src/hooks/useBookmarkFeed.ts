@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { getBookmarkFeed, toggleBookmark } from '@/services/bookmark';
 import { BookmarkFeed } from '@/types';
 
-export type BookmarkTab = 'quiz' | 'list' | 'question';
+export type BookmarkTab = 'quiz' | 'question';
 
 export function useBookmarkFeed(userId: string | undefined) {
   const [feed, setFeed] = useState<BookmarkFeed | null>(null);
@@ -27,7 +27,7 @@ export function useBookmarkFeed(userId: string | undefined) {
       })
       .catch((e) => {
         console.error('[useBookmarkFeed]', e);
-        if (!cancelled) setFeed({ quizzes: [], lists: [], questions: [] });
+        if (!cancelled) setFeed({ quizzes: [], questions: [] });
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -39,16 +39,13 @@ export function useBookmarkFeed(userId: string | undefined) {
   }, [userId]);
 
   const removeBookmark = useCallback(
-    async (targetType: 'quiz' | 'list' | 'question', targetId: string) => {
+    async (targetType: 'quiz' | 'question', targetId: string) => {
       if (!userId || !feed) return;
       await toggleBookmark(userId, targetId, targetType);
       setFeed((prev) => {
         if (!prev) return prev;
         if (targetType === 'quiz') {
           return { ...prev, quizzes: prev.quizzes.filter((q) => q.id !== targetId) };
-        }
-        if (targetType === 'list') {
-          return { ...prev, lists: prev.lists.filter((l) => l.id !== targetId) };
         }
         return {
           ...prev,

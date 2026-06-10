@@ -18,13 +18,6 @@ import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { QuestionBookmarkToggle } from '@/components/bookmark/question-bookmark-toggle';
 import { ReportModal } from '@/components/quiz/report-modal';
 import {
-  readQuestionListSession,
-  advanceQuestionListSession,
-  clearQuestionListSession,
-  buildQuestionListPlayUrl,
-  peekNextQuestionListEntry,
-} from '@/lib/question-list-session';
-import {
   readMyQuizSession,
   advanceMyQuizSession,
   clearMyQuizSession,
@@ -83,15 +76,6 @@ export function QuizResultClient({
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<boolean>(false);
   const [openReports, setOpenReports] = useState<FeedbackReport[]>([]);
 
-  // リストの連続プレイ用
-  const listId = searchParams.get('listId');
-  const [nextQuizId, setNextQuizId] = useState<string | null>(null);
-  const [isLastInList, setIsLastInList] = useState<boolean>(false);
-  const [listLoading, setListLoading] = useState<boolean>(false);
-  const [isQuestionListFlow, setIsQuestionListFlow] = useState(false);
-  const [nextQuestionListUrl, setNextQuestionListUrl] = useState<string | null>(null);
-  const [isLastInQuestionList, setIsLastInQuestionList] = useState(false);
-  const [questionListSessionMissing, setQuestionListSessionMissing] = useState(false);
   const [isMyQuizFlow, setIsMyQuizFlow] = useState(false);
   const [nextMyQuizUrl, setNextMyQuizUrl] = useState<string | null>(null);
   const [isLastInMyQuiz, setIsLastInMyQuiz] = useState(false);
@@ -422,67 +406,6 @@ export function QuizResultClient({
     }
   }, [isLastInMyQuiz, attemptMode]);
 
-  // リスト連続プレイ判定
-  useEffect(() => {
-    if (!listId || !attemptMode) return;
-
-    const session = readQuestionListSession();
-    if (session && session.listId === listId) {
-      setIsQuestionListFlow(true);
-      setListLoading(false);
-      const nextEntry = peekNextQuestionListEntry();
-      if (nextEntry) {
-        const nextIndex = session.currentIndex + 1;
-        setNextQuestionListUrl(buildQuestionListPlayUrl(session, nextIndex));
-        setIsLastInQuestionList(false);
-        setQuestionListSessionMissing(false);
-      } else {
-        setNextQuestionListUrl(null);
-        setIsLastInQuestionList(true);
-      }
-      return;
-    }
-
-    if (attemptMode === 'question-list') {
-      setIsQuestionListFlow(true);
-      setQuestionListSessionMissing(true);
-      setListLoading(false);
-      return;
-    }
-
-    async function checkNextQuiz() {
-      setListLoading(true);
-      try {
-        // 動的インポートでクイズリストの取得エラーを防ぐ
-        const { getQuizList } = await import('@/services/quiz-list');
-        const listData = await getQuizList(listId!);
-        if (listData && listData.quizIds) {
-          const currentIdx = listData.quizIds.indexOf(quiz.id);
-          if (currentIdx !== -1) {
-            if (currentIdx < listData.quizIds.length - 1) {
-              setNextQuizId(listData.quizIds[currentIdx + 1]);
-              setIsLastInList(false);
-            } else {
-              setNextQuizId(null);
-              setIsLastInList(true);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[QuizResultClient] クイズリスト情報判定失敗:', err);
-      } finally {
-        setListLoading(false);
-      }
-    }
-    checkNextQuiz();
-  }, [listId, quiz.id, attemptMode]);
-
-  useEffect(() => {
-    if (isLastInQuestionList) {
-      clearQuestionListSession();
-    }
-  }, [isLastInQuestionList]);
-
   // ローディングとエラー状態のハンドリング (全 Hooks の定義後に配置)
   if (attemptLoading) {
     return <ResultSkeleton data-testid="quiz-result-skeleton" />;
@@ -495,30 +418,6 @@ export function QuizResultClient({
       </div>
     );
   }
-
-  const handleNextQuizClick = () => {
-    if (!online) {
-      alert('現在オフラインのため、リストの次のクイズに進むことはできません。');
-      return;
-    }
-    if (nextQuizId) {
-      router.push(`/quiz/${nextQuizId}/play?listId=${listId}&mode=list`);
-    }
-  };
-
-  const handleNextQuestionClick = () => {
-    if (!online) {
-      alert('現在オフラインのため、次の問題に進むことはできません。');
-      return;
-    }
-    const nextEntry = advanceQuestionListSession();
-    if (nextEntry) {
-      const session = readQuestionListSession();
-      if (session) {
-        router.push(buildQuestionListPlayUrl(session, session.currentIndex));
-      }
-    }
-  };
 
   const handleNextMyQuizClick = () => {
     if (!online) {
@@ -937,73 +836,6 @@ export function QuizResultClient({
           </div>
         )}
 
-        {/* リスト連続プレイ */}
-        {listId && !isMyQuizFlow && (
-          <div className={styles.listNavigation}>
-            {isQuestionListFlow ? (
-              questionListSessionMissing ? (
-                <div style={{ textAlign: 'center', padding: '16px', marginTop: '16px', color: 'var(--text-muted)', background: 'var(--glass-bg)', borderRadius: 'var(--radius-md)' }}>
-                  <p>リストの続きを再生できません。</p>
-                  <Link href={`/list/${listId}`} className="btn btn-secondary" style={{ marginTop: '12px', display: 'inline-flex' }}>
-                    リストの詳細へ
-                  </Link>
-                </div>
-              ) : nextQuestionListUrl ? (
-                <button
-                  className="btn btn-primary"
-                  onClick={handleNextQuestionClick}
-                  data-testid="question-list-next"
-                  data-analytics="quiz-list-next-question"
-                  style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                >
-                  <span>次の問題へ</span>
-                  <ChevronRight size={18} />
-                </button>
-              ) : isLastInQuestionList ? (
-                <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
-                  <p style={{ color: 'var(--color-accent)', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
-                    🎉 問題リストのすべての問題を完遂しました！
-                  </p>
-                  <Link
-                    href={`/list/${listId}`}
-                    className="btn btn-primary"
-                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                    onClick={() => clearQuestionListSession()}
-                  >
-                    リストの詳細に戻る
-                  </Link>
-                </div>
-              ) : null
-            ) : listLoading ? (
-              <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)' }}>
-                次のクイズを準備中...
-              </div>
-            ) : nextQuizId ? (
-              <button
-                className="btn btn-primary"
-                onClick={handleNextQuizClick}
-                data-analytics="quiz-list-next-quiz"
-                style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-              >
-                <span>リストの次のクイズに進む</span>
-                <ChevronRight size={18} />
-              </button>
-            ) : isLastInList ? (
-              <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
-                <p style={{ color: 'var(--color-accent)', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
-                  🎉 おめでとうございます！リストのすべてのクイズを完遂しました！
-                </p>
-                <Link
-                  href={`/list/${listId}`}
-                  className="btn btn-primary"
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  リストの詳細に戻る
-                </Link>
-              </div>
-            ) : null}
-          </div>
-        )}
       </div>
 
       {/* 問題正誤リストおよび解説表示 */}

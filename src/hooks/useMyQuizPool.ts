@@ -74,7 +74,6 @@ export function useMyQuizPool(userId: string | undefined) {
   const [sourceFlags, setSourceFlags] = useState<MyQuizSourceFlags>({
     ownQuizzes: true,
     bookmarkedQuizzes: true,
-    bookmarkedLists: true,
     bookmarkedQuestions: true,
   });
   const [filters, setFilters] = useState<MyQuizFilterState>(DEFAULT_MY_QUIZ_FILTER);
@@ -91,7 +90,6 @@ export function useMyQuizPool(userId: string | undefined) {
   const hasAnySource =
     sourceFlags.ownQuizzes ||
     sourceFlags.bookmarkedQuizzes ||
-    sourceFlags.bookmarkedLists ||
     sourceFlags.bookmarkedQuestions;
 
   useEffect(() => {

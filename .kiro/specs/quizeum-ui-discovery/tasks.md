@@ -117,6 +117,8 @@
 ---
 
 ## 7. Core: リスト探索の並列移行
+
+> **Phase 26 注記（2026-06-10）**: 以下タスク 7.x は Phase 24 実装完了済みだが、Phase 26 リスト機能完全廃止により **本スペックの継続所有対象から除外**。物理削除は `quizeum-play-flow-ui` Phase 28 が担当。`src/components/lists/*` は **obsolete**。
 - [x] 7.1 (P) リスト UI コンポーネントを shadcn 化する
   - `list-discovery-card.tsx`, `lists-search-bar.tsx`, `lists-visibility-tabs.tsx`, `lists-grid.tsx` から `lists.module.css` import を削除する
   - shadcn Card, Input, Tabs, Badge, Button で再構築し全 `data-testid` を維持する
@@ -186,3 +188,39 @@
 
 - 探索ルート共通レイアウトは `src/lib/discovery-layout.ts` に集約（container / grid / back link 等）
 - リポジトリ全体の `npm run build` は discovery スコープ外の既存エラー（quiz detail-classes、leaderboard-classes、community/genres 構文）で失敗する。discovery 関連 Jest スイート（horizontal-scroll-carousel、lists-grid、home-discovery-client、search-url-state）はグリーン
+
+---
+
+### 10. Phase 26: リスト探索の移行スコープ除外（2026-06-10）
+
+> **注記**: タスク 7.x（リスト探索・詳細の shadcn 移行）は Phase 24 実装完了済みだが、Phase 26 リスト機能廃止により **本スペックの継続所有対象から除外** される。物理削除は `quizeum-play-flow-ui` Phase 28 が担当。
+
+- [x] 10.1 要件・設計のスコープ改定
+  - 要件 5・6 および要件 9・10 のリスト関連を **廃止** と明記する
+  - design の Boundary Commitments から `/lists`・`/list/[id]`・`components/lists/*` を除外する
+  - `quizeum-lists-discovery-ui` を obsolete と相互参照する
+  - **完了状態**: requirements/design に Phase 26 節が追加され、リスト画面が In scope 外であることが明文化されていること
+  - _Requirements: 11.1, 11.2, 11.3, 11.7_
+  - _Boundary: SpecDocs_
+
+- [x] 10.2 タスク計画のリスト関連注記
+  - タスク 7.x を履歴完了タスクとして残しつつ、Phase 26 除外注記を付与する
+  - タスク 9.2 から `e2e/lists-discovery.spec.ts` 期待を除外する
+  - **完了状態**: tasks.md に Phase 26 節と 7.x 除外注記が存在すること
+  - _Requirements: 11.5_
+  - _Depends: 10.1_
+  - _Boundary: SpecDocs_
+
+- [x] 10.3 spec.json メタデータ更新
+  - `updated_at` を Phase 26 日付に更新する
+  - phase は `implementation-complete` を維持（探索系移行は完了、リスト部分は除外）
+  - **完了状態**: spec.json が Phase 26 改定を反映していること
+  - _Requirements: 11.1_
+  - _Depends: 10.1, 10.2_
+  - _Boundary: SpecMeta_
+
+## Implementation Notes (Phase 26)
+
+- タスク 7.x の実装成果（shadcn 化済みリスト UI）は Phase 26 でルートごと削除される。再移行作業は不要。
+- 本スペックの継続 E2E 回帰は `home-discovery`・`quiz-search` のみ。`lists-discovery` は play-flow-ui Phase 28 で削除。
+- `src/components/lists/*` は **obsolete**。所有権は本スペックから play-flow-ui / core 廃止タスクへ移管済み。

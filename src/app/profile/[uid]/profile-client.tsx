@@ -11,7 +11,6 @@ import {
   isFollowing
 } from '@/services/user';
 import { getQuizzesByAuthor } from '@/services/quiz';
-import { getQuizListsByAuthor } from '@/services/quiz-list';
 import {
   Award,
   Zap,
@@ -25,15 +24,13 @@ import {
   Sparkles,
   Shield,
   Grid,
-  List,
   History,
   ChevronRight,
   AlertTriangle
 } from 'lucide-react';
-import { User, Quiz, QuizList as QuizListType, Badge } from '@/types';
+import { User, Quiz, Badge } from '@/types';
 import { resolveModerationTierDisplay, type ModerationTierDisplayKey } from '@/lib/moderation-tier-display';
 import { ProfilePlayHistoryPanel } from '@/components/profile/profile-play-history-panel';
-import { ProfileListsPanel } from '@/components/profile/profile-lists-panel';
 import { ProfileDetailSkeleton } from '@/components/profile/profile-skeleton';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge as UiBadge } from '@/components/ui/badge';
@@ -43,7 +40,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
-type ProfileContentTab = 'quizzes' | 'lists' | 'history';
+type ProfileContentTab = 'quizzes' | 'history';
 
 const getBadgeIcon = (iconName: string) => {
   switch (iconName) {
@@ -87,7 +84,6 @@ export function ProfileClient() {
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [quizLists, setQuizLists] = useState<QuizListType[]>([]);
   const [followingState, setFollowingState] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileContentTab>('quizzes');
   const [loading, setLoading] = useState(true);
@@ -115,22 +111,8 @@ export function ProfileClient() {
 
         setProfileUser(userData);
 
-        const [quizzesResult, listsResult] = await Promise.allSettled([
-          getQuizzesByAuthor(uid, isMyProfile),
-          getQuizListsByAuthor(uid, isMyProfile),
-        ]);
-
-        if (quizzesResult.status === 'fulfilled') {
-          setQuizzes(quizzesResult.value);
-        } else {
-          console.error('Error loading profile quizzes:', quizzesResult.reason);
-        }
-
-        if (listsResult.status === 'fulfilled') {
-          setQuizLists(listsResult.value);
-        } else {
-          console.error('Error loading profile lists:', listsResult.reason);
-        }
+        const quizzesResult = await getQuizzesByAuthor(uid, isMyProfile);
+        setQuizzes(quizzesResult);
 
         if (currentUser && !isMyProfile) {
           const following = await isFollowing(currentUser.id, uid);
@@ -328,10 +310,6 @@ export function ProfileClient() {
                 <Grid size={18} />
                 作成したクイズ ({quizzes.length})
               </TabsTrigger>
-              <TabsTrigger value="lists" className="gap-2">
-                <List size={18} />
-                作成したリスト ({quizLists.length})
-              </TabsTrigger>
               {isMyProfile && (
                 <TabsTrigger value="history" className="gap-2" data-testid="profile-tab-history">
                   <History size={18} />
@@ -381,9 +359,6 @@ export function ProfileClient() {
               )}
             </TabsContent>
 
-            <TabsContent value="lists">
-              <ProfileListsPanel lists={quizLists} isMyProfile={isMyProfile} />
-            </TabsContent>
           </Tabs>
         </div>
       </div>

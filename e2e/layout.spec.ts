@@ -69,20 +69,9 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(homeLink).not.toHaveAttribute('class', /active/);
   });
 
-  test('Phase 23: Desktop sidebar lists link navigates to /lists', async ({ page }) => {
-    await page.setViewportSize({ width: 1200, height: 800 });
-    await page.goto('/');
-    const loginBtn = page.locator('#e2e-test-login-btn');
-    if (await loginBtn.isVisible()) {
-      await loginBtn.click();
-    }
-    const listsLink = page.getByTestId('nav-lists');
-    if (!(await listsLink.isVisible())) {
-      test.skip();
-      return;
-    }
-    await listsLink.click();
-    await expect(page).toHaveURL(/\/lists/);
+  test('Phase 26: 廃止された /lists は 404 を返す', async ({ page }) => {
+    const response = await page.goto('/lists');
+    expect(response?.status()).toBe(404);
   });
 
   test('Phase 23: Mobile header popup navigates to /my-quiz', async ({ page }) => {

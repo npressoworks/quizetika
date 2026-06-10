@@ -1,5 +1,7 @@
 # Implementation Plan
 
+> **⚠ OBSOLETE（Phase 26 / 2026-06-10）**: 本スペックは **obsolete（廃止）** です。理由: Phase 26 リスト機能完全廃止。以下タスク 1〜4 は Phase 23 実装完了済みの **履歴** です。Phase 26 タスク 5 にて全作業をキャンセル済みとします。削除実装は `quizeum-play-flow-ui` Phase 28 が担当。
+
 ## 1. Foundation: ルートとページシェルの構築
 - [x] 1.1 `/lists` App Router ページシェルの作成
   - ブックマークページ（`bookmarks/page.tsx`）と同様に、戻るリンク・タイトル「リスト」・説明文・Suspense 境界を持つサーバーコンポーネントを新設する
@@ -99,3 +101,37 @@
 - **ナビ導線**: Sidebar「リスト」リンクは `quizeum-sidebar-layout` Phase 23 タスクが `/lists` 確定後に実装。本 E2E は URL 直接アクセスで検証。
 - **実装順**: 2.1–2.4 は並行可 → 3.1 → 3.2 → 4.1（4.2 と並行可）→ 4.2。
 - **モバイル**: BottomNav へのリスト追加は sidebar-layout design 次第。本スペックはページ本体のみ。
+
+---
+
+### 5. Phase 26: スペック全体のキャンセル（2026-06-10）
+
+- [x] 5.1 スペック obsolete 化の文書更新
+  - requirements に Phase 26 節を追加し、要件 1〜6 をすべて **キャンセル/obsolete** と明記する
+  - design.md 先頭に obsolete 注記、末尾に Phase 26 削除対象一覧を追加する
+  - tasks.md 先頭に obsolete 注記を追加する
+  - **完了状態**: 3 文書および spec.json が obsolete 状態を反映していること
+  - _Requirements: 7.1, 7.4, 7.5_
+  - _Boundary: SpecDocs_
+
+- [x] 5.2 全実装タスクのキャンセル明記
+  - タスク 1〜4 を履歴完了として残し、Phase 26 により **キャンセル（削除対象）** と注記する
+  - 物理削除は `quizeum-play-flow-ui` Phase 28 に委譲する
+  - **完了状態**: 新規実装タスクが追加されず、5.1 が唯一の Phase 26 作業であること
+  - _Requirements: 7.1, 7.3_
+  - _Depends: 5.1_
+  - _Boundary: SpecDocs_
+
+- [x] 5.3 spec.json メタデータ更新
+  - `obsolete: true`, `obsolete_reason: "Phase 26 リスト機能完全廃止"`, `phase: "obsolete"`, `ready_for_implementation: false` を設定する
+  - `updated_at` を Phase 26 日付に更新する
+  - **完了状態**: spec.json が obsolete メタデータを持つこと
+  - _Requirements: 7.4_
+  - _Depends: 5.1_
+  - _Boundary: SpecMeta_
+
+## Implementation Notes (Phase 26)
+
+- タスク 1〜4 の実装成果は Phase 26 でルート・コンポーネントごと削除される。本スペックからの追加実装は行わない。
+- `quizeum-ui-discovery` Phase 26 と相互参照: リスト探索は ui-discovery の Phase 24 スコープからも除外済み。
+- E2E `e2e/lists-discovery.spec.ts` は play-flow-ui Phase 28 で削除。

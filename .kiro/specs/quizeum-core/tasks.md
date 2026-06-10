@@ -1163,3 +1163,102 @@
 - `saveAttempt` 1問契約は `question-list` 回帰を含む。LB eligibility 本体は変更不要（`my-quiz` は `question-list` と同方針で登録対象）。
 - サーバー側セッション永続化・マイクイズ URL 共有可能化・フィルタプリセット保存は対象外（要件 25.14、24.11）。
 - Phase 23 実装完了（2026-06-09）: Jest 158 suites / 805 tests グリーン。隣接 UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が import 可能。
+
+---
+
+### 23. Phase 26: リスト機能の完全廃止（2026-06-10）
+
+- [x] 23.1 リスト関連型契約の縮小
+  - `QuizList`・`QuizListType`・`resolveListType`・`satisfiesQuestionListAttemptContract` を除去する
+  - `Bookmark.targetType` を `quiz` / `question` のみにし、`BookmarkFeed` から `lists` を除去する
+  - `Attempt.mode` は既存履歴読み取り用に `list` / `question-list` を union に残し、新規保存拒否用ヘルパを型層に追加する
+  - **完了状態**: 型チェックが通り、リスト専用型への参照がコア層から消えること
+  - _Requirements: 26.1, 26.2, 26.6_
+  - _Boundary: types_
+
+- [x] 23.2 ブックマークサービスの2分類化
+  - ブックマーク登録で `targetType: 'list'` を即拒否する（`INVALID_BOOKMARK_TARGET`）
+  - ブックマーク一覧取得はクイズ・問題のみ返却し、リスト取得 API を除去する
+  - **完了状態**: `getBookmarkFeed()` が `{ quizzes, questions }` のみ返し、`toggleBookmark('list')` が reject されること
+  - _Requirements: 26.3, 26.4, 26.16_
+  - _Depends: 23.1_
+  - _Boundary: bookmark_
+
+- [x] 23.3 廃止プレイモードの試行保存拒否
+  - 新規試行保存時に `mode` が `list` または `question-list` の場合は拒否する
+  - 問題リスト契約検証・`listId` 必須パスを除去し、`my-quiz` 1問契約は維持する
+  - **完了状態**: `saveAttempt({ mode: 'list' })` が reject され、`saveAttempt({ mode: 'my-quiz' })` は従来どおり成功すること
+  - _Requirements: 26.5, 26.6, 26.16_
+  - _Depends: 23.1_
+  - _Boundary: AttemptService_
+
+- [x] 23.4 マイクイズ問題プールの3ソース化
+  - プール合成フラグからブックマークリスト分岐を除去し、自作・ブックマーククイズ・ブックマーク問題の3ソースのみ統合する
+  - dedupe 優先順（own → bookmarkedQuizzes → bookmarkedQuestions）を維持する
+  - **完了状態**: `bookmarkedLists` フラグなしでプールが構築でき、リスト由来問題が候補に含まれないこと
+  - _Requirements: 26.7, 26.16_
+  - _Depends: 23.2_
+  - _Boundary: my-quiz-pool_
+
+- [x] 23.5 プレイ履歴レガシーラベルの提供
+  - 過去試行の `mode` が `list` / `question-list` のとき表示ラベルを `レガシープレイ` に正規化する（lib 1か所を正本）
+  - 本人プレイ履歴 API は当該試行を除外せず返却する
+  - **完了状態**: 履歴取得結果でレガシーモードが `レガシープレイ` ラベルで表示可能であること
+  - _Requirements: 26.14, 26.15, 26.17_
+  - _Depends: 23.1_
+  - _Boundary: play-history-client_
+
+- [x] 23.6 リスト専用サービス・lib の削除と import 掃除
+  - リスト CRUD・探索・問題リストセッション・リスト検証・プロフィールリスト表示用モジュールを削除する
+  - 問題サービスからリストへの追加・除去 API を削除し、残存 import をビルド可能な状態に掃除する
+  - **完了状態**: `quiz-list`・`question-list-session` 等への参照がリポジトリから消え、`npm run build` が通ること
+  - _Requirements: 26.1, 26.2, 26.6_
+  - _Depends: 23.2, 23.3, 23.4_
+  - _Boundary: quiz-list removal_
+
+- [x] 23.7 Firestore Rules・Indexes・参照の更新
+  - Security Rules から `quizLists` match を除去する
+  - 複合インデックス定義から `quizLists` エントリを除去し、クライアント参照ヘルパから `quizListsRef` を削除する
+  - **完了状態**: rules / indexes に `quizLists` が残らず、エミュレータデプロイが可能であること
+  - _Requirements: 26.10, 26.11, 26.12, 26.13_
+  - _Depends: 23.6_
+  - _Boundary: Firestore_
+
+- [x] 23.8 リスト廃止マイグレーションスクリプトの実装
+  - Admin SDK で `quizLists` 全件および `targetType=list` ブックマークをバッチ削除するスクリプトを追加する
+  - `--dry-run` で件数のみ出力できること
+  - **完了状態**: dry-run が件数を返し、エミュレータ上で実削除が成功すること
+  - _Requirements: 26.8, 26.9_
+  - _Depends: 23.7_
+  - _Boundary: migrate-delete-quizlists_
+
+- [x] 23.9 アカウント削除フローからリスト処理の除去
+  - 退会・削除 API からクイズリスト匿名化・`quizLists` 参照を除去する
+  - **完了状態**: アカウント削除コードに `quizLists` / リスト匿名化パスが存在しないこと
+  - _Requirements: 26.12, 26.13_
+  - _Depends: 23.6_
+  - _Boundary: user, delete-account_
+
+- [x] 23.10 (P) Phase 26 単体・サービステストの更新
+  - ブックマーク list 拒否、廃止モード saveAttempt 拒否、3ソースプール、レガシーラベル、LB 回帰を検証する
+  - リスト専用テストファイルを削除し、残存テストを更新する
+  - **完了状態**: Phase 26 関連 Jest がすべてグリーンであること
+  - _Requirements: 26.3, 26.4, 26.5, 26.7, 26.14, 26.15_
+  - _Depends: 23.4, 23.5, 23.8, 23.9_
+  - _Boundary: Testing_
+
+- [x] 23.11 Phase 26 統合検証
+  - コアテストスイート全体がグリーンであることを確認する
+  - 隣接 UI スペック（play-flow / creator-dash / my-quiz）が import 可能な API 契約（2分類ブックマーク・3ソースプール・廃止モード拒否）が揃っていることを確認する
+  - **完了状態**: Core 先行マージ可能な状態でビルド・全 Jest がグリーンであること
+  - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5, 26.6, 26.7, 26.8, 26.9, 26.10, 26.11, 26.12, 26.13, 26.14, 26.15, 26.16, 26.17, 26.18_
+  - _Depends: 23.10_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 26)
+
+- 実装順: 23.1 → 23.2/23.3/23.5（並行可）→ 23.4（23.2 後）→ 23.6 → 23.7/23.9（並行可）→ 23.8 → 23.10 → 23.11。UI スペックは **23.6 完了後**（型・サービス削除後）に着手。
+- 維持: `my-quiz` セッション、クイズ/問題ブックマーク、`sourceQuestionId` 参照リンク、既存 `attempts` 物理データ。
+- 削除禁止（同名）: 探索 `QuizListSort`、ダッシュボード `QuizListSkeleton`。
+- マイグレーション本番実行はステージング検証後。UI と同一 PR でも Core コミットを先に適用すること。
+- Phase 26 実装完了（2026-06-10）: Jest 166 suites / 835 tests グリーン。リスト API 削除に伴い play-flow 境界の最小 UI 修正（ブックマーク2タブ・ルート削除・プレイ/結果）を同一 PR で実施。`npm run build` は `ai-generate-questions/route.ts` の既存 Schema 型エラーで失敗（Phase 26 外）。

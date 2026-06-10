@@ -32,7 +32,7 @@ describe('Header profile popup', () => {
     render(<Header />);
     fireEvent.click(screen.getByTestId('header-profile-btn'));
     expect(screen.getByTestId('header-profile-popup')).toBeInTheDocument();
-    expect(screen.getByTestId('header-nav-lists')).toBeInTheDocument();
+    expect(screen.queryByTestId('header-nav-lists')).not.toBeInTheDocument();
     expect(screen.getByTestId('header-nav-my-quiz')).toBeInTheDocument();
     expect(screen.getByTestId('header-settings-link')).toBeInTheDocument();
   });

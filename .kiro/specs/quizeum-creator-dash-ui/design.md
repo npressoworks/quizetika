@@ -862,3 +862,56 @@ export function consumeTestPlayDraftForEditor(
 
 **Document Status（Phase 20 設計）**: 本節に反映。
 
+---
+
+## Phase 26: リスト機能 UI の完全廃止
+
+### 1. Overview
+
+クイズリスト・問題リストの作成・編集・詳細画面と関連コンポーネントを削除する。作家ダッシュボードの「リスト作成」CTA を除去し、クイズエディタ・ダッシュボード（クイズ管理）のみを維持する。要件 3・4・6 および要件 10 のリスト Suspense 節は廃止する。
+
+### 2. Boundary Commitments（Phase 26）
+
+| Owns | Out |
+|------|-----|
+| `/list/*` ルート・リストエディタ削除 | Core API 削除 |
+| ダッシュボード CTA 除去 | ブックマーク UI（play-flow） |
+| クイズエディタ維持 | マイクイズ（my-quiz-ui） |
+
+### 3. File Structure Plan（Phase 26）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/app/list/` | **Delete** | 全リストルート |
+| `src/components/quiz-list/` | **Delete** | エディタ・アタッチパネル |
+| `src/app/creator/dashboard/dashboard-actions.tsx` | **Modify** | リスト作成 CTA 削除 |
+| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | リスト導線参照削除 |
+| `tests/components/list-type-selector.test.tsx` | **Delete** | — |
+| `tests/components/question-list-attach-panel.test.tsx` | **Delete** | — |
+| `tests/components/creator-skeleton-components.test.tsx` | **Modify** | `ListEditorSkeleton` 削除 |
+| `e2e/creator-streaming-skeleton.spec.ts` | **Modify** | リスト編集シナリオ削除 |
+| `e2e/phase8.spec.ts` | **Modify** | リスト作成削除 |
+
+**維持**: `src/app/quiz/create`, `src/app/quiz/[id]/edit`, `dashboard-sections.tsx`（`creator-quiz-list` testId はクイズ一覧用）。
+
+### 4. Requirements Traceability（Phase 26）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 26.1–26.2 | ルート・コンポーネント削除 | 上記 Delete |
+| 26.3–26.5 | ダッシュボード | `dashboard-actions.tsx` |
+| 26.6–26.7 | クイズエディタ維持 | 変更なし |
+| 26.8–26.9 | Suspense | リストスケルトン削除 |
+| 26.12 | E2E | 上記 |
+
+### 5. Testing Strategy（Phase 26）
+
+| 種別 | 検証 |
+|------|------|
+| **E2E** | ダッシュボードに「リスト作成」ボタンなし |
+| **Regression** | クイズ新規作成・編集・エクスポート |
+| **Regression** | 〇×作問 UI（Phase 20） |
+
+**Effort**: **S**（1日）
+
+**Document Status（Phase 26 設計）**: 本節に反映。

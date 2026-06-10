@@ -355,3 +355,37 @@
 - 選択肢正規化・`Quiz.format` 永続化は `quizeum-core` Phase 19 に依存。本スペックは UI とエディタ state のみ。
 - 実装順: `quizeum-core` 19.1 → 本スペック 10.1 以降。
 
+---
+
+### 11. Phase 26: リスト機能 UI の完全廃止（2026-06-10）
+
+- [x] 11.1 作家ダッシュボードからリスト作成導線の除去
+  - ダッシュボードアクション・クライアントから「リスト作成」CTA およびリスト詳細・編集へのリンクを削除する
+  - クイズ一括 JSON エクスポート CTA は維持する
+  - **完了状態**: `/creator/dashboard` にリスト作成ボタンが存在せず、クイズ新規作成・エクスポート導線は維持されること
+  - _Requirements: 12.3, 12.4, 12.5_
+  - _Depends: quizeum-core 23.6_
+  - _Boundary: dashboard-actions_
+
+- [x] 11.2 リストエディタ関連テスト・スケルトン・E2E の除去
+  - リストタイプセレクタ・アタッチパネル専用テストを削除する
+  - スケルトンテストから `ListEditorSkeleton` 期待を除去し、リスト作成シナリオを `phase8`・`creator-streaming-skeleton` から削除する
+  - **完了状態**: リスト専用 creator テストが除去され、関連 Jest / E2E がグリーンであること
+  - _Requirements: 12.1, 12.2, 12.8, 12.12_
+  - _Depends: quizeum-play-flow-ui 28.1_
+  - _Boundary: Testing_
+
+- [x] 11.3 Phase 26 統合検証
+  - クイズ新規作成・編集・参照リンク・〇×作問 UI（Phase 20）が回帰なく動作することを確認する
+  - 作家ダッシュボードの Suspense スケルトン（`quiz-list-skeleton` 等・クイズ一覧用）が維持されることを確認する
+  - **完了状態**: creator-dash 関連ビルド・テストがグリーンで、リストルート・エディタが存在しないこと
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8, 12.9, 12.10, 12.11, 12.12_
+  - _Depends: 11.1, 11.2_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 26)
+
+- リストルート・`components/quiz-list` 削除の正本は `quizeum-play-flow-ui` 28.1。本スペックはダッシュボード CTA と creator 専用テスト。
+- 維持: `/quiz/create`・`/quiz/[id]/edit`、過去自作検索・参照リンク、〇×作問、`QuizListSkeleton`（クイズ一覧用 testId）。
+- 実装順: `quizeum-core` 23.6 → play-flow 28.1 → 本スペック 11.1/11.2（並行可）→ 11.3。
+

@@ -4,6 +4,8 @@
 Quizeum ユーザーは、クイズリスト・問題リストをブックマークやプロフィール以外からも発見・確認したいが、現状は `/list/[id]` の個別詳細とプロフィール内タブのみで、**グローバルなリスト探索画面がない**。また自分の非公開リストを一覧で確認する導線も弱い。
 本スペックでは `/lists` ルートにリスト探索ページを新設し、キーワード検索と「公開リスト / 非公開リスト（本人のみ）」のタブ切り替えにより、リスト詳細（`/list/[id]`）へ到達できる導線を提供する。
 
+**Phase 26（2026-06-10）**: `quizeum-core` Phase 26 によるリスト機能完全廃止に伴い、**本スペック全体を obsolete（廃止）** とする。Phase 23 で実装完了していた `/lists` 探索 UI は削除対象となり、以下の要件 1〜6 はすべて **キャンセル済み（履歴参照のみ）** とする。正本は `quizeum-core` / `quizeum-play-flow-ui` Phase 26。
+
 ## Boundary Context
 - **In scope**:
   - `/lists` ページ（サーバー/クライアント構成）、ページタイトル・説明文
@@ -27,7 +29,7 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 
 ## Requirements
 
-### Requirement 1: リスト探索ページの基本表示
+### Requirement 1: リスト探索ページの基本表示 — **Phase 26 で全体廃止**
 **Objective:** As a ユーザー, I want 専用のリスト探索ページにアクセスできること, so that ブックマークやプロフィール以外からもリストを一覧できる。
 
 #### Acceptance Criteria
@@ -36,7 +38,7 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 3. While データ取得中であるとき, the Lists Discovery Page shall スケルトンまたはローディング表示を表示する。
 4. The Lists Discovery Page shall リスト作成画面（`/list/create`）へのリンクまたはボタンを提供する（新規作成フロー自体は本要件の範囲外）。
 
-### Requirement 2: 公開/非公開タブによる表示切り替え
+### Requirement 2: 公開/非公開タブによる表示切り替え — **Phase 26 で全体廃止**
 **Objective:** As a ユーザー, I want 公開リストと自分の非公開リストをタブで切り替えられること, so that 目的に応じたリスト集合を素早く閲覧できる。
 
 #### Acceptance Criteria
@@ -47,7 +49,7 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 5. The Lists Discovery Page shall 公開タブに `data-testid="lists-tab-public"`、非公開タブに `data-testid="lists-tab-private"` を付与する。
 6. The Lists Discovery Page shall 他人の非公開リストを一覧に含めてはならない。
 
-### Requirement 3: キーワード検索
+### Requirement 3: キーワード検索 — **Phase 26 で全体廃止**
 **Objective:** As a ユーザー, I want リストタイトルや説明でキーワード検索できること, so that 目的のリストを素早く見つけられる。
 
 #### Acceptance Criteria
@@ -57,7 +59,7 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 4. The Lists Discovery Page shall 検索入力に `data-testid="lists-search-input"` を付与する。
 5. The Lists Discovery Page shall キーワード一致判定をリストのタイトルおよび説明文に対して行う（大文字小文字の差異は同一とみなす）。
 
-### Requirement 4: リストカード一覧と詳細への導線
+### Requirement 4: リストカード一覧と詳細への導線 — **Phase 26 で全体廃止**
 **Objective:** As a ユーザー, I want 一覧上でリスト種別や概要を確認し詳細へ遷移できること, so that 興味のあるリストをプレイまたは編集できる。
 
 #### Acceptance Criteria
@@ -67,7 +69,7 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 4. When ユーザーがリストカードをクリックしたとき, the Lists Discovery Page shall 当該リストの詳細ページ（`/list/[id]`）へ遷移する。
 5. The Lists Discovery Page shall 各カードに `data-testid="lists-discovery-card"` を付与する。
 
-### Requirement 5: 空状態・エラー表示
+### Requirement 5: 空状態・エラー表示 — **Phase 26 で全体廃止**
 **Objective:** As a ユーザー, I want 結果が0件または取得失敗時に状況が分かること, so that 次に取るべき行動（検索条件変更・リスト作成・再試行）を判断できる。
 
 #### Acceptance Criteria
@@ -76,7 +78,7 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 3. If リスト取得中にエラーが発生したとき, the Lists Discovery Page shall エラーメッセージと再試行操作（再読み込みボタン等）を表示する。
 4. The Lists Discovery Page shall 空状態コンテナに `data-testid="lists-empty-state"` を付与する。
 
-### Requirement 6: データ取得契約（Core 依存）
+### Requirement 6: データ取得契約（Core 依存） — **Phase 26 で全体廃止**
 **Objective:** As a 開発者, I want 一覧データ取得が Core の統一 API 経由であること, so that 公開/非公開のクエリ条件とキーワード絞り込みが一貫する。
 
 #### Acceptance Criteria
@@ -85,3 +87,23 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 3. When ログインユーザーが「非公開リスト」タブを選択しているとき, the Lists Discovery Page shall `searchLists` に `visibility: 'private'` および `authorId`（ログインユーザー ID）を渡す。
 4. When キーワード検索が有効なとき, the Lists Discovery Page shall `searchLists` に `keyword` 引数を渡す。
 5. The Lists Discovery Page shall 初版では取得件数上限（`limit`）を固定値で指定する（ページング UI は本要件の範囲外）。
+
+---
+
+## Phase 26: スペック全体の廃止（2026-06-10）
+
+**Phase 26（2026-06-10）**: リスト機能完全廃止に伴い、本スペック（`quizeum-lists-discovery-ui`）の **全要件をキャンセル** する。
+
+### 要件 7: スペック全体の obsolete 化（Phase 26）
+**Objective:** As a プロジェクトメンバー, I want リスト探索 UI スペックを obsolete と明示すること, so that 廃止済み機能の新規実装・改修が行われない。
+
+#### Acceptance Criteria
+1. The [Lists Discovery UI] shall [要件 1〜6 のすべてを **obsolete（キャンセル済み）** として扱い、新規実装の根拠として引用してはならない]。
+2. When [Phase 26 以降にリスト探索 UI が必要と判断された場合], the [Lists Discovery UI] shall [本スペックを復活させず、新規スペックまたはプロダクト判断を経由すること]。
+3. The [Lists Discovery UI] shall [`/lists` ルート・`useListsSearch`・`searchLists` の削除を `quizeum-play-flow-ui` / `quizeum-core` Phase 26 に委譲すること]。
+4. The [Lists Discovery UI] shall [spec.json に `obsolete: true` および `obsolete_reason` を設定すること]。
+5. The [Lists Discovery UI] shall [design.md・tasks.md に obsolete 注記を残し、実装完了タスクは履歴として保持すること]。
+
+**境界・隣接**
+6. The [Lists Discovery UI] shall [`quizeum-ui-discovery` Phase 26 からリスト探索スコープが除外されていることと整合すること]。
+7. The [Lists Discovery UI] shall [Sidebar「リスト」ナビ除去を `quizeum-sidebar-layout` Phase 26 に委譲すること]。

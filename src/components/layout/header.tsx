@@ -10,7 +10,6 @@ import {
   PlusCircle,
   User as UserIcon,
   LogOut,
-  List,
   ClipboardList,
   Settings,
 } from 'lucide-react';
@@ -88,18 +87,6 @@ export const Header: React.FC = () => {
                   className="w-[200px]"
                   data-testid="header-profile-popup"
                 >
-                  <DropdownMenuItem
-                    render={
-                      <Link
-                        href="/lists"
-                        onClick={() => setPopupOpen(false)}
-                        data-testid="header-nav-lists"
-                      />
-                    }
-                  >
-                    <List size={18} />
-                    <span>リスト</span>
-                  </DropdownMenuItem>
                   <DropdownMenuItem
                     render={
                       <Link

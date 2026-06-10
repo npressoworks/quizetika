@@ -431,3 +431,113 @@ flowchart LR
 - **Phase 6**: E2E 全通し
 
 **Rollback**: スライス単位 revert。CSS Modules は削除前コミットから復元可能。
+
+---
+
+## Phase 26: リストエディタ UI 移行スコープの除去
+
+### 1. Overview
+
+Phase 24 ではクイズエディタとリストエディタの両方を shadcn + Tailwind へ移行する計画だった。Phase 26 により **リスト機能全体が廃止** されたため、本スペックのスコープは **クイズエディタのみ** に縮小する。Phase 24 で実施済みのクイズエディタ移行（`quiz-editor.tsx` 分割、CSS Modules 削除、Markdown/Sortable 移行）は維持する。リストエディタ関連コンポーネント・ルート・E2E は削除し、design 上のリスト参照を除去する。
+
+**Document Status（Phase 26 設計）**: 本節が正本。Overview・Boundary Commitments・File Structure Plan・Requirements Traceability・Components 表のリストエディタ記述は **歴史的参照** とし、実装・検証は本節および要件 26 に従う。
+
+### 2. Boundary Commitments（Phase 26）
+
+| Owns | Out |
+|------|-----|
+| リストエディタコンポーネント削除の確認 | Core `quiz-list` サービス削除 |
+| エディタ E2E からリストシナリオ除去 | ブックマーク・探索 UI（play-flow） |
+| クイズエディタ Phase 24 成果の維持 | 作家ダッシュボード CTA（creator-dash） |
+
+**This Spec Owns（Phase 26 改定後）**
+- `src/components/quiz/quiz-editor.tsx` および `editor/*` サブコンポーネント
+- `src/components/quiz/genre-editor-select.tsx`, `editor-skeleton.tsx`
+- `src/components/sorting/sortable-sorting-list.tsx`
+- `src/components/markdown/*`
+- クイズエディタルート loader（`quiz-editor-loader.tsx`）
+- クイズエディタ E2E 回帰確認
+
+**Out of Boundary（Phase 26 追加）**
+- ~~`QuizListEditor` / `QuestionListAttachPanel` / `ListTypeSelector` / `ListEditorSkeleton`~~ — **削除済み、本スペック対象外**
+- ~~`/list/create`, `/list/[id]/edit` ルート~~ — **削除済み**
+- `@/services/quiz-list`, `list-editor-classes.ts`, `useQuestionAttachSearch`（リスト attach 専用）
+
+### 3. File Structure Plan（Phase 26）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/components/quiz-list/` | **Delete**（play-flow 28.1 正本） | リストエディタ一式 |
+| `src/app/list/` | **Delete**（play-flow 28.1 正本） | リスト作成・編集ルート |
+| `src/lib/list-editor-classes.ts` | **Delete** | リストエディタ Tailwind クラスマップ |
+| `tests/components/list-type-selector.test.tsx` | **Delete** | — |
+| `tests/components/question-list-attach-panel.test.tsx` | **Delete** | — |
+| `tests/components/creator-skeleton-components.test.tsx` | **Modify** | `ListEditorSkeleton` 期待除去 |
+| `e2e/quiz-list.spec.ts` | **Delete** | リスト E2E 専用 |
+| `e2e/phase8.spec.ts` | **Modify** | リスト作成・attach シナリオ削除 |
+| `e2e/creator-streaming-skeleton.spec.ts` | **Modify** | `list-editor-skeleton` シナリオ削除 |
+
+**維持**
+- `src/app/quiz/create`, `src/app/quiz/[id]/edit`, `quiz-editor-loader.tsx`
+- `src/components/quiz/quiz-list-skeleton.tsx` — 作家ダッシュボード用（クイズ一覧 Suspense）。リスト機能とは無関係
+
+### 4. Architecture（Phase 26 改定）
+
+```mermaid
+graph TD
+    subgraph Foundation [quizeum-ui-foundation]
+        Globals[globals.css CSS vars]
+        Primitives[Button Card Input Dialog Tabs]
+    end
+
+    subgraph EditorSpec [quizeum-ui-editor Phase 26]
+        QuizEditor[QuizEditorContent Container]
+        SubComps[editor/* Presentational]
+        Sortable[SortableSortingList]
+        Markdown[MarkdownPreview Content]
+    end
+
+    subgraph Services [Out of Boundary]
+        QuizSvc[services/quiz]
+        Validation[quiz-validation]
+    end
+
+    subgraph Routes [App Router]
+        QuizCreate[/quiz/create]
+        QuizEdit[/quiz/id/edit]
+    end
+
+    Foundation --> SubComps
+    QuizEditor --> SubComps
+    QuizEditor --> Sortable
+    QuizEditor --> Markdown
+    QuizEditor --> QuizSvc
+    QuizEditor --> Validation
+    Routes --> QuizEditor
+```
+
+Phase 24 Migration Strategy の **Phase 4（ListEditor + AttachPanel）** および **Phase 6 E2E の `quiz-list.spec.ts`** は **キャンセル**。Phase 1–3・5–6（クイズエディタ部分）は完了済み。
+
+### 5. Requirements Traceability（Phase 26）
+
+| Req | Summary | Component / Action |
+|-----|---------|-------------------|
+| 26.1 | リストコンポーネント削除 | `components/quiz-list` 不存在確認 |
+| 26.2 | リストルート削除 | `/list/*` 404 |
+| 26.3 | import 掃除 | grep 確認 |
+| 26.4 | リスト専用 Jest 削除 | tests/components |
+| 26.5 | E2E 更新 | quiz-list.spec 削除、phase8/skeleton 改修 |
+| 26.6 | クイズエディタ回帰 | quiz-creation, phase8 クイズ部分 |
+| 26.7 | ダッシュボード skeleton 維持 | `quiz-list-skeleton.tsx` |
+
+### 6. Testing Strategy（Phase 26）
+
+| 種別 | 検証 |
+|------|------|
+| **Grep / build** | `quiz-list-editor`・`question-list-attach`・`list-editor-loader` import ゼロ |
+| **E2E** | `quiz-creation.spec.ts` 下書き保存フルフロー |
+| **E2E** | `phase8.spec.ts` — クイズ参照リンク・genre-editor のみ（リスト attach なし） |
+| **E2E** | `creator-streaming-skeleton.spec.ts` — `quiz-editor-skeleton` のみ（`list-editor-skeleton` なし） |
+| **Regression** | 8 形式・参照問題・Markdown・sorting DnD |
+
+**Effort**: **S**（0.5 日、`quizeum-play-flow-ui` 28.1 完了後の確認・E2E 掃除）

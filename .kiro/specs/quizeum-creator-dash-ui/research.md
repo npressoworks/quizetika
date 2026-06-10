@@ -177,3 +177,19 @@
 
 **Document Status（Phase 20 設計）**: `design.md` Phase 20 節に反映済。
 
+---
+
+## Phase 26: リスト作成・編集 UI 廃止（2026-06-10）
+
+### Summary
+- **Discovery Type**: Extension（削除）。`app/lists/new`・`app/lists/[id]/edit`・`list-editor`・`list-form`・ダッシュボード「リストを作成」CTA を除去。
+- **Key Findings**:
+  - ダッシュボードの `QuizListSkeleton` はクイズ一覧用 — リスト機能と無関係。
+  - リスト編集は creator-dash 所有だが、探索・プレイ側ルート削除と並列実施可能（Core 完了後）。
+
+### Design Decisions
+1. **CTA 除去のみ** — ダッシュボードレイアウトは維持、リスト導線だけ削除。
+2. **404** — 旧 `/lists/new` 等はルート削除で 404。
+
+**Document Status（Phase 26 設計）**: `design.md` Phase 26 節に反映済。
+

@@ -73,9 +73,6 @@ export interface SortingItem {
 /** 記述式問題の入力タイプ */
 export type TextInputMode = 'text' | 'numeric' | 'char-count';
 
-/** クイズリストの種別（未設定は読み取り時 `quiz` として扱う） */
-export type QuizListType = 'quiz' | 'question';
-
 /** エディタ送信用: 参照リンク問題か新規/所有問題か（Firestore 永続化フィールドは必須ではない） */
 export type QuestionLinkKind = 'owned' | 'reference';
 
@@ -156,26 +153,7 @@ export interface Quiz {
   updatedAt: Date;
 }
 
-// 5. リスト (QuizList)
-export interface QuizList {
-  id: string;             // リストID (FirestoreドキュメントID)
-  authorId: string;       // 作成者のユーザーID
-  authorName: string;     // 作成者の表示名 (非正規化)
-  authorAvatar: string;   // 作成者のアバターURL (非正規化)
-  title: string;
-  description: string;
-  coverImageUrl?: string; // カバー画像URL
-  quizIds: string[];      // 含まれるクイズIDの配列
-  questionIds: string[];  // 含まれる問題IDの配列
-  /** リスト種別。既存ドキュメント未設定時は `quiz` として解釈 */
-  listType?: QuizListType;
-  isPublished: boolean;   // 公開フラグ
-  bookmarksCount: number; // ブックマークされている数
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// 6. フォロー関係 (Follow)
+// 5. フォロー関係 (Follow)
 export interface Follow {
   id: string;             // followerId_followingId の形式
   followerId: string;     // フォローした側 (ログイン中ユーザー)
@@ -188,7 +166,7 @@ export interface Bookmark {
   id: string;             // userId_targetId の形式
   userId: string;         // ブックマークしたユーザー
   targetId: string;       // クイズID、リストID、または問題ID
-  targetType: 'quiz' | 'list' | 'question'; // 対象のタイプ
+  targetType: 'quiz' | 'question'; // 対象のタイプ
   createdAt: Date;
 }
 
@@ -270,28 +248,19 @@ export interface BookmarkedQuestionEntry {
   bookmarkedAt: Date;
 }
 
-/** 分類ブックマーク一覧（クイズ・リスト・問題） */
+/** 分類ブックマーク一覧（クイズ・問題） */
 export interface BookmarkFeed {
   quizzes: Quiz[];
-  lists: QuizList[];
   questions: BookmarkedQuestionEntry[];
 }
 
-/** 既存リストの listType 未設定をクイズリストとして解釈 */
-export function resolveListType(list: Pick<QuizList, 'listType'>): QuizListType {
-  return list.listType ?? 'quiz';
-}
+const DEPRECATED_PLAY_MODES = ['list', 'question-list'] as const;
 
-/** 問題リストプレイ attempt の契約を満たすか */
-export function satisfiesQuestionListAttemptContract(
-  attempt: Pick<Attempt, 'mode' | 'listId' | 'quizId' | 'totalQuestions'>
-): boolean {
-  return (
-    attempt.mode === 'question-list' &&
-    !!attempt.listId &&
-    !!attempt.quizId &&
-    attempt.totalQuestions === 1
-  );
+/** 新規試行保存時に廃止プレイモードを拒否する */
+export function assertPlayModeAllowedForSave(mode: Attempt['mode']): void {
+  if ((DEPRECATED_PLAY_MODES as readonly string[]).includes(mode)) {
+    throw new Error('LIST_PLAY_MODE_DEPRECATED');
+  }
 }
 
 /** マイクイズプレイ attempt の契約を満たすか（`sessionId` は任意） */

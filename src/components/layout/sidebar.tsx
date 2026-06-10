@@ -17,7 +17,6 @@ import {
   Home,
   Search,
   Sparkles,
-  List,
   ClipboardList,
   Settings,
 } from 'lucide-react';
@@ -67,12 +66,12 @@ export const Sidebar: React.FC = () => {
   ];
 
   if (user) {
-    menuItems.splice(
-      2,
-      0,
-      { href: '/lists', label: 'リスト', icon: <List size={22} />, testId: 'nav-lists' },
-      { href: '/my-quiz', label: 'マイクイズ', icon: <ClipboardList size={22} />, testId: 'nav-my-quiz' },
-    );
+    menuItems.splice(2, 0, {
+      href: '/my-quiz',
+      label: 'マイクイズ',
+      icon: <ClipboardList size={22} />,
+      testId: 'nav-my-quiz',
+    });
     menuItems.push(
       { href: '/notifications', label: '通知', icon: <Bell size={22} /> },
       { href: '/bookmarks', label: 'ブックマーク', icon: <Bookmark size={22} /> },

@@ -7,6 +7,8 @@
 
 **Phase 23（2026-06-09）**: ログイン時 Sidebar に「リスト」（`/lists`）・「マイクイズ」（`/my-quiz`）を追加し、アカウントポップアップに「設定」（`/settings`）を追加する。モバイルは BottomNav 5 項目を維持し、Header アバターのプロフィールポップアップで代替到達手段を提供する。
 
+**Phase 26（2026-06-10）**: クイズリスト機能廃止に伴い、Sidebar および Header プロフィールポップアップから「リスト」（`/lists`）ナビを除去する。マイクイズ・設定導線は Phase 23 のまま維持する。
+
 ### Goals
 - PC/タブレットサイズにおいて、画面左端にナビゲーション項目を一元化した左サイドバーを導入する。
 - モバイルサイズ（767px以下）において、画面下部に主要遷移先を配置したボトムナビゲーションを導入し、上部ヘッダーを軽量なミニヘッダーへとリファクタリングする。
@@ -562,3 +564,115 @@ const isNavItemActive = (href: string): boolean => {
 **Effort**: **S**（0.5–1日）
 
 **Document Status（Phase 23 設計）**: 本節に反映。
+
+---
+
+## Phase 26: リストナビ項目の除去
+
+### 1. Overview
+
+`quizeum-core`・`quizeum-play-flow-ui`・`quizeum-creator-dash-ui`・`quizeum-my-quiz-ui` における Phase 26 リスト機能廃止に追随し、本スペックが所有するグローバルナビから廃止ルート `/lists` への導線を除去する。
+
+**現状（実装ギャップ）**: `sidebar.tsx` に `nav-lists`（`/lists`）が残存し、`header.tsx` のプロフィールポップアップに `header-nav-lists` が残存している。`/lists` はルート削除済みのため 404 を返すが、ナビからの遷移は UX 上のデッドリンクとなる。
+
+**変更後**: ログイン時 Sidebar は「マイクイズ」のみリスト関連項目を持たず（リスト項目なし）、Header ポップアップはマイクイズ・マイページ・設定・ログアウトのみ。BottomNav は変更なし（5 項目維持）。
+
+### 2. Boundary Commitments（Phase 26）
+
+| Owns | Out |
+|------|-----|
+| Sidebar から「リスト」menuItem 除去 | `/lists` ページ・ルート除去（`quizeum-play-flow-ui` 担当済み） |
+| Header ポップアップから「リスト」リンク除去 | プロフィール「作成したリスト」タブ（`quizeum-auth-profile-ui`） |
+| `nav-lists` / `header-nav-lists` testid 削除 | ブックマーク「リスト」タブ除去（`quizeum-play-flow-ui` 担当済み） |
+| `/lists` active 判定の除去（残存時） | マイクイズのブックマークリストソース除去（`quizeum-my-quiz-ui` 担当済み） |
+| 関連 Jest / E2E テスト更新 | `quizeum-lists-discovery-ui`（廃止） |
+
+**維持（Phase 23 から変更なし）**
+
+| 項目 | 到達先 | testid |
+|------|--------|--------|
+| Sidebar「マイクイズ」 | `/my-quiz` | `nav-my-quiz` |
+| Sidebar ポップアップ「設定」 | `/settings` | `sidebar-settings-link` |
+| Header ポップアップ「マイクイズ」 | `/my-quiz` | `header-nav-my-quiz` |
+| Header ポップアップ「設定」 | `/settings` | `header-settings-link` |
+
+### 3. Navigation Items（Phase 26 差分）
+
+#### Sidebar `menuItems`（ログイン時 — リスト除去後）
+
+```typescript
+if (user) {
+  menuItems.splice(
+    2,
+    0,
+    { href: '/my-quiz', label: 'マイクイズ', icon: <ClipboardList size={22} />, testId: 'nav-my-quiz' },
+  );
+  menuItems.push(
+    { href: '/notifications', label: '通知', icon: <Bell size={22} /> },
+    { href: '/bookmarks', label: 'ブックマーク', icon: <Bookmark size={22} /> },
+  );
+}
+```
+
+- `List` アイコンおよび `nav-lists` を削除
+- 配置順: ホーム → 検索 → **マイクイズ** → Proプラン → 通知 → ブックマーク → …
+
+#### Header プロフィールポップアップ（リスト行削除後）
+
+```tsx
+<Link href="/my-quiz" data-testid="header-nav-my-quiz" onClick={close}>マイクイズ</Link>
+<Link href={`/profile/${user.id}`} onClick={close}>マイページ</Link>
+<Link href="/settings" data-testid="header-settings-link" onClick={close}>設定</Link>
+<button onClick={handleLogout}>ログアウト</button>
+```
+
+- `header-nav-lists` 行を削除
+- BottomNav は Phase 26 でも変更なし
+
+#### Active Path Logic
+
+- `isNavItemActive` から `href === '/lists'` 分岐を除去（`nav-active.ts` に残存する場合）
+- `sidebar.tsx` 内の `isListsActive` 等のインライン判定があれば削除
+- `/my-quiz` active 判定は Phase 23 のまま維持
+
+### 4. File Structure Plan（Phase 26）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/components/layout/sidebar.tsx` | **Modify** | `nav-lists` menuItem 削除、`List` import 削除 |
+| `src/components/layout/header.tsx` | **Modify** | ポップアップ内 `/lists` リンク・`header-nav-lists` 削除 |
+| `src/components/layout/nav-active.ts` | **Modify**（残存時） | `/lists` 分岐の除去確認 |
+| `tests/components/sidebar.test.tsx` | **Modify** | `nav-lists` 関連アサーション削除、マイクイズ維持検証 |
+| `tests/components/header-profile-popup.test.tsx` | **Modify** | `header-nav-lists` 削除、マイクイズ・設定維持 |
+| `tests/components/layout/shell-smoke.test.tsx` | **Modify** | `nav-lists` 存在検証を削除 |
+| `tests/components/nav-active.test.ts` | **Modify**（残存時） | `/lists` active ケース削除 |
+| `e2e/layout.spec.ts` | **Modify** | Sidebar／Header から `/lists` 遷移テスト削除；Phase 26 404 テスト維持 |
+
+**変更しないファイル**: `bottom-nav.tsx`、`layout-wrapper.tsx`、`sidebar.module.css`（項目数減のみでスタイル変更不要の見込み）
+
+### 5. Requirements Traceability（Phase 26）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 7.1–7.2 | Sidebar リスト項目・testid 除去 | `sidebar.tsx` |
+| 7.3–7.4 | マイクイズ導線・active 維持 | `sidebar.tsx` |
+| 7.5–7.7 | Header ポップアップリスト除去・他導線維持 | `header.tsx` |
+| 7.8–7.9 | `/lists` active 判定除去 | `nav-active.ts` |
+| 7.10–7.12 | テスト・E2E 更新 | `tests/`, `e2e/` |
+| 7.13–7.16 | 隣接スペック境界 | Out of scope |
+
+### 6. Testing Strategy（Phase 26）
+
+| 種別 | 検証 |
+|------|------|
+| **Component** | ログイン時 Sidebar に `nav-lists` が存在しない |
+| **Component** | ログイン時 Sidebar に `nav-my-quiz` が存在し、`/my-quiz` で active |
+| **Component** | Header ポップアップに `header-nav-lists` が存在しない |
+| **Component** | Header ポップアップに `header-nav-my-quiz`・`header-settings-link` が存在 |
+| **Regression** | BottomNav 5 項目・設定ポップアップ（`sidebar-settings-link`）が維持 |
+| **E2E** | `/lists` 直接アクセスが 404（既存 `layout.spec.ts` Phase 26 テスト） |
+| **E2E** | Sidebar「リスト」→ `/lists`、Header「リスト」→ `/lists` シナリオが削除済み |
+
+**Effort**: **S**（0.5日未満）
+
+**Document Status（Phase 26 設計）**: 本節に反映。

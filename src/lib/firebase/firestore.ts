@@ -7,7 +7,7 @@ import {
   SnapshotOptions,
 } from 'firebase/firestore';
 import { db } from './config';
-import { User, Quiz, QuizList, Follow, Bookmark, Question } from '@/types';
+import { User, Quiz, Follow, Bookmark, Question } from '@/types';
 
 /**
  * 汎用 Firestore データコンバーター
@@ -87,6 +87,5 @@ export const getCollectionRef = <T extends DocumentData>(
 export const usersRef = getCollectionRef<User>('users');
 export const quizzesRef = getCollectionRef<Quiz>('quizzes');
 export const questionsRef = getCollectionRef<Question>('questions');
-export const quizListsRef = getCollectionRef<QuizList>('quizLists');
 export const followsRef = getCollectionRef<Follow>('follows');
 export const bookmarksRef = getCollectionRef<Bookmark>('bookmarks');

@@ -1,22 +1,12 @@
 import { resolveQuizFormat } from '@/lib/quiz-format';
 import { searchAuthorQuizzes } from '@/services/author-quiz-search';
-import {
-  enrichBookmarkedQuestions,
-  getBookmarkedLists,
-  getBookmarkedQuizzes,
-} from '@/services/bookmark';
+import { enrichBookmarkedQuestions, getBookmarkedQuizzes } from '@/services/bookmark';
 import { getQuestionsByQuiz } from '@/services/question';
 import { getQuiz } from '@/services/quiz';
-import { getQuizzesInList } from '@/services/quiz-list';
 import type { QuizFormat } from '@/lib/quiz-format';
 import type { Question, Quiz } from '@/types';
-import { resolveListType } from '@/types';
 
-export type MyQuizSource =
-  | 'own'
-  | 'bookmarked-quiz'
-  | 'bookmarked-list'
-  | 'bookmarked-question';
+export type MyQuizSource = 'own' | 'bookmarked-quiz' | 'bookmarked-question';
 
 export interface MyQuizQuestionCandidate {
   questionId: string;
@@ -34,7 +24,6 @@ export interface MyQuizQuestionCandidate {
 export interface MyQuizSourceFlags {
   ownQuizzes: boolean;
   bookmarkedQuizzes: boolean;
-  bookmarkedLists: boolean;
   bookmarkedQuestions: boolean;
 }
 
@@ -47,8 +36,6 @@ export function candidateMatchesSourceFlags(
       return flags.ownQuizzes;
     case 'bookmarked-quiz':
       return flags.bookmarkedQuizzes;
-    case 'bookmarked-list':
-      return flags.bookmarkedLists;
     case 'bookmarked-question':
       return flags.bookmarkedQuestions;
     default:
@@ -115,23 +102,6 @@ async function collectBookmarkedQuizzes(userId: string): Promise<MyQuizQuestionC
   return groups.flat();
 }
 
-async function collectBookmarkedLists(userId: string): Promise<MyQuizQuestionCandidate[]> {
-  const lists = await getBookmarkedLists(userId);
-  const quizLists = lists.filter((list) => resolveListType(list) === 'quiz');
-  const candidates: MyQuizQuestionCandidate[] = [];
-
-  for (const list of quizLists) {
-    const quizzes = await getQuizzesInList(list.id);
-    const published = quizzes.filter((q) => q.status === 'published');
-    for (const quiz of published) {
-      const questions = await getQuestionsByQuiz(quiz.id);
-      candidates.push(...questions.map((q) => toCandidate(q, quiz, 'bookmarked-list')));
-    }
-  }
-
-  return candidates;
-}
-
 async function collectBookmarkedQuestions(userId: string): Promise<MyQuizQuestionCandidate[]> {
   const entries = await enrichBookmarkedQuestions(userId);
   const candidates: MyQuizQuestionCandidate[] = [];
@@ -172,9 +142,6 @@ export async function buildMyQuizQuestionPool(
   }
   if (flags.bookmarkedQuizzes) {
     groups.push(await collectBookmarkedQuizzes(userId));
-  }
-  if (flags.bookmarkedLists) {
-    groups.push(await collectBookmarkedLists(userId));
   }
   if (flags.bookmarkedQuestions) {
     groups.push(await collectBookmarkedQuestions(userId));

@@ -15,7 +15,6 @@ interface MyQuizSourcePanelProps {
 const SOURCES: { key: keyof MyQuizSourceFlags; label: string; testId: string }[] = [
   { key: 'ownQuizzes', label: '自作クイズ', testId: 'my-quiz-source-own' },
   { key: 'bookmarkedQuizzes', label: 'ブックマーククイズ', testId: 'my-quiz-source-bookmarked-quiz' },
-  { key: 'bookmarkedLists', label: 'ブックマークリスト内クイズ', testId: 'my-quiz-source-bookmarked-list' },
   { key: 'bookmarkedQuestions', label: 'ブックマーク問題', testId: 'my-quiz-source-bookmarked-question' },
 ];
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: ログインユーザーが4ソース（自作・ブックマーククイズ・ブックマークリスト内クイズ・ブックマーク問題）から問題プールを合成し、フィルタ・出題数・シャッフルを指定してアドホック連続プレイを開始できる `/my-quiz` 画面を提供する。
+**Purpose**: ログインユーザーが3ソース（自作・ブックマーククイズ・ブックマーク問題）から問題プールを合成し、フィルタ・出題数・シャッフルを指定してアドホック連続プレイを開始できる `/my-quiz` 画面を提供する。（Phase 26 でブックマークリストソースを除去）
 
 **Users**: 学習者（プレイヤー）が、分散したブックマーク・自作問題を「マイクイズ」として横断的に復習・挑戦する。
 
@@ -10,7 +10,7 @@
 
 ### Goals
 
-- `/my-quiz` ページと4ソーストグル UI
+- `/my-quiz` ページと3ソーストグル UI
 - 検索画面フィルタパターンを簡略化したフィルタパネル（キーワード・ジャンル・タグ・形式・難易度）
 - 出題数（10 / 20 / 全件 / カスタム）・シャッフル・件数プレビュー
 - `my-quiz-session` による `sessionStorage` セッション生成とプレイ起動
@@ -30,7 +30,7 @@
 ### This Spec Owns
 
 - **UI ルーティング**: `/my-quiz` ページ（RSC シェル + クライアント）
-- **4ソース選択 UI**: チェックボックス群とプール再取得トリガ
+- **3ソース選択 UI**: チェックボックス群とプール再取得トリガ
 - **フィルタ UI**: `MyQuizFilters` — 探索 UI の簡略版（`ExploreSearchSection` からジャンル/形式カルーセル・プレイ状況・sticky は除外）
 - **出題設定 UI**: 出題数プリセット/カスタム、シャッフルトグル
 - **クライアント側フィルタ**: `filterMyQuizCandidates` — キーワード・ジャンル・タグ・形式・難易度の AND 合成
@@ -49,7 +49,7 @@
 
 | 依存 | 用途 | 必須度 |
 |------|------|--------|
-| `quizeum-core` — `buildMyQuizQuestionPool` | 4ソース統合取得 | P0 |
+| `quizeum-core` — `buildMyQuizQuestionPool` | 3ソース統合取得 | P0 |
 | `quizeum-core` — `my-quiz-session` | sessionStorage CRUD + URL 生成 | P0 |
 | `quizeum-core` — `saveAttempt` (`mode: 'my-quiz'`) | 各問 attempt 記録 | P0 |
 | `useAuth` | ログインガード | P0 |
@@ -476,3 +476,71 @@ MyQuizSessionEntry[] ──initMyQuizSession──> MyQuizSession (sessionStorag
 - 既存 `question-list-session.ts` — セッション API の模倣正本
 - `quizeum-play-flow-ui` 要件 11 — 問題リストプレイ URL・attempt 契約
 - Phase 23 roadmap — 4ソース定義、BottomNav は sidebar-layout が別途決定
+
+---
+
+## Phase 26: ブックマークリストソースの除去
+
+### 1. Overview
+
+マイクイズの問題取得元を **4ソース → 3ソース** に縮小する。「ブックマークリスト」トグルと `bookmarkedLists` / `bookmarked-list` ラベルを除去し、`quizeum-core` の `buildMyQuizQuestionPool`（3フラグ）と整合させる。`my-quiz` プレイ体験は維持する。
+
+### 2. Boundary Commitments（Phase 26）
+
+| Owns | Out |
+|------|-----|
+| `my-quiz-source-panel` 3トグル化 | `buildMyQuizQuestionPool` 実装（core） |
+| フィルタ表の取得元ラベル更新 | リスト機能全般 |
+
+### 3. Data Model
+
+```typescript
+// my-quiz-source-panel.tsx
+export type MyQuizSourceKey =
+  | 'own'
+  | 'bookmarkedQuizzes'
+  | 'bookmarkedQuestions';
+  // 'bookmarkedLists' 削除
+```
+
+`MyQuizPoolFlags`（core）とキー名を1:1対応させる。
+
+### 4. File Structure Plan（Phase 26）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/components/my-quiz/my-quiz-source-panel.tsx` | **Modify** | 3トグル |
+| `src/components/my-quiz/my-quiz-filtered-table.tsx` | **Modify** | `bookmarked-list` ラベル削除 |
+| `src/hooks/useMyQuizPool.ts` | **Modify** | flags 型縮小 |
+| `tests/lib/my-quiz-pool.test.ts` | **Modify** | core 側と連携 |
+| `tests/components/my-quiz/*.test.tsx` | **Modify** | 3ソース |
+| `e2e/my-quiz.spec.ts` | **Modify** | `bookmarked-list` シナリオ削除 |
+
+### 5. UI Behavior
+
+- ページ説明文: 「4ソース」→「3ソース」
+- デフォルト有効ソース: Phase 23 同様（`own` + `bookmarkedQuizzes` 等 — 実装現状を維持、design で変更不要ならそのまま）
+- `getBookmarkedLists` の import・呼び出しをコードベースから除去
+
+### 6. Requirements Traceability（Phase 26）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 8.1 | リストトグル削除 | `my-quiz-source-panel` |
+| 8.2 | デフォルトソース | 同上 + hook |
+| 8.3 | pool flags | `useMyQuizPool` |
+| 8.4 | テーブルラベル | `my-quiz-filtered-table` |
+| 8.5 | API 呼び出し禁止 | import 掃除 |
+| 8.8 | テスト更新 | tests / e2e |
+
+### 7. Testing Strategy（Phase 26）
+
+| 種別 | 検証 |
+|------|------|
+| **Component** | ソースパネル — 3 `data-testid` のみ |
+| **Unit** | `useMyQuizPool` — `bookmarkedLists` 未送信 |
+| **E2E** | マイクイズ起動フロー（3ソースで回帰） |
+
+**Effort**: **S**（0.5〜1日、Core 完了後）
+
+**Document Status（Phase 26 設計）**: 本節に反映。Overview の「4ソース」記述は実装時に **3ソース** へ更新すること。

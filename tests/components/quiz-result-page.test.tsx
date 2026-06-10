@@ -183,7 +183,6 @@ describe('QuizResultPage Component (Phase 12)', () => {
     (getQuizzesByAuthor as jest.Mock).mockResolvedValue(mockRecommendQuizzes);
     (getBookmarkFeed as jest.Mock).mockResolvedValue({
       quizzes: [],
-      lists: [],
       questions: [],
     });
     (isFollowing as jest.Mock).mockResolvedValue(false);

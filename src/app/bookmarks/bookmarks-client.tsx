@@ -6,7 +6,6 @@ import { useAuth } from '@/context/auth-context';
 import { useBookmarkFeed } from '@/hooks/useBookmarkFeed';
 import { BookmarksTabs } from '@/components/bookmark/bookmarks-tabs';
 import { BookmarkQuizGrid } from '@/components/bookmark/bookmark-quiz-grid';
-import { BookmarkListGrid } from '@/components/bookmark/bookmark-list-grid';
 import { BookmarkQuestionList } from '@/components/bookmark/bookmark-question-list';
 import { BookmarksSkeleton } from '@/components/ui/bookmarks-skeleton';
 
@@ -21,7 +20,7 @@ export function BookmarksClient() {
     }
   }, [user, authLoading, router]);
 
-  const handleRemove = async (targetType: 'quiz' | 'list' | 'question', targetId: string) => {
+  const handleRemove = async (targetType: 'quiz' | 'question', targetId: string) => {
     try {
       await removeBookmark(targetType, targetId);
     } catch (err) {
@@ -45,12 +44,6 @@ export function BookmarksClient() {
         <BookmarkQuizGrid
           quizzes={feed?.quizzes ?? []}
           onRemove={(id) => handleRemove('quiz', id)}
-        />
-      )}
-      {activeTab === 'list' && (
-        <BookmarkListGrid
-          lists={feed?.lists ?? []}
-          onRemove={(id) => handleRemove('list', id)}
         />
       )}
       {activeTab === 'question' && (

@@ -48,7 +48,8 @@ describe('shell components smoke', () => {
     });
     render(<Sidebar />);
     expect(screen.getByTestId('nav-home')).toBeInTheDocument();
-    expect(screen.getByTestId('nav-lists')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-my-quiz')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-lists')).not.toBeInTheDocument();
   });
 
   test('Header renders login link for logged-out user', () => {

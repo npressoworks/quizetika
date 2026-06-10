@@ -19,7 +19,6 @@ describe('useBookmarkFeed', () => {
     jest.clearAllMocks();
     mockGetBookmarkFeed.mockResolvedValue({
       quizzes: [{ id: 'quiz-1' }],
-      lists: [{ id: 'list-1' }],
       questions: [{ question: { id: 'q1' }, parentQuizId: 'quiz-a', parentQuizTitle: 'A', bookmarkedAt: new Date() }],
     });
     mockToggleBookmark.mockResolvedValue(false);

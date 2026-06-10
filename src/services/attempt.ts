@@ -25,8 +25,8 @@ import {
   Question,
   PlayHistoryPage,
   PlayHistoryEntry,
+  assertPlayModeAllowedForSave,
   satisfiesMyQuizAttemptContract,
-  satisfiesQuestionListAttemptContract,
 } from '../types';
 import {
   buildLeaderboardUpdatesForQuiz,
@@ -62,7 +62,7 @@ import {
 const attemptsCollection = collection(db, 'attempts');
 
 function isSingleQuestionAttemptMode(mode: Attempt['mode']): boolean {
-  return mode === 'question-list' || mode === 'my-quiz';
+  return mode === 'my-quiz';
 }
 
 /* ==========================================================================
@@ -77,6 +77,8 @@ function isSingleQuestionAttemptMode(mode: Attempt['mode']): boolean {
 export async function saveAttempt(
   attemptData: Omit<Attempt, 'id' | 'completedAt'>
 ): Promise<string> {
+  assertPlayModeAllowedForSave(attemptData.mode);
+
   const completedAt = new Date();
   const attemptDocRef = doc(attemptsCollection);
 
@@ -110,12 +112,6 @@ export async function saveAttempt(
         throw new Error(
           `1問プレイモードでは totalQuestions は 1 である必要があります。送信値: ${attemptData.totalQuestions}`
         );
-      }
-      if (
-        attemptData.mode === 'question-list' &&
-        !satisfiesQuestionListAttemptContract(attemptData)
-      ) {
-        throw new Error('question-list モードの attempt 契約を満たしていません');
       }
       if (
         attemptData.mode === 'my-quiz' &&
@@ -199,8 +195,7 @@ export async function saveAttempt(
 export async function createLateralAttemptSession(
   userId: string,
   quizId: string,
-  questionIds: string[],
-  listId?: string | null
+  questionIds: string[]
 ): Promise<string> {
   const attemptDocRef = doc(attemptsCollection);
   const totalQuestions = questionIds.length;
@@ -208,8 +203,8 @@ export async function createLateralAttemptSession(
   await setDoc(attemptDocRef, {
     userId,
     quizId,
-    listId: listId ?? null,
-    mode: listId ? 'list' : 'normal',
+    listId: null,
+    mode: 'normal',
     score: 0,
     totalQuestions,
     elapsedSeconds: 0,

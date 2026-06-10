@@ -31,7 +31,8 @@ describe('play-history-client', () => {
     expect(getAttemptModeLabel('exam')).toBe('模擬試験');
     expect(getAttemptModeLabel('flashcard')).toBe('フラッシュカード');
     expect(getAttemptModeLabel('review')).toBe('弱点克服');
-    expect(getAttemptModeLabel('list')).toBe('リストプレイ');
+    expect(getAttemptModeLabel('list')).toBe('レガシープレイ');
+    expect(getAttemptModeLabel('question-list')).toBe('レガシープレイ');
   });
 
   test('fetchPlayHistoryPage: 未ログインで PlayHistoryApiError', async () => {

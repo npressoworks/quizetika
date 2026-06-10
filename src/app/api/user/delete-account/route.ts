@@ -10,7 +10,7 @@
  * 5. レスポンスを返す（クライアント側でログアウト処理を実行）
  *
  * 非同期フェーズ（Cloud Functions または API Route で処理）:
- * - quizzes, quizLists, feedbackReports を 100件チャンクで匿名化
+ * - quizzes, feedbackReports を 100件チャンクで匿名化
  * - Storage からアバター画像を削除
  * - users/{uid} ドキュメント自体を物理削除
  *
@@ -89,7 +89,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 開発・MVP環境では同一リクエスト内で同期実行する（本番は Cloud Tasks に移行予定）
     try {
       await anonymizeAuthorDocs('quizzes', uid);
-      await anonymizeAuthorDocs('quizLists', uid);
       await anonymizeAuthorDocs('feedbackReports', uid);
 
       // ユーザードキュメント自体を物理削除

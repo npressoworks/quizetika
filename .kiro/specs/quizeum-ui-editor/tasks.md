@@ -171,3 +171,42 @@
 - `quiz-editor-classes.ts` / `list-editor-classes.ts` で旧 create/edit CSS Modules を Tailwind クラスマップに置換
 - `quiz-editor.tsx` Container は `QuizFormatSelector` / `QuizMetadataSection` / `QuestionCard` / `QuizEditorActionBar` に配線済み（~800行削減）
 - 子コンポーネントは state/callbacks を props のみで受け取り、services import は Container のみが保持
+
+---
+
+### 11. Phase 26: リストエディタ UI 移行スコープの除去（2026-06-10）
+
+- [x] 11.1 リストエディタ関連コンポーネント・import の除去確認
+  - `src/components/quiz-list/`・`src/app/list/`・`list-editor-classes.ts` が存在しないことを確認する
+  - クイズエディタ scope から `@/services/quiz-list`・`question-list-attach`・`list-type-selector` 等の import が残っていないことを grep で確認する
+  - リスト専用 Jest（`list-type-selector.test.tsx`, `question-list-attach-panel.test.tsx`）が削除されていることを確認する
+  - **完了状態**: リストエディタ関連ファイル・import・専用単体テストがコードベースに残らないこと
+  - _Requirements: 26.1, 26.2, 26.3, 26.4_
+  - _Depends: quizeum-core 23.6, quizeum-play-flow-ui 28.1_
+  - _Boundary: quiz-list components, list routes_
+
+- [x] 11.2 エディタ関連 E2E・スケルトンテストのリスト参照除去
+  - `e2e/quiz-list.spec.ts` を削除する（または既に削除済みであることを確認する）
+  - `e2e/phase8.spec.ts` からリスト作成・問題 attach・`list-type-selector` シナリオを除去する
+  - `e2e/creator-streaming-skeleton.spec.ts` から `list-editor-skeleton` 期待を除去し、`quiz-editor-skeleton` のみ検証する
+  - `tests/components/creator-skeleton-components.test.tsx` から `ListEditorSkeleton` 期待を除去する
+  - **完了状態**: エディタ E2E・Jest にリストエディタ testid 依存が残らず、関連 spec がグリーンであること
+  - _Requirements: 26.5, 8.4_
+  - _Depends: 11.1_
+  - _Boundary: Testing_
+
+- [x] 11.3 Phase 26 統合検証
+  - `/quiz/create`・`/quiz/[id]/edit` のクイズエディタ（8 形式・参照問題・Markdown・sorting DnD・下書き/公開/テストプレイ）が Phase 24 移行成果どおり動作することを確認する
+  - `npm run build`・クイズエディタ関連 Jest・`e2e/quiz-creation.spec.ts`・改修後 `phase8`・`creator-streaming-skeleton` がグリーンであることを確認する
+  - `quiz-list-skeleton.tsx`（作家ダッシュボード用）が維持され、リスト機能と混同されないことを確認する
+  - **完了状態**: 本スペックはクイズエディタのみを対象とし、リストエディタ痕跡がなく回帰テストがグリーンであること
+  - _Requirements: 26.6, 26.7, 8.2, 8.4, 8.5_
+  - _Depends: 11.2_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 26)
+
+- **前提**: `quizeum-play-flow-ui` 28.1（リストルート・`components/quiz-list` 削除）および `quizeum-core` 23.6 完了後に着手。
+- Phase 24 タスク 6.1・6.2（リストエディタ Tailwind 移行）は **実施済みだが機能廃止により成果物ごと削除**。本 Phase 26 はスペック境界の改定と残存参照の掃除が目的。
+- 維持: Phase 24 クイズエディタ移行（タスク 1–5, 7–8）、`quiz-editor-classes.ts`、`quiz-list-skeleton.tsx`（ダッシュボード用）。
+- 実装順: play-flow 28.1 → 11.1 → 11.2 → 11.3。

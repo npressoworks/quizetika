@@ -984,3 +984,20 @@ Phase 11 目標:
 3. **Sticky testid** — 検索画面では `search-search-bar-sticky` に変更（E2E 更新）。
 
 **Document Status（Phase 22 設計）**: `design.md` Phase 22 節に反映済。
+
+---
+
+## Phase 26: リスト機能 UI 廃止（2026-06-10）
+
+### Summary
+- **Discovery Type**: Extension（削除）。`app/lists`・`app/list`・`components/lists`・`components/quiz-list` を削除。
+- **Key Findings**:
+  - ブックマークは `bookmarks-tabs.tsx` の `BookmarkTab` から `'list'` を除去するだけで2タブ化可能。
+  - `quiz-play-client` / `quiz-result-client` に `list` / `question-list` 分岐が集中 — 一括削除対象。
+  - リスト専用 E2E 2本 + `phase8.spec.ts` のリスト部分を更新。
+
+### Design Decisions
+1. **404** — リダイレクトではなくルート削除による既定 404。
+2. **プロフィールリスト** — `profile-client.tsx` のタブ除去は play-flow が軽微実施（auth-profile スペックは別途）。
+
+**Document Status（Phase 26 設計）**: `design.md` Phase 26 節に反映済。

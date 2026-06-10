@@ -8,14 +8,9 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { questionsRef, bookmarksRef, quizListsRef, quizzesRef } from '../lib/firebase/firestore';
-import { Question, Bookmark, QuizList, Quiz } from '../types';
+import { questionsRef, bookmarksRef, quizzesRef } from '../lib/firebase/firestore';
+import { Question, Bookmark, Quiz } from '../types';
 import { toggleBookmark } from './bookmark';
-import {
-  assertListTypeOperation,
-  assertParentQuizPublished,
-  QuestionNotListAddableError,
-} from '../lib/question-list-validation';
 
 /**
   * 指定されたIDの問題を1件取得する
@@ -118,67 +113,4 @@ export async function getBookmarkedQuestions(userId: string): Promise<Question[]
   // ブックマーク登録日時の降順に並ぶようソート
   const idToIndex = new Map(questionIds.map((id, index) => [id, index]));
   return questions.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
-}
-
-/**
-  * ユーザーが所有するリストに特定の問題を追加する（アトミックなトランザクション）
-  */
-export async function addQuestionToList(listId: string, questionId: string): Promise<void> {
-  const question = await getQuestion(questionId);
-  if (!question?.quizId) {
-    throw new Error('問題が見つかりません。');
-  }
-  const quizSnap = await getDoc(doc(quizzesRef, question.quizId));
-  if (!quizSnap.exists()) {
-    throw new Error('問題が見つかりません。');
-  }
-  const parentQuiz = quizSnap.data() as Quiz;
-  assertParentQuizPublished(parentQuiz.status, QuestionNotListAddableError);
-
-  const listDocRef = doc(quizListsRef, listId);
-
-  await runTransaction(db, async (transaction) => {
-    const listSnap = await transaction.get(listDocRef);
-    if (!listSnap.exists()) {
-      throw new Error('クイズリストが存在しません。');
-    }
-
-    const listData = listSnap.data() as QuizList;
-    assertListTypeOperation(listData, 'question');
-    const currentQuestionIds = listData.questionIds || [];
-
-    if (!currentQuestionIds.includes(questionId)) {
-      const newQuestionIds = [...currentQuestionIds, questionId];
-      transaction.update(listDocRef, {
-        questionIds: newQuestionIds,
-        updatedAt: new Date(),
-      } as any);
-    }
-  });
-}
-
-/**
-  * ユーザーが所有するリストから特定の問題を削除する（アトミックなトランザクション）
-  */
-export async function removeQuestionFromList(listId: string, questionId: string): Promise<void> {
-  const listDocRef = doc(quizListsRef, listId);
-
-  await runTransaction(db, async (transaction) => {
-    const listSnap = await transaction.get(listDocRef);
-    if (!listSnap.exists()) {
-      throw new Error('クイズリストが存在しません。');
-    }
-
-    const listData = listSnap.data() as QuizList;
-    assertListTypeOperation(listData, 'question');
-    const currentQuestionIds = listData.questionIds || [];
-
-    if (currentQuestionIds.includes(questionId)) {
-      const newQuestionIds = currentQuestionIds.filter((id) => id !== questionId);
-      transaction.update(listDocRef, {
-        questionIds: newQuestionIds,
-        updatedAt: new Date(),
-      } as any);
-    }
-  });
 }

@@ -26,16 +26,6 @@ test.describe('クリエイター画面 Streaming / Suspense スケルトン E2E
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test('リスト作成画面で list-editor-skeleton が消えエディタが表示されること', async ({ page }) => {
-    await page.goto('/list/create');
-    await page.waitForLoadState('domcontentloaded');
-
-    await expect(page.getByTestId('list-editor-skeleton')).toBeHidden({ timeout: 15000 });
-    await expect(page.locator('h1').filter({ hasText: /リストを作成|リストを編集/ })).toBeVisible({
-      timeout: 15000,
-    });
-  });
-
   test('未認証時に /creator/dashboard および /quiz/test-id/edit がログインへリダイレクトされること', async ({
     browser,
   }) => {

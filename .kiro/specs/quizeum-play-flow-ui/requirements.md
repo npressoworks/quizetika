@@ -35,6 +35,7 @@
 
 **Phase 22（2026-06-09）**: 情報設計（IA）を再編します。現行の統合検索＋タブ＋無限スクロールは **`/search` の検索画面**へ移設し、`/` にはディスカバリーホーム（おすすめクイズ・おすすめジャンル・新着の3カルーセル）を新設します。検索画面ではフィルタパネルを閉じても検索バー下にアクティブ条件を常時表示し、カルーセルからの深いリンク（タブ・ジャンル・フィルタ展開）は URL クエリで表現します（URL 変換規則は `quizeum-core`、ナビ更新は `quizeum-sidebar-layout` が担当）。
 
+**Phase 26（2026-06-10）**: クイズリスト・問題リスト機能を完全廃止します。`/lists` および `/list/*` ルート、ブックマーク「リスト」タブ、`list` / `question-list` プレイ導線・結果ナビを除去します。ブックマークはクイズ・問題の2タブに集約します（要件 26 参照）。要件 11（分類ブックマークと問題リストプレイ UI）は本フェーズで **廃止** します。
 
 ## 境界コンテキスト
 - **対象範囲（In scope）**:
@@ -46,7 +47,8 @@
   - クイズ結果画面における正誤解説リスト、👍/👎良問評価、難易度投票、指摘フォーム、作成者フォローボタン、SNS共有。
   - 過去の間違い問題を復習できる弱点克服プレイ画面（ジャンル選択機能含む）。
   - 各種探索一覧画面（ブックマーク、タグ別、ジャンル別）および**プラットフォーム総合**リーダーボード画面（`/leaderboard`）。
-  - **Phase 8**: ブックマーク一覧の3分類タブ（クイズ／リスト／問題）、プレイ・結果画面での問題ブックマーク操作、リスト詳細における問題リスト連続プレイ開始と次問題への遷移。
+  - **Phase 8（リスト関連は Phase 26 で廃止）**: ブックマーク一覧の2分類タブ（クイズ／問題）、プレイ・結果画面での問題ブックマーク操作。
+  - **Phase 26**: リスト関連ルート・UI・プレイ導線の除去、ブックマーク2タブ化の維持。
   - **Phase 9**: 統合検索バーおよびクイックサーチバッジチップ、ローディング時のカードスケルトンスクリーン、検索フォーカス時・ホバー時のネオン調インタラクション。
   - **Phase 10**: ホーム検索バー内のタグチップ入力・タグ／ジャンルサジェスト、クイズカードの難易度星表記（数値併記）・ジャンル・出題形式表示、ジャンル／タグ一覧での共通クイズカード利用。ジャンル検索フィールドのフォーカス時スマートサジェスト（直近検索ジャンル最大3件 + 週間プレイ数Top5）、統合検索フィールドのフォーカス時スマートサジェスト（直近検索ワード + 週間人気ワード／タグ各Top5）。
   - **Phase 11**: ホームのジャンル／出題形式横スクロールカードカルーセル、カルーセル選択によるホーム内クイズグリッド絞り込み、検索バー・フィルタパネルとのフィルタ状態共有、既存ジャンルピルナビ（`GenreNav`）の置換、ジャンル別一覧ページ（`/genres/[genreName]`）への検索バー・フィルタパネル追加（ジャンル条件は URL 固定）。※Phase 21 でカルーセルは検索セクション内常時表示へ改定。
@@ -62,7 +64,8 @@
   - クイズ作成者向けのクイズ・クイズリスト作成・編集画面（`quizeum-creator-dash-ui` が担当）。
   - マイページのプレイ履歴一覧（`quizeum-auth-profile-ui` が担当）。
   - プラットフォーム総合リーダーボード（`/leaderboard`）の集計ロジック変更。
-  - **Phase 8**: リストの作成・編集・`listType` 切替・問題のリストへの追加 UI（`quizeum-creator-dash-ui`）。作問エディタの過去クイズ検索・参照リンク UI（`quizeum-creator-dash-ui`）。問題を「マイリストに追加」するピッカー UI（リスト編集画面が正本。プレイ画面からの直接追加は初版対象外とする）。
+  - **Phase 8**: 作問エディタの過去クイズ検索・参照リンク UI（`quizeum-creator-dash-ui`）。
+  - **Phase 26**: リスト探索・作成・編集・詳細 UI（`quizeum-creator-dash-ui` / `quizeum-lists-discovery-ui`）。Sidebar「リスト」ナビ（`quizeum-sidebar-layout`）。
   - **Phase 10**: ジャンル／タグ一覧ページへの検索バー新設（Phase 11 でジャンル一覧のみ In に改定）、タグ新設申請・マージ UI の変更、クイズ詳細・プレイ画面の難易度表示変更、サーバー側ファジーサジェスト専用 API の新設。統合検索フィールドのフォーカス時スマートサジェストで利用する週間集計 APIの実装（`quizeum-core` が担当）。ユーザー個人履歴のために Firestore へ検索ログを保存する処理（`quizeum-core` が担当。UI は `localStorage` のみ）。
   - **Phase 11**: 出題形式専用一覧ルート（`/formats/[format]`）の新設、タグ別一覧（`/tags/[tagName]`）への検索バー追加、カルーセル自動スライド・外部 carousel ライブラリ導入。**Phase 22 まで** URL クエリによるフィルタ共有可能化（Phase 22 では `/search` ルートに限り In — 要件 22 参照）。
   - **Phase 14**: `difficultyVote` の永続化ロジック・API・スキーマ変更、難易度スケール（1〜5）の変更、クイズ詳細画面やクイズカードの難易度表示変更、結果画面以外のアコーディオン UI 変更。
@@ -75,7 +78,8 @@
 - **隣接システムへの期待**:
   - クイズドキュメントの `leaderboardFirstPlay` / `leaderboardReplay` を読み取り表示する。`leaderboardFirstPlay` が空で旧 `leaderboard` のみ存在する場合は、初回プレイ側のフォールバック表示として旧フィールドを用いる（`quizeum-core` と同一ルール）。
   - **Phase 6**: ジャンルマスタ読み取り・一覧クエリ・canonical 解決は `quizeum-core`（`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`）に依存する。エディタの動的ジャンルセレクトは `quizeum-creator-dash-ui` が担当。
-  - **Phase 8**: 分類ブックマーク一覧は `getBookmarkFeed`（または同等の3分類取得 API）、問題ブックマークトグルは `toggleBookmark`（`targetType: 'question'`）、問題リストのメンバー解決と順序は `getQuestionsInList` に依存する。`attempts` への `mode: 'question-list'` 記録は `quizeum-core` の `saveAttempt` が担当する。
+  - **Phase 8**: 分類ブックマーク一覧は `getBookmarkFeed`（または同等の2分類取得 API）、問題ブックマークトグルは `toggleBookmark`（`targetType: 'question'`）に依存する。
+  - **Phase 26**: リスト関連 API は存在しない前提。ブックマークはクイズ・問題のみ。
   - **Phase 10**: タグサジェスト用の有効タグ一覧は `quizeum-core` の `listActiveTags`（または同等 API）に依存する。タグチップ配列とキーワード・フィルタ条件の AND 合成検索は `searchQuizzes` に依存する。出題形式の解決ルールはコア／共有ユーティリティと一致させること。スマートサジェスト用の週間集計データ（週間人気ジャンル・週間人気ワード／タグ）は `quizeum-core` が提供する集計エンドポイントに UI が問い合わせる。エンドポイントは共通キャッシュを返す。ユーザー個人の直近検索履歴は `localStorage` のみで管理する（`quizeum-core` には記録しない）。認証済みユーザーが `searchQuizzes` を呼び出すと、`quizeum-core` がサイレントに検索ログを記録する（UI 側の追加処理は不要）。
   - **Phase 11**: 出題形式フィルタおよびジャンル固定 scoped 検索は `quizeum-core` の拡張済み `searchQuizzes` に依存する。カルーセルで選択可能な出題形式一覧は、クイズカードに表示する日本語ラベル（選択式、記述式、ウミガメのスープ、複合形式 等）と対応すること。
   - **Phase 21**: ホームの無限スクロールは `quizeum-core` の段階的取得 API（初回ページ・続きカーソル・続き可否）に依存する。タブ別取得および複合検索の追加読み込みは、同一フィルタ条件下での続きページ取得を前提とする。
@@ -236,7 +240,7 @@
 9. 有効ジャンルが 0 件のとき、ホームのジャンルナビは空状態または案内メッセージを表示し、クラッシュしないこと。
 10. マスタ取得に失敗したとき、ホームおよびジャンル一覧はエラーまたは再試行可能な状態を表示し、サイレントにハードコード一覧へフォールバックしてはならないこと。
 
-### 要件 11: 分類ブックマークと問題リストプレイ UI（Phase 8）
+### 要件 11: 分類ブックマークと問題リストプレイ UI（Phase 8）— **Phase 26 で全体廃止（要件 26 が正本）**
 **目的:** 認証ユーザーとして、ブックマークしたクイズ・リスト・問題を種類ごとに管理し、問題リストを連続プレイしたい。それにより学習用のお気に入りと問題コレクションを活用できる。
 
 #### 受け入れ基準
@@ -684,3 +688,38 @@
 24. The [Play Flow UI] shall [ディスカバリーホームの3セクションに `data-testid="home-discovery-trending"`、`data-testid="home-discovery-genres"`、`data-testid="home-discovery-latest"` を付与すること]。
 25. The [Play Flow UI] shall [検索画面のアクティブ条件チップ行に `data-testid="search-active-filters"`、検索画面本体に `data-testid="search-page"` を付与すること]。
 26. The [Play Flow UI] shall [各「もっと見る」リンクに `data-testid="discovery-see-more-trending"`、`data-testid="discovery-see-more-genres"`、`data-testid="discovery-see-more-latest"` を付与すること]。
+
+### 要件 26: リスト機能 UI の完全廃止（Phase 26）
+**目的:** Quizeumのユーザーとして、リスト機能に関する画面・導線が存在しない状態にしたい。それによりブックマーク（クイズ・問題）中心の学習体験に集中できる。
+
+#### 受け入れ基準
+
+**ルート・ナビ**
+1. The [Play Flow UI] shall [`/lists`、`/list/create`、`/list/[id]`、`/list/[id]/edit` のページコンポーネントおよびルートを提供してはならない]。
+2. When [ユーザーが廃止済みの `/lists` または `/list/*` に直接アクセスしたとき], the [Play Flow UI] shall [404 を返す、またはトップ（`/`）へリダイレクトすること（いずれか一貫した規則 — design で確定）]。
+
+**ブックマーク画面**
+3. When [認証済みユーザーがブックマーク画面（`/bookmarks`）を開いたとき], the [Play Flow UI] shall [「クイズ」「問題」の2タブのみを表示し、「リスト」タブを表示してはならない]。
+4. When [「クイズ」タブが選択されているとき], the [Play Flow UI] shall [ブックマークした公開済みクイズをカード一覧で表示し、ブックマーク解除とクイズ詳細への遷移を提供すること]。
+5. When [「問題」タブが選択されているとき], the [Play Flow UI] shall [ブックマークした問題を、問題文抜粋・親クイズタイトル・ブックマーク日時降順で一覧表示すること（既存問題ブックマーク UX を維持）]。
+6. The [Play Flow UI] shall [リストへのブックマーク登録 UI およびリストカード表示を一切提供してはならない]。
+
+**プレイ・結果画面**
+7. The [Play Flow UI] shall [`mode=list` および `mode=question-list` によるプレイ開始導線、`listId` クエリ、`question-list-session` の読み取りを実装してはならない]。
+8. When [結果画面を表示するとき], the [Play Flow UI] shall [リスト内の次クイズ／次問題へのナビゲーションを表示してはならない]。
+9. When [ウミガメのスープで諦め操作が完了したとき], the [Play Flow UI] shall [「次の問題へ」（問題リスト文脈）ボタンを表示してはならない]。
+10. While [オフライン状態のとき], the [Play Flow UI] shall [クイズリストプレイ中の結果画面から次クイズへ進むブロック処理を実装してはならない（リストプレイ自体が廃止のため）]。
+
+**既存要件との整合**
+11. The [Play Flow UI] shall [要件 7.3 のブックマーク画面説明を「クイズ・問題の2分類」に読み替えること]。
+12. The [Play Flow UI] shall [要件 15・17・18・20 等における「問題リストプレイ」除外記述を、当該モードが存在しない前提に更新してよいこと]。
+
+**境界・隣接**
+13. The [Play Flow UI] shall [Sidebar／Header の「リスト」ナビ項目除去を本要件の範囲に含めない（`quizeum-sidebar-layout` が担当）]。
+14. The [Play Flow UI] shall [プロフィール「作成したリスト」タブ除去を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
+15. The [Play Flow UI] shall [マイクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
+16. The [Play Flow UI] shall [問題ブックマーク（`targetType: 'question'`）およびクイズブックマークを維持すること]。
+
+**アクセシビリティ・テスト支援**
+17. The [Play Flow UI] shall [ブックマーク画面に `data-testid="bookmarks-tabs"` を維持し、タブが2件（クイズ・問題）のみであることを E2E で検証可能にすること]。
+18. The [Play Flow UI] shall [リスト専用 E2E（`e2e/lists-discovery.spec.ts`、`e2e/quiz-list.spec.ts` 等）を削除またはリスト非依存へ更新すること]。

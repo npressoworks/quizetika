@@ -418,3 +418,77 @@ flowchart LR
 - `research.md` — カルーセル方式・page.module.css 共有の調査詳細
 - `.kiro/specs/quizeum-ui-foundation/design.md` — プリミティブ一覧
 - `.kiro/specs/quizeum-ui-layout-shell/design.md` — main 余白・z-index 文脈
+
+---
+
+## Phase 26: リスト探索の移行スコープ除外
+
+### 1. Overview
+
+Phase 24 実装完了時点では `/lists`・`/list/[id]` および `src/components/lists/*` が本スペックの移行対象に含まれていた。Phase 26 でリスト機能が完全廃止されたため、これらは **本スペックの所有境界から除外** し、物理削除は `quizeum-play-flow-ui` Phase 26 が担当する。`src/components/explore/*`（ホーム・検索・ジャンル/タグ探索）の shadcn 移行成果は維持する。
+
+**前提**: `quizeum-core` Phase 26 完了後、リスト関連 API・ルートは存在しない。`quizeum-lists-discovery-ui` は **obsolete**。
+
+### 2. Boundary Commitments（Phase 26）
+
+| 除外（obsolete） | 維持（本 spec 所有） |
+|------------------|------------------------|
+| `/lists` ルート | `/` ディスカバリーホーム |
+| `/list/[id]` 詳細（edit 除く） | `/search` 検索画面 |
+| `src/components/lists/*` | `/genres/*`, `/tags/*` |
+| `useListsSearch` 参照 | `src/components/explore/*` |
+| `e2e/lists-discovery.spec.ts` | `e2e/home-discovery.spec.ts`, `e2e/quiz-search.spec.ts` |
+| 要件 5・6（リスト探索・詳細） | 要件 1–4, 7–10（探索系） |
+
+| Out of Boundary（Phase 26） |
+|------------------------------|
+| リストルート・コンポーネントの物理削除（`quizeum-play-flow-ui`） |
+| Core データ削除・マイグレーション（`quizeum-core`） |
+| Sidebar「リスト」ナビ除去（`quizeum-sidebar-layout`） |
+
+### 3. Architecture
+
+```mermaid
+flowchart LR
+  subgraph Keep["quizeum-ui-discovery 維持"]
+    Home["/"]
+    Search["/search"]
+    Genre["/genres/*"]
+    Tag["/tags/*"]
+    Explore["explore/*"]
+  end
+  subgraph Obsolete["Phase 26 除外"]
+    Lists["/lists"]
+    ListDetail["/list/[id]"]
+    ListsComp["components/lists/*"]
+  end
+  Obsolete -.->|削除 play-flow-ui| X[404]
+```
+
+### 4. File Structure Plan（Phase 26）
+
+| パス | Phase 24 状態 | Phase 26 |
+|------|---------------|----------|
+| `src/app/lists/` | MODIFY → 移行済 | **Out of scope / Delete（play-flow-ui）** |
+| `src/app/list/[id]/` | MODIFY → 移行済 | **Out of scope / Delete（play-flow-ui）** |
+| `src/components/lists/*` | MODIFY → 移行済 | **obsolete / Delete（play-flow-ui）** |
+| `src/components/explore/*` | MODIFY → 移行済 | **維持** |
+| `e2e/lists-discovery.spec.ts` | VERIFY | **除外 / Delete（play-flow-ui）** |
+
+### 5. Requirements Traceability（Phase 26）
+
+| Requirement | Phase 26 扱い |
+|-------------|---------------|
+| 5（リスト探索） | **廃止** |
+| 6（リスト詳細） | **廃止** |
+| 9.2（lists CSS 削除） | **廃止**（ルート自体削除） |
+| 10.3（lists E2E） | **廃止** |
+| 11（本節） | スコープ除外の正本 |
+
+### 6. Testing Strategy（Phase 26）
+
+- `e2e/home-discovery.spec.ts`・`e2e/quiz-search.spec.ts` — 継続維持
+- `e2e/lists-discovery.spec.ts` — 本スペックの回帰対象から除外（play-flow-ui Phase 26 で削除）
+- `tests/components/lists/*` — obsolete（play-flow-ui で削除）
+
+**Document Status（Phase 26 設計）**: 本節に反映。Overview・Boundary Commitments のリスト関連記述は **obsolete（履歴参照のみ）**。

@@ -1013,3 +1013,21 @@ src/app/api/webhooks/stripe/           — Missing
 
 **Document Status（Phase 23 設計）**: `design.md` Phase 23 節に反映済。
 
+---
+
+## Phase 26: リスト機能の完全廃止（2026-06-10）
+
+### Summary
+- **Discovery Type**: Extension（削除・縮小）。`quiz-list.ts` ほか専用モジュール約6本、Rules/Indexes、`searchLists` / `question-list-session` を除去。
+- **Key Findings**:
+  - リスト機能は Phase 8/23 で `quizLists` + 4ソースプールに拡張済み。削除は **Core-first** が安全（UI が `searchLists` 等を参照）。
+  - マイグレーションは `reset-firestore.mjs` と同型の Admin SDK バッチ削除で足りる。
+  - `QuizListSkeleton` / `QuizListSort` は別機能 — 削除対象外。
+
+### Design Decisions
+1. **履歴ラベル** — 過去 `attempts` は残し、表示は `レガシープレイ` に正規化。
+2. **廃止 URL** — UI 側はルート削除で 404（Core は関与しない）。
+3. **Attempt.mode** — union にレガシー値を残し、**保存時のみ拒否**。
+
+**Document Status（Phase 26 設計）**: `design.md` Phase 26 節に反映済。
+

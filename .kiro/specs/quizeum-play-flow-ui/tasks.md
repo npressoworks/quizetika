@@ -1201,3 +1201,76 @@
 - 実装順: 27.1・27.2（並行）→ 27.3。27.4（移設）は 27.3 と並行可だが同一ファイル移動のため順序注意。27.5 は core 21.3 後。27.6 は 27.5 後。
 - `/` の正本はディスカバリーホーム、探索 UX の正本は `/search`（要件 1 Phase 22 改定）。
 - パーソナライズドおすすめ・ジャンル／タグ一覧 URL 共通化は対象外。
+
+---
+
+### 28. Phase 26: リスト機能 UI の完全廃止（2026-06-10）
+
+- [x] 28.1 リスト探索・作成ルートおよび専用コンポーネントの削除
+  - `/lists`・`/list/*` ページ、`components/lists`・`components/quiz-list`、リストブックマーク一覧、プロフィールリストパネル、リスト検索フックを削除する
+  - 廃止 URL はルート削除により Next.js 既定の 404 とする（リダイレクトなし）
+  - **完了状態**: `/lists` および `/list/create` が 404 を返し、削除対象コンポーネントへの import が残らないこと
+  - _Requirements: 26.1, 26.2, 26.6_
+  - _Depends: quizeum-core 23.6_
+  - _Boundary: lists-routes_
+
+- [x] 28.2 ブックマーク画面の2タブ化
+  - ブックマークタブ型から `list` を除去し、「クイズ」「問題」の2タブのみ表示する
+  - ブックマークフィード取得・表示から `lists` 配列参照を除去する
+  - `data-testid="bookmarks-tabs"` を維持し、タブが2件のみであることをテスト可能にする
+  - **完了状態**: `/bookmarks` にリストタブが存在せず、クイズ・問題タブの既存 UX が動作すること
+  - _Requirements: 26.3, 26.4, 26.5, 26.6, 26.11, 26.16, 26.17_
+  - _Depends: quizeum-core 23.2, 28.1_
+  - _Boundary: bookmarks-client_
+
+- [x] 28.3 プレイ画面からリスト／問題リストモード導線の除去
+  - `mode=list`・`mode=question-list`・`listId` クエリ・問題リストセッション読み取り分岐を削除する
+  - ウミガメ諦め後の「次の問題へ」（リスト文脈）およびオフライン時リスト次クイズブロックを削除する
+  - **完了状態**: 通常・`my-quiz` プレイが動作し、リストモード用クエリ・セッション import が存在しないこと
+  - _Requirements: 26.7, 26.9, 26.10, 26.12_
+  - _Depends: quizeum-core 23.6, 28.1_
+  - _Boundary: quiz-play-client_
+
+- [x] 28.4 結果画面からリスト内ナビゲーションの除去
+  - リスト内次クイズ／次問題 URL 生成・関連 analytics イベントを削除する
+  - **完了状態**: 結果画面にリスト内「次へ」導線が表示されず、通常・`my-quiz` 結果ナビは維持されること
+  - _Requirements: 26.8, 26.12_
+  - _Depends: 28.3_
+  - _Boundary: quiz-result-client_
+
+- [x] 28.5 プロフィール・ナビのリスト参照除去
+  - プロフィール画面から「作成したリスト」タブを除去する（軽微・本スペック境界）
+  - ナビ active 判定から `/lists`・`/list/*` を除去する
+  - **完了状態**: プロフィールにリストタブがなく、`nav-active` にリストパスが残らないこと
+  - _Requirements: 26.1, 26.2_
+  - _Depends: 28.1_
+  - _Boundary: profile-client, nav-active_
+
+- [x] 28.6 (P) Phase 26 コンポーネント・フックテストの更新
+  - ブックマーク2タブ、リスト専用コンポーネントテスト削除、`useBookmarkFeed` 更新を検証する
+  - リスト専用 E2E（`lists-discovery`・`quiz-list`）を削除し、`phase8`・`layout` を更新する
+  - **完了状態**: 関連 Jest がグリーンで、リスト専用 E2E ファイルが除去されていること
+  - _Requirements: 26.17, 26.18_
+  - _Depends: 28.2, 28.4, 28.5_
+  - _Boundary: Testing_
+
+- [x] 28.7 Phase 26 統合検証
+  - ブックマーク2タブ・通常プレイ・`mode=my-quiz` 結果フローが途切れないことを確認する
+  - プレイフロー関連ビルド・テストスイートがグリーンであることを確認する
+  - **完了状態**: Phase 26 完了後も探索・ブックマーク・プレイの主要導線が回帰なく動作すること
+  - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5, 26.6, 26.7, 26.8, 26.9, 26.10, 26.11, 26.12, 26.16, 26.17, 26.18_
+  - _Depends: 28.6_
+  - _Boundary: Integration_
+
+- [x]* 28.8 Phase 26 E2E スモーク（任意）
+  - `/bookmarks` でリストタブ不存在、`/lists` が 404 であることを Playwright で検証する
+  - _Requirements: 26.2, 26.3, 26.17_
+  - _Depends: 28.7_
+  - _Boundary: Testing_
+
+## Implementation Notes (Phase 26)
+
+- **前提**: `quizeum-core` Phase 26（23.6 完了）後に着手。Core と同一 PR の場合は Core 変更を先にコミット。
+- リストルート削除は本スペック（28.1）が正本。`quizeum-creator-dash-ui` はダッシュボード CTA のみ担当。
+- 維持: `quiz-list-skeleton.tsx`（ダッシュボード用）、問題・クイズブックマーク、`my-quiz` プレイ連携。
+- Sidebar「リスト」ナビは `quizeum-sidebar-layout` が別途担当。

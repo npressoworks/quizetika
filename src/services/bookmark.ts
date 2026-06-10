@@ -5,20 +5,18 @@ import {
   where,
   getDocs,
   runTransaction,
-  orderBy,
   setDoc,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { bookmarksRef, quizzesRef, quizListsRef, questionsRef, usersRef } from '../lib/firebase/firestore';
+import { bookmarksRef, quizzesRef, questionsRef, usersRef } from '../lib/firebase/firestore';
 import {
   Bookmark,
   Quiz,
-  QuizList,
   Question,
   BookmarkFeed,
   BookmarkedQuestionEntry,
 } from '../types';
-import { assertParentQuizPublished } from '../lib/question-list-validation';
+import { assertParentQuizPublished } from '../lib/bookmark-validation';
 import { createNotification } from './notification';
 
 // テスト環境かどうかを判定するためのフラグ
@@ -28,6 +26,13 @@ const isTestEnv = process.env.NEXT_PUBLIC_ENV === 'test';
 // E2Eテスト時のお気に入りモックデータを保存するローカルストレージのキー
 const MOCK_BOOKMARKS_KEY = 'quizeum_mock_bookmarks';
 
+export class InvalidBookmarkTargetError extends Error {
+  readonly code = 'INVALID_BOOKMARK_TARGET' as const;
+  constructor(message = 'ブックマーク対象はクイズまたは問題のみです') {
+    super(message);
+    this.name = 'InvalidBookmarkTargetError';
+  }
+}
 
 /**
  * ブックマークのユニークなドキュメントIDを生成
@@ -75,19 +80,6 @@ async function fetchPublishedQuizzesByDocIds(quizIds: string[]): Promise<Quiz[]>
   return quizzes;
 }
 
-async function fetchPublishedListsByDocIds(listIds: string[]): Promise<QuizList[]> {
-  const snaps = await Promise.all(listIds.map((id) => getDoc(doc(quizListsRef, id))));
-  const lists: QuizList[] = [];
-  for (const snap of snaps) {
-    if (!snap.exists()) continue;
-    const list = snap.data();
-    if (list.isPublished) {
-      lists.push(list);
-    }
-  }
-  return lists;
-}
-
 async function assertQuestionBookmarkable(questionId: string): Promise<Question> {
   const questionRef = doc(questionsRef, questionId);
   const questionSnap = await getDoc(questionRef);
@@ -95,7 +87,6 @@ async function assertQuestionBookmarkable(questionId: string): Promise<Question>
   let question: Question;
 
   if (!questionSnap.exists()) {
-    // 問題ドキュメントが存在しない場合、親クイズの非正規化データから検索してオンデマンドで復元する
     const parentQuizQuery = query(quizzesRef, where('questionIds', 'array-contains', questionId));
     const parentQuizSnap = await getDocs(parentQuizQuery);
 
@@ -149,7 +140,7 @@ async function assertQuestionBookmarkable(questionId: string): Promise<Question>
 export async function isBookmarked(userId: string, targetId: string): Promise<boolean> {
   if (isTestEnv) {
     const list = JSON.parse(localStorage.getItem(MOCK_BOOKMARKS_KEY) || '[]');
-    return list.some((b: any) => b.userId === userId && b.targetId === targetId);
+    return list.some((b: { userId: string; targetId: string }) => b.userId === userId && b.targetId === targetId);
   }
   const docId = getBookmarkDocId(userId, targetId);
   const docRef = doc(bookmarksRef, docId);
@@ -159,14 +150,16 @@ export async function isBookmarked(userId: string, targetId: string): Promise<bo
 
 /**
  * ブックマークをトグルする (登録/解除)
- * トランザクションを使用して、bookmarks コレクションの追加/削除と、対象ドキュメントの bookmarksCount の更新をアトミックに実行します。
- * @returns 変更後の状態 (true: 登録完了, false: 解除完了)
  */
 export async function toggleBookmark(
   userId: string,
   targetId: string,
-  targetType: 'quiz' | 'list' | 'question'
+  targetType: 'quiz' | 'question'
 ): Promise<boolean> {
+  if ((targetType as string) === 'list') {
+    throw new InvalidBookmarkTargetError();
+  }
+
   let questionForNotify: Question | null = null;
   if (targetType === 'question' && !isTestEnv) {
     questionForNotify = await assertQuestionBookmarkable(targetId);
@@ -174,7 +167,7 @@ export async function toggleBookmark(
 
   if (isTestEnv) {
     const list = JSON.parse(localStorage.getItem(MOCK_BOOKMARKS_KEY) || '[]');
-    const idx = list.findIndex((b: any) => b.userId === userId && b.targetId === targetId);
+    const idx = list.findIndex((b: { userId: string; targetId: string }) => b.userId === userId && b.targetId === targetId);
     let added = false;
     if (idx !== -1) {
       list.splice(idx, 1);
@@ -184,8 +177,8 @@ export async function toggleBookmark(
         userId,
         targetId,
         targetType,
-        createdAt: new Date().toISOString()
-      } as any);
+        createdAt: new Date().toISOString(),
+      });
       added = true;
     }
     localStorage.setItem(MOCK_BOOKMARKS_KEY, JSON.stringify(list));
@@ -194,15 +187,8 @@ export async function toggleBookmark(
   const bookmarkDocId = getBookmarkDocId(userId, targetId);
   const bookmarkDocRef = doc(bookmarksRef, bookmarkDocId);
 
-  // 対象オブジェクトのドキュメント参照を取得
-  let targetDocRef: any;
-  if (targetType === 'quiz') {
-    targetDocRef = doc(quizzesRef, targetId);
-  } else if (targetType === 'list') {
-    targetDocRef = doc(quizListsRef, targetId);
-  } else {
-    targetDocRef = doc(questionsRef, targetId);
-  }
+  const targetDocRef =
+    targetType === 'quiz' ? doc(quizzesRef, targetId) : doc(questionsRef, targetId);
 
   const added = await runTransaction(db, async (transaction) => {
     const bookmarkSnap = await transaction.get(bookmarkDocRef);
@@ -212,35 +198,28 @@ export async function toggleBookmark(
       throw new Error('Target document does not exist.');
     }
 
-    const currentCount = (targetSnap.data() as any)?.bookmarksCount || 0;
+    const currentCount = (targetSnap.data() as { bookmarksCount?: number })?.bookmarksCount || 0;
     const isAlreadyBookmarked = bookmarkSnap.exists();
 
     if (isAlreadyBookmarked) {
-      // 1. 既にブックマークされている場合は、ブックマークを削除
       transaction.delete(bookmarkDocRef);
-
-      // 2. カウンタをデクリメント (0未満にならないようにガード)
       const newCount = Math.max(0, currentCount - 1);
       transaction.update(targetDocRef, { bookmarksCount: newCount });
-
-      return false; // 解除完了
-    } else {
-      // 1. 新規にブックマークを登録
-      const newBookmark: Bookmark = {
-        id: bookmarkDocId,
-        userId,
-        targetId,
-        targetType,
-        createdAt: new Date(),
-      };
-      transaction.set(bookmarkDocRef, newBookmark as any);
-
-      // 2. カウンタをインクリメント
-      const newCount = currentCount + 1;
-      transaction.update(targetDocRef, { bookmarksCount: newCount });
-
-      return true; // 登録完了
+      return false;
     }
+
+    const newBookmark: Bookmark = {
+      id: bookmarkDocId,
+      userId,
+      targetId,
+      targetType,
+      createdAt: new Date(),
+    };
+    transaction.set(bookmarkDocRef, newBookmark as Bookmark);
+
+    const newCount = currentCount + 1;
+    transaction.update(targetDocRef, { bookmarksCount: newCount });
+    return true;
   });
 
   if (
@@ -291,7 +270,9 @@ export async function getBookmarkedQuizIds(userId: string): Promise<string[]> {
 export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
   if (isTestEnv) {
     const list = JSON.parse(localStorage.getItem(MOCK_BOOKMARKS_KEY) || '[]');
-    const targetIds = list.filter((b: any) => b.userId === userId && b.targetType === 'quiz').map((b: any) => b.targetId);
+    const targetIds = list
+      .filter((b: { userId: string; targetType: string }) => b.userId === userId && b.targetType === 'quiz')
+      .map((b: { targetId: string }) => b.targetId);
     return targetIds.map((id: string) => ({
       id,
       title: `[MOCK BOOKMARK] クイズ ${id}`,
@@ -304,11 +285,10 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
       bookmarksCount: 1,
       authorId: 'e2e-test-uid-123456',
       authorName: 'テストユーザー',
-      isPublished: true,
       status: 'published',
       questions: [],
-      questionIds: []
-    } as any));
+      questionIds: [],
+    })) as Quiz[];
   }
   const q = query(
     bookmarksRef,
@@ -318,47 +298,18 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
 
   const snap = await getDocs(q);
 
-  // メモリ上で createdAt (降順) でソートする
   const bookmarkDocs = sortBookmarksByCreatedAtDesc(
-    snap.docs.map((doc) => doc.data() as Bookmark)
+    snap.docs.map((docSnap) => docSnap.data() as Bookmark)
   );
 
-  const quizIds = bookmarkDocs.map((doc) => doc.targetId);
+  const quizIds = bookmarkDocs.map((docSnap) => docSnap.targetId);
 
   if (quizIds.length === 0) return [];
 
   const quizzes = await fetchPublishedQuizzesByDocIds(quizIds);
 
-  // 最新のブックマーク順を維持するためにソート
   const idToIndex = new Map(quizIds.map((id, index) => [id, index]));
   return quizzes.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
-}
-
-/**
- * ユーザーがブックマークしたすべてのクイズリスト（QuizListオブジェクト）を取得
- */
-export async function getBookmarkedLists(userId: string): Promise<QuizList[]> {
-  const q = query(
-    bookmarksRef,
-    where('userId', '==', userId),
-    where('targetType', '==', 'list')
-  );
-
-  const snap = await getDocs(q);
-
-  // メモリ上で createdAt (降順) でソートする
-  const bookmarkDocs = sortBookmarksByCreatedAtDesc(
-    snap.docs.map((doc) => doc.data() as Bookmark)
-  );
-
-  const listIds = bookmarkDocs.map((doc) => doc.targetId);
-
-  if (listIds.length === 0) return [];
-
-  const lists = await fetchPublishedListsByDocIds(listIds);
-
-  const idToIndex = new Map(listIds.map((id, index) => [id, index]));
-  return lists.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
 }
 
 /**
@@ -401,13 +352,12 @@ export async function enrichBookmarkedQuestions(
 }
 
 /**
- * クイズ・リスト・問題の3分類ブックマーク一覧
+ * クイズ・問題の2分類ブックマーク一覧
  */
 export async function getBookmarkFeed(userId: string): Promise<BookmarkFeed> {
-  const [quizzes, lists, questions] = await Promise.all([
+  const [quizzes, questions] = await Promise.all([
     getBookmarkedQuizzes(userId),
-    getBookmarkedLists(userId),
     enrichBookmarkedQuestions(userId),
   ]);
-  return { quizzes, lists, questions };
+  return { quizzes, questions };
 }

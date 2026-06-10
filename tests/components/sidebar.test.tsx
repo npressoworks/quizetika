@@ -59,12 +59,12 @@ describe('Sidebar Component', () => {
     expect(screen.queryByText('ダッシュボード')).not.toBeInTheDocument();
   });
 
-  it('ログイン時は主要メニュー（リスト、マイクイズ、通知、ブックマーク、作問、ダッシュボード）を表示する', () => {
+  it('ログイン時は主要メニュー（マイクイズ、通知、ブックマーク、作問、ダッシュボード）を表示する', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
     
     expect(screen.getByText('ホーム')).toBeInTheDocument();
-    expect(screen.getByTestId('nav-lists')).toBeInTheDocument();
+    expect(screen.queryByTestId('nav-lists')).not.toBeInTheDocument();
     expect(screen.getByTestId('nav-my-quiz')).toBeInTheDocument();
     expect(screen.getByText('通知')).toBeInTheDocument();
     expect(screen.getByText('ブックマーク')).toBeInTheDocument();
@@ -116,19 +116,19 @@ describe('Sidebar Component', () => {
     expect(pricingLink).toHaveClass('active');
   });
 
-  it('未ログイン時は nav-lists / nav-my-quiz を表示しない', () => {
+  it('未ログイン時は nav-my-quiz を表示しない', () => {
     mockUser = null;
     render(<Sidebar />);
     expect(screen.queryByTestId('nav-lists')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-my-quiz')).not.toBeInTheDocument();
   });
 
-  it('/lists でリストのみ active', () => {
+  it('/my-quiz でマイクイズのみ active', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
-    mockPathname = '/lists';
+    mockPathname = '/my-quiz';
     render(<Sidebar />);
-    expect(screen.getByTestId('nav-lists')).toHaveClass('active');
-    expect(screen.getByTestId('nav-my-quiz')).not.toHaveClass('active');
+    expect(screen.getByTestId('nav-my-quiz')).toHaveClass('active');
+    expect(screen.getByTestId('nav-home')).not.toHaveClass('active');
   });
 
   it('プロフィール領域をクリックするとポップアップ（マイページ、設定、ログアウト）が表示される', () => {

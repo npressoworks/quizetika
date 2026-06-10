@@ -12,19 +12,24 @@ export class PlayHistoryApiError extends Error {
   }
 }
 
+const LEGACY_PLAY_MODE_LABELS: Partial<Record<Attempt['mode'], string>> = {
+  list: 'レガシープレイ',
+  'question-list': 'レガシープレイ',
+};
+
 const MODE_LABELS: Record<Attempt['mode'], string> = {
   normal: '通常モード',
   exam: '模擬試験',
   flashcard: 'フラッシュカード',
   review: '弱点克服',
-  list: 'リストプレイ',
-  'question-list': '問題リストプレイ',
+  list: 'レガシープレイ',
+  'question-list': 'レガシープレイ',
   'my-quiz': 'マイクイズ',
   'test-play': 'テストプレイ',
 };
 
 export function getAttemptModeLabel(mode: Attempt['mode']): string {
-  return MODE_LABELS[mode] ?? mode;
+  return LEGACY_PLAY_MODE_LABELS[mode] ?? MODE_LABELS[mode] ?? mode;
 }
 
 export async function fetchPlayHistoryPage(params: {

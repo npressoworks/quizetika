@@ -2,15 +2,18 @@
 
 ## はじめに
 
-本ドキュメントは、クイズ投稿SNS「quizeum」における**マイクイズ**機能（`/my-quiz`）のフロントエンド UI 要件を定義します。ログインユーザーが、自作クイズ・ブックマーククイズ・ブックマークリスト内クイズ・ブックマーク問題という4ソースから問題を横断的に集め、キーワード・ジャンル・タグ・出題形式・難易度等で絞り込み、出題数とシャッフル有無を指定して連続プレイを開始できる体験を提供します。
+本ドキュメントは、クイズ投稿SNS「quizeum」における**マイクイズ**機能（`/my-quiz`）のフロントエンド UI 要件を定義します。ログインユーザーが、自作クイズ・ブックマーククイズ・ブックマーク問題という3ソースから問題を横断的に集め、キーワード・ジャンル・タグ・出題形式・難易度等で絞り込み、出題数とシャッフル有無を指定して連続プレイを開始できる体験を提供します。
 
 **Phase 23（2026-06-09）**: リスト探索・マイクイズ・設定・ナビ拡張フェーズの一環。問題プール合成（`buildMyQuizQuestionPool`）およびアドホックセッション lib（`my-quiz-session`）は `quizeum-core` が提供する。Sidebar への「マイクイズ」導線は `quizeum-sidebar-layout` が担当する。
+
+**Phase 26（2026-06-10）**: リスト機能廃止に伴い、マイクイズの問題取得元から **ブックマークリスト** ソースを除去し、4ソースから **3ソース** に変更します（要件 8 参照）。`my-quiz` プレイ体験自体は維持します。
 
 ## 境界コンテキスト
 
 - **対象範囲（In scope）**:
   - `/my-quiz` ページ（ログイン必須）
-  - 4ソース（自作クイズ内問題、ブックマーククイズ内問題、ブックマークリスト内クイズの問題、ブックマーク問題）の統合プール選択 UI
+  - 3ソース（自作クイズ内問題、ブックマーククイズ内問題、ブックマーク問題）の統合プール選択 UI
+  - **Phase 26**: ブックマークリストソースの除去、3ソース UI への改定
   - キーワード・ジャンル・タグ・出題形式・難易度フィルタ
   - 出題数指定（プリセットおよびカスタム）、シャッフル有無
   - フィルタ後プール件数のプレビュー表示
@@ -26,7 +29,7 @@
   - `attempts` 永続化スキーマ変更の正本（`quizeum-core` が `mode: 'my-quiz'` を提供）
 - **隣接システムへの期待**:
   - `quizeum-core` が `buildMyQuizQuestionPool`、`MyQuizQuestionCandidate` 型、`my-quiz-session.ts`（`init` / `read` / `advance` / `buildMyQuizPlayUrl`）を提供する
-  - ブックマーク取得は既存 `getBookmarkedQuizzes`、`getBookmarkedLists`、`enrichBookmarkedQuestions`、自作クイズは `searchAuthorQuizzes` + `getQuestionsByQuiz` パターンに準拠する
+  - ブックマーク取得は既存 `getBookmarkedQuizzes`、`enrichBookmarkedQuestions`、自作クイズは `searchAuthorQuizzes` + `getQuestionsByQuiz` パターンに準拠する（`getBookmarkedLists` は Phase 26 で使用しない）
   - ブックマーク経由の問題は親クイズが `published` のもののみ（既存 `question-attach-search` 契約）
   - 自作ソースは下書き・非公開クイズ内問題を含めてよい
   - プレイ結果・attempt 記録は既存 attempt フローに従う（`saveAttempt` `mode: 'my-quiz'`）
@@ -42,26 +45,26 @@
 1. When 認証済みユーザーが `/my-quiz` にアクセスしたとき、the My Quiz UI shall マイクイズ画面を表示すること。
 2. When 未認証ユーザーが `/my-quiz` にアクセスしたとき、the My Quiz UI shall 認証画面（`/login`）へリダイレクトし、ログイン後に `/my-quiz` へ戻れるよう `redirect` クエリを付与すること。
 3. While 認証状態の判定中である間、the My Quiz UI shall 画面全体の読み込み表示（スケルトンまたは同等）を表示し、未認証向けコンテンツを描画してはならない。
-4. The My Quiz UI shall ページ見出しに「マイクイズ」および、4ソース横断プレイである旨の短い説明文を日本語で表示すること。
+4. The My Quiz UI shall ページ見出しに「マイクイズ」および、3ソース横断プレイである旨の短い説明文を日本語で表示すること。
 5. The My Quiz UI shall マイクイズ画面本体に `data-testid="my-quiz-page"` を付与すること。
 
-### 要件 2: 4ソース問題プール選択
+### 要件 2: 3ソース問題プール選択（Phase 26 で4ソースから改定）
 
-**目的:** 認証ユーザーとして、問題の取得元を4種類から組み合わせて選びたい。それにより関心のある問題集合だけをプレイ対象にできる。
+**目的:** 認証ユーザーとして、問題の取得元を3種類から組み合わせて選びたい。それにより関心のある問題集合だけをプレイ対象にできる。
 
 #### 受け入れ基準
 
-1. The My Quiz UI shall 次の4ソースを個別にオン／オフできる UI（チェックボックスまたは同等のトグル）を提供すること:
+1. The My Quiz UI shall 次の3ソースを個別にオン／オフできる UI（チェックボックスまたは同等のトグル）を提供すること:
    - **自作クイズ**: ログインユーザーが作成したクイズ（公開・下書き・非公開を含む）に含まれる問題
    - **ブックマーククイズ**: ブックマークした公開済みクイズに含まれる問題
-   - **ブックマークリスト**: ブックマークした公開済みリスト内の各クイズに含まれる問題（問題リスト `listType: 'question'` の直接メンバーは本ソースに含めない）
    - **ブックマーク問題**: ブックマークした個別問題（公開済み親クイズの問題のみ）
 2. When ユーザーがソース選択を変更したとき、the My Quiz UI shall `quizeum-core` の `buildMyQuizQuestionPool`（または同等 API）を呼び出し、有効なソースのみを統合した問題候補プールを再取得すること。
 3. When 複数ソースで同一 `questionId` が重複するとき、the My Quiz UI shall `quizeum-core` の `buildMyQuizQuestionPool` が返す dedupe 済みプールをそのまま利用すること（dedupe 本体は core が `dedupeQuestionCandidates` と同一規則で実施）。
 4. When 有効なソースが1件も選択されていないとき、the My Quiz UI shall 問題プールを空とし、「ソースを1つ以上選択してください」等の案内を表示すること。
 5. While 問題プールの取得中である間、the My Quiz UI shall ソース領域またはプレビュー領域にローディング状態を表示すること。
 6. If 問題プールの取得に失敗した場合、the My Quiz UI shall エラーメッセージと再試行操作を表示し、サイレントに空プールへフォールバックしてはならない。
-7. The My Quiz UI shall 4ソース各トグルに `data-testid` プレフィックス（例: `my-quiz-source-own` / `my-quiz-source-bookmarked-quiz` / `my-quiz-source-bookmarked-list` / `my-quiz-source-bookmarked-question`）を付与すること。
+7. The My Quiz UI shall 3ソース各トグルに `data-testid` プレフィックス（例: `my-quiz-source-own` / `my-quiz-source-bookmarked-quiz` / `my-quiz-source-bookmarked-question`）を付与すること。
+8. The My Quiz UI shall [「ブックマークリスト」ソースのトグルおよび `my-quiz-source-bookmarked-list` を提供してはならない（Phase 26）]。
 
 ### 要件 3: フィルタ（キーワード・ジャンル・タグ・出題形式・難易度）
 
@@ -139,6 +142,24 @@
 
 1. While 初回の問題プール読み込み中である間、the My Quiz UI shall `data-testid="my-quiz-skeleton"` 付きスケルトンを表示すること。
 2. The My Quiz UI shall Vanilla CSS（CSS Modules）および日本語 UI ラベルを用い、Tailwind を導入してはならない。
-3. When E2E テストがログイン済みユーザーで `/my-quiz` を開いたとき、the My Quiz UI shall 4ソーストグル・フィルタ・出題設定・プレビュー件数・開始ボタンが操作可能であることを `data-testid` で検証可能にすること。
+3. When E2E テストがログイン済みユーザーで `/my-quiz` を開いたとき、the My Quiz UI shall 3ソーストグル・フィルタ・出題設定・プレビュー件数・開始ボタンが操作可能であることを `data-testid` で検証可能にすること。
 4. When E2E テストがフィルタ後1問以上のプールで「クイズを始める」を実行したとき、the My Quiz UI shall プレイ画面 URL に `mode=my-quiz` が含まれることを検証可能にすること。
 5. The My Quiz UI shall `e2e/my-quiz.spec.ts`（または同等）に、ソース選択→プレイ開始→1問プレイ完了（または結果画面表示）までのスモークテストを含めること。
+
+### 要件 8: ブックマークリストソースの除去（Phase 26）
+**目的:** 認証ユーザーとして、廃止されたリスト機能に依存しないマイクイズ体験を使いたい。それにより取得元が明確で保守しやすい UI になる。
+
+#### 受け入れ基準
+
+1. The My Quiz UI shall [`my-quiz-source-panel`（または同等）において「ブックマークリスト」ラベル・トグル・説明文を表示してはならない]。
+2. When [ユーザーがマイクイズ画面を初回表示したとき], the [My Quiz UI] shall [デフォルトで3ソース（自作・ブックマーククイズ・ブックマーク問題）のうち、少なくとも1ソースが有効な状態を提供すること（Phase 23 既定と整合 — design で確定可）]。
+3. When [問題プールを再取得するとき], the [My Quiz UI] shall [`buildMyQuizQuestionPool` にブックマークリスト由来のフラグを渡してはならない]。
+4. When [フィルタ結果テーブルに取得元種別を表示するとき], the [My Quiz UI] shall [`bookmarked-list` ラベルを表示してはならない]。
+5. The [My Quiz UI] shall [`getBookmarkedLists` の呼び出しを実装してはならない]。
+
+**境界・隣接**
+6. The [My Quiz UI] shall [マイクイズプレイ（`mode=my-quiz`）および `my-quiz-session` 契約を維持すること]。
+7. The [My Quiz UI] shall [問題プール合成ロジックの正本変更を本要件の範囲に含めない（`quizeum-core` が `buildMyQuizQuestionPool` からブックマークリスト分岐を除去）]。
+
+**アクセシビリティ・テスト支援**
+8. The [My Quiz UI] shall [E2E および単体テストから `bookmarked-list` / `bookmarkedLists` シナリオを削除または3ソース前提へ更新すること]。

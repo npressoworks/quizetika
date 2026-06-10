@@ -45,15 +45,6 @@ export function DashboardActions() {
       </Button>
       <Button
         type="button"
-        variant="outline"
-        onClick={() => router.push('/list/create')}
-        data-analytics="creator-create-list"
-      >
-        <Plus className="size-4" />
-        リストを新規作成
-      </Button>
-      <Button
-        type="button"
         onClick={() => router.push('/quiz/create')}
         data-analytics="creator-create-quiz"
       >

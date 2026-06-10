@@ -2929,3 +2929,118 @@ function useSearchUrlState(): {
 **Effort**: **M–L**（3–4日、core Phase 22 lib 完了後）
 
 **Document Status（Phase 22 設計）**: 本節に反映。
+
+---
+
+## Phase 26: リスト機能 UI の完全廃止
+
+### 1. Overview
+
+`/lists`・`/list/*` ルートとリスト関連コンポーネントを削除し、ブックマーク画面を **クイズ・問題の2タブ** に集約する。`list` / `question-list` プレイ導線・結果ナビ・`question-list-session` 参照を除去する。廃止 URL はルート削除により **Next.js 既定の 404** とする（リダイレクトは行わない）。
+
+**前提**: `quizeum-core` Phase 26 完了後（または同一 PR で Core 変更を先にマージ）に UI 削除を適用し、削除済み API への参照でビルドが破綻しないようにする。
+
+### 2. Boundary Commitments（Phase 26）
+
+| Owns | Out |
+|------|-----|
+| リストルート・コンポーネント削除 | Core データ削除・マイグレーション |
+| ブックマーク2タブ化 | Sidebar「リスト」項目（sidebar-layout） |
+| プレイ/結果からリストナビ除去 | プロフィールリストタブ（auth-profile） |
+| リスト専用 E2E 削除 | マイクイズ3ソース化（my-quiz-ui） |
+
+### 3. Architecture
+
+```mermaid
+flowchart TB
+  subgraph Delete["削除"]
+    Lists["/lists"]
+    ListRoutes["/list/*"]
+    BLTab["ブックマーク・リストタブ"]
+    QLS["question-list-session 参照"]
+  end
+  subgraph Keep["維持"]
+    BK["/bookmarks クイズ/問題"]
+    Play["通常プレイ・my-quiz"]
+  end
+```
+
+### 4. File Structure Plan（Phase 26）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/app/lists/` | **Delete** | リスト探索 |
+| `src/app/list/` | **Delete** | 作成・詳細・編集 |
+| `src/components/lists/` | **Delete** | 探索 UI |
+| `src/components/quiz-list/` | **Delete** | リストエディタ |
+| `src/components/bookmark/bookmark-list-grid.tsx` | **Delete** | リスト BM 一覧 |
+| `src/components/profile/profile-list-card.tsx` | **Delete** | プロフィール用（lists タブは auth-profile が削除） |
+| `src/components/profile/profile-lists-panel.tsx` | **Delete** | 同上 |
+| `src/hooks/useListsSearch.ts` | **Delete** | リスト検索 |
+| `src/app/bookmarks/bookmarks-client.tsx` | **Modify** | 2タブ、lists 分岐削除 |
+| `src/components/bookmark/bookmarks-tabs.tsx` | **Modify** | `BookmarkTab` から `'list'` 除去 |
+| `src/hooks/useBookmarkFeed.ts` | **Modify** | lists タブ除去 |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | **Modify** | `list` / `question-list` / session 除去 |
+| `src/app/quiz/[id]/result/quiz-result-client.tsx` | **Modify** | リスト内次へナビ除去 |
+| `src/app/profile/[uid]/profile-client.tsx` | **Modify** | 「作成したリスト」タブ除去（軽微・play-flow 境界） |
+| `src/components/layout/nav-active.ts` | **Modify** | `/lists`, `/list/*` active 除去 |
+| `e2e/lists-discovery.spec.ts` | **Delete** | — |
+| `e2e/quiz-list.spec.ts` | **Delete** | — |
+| `e2e/phase8.spec.ts` | **Modify** | リストシナリオ削除 |
+| `e2e/layout.spec.ts` | **Modify** | `/lists` リンク期待削除 |
+| `tests/components/lists/` | **Delete** | — |
+| `tests/components/profile-list-card.test.tsx` | **Delete** | — |
+| `tests/hooks/useListsSearch.test.ts` | **Delete** | — |
+| `tests/hooks/use-bookmark-feed.test.tsx` | **Modify** | 2タブ |
+| `tests/components/sidebar.test.tsx` | **Modify** | リストナビは sidebar-layout と整合 |
+
+**維持（削除禁止）**: `src/components/quiz/quiz-list-skeleton.tsx`（ダッシュボード用）、`recommend-list-client.tsx`。
+
+### 5. Component Changes
+
+#### 5.1 ブックマーク（要件 26.3–26.6）
+
+```typescript
+// bookmarks-tabs.tsx
+export type BookmarkTab = 'quiz' | 'question'; // 'list' 削除
+```
+
+- `BookmarkTab` 3件 → 2件。デフォルトタブは `quiz` 維持。
+- `getBookmarkFeed()` 応答から `lists` 参照を削除。
+
+#### 5.2 プレイクライアント（要件 26.7–26.10）
+
+- `mode=list` / `question-list` 分岐ブロック削除
+- `import { readQuestionListSession } from '@/lib/question-list-session'` 削除
+- ウミガメ諦め後「次の問題へ」（リスト文脈）ボタン削除
+- オフライン時リスト次クイズブロック削除
+
+#### 5.3 結果クライアント
+
+- `listId` クエリに基づく次クイズ/次問題 URL 生成削除
+- `data-analytics` の `quiz-list-next-*` イベント削除
+
+### 6. Requirements Traceability（Phase 26）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 26.1–26.2 | ルート削除・404 | `app/lists`, `app/list` 削除 |
+| 26.3–26.6 | ブックマーク2タブ | `bookmarks-client`, `bookmarks-tabs` |
+| 26.7–26.10 | プレイ/結果 | `quiz-play-client`, `quiz-result-client` |
+| 26.11–26.12 | 要件整合 | コメント・テスト更新 |
+| 26.13–26.15 | 境界 Out | 他スペック |
+| 26.17–26.18 | testid / E2E | 上記 |
+
+### 7. Testing Strategy（Phase 26）
+
+| 種別 | 検証 |
+|------|------|
+| **Component** | `bookmarks-tabs` — 2タブのみレンダリング |
+| **E2E** | `/bookmarks` — リストタブ不存在 |
+| **E2E** | `/lists` → 404 |
+| **Regression** | 問題ブックマークタブ・クイズブックマークタブ操作 |
+| **Regression** | 通常クイズプレイ・`mode=my-quiz`（my-quiz-ui と連携） |
+
+**Effort**: **M**（2日、Core 完了後）
+
+**Document Status（Phase 26 設計）**: 本節に反映。要件 11（Phase 8 リストプレイ）は **廃止**。

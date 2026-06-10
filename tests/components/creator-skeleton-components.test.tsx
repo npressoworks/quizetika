@@ -9,7 +9,6 @@ import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
 import { QuizListSkeleton } from '@/components/quiz/quiz-list-skeleton';
 import { FeedbackSkeleton } from '@/components/quiz/feedback-skeleton';
 import { EditorFormSkeleton } from '@/components/quiz/editor-skeleton';
-import { ListEditorSkeleton } from '@/components/quiz-list/list-skeleton';
 
 describe('Creator dashboard skeleton components', () => {
   it('StatsSkeleton は既定 testid を付与する', () => {
@@ -35,10 +34,5 @@ describe('Creator dashboard skeleton components', () => {
   it('EditorFormSkeleton は既定 testid を付与する', () => {
     render(<EditorFormSkeleton />);
     expect(screen.getByTestId('quiz-editor-skeleton')).toBeInTheDocument();
-  });
-
-  it('ListEditorSkeleton は既定 testid を付与する', () => {
-    render(<ListEditorSkeleton />);
-    expect(screen.getByTestId('list-editor-skeleton')).toBeInTheDocument();
   });
 });

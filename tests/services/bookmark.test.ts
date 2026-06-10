@@ -1,4 +1,8 @@
-import { getBookmarkedQuizzes, getBookmarkedLists } from '@/services/bookmark';
+import {
+  getBookmarkedQuizzes,
+  toggleBookmark,
+  InvalidBookmarkTargetError,
+} from '@/services/bookmark';
 import { getDoc, getDocs } from 'firebase/firestore';
 
 jest.mock('firebase/firestore', () => {
@@ -59,39 +63,9 @@ describe('bookmark service', () => {
     expect(quizzes[0].title).toBe('テストクイズ');
   });
 
-  it('getBookmarkedLists はドキュメント ID でリストを解決する', async () => {
-    (getDocs as jest.Mock).mockResolvedValue({
-      docs: [
-        {
-          data: () => ({
-            userId,
-            targetId: 'list-a',
-            targetType: 'list',
-            createdAt: new Date('2026-06-02'),
-          }),
-        },
-      ],
-    });
-
-    (getDoc as jest.Mock).mockImplementation(async (ref: { id: string }) => {
-      if (ref.id === 'list-a') {
-        return {
-          exists: () => true,
-          data: () => ({
-            id: 'list-a',
-            title: 'テストリスト',
-            isPublished: true,
-          }),
-        };
-      }
-      return { exists: () => false, data: () => null };
-    });
-
-    const lists = await getBookmarkedLists(userId);
-
-    expect(getDoc).toHaveBeenCalled();
-    expect(lists).toHaveLength(1);
-    expect(lists[0].id).toBe('list-a');
-    expect(lists[0].title).toBe('テストリスト');
+  it('toggleBookmark は targetType=list を拒否する', async () => {
+    await expect(
+      toggleBookmark(userId, 'list-a', 'list' as 'quiz')
+    ).rejects.toBeInstanceOf(InvalidBookmarkTargetError);
   });
 });

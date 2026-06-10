@@ -27,11 +27,6 @@ import { formatCorrectAnswer } from '@/services/attempt-answer-display';
 import { getBookmarkFeed } from '@/services/bookmark';
 import { QuestionBookmarkToggle } from '@/components/bookmark/question-bookmark-toggle';
 import {
-  readQuestionListSession,
-  syncQuestionListSessionIndex,
-  buildQuestionListPlayUrl,
-} from '@/lib/question-list-session';
-import {
   readMyQuizSession,
   syncMyQuizSessionIndex,
 } from '@/lib/my-quiz-session';
@@ -52,13 +47,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const { user, loading: authLoading } = useAuth();
 
   const rawMode = searchParams.get('mode') || 'normal';
-  const questionListMode = rawMode === 'question-list';
   const myQuizMode = rawMode === 'my-quiz';
-  const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral' | 'list' | 'question-list' | 'my-quiz';
+  const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral' | 'my-quiz';
   const effectivePlayMode: 'normal' | 'exam' | 'flashcard' | 'lateral' =
-    questionListMode || myQuizMode || rawMode === 'list'
-      ? 'normal'
-      : (rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral');
+    myQuizMode ? 'normal' : (rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral');
   const questionIdParam = searchParams.get('questionId');
   const startAtQuestionId = searchParams.get('startAtQuestionId');
 
@@ -66,16 +58,16 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const [online, setOnline] = useState<boolean>(true);
   const [bookmarkedQuestionIds, setBookmarkedQuestionIds] = useState<Set<string>>(new Set());
 
-  const isNormalFeedbackFlow = playMode === 'normal' && !questionListMode && !myQuizMode;
+  const isNormalFeedbackFlow = playMode === 'normal' && !myQuizMode;
 
   const playQuestions = useMemo(() => {
     if (!quiz?.questions?.length) return [];
-    if ((questionListMode || myQuizMode) && questionIdParam) {
+    if (myQuizMode && questionIdParam) {
       const q = (quiz.questions ?? []).find((x) => x.id === questionIdParam);
       return q ? [q] : [];
     }
     return quiz.questions;
-  }, [quiz, questionListMode, myQuizMode, questionIdParam]);
+  }, [quiz, myQuizMode, questionIdParam]);
 
   // 1. オンライン・オフライン判定の監視
   useEffect(() => {
@@ -112,18 +104,6 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       })
       .catch(() => setBookmarkedQuestionIds(new Set()));
   }, [user]);
-
-  useEffect(() => {
-    if (!questionListMode) return;
-    const qIndex = searchParams.get('qIndex');
-    const listId = searchParams.get('listId');
-    if (qIndex == null || !listId) return;
-    const session = readQuestionListSession();
-    if (session?.listId === listId) {
-      const idx = parseInt(qIndex, 10);
-      if (!Number.isNaN(idx)) syncQuestionListSessionIndex(idx);
-    }
-  }, [questionListMode, searchParams]);
 
   useEffect(() => {
     if (!myQuizMode) return;
@@ -208,26 +188,20 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const [completing, setCompleting] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!quiz || questionListMode || !startAtQuestionId) return;
+    if (!quiz || !startAtQuestionId) return;
     const idx = (quiz.questions ?? []).findIndex((q) => q.id === startAtQuestionId);
     if (idx >= 0) setCurrentIdx(idx);
-  }, [quiz, startAtQuestionId, questionListMode, setCurrentIdx]);
+  }, [quiz, startAtQuestionId, setCurrentIdx]);
 
   const buildAttemptData = (
     finalScore = score,
     finalFailed = failedIds
   ): Omit<Attempt, 'id' | 'completedAt'> => {
-    const listId = searchParams.get('listId') || undefined;
     const sessionId = searchParams.get('sessionId') || undefined;
-    const isQuestionListPlay = questionListMode && !!listId;
     const isMyQuizPlay = myQuizMode;
     let currentMode: Attempt['mode'];
     if (isMyQuizPlay) {
       currentMode = 'my-quiz';
-    } else if (isQuestionListPlay) {
-      currentMode = 'question-list';
-    } else if (listId) {
-      currentMode = 'list';
     } else {
       currentMode =
         playMode === 'lateral'
@@ -240,11 +214,11 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     return {
       userId: user?.id || 'guest',
       quizId: quiz!.id,
-      listId,
+      listId: null,
       sessionId: isMyQuizPlay ? sessionId : undefined,
       mode: currentMode,
       score: finalScore,
-      totalQuestions: isQuestionListPlay || isMyQuizPlay ? 1 : (quiz!.questions ?? []).length,
+      totalQuestions: isMyQuizPlay ? 1 : (quiz!.questions ?? []).length,
       elapsedSeconds,
       failedQuestionIds: finalFailed,
       questionAnswers: toQuestionAnswerRecords(questionAnswers),
@@ -307,9 +281,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     addPendingSyncAttempt(pendingPayload);
     persistAuxiliaryAttemptData(resolvedLocalId);
 
-    const listId = searchParams.get('listId');
-    const listQuery = listId ? `&listId=${listId}` : '';
-    router.push(`/quiz/${quiz.id}/result?localId=${resolvedLocalId}${listQuery}`);
+    router.push(`/quiz/${quiz.id}/result?localId=${resolvedLocalId}`);
   };
 
   const handlePlayComplete = async (finalScore = score, finalFailed = failedIds) => {
@@ -326,9 +298,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         }
         persistAuxiliaryAttemptData(attemptId);
 
-        const listId = searchParams.get('listId');
-        const listQuery = listId ? `&listId=${listId}` : '';
-        router.push(`/quiz/${quiz.id}/result?attemptId=${attemptId}${listQuery}`);
+        router.push(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
       } catch (error) {
         console.error('[QuizPlay] 保存失敗:', error);
         saveOffline(attemptData);
@@ -355,9 +325,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     setOptimisticAttempt(localId, pendingPayload);
     persistAuxiliaryAttemptData(localId);
 
-    const listId = searchParams.get('listId');
-    const listQuery = listId ? `&listId=${listId}` : '';
-    router.push(`/quiz/${quiz.id}/result?localId=${localId}${listQuery}`);
+    router.push(`/quiz/${quiz.id}/result?localId=${localId}`);
 
     if (online) {
       void (async () => {
@@ -368,7 +336,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           }
           migrateAuxiliaryAttemptData(localId, attemptId);
           clearOptimisticAttempt(localId);
-          router.replace(`/quiz/${quiz.id}/result?attemptId=${attemptId}${listQuery}`);
+          router.replace(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
         } catch (error) {
           console.error('[QuizPlay] バックグラウンド保存失敗:', error);
           addPendingSyncAttempt(pendingPayload);
@@ -420,8 +388,6 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const [truthPassed, setTruthPassed] = useState<boolean>(false);
   const [truthGaveUp, setTruthGaveUp] = useState<boolean>(false);
   const [isGivingUp, setIsGivingUp] = useState<boolean>(false);
-  const [lateralListNextUrl, setLateralListNextUrl] = useState<string | null>(null);
-  const lateralListId = searchParams.get('listId');
   const lateralPlayEnded = truthPassed || truthGaveUp;
   const lateralInputLocked = lateralPlayEnded || isGivingUp;
   const lateralElapsedSeconds = useElapsedSeconds(
@@ -436,12 +402,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       async function initLateralAttempt() {
         try {
           const questionIds = quiz!.questions.map((q) => q.id);
-          const listIdParam = searchParams.get('listId');
           const aid = await createLateralAttemptSession(
             currentUserId,
             currentQuizId,
-            questionIds,
-            listIdParam
+            questionIds
           );
           setLateralAttemptId(aid);
         } catch (e) {
@@ -462,42 +426,6 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     initialHistory: [],
     initialTurnCount: 0,
   });
-
-  useEffect(() => {
-    if (!truthGaveUp || !lateralListId || !quiz) return;
-    const activeListId = lateralListId;
-
-    const questionListModeActive = searchParams.get('mode') === 'question-list';
-    if (questionListModeActive) {
-      const session = readQuestionListSession();
-      if (session?.listId === activeListId) {
-        const nextIndex = session.currentIndex + 1;
-        if (nextIndex < session.entries.length) {
-          setLateralListNextUrl(buildQuestionListPlayUrl(session, nextIndex));
-        }
-      }
-      return;
-    }
-
-    async function resolveNextQuizUrl() {
-      try {
-        const { getQuizList } = await import('@/services/quiz-list');
-        const listData = await getQuizList(activeListId);
-        if (!listData?.quizIds) return;
-        const currentIdx = listData.quizIds.indexOf(quiz.id);
-        if (currentIdx !== -1 && currentIdx < listData.quizIds.length - 1) {
-          const nextQuizId = listData.quizIds[currentIdx + 1];
-          setLateralListNextUrl(
-            `/quiz/${nextQuizId}/play?listId=${activeListId}&mode=list`
-          );
-        }
-      } catch (err) {
-        console.error('[QuizPlay] リスト次問題URL解決失敗:', err);
-      }
-    }
-
-    resolveNextQuizUrl();
-  }, [truthGaveUp, lateralListId, quiz, searchParams]);
 
   const chatHistoryEndRef = useRef<HTMLDivElement>(null);
 
@@ -830,16 +758,6 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                 >
                   結果画面へ
                 </button>
-                {lateralListNextUrl && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => router.push(lateralListNextUrl)}
-                    data-analytics="quiz-lateral-give-up-next"
-                  >
-                    次の問題へ
-                  </button>
-                )}
               </div>
             )}
             <div ref={chatHistoryEndRef} aria-hidden="true" />

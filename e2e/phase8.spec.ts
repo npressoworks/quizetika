@@ -63,74 +63,16 @@ async function publishMinimalQuiz(page: Page, title: string) {
   await expect(page).toHaveURL(/\/quiz\/[^/]+\/success/, { timeout: 30000 });
 }
 
-async function goToMyProfileListsTab(page: Page) {
-  const avatar = page.locator('header img, aside img, nav img').filter({ visible: true }).first();
-  await expect(avatar).toBeVisible({ timeout: 10000 });
-  await avatar.click({ force: true });
-  await page.locator('text=マイページ').click();
-  await expect(page).toHaveURL(/\/profile\//);
-  await page.locator('button').filter({ hasText: '作成したリスト' }).click();
-  await expect(page.getByTestId('profile-lists-panel')).toBeVisible();
-}
-
 test.describe('Phase 8 E2E スモーク', () => {
-  test('11.10: ブックマーク画面で3タブを切り替えられること', async ({ page }) => {
+  test('11.10: ブックマーク画面で2タブを切り替えられること', async ({ page }) => {
     await ensureLoggedIn(page);
     await page.goto('/bookmarks');
     await expect(page.getByTestId('bookmarks-tabs')).toBeVisible();
-    await page.getByTestId('bookmarks-tab-quiz').click();
-    await page.getByTestId('bookmarks-tab-list').click();
+    await expect(page.getByTestId('bookmarks-tab-quiz')).toBeVisible();
+    await expect(page.getByTestId('bookmarks-tab-question')).toBeVisible();
+    await expect(page.getByTestId('bookmarks-tab-list')).toHaveCount(0);
     await page.getByTestId('bookmarks-tab-question').click();
     await expect(page.locator('h1').filter({ hasText: 'ブックマーク' })).toBeVisible();
-  });
-
-  test('6.10: 問題リストを新規作成し編集画面へ遷移すること', async ({ page }) => {
-    page.on('dialog', async (dialog) => await dialog.accept());
-    await ensureLoggedIn(page);
-    await page.goto('/list/create');
-
-    const listTitle = `[TEST] E2E問題リスト_${Date.now().toString().slice(-4)}`;
-    await page.locator('input[type="text"]').first().fill(listTitle);
-    await page.getByTestId('list-type-question').check();
-    await page.locator('text=リストを保存する').first().click();
-
-    await expect(page).toHaveURL(/\/list\/[^/]+\/edit/);
-    await expect(page.getByTestId('question-list-attach-panel')).toBeVisible();
-  });
-
-  test('8.6: プロフィールでリスト種別バッジとフィルタが機能すること', async ({ page }) => {
-    page.on('dialog', async (dialog) => await dialog.accept());
-    await ensureLoggedIn(page);
-
-    const suffix = Date.now().toString().slice(-4);
-
-    await page.goto('/list/create');
-    await page.locator('input[type="text"]').first().fill(`[TEST] E2Eクイズリスト_${suffix}`);
-    await page.getByTestId('list-type-quiz').check();
-    const addQuizBtn = page.locator('text=追加').first();
-    if (await addQuizBtn.isVisible()) {
-      await addQuizBtn.click();
-    }
-    await page.locator('text=リストを保存する').first().click();
-    await expect(page).toHaveURL(/\/list\/(?!create)[^/]+$/);
-
-    await page.goto('/list/create');
-    await page.locator('input[type="text"]').first().fill(`[TEST] E2E問題リスト_${suffix}`);
-    await page.getByTestId('list-type-question').check();
-    await page.locator('text=リストを保存する').first().click();
-    await expect(page).toHaveURL(/\/list\/[^/]+\/edit/);
-
-    await goToMyProfileListsTab(page);
-    const cards = page.getByTestId('profile-list-card');
-    await expect(cards.first()).toBeVisible();
-    await expect(page.getByTestId('profile-list-type-badge').first()).toBeVisible();
-
-    await page.getByTestId('profile-list-filter-question').click();
-    await expect(cards.first()).toBeVisible();
-    await expect(page.getByTestId('profile-list-type-badge').first()).toHaveText('問題リスト');
-
-    await page.getByTestId('profile-list-filter-quiz').click();
-    await expect(page.getByTestId('profile-list-type-badge').first()).toHaveText('クイズリスト');
   });
 
   test('6.10: 参照リンクパネルから過去クイズの問題をリンクできること', async ({ page }) => {
@@ -160,71 +102,5 @@ test.describe('Phase 8 E2E スモーク', () => {
     await expect(linkBtn).toBeVisible({ timeout: 15000 });
     await linkBtn.click();
     await expect(page.getByTestId('reference-question-badge').first()).toBeVisible();
-  });
-
-  test('11.10: 問題リストから連続プレイを完走できること', async ({ page }) => {
-    page.on('dialog', async (dialog) => await dialog.accept());
-    const quizTitle = `[TEST] E2E問題リストプレイ_${Date.now().toString().slice(-4)}`;
-    await publishMinimalQuiz(page, quizTitle);
-
-    await page.goto('/list/create');
-    const listTitle = `[TEST] E2EQLPlay_${Date.now().toString().slice(-4)}`;
-    await page.locator('input[type="text"]').first().fill(listTitle);
-    await page.getByTestId('list-type-question').check();
-    await page.locator('text=リストを保存する').first().click();
-    await expect(page).toHaveURL(/\/list\/([^/]+)\/edit/);
-    await expect(page.getByTestId('question-list-attach-panel')).toBeVisible();
-    const editUrl = page.url();
-    const listIdMatch = editUrl.match(/\/list\/([^/]+)\/edit/);
-    expect(listIdMatch).toBeTruthy();
-    const listId = listIdMatch![1];
-
-    const attachBtn = page.locator('[data-testid^="attach-question-"]').first();
-    await expect(attachBtn).toBeVisible({ timeout: 30000 });
-    await attachBtn.click();
-    await expect(page.getByText('まだ問題がありません')).toBeHidden({ timeout: 15000 });
-
-    await page.goto(`/list/${listId}`);
-    await expect(page.getByText(/収録問題一覧 \(1問\)/)).toBeVisible({ timeout: 15000 });
-    const playStartBtn = page.getByTestId('question-list-play-start');
-    await expect(playStartBtn).toBeEnabled({ timeout: 10000 });
-    await playStartBtn.click();
-    await expect(page).toHaveURL(/\/play/);
-
-    const correctOption = page.getByRole('radiogroup').getByText('useState', { exact: true });
-    await expect(correctOption).toBeVisible({ timeout: 10000 });
-    await correctOption.click();
-
-    const submitAnswerBtn = page.getByRole('button', { name: '解答を確定する' });
-    await expect(submitAnswerBtn).toBeEnabled({ timeout: 5000 });
-    await submitAnswerBtn.click();
-
-    const viewResultBtn = page.locator('text=結果を確認する');
-    await expect(viewResultBtn).toBeVisible();
-    await viewResultBtn.click();
-    await expect(page).toHaveURL(/\/result/, { timeout: 15000 });
-    await expect(page.getByRole('heading', { name: /パーフェクト達成/ })).toBeVisible({
-      timeout: 15000,
-    });
-  });
-
-  test('8.11: クイズリスト作成とブックマーク登録が動作すること（回帰）', async ({ page }) => {
-    page.on('dialog', async (dialog) => await dialog.accept());
-    await ensureLoggedIn(page);
-    await page.goto('/list/create');
-
-    const listTitle = `[TEST] E2E回帰リスト_${Date.now().toString().slice(-4)}`;
-    await page.locator('input[type="text"]').first().fill(listTitle);
-    const addQuizBtn = page.locator('text=追加').first();
-    if (await addQuizBtn.isVisible()) {
-      await addQuizBtn.click();
-    }
-    await page.locator('text=リストを保存する').first().click();
-    await expect(page).toHaveURL(/\/list\/(?!create)[^/]+$/);
-    await expect(page.locator(`text=${listTitle}`)).toBeVisible();
-
-    await page.goto('/bookmarks');
-    await page.getByTestId('bookmarks-tab-list').click();
-    await expect(page.getByTestId('bookmarks-tabs')).toBeVisible();
   });
 });

@@ -1,4 +1,3 @@
-import { QUESTION_LIST_SESSION_KEY } from '../../src/lib/question-list-session';
 import {
   MY_QUIZ_SESSION_KEY,
   initMyQuizSession,
@@ -67,8 +66,8 @@ describe('my-quiz-session', () => {
     expect(url).toContain('qIndex=0');
   });
 
-  test('MY_QUIZ_SESSION_KEY は問題リストセッションキーと異なる', () => {
-    expect(MY_QUIZ_SESSION_KEY).not.toBe(QUESTION_LIST_SESSION_KEY);
+  test('MY_QUIZ_SESSION_KEY は固定値 quizeum_my_quiz_session である', () => {
+    expect(MY_QUIZ_SESSION_KEY).toBe('quizeum_my_quiz_session');
   });
 
   test('syncMyQuizSessionIndex で currentIndex を同期する', () => {

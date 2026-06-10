@@ -19,6 +19,10 @@ test.describe('マイクイズ', () => {
     await loginBtn.click();
     await page.goto('/my-quiz');
     await expect(page.getByTestId('my-quiz-page')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('my-quiz-source-own')).toBeVisible();
+    await expect(page.getByTestId('my-quiz-source-bookmarked-quiz')).toBeVisible();
+    await expect(page.getByTestId('my-quiz-source-bookmarked-question')).toBeVisible();
+    await expect(page.getByTestId('my-quiz-source-bookmarked-list')).toHaveCount(0);
     await expect(page.getByTestId('my-quiz-start-play')).toBeVisible();
   });
 });

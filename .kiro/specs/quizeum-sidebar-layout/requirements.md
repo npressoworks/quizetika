@@ -8,6 +8,8 @@
 
 **Phase 23（2026-06-09）**: リスト探索（`/lists`）・マイクイズ（`/my-quiz`）・設定（`/settings`）へのナビ導線を追加します。Sidebar に「リスト」「マイクイズ」を追加し、アカウントポップアップに「設定」を追加します。各画面のコンテンツは隣接スペックが担当します。モバイル BottomNav への項目追加は過密のため、本フェーズでは Sidebar 優先とし、モバイル向け到達手段は設計で確定します。
 
+**Phase 26（2026-06-10）**: クイズリスト機能の完全廃止に伴い、Phase 23 で追加した「リスト」（`/lists`）ナビ導線を Sidebar および Header プロフィールポップアップから除去します。マイクイズ（`/my-quiz`）および設定（`/settings`）への導線は維持します（`quizeum-core`・`quizeum-play-flow-ui`・`quizeum-creator-dash-ui`・`quizeum-my-quiz-ui` が Phase 26 でリスト機能を除去済み）。
+
 ## Boundary Context
 - **In scope**:
   - デスクトップ・タブレットサイズ用の縦型左サイドバー（Sidebar）の表示とメニュー統合。
@@ -17,7 +19,8 @@
   - レスポンシブに応じたメインコンテンツの余白（パディング/マージン）の自動調整。
   - ログイン状態に応じたメニュー項目・ユーザー情報の動的切り替え。
   - **Phase 22**: Sidebar および BottomNav への「検索」（`/search`）導線追加、ホーム（`/`）と検索（`/search`）のアクティブハイライト区別。
-  - **Phase 23**: Sidebar への「リスト」（`/lists`）・「マイクイズ」（`/my-quiz`）導線追加（ログイン時のみ）。アカウントポップアップへの「設定」（`/settings`）導線追加。`/lists`・`/my-quiz`・`/settings` のアクティブハイライト。モバイル向けリスト／マイクイズ到達手段（BottomNav 以外のパターンを含む）。
+  - **Phase 23（マイクイズ・設定は維持）**: Sidebar への「マイクイズ」（`/my-quiz`）導線追加（ログイン時のみ）。アカウントポップアップへの「設定」（`/settings`）導線追加。`/my-quiz`・`/settings` のアクティブハイライト。モバイル向けマイクイズ到達手段（BottomNav 以外のパターンを含む）。
+  - **Phase 26**: Sidebar および Header プロフィールポップアップから「リスト」（`/lists`）ナビ項目の除去。`nav-lists`・`header-nav-lists` の `data-testid` 削除。`/lists` 向け active 判定・関連テスト／E2E の更新。
 - **Out of scope**:
   - クイズプレイ画面（`/play`）におけるナビゲーションレイアウトの表示（非表示のまま維持）。
   - サイドバーまたはボトムナビ上の未読通知バッジ等のリアルタイム更新システム（静的なプレースホルダー表示枠のみをスコープとする）。
@@ -25,7 +28,8 @@
   - ログイン状態やユーザーアバター画像、メールアドレスなどの基本情報は、既存の認証状態（`useAuth` フック）から提供されること。
   - サイドバー等のリンクから遷移する各画面（ホーム、通知、ブックマーク等）のメインコンテンツ自体は、本スペックの管轄外（既存の各UIスペックが所有）であること。
   - **Phase 22**: ディスカバリーホームおよび検索画面のカルーセル・フィルタ UI は `quizeum-play-flow-ui` が提供すること。検索 URL クエリ契約は `quizeum-core` が提供すること。
-  - **Phase 23**: リスト探索ページ（`/lists`）は `quizeum-lists-discovery-ui`、マイクイズページ（`/my-quiz`）は `quizeum-my-quiz-ui`、設定ページおよびテーマ切替は `quizeum-user-settings-ui` が提供すること。`layout.tsx` への ThemeProvider 統合は `quizeum-user-settings-ui` が担当し、本スペックはシェル構造の整合に協調すること。
+  - **Phase 23**: マイクイズページ（`/my-quiz`）は `quizeum-my-quiz-ui`、設定ページおよびテーマ切替は `quizeum-user-settings-ui` が提供すること。`layout.tsx` への ThemeProvider 統合は `quizeum-user-settings-ui` が担当し、本スペックはシェル構造の整合に協調すること。
+  - **Phase 26**: `/lists` ルートは廃止済み（404）。リスト探索・作成・編集 UI の除去は `quizeum-play-flow-ui`・`quizeum-creator-dash-ui` が担当済み。プロフィール「作成したリスト」タブ除去は `quizeum-auth-profile-ui` が担当。
 
 ## Requirements
 
@@ -111,3 +115,34 @@
 15. The Sidebar Component shall [マイクイズのフィルタ・出題数・プレイ開始 UI を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
 16. The Sidebar Component shall [設定ページのテーマ切替 UI および ThemeProvider 実装を本要件の範囲に含めない（`quizeum-user-settings-ui` が担当）]。
 17. The Sidebar Component shall [マイページからのリアクション履歴導線削除を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
+
+### Requirement 7: リストナビ項目の除去（Phase 26）
+**Objective:** As a ログインユーザー, I want 廃止されたリスト機能へのナビ導線が表示されないこと, so that 存在しない画面へ遷移しようとする混乱を避けられる。
+
+#### Acceptance Criteria
+
+**Sidebar 主要ナビ**
+1. The Sidebar Component shall 「リスト」（`/lists`）メニュー項目を主要ナビゲーションに含めてはならない。
+2. The Sidebar Component shall `data-testid="nav-lists"` を付与してはならない。
+3. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「マイクイズ」（`/my-quiz`）メニュー項目を引き続き主要ナビゲーションに含めること（Phase 23 維持）。
+4. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「マイクイズ」項目をアクティブ状態としてハイライト表示すること（Phase 23 維持）。
+
+**Header プロフィールポップアップ（モバイル）**
+5. The Header Component shall プロフィールポップアップ内の「リスト」（`/lists`）リンクを表示してはならない。
+6. The Header Component shall `data-testid="header-nav-lists"` を付与してはならない。
+7. When ログインユーザーが Header プロフィールポップアップを開いたとき, the Header Component shall 「マイクイズ」「マイページ」「設定」「ログアウト」への導線を引き続き提供すること。
+
+**アクティブ判定・ユーティリティ**
+8. The Navigation Layout shall `/lists` および `/lists/` 配下パス向けの active 判定ロジック（`isListsActive` 等）を実装してはならない。
+9. The `nav-active` Module shall `href === '/lists'` の分岐を含めてはならない（既存コードに残存する場合は除去すること）。
+
+**テスト・E2E**
+10. The Sidebar Component Tests shall ログイン時に `nav-lists` が存在しないこと、および `/lists` での active 検証を削除または更新すること。
+11. The Header Component Tests shall `header-nav-lists` の存在検証を削除し、マイクイズ・設定導線の検証を維持すること。
+12. The Layout E2E Tests shall Sidebar／Header から `/lists` へ遷移するシナリオを削除し、廃止ルート `/lists` が 404 を返す検証（`e2e/layout.spec.ts`）を維持すること。
+
+**境界・隣接**
+13. The Sidebar Component shall [廃止済み `/lists` ページ UI の除去を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当済み）]。
+14. The Sidebar Component shall [プロフィール画面の「作成したリスト」タブ除去を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
+15. The Sidebar Component shall [ブックマーク画面の「リスト」タブ除去を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当済み）]。
+16. The Sidebar Component shall [マイクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当済み）]。

@@ -174,3 +174,51 @@
 - **layout.tsx**: `ThemeProvider` 統合は `quizeum-user-settings-ui` が担当。本フェーズでは `layout.tsx` を変更しない。
 - **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizeum-lists-discovery-ui`）、6.15 マイクイズ UI（`quizeum-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizeum-user-settings-ui`）、6.17 マイページリアクション履歴削除（`quizeum-auth-profile-ui`）。
 - **要件カバレッジ**: 6.1–6.13 を 6.1–6.5 にマッピング。6.14–6.17 は Out of scope として Implementation Notes に記録。
+
+---
+
+## 7. Phase 26: リストナビ項目の除去（2026-06-10）
+
+- [x] 7.1 Sidebar および Header からリストナビを除去
+  - `sidebar.tsx`: ログイン時 `menuItems` から「リスト」（`/lists`）を削除し、`List` アイコン import および `data-testid="nav-lists"` を除去する
+  - `header.tsx`: プロフィールポップアップから「リスト」リンクおよび `data-testid="header-nav-lists"` を削除する
+  - マイクイズ（`nav-my-quiz` / `header-nav-my-quiz`）・設定（`sidebar-settings-link` / `header-settings-link`）・マイページ・ログアウト導線は維持する
+  - **完了状態**: ログイン状態で Sidebar／Header にリスト項目が表示されず、マイクイズ・設定へは従来どおり遷移できること
+  - _Requirements: 7.1, 7.2, 7.3, 7.5, 7.6, 7.7_
+  - _Boundary: Sidebar, Header_
+
+- [x] 7.2 nav-active およびコンポーネントテストの更新
+  - `nav-active.ts` に `/lists` 分岐が残存する場合は除去する
+  - `sidebar.test.tsx`: `nav-lists` 存在・`/lists` active 検証を削除し、マイクイズ表示・active 検証を維持する
+  - `header-profile-popup.test.tsx`: `header-nav-lists` 検証を削除し、マイクイズ・設定導線検証を維持する
+  - `shell-smoke.test.tsx`: `nav-lists` 存在検証を削除する
+  - `nav-active.test.ts`: `/lists` 関連ケースがあれば削除する
+  - **完了状態**: 関連 Jest テストがグリーンであり、リストナビに関するアサーションが残っていないこと
+  - _Requirements: 7.8, 7.9, 7.10, 7.11_
+  - _Depends: 7.1_
+  - _Boundary: Testing_
+
+- [x] 7.3 E2E テストの更新
+  - `e2e/layout.spec.ts`: Phase 23 の Sidebar「リスト」→ `/lists` 遷移シナリオが残存する場合は削除する
+  - `e2e/layout.spec.ts`: 既存の Phase 26 `/lists` 404 検証を維持する
+  - Header ポップアップからリストへ遷移する E2E があれば削除する
+  - **完了状態**: レイアウト E2E がグリーンであり、ナビから廃止ルートへ遷移するテストが存在しないこと
+  - _Requirements: 7.12_
+  - _Depends: 7.1_
+  - _Boundary: Testing_
+
+- [x] 7.4 統合検証
+  - デスクトップ（1200px）: ログイン後 Sidebar にリスト項目がなく、マイクイズ・設定ポップアップが機能することを手動または E2E で確認する
+  - モバイル（375px）: Header ポップアップにリストがなく、マイクイズへ遷移できることを確認する
+  - `/lists` 直接アクセスが 404 であること（他スペック Phase 26 と整合）を確認する
+  - BottomNav 5 項目・プロフィール直行の回帰がないことを確認する
+  - **完了状態**: Phase 26 ナビ除去が他スペックのリスト廃止と整合し、デッドリンクが存在しないこと
+  - _Requirements: 7.1–7.12, 7.13–7.16_
+  - _Depends: 7.1, 7.2, 7.3_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 26)
+
+- **実装順**: 7.1 完了後に 7.2・7.3 を並行可。7.4 は 7.1–7.3 完了後。
+- **隣接スペック**: `/lists` ルート・ブックマークリストタブ・プロフィールリストタブは他スペックが除去済み。本フェーズはナビシェルのみ。
+- **回帰注意**: Phase 23 のマイクイズ・設定 E2E（`header-nav-my-quiz`、 `sidebar-settings-link`）は維持する。

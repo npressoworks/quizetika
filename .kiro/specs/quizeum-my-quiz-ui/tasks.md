@@ -166,3 +166,51 @@
 |------|------|
 | `quizeum-core` | `buildMyQuizQuestionPool`, `my-quiz-session.ts`, `Attempt.mode: 'my-quiz'` |
 | `quizeum-sidebar-layout` | Sidebar「マイクイズ」導線（本スペック外、E2E は直接 URL アクセス可） |
+
+---
+
+### 10. Phase 26: ブックマークリストソースの除去（2026-06-10）
+
+- [x] 10.1 ソースパネルの3トグル化
+  - 「ブックマークリスト」ラベル・トグル・`my-quiz-source-bookmarked-list` を除去する
+  - 自作・ブックマーククイズ・ブックマーク問題の3トグルに `data-testid` を維持する
+  - **完了状態**: ソースパネルに3 `data-testid` のみ存在し、リスト関連 UI が表示されないこと
+  - _Requirements: 2.1, 2.7, 2.8, 8.1_
+  - _Depends: quizeum-core 23.4_
+  - _Boundary: my-quiz-source-panel_
+
+- [x] 10.2 問題プール取得フックのフラグ縮小
+  - プール再取得時にブックマークリスト由来フラグを送信しない
+  - ソース型を core の3フラグ契約と1:1対応させる
+  - **完了状態**: `useMyQuizPool` が `bookmarkedLists` を参照せず、3フラグのみで API を呼ぶこと
+  - _Requirements: 2.2, 8.2, 8.3, 8.5_
+  - _Depends: 10.1_
+  - _Boundary: useMyQuizPool_
+
+- [x] 10.3 フィルタ表・画面文言のリスト参照除去
+  - フィルタ結果テーブルから `bookmarked-list` 取得元ラベルを除去する
+  - ページ説明文の「4ソース」表記を「3ソース」に更新する
+  - リスト取得 API の import をコードベースから除去する
+  - **完了状態**: マイクイズ画面にリスト由来ラベル・文言・import が残らないこと
+  - _Requirements: 8.4, 8.5_
+  - _Depends: 10.2_
+  - _Boundary: my-quiz-filtered-table, MyQuizPage_
+
+- [x] 10.4 (P) Phase 26 コンポーネント・フック・E2E テストの更新
+  - ソースパネル3トグル、`useMyQuizPool` フラグ、E2E から `bookmarked-list` シナリオを除去する
+  - **完了状態**: `tests/components/my-quiz/*` および `e2e/my-quiz.spec.ts` が3ソース前提でグリーンであること
+  - _Requirements: 2.7, 8.8_
+  - _Depends: 10.3_
+  - _Boundary: Testing_
+
+- [x] 10.5 Phase 26 統合検証
+  - 3ソースでプール取得→フィルタ→`mode=my-quiz` プレイ開始までの一連フローが維持されることを確認する
+  - **完了状態**: マイクイズ関連ビルド・テストがグリーンであること
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8_
+  - _Depends: 10.4_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 26)
+
+- **前提**: `quizeum-core` 23.4 完了後に着手。プレイ連携（`mode=my-quiz`）は変更なし。
+- 実装順: 10.1 → 10.2 → 10.3 → 10.4 → 10.5。10.1 は core 23.4 完了後に play-flow と並行可能。

@@ -3,7 +3,6 @@
  */
 export const usersRef = {};
 export const quizzesRef = {};
-export const quizListsRef = {};
 export const followsRef = {};
 export const bookmarksRef = {};
 export const getCollectionRef = jest.fn(() => ({}));

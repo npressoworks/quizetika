@@ -1,9 +1,11 @@
 {
   "feature_name": "quizeum-lists-discovery-ui",
   "created_at": "2026-06-09T12:00:00+09:00",
-  "updated_at": "2026-06-09T12:00:00+09:00",
+  "updated_at": "2026-06-10T23:00:00+09:00",
   "language": "ja",
-  "phase": "implementation-complete",
+  "phase": "obsolete",
+  "obsolete": true,
+  "obsolete_reason": "Phase 26 リスト機能完全廃止",
   "approvals": {
     "requirements": {
       "generated": true,
@@ -18,5 +20,5 @@
       "approved": true
     }
   },
-  "ready_for_implementation": true
+  "ready_for_implementation": false
 }

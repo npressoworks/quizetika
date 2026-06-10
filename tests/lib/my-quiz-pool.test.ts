@@ -2,17 +2,14 @@ import { buildMyQuizQuestionPool } from '../../src/lib/my-quiz-pool';
 import { searchAuthorQuizzes } from '../../src/services/author-quiz-search';
 import {
   enrichBookmarkedQuestions,
-  getBookmarkedLists,
   getBookmarkedQuizzes,
 } from '../../src/services/bookmark';
 import { getQuestionsByQuiz } from '../../src/services/question';
-import { getQuizzesInList } from '../../src/services/quiz-list';
-import type { Question, Quiz, QuizList } from '../../src/types';
+import type { Question, Quiz } from '../../src/types';
 
 jest.mock('../../src/services/author-quiz-search');
 jest.mock('../../src/services/bookmark');
 jest.mock('../../src/services/question');
-jest.mock('../../src/services/quiz-list');
 jest.mock('../../src/services/quiz', () => ({
   getQuiz: jest.fn(),
 }));
@@ -81,7 +78,6 @@ describe('buildMyQuizQuestionPool', () => {
     const result = await buildMyQuizQuestionPool(userId, {
       ownQuizzes: false,
       bookmarkedQuizzes: false,
-      bookmarkedLists: false,
       bookmarkedQuestions: false,
     });
     expect(result).toEqual([]);
@@ -103,7 +99,6 @@ describe('buildMyQuizQuestionPool', () => {
     const result = await buildMyQuizQuestionPool(userId, {
       ownQuizzes: true,
       bookmarkedQuizzes: true,
-      bookmarkedLists: false,
       bookmarkedQuestions: false,
     });
 
@@ -121,51 +116,11 @@ describe('buildMyQuizQuestionPool', () => {
     const result = await buildMyQuizQuestionPool(userId, {
       ownQuizzes: false,
       bookmarkedQuizzes: true,
-      bookmarkedLists: false,
       bookmarkedQuestions: false,
     });
 
     expect(result).toEqual([]);
     expect(getQuestionsByQuiz).not.toHaveBeenCalled();
-  });
-
-  test('ブックマークリストは quiz 種別のみ・公開クイズの問題を収集する', async () => {
-    const quizList: QuizList = {
-      id: 'list-1',
-      authorId: 'other',
-      authorName: '他',
-      authorAvatar: '',
-      title: 'リスト',
-      description: '',
-      quizIds: ['q-in-list'],
-      questionIds: ['direct-q'],
-      listType: 'quiz',
-      isPublished: true,
-      bookmarksCount: 1,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    (getBookmarkedLists as jest.Mock).mockResolvedValue([quizList]);
-    (getQuizzesInList as jest.Mock).mockResolvedValue([
-      makeQuiz({ id: 'pub-in-list', status: 'published' }),
-      makeQuiz({ id: 'draft-in-list', status: 'draft' }),
-    ]);
-    (getQuestionsByQuiz as jest.Mock).mockResolvedValue([
-      makeQuestion({ id: 'from-list-q' }),
-    ]);
-
-    const result = await buildMyQuizQuestionPool(userId, {
-      ownQuizzes: false,
-      bookmarkedQuizzes: false,
-      bookmarkedLists: true,
-      bookmarkedQuestions: false,
-    });
-
-    expect(result).toHaveLength(1);
-    expect(result[0].source).toBe('bookmarked-list');
-    expect(result[0].questionId).toBe('from-list-q');
-    expect(getQuestionsByQuiz).toHaveBeenCalledWith('pub-in-list');
   });
 
   test('候補に format・difficulty・source メタデータを付与する', async () => {
@@ -187,7 +142,6 @@ describe('buildMyQuizQuestionPool', () => {
     const result = await buildMyQuizQuestionPool(userId, {
       ownQuizzes: true,
       bookmarkedQuizzes: false,
-      bookmarkedLists: false,
       bookmarkedQuestions: false,
     });
 
@@ -222,7 +176,6 @@ describe('buildMyQuizQuestionPool', () => {
     const result = await buildMyQuizQuestionPool(userId, {
       ownQuizzes: false,
       bookmarkedQuizzes: false,
-      bookmarkedLists: false,
       bookmarkedQuestions: true,
     });
 

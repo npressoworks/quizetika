@@ -246,14 +246,14 @@ describe('AttemptService - createLateralAttemptSession', () => {
     expect(runTransaction).not.toHaveBeenCalled();
   });
 
-  test('listId を渡すと attempt に保存し mode を list にする', async () => {
-    await createLateralAttemptSession('user-1', 'quiz-lateral-1', ['q-lt-1'], 'list-abc');
+  test('リスト廃止後は常に mode=normal・listId=null で保存する', async () => {
+    await createLateralAttemptSession('user-1', 'quiz-lateral-1', ['q-lt-1']);
 
     expect(setDoc).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'auto-generated-id' }),
       expect.objectContaining({
-        listId: 'list-abc',
-        mode: 'list',
+        listId: null,
+        mode: 'normal',
         aiTurnLimit: 30,
       })
     );

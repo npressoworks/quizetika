@@ -1,39 +1,29 @@
 import {
-  resolveListType,
-  satisfiesQuestionListAttemptContract,
-  type QuizList,
+  assertPlayModeAllowedForSave,
+  satisfiesMyQuizAttemptContract,
 } from '../../src/types';
 
-describe('Phase 8 types', () => {
-  test('resolveListType: 未設定は quiz', () => {
-    expect(resolveListType({} as QuizList)).toBe('quiz');
-    expect(resolveListType({ listType: 'quiz' } as QuizList)).toBe('quiz');
-    expect(resolveListType({ listType: 'question' } as QuizList)).toBe('question');
+describe('Phase 26 type contracts', () => {
+  test('assertPlayModeAllowedForSave: list / question-list を拒否する', () => {
+    expect(() => assertPlayModeAllowedForSave('list')).toThrow('LIST_PLAY_MODE_DEPRECATED');
+    expect(() => assertPlayModeAllowedForSave('question-list')).toThrow(
+      'LIST_PLAY_MODE_DEPRECATED'
+    );
+    expect(() => assertPlayModeAllowedForSave('my-quiz')).not.toThrow();
+    expect(() => assertPlayModeAllowedForSave('normal')).not.toThrow();
   });
 
-  test('satisfiesQuestionListAttemptContract: question-list 契約', () => {
+  test('satisfiesMyQuizAttemptContract: my-quiz 契約', () => {
     expect(
-      satisfiesQuestionListAttemptContract({
-        mode: 'question-list',
-        listId: 'list-1',
+      satisfiesMyQuizAttemptContract({
+        mode: 'my-quiz',
         quizId: 'quiz-1',
         totalQuestions: 1,
       })
     ).toBe(true);
-
     expect(
-      satisfiesQuestionListAttemptContract({
-        mode: 'list',
-        listId: 'list-1',
-        quizId: 'quiz-1',
-        totalQuestions: 1,
-      })
-    ).toBe(false);
-
-    expect(
-      satisfiesQuestionListAttemptContract({
-        mode: 'question-list',
-        listId: null,
+      satisfiesMyQuizAttemptContract({
+        mode: 'normal',
         quizId: 'quiz-1',
         totalQuestions: 1,
       })

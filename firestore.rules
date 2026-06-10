@@ -287,30 +287,6 @@ service cloud.firestore {
     }
 
     // -----------------------------------------------------------------
-    // quizLists コレクションルール（Phase 8）
-    // -----------------------------------------------------------------
-    match /quizLists/{listId} {
-      allow read: if resource.data.isPublished == true
-        || (isAuthenticated() && resource.data.authorId == request.auth.uid);
-
-      allow create: if isAuthenticated() && isNotBanned()
-        && request.resource.data.authorId == request.auth.uid
-        && (
-          !('listType' in request.resource.data)
-          || request.resource.data.listType in ['quiz', 'question']
-        );
-
-      allow update: if isNotBanned() && isOwner(resource.data.authorId)
-        && request.resource.data.authorId == resource.data.authorId
-        && (
-          !('listType' in request.resource.data)
-          || request.resource.data.listType == resource.data.listType
-        );
-
-      allow delete: if isNotBanned() && isOwner(resource.data.authorId);
-    }
-
-    // -----------------------------------------------------------------
     // bookmarks コレクションルール
     // -----------------------------------------------------------------
     match /bookmarks/{bookmarkId} {
@@ -324,7 +300,7 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isNotBanned()
         && request.resource.data.userId == request.auth.uid
         && bookmarkId == request.resource.data.userId + '_' + request.resource.data.targetId
-        && request.resource.data.targetType in ['quiz', 'list', 'question'];
+        && request.resource.data.targetType in ['quiz', 'question'];
 
       allow delete: if isAuthenticated() && isNotBanned() && resource.data.userId == request.auth.uid;
 

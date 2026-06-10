@@ -79,29 +79,9 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
     }
   });
 
-  test('F-701: クイズリスト詳細ページでもOGPメタデータが埋め込まれていること', async ({ page }) => {
-    // 1. ホームページへアクセス
-    await page.goto('/');
-
-    // 2. クイズリストを選択（存在する場合）
-    const listCard = page.locator('[data-testid="quiz-list-card"]').first();
-    if (await listCard.isVisible()) {
-      await listCard.click();
-
-      // リスト詳細ページであることを確認
-      await expect(page).toHaveURL(/\/list\/[\w-]+$/);
-
-      // 3. OGPメタデータを確認
-      const ogTitle = await page.locator('meta[property="og:title"]').getAttribute('content');
-      if (ogTitle) {
-        expect(ogTitle.length).toBeGreaterThan(0);
-      }
-
-      const ogDescription = await page.locator('meta[property="og:description"]').getAttribute('content');
-      if (ogDescription) {
-        expect(ogDescription.length).toBeGreaterThan(0);
-      }
-    }
+  test('F-701: 廃止されたリスト詳細 URL は 404 を返す', async ({ page }) => {
+    const response = await page.goto('/list/obsolete-e2e-probe');
+    expect(response?.status()).toBe(404);
   });
 
   test('F-702: クローラー向けに高速HTML応答が提供されていること', async ({ browser, page }) => {

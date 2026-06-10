@@ -1,5 +1,7 @@
 # Design Document: quizeum-lists-discovery-ui
 
+> **⚠ OBSOLETE（Phase 26 / 2026-06-10）**: 本スペックは **obsolete（廃止）** です。理由: Phase 26 リスト機能完全廃止。Phase 23 で実装完了していた `/lists` 探索 UI は削除対象となり、以下の設計は **履歴参照のみ** とします。実装・削除の正本は `quizeum-core` Phase 26 および `quizeum-play-flow-ui` Phase 26。
+
 ## Overview
 本機能は Quizeum に **グローバルなリスト探索画面**（`/lists`）を新設し、キーワード検索と公開/非公開タブ切り替えにより、ユーザーがクイズリスト・問題リストを発見し `/list/[id]` 詳細へ遷移できる導線を提供する。
 
@@ -396,3 +398,30 @@ export function useListsSearch(userId: string | undefined): UseListsSearchResult
 ## Supporting References
 - 詳細調査: `.kiro/specs/quizeum-lists-discovery-ui/research.md`
 - 参照 UI: `src/app/bookmarks/bookmarks-client.tsx`, `src/components/profile/profile-list-card.tsx`
+
+---
+
+## Phase 26: スペック obsolete 化
+
+### 1. Overview
+
+本スペックで設計・実装された `/lists` 探索 UI（`ListsClient`、`useListsSearch`、リスト探索コンポーネント群）は、Phase 26 リスト機能完全廃止により **すべて削除対象** となる。本 design 文書は obsolete として凍結し、新規実装の根拠に使用しない。
+
+### 2. 削除対象（play-flow-ui / core Phase 26 が実行）
+
+| パス | 操作 |
+|------|------|
+| `src/app/lists/` | Delete |
+| `src/components/lists/` または `lists-discovery/` | Delete |
+| `src/hooks/useListsSearch.ts` | Delete |
+| `e2e/lists-discovery.spec.ts` | Delete |
+| `tests/hooks/useListsSearch.test.ts` | Delete |
+| `tests/components/lists-discovery/` | Delete |
+
+### 3. 関連スペック
+
+- `quizeum-ui-discovery` Phase 26 — リスト探索を Phase 24 移行スコープから除外
+- `quizeum-sidebar-layout` — Sidebar「リスト」ナビ除去
+- `quizeum-core` Phase 26 — `searchLists` API 削除
+
+**Document Status（Phase 26 設計）**: **OBSOLETE**。本節以降の設計は履歴参照のみ。

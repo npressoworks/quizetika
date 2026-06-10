@@ -22,7 +22,6 @@ export const MY_QUIZ_TABLE_PAGE_SIZE = 100;
 const SOURCE_LABELS: Record<MyQuizSource, string> = {
   own: '自作',
   'bookmarked-quiz': 'BMクイズ',
-  'bookmarked-list': 'BMリスト',
   'bookmarked-question': 'BM問題',
 };
 

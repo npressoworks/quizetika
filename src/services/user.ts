@@ -16,7 +16,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { usersRef, followsRef, quizzesRef, quizListsRef } from '../lib/firebase/firestore';
+import { usersRef, followsRef, quizzesRef } from '../lib/firebase/firestore';
 import { auth } from '../lib/firebase/config';
 import { User, Follow, Badge } from '../types';
 import { resolveSubscriptionTier } from '@/lib/subscription-plans';

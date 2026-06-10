@@ -3140,3 +3140,186 @@ function isSingleQuestionAttemptMode(mode: Attempt['mode']): boolean {
 **Effort**: **M**（2〜3日）
 
 **Document Status（Phase 23 設計）**: 本節に反映。
+
+---
+
+## Phase 26: リスト機能の完全廃止（Core）
+
+### 1. Overview
+
+Phase 26 は Phase 8 / Phase 23 で追加した `quizLists` エコシステムをコア層から除去する。`searchLists`・リスト CRUD・`question-list-session`・リストブックマーク・`list` / `question-list` の新規試行保存を廃止し、マイグレーションで `quizLists` と `targetType=list` ブックマークを削除する。`my-quiz`（3ソース）・クイズ/問題ブックマーク・参照リンク作問は維持する。
+
+**設計確定（要件 26.15）**:
+- 過去 `attempts`（`mode=list|question-list`）は**物理削除しない**。プレイ履歴 API は返却し、表示ラベルは **`レガシープレイ`** に正規化（`play-history-client.ts` と API マッパーで共通化）。
+
+### 2. Boundary Commitments（Phase 26）
+
+| Owns | Out |
+|------|-----|
+| 型・サービス・Rules・Indexes からリスト関連除去 | `/lists`・`/list/*` UI（play-flow / creator-dash） |
+| `scripts/migrate-delete-quizlists.mjs` | Sidebar「リスト」ナビ（sidebar-layout） |
+| `saveAttempt` の `list` / `question-list` 新規拒否 | プロフィール「作成したリスト」（auth-profile） |
+| `buildMyQuizQuestionPool` 3ソース化 | 既存 `attempts` ドキュメント削除 |
+
+**Allowed dependencies**: 既存 `bookmark.ts`（quiz/question）、`my-quiz-session.ts`、`author-quiz-search.ts` は維持。
+
+**Revalidation triggers**: `BookmarkFeed` 型変更、`Attempt.mode` 保存拒否、`MyQuizPoolFlags` から `bookmarkedLists` 削除は隣接 UI スペックの再検証が必要。
+
+### 3. Architecture
+
+```mermaid
+flowchart LR
+  subgraph Remove["削除対象"]
+    QL[quiz-list.ts]
+    QLS[question-list-session.ts]
+    QLV[question-list-validation.ts]
+    FS[(quizLists)]
+  end
+  subgraph Keep["維持"]
+    BM[bookmark.ts quiz/question]
+    MQP[my-quiz-pool.ts 3ソース]
+    MQS[my-quiz-session.ts]
+    SA[saveAttempt my-quiz only]
+  end
+  UI[隣接 UI] --> BM
+  UI --> MQP
+  UI --> MQS
+  UI --> SA
+  Migrate[migrate-delete-quizlists.mjs] --> FS
+```
+
+**実装順序（ビルド整合）**:
+1. 型・`saveAttempt` 拒否・`bookmark` 縮小・`my-quiz-pool` 3ソース化
+2. サービスファイル削除・import 掃除
+3. Rules / Indexes 更新
+4. マイグレーションスクリプト（ステージング検証後に本番）
+
+### 4. Data Models & Contracts
+
+#### 4.1 型変更（`src/types/index.ts`）
+
+| 削除 | 変更 |
+|------|------|
+| `QuizList`, `QuizListType` | — |
+| `Bookmark.targetType` の `'list'` | `'quiz' \| 'question'` のみ |
+| `BookmarkFeed.lists` | フィールド削除 |
+| `resolveListType()` | 関数削除 |
+| `satisfiesQuestionListAttemptContract()` | 関数削除 |
+
+`Attempt.mode` は **読み取り用** に `'list' \| 'question-list'` を union に残す（既存履歴）。`saveAttempt` は新規書き込み時に拒否。
+
+```typescript
+const DEPRECATED_PLAY_MODES = ['list', 'question-list'] as const;
+
+export function assertPlayModeAllowedForSave(mode: Attempt['mode']): void {
+  if ((DEPRECATED_PLAY_MODES as readonly string[]).includes(mode)) {
+    throw new Error('LIST_PLAY_MODE_DEPRECATED');
+  }
+}
+```
+
+#### 4.2 ブックマーク（`src/services/bookmark.ts`）
+
+- `toggleBookmark(targetType)` — `list` を即拒否（`INVALID_BOOKMARK_TARGET`）
+- `getBookmarkFeed()` — `lists` 配列を返さない（`{ quizzes, questions }` のみ）
+- `getBookmarkedLists` / `fetchPublishedListsByDocIds` — **削除**
+
+#### 4.3 マイクイズプール（`src/lib/my-quiz-pool.ts`）
+
+```typescript
+export type MyQuizPoolFlags = {
+  own: boolean;
+  bookmarkedQuizzes: boolean;
+  bookmarkedQuestions: boolean;
+  // bookmarkedLists: 削除
+};
+```
+
+`collectBookmarkedLists` 分岐を削除。dedupe 優先順: `own` → `bookmarkedQuizzes` → `bookmarkedQuestions`（既存規則維持）。
+
+#### 4.4 プレイ履歴ラベル
+
+```typescript
+// src/lib/play-history-client.ts
+const LEGACY_PLAY_MODE_LABELS: Partial<Record<Attempt['mode'], string>> = {
+  list: 'レガシープレイ',
+  'question-list': 'レガシープレイ',
+};
+```
+
+`listUserPlayHistory` 応答に `displayModeLabel` を付与するか、クライアントが `mode` から導出（**正本: lib 1か所**）。
+
+#### 4.5 マイグレーション（`scripts/migrate-delete-quizlists.mjs`）
+
+- Firebase Admin SDK（`reset-firestore.mjs` と同型の env 読み込み）
+- `quizLists` 全件: `listDocuments` + `batch.delete`（500件/バッチ）
+- `bookmarks` where `targetType == 'list'`: 同上
+- `--dry-run` フラグで件数のみ出力
+- 本番実行前にステージングで検証必須
+
+#### 4.6 Firestore
+
+- `firestore.rules`: `match /quizLists/{listId}` ブロック削除
+- `firestore.indexes.json`: `collectionGroup: quizLists` エントリ4件削除
+- `src/lib/firebase/firestore.ts`: `quizListsRef` 削除
+
+### 5. File Structure Plan（Phase 26）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/services/quiz-list.ts` | **Delete** | リスト CRUD / searchLists |
+| `src/services/quiz-list-utils.ts` | **Delete** | リストエクスポート |
+| `src/lib/question-list-session.ts` | **Delete** | 問題リスト連続プレイ |
+| `src/lib/question-list-validation.ts` | **Delete** | listType 検証 |
+| `src/lib/profile-list-display.ts` | **Delete** | プロフィール用ラベル |
+| `src/types/index.ts` | **Modify** | 型縮小 |
+| `src/services/bookmark.ts` | **Modify** | 2分類のみ |
+| `src/services/attempt.ts` | **Modify** | 廃止モード拒否、契約関数削除 |
+| `src/services/attempt-session.ts` | **Modify** | `listId` 除去 |
+| `src/services/question.ts` | **Modify** | `add/removeQuestionFromList` 削除 |
+| `src/lib/my-quiz-pool.ts` | **Modify** | 3ソース |
+| `src/lib/play-history-client.ts` | **Modify** | レガシーラベル |
+| `src/lib/firebase/firestore.ts` | **Modify** | `quizListsRef` 削除 |
+| `src/services/user.ts` | **Modify** | 退会時リスト匿名化削除 |
+| `src/app/api/user/delete-account/route.ts` | **Modify** | `quizLists` 参照削除 |
+| `firestore.rules` | **Modify** | quizLists ルール削除 |
+| `firestore.indexes.json` | **Modify** | quizLists インデックス削除 |
+| `scripts/migrate-delete-quizlists.mjs` | **New** | データ削除 |
+| `tests/services/search-lists.test.ts` | **Delete** | — |
+| `tests/services/quiz-list-*.test.ts` | **Delete** | — |
+| `tests/lib/question-list-*.test.ts` | **Delete** | — |
+| `tests/lib/my-quiz-pool.test.ts` | **Modify** | 3ソース |
+| `tests/services/bookmark.test.ts` | **Modify** | list 拒否 |
+| `tests/services/attempt.test.ts` | **Modify** | 廃止モード拒否 |
+| `tests/lib/leaderboard-update.test.ts` | **Modify** | list モード除外 |
+
+**変更なし（名前注意）**: `QuizListSort`（探索ソート）、`QuizListSkeleton`（ダッシュボードクイズ一覧）はリスト機能と無関係 — 削除しない。
+
+### 6. Requirements Traceability（Phase 26）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 26.1–26.2 | API/型除去 | ファイル削除、`types/index.ts` |
+| 26.3–26.4 | ブックマーク2分類 | `bookmark.ts` |
+| 26.5–26.6 | 新規試行拒否 | `attempt.ts` `assertPlayModeAllowedForSave` |
+| 26.7 | 3ソースプール | `my-quiz-pool.ts` |
+| 26.8–26.11 | データ・Rules | migration script, rules, indexes |
+| 26.12–26.13 | 退会・BAN | `user.ts`, rules |
+| 26.14–26.15 | 履歴維持・ラベル | `play-history-client.ts`, `listUserPlayHistory` |
+| 26.16–26.18 | 境界 Out | 隣接 UI |
+
+### 7. Testing Strategy（Phase 26）
+
+| 種別 | 検証 |
+|------|------|
+| **Unit** | `toggleBookmark('list')` → reject |
+| **Unit** | `saveAttempt({ mode: 'list' })` → reject |
+| **Unit** | `buildMyQuizQuestionPool` — `bookmarkedLists` フラグなし |
+| **Unit** | `formatPlayHistoryMode('list')` → `レガシープレイ` |
+| **Integration** | migration dry-run が件数を返す（emulator） |
+| **Regression** | `my-quiz` / `question` bookmark 従来動作 |
+| **Regression** | `saveAttempt({ mode: 'my-quiz' })` 成功 |
+
+**Effort**: **M**（2〜3日、UI スペックと同一 PR または Core 先行マージ推奨）
+
+**Document Status（Phase 26 設計）**: 本節に反映。Phase 8 / Phase 23 のリスト関連節は **廃止**（履歴参照のみ）。

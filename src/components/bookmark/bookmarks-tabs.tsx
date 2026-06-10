@@ -11,7 +11,6 @@ interface BookmarksTabsProps {
 
 const TABS: { id: BookmarkTab; label: string; testId: string }[] = [
   { id: 'quiz', label: 'クイズ', testId: 'bookmarks-tab-quiz' },
-  { id: 'list', label: 'リスト', testId: 'bookmarks-tab-list' },
   { id: 'question', label: '問題', testId: 'bookmarks-tab-question' },
 ];
 

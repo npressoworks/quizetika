@@ -81,22 +81,40 @@ describe('saveAttempt - 1問単位モード', () => {
     expect(tx.set).toHaveBeenCalledTimes(1);
   });
 
-  test('question-list: 親クイズ10問でも totalQuestions:1 で保存成功する（回帰）', async () => {
-    const tx = setupTransaction();
-    const attemptId = await saveAttempt({
-      userId,
-      quizId,
-      listId: 'list-1',
-      mode: 'question-list',
-      score: 0,
-      totalQuestions: 1,
-      elapsedSeconds: 5,
-      failedQuestionIds: ['q3'],
-      aiTurnCount: 0,
-      aiTurnLimit: null,
-    });
-    expect(attemptId).toBeDefined();
-    expect(tx.set).toHaveBeenCalledTimes(1);
+  test('question-list: 新規保存は拒否する', async () => {
+    setupTransaction();
+    await expect(
+      saveAttempt({
+        userId,
+        quizId,
+        listId: 'list-1',
+        mode: 'question-list',
+        score: 0,
+        totalQuestions: 1,
+        elapsedSeconds: 5,
+        failedQuestionIds: ['q3'],
+        aiTurnCount: 0,
+        aiTurnLimit: null,
+      })
+    ).rejects.toThrow('LIST_PLAY_MODE_DEPRECATED');
+  });
+
+  test('list: 新規保存は拒否する', async () => {
+    setupTransaction();
+    await expect(
+      saveAttempt({
+        userId,
+        quizId,
+        listId: 'list-1',
+        mode: 'list',
+        score: 1,
+        totalQuestions: 10,
+        elapsedSeconds: 5,
+        failedQuestionIds: [],
+        aiTurnCount: 0,
+        aiTurnLimit: null,
+      })
+    ).rejects.toThrow('LIST_PLAY_MODE_DEPRECATED');
   });
 
   test('my-quiz: 存在しない failedQuestionIds で reject する', async () => {

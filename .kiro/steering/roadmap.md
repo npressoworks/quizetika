@@ -978,3 +978,74 @@ Quizeum 全体の UI を shadcn/ui + Tailwind CSS で再構築する。既存の
 
 ## Specs (dependency order)
 - [ ] quizeum-ai-quiz-authoring -- Gemini AI 作問（10問一括）とサムネ生成の Pro 限定 UX・API 契約・レート制限。Dependencies: quizeum-core（エンタイトルメント・既存型）
+
+---
+
+## Phase 26: リスト機能の完全廃止（2026-06-10 ディスカバリー）
+
+### Overview（本フェーズ）
+Phase 8 / Phase 23 で導入した **クイズリスト・問題リスト** 機能（`quizLists` コレクション、`list` / `question-list` プレイモード、リスト探索・作成・編集・ブックマーク・プロフィール表示・マイクイズのブックマークリストソース）を **完全廃止** する。UI・API・型・Firestore Rules/Indexes を削除し、関連データ（`quizLists`、`targetType=list` のブックマーク）をマイグレーションスクリプトで削除する。ブックマークのクイズ/問題、マイクイズ（自作・ブックマーククイズ・ブックマーク問題ソース）、問題参照リンク作問は **維持** する。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: Core-first 垂直削除 — データ層・型・Rules・マイグレーションを先に正し、その後 UI ドメイン別に並列削除
+- **Why**: `quizLists` に依存する UI/API が多岐にわたる。Core を先に削除しないと中間状態でビルド破綻や幽霊導線が残る。既存スペック境界（core / play-flow / creator-dash 等）に沿った Path E 分解で、Phase 23 の `quizeum-lists-discovery-ui` を含むリスト関連要件を一括で無効化できる。
+- **Rejected alternatives**:
+  - **UI のみ先行削除（データ残存）**: ユーザー確認により却下。`quizLists` データと Rules が残り保守コストが継続する。
+  - **単一 `quizeum-lists-removal` 新規スペック**: 20タスク超・7スペック横断のため、既存スペック更新の方がレビュー境界と所有権が明確。
+  - **段階的廃止（プレイのみ残す）**: ユーザー確認の full_scope により却下。
+
+### Scope（本フェーズ）
+- **In**:
+  - **ルート削除**: `/lists`, `/list/create`, `/list/[id]`, `/list/[id]/edit`
+  - **Core 削除**: `quiz-list.ts`, `quiz-list-utils.ts`, `question-list-session.ts`, `question-list-validation.ts`, `searchLists`, リスト CRUD、問題リスト CRUD、リストブックマーク API、`Attempt.mode` の `list` / `question-list`、`listId` フィールド（新規保存停止）、`QuizList` / `QuizListType` 型
+  - **Firestore**: `quizLists` コレクション Rules/Indexes 削除、マイグレーションスクリプト（`quizLists` 全削除、`bookmarks` の `targetType=list` 削除）
+  - **UI 削除**: サイドバー/ヘッダー「リスト」ナビ、ブックマーク「リスト」タブ、プロフィール「作成したリスト」、リストエディタ・探索コンポーネント、作家ダッシュボード「リスト作成」CTA
+  - **プレイ削除**: `mode=list` / `question-list` の開始導線・結果画面のリスト内次へナビ・`question-list-session`
+  - **マイクイズ**: `bookmarkedLists` / `bookmarked-list` ソースの除去（4ソース → 3ソース）
+  - **スペック**: `quizeum-lists-discovery-ui` を obsolete 化、Phase 8/23/24 のリスト関連要件を各スペックから削除または deprecated マーク
+  - **docs 同期**: `db_design.md`, `api_specification.md`, `detailed_design.md`, `screen_transition.md`, `requirements_definition.md`, `product.md`（コア機能記述）
+  - **テスト/E2E**: リスト専用テスト削除、横断テストのリスト参照除去
+- **Out**:
+  - 既存 `attempts` ドキュメントの物理削除（履歴データは残す。`mode=list|question-list` の過去レコードは表示ラベルを汎用化するか非表示 — design で確定）
+  - ブックマーク（クイズ・問題）機能の廃止
+  - マイクイズ機能自体の廃止
+  - 問題参照リンク作問（`sourceQuestionId`）の廃止
+  - 名前が紛らわしい別機能: `QuizListSkeleton`（ダッシュボードクイズ一覧）、`QuizListSort`（探索ソート）、`sortable-sorting-list`（並べ替え問題タイプ）、`listActiveTags` 等
+
+### Constraints（本フェーズ）
+- **データ削除**: 本番適用前にステージングでマイグレーション検証。バッチ削除は Firestore 500件制限に従う
+- **ビルド整合**: Core 削除コミット後、参照する UI スペックは同一 PR または依存順で追随し、中間状態の main 破綻を避ける
+- **後方互換**: 廃止後は `/list/*` `/lists` は 404 または `/` リダイレクト（design で確定）
+- **機能維持**: ブックマークはクイズ/問題の2タブに集約。マイクイズは自作・ブックマーククイズ・ブックマーク問題の3ソース
+
+### Boundary Strategy（本フェーズ）
+- **quizeum-core**: 型・サービス・Rules・Indexes・マイグレーション・attempt 契約からリスト関連を除去
+- **quizeum-play-flow-ui**: ブックマークリストタブ、リストプレイ導線、結果ナビ
+- **quizeum-creator-dash-ui**: リストエディタ、作成 CTA、エクスポート
+- **quizeum-auth-profile-ui** / **quizeum-ui-personal**: プロフィールリストタブ
+- **quizeum-my-quiz-ui**: ブックマークリストソース除去
+- **quizeum-sidebar-layout** / **quizeum-ui-layout-shell**: ナビ項目削除
+- **quizeum-ui-editor**: リストエディタ UI 削除
+- **quizeum-ui-discovery**: `/lists` 探索 UI 削除
+- **quizeum-lists-discovery-ui**: **obsolete** — 新規実装・要件追加は行わない。既存 tasks はキャンセル扱い
+- **Shared seam**: マイグレーションスクリプトは Core 管轄の `scripts/` に1か所集約
+
+## Existing Spec Updates（Phase 26・依存順）
+- [ ] quizeum-core -- `quizLists` サービス/型/Rules/Indexes 削除、`searchLists` 削除、リストブックマーク削除、attempt `list`/`question-list` 契約削除、データマイグレーションスクリプト。Dependencies: none
+- [ ] quizeum-play-flow-ui -- ブックマーク「リスト」タブ削除、リストプレイ/結果ナビ削除、関連 E2E 更新。Dependencies: quizeum-core
+- [ ] quizeum-creator-dash-ui -- リスト作成/編集 UI・CTA・エクスポート削除。Dependencies: quizeum-core
+- [ ] quizeum-auth-profile-ui -- プロフィール「作成したリスト」削除。Dependencies: quizeum-core
+- [ ] quizeum-my-quiz-ui -- `bookmarkedLists` ソース除去、3ソース UI へ改定。Dependencies: quizeum-core
+- [ ] quizeum-sidebar-layout -- 「リスト」ナビ削除、active 判定整理。Dependencies: none（ルート削除後）
+- [ ] quizeum-ui-editor -- リストエディタコンポーネント削除。Dependencies: quizeum-core
+- [ ] quizeum-ui-discovery -- `/lists` 探索 UI 削除。Dependencies: quizeum-core
+- [ ] quizeum-lists-discovery-ui -- **obsolete 化**（要件・タスクを cancelled 扱い、spec に廃止注記）。Dependencies: 上記完了後
+
+## Direct Implementation Candidates（Phase 26）
+- [ ] migrate-delete-quizlists -- `scripts/` マイグレーション: `quizLists` 全削除 + `bookmarks(targetType=list)` 削除
+- [ ] docs-sync-lists-removal -- `docs/*` と `.kiro/steering/product.md` からリスト機能記述を削除
+- [ ] e2e-cleanup-lists -- `e2e/lists-discovery.spec.ts`, `e2e/quiz-list.spec.ts`, `phase8.spec.ts` リスト部分の削除/更新
+- [ ] obsolete-lists-discovery-spec -- `quizeum-lists-discovery-ui/spec.json` に `obsolete: true` または phase 注記
+
+## Specs (dependency order)
+（Phase 26 では新規 spec なし — 上記 Existing Spec Updates のみ）
