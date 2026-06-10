@@ -800,13 +800,13 @@ export function QuizResultClient({
           gap: '20px',
           flexWrap: 'wrap',
           boxShadow: '0 0 20px rgba(0, 245, 212, 0.05)',
-          borderLeft: '4px solid #00f5d4',
+          borderLeft: '4px solid var(--color-accent)',
           marginTop: '8px',
           marginBottom: '8px'
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'bold', marginBottom: '4px' }}>⚡ 平均早押しタイム</span>
-            <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#00f5d4' }}>{averagePressTime} <span style={{ fontSize: '1rem' }}>秒</span></span>
+            <span style={{ fontSize: '1.8rem', fontWeight: 'bold', color: 'var(--color-accent)' }}>{averagePressTime} <span style={{ fontSize: '1rem' }}>秒</span></span>
           </div>
           <div style={{ width: '1px', height: '40px', background: 'var(--border-light)' }}></div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -926,7 +926,7 @@ export function QuizResultClient({
               </button>
             ) : isLastInMyQuiz ? (
               <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
-                <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
+                <p style={{ color: 'var(--color-accent)', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
                   マイクイズを完了しました！
                 </p>
                 <Link href="/my-quiz" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -961,7 +961,7 @@ export function QuizResultClient({
                 </button>
               ) : isLastInQuestionList ? (
                 <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
-                  <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
+                  <p style={{ color: 'var(--color-accent)', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
                     🎉 問題リストのすべての問題を完遂しました！
                   </p>
                   <Link
@@ -990,7 +990,7 @@ export function QuizResultClient({
               </button>
             ) : isLastInList ? (
               <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
-                <p style={{ color: '#00f5d4', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
+                <p style={{ color: 'var(--color-accent)', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
                   🎉 おめでとうございます！リストのすべてのクイズを完遂しました！
                 </p>
                 <Link
@@ -1036,7 +1036,7 @@ export function QuizResultClient({
                       display: 'inline-flex',
                       alignItems: 'center',
                       background: 'rgba(0, 245, 212, 0.12)',
-                      color: '#00f5d4',
+                      color: 'var(--color-accent)',
                       border: '1px solid rgba(0, 245, 212, 0.25)',
                       padding: '4px 8px',
                       borderRadius: '4px',
@@ -1159,7 +1159,7 @@ export function QuizResultClient({
             </h3>
 
             {feedbackSubmitted ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#00f5d4' }}>
+              <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--color-accent)' }}>
                 <CheckCircle size={32} style={{ margin: '0 auto 12px' }} />
                 指摘レポートを送信しました。ご協力ありがとうございました！
               </div>

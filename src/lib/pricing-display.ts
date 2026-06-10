@@ -34,6 +34,10 @@ export const PRICING_PLANS_DISPLAY: readonly PricingPlanDisplay[] = [
         id: 'unlimited_ai_questions',
         label: 'ウミガメAIへの質問が日次制限なし',
       },
+      {
+        id: 'ai_quiz_authoring',
+        label: 'AI 作問（1日100回）・サムネイル AI 生成（1日20回）',
+      },
     ],
   },
 ] as const;

@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Image, Info } from 'lucide-react';
+import { Image, Info, Loader2, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import { DifficultyVoteStars } from '@/components/quiz/difficulty-vote-stars';
 import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
@@ -23,7 +24,11 @@ export interface QuizMetadataSectionProps {
   genresError: string | null;
   onTitleChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
-  onThumbnailTrigger: () => void;
+  onAiThumbnailGenerate?: () => void;
+  isAiThumbnailGenerating?: boolean;
+  canUseAiThumbnail?: boolean;
+  aiThumbnailUsageLabel?: string;
+  aiThumbnailError?: string | null;
   onDifficultyChange: (value: number | null) => void;
   onGenreChange: (value: string) => void;
   onGenresRetry: () => void;
@@ -48,7 +53,11 @@ export function QuizMetadataSection({
   genresError,
   onTitleChange,
   onDescriptionChange,
-  onThumbnailTrigger,
+  onAiThumbnailGenerate,
+  isAiThumbnailGenerating = false,
+  canUseAiThumbnail = false,
+  aiThumbnailUsageLabel,
+  aiThumbnailError,
   onDifficultyChange,
   onGenreChange,
   onGenresRetry,
@@ -101,16 +110,52 @@ export function QuizMetadataSection({
         <div className={editorClasses.metaGrid}>
           <div className={editorClasses.formGroup}>
             <label className={editorClasses.label}>サムネイル画像</label>
-            <div className={editorClasses.thumbnailUpload} onClick={onThumbnailTrigger}>
+            <div className={editorClasses.thumbnailUpload}>
               {thumbnailUrl ? (
                 <img src={thumbnailUrl} alt="Thumbnail preview" className={editorClasses.thumbnailPreview} />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <Image size={32} />
-                  <span className="text-sm">クリックしてサムネイルを自動生成</span>
+                  <span className="text-sm">AI でサムネイルを生成</span>
                 </div>
               )}
             </div>
+            {canUseAiThumbnail && (
+              <div className="mt-2 flex flex-col gap-2">
+                {aiThumbnailUsageLabel && (
+                  <span className="text-xs text-muted-foreground">{aiThumbnailUsageLabel}</span>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  data-testid="ai-thumbnail-generate-button"
+                  disabled={isAiThumbnailGenerating || !title.trim() || !description.trim()}
+                  onClick={onAiThumbnailGenerate}
+                  className="w-fit"
+                >
+                  {isAiThumbnailGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      生成中…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      AI でサムネイル生成
+                    </>
+                  )}
+                </Button>
+                {!title.trim() || !description.trim() ? (
+                  <p className="text-xs text-muted-foreground">
+                    タイトルと説明文を入力するとサムネイルを生成できます
+                  </p>
+                ) : null}
+                {aiThumbnailError && (
+                  <p className="text-xs text-destructive">{aiThumbnailError}</p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-5">

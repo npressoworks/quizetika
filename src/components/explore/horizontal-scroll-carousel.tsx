@@ -15,8 +15,7 @@ export function HorizontalScrollCarousel({
   return (
     <div
       className={cn(
-        'flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-0.5 pb-3 [-webkit-overflow-scrolling:touch]',
-        '[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border',
+        'horizontal-scroll-carousel flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-0.5 pb-4 [-webkit-overflow-scrolling:touch]',
         className
       )}
       data-testid={testId}

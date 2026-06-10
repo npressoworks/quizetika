@@ -8,6 +8,8 @@
 
 import { Quiz, Question } from '../types';
 import { isReferenceLinkQuestion } from '../lib/linked-question';
+import { MIXED_ALLOWED_QUESTION_TYPES } from './ai-authoring-types';
+import type { QuizFormat } from '../lib/quiz-format';
 import {
   normalizeTrueFalseChoices,
   type TrueFalseCorrectSide,
@@ -501,6 +503,50 @@ export function validateQuizForPublish(quiz: Quiz): QuizPublishValidationError[]
       break; // 最初の検出で打ち切り（重複エラーを防ぐ）
     }
   }
+
+  return errors;
+}
+
+/**
+ * AI 生成問題の一括検証（作問 API 422 判定用）
+ */
+export function validateGeneratedQuestions(
+  questions: Question[],
+  format: QuizFormat
+): QuizPublishValidationError[] {
+  const errors: QuizPublishValidationError[] = [];
+
+  questions.forEach((q, idx) => {
+    if (isReferenceLinkQuestion(q)) return;
+    errors.push(...collectQuestionValidationErrors(q, idx));
+
+    if (format === 'mixed') {
+      if (!MIXED_ALLOWED_QUESTION_TYPES.includes(q.type as typeof MIXED_ALLOWED_QUESTION_TYPES[number])) {
+        errors.push({
+          field: 'questions',
+          message: `問題タイプ「${q.type}」は、複合クイズ形式では許可されていません`,
+          questionIndex: idx,
+          questionField: 'type',
+        });
+      }
+    } else if (format === 'multiple-choice') {
+      if (q.type !== 'multiple-choice' && q.type !== 'true-false') {
+        errors.push({
+          field: 'questions',
+          message: 'クイズ全体の形式（選択式）と一致していません',
+          questionIndex: idx,
+          questionField: 'type',
+        });
+      }
+    } else if (q.type !== format) {
+      errors.push({
+        field: 'questions',
+        message: 'クイズ全体の形式と一致していません',
+        questionIndex: idx,
+        questionField: 'type',
+      });
+    }
+  });
 
   return errors;
 }

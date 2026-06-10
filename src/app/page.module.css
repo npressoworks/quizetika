@@ -67,8 +67,8 @@
 }
 
 .searchInput:focus {
-  border-color: #00f2fe;
-  box-shadow: 0 0 15px rgba(0, 242, 254, 0.3);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 15px var(--color-accent-glow);
   outline: none;
 }
 
@@ -106,7 +106,7 @@
 
 .filterToggleBtn:hover {
   background: rgba(0, 242, 254, 0.1);
-  border-color: #00f2fe;
+  border-color: var(--color-accent);
   color: #fff;
 }
 
@@ -130,8 +130,8 @@
 }
 
 .quickChip {
-  background: rgba(157, 78, 221, 0.08);
-  border: 1px solid rgba(157, 78, 221, 0.25);
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
   color: #d8b4fe;
   border-radius: 14px;
   padding: 4px 12px;
@@ -141,7 +141,7 @@
 }
 
 .quickChip:hover {
-  background: rgba(157, 78, 221, 0.2);
+  background: rgba(59, 130, 246, 0.2);
   border-color: #d8b4fe;
   box-shadow: 0 0 8px rgba(216, 180, 254, 0.3);
   transform: translateY(-1px);
@@ -175,7 +175,7 @@
 .filterValue {
   font-size: 0.88rem;
   font-weight: 700;
-  color: #00f2fe;
+  color: var(--color-accent);
   letter-spacing: 0.02em;
 }
 
@@ -193,7 +193,7 @@
   top: 50%;
   transform: translateY(-50%);
   height: 4px;
-  background: linear-gradient(90deg, #00f2fe, #9d4edd);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-primary));
   border-radius: 2px;
   pointer-events: none;
   z-index: 1;
@@ -233,7 +233,7 @@
   height: 20px;
   border-radius: 50%;
   background: #fff;
-  border: 3px solid #00f2fe;
+  border: 3px solid var(--color-accent);
   box-shadow: 0 0 8px rgba(0, 242, 254, 0.5);
   pointer-events: all;
   cursor: pointer;
@@ -252,7 +252,7 @@
   height: 20px;
   border-radius: 50%;
   background: #fff;
-  border: 3px solid #00f2fe;
+  border: 3px solid var(--color-accent);
   box-shadow: 0 0 8px rgba(0, 242, 254, 0.5);
   pointer-events: all;
   cursor: pointer;
@@ -369,7 +369,7 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, #00f2fe, #9d4edd);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-primary));
   border-radius: 2px 2px 0 0;
   box-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
 }

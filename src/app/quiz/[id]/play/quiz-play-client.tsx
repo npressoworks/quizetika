@@ -1274,7 +1274,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                 <div className={styles.flashcardActionGrid} style={{ marginTop: '20px' }}>
                   <button
                     className="btn btn-primary"
-                    style={{ flex: 1, background: '#00f5d4', color: '#111' }}
+                    style={{ flex: 1, background: 'var(--color-accent)', color: 'var(--text-inverse)' }}
                     data-analytics="quiz-flashcard-correct"
                     onClick={() => {
                       // 自己申告: 分かった (正解)

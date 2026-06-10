@@ -19,6 +19,7 @@ describe('HorizontalScrollCarousel', () => {
     expect(carousel).toHaveClass('snap-x');
     expect(carousel).toHaveClass('snap-mandatory');
     expect(carousel).toHaveClass('overflow-x-auto');
+    expect(carousel).toHaveClass('horizontal-scroll-carousel');
   });
 
   it('merges custom className with scroll classes', () => {

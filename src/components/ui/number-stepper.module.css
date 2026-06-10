@@ -36,7 +36,7 @@
 
 .btn:hover:not(:disabled) {
   background: rgba(0, 242, 254, 0.12);
-  color: #00f2fe;
+  color: var(--color-accent);
 }
 
 .btn:active:not(:disabled) {

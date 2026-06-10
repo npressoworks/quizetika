@@ -48,6 +48,10 @@ import { QuizFormatSelector } from '@/components/quiz/editor/quiz-format-selecto
 import { QuizMetadataSection } from '@/components/quiz/editor/quiz-metadata-section';
 import { QuestionCard } from '@/components/quiz/editor/question-card';
 import { QuizEditorActionBar } from '@/components/quiz/editor/quiz-editor-action-bar';
+import { AiQuizAuthoringPanel } from '@/components/quiz/editor/ai-quiz-authoring-panel';
+import { AiQuizProUpsell } from '@/components/quiz/editor/ai-quiz-pro-upsell';
+import { useAiQuizAuthoring } from '@/hooks/useAiQuizAuthoring';
+import { hasUnlimitedAiQuestionsForUser } from '@/lib/pricing-entitlement';
 import type { QuestionEditorHandlers } from '@/components/quiz/editor/question-editor-types';
 import type { GenreMetadata, TagMetadata } from '@/types';
 
@@ -416,6 +420,27 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     () => new Set(questions.map((q) => q.id).filter(Boolean) as string[]),
     [questions]
   );
+
+  const canUseAiAuthoring = hasUnlimitedAiQuestionsForUser(user);
+  const editorPath = quizId ? `/quiz/${quizId}/edit` : '/quiz/create';
+
+  const aiAuthoring = useAiQuizAuthoring({
+    userId: user?.id,
+    isProUser: canUseAiAuthoring,
+    quizId,
+    onAppendQuestions: (generated) => {
+      setQuestions((prev) => [...prev, ...generated]);
+    },
+    onSetThumbnailUrl: setThumbnailUrl,
+  });
+
+  const aiThumbnailUsageLabel =
+    aiAuthoring.usageThumbnail
+      ? aiAuthoring.usageThumbnail.limit === null ||
+        aiAuthoring.usageThumbnail.remainingToday === null
+        ? `本日のサムネ: 無制限（${aiAuthoring.usageThumbnail.usedToday}回使用）`
+        : `本日のサムネ残り: ${aiAuthoring.usageThumbnail.remainingToday}/${aiAuthoring.usageThumbnail.limit}回`
+      : undefined;
 
   const handleLinkReferenceQuestion = (question: Question) => {
     if (linkedQuestionIds.has(question.id)) {
@@ -889,12 +914,6 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     setOriginalTags(originalTags.filter((_, i) => i !== idx));
   };
 
-  // サムネイル用ダミーアップロード
-  const triggerThumbnail = () => {
-    const dummyUrl = `https://picsum.photos/seed/${Math.random().toString(36).substring(7)}/600/400`;
-    setThumbnailUrl(dummyUrl);
-  };
-
   const handleTestPlay = () => {
     if (!user) {
       alert('ログインが必要です。');
@@ -1166,7 +1185,11 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           genresError={genresError}
           onTitleChange={setTitle}
           onDescriptionChange={setDescription}
-          onThumbnailTrigger={triggerThumbnail}
+          onAiThumbnailGenerate={() => aiAuthoring.generateThumbnail(title, description)}
+          isAiThumbnailGenerating={aiAuthoring.isGeneratingThumbnail}
+          canUseAiThumbnail={canUseAiAuthoring}
+          aiThumbnailUsageLabel={aiThumbnailUsageLabel}
+          aiThumbnailError={aiAuthoring.errorMessage}
           onDifficultyChange={setDifficulty}
           onGenreChange={setGenre}
           onGenresRetry={refetchGenres}
@@ -1178,6 +1201,26 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           onApplySuggestedTag={applySuggestedTag}
           onRemoveTag={handleRemoveTag}
         />
+
+        {canUseAiAuthoring ? (
+          <AiQuizAuthoringPanel
+            format={format}
+            isGenerating={aiAuthoring.isGeneratingQuestions}
+            isUsageLoading={aiAuthoring.isUsageLoading}
+            usageQuestions={aiAuthoring.usageQuestions}
+            errorMessage={aiAuthoring.errorMessage}
+            onGenerate={(prompt) =>
+              aiAuthoring.generateQuestions(prompt, format, {
+                title,
+                description,
+                genre,
+              })
+            }
+            onClearError={aiAuthoring.clearError}
+          />
+        ) : (
+          <AiQuizProUpsell isLoggedIn={!!user} redirectPath={editorPath} />
+        )}
 
         <div className={styles.editorCard} id="questions-section">
           <div className={styles.questionHeader}>

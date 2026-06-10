@@ -52,9 +52,20 @@ export function QuizCard({
             <span className="text-4xl">💡</span>
           </div>
         )}
+        <div
+          className="absolute top-2 left-2 z-10"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <FormatLabel
+            format={formatValue}
+            testId="quiz-card-format"
+            className="cursor-help border-border bg-background/80 backdrop-blur-sm shadow-sm"
+          />
+        </div>
         <button
           className={cn(
-            'absolute top-2 right-2 rounded-full border border-border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted',
+            'absolute top-2 right-2 z-10 rounded-full border border-border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted',
             isBookmarked && 'text-emerald-500'
           )}
           onClick={handleBookmarkClick}
@@ -69,20 +80,21 @@ export function QuizCard({
             fill={isBookmarked ? '#00ff66' : 'none'}
           />
         </button>
+        {quiz.reviewScore != null && (
+          <span
+            className="absolute right-2 bottom-2 z-10 flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur-sm shadow-sm"
+            data-testid="quiz-card-review-score"
+          >
+            <ThumbsUp size={12} aria-hidden />
+            {formatReviewScorePercent(quiz.reviewScore)}
+          </span>
+        )}
       </div>
 
-      <CardContent className="flex flex-1 flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-2 min-h-[2.75rem] text-base font-semibold leading-snug text-foreground">
-            {quiz.title}
-          </h3>
-          {quiz.reviewScore != null && (
-            <span className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground" data-testid="quiz-card-review-score">
-              <ThumbsUp size={14} aria-hidden />
-              {formatReviewScorePercent(quiz.reviewScore)}
-            </span>
-          )}
-        </div>
+      <CardContent className="flex flex-1 flex-col gap-3 pt-(--card-spacing)">
+        <h3 className="line-clamp-2 min-h-[2.75rem] text-base font-semibold leading-snug text-foreground">
+          {quiz.title}
+        </h3>
 
         <p className="line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">{quiz.description}</p>
 
@@ -99,7 +111,6 @@ export function QuizCard({
           <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground" data-testid="quiz-card-genre">
             {genreLabel}
           </span>
-          <FormatLabel format={formatValue} testId="quiz-card-format" />
         </div>
 
         <Button
@@ -115,7 +126,13 @@ export function QuizCard({
     </>
   );
 
-  const cardClass = 'h-full overflow-hidden transition-shadow hover:shadow-md';
+  const cardClass = cn(
+    'h-full gap-0 overflow-hidden pt-0',
+    'transform-gpu backface-hidden',
+    'transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]',
+    'hover:-translate-y-2 hover:shadow-lg hover:shadow-primary/10 hover:ring-primary/25',
+    'motion-reduce:transition-none motion-reduce:hover:translate-y-0',
+  );
 
   if (href) {
     return (

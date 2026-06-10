@@ -75,7 +75,7 @@ const getBadgeIcon = (iconName: string) => {
 
 const TIER_BADGE_CLASS: Record<ModerationTierDisplayKey, string> = {
   admin: 'bg-red-500/10 text-red-600 border-red-500/20',
-  senior_moderator: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+  senior_moderator: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   moderator: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   contributor: 'bg-green-500/10 text-green-600 border-green-500/20',
   newcomer: 'bg-muted text-muted-foreground',

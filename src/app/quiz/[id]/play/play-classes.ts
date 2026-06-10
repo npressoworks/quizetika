@@ -112,7 +112,7 @@ export const playClasses = {
   quickPressDockActionSlot: 'w-full shrink-0',
   quickPressDockForm: 'flex w-full gap-3',
   quickPressBtn:
-    'btn w-full animate-pulse cursor-pointer rounded-xl border-none bg-linear-to-br from-pink-500 to-violet-600 px-6 py-6 text-2xl font-bold tracking-wider text-white shadow-lg',
+    'btn w-full animate-pulse cursor-pointer rounded-xl border-none bg-linear-to-br from-blue-500 to-blue-700 px-6 py-6 text-2xl font-bold tracking-wider text-white shadow-lg',
   startReadingBtn:
     'btn w-full animate-pulse cursor-pointer rounded-xl border-none bg-linear-to-br from-teal-400 to-sky-500 px-6 py-6 text-2xl font-bold tracking-wider text-gray-900 shadow-lg',
   quickPressSkipBtn: 'w-full',

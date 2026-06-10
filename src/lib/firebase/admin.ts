@@ -1,5 +1,6 @@
 import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import { getStorage, type Storage } from 'firebase-admin/storage';
 
 let adminApp: App | undefined;
 
@@ -34,4 +35,9 @@ function initAdminApp(): App {
 /** Rules をバイパスする特権 Firestore（サーバー API 専用） */
 export function getAdminFirestore(): Firestore {
   return getFirestore(initAdminApp());
+}
+
+/** Rules をバイパスする特権 Storage（サーバー API 専用） */
+export function getAdminStorage(): Storage {
+  return getStorage(initAdminApp());
 }

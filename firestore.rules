@@ -482,5 +482,13 @@ service cloud.firestore {
     match /stripe_processed_events/{eventId} {
       allow read, write: if false;
     }
+
+    // -----------------------------------------------------------------
+    // dailyAiAuthoringCounts（AI 作問・サムネ日次カウンタ）
+    // -----------------------------------------------------------------
+    match /users/{userId}/dailyAiAuthoringCounts/{docId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
   }
 }

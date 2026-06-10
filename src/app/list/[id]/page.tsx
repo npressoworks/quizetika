@@ -262,7 +262,10 @@ export default function QuizListDetailPage() {
                   key={quiz.id}
                   size="sm"
                   className={cn(
-                    'py-4 transition-transform hover:translate-x-1 hover:border-primary/40'
+                    'py-4 transform-gpu backface-hidden',
+                    'transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]',
+                    'hover:-translate-y-1 hover:shadow-md hover:shadow-primary/10 hover:ring-primary/25',
+                    'motion-reduce:transition-none motion-reduce:hover:translate-y-0',
                   )}
                 >
                   <CardContent className="flex items-center justify-between gap-4">

@@ -918,3 +918,63 @@ Quizeum 全体の UI を shadcn/ui + Tailwind CSS で再構築する。既存の
 - [x] quizeum-ui-quiz-lifecycle -- クイズ詳細/プレイ/結果 UI 再構築。Dependencies: quizeum-ui-layout-shell
 - [x] quizeum-ui-editor -- エディタ UI 再構築。Dependencies: quizeum-ui-foundation, quizeum-ui-layout-shell
 - [x] quizeum-ui-admin-creator -- 管理/クリエイター UI 再構築。Dependencies: quizeum-ui-layout-shell
+
+---
+
+## Phase 25: AI作問・サムネ生成（Gemini / Pro限定）（2026-06-10 ディスカバリー）
+
+### Overview（本フェーズ）
+クイズエディタに **Gemini ベースの AI 作問**を追加する。Pro プラン（有効契約）ユーザのみがプロンプトを入力して「生成」を実行し、**10問を一括生成**して出題形式に合わせた JSON をパースし、エディタの問題カードへ即時反映する。あわせてクイズの **タイトル・説明文** を基にしたサムネイル画像の AI 生成（Pro 限定、1日20回）を提供する。無料ユーザには機能を非表示または Pro 誘導のみ表示する。プレイ時の水平思考 AI（`ask-ai` / `verify-truth`）とは **別の日次カウンタ** と API 境界とする。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: 単一 Gemini 呼び出し + 構造化 JSON（`responseSchema`）+ サーバー側バリデーション + Firebase Storage へのアップロード（**アプローチ A — ユーザー確認済み 2026-06-10**）
+- **反映モード（確認済み）**: 生成 10 問は既存問題リストへ **追加**（末尾追記。既存問題の削除・上書きは行わない）
+- **Why**: 10問一括は1リクエストでテーマ一貫性と UX（待ち時間）を両立できる。既存 `addDefaultQuestion` / `quiz-validation` の型・フィールド契約にマッピングすればエディタ反映は state 更新のみ。サムネは生成バイナリを `uploadImage` + `getQuizCoverPath` で Storage 化し、現行 picsum スタブを置換する。
+- **Rejected alternatives**:
+  - **10回個別 API 呼び出し**: 遅延・コスト・レート制限消費が10倍。一括生成の UX と矛盾。
+  - **クライアント直接 Gemini 呼び出し**: API キー漏洩・エンタイトルメント改ざん・レート制限回避のリスク。
+  - **サムネ外部 URL のみ（Storage なし）**: OGP・CDN 信頼性・永続化に弱い。既存 `thumbnailUrl` 契約と不整合。
+
+### Scope（本フェーズ）
+- **In**:
+  - `POST /api/quiz/ai-generate-questions` — 認証必須、Pro エンタイトルメント必須、プロンプト + クイズ `format`（+ 任意でタイトル・説明・ジャンルコンテキスト）→ 10問 JSON → サーバー検証済み `Question[]` 返却
+  - `POST /api/quiz/ai-generate-thumbnail` — 認証必須、Pro 必須、タイトル + 説明文 → 画像生成 → Storage アップロード → `thumbnailUrl` 返却
+  - 日次制限（JST 0時リセット、既存 `ask-ai` と同型）: 作問生成 **100回/日/ユーザ**、サムネ生成 **20回/日/ユーザ**（**Pro ユーザにも適用**）
+  - カウンタ: `users/{uid}/dailyAiAuthoringCounts/{docId}`（`questions` / `thumbnail`）— プレイ用 `dailyAiTurnCounts` と分離
+  - エディタ UI: AI 作問パネル（プロンプト入力・生成・ローディング・エラー・上限到達・Pro 誘導）、生成結果の問題リスト末尾への **追加反映**（既存問題は保持）
+  - エディタ UI: サムネ AI 生成ボタン（メタデータセクション）、生成中状態、上限・Pro 誘導
+  - `resolveUserEntitlements` によるサーバー側 Pro 判定（クライアント tier 盲信禁止）
+  - 出題形式別 JSON スキーマ: `multiple-choice`, `true-false`, `text-input`, `quick-press`, `sorting`, `association`。**`mixed` は各問タイプをスキーマ内で列挙**。`lateral-thinking` は初版 **Out**（真相・秘密設定の品質リスク — follow-up で専用プロンプト）
+  - E2E・API 単体テスト（モック Gemini）、`pricing-display` の Pro 特典文言更新
+- **Out**:
+  - Premium ティア独自の作問上限（Pro と同一扱い）
+  - 1問ずつの逐次生成 UI（初版は10問一括のみ）
+  - 問題単位 `imageUrl` の AI 生成
+  - プレイ時 AI（`ask-ai` / `verify-truth`）の制限・プロンプト変更
+  - 無料ユーザのお試し生成（1回など）
+  - 生成問題の自動公開・Firestore 自動保存（反映はエディタ state のみ。保存は既存下書き/公開フロー）
+
+### Constraints（本フェーズ）
+- Gemini: 既存 `GEMINI_API_KEY` / `GEMINI_MODEL_ID` を流用。テキスト作問は flash 系、画像は Imagen 対応モデルまたは Gemini 画像生成 API（design でモデル ID 確定・viability 確認済み前提）
+- JSON 出力はサーバーで Zod / 既存 `quiz-validation` と二段階検証。不合格フィールドは除外またはエラー返却（design で確定）
+- プロンプト最大長・禁止コンテンツ方針は `ask-ai`（100文字）より緩め（例: 500文字）— requirements で確定
+- 生成問題数は固定 **10問**（不足時はエラー、超過は切り捨て）
+- モデレーター免除: プレイ AI と同様 `moderationTier` moderator/senior_moderator は作問レート制限免除可（design で確定）
+- shadcn + Tailwind（Phase 24 移行後エディタ）に UI を追加
+
+### Boundary Strategy（本フェーズ）
+- **quizeum-core**: API Routes、Gemini クライアント、プロンプト/パース util、日次カウンタ、Pro ゲート、Storage アップロード、JSON→`Question` マッピング、Firestore Rules（カウンタ doc のクライアント書き込み遮断）
+- **quizeum-ai-quiz-authoring**: 機能要件・UX・API 契約・エディタ統合コンポーネント（`AiQuizAuthoringPanel` 等）、E2E
+- **quizeum-ui-editor**: エディタレイアウトへのパネル差し込み・`data-testid` 維持（ロジックは ai-quiz-authoring コンポーネントへ委譲）
+- **Shared seam**: `mapAiJsonToQuestions(format, raw)` を Core lib に1か所集約。UI は返却 `Question[]` を `setQuestions` に渡すのみ
+
+## Existing Spec Updates（Phase 25・依存順）
+- [ ] quizeum-core -- `ai-generate-questions` / `ai-generate-thumbnail` API、日次カウンタ、`mapAiJsonToQuestions`、Storage 連携、Rules。Dependencies: none
+- [ ] quizeum-ui-editor -- エディタへの AI パネル・サムネ生成ボタンのレイアウト統合、`triggerThumbnail` picsum スタブ削除。Dependencies: quizeum-ai-quiz-authoring（コンポーネント契約）
+
+## Direct Implementation Candidates（Phase 25）
+- [ ] docs-sync-ai-authoring -- `docs/api_specification.md`、`docs/requirements_definition.md`（Pro 特典・AI 作問）、`pricing-display.ts` 特典文言
+- [ ] ai-authoring-e2e -- Pro ユーザでの生成・反映・上限 429・無料ユーザ Pro 誘導
+
+## Specs (dependency order)
+- [ ] quizeum-ai-quiz-authoring -- Gemini AI 作問（10問一括）とサムネ生成の Pro 限定 UX・API 契約・レート制限。Dependencies: quizeum-core（エンタイトルメント・既存型）

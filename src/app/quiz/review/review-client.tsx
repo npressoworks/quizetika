@@ -320,7 +320,7 @@ export function ReviewClient({ initialGenres }: ReviewClientProps) {
       {/* 3. 復習完了フェーズ */}
       {phase === 'completed' && (
         <div className={styles.completedCard}>
-          <Award size={64} style={{ color: '#00f5d4', filter: 'drop-shadow(0 0 10px rgba(0,245,212,0.4))' }} />
+          <Award size={64} style={{ color: 'var(--color-accent)', filter: 'drop-shadow(0 0 10px var(--color-accent-glow))' }} />
           <h1 className={styles.completedTitle}>復習完了！</h1>
           <p className={styles.completedDesc}>
             間違い問題の復習セッションが完了しました。<br />
