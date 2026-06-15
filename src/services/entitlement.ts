@@ -1,76 +1,33 @@
+/**
+ * entitlement.ts
+ *
+ * サーバー専用モジュール（firebase-admin 依存）。
+ * ブラウザコンポーネントから直接インポートしないでください。
+ *
+ * ブラウザ・サーバー両対応の純粋関数は entitlement-shared.ts を使用してください。
+ */
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAdminFirestore } from '@/lib/firebase/admin';
-import { resolveSubscriptionTier } from '@/lib/subscription-plans';
-import type {
-  StripeSubscriptionSnapshot,
-  SubscriptionStatus,
-  SubscriptionTier,
-  UserEntitlements,
-} from '@/types/subscription';
-import type { User } from '@/types';
+import type { StripeSubscriptionSnapshot } from '@/types/subscription';
 
-const PAID_ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'trialing'];
-
-export interface EntitlementUserFields {
-  subscriptionTier?: SubscriptionTier | null;
-  subscriptionStatus?: SubscriptionStatus | null;
-  currentPeriodEnd?: Date | { toDate(): Date } | null;
-  isPremium?: boolean | null;
-  moderationTier?: User['moderationTier'];
-}
-
-function toDate(value: EntitlementUserFields['currentPeriodEnd']): Date | null {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-  if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
-    return (value as { toDate: () => Date }).toDate();
-  }
-  return null;
-}
-
-/**
- * Firestore ユーザーフィールドからエンタイトルメントを解釈する（純粋関数）
- */
-export function computeUserEntitlements(
-  fields: EntitlementUserFields
-): UserEntitlements {
-  const subscriptionTier = resolveSubscriptionTier(
-    fields.subscriptionTier ?? undefined
-  );
-  const subscriptionStatus = fields.subscriptionStatus ?? null;
-  const currentPeriodEnd = toDate(fields.currentPeriodEnd ?? null);
-
-  const hasPaidEntitlements =
-    (subscriptionTier === 'pro' || subscriptionTier === 'premium') &&
-    subscriptionStatus !== null &&
-    PAID_ACTIVE_STATUSES.includes(subscriptionStatus);
-
-  const isModeratorExempt =
-    fields.moderationTier === 'moderator' ||
-    fields.moderationTier === 'senior_moderator';
-
-  const hasUnlimitedAiQuestions = hasPaidEntitlements || isModeratorExempt;
-
-  return {
-    subscriptionTier,
-    subscriptionStatus,
-    currentPeriodEnd,
-    hasPaidEntitlements,
-    hasUnlimitedAiQuestions,
-  };
-}
+// 純粋関数・型は shared から re-export（後方互換）
+export type { EntitlementUserFields } from './entitlement-shared';
+export { computeUserEntitlements } from './entitlement-shared';
 
 /**
  * サーバー側: UID から最新エンタイトルメントを解決する
  */
-export async function resolveUserEntitlements(uid: string): Promise<UserEntitlements> {
+export async function resolveUserEntitlements(
+  uid: string
+): Promise<import('@/types/subscription').UserEntitlements> {
+  const { computeUserEntitlements: compute } = await import('./entitlement-shared');
   const db = getAdminFirestore();
   const snap = await db.collection('users').doc(uid).get();
   if (!snap.exists) {
-    return computeUserEntitlements({});
+    return compute({});
   }
-  const data = snap.data() as EntitlementUserFields;
-  return computeUserEntitlements(data);
+  const data = snap.data() as import('./entitlement-shared').EntitlementUserFields;
+  return compute(data);
 }
 
 /**

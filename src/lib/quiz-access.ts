@@ -2,7 +2,7 @@ import { isFollowing } from '@/services/user';
 import {
   computeUserEntitlements,
   type EntitlementUserFields,
-} from '@/services/entitlement';
+} from '@/services/entitlement-shared';
 import type { Quiz, QuizVisibility } from '@/types';
 
 export const PRO_RESTRICTED_VISIBILITY: QuizVisibility[] = ['private', 'followers'];

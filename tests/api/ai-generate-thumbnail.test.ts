@@ -9,8 +9,8 @@ const mockRunTransaction = jest.fn(async (fn: (tx: { set: jest.Mock }) => Promis
   await fn({ set: jest.fn() });
 });
 
-const mockQuestionsRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) }) };
-const mockThumbnailRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) }) };
+const mockQuestionsRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
+const mockThumbnailRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
 
 const mockDb = {
   collection: jest.fn((name: string) => {

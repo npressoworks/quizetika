@@ -10,8 +10,8 @@ import {
   readDailyAuthoringCount,
   DAILY_AUTHORING_DOC_QUESTIONS,
   DAILY_AUTHORING_DOC_THUMBNAIL,
-  type DailyAiAuthoringCountDoc,
 } from '@/services/ai-authoring-utils';
+import type { DailyAiAuthoringCountDoc } from '@/services/ai-authoring-types';
 import type { AssertAiAuthoringAccessResult } from '@/services/ai-authoring-types';
 
 export type AuthoringAuthFailure = {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
 import {
   authorizeAiAuthoringRequest,
   type AuthoringAuthFailure,
@@ -23,7 +23,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
 const MIXED_TYPE_ENUM = MIXED_ALLOWED_QUESTION_TYPES as unknown as string[];
 
-function buildQuestionItemSchema(format: QuizFormat) {
+function buildQuestionItemSchema(format: QuizFormat): Schema {
   const typeEnum =
     format === 'mixed'
       ? MIXED_TYPE_ENUM
@@ -74,7 +74,7 @@ function buildQuestionItemSchema(format: QuizFormat) {
       },
     },
     required: ['type', 'questionText', 'explanation'],
-  };
+  } as unknown as Schema;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

@@ -6,6 +6,8 @@ import {
   getDocs,
   runTransaction,
   setDoc,
+  type DocumentData,
+  type DocumentReference,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import { bookmarksRef, quizzesRef, questionsRef, usersRef } from '../lib/firebase/firestore';
@@ -206,9 +208,12 @@ export async function toggleBookmark(
   const targetDocRef =
     targetType === 'quiz' ? doc(quizzesRef, targetId) : doc(questionsRef, targetId);
 
+  // Firestore SDK はユニオン型の DocumentReference を受け付けないため DocumentData にキャストする
+  const targetRef = targetDocRef as DocumentReference<DocumentData>;
+
   const added = await runTransaction(db, async (transaction) => {
     const bookmarkSnap = await transaction.get(bookmarkDocRef);
-    const targetSnap = await transaction.get(targetDocRef);
+    const targetSnap = await transaction.get(targetRef);
 
     if (!targetSnap.exists()) {
       throw new Error('Target document does not exist.');
@@ -220,7 +225,7 @@ export async function toggleBookmark(
     if (isAlreadyBookmarked) {
       transaction.delete(bookmarkDocRef);
       const newCount = Math.max(0, currentCount - 1);
-      transaction.update(targetDocRef, { bookmarksCount: newCount });
+      transaction.update(targetRef, { bookmarksCount: newCount });
       return false;
     }
 
@@ -234,7 +239,7 @@ export async function toggleBookmark(
     transaction.set(bookmarkDocRef, newBookmark as Bookmark);
 
     const newCount = currentCount + 1;
-    transaction.update(targetDocRef, { bookmarksCount: newCount });
+    transaction.update(targetRef, { bookmarksCount: newCount });
     return true;
   });
 
