@@ -67,7 +67,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     'multiple-choice': {
       type: SchemaType.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['multiple-choice', 'true-false'] },
+        type: { type: SchemaType.STRING, enum: ['multiple-choice', 'true-false'], format: 'enum' as const },
         questionText: { type: SchemaType.STRING },
         explanation: { type: SchemaType.STRING },
         hint: { type: SchemaType.STRING, nullable: true },
@@ -78,7 +78,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     'true-false': {
       type: SchemaType.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['true-false'] },
+        type: { type: SchemaType.STRING, enum: ['true-false'], format: 'enum' as const },
         questionText: { type: SchemaType.STRING },
         explanation: { type: SchemaType.STRING },
         hint: { type: SchemaType.STRING, nullable: true },
@@ -89,7 +89,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     'text-input': {
       type: SchemaType.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['text-input'] },
+        type: { type: SchemaType.STRING, enum: ['text-input'], format: 'enum' as const },
         questionText: { type: SchemaType.STRING },
         explanation: { type: SchemaType.STRING },
         hint: { type: SchemaType.STRING, nullable: true },
@@ -100,7 +100,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     'quick-press': {
       type: SchemaType.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['quick-press'] },
+        type: { type: SchemaType.STRING, enum: ['quick-press'], format: 'enum' as const },
         questionText: { type: SchemaType.STRING },
         explanation: { type: SchemaType.STRING },
         hint: { type: SchemaType.STRING, nullable: true },
@@ -111,7 +111,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     'sorting': {
       type: SchemaType.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['sorting'] },
+        type: { type: SchemaType.STRING, enum: ['sorting'], format: 'enum' as const },
         questionText: { type: SchemaType.STRING },
         explanation: { type: SchemaType.STRING },
         hint: { type: SchemaType.STRING, nullable: true },
@@ -122,7 +122,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     'association': {
       type: SchemaType.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['association'] },
+        type: { type: SchemaType.STRING, enum: ['association'], format: 'enum' as const },
         questionText: { type: SchemaType.STRING },
         explanation: { type: SchemaType.STRING },
         hint: { type: SchemaType.STRING, nullable: true },
@@ -139,7 +139,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
       ...schemas['multiple-choice'],
       properties: {
         ...schemas['multiple-choice'].properties,
-        type: { type: SchemaType.STRING, enum: ['multiple-choice'] },
+        type: { type: SchemaType.STRING, enum: ['multiple-choice'], format: 'enum' as const },
       },
     };
     return {
