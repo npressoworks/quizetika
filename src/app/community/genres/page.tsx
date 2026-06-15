@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, notFound } from 'next/navigation';
 import {
   collection,
   query,
@@ -23,6 +23,7 @@ import {
   GENRE_ICON_ACCEPT,
 } from '@/lib/genre-icon-upload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,10 +83,12 @@ export default function CommunityGenresPage() {
     contributor: 1,
     moderator: 2,
     senior_moderator: 3,
+    admin: 4,
   };
 
   const isModerator = !!user && (TIER_RANK[user.moderationTier] ?? 0) >= TIER_RANK.moderator;
   const isSeniorModerator = user?.moderationTier === 'senior_moderator';
+  const isAdmin = !!user && isAdminUser(user);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -266,6 +269,11 @@ export default function CommunityGenresPage() {
   }
 
   if (!user) return null;
+
+  // 一般ユーザーから見えないようにするため、非管理者は 404 (notFound) とする
+  if (!isAdmin) {
+    notFound();
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">

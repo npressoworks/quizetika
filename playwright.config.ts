@@ -79,7 +79,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
-    reuseExistingServer: true, // 既に起動しているサーバーを再利用する
+    reuseExistingServer: false, // テスト用環境変数を確実に反映するため再利用しない
     timeout: 120 * 1000,
     env: {
       NEXT_PUBLIC_ENV: 'test', // E2Eテスト環境変数を指定

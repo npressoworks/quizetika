@@ -3,6 +3,8 @@
 import React from 'react';
 import { Image, Info, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/auth-context';
+import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import { DifficultyVoteStars } from '@/components/quiz/difficulty-vote-stars';
 import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
@@ -69,6 +71,8 @@ export function QuizMetadataSection({
   onApplySuggestedTag,
   onRemoveTag,
 }: QuizMetadataSectionProps) {
+  const { user } = useAuth();
+  const isAdmin = !!user && isAdminUser(user);
   const titleHasError = filterValidationErrors(validationErrors, { field: 'title' }).length > 0;
   const genreHasError = filterValidationErrors(validationErrors, { field: 'genre' }).length > 0;
 
@@ -179,9 +183,11 @@ export function QuizMetadataSection({
                   onRetry={onGenresRetry}
                   selectClassName={`${editorClasses.select} ${genreHasError ? editorClasses.inputError : ''}`}
                 />
-                <a href="/community/genres" className={editorClasses.genreLink}>
-                  新しいジャンルを申請する
-                </a>
+                {isAdmin && (
+                  <a href="/community/genres" className={editorClasses.genreLink}>
+                    新しいジャンルを申請する
+                  </a>
+                )}
               </div>
               <FieldValidationMessages errors={validationErrors} field="genre" />
             </div>

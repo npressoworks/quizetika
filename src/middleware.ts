@@ -94,10 +94,10 @@ export function middleware(request: NextRequest) {
   // /community/genres: 認証済みユーザーのみ（投票タブはページ側で追加制限）
   // -------------------------------------------------------------------
   if (pathname.startsWith('/community/genres')) {
-    if (!uid) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
+    const isAdmin = request.cookies.get('quizeum_role')?.value === 'admin';
+    if (!uid || !isAdmin) {
+      const notFound = new URL('/not-found', request.url);
+      return NextResponse.redirect(notFound);
     }
   }
 
