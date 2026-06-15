@@ -24,57 +24,140 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 const MIXED_TYPE_ENUM = MIXED_ALLOWED_QUESTION_TYPES as unknown as string[];
 
 function buildQuestionItemSchema(format: QuizFormat): Schema {
-  const typeEnum =
-    format === 'mixed'
-      ? MIXED_TYPE_ENUM
-      : format === 'multiple-choice'
-        ? ['multiple-choice', 'true-false']
-        : [format];
-
-  return {
-    type: SchemaType.OBJECT,
-    properties: {
-      type: { type: SchemaType.STRING, enum: typeEnum },
-      questionText: { type: SchemaType.STRING },
-      explanation: { type: SchemaType.STRING },
-      hint: { type: SchemaType.STRING, nullable: true },
-      choices: {
-        type: SchemaType.ARRAY,
-        nullable: true,
-        items: {
-          type: SchemaType.OBJECT,
-          properties: {
-            choiceText: { type: SchemaType.STRING },
-            isCorrect: { type: SchemaType.BOOLEAN },
-          },
-          required: ['choiceText', 'isCorrect'],
-        },
+  // 選択肢スキーマ（複数選択式、〇✕形式用）
+  const choicesSchema: Schema = {
+    type: SchemaType.ARRAY,
+    items: {
+      type: SchemaType.OBJECT,
+      properties: {
+        choiceText: { type: SchemaType.STRING },
+        isCorrect: { type: SchemaType.BOOLEAN },
       },
-      correctTextAnswerList: {
-        type: SchemaType.ARRAY,
-        nullable: true,
-        items: { type: SchemaType.STRING },
-      },
-      sortingItems: {
-        type: SchemaType.ARRAY,
-        nullable: true,
-        items: {
-          type: SchemaType.OBJECT,
-          properties: {
-            text: { type: SchemaType.STRING },
-            correctOrder: { type: SchemaType.INTEGER },
-          },
-          required: ['text', 'correctOrder'],
-        },
-      },
-      associationHints: {
-        type: SchemaType.ARRAY,
-        nullable: true,
-        items: { type: SchemaType.STRING },
-      },
+      required: ['choiceText', 'isCorrect'],
     },
-    required: ['type', 'questionText', 'explanation'],
-  } as unknown as Schema;
+  };
+
+  // 正解テキストスキーマ（記述式、早押し、連想用）
+  const correctTextAnswerListSchema: Schema = {
+    type: SchemaType.ARRAY,
+    items: { type: SchemaType.STRING },
+  };
+
+  // 並び替え要素スキーマ（並び替え用）
+  const sortingItemsSchema: Schema = {
+    type: SchemaType.ARRAY,
+    items: {
+      type: SchemaType.OBJECT,
+      properties: {
+        text: { type: SchemaType.STRING },
+        correctOrder: { type: SchemaType.INTEGER },
+      },
+      required: ['text', 'correctOrder'],
+    },
+  };
+
+  // 連想ヒントスキーマ（連想用）
+  const associationHintsSchema: Schema = {
+    type: SchemaType.ARRAY,
+    items: { type: SchemaType.STRING },
+  };
+
+  // 各問題タイプの定義マップ
+  const schemas: Record<string, Schema> = {
+    'multiple-choice': {
+      type: SchemaType.OBJECT,
+      properties: {
+        type: { type: SchemaType.STRING, enum: ['multiple-choice', 'true-false'] },
+        questionText: { type: SchemaType.STRING },
+        explanation: { type: SchemaType.STRING },
+        hint: { type: SchemaType.STRING, nullable: true },
+        choices: choicesSchema,
+      },
+      required: ['type', 'questionText', 'explanation', 'choices'],
+    },
+    'true-false': {
+      type: SchemaType.OBJECT,
+      properties: {
+        type: { type: SchemaType.STRING, enum: ['true-false'] },
+        questionText: { type: SchemaType.STRING },
+        explanation: { type: SchemaType.STRING },
+        hint: { type: SchemaType.STRING, nullable: true },
+        choices: choicesSchema,
+      },
+      required: ['type', 'questionText', 'explanation', 'choices'],
+    },
+    'text-input': {
+      type: SchemaType.OBJECT,
+      properties: {
+        type: { type: SchemaType.STRING, enum: ['text-input'] },
+        questionText: { type: SchemaType.STRING },
+        explanation: { type: SchemaType.STRING },
+        hint: { type: SchemaType.STRING, nullable: true },
+        correctTextAnswerList: correctTextAnswerListSchema,
+      },
+      required: ['type', 'questionText', 'explanation', 'correctTextAnswerList'],
+    },
+    'quick-press': {
+      type: SchemaType.OBJECT,
+      properties: {
+        type: { type: SchemaType.STRING, enum: ['quick-press'] },
+        questionText: { type: SchemaType.STRING },
+        explanation: { type: SchemaType.STRING },
+        hint: { type: SchemaType.STRING, nullable: true },
+        correctTextAnswerList: correctTextAnswerListSchema,
+      },
+      required: ['type', 'questionText', 'explanation', 'correctTextAnswerList'],
+    },
+    'sorting': {
+      type: SchemaType.OBJECT,
+      properties: {
+        type: { type: SchemaType.STRING, enum: ['sorting'] },
+        questionText: { type: SchemaType.STRING },
+        explanation: { type: SchemaType.STRING },
+        hint: { type: SchemaType.STRING, nullable: true },
+        sortingItems: sortingItemsSchema,
+      },
+      required: ['type', 'questionText', 'explanation', 'sortingItems'],
+    },
+    'association': {
+      type: SchemaType.OBJECT,
+      properties: {
+        type: { type: SchemaType.STRING, enum: ['association'] },
+        questionText: { type: SchemaType.STRING },
+        explanation: { type: SchemaType.STRING },
+        hint: { type: SchemaType.STRING, nullable: true },
+        associationHints: associationHintsSchema,
+        correctTextAnswerList: correctTextAnswerListSchema,
+      },
+      required: ['type', 'questionText', 'explanation', 'associationHints', 'correctTextAnswerList'],
+    },
+  };
+
+  // mixed 形式の場合は anyOf で 4つの許容される個別スキーマを定義する
+  if (format === 'mixed') {
+    const mcSchemaForMixed = {
+      ...schemas['multiple-choice'],
+      properties: {
+        ...schemas['multiple-choice'].properties,
+        type: { type: SchemaType.STRING, enum: ['multiple-choice'] },
+      },
+    };
+    return {
+      type: SchemaType.OBJECT,
+      anyOf: [
+        mcSchemaForMixed,
+        schemas['true-false'],
+        schemas['text-input'],
+        schemas['sorting'],
+      ],
+    } as unknown as Schema;
+  }
+
+  const targetSchema = schemas[format];
+  if (!targetSchema) {
+    throw new Error(`Unsupported quiz format for schema generation: ${format}`);
+  }
+  return targetSchema;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {

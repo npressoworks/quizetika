@@ -58,11 +58,13 @@ jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (...args: unknown[]) => mockResolveEntitlements(...args),
 }));
 
+const mockGetGenerativeModel = jest.fn().mockReturnValue({
+  generateContent: (...args: unknown[]) => mockGenerateContent(...args),
+});
+
 jest.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: () => ({
-      generateContent: (...args: unknown[]) => mockGenerateContent(...args),
-    }),
+    getGenerativeModel: (...args: unknown[]) => mockGetGenerativeModel(...args),
   })),
   SchemaType: {
     OBJECT: 'OBJECT',
@@ -167,5 +169,85 @@ describe('POST /api/quiz/ai-generate-questions', () => {
       })
     );
     expect(res.status).toBe(422);
+  });
+
+  test('sorting 形式のスキーマには choices や correctTextAnswerList が含まれない', async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify(
+            Array.from({ length: 10 }, (_, i) => ({
+              type: 'sorting',
+              questionText: `並べ替え問題テスト${i}です`,
+              explanation: `解説テスト${i}です`,
+              sortingItems: [
+                { text: 'A', correctOrder: 0 },
+                { text: 'B', correctOrder: 1 },
+              ],
+            }))
+          ),
+      },
+    });
+
+    const res = await POST(
+      makeRequest({
+        prompt: '歴史クイズ',
+        format: 'sorting',
+        userId: 'uid-pro',
+      })
+    );
+    expect(res.status).toBe(200);
+
+    expect(mockGetGenerativeModel).toHaveBeenCalled();
+    const callArgs = mockGetGenerativeModel.mock.calls[0][0];
+    const schema = callArgs.generationConfig.responseSchema.items;
+    
+    // sorting 形式のプロパティから choices と correctTextAnswerList が排除されていることを検証
+    expect(schema.properties.sortingItems).toBeDefined();
+    expect(schema.properties.choices).toBeUndefined();
+    expect(schema.properties.correctTextAnswerList).toBeUndefined();
+    expect(schema.required).toContain('sortingItems');
+  });
+
+  test('mixed 形式のスキーマは anyOf で4つの問題タイプを定義している', async () => {
+    mockGenerateContent.mockResolvedValue({
+      response: {
+        text: () =>
+          JSON.stringify(
+            Array.from({ length: 10 }, (_, i) => ({
+              type: 'multiple-choice',
+              questionText: `問題文テスト${i}です`,
+              explanation: `解説文テスト${i}です`,
+              choices: [
+                { choiceText: 'A', isCorrect: true },
+                { choiceText: 'B', isCorrect: false },
+              ],
+            }))
+          ),
+      },
+    });
+
+    const res = await POST(
+      makeRequest({
+        prompt: '歴史クイズ',
+        format: 'mixed',
+        userId: 'uid-pro',
+      })
+    );
+    expect(res.status).toBe(200);
+
+    expect(mockGetGenerativeModel).toHaveBeenCalled();
+    const callArgs = mockGetGenerativeModel.mock.calls[0][0];
+    const schema = callArgs.generationConfig.responseSchema.items;
+
+    // anyOf が定義されており、各タイプが含まれていることを検証
+    expect(schema.anyOf).toBeDefined();
+    expect(schema.anyOf).toHaveLength(4);
+    
+    const types = schema.anyOf.map((sub: any) => sub.properties.type.enum[0]);
+    expect(types).toContain('multiple-choice');
+    expect(types).toContain('true-false');
+    expect(types).toContain('text-input');
+    expect(types).toContain('sorting');
   });
 });

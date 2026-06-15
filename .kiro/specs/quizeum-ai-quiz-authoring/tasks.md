@@ -53,7 +53,7 @@
   - _Depends: 1.2, 2.2_
   - _Boundary: ai-authoring-usage Route_
 
-- [ ] 3.2 `POST /api/quiz/ai-generate-questions` の動的スキーマ実装と Union 対応
+- [x] 3.2 `POST /api/quiz/ai-generate-questions` の動的スキーマ実装と Union 対応
   - `buildQuestionItemSchema` を修正し、指定された `format`（単一形式）に適合し不要なフィールドを含まないJSONスキーマを動的に生成して `responseSchema` に指定する。
   - `format === 'mixed'` の場合は、許容する4つの問題タイプのスキーマを `anyOf` に指定したUnionスキーマを生成して `responseSchema` に指定する。
   - `tests/api/ai-generate-questions.test.ts` のモックデータを各形式の最小構成JSONおよび `mixed` 形式に合わせて更新し、正常にマッピングと検証が通ることをテストする。
