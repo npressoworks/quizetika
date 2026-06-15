@@ -188,4 +188,27 @@ describe('mapAiJsonToQuestions', () => {
     expect(itemB?.correctOrder).toBe(1); // 元の 2 は 1 に
     expect(itemC?.correctOrder).toBe(2); // 元の 3 は 2 に
   });
+
+  test('true-false 形式で「✕」や「偽」などの異なる否定表現が正しく batsu としてマッピングされる', () => {
+    const batsuRepresentations = ['✕', '×', '偽', '誤り', '間違い', 'false'];
+    
+    batsuRepresentations.forEach((text) => {
+      const raw = Array.from({ length: AI_QUIZ_QUESTION_COUNT }, (_, i) => ({
+        type: 'true-false',
+        questionText: `問題${i}`,
+        explanation: `解説${i}`,
+        choices: [
+          { choiceText: '〇', isCorrect: false },
+          { choiceText: text, isCorrect: true },
+        ],
+      }));
+      
+      const questions = mapAiJsonToQuestions(raw, 'true-false');
+      const q = questions[0];
+      
+      // ✕（batsu）側の choice の isCorrect が true になっているか検証
+      const batsuChoice = q.choices?.find((c) => c.choiceText === '✕');
+      expect(batsuChoice?.isCorrect).toBe(true);
+    });
+  });
 });

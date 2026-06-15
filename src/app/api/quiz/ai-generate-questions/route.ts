@@ -24,13 +24,26 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 const MIXED_TYPE_ENUM = MIXED_ALLOWED_QUESTION_TYPES as unknown as string[];
 
 function buildQuestionItemSchema(format: QuizFormat): Schema {
-  // 選択肢スキーマ（複数選択式、〇✕形式用）
+  // 選択肢スキーマ（複数選択式用）
   const choicesSchema: Schema = {
     type: SchemaType.ARRAY,
     items: {
       type: SchemaType.OBJECT,
       properties: {
         choiceText: { type: SchemaType.STRING },
+        isCorrect: { type: SchemaType.BOOLEAN },
+      },
+      required: ['choiceText', 'isCorrect'],
+    },
+  };
+
+  // 選択肢スキーマ（〇✕形式用）
+  const trueFalseChoicesSchema: Schema = {
+    type: SchemaType.ARRAY,
+    items: {
+      type: SchemaType.OBJECT,
+      properties: {
+        choiceText: { type: SchemaType.STRING, enum: ['〇', '✕'], format: 'enum' as const },
         isCorrect: { type: SchemaType.BOOLEAN },
       },
       required: ['choiceText', 'isCorrect'],
@@ -82,7 +95,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
         questionText: { type: SchemaType.STRING },
         explanation: { type: SchemaType.STRING },
         hint: { type: SchemaType.STRING, nullable: true },
-        choices: choicesSchema,
+        choices: trueFalseChoicesSchema,
       },
       required: ['type', 'questionText', 'explanation', 'choices'],
     },

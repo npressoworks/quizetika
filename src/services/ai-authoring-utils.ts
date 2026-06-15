@@ -157,12 +157,21 @@ function isTypeAllowedForFormat(type: string, format: QuizFormat): boolean {
 
 function mapChoices(raw: AiQuestionJsonItem['choices'], type: Question['type']): Choice[] {
   if (type === 'true-false') {
-    const correctSide =
-      raw?.find((c) => c.isCorrect)?.choiceText === '✕' ||
-        raw?.find((c) => c.isCorrect)?.choiceText === '×'
-        ? 'batsu'
-        : 'maru';
-    return createTrueFalseChoices(correctSide);
+    const correctChoice = raw?.find((c) => c.isCorrect);
+    const correctText = correctChoice?.choiceText?.trim() ?? '';
+    const isBatsu =
+      correctText === '✕' ||
+      correctText === '×' ||
+      correctText === 'X' ||
+      correctText === 'x' ||
+      correctText === 'batsu' ||
+      correctText === 'Batsu' ||
+      correctText === '偽' ||
+      correctText === '誤り' ||
+      correctText === '間違い' ||
+      correctText === 'false' ||
+      correctText === 'False';
+    return createTrueFalseChoices(isBatsu ? 'batsu' : 'maru');
   }
 
   if (!raw || raw.length === 0) {
