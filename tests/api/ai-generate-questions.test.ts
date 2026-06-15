@@ -198,8 +198,8 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     );
     expect(res.status).toBe(200);
 
-    expect(mockGetGenerativeModel).toHaveBeenCalled();
-    const callArgs = mockGetGenerativeModel.mock.calls[0][0];
+    expect(mockGenerateContent).toHaveBeenCalled();
+    const callArgs = mockGenerateContent.mock.calls[0][0];
     const schema = callArgs.generationConfig.responseSchema.items;
     
     // sorting 形式のプロパティから choices と correctTextAnswerList が排除されていることを検証
@@ -236,8 +236,8 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     );
     expect(res.status).toBe(200);
 
-    expect(mockGetGenerativeModel).toHaveBeenCalled();
-    const callArgs = mockGetGenerativeModel.mock.calls[0][0];
+    expect(mockGenerateContent).toHaveBeenCalled();
+    const callArgs = mockGenerateContent.mock.calls[0][0];
     const schema = callArgs.generationConfig.responseSchema.items;
 
     // anyOf が定義されており、各タイプが含まれていることを検証

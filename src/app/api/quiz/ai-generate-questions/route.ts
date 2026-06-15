@@ -63,7 +63,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
   };
 
   // 各問題タイプの定義マップ
-  const schemas: Record<string, Schema> = {
+  const schemas = {
     'multiple-choice': {
       type: SchemaType.OBJECT,
       properties: {
@@ -153,11 +153,11 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     } as unknown as Schema;
   }
 
-  const targetSchema = schemas[format];
+  const targetSchema = (schemas as Record<string, any>)[format];
   if (!targetSchema) {
     throw new Error(`Unsupported quiz format for schema generation: ${format}`);
   }
-  return targetSchema;
+  return targetSchema as Schema;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -224,15 +224,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const model = genAI.getGenerativeModel({
       model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: SchemaType.ARRAY,
-          items: buildQuestionItemSchema(format),
-          minItems: AI_QUIZ_QUESTION_COUNT,
-          maxItems: AI_QUIZ_QUESTION_COUNT,
-        },
-      },
     });
 
     let parsedJson: unknown;
@@ -244,7 +235,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         description,
         genre,
       });
-      const result = await model.generateContent(userPrompt);
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: SchemaType.ARRAY,
+            items: buildQuestionItemSchema(format),
+            minItems: AI_QUIZ_QUESTION_COUNT,
+            maxItems: AI_QUIZ_QUESTION_COUNT,
+          },
+        },
+      });
       const text = result.response.text();
       parsedJson = JSON.parse(text);
     } catch (aiError) {
