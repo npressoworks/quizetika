@@ -23,7 +23,7 @@ import {
 } from '@/services/quiz-choice-utils';
 import { Quiz, Question } from '@/types';
 import { editorClasses as styles } from '@/components/quiz/editor/quiz-editor-classes';
-import { Plus, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Plus, AlertTriangle, ArrowLeft, Sparkles } from 'lucide-react';
 import { reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
 import {
   buildTestPlayPayload,
@@ -99,6 +99,10 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
   const [validationErrors, setValidationErrors] = useState<QuizPublishValidationError[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
+
+  // トースト通知ステート
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   // フォームステート
   const [title, setTitle] = useState('');
@@ -430,6 +434,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     quizId,
     onAppendQuestions: (generated) => {
       setQuestions((prev) => [...prev, ...generated]);
+      setToastMessage(`AI作問が完了し、問題が${generated.length}件追加されました！`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
     },
     onSetThumbnailUrl: setThumbnailUrl,
   });
@@ -1206,6 +1213,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           <AiQuizAuthoringPanel
             format={format}
             isGenerating={aiAuthoring.isGeneratingQuestions}
+            generationStatus={aiAuthoring.generationStatus}
             isUsageLoading={aiAuthoring.isUsageLoading}
             usageQuestions={aiAuthoring.usageQuestions}
             errorMessage={aiAuthoring.errorMessage}
@@ -1267,6 +1275,28 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         onTestPlay={handleTestPlay}
         onPublish={() => handleSave('published')}
       />
+
+      {showToast && (
+        <div 
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-card/90 border border-border p-4 rounded-xl shadow-2xl backdrop-blur-md animate-in slide-in-from-bottom-5 duration-300"
+          style={{ minWidth: '320px' }}
+          data-testid="ai-toast-notification"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-500">
+            <Sparkles size={18} />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">生成完了</p>
+            <p className="text-xs text-muted-foreground">{toastMessage}</p>
+          </div>
+          <button 
+            onClick={() => setShowToast(false)} 
+            className="text-muted-foreground hover:text-foreground text-xs p-1 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,17 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 import { AI_QUIZ_PROMPT_MAX_LENGTH } from '@/services/ai-authoring-types';
 import type { AiAuthoringUsage } from '@/services/ai-authoring-types';
 import type { QuizFormat } from '@/lib/quiz-format';
+import type { AiGenerationStatus } from '@/hooks/useAiQuizAuthoring';
 
 interface AiQuizAuthoringPanelProps {
   format: QuizFormat;
   isGenerating: boolean;
+  generationStatus: AiGenerationStatus;
   isUsageLoading: boolean;
   usageQuestions: AiAuthoringUsage | null;
   errorMessage: string | null;
@@ -31,6 +33,7 @@ function formatUsageLabel(usage: AiAuthoringUsage | null, loading: boolean): str
 export function AiQuizAuthoringPanel({
   format,
   isGenerating,
+  generationStatus,
   isUsageLoading,
   usageQuestions,
   errorMessage,
@@ -48,6 +51,21 @@ export function AiQuizAuthoringPanel({
     onClearError();
     onGenerate(prompt.trim());
   };
+
+  const getProgressInfo = (status: AiGenerationStatus) => {
+    switch (status) {
+      case 'generating':
+        return { label: 'AIが問題を生成しています (約5〜10秒)...', percent: 60, color: 'bg-primary' };
+      case 'validating':
+        return { label: '生成された問題の整合性を検証しています...', percent: 95, color: 'bg-amber-500' };
+      case 'completed':
+        return { label: '問題の生成が完了しました！', percent: 100, color: 'bg-emerald-500' };
+      default:
+        return { label: '', percent: 0, color: '' };
+    }
+  };
+
+  const progress = getProgressInfo(generationStatus);
 
   return (
     <div
@@ -86,21 +104,43 @@ export function AiQuizAuthoringPanel({
               プロンプトは{AI_QUIZ_PROMPT_MAX_LENGTH}文字以内で入力してください（現在 {prompt.length} 文字）
             </p>
           )}
-          <Button
-            type="submit"
-            data-testid="ai-quiz-generate-button"
-            disabled={isGenerating || isPromptTooLong || !prompt.trim()}
-            className="w-fit"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                生成中…
-              </>
-            ) : (
-              '10問を生成して追加'
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="submit"
+              data-testid="ai-quiz-generate-button"
+              disabled={isGenerating || isPromptTooLong || !prompt.trim()}
+              className="w-fit"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {generationStatus === 'generating' ? '生成中…' : '検証中…'}
+                </>
+              ) : generationStatus === 'completed' ? (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" />
+                  生成完了！
+                </>
+              ) : (
+                '10問を生成して追加'
+              )}
+            </Button>
+
+            {generationStatus !== 'idle' && (
+              <span className="text-sm text-muted-foreground animate-pulse">
+                {progress.label}
+              </span>
             )}
-          </Button>
+          </div>
+
+          {generationStatus !== 'idle' && (
+            <div className="mt-1 w-full bg-border rounded-full h-2 overflow-hidden shadow-inner">
+              <div 
+                className={`${progress.color} h-2 rounded-full transition-all duration-700 ease-out`} 
+                style={{ width: `${progress.percent}%` }}
+              />
+            </div>
+          )}
         </form>
       )}
 

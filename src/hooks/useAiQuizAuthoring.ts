@@ -6,6 +6,8 @@ import type { Question } from '@/types';
 import type { QuizFormat } from '@/lib/quiz-format';
 import type { AiAuthoringUsage } from '@/services/ai-authoring-types';
 
+export type AiGenerationStatus = 'idle' | 'generating' | 'validating' | 'completed';
+
 interface UseAiQuizAuthoringOptions {
   userId: string | undefined;
   isProUser: boolean;
@@ -22,6 +24,7 @@ export function useAiQuizAuthoring({
   onSetThumbnailUrl,
 }: UseAiQuizAuthoringOptions) {
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<AiGenerationStatus>('idle');
   const [isGeneratingThumbnail, setIsGeneratingThumbnail] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [usageQuestions, setUsageQuestions] = useState<AiAuthoringUsage | null>(null);
@@ -76,6 +79,12 @@ export function useAiQuizAuthoring({
 
     setErrorMessage(null);
     setIsGeneratingQuestions(true);
+    setGenerationStatus('generating');
+
+    // 5.5秒後に自動的に検証中ステータスへと移行させるタイマー
+    const timerId = setTimeout(() => {
+      setGenerationStatus('validating');
+    }, 5500);
 
     try {
       const token = await auth.currentUser?.getIdToken();
@@ -95,9 +104,13 @@ export function useAiQuizAuthoring({
         }),
       });
 
+      // レスポンスが返ってきたら、検証フェーズに明示的に移行（すでにタイマーで移行していても上書き）
+      setGenerationStatus('validating');
+
       const data = await res.json();
 
       if (!res.ok) {
+        setGenerationStatus('idle');
         if (res.status === 401) {
           setErrorMessage('ログインが必要です');
         } else if (res.status === 403) {
@@ -117,9 +130,17 @@ export function useAiQuizAuthoring({
 
       onAppendQuestions(data.questions);
       if (data.usage) setUsageQuestions(data.usage);
+      
+      setGenerationStatus('completed');
+      // 3秒後にアイドル状態に戻す
+      setTimeout(() => {
+        setGenerationStatus('idle');
+      }, 3000);
     } catch {
+      setGenerationStatus('idle');
       setErrorMessage('問題の生成に失敗しました');
     } finally {
+      clearTimeout(timerId);
       setIsGeneratingQuestions(false);
     }
   };
@@ -180,6 +201,7 @@ export function useAiQuizAuthoring({
 
   return {
     isGeneratingQuestions,
+    generationStatus,
     isGeneratingThumbnail,
     errorMessage,
     usageQuestions,
