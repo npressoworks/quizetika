@@ -13,19 +13,18 @@
   - _Requirements: 4.2, 8.1_
   - _Boundary: ai-authoring foundation_
 
-- [x] 1.2 `ai-authoring-types` と `ai-authoring-utils` 純関数の実装 (P)
-  - 定数（プロンプト最大 500、10問固定、日次 100/20、`MIXED_ALLOWED_QUESTION_TYPES`）を実装する。
-  - JST 日付、`assertAiAuthoringAccess`、`checkDailyAuthoringLimit`、`readDailyAuthoringUsage`、`buildAiQuizGenerationPrompt`、`mapAiJsonToQuestions` を実装する。
-  - `tests/services/ai-authoring-utils.test.ts` でカウンタ rollover・mixed allowlist・10件未満 reject を検証する。
-  - 完了時、ユニットテストが green で mixed への quick-press 混入が拒否されること。
-  - _Requirements: 1.4, 1.5, 2.5, 2.6, 2.8, 3.1, 3.2, 5.1, 5.2, 6.7_
+- [x] 1.2 `ai-authoring-types` と `ai-authoring-utils` 純関数の修正 (P)
+  - 出題形式（`format`）別の不足プロパティ（`choices` 等）の初期化とマッピングを `mapAiJsonToQuestions` / `mapSingleAiItem` で適切に行えるように調整する。
+  - `tests/services/ai-authoring-utils.test.ts` を更新し、各形式別の最小構成JSONおよび `mixed` 形式での変換と validation 連携をテストする。
+  - 完了時、マッピングおよび初期化のユニットテストが green であること。
+  - _Requirements: 1.4, 1.5, 2.5, 2.6, 2.8, 2.13, 3.1, 3.2, 5.1, 5.2, 6.7_
   - _Boundary: ai-authoring-utils_
 
-- [x] 1.3 `validateGeneratedQuestions` export と検証テストの実装 (P)
-  - `quiz-validation.ts` に `validateGeneratedQuestions(questions, format)` を追加する（`collectQuestionValidationErrors` + mixed allowlist 再利用）。
-  - `tests/services/quiz-validation-ai.test.ts` で単一形式・mixed 4 種・逸脱 type を検証する。
+- [ ] 1.3 `validateGeneratedQuestions` export と検証テストの修正 (P)
+  - `quiz-validation.ts` の `validateGeneratedQuestions` を修正し、問題タイプごとの必須プロパティ（`choices`, `correctTextAnswerList`, `sortingItems`, `associationHints` 等）の有無を厳格に検証するロジックを追加する。
+  - `tests/services/quiz-validation-ai.test.ts` を更新し、必須フィールドが欠損した問題データの拒否判定を検証する。
   - 完了時、検証関数の単体テストが green であること。
-  - _Requirements: 2.5, 2.6, 6.3, 6.7_
+  - _Requirements: 2.5, 2.6, 2.13, 6.3, 6.7_
   - _Boundary: quiz-validation_
 
 ### 2. Admin Storage と Firestore Rules
@@ -54,13 +53,12 @@
   - _Depends: 1.2, 2.2_
   - _Boundary: ai-authoring-usage Route_
 
-- [x] 3.2 `POST /api/quiz/ai-generate-questions` の実装
-  - Pro ゲート、日次 100 回制限、Gemini `responseSchema` で 10 問 JSON 取得。
-  - `mapAiJsonToQuestions` → `validateGeneratedQuestions`、エラー時 422 全体拒否、成功後のみカウンタ increment。
-  - `lateral-thinking` format は 400、`maxDuration` 60s。
-  - `tests/api/ai-generate-questions.test.ts`（Gemini mock）で 200/403/429/422 を検証する。
-  - 完了時、モック Gemini で 10 問 + usage が返り、検証失敗時は既存問題相当の state 変更なし（422）であること。
-  - _Requirements: 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 3.1, 3.4, 3.5, 3.6, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 8.1_
+- [ ] 3.2 `POST /api/quiz/ai-generate-questions` の動的スキーマ実装と Union 対応
+  - `buildQuestionItemSchema` を修正し、指定された `format`（単一形式）に適合し不要なフィールドを含まないJSONスキーマを動的に生成して `responseSchema` に指定する。
+  - `format === 'mixed'` の場合は、許容する4つの問題タイプのスキーマを `anyOf` に指定したUnionスキーマを生成して `responseSchema` に指定する。
+  - `tests/api/ai-generate-questions.test.ts` のモックデータを各形式の最小構成JSONおよび `mixed` 形式に合わせて更新し、正常にマッピングと検証が通ることをテストする。
+  - 完了時、モック環境で各形式のテストおよび不正スキーマによる検証エラーテスト（422）が正常にパスすること。
+  - _Requirements: 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 2.13, 3.1, 3.4, 3.5, 3.6, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 8.1_
   - _Depends: 1.2, 1.3, 2.2_
   - _Boundary: ai-generate-questions Route_
 
@@ -142,7 +140,7 @@
 | 要件 | タスク |
 |------|--------|
 | 1.1–1.5 | 1.2, 3.1, 3.2, 3.3, 5.1, 5.2 |
-| 2.1–2.12 | 1.2, 3.2, 4.1, 5.2, 6.1 |
+| 2.1–2.13 | 1.2, 1.3, 3.2, 4.1, 5.2, 6.1 |
 | 3.1–3.6 | 1.2, 3.1, 3.2, 4.1, 5.2 |
 | 4.1–4.6 | 2.1, 3.3, 4.1, 5.3, 6.1 |
 | 5.1–5.6 | 1.2, 3.1, 3.3, 4.1, 5.3 |

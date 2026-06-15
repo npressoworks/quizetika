@@ -120,4 +120,47 @@ describe('mapAiJsonToQuestions', () => {
     const questions = mapAiJsonToQuestions(raw, 'mixed');
     expect(questions.length).toBe(AI_QUIZ_QUESTION_COUNT);
   });
+
+  test('各形式別の最小構成JSON（不要プロパティなし）を正しくマッピングする', () => {
+    // 1. text-input形式
+    const textInputRaw = Array.from({ length: AI_QUIZ_QUESTION_COUNT }, (_, i) => ({
+      type: 'text-input',
+      questionText: `問題${i}`,
+      explanation: `解説${i}`,
+      correctTextAnswerList: [`正解${i}`],
+    }));
+    const textInputQuestions = mapAiJsonToQuestions(textInputRaw, 'text-input');
+    expect(textInputQuestions[0].choices).toBeUndefined();
+    expect(textInputQuestions[0].sortingItems).toBeUndefined();
+    expect(textInputQuestions[0].correctTextAnswerList).toEqual(['正解0']);
+
+    // 2. sorting形式
+    const sortingRaw = Array.from({ length: AI_QUIZ_QUESTION_COUNT }, (_, i) => ({
+      type: 'sorting',
+      questionText: `問題${i}`,
+      explanation: `解説${i}`,
+      sortingItems: [
+        { text: '要素1', correctOrder: 0 },
+        { text: '要素2', correctOrder: 1 },
+      ],
+    }));
+    const sortingQuestions = mapAiJsonToQuestions(sortingRaw, 'sorting');
+    expect(sortingQuestions[0].choices).toBeUndefined();
+    expect(sortingQuestions[0].correctTextAnswerList).toBeUndefined();
+    expect(sortingQuestions[0].sortingItems).toHaveLength(2);
+
+    // 3. association形式
+    const associationRaw = Array.from({ length: AI_QUIZ_QUESTION_COUNT }, (_, i) => ({
+      type: 'association',
+      questionText: `問題${i}`,
+      explanation: `解説${i}`,
+      correctTextAnswerList: [`正解${i}`],
+      associationHints: [`ヒント1`, `ヒント2`],
+    }));
+    const associationQuestions = mapAiJsonToQuestions(associationRaw, 'association');
+    expect(associationQuestions[0].choices).toBeUndefined();
+    expect(associationQuestions[0].sortingItems).toBeUndefined();
+    expect(associationQuestions[0].associationHints).toHaveLength(2);
+    expect(associationQuestions[0].correctTextAnswerList).toEqual(['正解0']);
+  });
 });
