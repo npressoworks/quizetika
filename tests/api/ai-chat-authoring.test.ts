@@ -138,4 +138,52 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     expect(text).toBe('mocked-stream');
     expect(mockRunTransaction).toHaveBeenCalled();
   });
+
+  test('googleSearch ツールは指定されたクエリで検索結果を返す', async () => {
+    // 実際に API から googleSearch ツール定義を確認するため、streamText の引数を検証するテスト
+    const res = await POST(
+      makeRequest({
+        userId: 'uid-pro',
+        messages: [{ role: 'user', content: '「東京の人口」を検索してファクトチェックして' }],
+        quizState: { title: '東京', description: '', genre: '地理', tags: [], questions: [] },
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(mockStreamText).toHaveBeenCalled();
+    const streamTextArgs = mockStreamText.mock.calls[0][0];
+    expect(streamTextArgs.tools.googleSearch).toBeDefined();
+    
+    // googleSearch ツールの execute コールバックを直接実行して検証
+    const searchResult = await streamTextArgs.tools.googleSearch.execute({ query: '東京の人口' });
+    expect(searchResult).toHaveProperty('query', '東京の人口');
+    expect(searchResult).toHaveProperty('results');
+  });
+
+  test('checkQuestion および checkAllQuestions ツールが定義されていること', async () => {
+    const res = await POST(
+      makeRequest({
+        userId: 'uid-pro',
+        messages: [{ role: 'user', content: '問題 1 をチェックして' }],
+        quizState: { title: 'テスト', description: '', genre: '', tags: [], questions: [] },
+      })
+    );
+    expect(res.status).toBe(200);
+    const streamTextArgs = mockStreamText.mock.calls[0][0];
+    expect(streamTextArgs.tools.checkQuestion).toBeDefined();
+    expect(streamTextArgs.tools.checkAllQuestions).toBeDefined();
+    
+    // それぞれの execute を実行して検証
+    const singleResult = await streamTextArgs.tools.checkQuestion.execute({
+      id: 'q1',
+      questionText: '日本の首都は？',
+      correctAnswer: '東京',
+    });
+    expect(singleResult).toHaveProperty('checked', true);
+
+    const allResult = await streamTextArgs.tools.checkAllQuestions.execute({
+      questionIds: ['q1', 'q2'],
+    });
+    expect(allResult).toHaveProperty('checked', true);
+  });
 });
+

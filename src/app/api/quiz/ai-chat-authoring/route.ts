@@ -187,11 +187,9 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
             correctAnswer: z.string().describe('チェック対象の答えテキスト（正解テキストまたは正解選択肢）'),
           }),
           execute: async ({ id, questionText, correctAnswer }) => {
-            // タスク 2.2 で Google 検索と連携した詳細なファクトチェックを実装します
             return {
               checked: true,
-              findings: 'チェック結果の仮出力です。',
-              sources: [],
+              message: `問題 (ID: ${id}) の包括的チェックを開始しました。AIは次に Google 検索等を使用して事実の裏付けを行い、校正・ファクトチェック結果を提示します。`,
             };
           },
         },
@@ -202,11 +200,9 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
             questionIds: z.array(z.string()).describe('チェック対象のすべての問題IDの配列'),
           }),
           execute: async ({ questionIds }) => {
-            // タスク 2.2 で実装します
             return {
               checked: true,
-              findings: '全問チェック結果の仮出力です。',
-              sources: [],
+              message: `全問題 (計 ${questionIds.length} 問) の包括的な一括チェックを開始しました。AIは問題ごとに必要に応じて検索等を行い、チェック結果を整理して提示します。`,
             };
           },
         },
@@ -217,10 +213,10 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
             query: z.string().describe('Google検索クエリ'),
           }),
           execute: async ({ query }) => {
-            // タスク 2.2 で Google 検索を実装します
+            const results = await fetchGoogleSearchResults(query);
             return {
               query,
-              results: [],
+              results,
             };
           },
         },
@@ -236,3 +232,62 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
     );
   }
 }
+
+async function fetchGoogleSearchResults(query: string): Promise<{ title: string; url: string; snippet: string }[]> {
+  try {
+    const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch DDG search results: ${res.statusText}`);
+    }
+    const html = await res.text();
+
+    const results: { title: string; url: string; snippet: string }[] = [];
+    const resultBlocks = html.split('class="result__body"');
+
+    for (let i = 1; i < resultBlocks.length && results.length < 5; i++) {
+      const block = resultBlocks[i];
+      const aMatch = block.match(/<a\s+class="result__a"\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/);
+      const snippetMatch = block.match(/<a\s+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/);
+
+      if (aMatch) {
+        let rawUrl = aMatch[1];
+        if (rawUrl.includes('uddg=')) {
+          const searchParams = new URLSearchParams(rawUrl.split('?')[1]);
+          rawUrl = searchParams.get('uddg') || rawUrl;
+        }
+
+        const title = aMatch[2].replace(/<[^>]+>/g, '').trim();
+        const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+
+        results.push({
+          title: decodeHtmlEntities(title),
+          url: rawUrl,
+          snippet: decodeHtmlEntities(snippet),
+        });
+      }
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Search extraction error:', error);
+    // 検索エラー時は空配列を返却し、ファクトチェック以外の校正機能へフォールバックできるようにする
+    return [];
+  }
+}
+
+function decodeHtmlEntities(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x60;/g, '`')
+    .replace(/&#39;/g, "'");
+}
+

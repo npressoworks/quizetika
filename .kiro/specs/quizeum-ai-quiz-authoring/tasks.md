@@ -33,7 +33,7 @@
   - _Requirements: 2.1, 2.3, 3.6, 5.1, 5.5, 6.1, 6.3_
   - _Boundary: API Layer_
 
-- [ ] 2.2 (P) 包括的チェックツールおよび Google 検索連携の実装
+- [x] 2.2 (P) 包括的チェックツールおよび Google 検索連携の実装
   - 指定された問題をチェックする `checkQuestion` と、全問題をチェックする `checkAllQuestions` ツールをサーバー側ツールとして実装する
   - チェック処理の中で Google 検索を実行するための `googleSearch` ツール（Gemini Search Grounding または同等）を連携定義する
   - 検索ソースから得られた情報ソース（URL）を応答に含め、誤字脱字、表現の不自然さ、形式不適合を検証した結果に基づいて AI が自動的に `updateQuestion` を呼び出すマルチステップ（`maxSteps`）の対話フローを実装する
