@@ -49,7 +49,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.2, 5.4, 6.2_
   - _Boundary: UI Layer_
 
-- [ ] 2.4 (P) クライアント側 Hook と Tool Call ハンドラーの実装
+- [x] 2.4 (P) クライアント側 Hook と Tool Call ハンドラーの実装
   - Vercel AI SDK の `useChat` をラップする `useAiChatAssistant` フックを実装する
   - API から返されるツールコール（`createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail`）をクライアントで検知（`onToolCall`）し、エディタの状態（`setQuestions`, `setTitle`, `setThumbnailUrl` 等）へ即時反映するハンドラーを定義する
   - 作問開始の初期化時に、AI アシスタントからの初期ウェルカムメッセージを表示する `triggerAuthoringWelcome` 関数を実装する
