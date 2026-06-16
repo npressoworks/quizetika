@@ -49,6 +49,7 @@ const questionSchema = z.object({
 export async function POST(request: NextRequest): Promise<Response> {
   try {
     const body = await request.json();
+    console.log('[DEBUG /api/quiz/ai-chat-authoring] body:', JSON.stringify(body, null, 2));
     const { userId, messages, quizState } = body as {
       userId?: string;
       messages?: any[];

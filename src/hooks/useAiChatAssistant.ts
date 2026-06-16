@@ -81,6 +81,17 @@ export function useAiChatAssistant({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const addToolResultRef = React.useRef<any>(null);
 
+  const userIdRef = React.useRef(userId);
+  const quizStateRef = React.useRef(quizState);
+
+  React.useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
+
+  React.useEffect(() => {
+    quizStateRef.current = quizState;
+  }, [quizState]);
+
   const chatResult = useChat({
     transport: new DefaultChatTransport({
       api: '/api/quiz/ai-chat-authoring',
@@ -89,8 +100,8 @@ export function useAiChatAssistant({
           body: {
             messages,
             id,
-            userId,
-            quizState,
+            userId: userIdRef.current,
+            quizState: quizStateRef.current,
           },
         };
       },
