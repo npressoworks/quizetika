@@ -143,39 +143,39 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
       stopWhen: stepCountIs(5),
       tools: {
         // 1. 一括生成 (クライアント反映)
-        generateBulkQuestions: tool({
+        generateBulkQuestions: {
           description: '指定されたテーマやプロンプトに沿って、複数のクイズ問題を一括生成します。通常10問生成されます。',
           parameters: zodSchema(z.object({
             questions: z.array(questionSchema).length(10),
           })),
-        }),
+        },
         // 2. 単一追加 (クライアント反映)
-        createQuestion: tool({
+        createQuestion: {
           description: '新しいクイズ問題を1問作成し、エディタの問題リストの末尾に追加します。',
           parameters: zodSchema(questionSchema),
-        }),
+        },
         // 3. 問題更新 (クライアント反映)
-        updateQuestion: tool({
+        updateQuestion: {
           description: '指定された問題 ID の問題データ（問題文、選択肢、正解、解説など）を指定された新しい内容で更新します。',
           parameters: zodSchema(z.object({
             id: z.string().describe('更新対象の問題ID'),
             updates: questionSchema.partial(),
           })),
-        }),
+        },
         // 4. 問題削除 (クライアント反映)
-        deleteQuestion: tool({
+        deleteQuestion: {
           description: '指定された問題 ID の問題をエディタの問題リストから削除します。',
           parameters: zodSchema(z.object({
             id: z.string().describe('削除対象の問題ID'),
           })),
-        }),
+        },
         // 5. サムネ生成 (クライアント反映)
-        generateThumbnail: tool({
+        generateThumbnail: {
           description: '現在のクイズのタイトルと説明に基づいてクイズカバー画像をAI生成し、エディタに適用します。',
           parameters: zodSchema(z.object({
             prompt: z.string().optional().describe('画像のテーマに関する追加指示'),
           })),
-        }),
+        },
         // 6. 指定問題の包括的チェック (サーバー実行)
         checkQuestion: tool({
           description: '指定された問題の事実関係（ファクトチェック）、誤字脱字、および表現の不自然さを包括的に検証します。必要に応じて内部で googleSearch ツールを実行します。',
