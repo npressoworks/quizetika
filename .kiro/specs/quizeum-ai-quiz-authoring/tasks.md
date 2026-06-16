@@ -1,153 +1,89 @@
 # Implementation Plan: quizeum-ai-quiz-authoring
 
-> **前提**: Pro エンタイトルメント（`resolveUserEntitlements`）、Bearer 認証（`verifyFirebaseIdToken`）、クイズエディタ（`QuizEditor`）は既存実装を利用する。プレイ AI（`ask-ai`）のカウンタ・Route とは独立して実装する。
+## 1. Foundation: 環境設定および認証・カウンタ基盤の構築
 
-## Tasks
+- [x] 1.1 依存パッケージのセットアップ
+  - `package.json` に Vercel AI SDK（`ai` パッケージ）および `@ai-sdk/google` プロバイダを追加する
+  - 依存ライブラリのインストールを実行し、Next.js プロジェクト内でエラーなくインポート・ビルドできることを確認する
+  - *done基準*: `ai` と `@ai-sdk/google` が追加され、プロジェクトが正常にビルド・起動すること。
+  - _Requirements: 2.2_
+  - _Boundary: Infrastructure_
 
-### 1. AI 作問基盤（型・ユーティリティ・検証）
+- [ ] 1.2 Firestore カウンタとセキュリティルールの構築
+  - 日次チャットメッセージ数およびツール実行数を制限するため、Firestore パス `users/{uid}/dailyAiAuthoringCounts/chat` のデータモデルを追加定義する
+  - `firestore.rules` を更新し、クライアントから `dailyAiAuthoringCounts/chat` への直接書き込みを拒否し、読み取りは認証済み本人からのみ許可するルールを定義する
+  - *done基準*: Firestore セキュリティルールが更新され、テストエミュレータ等でクライアントからの偽装書込が拒否されること。
+  - _Requirements: 5.1, 5.2, 5.3_
+  - _Boundary: Database_
 
-- [x] 1.1 `@google/genai` 依存追加と画像モデル env 契約の整備 (P)
-  - `package.json` に `@google/genai` を追加する。
-  - 既存 `GEMINI_API_KEY` に加え `GEMINI_IMAGE_MODEL_ID`（デフォルト `gemini-2.5-flash-image`）を Route から参照可能にする。
-  - 完了時、依存インストール後に TypeScript が `@google/genai` を解決できること。
-  - _Requirements: 4.2, 8.1_
-  - _Boundary: ai-authoring foundation_
+- [ ] 1.3 利用制限状況取得 API の実装
+  - エディタ初期表示時に本日利用できる残りのチャット回数（作問/サムネイル/チャットカウンタ）を安全に読み取る `GET /api/quiz/ai-authoring-usage` を実装する
+  - *done基準*: エンドポイントへ GET リクエストを送信した際、認可されたユーザーに対して現在の制限数と使用数が JSON で正しく返却されること。
+  - _Requirements: 1.4, 5.1, 5.4_
+  - _Boundary: API Layer_
 
-- [x] 1.2 `ai-authoring-types` と `ai-authoring-utils` 純関数の修正 (P)
-  - 出題形式（`format`）別の不足プロパティ（`choices` 等）の初期化とマッピングを `mapAiJsonToQuestions` / `mapSingleAiItem` で適切に行えるように調整する。
-  - `tests/services/ai-authoring-utils.test.ts` を更新し、各形式別の最小構成JSONおよび `mixed` 形式での変換と validation 連携をテストする。
-  - 完了時、マッピングおよび初期化のユニットテストが green であること。
-  - _Requirements: 1.4, 1.5, 2.5, 2.6, 2.8, 2.13, 3.1, 3.2, 5.1, 5.2, 6.7_
-  - _Boundary: ai-authoring-utils_
+## 2. Core: 対話型 AI エージェント API とチャット UI の実装
 
-- [x] 1.3 `validateGeneratedQuestions` export と検証テストの修正 (P)
-  - `quiz-validation.ts` の `validateGeneratedQuestions` を修正し、問題タイプごとの必須プロパティ（`choices`, `correctTextAnswerList`, `sortingItems`, `associationHints` 等）の有無を厳格に検証するロジックを追加する。
-  - `tests/services/quiz-validation-ai.test.ts` を更新し、必須フィールドが欠損した問題データの拒否判定を検証する。
-  - 完了時、検証関数の単体テストが green であること。
-  - _Requirements: 2.5, 2.6, 2.13, 6.3, 6.7_
-  - _Boundary: quiz-validation_
+- [ ] 2.1 (P) AI チャットエージェント API エンドポイントの実装
+  - `POST /api/quiz/ai-chat-authoring` エンドポイントを新設し、Vercel AI SDK の `streamText` および Gemini モデルを用いて対話型ストリーミング対話 API を実装する
+  - 現在のエディタのクイズ状態（タイトル、説明、ジャンル、タグ、現在の問題リスト）をリクエストボディ経由でシステムプロンプトのコンテキストに組み込む
+  - AI エージェントの Zod スキーマでクイズ状態を操作するツール（`generateBulkQuestions`, `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateThumbnail`）を定義する
+  - API 呼び出しの冒頭で認証検証および日次カウンタの検証（上限100回）を行い、超過時は `429 limit-exceeded` を返却する
+  - *done基準*: エンドポイントへの POST リクエストに対して、AI の応答テキストおよびツール呼び出しのメタデータがストリーミングで正常に返されること。
+  - _Requirements: 2.1, 2.3, 3.6, 5.1, 5.5, 6.1, 6.3_
+  - _Boundary: API Layer_
 
-### 2. Admin Storage と Firestore Rules
+- [ ] 2.2 (P) 包括的チェックツールおよび Google 検索連携の実装
+  - 指定された問題をチェックする `checkQuestion` と、全問題をチェックする `checkAllQuestions` ツールをサーバー側ツールとして実装する
+  - チェック処理の中で Google 検索を実行するための `googleSearch` ツール（Gemini Search Grounding または同等）を連携定義する
+  - 検索ソースから得られた情報ソース（URL）を応答に含め、誤字脱字、表現の不自然さ、形式不適合を検証した結果に基づいて AI が自動的に `updateQuestion` を呼び出すマルチステップ（`maxSteps`）の対話フローを実装する
+  - *done基準*: ツール実行時にAIが検索を行い、校正結果とソース URL が出力され、必要に応じて `updateQuestion` が自動的に連動トリガーされること。
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+  - _Depends: 2.1_
+  - _Boundary: API Layer, Google Search_
 
-- [x] 2.1 Firebase Admin Storage と `storage-admin` の実装 (P)
-  - `lib/firebase/admin.ts` に `getAdminStorage()` を追加する。
-  - `services/storage-admin.ts` に PNG バイナリのクイズカバーアップロード（`quizzes/{quizId}/` または `quizzes/drafts/{uid}/`）を実装する。
-  - 完了時、Admin SDK 経由で Storage にアップロードし download URL が取得できること。
-  - _Requirements: 4.3, 8.1_
-  - _Boundary: storage-admin_
+- [ ] 2.3 (P) 対話型 AI チャット UI コンポーネントの構築
+  - エディタの画面右下に配置されるフローティングチャット起動ボタン（`AiChatAssistantButton`）と、右スライドイン式のチャットパネル（`AiChatAssistantPanel`）を Vanilla CSS/CSS Modules で作成する
+  - チャットパネル内にメッセージ履歴、ツール実行ログ、入力送信フォーム、および AI の応答待ちローディングアニメーションを実装する
+  - *done基準*: チャットボタンのクリックでチャットパネルがアニメーション開閉し、ストリーミングでテキストメッセージとツール実行状態が正しくレンダリングされること。
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.2, 5.4, 6.2_
+  - _Boundary: UI Layer_
 
-- [x] 2.2 `dailyAiAuthoringCounts` の Firestore Security Rules
-  - `users/{uid}/dailyAiAuthoringCounts/{docId}` の認証ユーザ read（own）許可、クライアント write 拒否を定義する。
-  - 完了時、クライアント SDK からのカウンタ直接書き込みが Rules で拒否されること。
-  - _Requirements: 3.2, 5.2, 8.1_
-  - _Boundary: firestore.rules_
+- [ ] 2.4 (P) クライアント側 Hook と Tool Call ハンドラーの実装
+  - Vercel AI SDK の `useChat` をラップする `useAiChatAssistant` フックを実装する
+  - API から返されるツールコール（`createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail`）をクライアントで検知（`onToolCall`）し、エディタの状態（`setQuestions`, `setTitle`, `setThumbnailUrl` 等）へ即時反映するハンドラーを定義する
+  - 作問開始の初期化時に、AI アシスタントからの初期ウェルカムメッセージを表示する `triggerAuthoringWelcome` 関数を実装する
+  - *done基準*: AI からツールコールを受信した際、クライアント側で Zod スキーマ検証が行われ、エディタ側の State（問題リストやサムネイル URL）が自動的に書き換えられること。
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
+  - _Depends: 2.1_
+  - _Boundary: UI Layer_
 
-### 3. API Routes（認可・カウンタ・Gemini）
+## 3. Integration: エディタ連携とハイブリッド起動の実装
 
-- [x] 3.1 `GET /api/quiz/ai-authoring-usage` の実装 (P)
-  - Bearer 認証、`resolveUserEntitlements`、非 Pro は 403。
-  - Firestore から作問・サムネの日次 usage を read し `{ questions, thumbnail }` を返す（Gemini 非呼び出し）。
-  - `tests/api/ai-authoring-usage.test.ts` で Pro 200 / 非 Pro 403 を検証する。
-  - 完了時、モック環境で usage レスポンスが design 契約どおりであること。
-  - _Requirements: 1.3, 1.4, 1.5, 3.3, 5.3_
-  - _Depends: 1.2, 2.2_
-  - _Boundary: ai-authoring-usage Route_
+- [ ] 3.1 クイズエディタへのチャットボットとハイブリッドボタンの統合
+  - クイズエディタ（`quiz-editor.tsx`）に `AiChatAssistantButton` および `AiChatAssistantPanel` を配置し、`useAiChatAssistant` フックと結合する
+  - クイズエディタの操作エリア（またはメインエリアの上部）に「AIで作問開始」ボタンおよび「全問包括チェック」ボタンを配置する
+  - 「AIで作問開始」押下時: チャットパネルを開き、`triggerAuthoringWelcome` を呼び出してウェルカムメッセージを表示し、手動入力を促す
+  - 「全問包括チェック」押下時: チャットパネルを開き、`append` を用いて全問チェックを指示するプロンプトを自動送信して即座にチェック処理を実行させる
+  - *done基準*: 各ボタンを押した際に指定通りのメッセージがチャットに乗り、作問側では初期メッセージの提示、チェック側では自動送信による即時チェックが開始されること。
+  - _Requirements: 1.6, 1.7, 2.4, 3.7_
+  - _Depends: 2.3, 2.4_
+  - _Boundary: UI Layer_
 
-- [x] 3.2 `POST /api/quiz/ai-generate-questions` の動的スキーマ実装と Union 対応
-  - `buildQuestionItemSchema` を修正し、指定された `format`（単一形式）に適合し不要なフィールドを含まないJSONスキーマを動的に生成して `responseSchema` に指定する。
-  - `format === 'mixed'` の場合は、許容する4つの問題タイプのスキーマを `anyOf` に指定したUnionスキーマを生成して `responseSchema` に指定する。
-  - `tests/api/ai-generate-questions.test.ts` のモックデータを各形式の最小構成JSONおよび `mixed` 形式に合わせて更新し、正常にマッピングと検証が通ることをテストする。
-  - 完了時、モック環境で各形式のテストおよび不正スキーマによる検証エラーテスト（422）が正常にパスすること。
-  - _Requirements: 1.4, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 2.13, 3.1, 3.4, 3.5, 3.6, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 8.1_
-  - _Depends: 1.2, 1.3, 2.2_
-  - _Boundary: ai-generate-questions Route_
+## 4. Validation: テストの作成と検証
 
-- [x] 3.3 `POST /api/quiz/ai-generate-thumbnail` の実装
-  - Pro ゲート、日次 20 回制限、title/description 空は 400。
-  - `@google/genai` で画像生成 → `storage-admin` 保存 → `thumbnailUrl` + usage 返却。
-  - `tests/api/ai-generate-thumbnail.test.ts`（GenAI + Storage mock）。
-  - 完了時、成功時に Storage URL と usage が返り、失敗時は既存 thumbnail 不変であること。
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 5.1, 5.4, 5.5, 5.6, 6.1, 6.2, 6.4, 6.5, 6.6, 8.1_
-  - _Depends: 1.1, 1.2, 2.1, 2.2_
-  - _Boundary: ai-generate-thumbnail Route_
+- [ ] 4.1 単体および結合テストの作成と実行
+  - `ai-authoring-utils` および API ルートのテストスイートを作成する
+  - 認証エラー（401）、Pro権限エラー（403）、レート制限（429）、不正スキーマ（422）などのレスポンスが適切に返却されることをテストする
+  - *done基準*: テストランナーを実行して、記述したすべての API 認可・制限テストおよびマッピングテストがパスすること。
+  - _Requirements: 3.6, 5.1, 5.3, 6.3_
+  - _Depends: 3.1_
+  - _Boundary: Testing_
 
-### 4. クライアント Hook
-
-- [x] 4.1 `useAiQuizAuthoring` フックの実装
-  - Pro mount 時に GET usage で残り回数を初期化する。
-  - `generateQuestions` / `generateThumbnail` で API 呼び出し、401/403/429/422/503 の日本語エラー表示。
-  - 429 時は `/pricing` 誘導を出さない（Pro 契約中前提）。
-  - 完了時、モック API で `onAppendQuestions` / `onSetThumbnailUrl` が期待どおり呼ばれること。
-  - _Requirements: 2.3, 2.10, 2.11, 3.3, 3.5, 4.3, 4.5, 5.3, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
-  - _Depends: 3.1, 3.2, 3.3_
-  - _Boundary: useAiQuizAuthoring_
-
-### 5. エディタ UI コンポーネント
-
-- [x] 5.1 `AiQuizProUpsell` の実装 (P)
-  - 未ログインは `/login?redirect=...`、無料 tier は `/pricing` への Pro 購読 CTA を表示する。
-  - 完了時、非 Pro ユーザに CTA が表示され AI 生成操作は実行できないこと。
-  - _Requirements: 1.1, 1.2, 6.2_
-  - _Boundary: AiQuizProUpsell_
-
-- [x] 5.2 `AiQuizAuthoringPanel` の実装
-  - プロンプト入力（500 文字上限・超過案内）、残り回数表示、生成中ローディング、成功/失敗フィードバック。
-  - `format === 'lateral-thinking'` 時は生成 disabled + 初版未対応メッセージ。
-  - `data-testid="ai-quiz-authoring-panel"`, `ai-quiz-prompt-input`, `ai-quiz-generate-button` を付与する。
-  - 完了時、Pro ユーザでパネル・残り回数・生成ボタンが表示されること。
-  - _Requirements: 1.3, 2.1, 2.7, 2.9, 2.10, 2.11, 3.3, 7.1, 7.2_
+- [ ] 4.2 E2E テストの作成と実行
+  - `e2e/ai-chat-assistant.spec.ts` を作成する
+  - クイックボタン押下によるチャット連動、チャット開閉、問題の追加・編集・削除のツール実行、全問チェックの自動実行、エラー表示などのユーザーシナリオを実装する
+  - *done基準*: Playwright を用いてチャットアシスタントの統合 E2E テストを実行し、すべてのシナリオが完全にパスすること。
+  - _Requirements: 1.1, 1.6, 1.7, 3.1, 3.3, 3.4, 4.1, 4.3_
   - _Depends: 4.1_
-  - _Boundary: AiQuizAuthoringPanel_
-
-- [x] 5.3 サムネイル AI 生成 UI（`QuizMetadataSection`）の実装 (P)
-  - `data-testid="ai-thumbnail-generate-button"`、生成中 disabled/loading、title/description 空時の案内。
-  - 完了時、Pro ユーザでサムネ生成成功後にプレビュー画像が更新されること。
-  - _Requirements: 4.1, 4.4, 4.5, 5.3, 7.3_
-  - _Depends: 4.1_
-  - _Boundary: QuizMetadataSection_
-
-### 6. エディタ統合
-
-- [x] 6.1 `QuizEditor` への AI 作問統合
-  - `AiQuizAuthoringPanel` / `AiQuizProUpsell` を問題編集領域付近に配置する。
-  - Hook 接続、`setQuestions(prev => [...prev, ...generated])` 末尾追加、picsum `triggerThumbnail` スタブを削除する。
-  - 完了時、作問成功で問題数が 10 増加し、既存問題は保持されること。
-  - _Requirements: 2.3, 2.4, 2.12, 4.3, 4.6, 7.1, 7.4, 7.5_
-  - _Depends: 5.1, 5.2, 5.3_
-  - _Boundary: QuizEditor_
-
-### 7. 料金画面連携
-
-- [x] 7.1 `pricing-display` の Pro 特典文言更新
-  - AI 作問（1日100回）・サムネ AI 生成（1日20回）を Pro 特典一覧に追加する。
-  - 完了時、`/pricing` に制限付き AI 作問特典が表示されること。
-  - _Requirements: 8.3, 8.5_
-  - _Boundary: pricing-display_
-
-### 8. E2E 検証
-
-- [x] 8.1 `e2e/ai-quiz-authoring.spec.ts` の実装
-  - Pro fixture: パネル残り回数表示 → プロンプト生成 → 問題 +10。
-  - 無料 fixture: Upsell 表示、lateral format で生成 disabled。
-  - サムネ: title/description 未入力時の案内、入力後のプレビュー更新（API mock 可）。
-  - 完了時、Playwright spec が CI ローカルで green であること。
-  - _Requirements: 1.1, 1.2, 2.3, 2.7, 3.6, 4.4, 7.2, 7.3_
-  - _Depends: 6.1_
-  - _Boundary: E2E_
-
-## Requirements Coverage Matrix
-
-| 要件 | タスク |
-|------|--------|
-| 1.1–1.5 | 1.2, 3.1, 3.2, 3.3, 5.1, 5.2 |
-| 2.1–2.13 | 1.2, 1.3, 3.2, 4.1, 5.2, 6.1 |
-| 3.1–3.6 | 1.2, 3.1, 3.2, 4.1, 5.2 |
-| 4.1–4.6 | 2.1, 3.3, 4.1, 5.3, 6.1 |
-| 5.1–5.6 | 1.2, 3.1, 3.3, 4.1, 5.3 |
-| 6.1–6.7 | 3.1–3.3, 4.1, 5.1, 5.2 |
-| 7.1–7.5 | 5.2, 5.3, 6.1, 8.1 |
-| 8.1–8.5 | 1.1, 2.1, 2.2, 3.1–3.3, 7.1 |
-
-## Implementation Notes
-
-- API テストで非 Pro 403 を検証する際は `verifyFirebaseIdToken` の mock が request の `userId` と一致する UID を返す必要がある。
+  - _Boundary: Testing_
