@@ -79,6 +79,7 @@ export function useAiChatAssistant({
   setThumbnailUrl,
 }: UseAiChatAssistantProps): UseAiChatAssistantResult {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const addToolResultRef = React.useRef<any>(null);
 
   const chatResult = useChat({
     transport: new DefaultChatTransport({
@@ -109,15 +110,25 @@ export function useAiChatAssistant({
       console.error('[DEBUG useChat onError]', err);
     },
     async onToolCall({ toolCall }) {
-      if (!isProUser) return { error: 'pro-required', message: 'Pro機能です' };
+      if (!isProUser) {
+        addToolResultRef.current?.({
+          toolCallId: toolCall.toolCallId,
+          result: { error: 'pro-required', message: 'Pro機能です' },
+        });
+        return;
+      }
 
       try {
         switch (toolCall.toolName) {
           case 'createQuestion': {
-            const args = toolCall.args as any;
+            const args = toolCall.input as any;
             const parsed = questionSchema.safeParse(args.question);
             if (!parsed.success) {
-              return { success: false, error: 'validation-failed', message: '問題のスキーマ検証に失敗しました' };
+              addToolResultRef.current?.({
+                toolCallId: toolCall.toolCallId,
+                result: { success: false, error: 'validation-failed', message: '問題のスキーマ検証に失敗しました' },
+              });
+              return;
             }
             const q = parsed.data;
             const newQuestion: Question = {
@@ -130,14 +141,22 @@ export function useAiChatAssistant({
             } as Question;
 
             setQuestions((prev) => [...prev, newQuestion]);
-            return { success: true, message: '新しい問題を追加しました' };
+            addToolResultRef.current?.({
+              toolCallId: toolCall.toolCallId,
+              result: { success: true, message: '新しい問題を追加しました' },
+            });
+            return;
           }
 
           case 'updateQuestion': {
-            const args = toolCall.args as any;
+            const args = toolCall.input as any;
             const parsedUpdates = questionSchema.partial().safeParse(args.updates);
             if (!parsedUpdates.success || typeof args.id !== 'string') {
-              return { success: false, error: 'validation-failed', message: '更新データのスキーマ検証に失敗しました' };
+              addToolResultRef.current?.({
+                toolCallId: toolCall.toolCallId,
+                result: { success: false, error: 'validation-failed', message: '更新データのスキーマ検証に失敗しました' },
+              });
+              return;
             }
 
             setQuestions((prev) =>
@@ -145,24 +164,40 @@ export function useAiChatAssistant({
                 q.id === args.id ? { ...q, ...parsedUpdates.data } as Question : q
               )
             );
-            return { success: true, message: `問題(ID: ${args.id})を更新しました` };
+            addToolResultRef.current?.({
+              toolCallId: toolCall.toolCallId,
+              result: { success: true, message: `問題(ID: ${args.id})を更新しました` },
+            });
+            return;
           }
 
           case 'deleteQuestion': {
-            const args = toolCall.args as any;
+            const args = toolCall.input as any;
             if (typeof args.id !== 'string') {
-              return { success: false, error: 'invalid-params', message: '問題IDが不正です' };
+              addToolResultRef.current?.({
+                toolCallId: toolCall.toolCallId,
+                result: { success: false, error: 'invalid-params', message: '問題IDが不正です' },
+              });
+              return;
             }
 
             setQuestions((prev) => prev.filter((q) => q.id !== args.id));
-            return { success: true, message: `問題(ID: ${args.id})を削除しました` };
+            addToolResultRef.current?.({
+              toolCallId: toolCall.toolCallId,
+              result: { success: true, message: `問題(ID: ${args.id})を削除しました` },
+            });
+            return;
           }
 
           case 'generateBulkQuestions': {
-            const args = toolCall.args as any;
+            const args = toolCall.input as any;
             const parsedArray = z.array(questionSchema).safeParse(args.questions);
             if (!parsedArray.success) {
-              return { success: false, error: 'validation-failed', message: '一括生成データの検証に失敗しました' };
+              addToolResultRef.current?.({
+                toolCallId: toolCall.toolCallId,
+                result: { success: false, error: 'validation-failed', message: '一括生成データの検証に失敗しました' },
+              });
+              return;
             }
 
             const newQuestions = parsedArray.data.map((q) => ({
@@ -175,23 +210,39 @@ export function useAiChatAssistant({
             })) as Question[];
 
             setQuestions((prev) => [...prev, ...newQuestions]);
-            return { success: true, message: `クイズ問題を${newQuestions.length}問一括追加しました` };
+            addToolResultRef.current?.({
+              toolCallId: toolCall.toolCallId,
+              result: { success: true, message: `クイズ問題を${newQuestions.length}問一括追加しました` },
+            });
+            return;
           }
 
           case 'generateThumbnail': {
-            const args = toolCall.args as any;
+            const args = toolCall.input as any;
             // 実際の実装ではAI画像生成APIなどを呼び出すが、ここではモック生成URLを即時セットする
             const mockUrl = `/images/ai-generated-${Math.random().toString(36).substring(2, 11)}.jpg`;
             setThumbnailUrl(mockUrl);
-            return { success: true, thumbnailUrl: mockUrl, message: 'クイズカバー画像を生成してエディタに適用しました' };
+            addToolResultRef.current?.({
+              toolCallId: toolCall.toolCallId,
+              result: { success: true, thumbnailUrl: mockUrl, message: 'クイズカバー画像を生成してエディタに適用しました' },
+            });
+            return;
           }
 
           default:
-            return { error: 'unknown-tool', message: '未定義のツールです' };
+            addToolResultRef.current?.({
+              toolCallId: toolCall.toolCallId,
+              result: { error: 'unknown-tool', message: '未定義のツールです' },
+            });
+            return;
         }
       } catch (err) {
         console.error('[useAiChatAssistant] Tool handling error:', err);
-        return { success: false, error: 'internal-error', message: 'ツール実行中にエラーが発生しました' };
+        addToolResultRef.current?.({
+          toolCallId: toolCall.toolCallId,
+          result: { success: false, error: 'internal-error', message: 'ツール実行中にエラーが発生しました' },
+        });
+        return;
       }
     },
   });
@@ -201,7 +252,11 @@ export function useAiChatAssistant({
     setMessages,
     status,
     sendMessage,
+    addToolResult,
   } = chatResult;
+
+  // ref に値をセット
+  addToolResultRef.current = addToolResult;
 
   const isGenerating = status === 'submitted' || status === 'streaming';
 
@@ -250,7 +305,12 @@ export function useAiChatAssistant({
       {
         id: 'welcome-message',
         role: 'assistant',
-        content: 'クイズ作問アシスタントです！どのようなテーマや難易度のクイズを作成したいですか？\n例：「日本の歴史についての初級クイズ」「世界遺産についての4択クイズ」など、お気軽にお伝えください。',
+        parts: [
+          {
+            type: 'text',
+            text: 'クイズ作問アシスタントです！どのようなテーマや難易度のクイズを作成したいですか？\n例：「日本の歴史についての初級クイズ」「世界遺産についての4択クイズ」など、お気軽にお伝えください。',
+          },
+        ],
       },
     ]);
   };

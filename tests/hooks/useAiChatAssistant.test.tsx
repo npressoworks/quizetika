@@ -30,6 +30,7 @@ jest.mock('@/lib/firebase/config', () => ({
 // useChat のモック
 const mockSendMessage = jest.fn().mockResolvedValue(undefined);
 const mockSetMessages = jest.fn();
+const mockAddToolResult = jest.fn();
 
 jest.mock('@ai-sdk/react', () => ({
   useChat: jest.fn().mockImplementation((options) => {
@@ -40,6 +41,7 @@ jest.mock('@ai-sdk/react', () => ({
       status: 'ready',
       setMessages: mockSetMessages,
       sendMessage: mockSendMessage,
+      addToolResult: mockAddToolResult,
     };
   }),
 }));
@@ -86,7 +88,12 @@ describe('useAiChatAssistant', () => {
       expect.arrayContaining([
         expect.objectContaining({
           role: 'assistant',
-          content: expect.stringContaining('クイズ作問アシスタントです'),
+          parts: expect.arrayContaining([
+            expect.objectContaining({
+              type: 'text',
+              text: expect.stringContaining('クイズ作問アシスタントです'),
+            }),
+          ]),
         }),
       ])
     );
@@ -114,11 +121,11 @@ describe('useAiChatAssistant', () => {
     expect(options).toBeDefined();
 
     // mock createQuestion tool call
-    const result = await options.onToolCall({
+    await options.onToolCall({
       toolCall: {
         toolCallId: 'call-1',
         toolName: 'createQuestion',
-        args: {
+        input: {
           question: {
             type: 'multiple-choice',
             questionText: '日本の首都は？',
@@ -128,7 +135,12 @@ describe('useAiChatAssistant', () => {
       },
     });
 
-    expect(result).toEqual(expect.objectContaining({ success: true }));
+    expect(mockAddToolResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolCallId: 'call-1',
+        result: expect.objectContaining({ success: true }),
+      })
+    );
     expect(mockSetQuestions).toHaveBeenCalled();
   });
 });
