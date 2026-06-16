@@ -24,7 +24,7 @@
 
 ## 2. Core: 対話型 AI エージェント API とチャット UI の実装
 
-- [ ] 2.1 (P) AI チャットエージェント API エンドポイントの実装
+- [x] 2.1 (P) AI チャットエージェント API エンドポイントの実装
   - `POST /api/quiz/ai-chat-authoring` エンドポイントを新設し、Vercel AI SDK の `streamText` および Gemini モデルを用いて対話型ストリーミング対話 API を実装する
   - 現在のエディタのクイズ状態（タイトル、説明、ジャンル、タグ、現在の問題リスト）をリクエストボディ経由でシステムプロンプトのコンテキストに組み込む
   - AI エージェントの Zod スキーマでクイズ状態を操作するツール（`generateBulkQuestions`, `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateThumbnail`）を定義する
