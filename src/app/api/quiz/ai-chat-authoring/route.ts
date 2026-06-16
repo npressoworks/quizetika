@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamText, tool, stepCountIs, zodSchema } from 'ai';
+import { streamText, tool, stepCountIs } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { getAdminFirestore } from '@/lib/firebase/admin';
@@ -143,47 +143,47 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
       stopWhen: stepCountIs(5),
       tools: {
         // 1. 一括生成 (クライアント反映)
-        generateBulkQuestions: {
+        generateBulkQuestions: tool({
           description: '指定されたテーマやプロンプトに沿って、複数のクイズ問題を一括生成します。通常10問生成されます。',
-          parameters: z.object({
+          inputSchema: z.object({
             questions: z.array(questionSchema).length(10),
           }),
-        },
+        }),
         // 2. 単一追加 (クライアント反映)
-        createQuestion: {
+        createQuestion: tool({
           description: '新しいクイズ問題を1問作成し、エディタの問題リストの末尾に追加します。',
-          parameters: questionSchema,
-        },
+          inputSchema: questionSchema,
+        }),
         // 3. 問題更新 (クライアント反映)
-        updateQuestion: {
+        updateQuestion: tool({
           description: '指定された問題 ID の問題データ（問題文、選択肢、正解、解説など）を指定された新しい内容で更新します。',
-          parameters: z.object({
+          inputSchema: z.object({
             id: z.string().describe('更新対象の問題ID'),
             updates: questionSchema.partial(),
           }),
-        },
+        }),
         // 4. 問題削除 (クライアント反映)
-        deleteQuestion: {
+        deleteQuestion: tool({
           description: '指定された問題 ID の問題をエディタの問題リストから削除します。',
-          parameters: z.object({
+          inputSchema: z.object({
             id: z.string().describe('削除対象の問題ID'),
           }),
-        },
+        }),
         // 5. サムネ生成 (クライアント反映)
-        generateThumbnail: {
+        generateThumbnail: tool({
           description: '現在のクイズのタイトルと説明に基づいてクイズカバー画像をAI生成し、エディタに適用します。',
-          parameters: z.object({
+          inputSchema: z.object({
             prompt: z.string().optional().describe('画像のテーマに関する追加指示'),
           }),
-        },
+        }),
         // 6. 指定問題の包括的チェック (サーバー実行)
         checkQuestion: tool({
           description: '指定された問題の事実関係（ファクトチェック）、誤字脱字、および表現の不自然さを包括的に検証します。必要に応じて内部で googleSearch ツールを実行します。',
-          parameters: zodSchema(z.object({
+          inputSchema: z.object({
             id: z.string().describe('チェック対象の問題ID'),
             questionText: z.string().describe('チェック対象の問題文'),
             correctAnswer: z.string().describe('チェック対象の答えテキスト（正解テキストまたは正解選択肢）'),
-          })),
+          }),
           execute: async ({ id, questionText, correctAnswer }) => {
             return {
               checked: true,
@@ -194,9 +194,9 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
         // 7. 全問題の一括包括的チェック (サーバー実行)
         checkAllQuestions: tool({
           description: 'エディタ上にあるすべての問題について、事実関係、誤字脱字、表現の不自然さを一括して検証します。',
-          parameters: zodSchema(z.object({
+          inputSchema: z.object({
             questionIds: z.array(z.string()).describe('チェック対象のすべての問題ID of 配列'),
-          })),
+          }),
           execute: async ({ questionIds }) => {
             return {
               checked: true,
@@ -207,9 +207,9 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
         // 8. Google 検索ツール (サーバー実行)
         googleSearch: tool({
           description: '事実関係を検証するための情報を Google 検索から取得します。',
-          parameters: zodSchema(z.object({
+          inputSchema: z.object({
             query: z.string().describe('Google検索クエリ'),
-          })),
+          }),
           execute: async ({ query }) => {
             const results = await fetchGoogleSearchResults(query);
             return {
@@ -221,7 +221,7 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
       },
     });
 
-    return result.toDataStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     console.error('[ai-chat-authoring] 予期しないエラー:', error);
     return NextResponse.json(
