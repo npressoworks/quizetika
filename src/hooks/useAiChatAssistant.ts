@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { z } from 'zod';
+import { auth } from '@/lib/firebase/config';
 import type { Question } from '@/types';
 
 export interface UseAiChatAssistantProps {
@@ -91,6 +92,17 @@ export function useAiChatAssistant({
             quizState,
           },
         };
+      },
+      fetch: async (input, init) => {
+        const token = await auth.currentUser?.getIdToken();
+        const headers = new Headers(init?.headers);
+        if (token) {
+          headers.set('Authorization', `Bearer ${token}`);
+        }
+        return fetch(input, {
+          ...init,
+          headers,
+        });
       },
     }),
     onError(err) {

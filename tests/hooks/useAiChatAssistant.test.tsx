@@ -18,6 +18,15 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useAiChatAssistant } from '@/hooks/useAiChatAssistant';
 
+// Firebase config のモック
+jest.mock('@/lib/firebase/config', () => ({
+  auth: {
+    currentUser: {
+      getIdToken: jest.fn().mockResolvedValue('mock-token'),
+    },
+  },
+}));
+
 // useChat のモック
 const mockSendMessage = jest.fn().mockResolvedValue(undefined);
 const mockSetMessages = jest.fn();
