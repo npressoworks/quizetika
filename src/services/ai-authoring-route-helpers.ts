@@ -10,6 +10,7 @@ import {
   readDailyAuthoringCount,
   DAILY_AUTHORING_DOC_QUESTIONS,
   DAILY_AUTHORING_DOC_THUMBNAIL,
+  DAILY_AUTHORING_DOC_CHAT,
 } from '@/services/ai-authoring-utils';
 import type { DailyAiAuthoringCountDoc } from '@/services/ai-authoring-types';
 import type { AssertAiAuthoringAccessResult } from '@/services/ai-authoring-types';
@@ -25,8 +26,10 @@ export type AuthoringAuthSuccess = {
   todayStr: string;
   questionsCount: number;
   thumbnailCount: number;
+  chatCount: number;
   questionsCountRef: DocumentReference;
   thumbnailCountRef: DocumentReference;
+  chatCountRef: DocumentReference;
 };
 
 export async function authorizeAiAuthoringRequest(
@@ -75,10 +78,16 @@ export async function authorizeAiAuthoringRequest(
     .doc(verifiedUid)
     .collection('dailyAiAuthoringCounts')
     .doc(DAILY_AUTHORING_DOC_THUMBNAIL);
+  const chatCountRef = db
+    .collection('users')
+    .doc(verifiedUid)
+    .collection('dailyAiAuthoringCounts')
+    .doc(DAILY_AUTHORING_DOC_CHAT);
 
-  const [questionsSnap, thumbnailSnap] = await Promise.all([
+  const [questionsSnap, thumbnailSnap, chatSnap] = await Promise.all([
     questionsCountRef.get(),
     thumbnailCountRef.get(),
+    chatCountRef.get(),
   ]);
 
   return {
@@ -92,7 +101,12 @@ export async function authorizeAiAuthoringRequest(
       thumbnailSnap.data() as DailyAiAuthoringCountDoc | undefined,
       todayStr
     ),
+    chatCount: readDailyAuthoringCount(
+      chatSnap.data() as DailyAiAuthoringCountDoc | undefined,
+      todayStr
+    ),
     questionsCountRef,
     thumbnailCountRef,
+    chatCountRef,
   };
 }

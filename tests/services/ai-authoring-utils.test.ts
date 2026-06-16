@@ -41,12 +41,14 @@ describe('checkDailyAuthoringLimit', () => {
 });
 
 describe('readDailyAuthoringUsage', () => {
-  test('作問・サムネの usage を返す', () => {
-    const usage = readDailyAuthoringUsage(3, 1, false);
+  test('作問・サムネ・チャットの usage を返す', () => {
+    const usage = readDailyAuthoringUsage(3, 1, 5, false);
     expect(usage.questions.usedToday).toBe(3);
     expect(usage.thumbnail.usedToday).toBe(1);
+    expect(usage.chat.usedToday).toBe(5);
     expect(usage.questions.remainingToday).toBe(97);
     expect(usage.thumbnail.remainingToday).toBe(19);
+    expect(usage.chat.remainingToday).toBe(95);
   });
 });
 

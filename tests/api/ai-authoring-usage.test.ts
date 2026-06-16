@@ -6,9 +6,11 @@ const mockResolveEntitlements = jest.fn();
 
 const mockQuestionsSnap = { data: () => ({ count: 2, lastUpdatedDate: '2026-06-10' }) };
 const mockThumbnailSnap = { data: () => ({ count: 1, lastUpdatedDate: '2026-06-10' }) };
+const mockChatSnap = { data: () => ({ count: 3, lastUpdatedDate: '2026-06-10' }) };
 
 const mockQuestionsRef = { get: jest.fn(async () => mockQuestionsSnap) };
 const mockThumbnailRef = { get: jest.fn(async () => mockThumbnailSnap) };
+const mockChatRef = { get: jest.fn(async () => mockChatSnap) };
 
 const mockDb = {
   collection: jest.fn((name: string) => {
@@ -18,9 +20,11 @@ const mockDb = {
           collection: jest.fn((sub: string) => {
             if (sub === 'dailyAiAuthoringCounts') {
               return {
-                doc: jest.fn((docId: string) =>
-                  docId === 'questions' ? mockQuestionsRef : mockThumbnailRef
-                ),
+                doc: jest.fn((docId: string) => {
+                  if (docId === 'questions') return mockQuestionsRef;
+                  if (docId === 'thumbnail') return mockThumbnailRef;
+                  return mockChatRef;
+                }),
               };
             }
             return { doc: jest.fn() };
@@ -70,6 +74,7 @@ describe('GET /api/quiz/ai-authoring-usage', () => {
     const body = await res.json();
     expect(body.questions.usedToday).toBe(2);
     expect(body.thumbnail.usedToday).toBe(1);
+    expect(body.chat.usedToday).toBe(3);
   });
 
   test('非 Pro は 403', async () => {

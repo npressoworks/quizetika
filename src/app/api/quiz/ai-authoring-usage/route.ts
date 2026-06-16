@@ -21,6 +21,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const usage = readDailyAuthoringUsage(
       auth.questionsCount,
       auth.thumbnailCount,
+      auth.chatCount,
       auth.access.skipDailyLimit
     );
 

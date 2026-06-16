@@ -8,6 +8,7 @@ import {
   AI_QUIZ_QUESTION_COUNT,
   PRO_DAILY_QUESTION_GENERATION_LIMIT,
   PRO_DAILY_THUMBNAIL_GENERATION_LIMIT,
+  PRO_DAILY_CHAT_LIMIT,
   MIXED_ALLOWED_QUESTION_TYPES,
   type AiAuthoringUsage,
   type AssertAiAuthoringAccessResult,
@@ -20,8 +21,10 @@ export {
   AI_QUIZ_QUESTION_COUNT,
   PRO_DAILY_QUESTION_GENERATION_LIMIT,
   PRO_DAILY_THUMBNAIL_GENERATION_LIMIT,
+  PRO_DAILY_CHAT_LIMIT,
   DAILY_AUTHORING_DOC_QUESTIONS,
   DAILY_AUTHORING_DOC_THUMBNAIL,
+  DAILY_AUTHORING_DOC_CHAT,
   MIXED_ALLOWED_QUESTION_TYPES,
 } from '@/services/ai-authoring-types';
 
@@ -91,8 +94,9 @@ export function canAccessAiAuthoring(entitlements: UserEntitlements): boolean {
 export function readDailyAuthoringUsage(
   questionsCount: number,
   thumbnailCount: number,
+  chatCount: number,
   isExempt: boolean
-): { questions: AiAuthoringUsage; thumbnail: AiAuthoringUsage } {
+): { questions: AiAuthoringUsage; thumbnail: AiAuthoringUsage; chat: AiAuthoringUsage } {
   return {
     questions: buildAuthoringUsage(
       questionsCount,
@@ -102,6 +106,11 @@ export function readDailyAuthoringUsage(
     thumbnail: buildAuthoringUsage(
       thumbnailCount,
       PRO_DAILY_THUMBNAIL_GENERATION_LIMIT,
+      isExempt
+    ),
+    chat: buildAuthoringUsage(
+      chatCount,
+      PRO_DAILY_CHAT_LIMIT,
       isExempt
     ),
   };
