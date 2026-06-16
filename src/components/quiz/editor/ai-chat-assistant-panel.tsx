@@ -60,6 +60,41 @@ export function AiChatAssistantPanel({
 }: AiChatAssistantPanelProps) {
   const historyRef = useRef<HTMLDivElement>(null);
 
+  const getMessageText = (msg: any) => {
+    if (msg.content) return msg.content;
+    if (Array.isArray(msg.parts)) {
+      return msg.parts
+        .filter((part: any) => part.type === 'text')
+        .map((part: any) => part.text)
+        .join('');
+    }
+    return '';
+  };
+
+  const getToolInvocations = (msg: any) => {
+    if (Array.isArray(msg.toolInvocations)) return msg.toolInvocations;
+    if (Array.isArray(msg.parts)) {
+      return msg.parts
+        .filter((part: any) => part.type.startsWith('tool-') || part.type === 'dynamic-tool')
+        .map((part: any) => {
+          let toolName = '';
+          if (part.type === 'dynamic-tool') {
+            toolName = part.toolName;
+          } else if (part.type.startsWith('tool-')) {
+            toolName = part.type.slice(5);
+          }
+          return {
+            toolCallId: part.toolCallId,
+            toolName: toolName,
+            args: part.input,
+            state: part.state === 'output-available' ? 'result' : 'call',
+            result: part.output,
+          };
+        });
+    }
+    return [];
+  };
+
   // 新しいメッセージが追加されたら一番下までスクロール
   useEffect(() => {
     if (historyRef.current) {
@@ -109,6 +144,9 @@ export function AiChatAssistantPanel({
           .filter((msg) => msg.role !== 'system')
           .map((msg) => {
             const isUser = msg.role === 'user';
+            const textContent = getMessageText(msg);
+            const toolInvocations = getToolInvocations(msg);
+            
             return (
               <div
                 key={msg.id}
@@ -116,18 +154,18 @@ export function AiChatAssistantPanel({
                   isUser ? styles.messageUser : styles.messageAssistant
                 }`}
               >
-                {msg.content && (
+                {textContent && (
                   <div
                     className={`${styles.bubble} ${
                       isUser ? styles.bubbleUser : styles.bubbleAssistant
                     }`}
                   >
-                    {msg.content}
+                    {textContent}
                   </div>
                 )}
 
                 {/* Tool Invocations log representation */}
-                {msg.toolInvocations?.map((tool) => {
+                {toolInvocations?.map((tool) => {
                   const isCall = tool.state === 'call';
                   const isSearch = tool.toolName === 'googleSearch';
                   

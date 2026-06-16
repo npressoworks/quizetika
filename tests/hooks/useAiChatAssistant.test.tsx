@@ -1,16 +1,26 @@
 /**
  * @jest-environment jsdom
  */
+if (typeof global.TransformStream === 'undefined') {
+  const { TransformStream, ReadableStream, WritableStream } = require('node:stream/web');
+  global.TransformStream = TransformStream;
+  global.ReadableStream = ReadableStream;
+  global.WritableStream = WritableStream;
+}
+if (typeof global.TextEncoder === 'undefined') {
+  const { TextEncoder, TextDecoder } = require('util');
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder;
+}
+
 import '@testing-library/jest-dom';
 import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useAiChatAssistant } from '@/hooks/useAiChatAssistant';
 
 // useChat のモック
-const mockAppend = jest.fn();
+const mockSendMessage = jest.fn().mockResolvedValue(undefined);
 const mockSetMessages = jest.fn();
-const mockHandleInputChange = jest.fn();
-const mockHandleSubmit = jest.fn();
 
 jest.mock('@ai-sdk/react', () => ({
   useChat: jest.fn().mockImplementation((options) => {
@@ -18,12 +28,9 @@ jest.mock('@ai-sdk/react', () => ({
     (global as any).lastUseChatOptions = options;
     return {
       messages: [],
-      input: '',
+      status: 'ready',
       setMessages: mockSetMessages,
-      handleInputChange: mockHandleInputChange,
-      handleSubmit: mockHandleSubmit,
-      isLoading: false,
-      append: mockAppend,
+      sendMessage: mockSendMessage,
     };
   }),
 }));
@@ -76,7 +83,7 @@ describe('useAiChatAssistant', () => {
     );
   });
 
-  it('triggerQuickAction の呼び出しでチャットを開き append を呼び出す', () => {
+  it('triggerQuickAction の呼び出しでチャットを開き sendMessage を呼び出す', () => {
     const { result } = renderHook(() => useAiChatAssistant(defaultProps));
 
     act(() => {
@@ -84,10 +91,9 @@ describe('useAiChatAssistant', () => {
     });
 
     expect(result.current.isChatOpen).toBe(true);
-    expect(mockAppend).toHaveBeenCalledWith(
+    expect(mockSendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        role: 'user',
-        content: expect.stringContaining('すべての問題の包括チェック'),
+        text: expect.stringContaining('すべての問題の包括チェック'),
       })
     );
   });

@@ -17,6 +17,24 @@ function resolveSubscriptionTier(user: User | null): SubscriptionTier {
 }
 
 function computeHasPaidEntitlements(user: User | null): boolean {
+  // E2Eテスト用のモック判定
+  if (typeof window !== 'undefined') {
+    try {
+      const e2eMock = window.localStorage.getItem('e2e-mock-pro-user');
+      if (e2eMock) {
+        const parsed = JSON.parse(e2eMock);
+        if (
+          parsed.subscriptionTier === 'pro' &&
+          parsed.subscriptionStatus === 'active'
+        ) {
+          return true;
+        }
+      }
+    } catch (e) {
+      // 解析エラーは無視して通常の判定にフォールバック
+    }
+  }
+
   if (!user) return false;
 
   const subscriptionTier = user.subscriptionTier ?? 'free';

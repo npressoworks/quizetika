@@ -2,109 +2,109 @@
 
 ## Overview
 
-**Purpose**: Pro 契約クリエイターがクイズエディタ内で Gemini による **10問一括 AI 作問**と**タイトル・説明ベースのサムネイル AI 生成**を利用できるようにし、作問効率と Pro プラン価値を高める。
+**Purpose**: Pro 契約クリエイターがクイズエディタ内で対話型 AI チャットアシスタントを利用できるようにし、作問の「作成」「編集」「削除」「包括的チェック（ファクトチェック・誤字脱字校正）」を AI との対話および Tool Use によって実行可能にすることで、作問効率と Pro プラン価値を劇的に高める。
 
-**Users**: 有効な Pro / Premium 契約を持つクイズ作成者が `/quiz/create` および `/quiz/[id]/edit` で利用する。無料・未ログインユーザには Pro 購読 CTA を表示する。
+**Users**: 有効な Pro / Premium 契約を持つクイズ作成者が `/quiz/create` および `/quiz/[id]/edit` で利用する。
 
-**Impact**: 新規 API 3 本（usage GET + 作問 POST + サムネ POST）、作問用日次カウンタ、エディタ AI パネル、サムネ picsum スタブの置換。プレイ AI（`ask-ai`）とはカウンタ・Route 境界を分離する。
+**Impact**: 
+- 新規チャット用 API エンドポイント `POST /api/quiz/ai-chat-authoring` の新設。
+- Vercel AI SDK（`useChat`）を用いた対話型チャットボット UI の追加。
+- エディタ状態（問題リストなど）とチャットエージェントとの結合処理の実装。
+- AI エージェントにおける Tool Use（作問操作ツール、Google検索ツール、包括チェックツール）の定義。
+- 日次チャット制限（メッセージ送信およびツール実行の合計 100回/日）の導入。
 
 ### Goals
-- プロンプト 1 回で形式適合の 10 問を生成し、既存問題リスト末尾に追加反映
-- タイトル・説明からサムネイルを生成し Storage URL を `thumbnailUrl` に設定
-- Pro 限定 + 日次制限（作問 100 / サムネ 20、JST リセット）+ 残り回数表示
-- サーバー側 Pro 判定・検証・エラー UX（401/403/429/422/503）
+- 画面右下にフローティングチャットアイコンを常駐させ、クリックでエディタと併存するチャットパネルをスライド表示。
+- AI エージェントがエディタの最新状態をコンテキストとして理解し、自然言語の指示でクイズデータを操作。
+- `checkQuestion` (指定問題) および `checkAllQuestions` (全問題一括) による、事実検証（Google検索）、誤字脱字、表現校正、形式不適合の包括チェック。
+- 包括チェックで検出された不備をチャットにリスト表示し、ユーザーの同意をもとに `updateQuestion` ツールでエディタに自動反映。
+- サーバー側での厳格な Pro 判定・レート制限（100回/日、JST リセット、モデレータ免除）。
 
 ### Non-Goals
-- lateral-thinking 一括作問、問題単位画像 AI、無料お試し、自動 Firestore 保存
-- プレイ AI 制限変更、Stripe / エンタイトルメント同期本体、リストエディタ AI
+- クイズエディタ画面以外でのチャットボットの表示。
+- チャット対話履歴の Firestore への永続化（リロードによる履歴リセットを許容）。
+- 無料 tier のお試しチャット利用。
+- チャットボットによる Firestore への自動下書き保存（ユーザーが明示的に保存ボタンを押すまで保存しない）。
 
 ## Boundary Commitments
 
 ### This Spec Owns
-- **エディタ UI**: `AiQuizAuthoringPanel`, `AiQuizProUpsell`, サムネ AI ボタン、ローディング・エラー・残り回数表示
-- **クライアント Hook**: `useAiQuizAuthoring`（API 呼び出し、state、エディタへの反映）
-- **API 契約定義**: 作問・サムネ 2 エンドポイント + **残り回数 GET** の Request/Response/Error 型（実装は core タスク）
-- **E2E 契約**: `data-testid`（要件 7.2–7.3）
-- **Core 実装タスクの設計正本**: `ai-authoring-utils`, Route, Admin Storage, Rules（roadmap Phase 25 core 更新と同一設計を参照）
+- **チャット UI**: 右下フローティングボタン `AiChatAssistantButton`、スライドインチャットパネル `AiChatAssistantPanel`。
+- **エディタとの結合ロジック**: `useChat` からのツールコールをインターセプトして `questions` 等のエディタ状態に反映するハンドラー。
+- **API 契約定義**: チャット用 API エンドポイント（`POST /api/quiz/ai-chat-authoring`）の Request/Response/Error 型。
+- **AI ツール群の定義**: `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail`, `checkQuestion`, `checkAllQuestions`, `googleSearch` のスキーマ定義。
+- **E2E テスト**: チャット開閉、メッセージ送信、ツール実行による問題の追加・編集・削除、エラー表示の検証。
 
 ### Out of Boundary
-- 水平思考プレイ AI UI・制限（`quizeum-play-flow-ui`）
-- 料金画面レイアウト（`quizeum-billing-subscription-ui`）— 特典文言のみ direct update 可
-- クイズ保存・公開・バリデーション lib 本体（既存 `quiz-validation` を呼び出すのみ）
-- Stripe Webhook / `applySubscriptionFromStripe`
+- 水平思考プレイ中の質問チャット UI およびその制限ロジック（`quizeum-play-flow-ui`）。
+- 料金画面レイアウト（`quizeum-billing-subscription-ui`）。
+- クイズ保存・公開・バリデーションライブラリ本体（既存 `quiz-validation` を呼び出すのみ）。
+- Stripe 連携およびサブスクリプションエンタイトルメント同期のインフラ部分。
 
 ### Allowed Dependencies
-- `quizeum-core`: `resolveUserEntitlements`, `verifyFirebaseIdToken`, `quiz-validation`, Firestore Admin, 新規 Storage Admin helper
-- `quizeum-ui-editor`: `QuizEditor` / `QuizMetadataSection` への props 差し込み
-- `@google/generative-ai`（テキスト作問）、`@google/genai`（サムネ、新規依存）
-- `GEMINI_API_KEY`, `GEMINI_MODEL_ID`, `GEMINI_IMAGE_MODEL_ID`（新規 env）
+- `quizeum-core`: `resolveUserEntitlements`, `verifyFirebaseIdToken`, `quiz-validation`, Firestore Admin, Storage Admin helper。
+- `ai` (Vercel AI SDK): 対話インターフェース構築用。
+- `@ai-sdk/google`: Gemini API 呼び出し用。
+- `GEMINI_API_KEY`, `GEMINI_MODEL_ID`（env 環境変数）。
 
 ### Revalidation Triggers
-- API Request/Response 形状変更
-- 日次上限値・カウンタ docId 変更
-- 対応 `format` / `Question.type` 追加
-- Storage パス規約変更
-- Pro 判定条件（`computeUserEntitlements`）変更
+- AI ツール（Tool Use）の引数スキーマの変更。
+- 日次チャット上限値・カウンタ docId の変更。
+- クイズデータモデル（`Question` 型）の変更。
 
 ## Architecture
 
 ### Existing Architecture Analysis
-- **Gemini プレイ AI**: `POST /api/attempt/ask-ai` — Bearer 認証、JST カウンタ、`dailyAiTurnCounts`
-- **Pro 判定**: `resolveUserEntitlements` → `hasPaidEntitlements` / モデレータ免除
-- **エディタ**: `QuizEditor` Container + `editor/*` プレゼンテーション。`addDefaultQuestion` が型別初期値の正本
-- **サムネ**: `triggerThumbnail` は picsum ダミー（置換対象）
+- **Gemini 連携**: すでに `GoogleGenerativeAI` を用いた一括作問（`POST /api/quiz/ai-generate-questions`）や、水平思考の真相判定（`POST /api/attempt/verify-truth`）が実装されている。
+- **プロバイダの選定**: 今回は対話と Tool Use をスマートに管理するため、Vercel AI SDK（`ai` パッケージ）と `@ai-sdk/google` を採用し、`streamText` などのヘルパーを活用する。
+- **エディタ**: `quiz-editor.tsx` が問題リスト（`questions`）を React `useState` で管理しており、子コンポーネントにハンドラーを伝播している。
 
 ### Architecture Pattern & Boundary Map
 
 ```mermaid
 sequenceDiagram
     participant Editor as QuizEditor
-    participant Panel as AiQuizAuthoringPanel
-    participant Hook as useAiQuizAuthoring
-    participant API as API_Routes
-    participant Utils as ai_authoring_utils
-    participant Ent as entitlement
-    participant Gemini as Gemini_Text
-    participant GenAI as Google_GenAI_Image
-    participant FS as Firestore_Admin
-    participant ST as Storage_Admin
+    participant Btn as QuickActionButton (Generate/Check)
+    participant Panel as AiChatAssistantPanel
+    participant Hook as useAiChatAssistant (useChat)
+    participant API as POST /api/quiz/ai-chat-authoring
+    participant Gemini as Gemini Model
+    participant FS as Firestore (Limits)
+    participant GS as GoogleSearch
 
-    Editor->>Panel: format_prompt_generate
-    Panel->>Hook: generateQuestions
-    Hook->>API: POST ai_generate_questions
-    API->>Ent: resolveUserEntitlements
-    API->>Utils: assertAccess_incrementCounter
-    API->>FS: dailyAiAuthoringCounts
-    API->>Gemini: generateContent_JSON_schema
-    API->>Utils: mapAiJsonToQuestions_validate
-    API-->>Hook: Question_array_usage
-    Hook->>Editor: appendQuestions
-
-    Editor->>Panel: generateThumbnail
-    Hook->>API: POST ai_generate_thumbnail
-    API->>GenAI: generateContent_image
-    API->>ST: uploadQuizCoverBuffer
-    API-->>Hook: thumbnailUrl_usage
-    Hook->>Editor: setThumbnailUrl
+    Note over Editor, Btn: 1. クイックアクションによる起動
+    Btn->>Panel: setIsChatOpen(true)
+    Btn->>Hook: append({ role: 'user', content: '...' })
+    
+    Note over Panel, Hook: 2. 対話型メッセージ送信 (通常会話も同様)
+    Hook->>API: POST /api/quiz/ai-chat-authoring (context + messages)
+    API->>FS: check & increment daily limit
+    API->>Gemini: streamText with tools
+    
+    rect rgb(30, 30, 40)
+        note right of Gemini: サーバー側検証ループ (googleSearch)
+        Gemini->>API: Call checkQuestion
+        API->>GS: googleSearch (grounding)
+        GS-->>API: search results
+        API-->>Gemini: return search results
+    end
+    
+    Gemini->>API: Call client tools (e.g. updateQuestion)
+    API-->>Hook: stream tool call (updateQuestion)
+    Hook->>Editor: setQuestions / state update
+    API-->>Hook: Stream text response ("〜を更新しました")
+    Hook-->>Panel: Render text response
 ```
-
-**Architecture Integration**:
-- **Selected pattern**: API Route + 純粋 utils（`ask-ai` 同型）+ エディタ Hook/Panel
-- **Domain boundaries**: Core = 認可・カウンタ・AI・Storage・マッピング / UI = 入力・表示・state 反映
-- **Preserved**: Bearer 認証、JST 日次リセット、モデレータ免除、エディタ `Question` 型
-- **Steering**: Tailwind + shadcn（Phase 24 エディタ）、TypeScript strict
 
 ### Technology Stack
 
 | Layer | Choice / Version | Role in Feature | Notes |
 |-------|------------------|-----------------|-------|
-| Frontend | React 19 + shadcn/Tailwind | AI パネル、Upsell、サムネボタン | `QuizEditor` 統合 |
-| API Routes | Next.js 16 App Router | 3 endpoints（GET usage + 2 POST） | Server-only secrets |
-| Text AI | `@google/generative-ai` ^0.24.1 | 10問 JSON 生成 | `responseSchema` |
-| Image AI | `@google/genai`（新規） | サムネ PNG 生成 | env `GEMINI_IMAGE_MODEL_ID` |
-| Auth / Tier | `entitlement.ts` + `auth-verify.ts` | Pro ゲート | クライアント tier 盲信禁止 |
-| Counter | Firestore Admin | `dailyAiAuthoringCounts` | Rules: client write deny |
-| Storage | firebase-admin/storage（新規 helper） | カバー PNG 永続化 | draft / quiz パス |
+| Frontend | React 19 + CSS Modules | チャットパネル、UI 統合 | Tailwind を使わず Vanilla CSS |
+| Chat SDK | Vercel AI SDK (`ai` ^4.0.0) | クライアント `useChat` & サーバー `streamText` | Tool Use およびストリーミング管理 |
+| Model Provider | `@ai-sdk/google` ^1.0.0 | Gemini API 連携 | `gemini-2.5-flash` などのモデルを利用 |
+| Google Search | Gemini Google Search Tool | 事実関係のグラウンディング検証 | Vertex AI/AI Studio Grounding または自作検索ツール |
+| Limit Control | Firestore Admin | 日次チャット/ツール利用カウンタの永続化 | `users/{uid}/dailyAiAuthoringCounts/chat` |
 
 ## File Structure Plan
 
@@ -112,462 +112,296 @@ sequenceDiagram
 ```
 src/
 ├── app/api/quiz/
-│   ├── ai-authoring-usage/route.ts      # GET 残り回数（初回表示用）
-│   ├── ai-generate-questions/route.ts   # POST 作問一括
-│   └── ai-generate-thumbnail/route.ts   # POST サムネ生成
+│   ├── ai-chat-authoring/route.ts       # POST チャットエンドポイント (Vercel AI SDK)
+│   └── ai-authoring-usage/route.ts      # GET 残り回数取得 (チャット利用制限表示用)
 ├── services/
-│   ├── ai-authoring-utils.ts            # カウンタ・ゲート・JST・マッピング・プロンプト
-│   ├── ai-authoring-types.ts            # Request/Response/Error 型
-│   └── storage-admin.ts                 # Admin Storage upload helper（新規）
+│   ├── ai-authoring-utils.ts            # カウンタ制御、JST 日時、プロンプト補助
+│   └── ai-authoring-types.ts            # チャット用型定義
 ├── hooks/
-│   └── useAiQuizAuthoring.ts            # API 呼び出し + エディタ連携
+│   └── useAiChatAssistant.ts            # useChat ラッパー、エディタ結合ロジック
 ├── components/quiz/editor/
-│   ├── ai-quiz-authoring-panel.tsx      # 作問パネル UI
-│   ├── ai-quiz-pro-upsell.tsx           # 無料/未ログイン CTA
-│   └── quiz-metadata-section.tsx        # サムネ AI ボタン追加（修正）
-├── components/quiz/
-│   └── quiz-editor.tsx                  # Panel 統合・picsum 削除（修正）
-├── lib/firebase/
-│   └── admin.ts                         # getAdminStorage 追加（修正）
-tests/
-├── services/ai-authoring-utils.test.ts
-├── services/quiz-validation-ai.test.ts  # validateGeneratedQuestions
-├── api/ai-authoring-usage.test.ts
-├── api/ai-generate-questions.test.ts
-└── api/ai-generate-thumbnail.test.ts
-e2e/
-└── ai-quiz-authoring.spec.ts
-```
-
-### Modified Files
-- `src/services/quiz-validation.ts` — `validateGeneratedQuestions` export 追加（AI 生成問題の一括検証）
-- `src/components/quiz/quiz-editor.tsx` — `AiQuizAuthoringPanel` 配置、`triggerThumbnail` picsum 削除、Hook 接続
-- `src/components/quiz/editor/quiz-metadata-section.tsx` — AI サムネボタン・loading/disabled props
-- `src/lib/firebase/admin.ts` — `getAdminStorage()` export
-- `firestore.rules` — `dailyAiAuthoringCounts` クライアント書込 deny
-- `src/lib/pricing-display.ts` — Pro 特典文言（direct、任意）
-
-## System Flows
-
-### 作問生成（成功パス）
-
-```mermaid
-flowchart TD
-    A[User clicks Generate] --> B{Client: Pro display gate}
-    B -->|not Pro| C[Show Upsell]
-    B -->|Pro| D[POST ai-generate-questions]
-    D --> E{Server: entitlement}
-    E -->|403| F[Pro CTA]
-    E -->|ok| G{daily count lt 100}
-    G -->|429| H[Limit message no pricing CTA]
-    G -->|ok| I[Gemini JSON 10 questions]
-    I --> J{map + validate all 10}
-    J -->|fail| K[422 no editor change]
-    J -->|ok| L[increment counter]
-    L --> M[Return questions + usage]
-    M --> N[Editor append to list]
-```
-
-**Key decisions**: 検証失敗は 10 問全体拒否（要件 6.7）。カウンタ増分は AI 成功後トランザクション内。
-
-### 残り回数の初回表示（design review 反映）
-
-```mermaid
-sequenceDiagram
-    participant Panel as AiQuizAuthoringPanel
-    participant Hook as useAiQuizAuthoring
-    participant Usage as GET_ai_authoring_usage
-    participant FS as dailyAiAuthoringCounts
-
-    Panel->>Hook: mount Pro user
-    Hook->>Usage: fetch usage
-    Usage->>FS: read questions + thumbnail docs
-    Usage-->>Hook: usageQuestions usageThumbnail
-    Hook->>Panel: display remaining counts
-```
-
-Pro 契約ユーザがパネルを開いた時点で残り回数を表示するため、**読み取り専用** `GET /api/quiz/ai-authoring-usage` を追加する。Gemini は呼ばない。生成 POST のレスポンス `usage` も同型で、生成成功後に Hook state を更新する。
-
-## Requirements Traceability
-
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1–1.5 | Pro 可視性・サーバー判定・モデレータ免除 | `AiQuizProUpsell`, `AiQuizAuthoringPanel`, API `assertAiAuthoringAccess` | Entitlement gate | Upsell vs Panel |
-| 2.1–2.13 | 10問一括・形式別スキーマ生成・末尾追加・必須検証 | `AiQuizAuthoringPanel`, `mapAiJsonToQuestions`, `useAiQuizAuthoring`, `validateGeneratedQuestions` | POST questions | 作問 flow |
-| 3.1–3.6 | 作問 100/日・独立カウンタ・残り表示 | `ai-authoring-utils`, questions Route, **GET usage Route** | `dailyAiAuthoringCounts/questions` | usage fetch + 429 branch |
-| 4.1–4.6 | サムネ・タイトル説明必須 | `QuizMetadataSection`, thumbnail Route | POST thumbnail | サムネ flow |
-| 5.1–5.6 | サムネ 20/日 | `ai-authoring-utils`, thumbnail Route, **GET usage Route** | `dailyAiAuthoringCounts/thumbnail` | usage fetch + 429 branch |
-| 6.1–6.7 | エラー UX・部分反映禁止 | Hook + Panel error state | 401/403/422/503 | Error branches |
-| 7.1–7.5 | エディタ配置・testid | `QuizEditor`, Panel, Metadata | data-testid | — |
-| 8.1–8.5 | 隣接スペック整合 | Boundary section | core/ui-editor deps | — |
-
-## Components and Interfaces
-
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| `ai-authoring-utils` | Core/service | ゲート・カウンタ・マッピング | 1.4–1.5, 2.5–2.8, 3, 5, 6.7 | entitlement (P0), quiz-validation (P0) | Service |
-| `ai-authoring-usage` Route | Core/API | 日次残り回数 read のみ | 3.3, 5.3 | Firestore Admin (P0), utils (P0) | API |
-| `ai-generate-questions` Route | Core/API | 10問 Gemini + 検証 | 2, 3, 6 | Gemini (P0), utils (P0) | API |
-| `ai-generate-thumbnail` Route | Core/API | 画像生成 + Storage | 4, 5, 6 | @google/genai (P0), storage-admin (P0) | API |
-| `useAiQuizAuthoring` | UI/hook | API 呼び出し・反映・**初回 usage fetch** | 2.3, 2.10–2.11, 3.3, 4.3, 5.3, 6 | auth token (P0) | State |
-| `AiQuizAuthoringPanel` | UI | プロンプト・生成 UI | 1, 2, 3, 7 | Hook (P0), shadcn (P1) | State |
-| `AiQuizProUpsell` | UI | 無料 CTA | 1.1–1.2, 6.2 | pricing link (P1) | — |
-| `QuizMetadataSection` | UI | サムネ AI ボタン | 4, 5, 7.3 | Hook (P0) | — |
-
-### Core / API Layer
-
-#### ai-authoring-utils
+│   ├── ai-chat-assistant-button.tsx     # フローティング起動ボタン UI
+│   ├── ai-chat-assistant-panel.tsx      # チャットパネル UI
+│   └── #### useAiChatAssistant
 
 | Field | Detail |
 |-------|--------|
-| Intent | 作問 AI の認可・日次カウンタ・JSON→Question マッピング・プロンプト構築 |
-| Requirements | 1.4, 1.5, 2.5–2.8, 2.12, 3.1–3.2, 5.1–5.2, 6.7 |
-
-**Constants**
-- `AI_QUIZ_PROMPT_MAX_LENGTH = 500`
-- `AI_QUIZ_QUESTION_COUNT = 10`
-- `PRO_DAILY_QUESTION_GENERATION_LIMIT = 100`
-- `PRO_DAILY_THUMBNAIL_GENERATION_LIMIT = 20`
-- `DAILY_AUTHORING_DOC_QUESTIONS = 'questions'`
-- `DAILY_AUTHORING_DOC_THUMBNAIL = 'thumbnail'`
-- `MIXED_ALLOWED_QUESTION_TYPES = ['multiple-choice', 'true-false', 'text-input', 'sorting']` — `quiz-validation.ts` / `quiz-editor.tsx` と同一（quick-press・association は mixed 不可）
-
-**Contracts**: Service [x] / API [ ] / State [x]
-
-##### Service Interface
-```typescript
-export interface AiAuthoringUsage {
-  limit: number;
-  usedToday: number;
-  remainingToday: number;
-}
-
-export interface AssertAiAuthoringAccessResult {
-  uid: string;
-  hasPaidEntitlements: boolean;
-  isModeratorExempt: boolean;
-  skipDailyLimit: boolean;
-}
-
-export function assertAiAuthoringAccess(
-  entitlements: UserEntitlements,
-  uid: string
-): AssertAiAuthoringAccessResult;
-
-export function checkDailyAuthoringLimit(
-  count: number,
-  limit: number,
-  isExempt: boolean
-): { exceeded: boolean; usage: AiAuthoringUsage };
-
-export function mapAiJsonToQuestions(
-  raw: unknown,
-  format: Quiz['format']
-): Question[];
-
-export function buildAiQuizGenerationPrompt(input: {
-  prompt: string;
-  format: Quiz['format'];
-  title?: string;
-  description?: string;
-  genre?: string;
-}): string;
-
-export function readDailyAuthoringUsage(
-  questionsCount: number,
-  thumbnailCount: number,
-  isExempt: boolean
-): { questions: AiAuthoringUsage; thumbnail: AiAuthoringUsage };
-```
-- **Preconditions**: `raw` は Gemini JSON パース済み object
-- **Postconditions**: 返却 `Question[]` は長さ 10、`validateGeneratedQuestions(questions, format)` が空配列（エラー 0 件）
-- **Invariants**: 各 `Question.id` は新規 UUID 相当、`correctCount/incorrectCount` は 0。`format === 'mixed'` 時は各 `question.type ∈ MIXED_ALLOWED_QUESTION_TYPES`
-
-##### quiz-validation 拡張（design review 反映）
-
-`collectQuestionValidationErrors` は private のため、AI 作問専用の公開関数を追加する。
-
-```typescript
-// src/services/quiz-validation.ts（新規 export）
-export function validateGeneratedQuestions(
-  questions: Question[],
-  format: NonNullable<Quiz['format']>
-): QuizPublishValidationError[];
-```
-
-- 各問題に `collectQuestionValidationErrors(q, idx)` を適用
-- `format` が単一形式のときは `q.type === format`（multiple-choice 形式は `true-false` も許容 — 既存 publish ルールと同型）
-- `format === 'mixed'` のときは `MIXED_ALLOWED_QUESTION_TYPES` 外の type をエラー
-- 10 件未満・超過は呼び出し前に `mapAiJsonToQuestions` で reject（本関数は長さ 10 を前提）
-
-##### API Contract — GET `/api/quiz/ai-authoring-usage`
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| userId | string (query or body) | yes | token と一致 |
-
-**Response 200**
-```typescript
-{
-  questions: AiAuthoringUsage;
-  thumbnail: AiAuthoringUsage;
-}
-```
-
-**Errors**: 401 unauthorized / 403 pro-required（POST と同型）。429 は返さない（読み取りのみ）。
-
-**Behavior**: Firestore `dailyAiAuthoringCounts/questions` と `.../thumbnail` を read。JST 日付不一致 doc は count=0 として扱う。モデレータ免除時は `remainingToday: null` または `limit: null` で「無制限」表示（UI は「無制限」ラベル）。
-
-##### API Contract — POST `/api/quiz/ai-generate-questions`
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| prompt | string | yes | max 500 |
-| format | Quiz['format'] | yes | lateral-thinking → 400 |
-| title | string | no | コンテキスト |
-| description | string | no | コンテキスト |
-| genre | string | no | コンテキスト |
-| userId | string | yes | token と一致 |
-
-**Response 200**
-```typescript
-{
-  questions: Question[];
-  usage: AiAuthoringUsage;
-}
-```
-
-**Errors**
-
-| Status | error code | When |
-|--------|------------|------|
-| 400 | missing-params / invalid-format / prompt-too-long | 入力不正 |
-| 401 | unauthorized | 未認証 |
-| 403 | pro-required | 非 Pro |
-| 429 | limit-exceeded | 作問 100/日 |
-| 422 | validation-failed | JSON/検証失敗 |
-| 503 | ai-unavailable | Gemini 障害 |
-
-##### API Contract — POST `/api/quiz/ai-generate-thumbnail`
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| title | string | yes | 空禁止 |
-| description | string | yes | 空禁止 |
-| quizId | string | no | あれば `quizzes/{id}/`、なければ draft パス |
-| userId | string | yes | token と一致 |
-
-**Response 200**
-```typescript
-{
-  thumbnailUrl: string;
-  usage: AiAuthoringUsage;
-}
-```
-
-**Errors**: 同上（429 はサムネ 20/日）
-
-**Implementation Notes**
-- **Integration**: Route 冒頭で `assertAiAuthoringAccess` → 非 Pro は 403。成功後のみカウンタ increment
-- **Validation**: `mapAiJsonToQuestions` → `validateGeneratedQuestions` — エラー 1 件でも 422 全体拒否（要件 6.7）
-- **Risks**: Gemini モデル deprecation — env で切替
-
-#### ai-authoring-usage Route
-
-| Field | Detail |
-|-------|--------|
-| Intent | パネル初回表示用の作問・サムネ残り回数（Gemini 非呼び出し） |
-| Requirements | 3.3, 5.3 |
-
-**Implementation Notes**
-- Pro 契約 + 認証のみ。カウンタ read は `readDailyAuthoringUsage` に委譲
-- POST 生成成功後の `usage` 更新と型を共有し、Hook 側 state を上書き
-
-### UI Layer
-
-#### useAiQuizAuthoring
-
-| Field | Detail |
-|-------|--------|
-| Intent | 作問・サムネ API 呼び出しとエディタ state 更新 |
-| Requirements | 2.3, 2.10–2.11, 4.3–4.5, 6.1–6.6 |
+| Intent | Vercel AI SDK `useChat` をラップし、エディタ状態（State）の更新とクイックアクションボタン用の `append` 送信を処理する。 |
+| Requirements | 1.3, 1.6, 1.7, 2.1–2.2, 2.4, 3, 4, 6 |
 
 **Contracts**: State [x]
 
-##### State Management
-- `isGeneratingQuestions`, `isGeneratingThumbnail`, `errorMessage`, `usageQuestions`, `usageThumbnail`, `isUsageLoading`
-- **Mount（Pro ユーザ）**: `GET /api/quiz/ai-authoring-usage` で `usageQuestions` / `usageThumbnail` を初期化（要件 3.3, 5.3）
-- `generateQuestions(prompt, format, meta)` → 成功時 `onAppendQuestions(questions)` + `usage` 更新
-- `generateThumbnail(title, description, quizId?)` → `onSetThumbnailUrl(url)` + `usage` 更新
-- 401 → ログイン促し、403 → Upsell、429 → 上限メッセージ（Pro でも pricing 非表示）
+##### Hook Interface
+```typescript
+export interface UseAiChatAssistantProps {
+  userId?: string;
+  isProUser: boolean;
+  quizState: {
+    title: string;
+    description: string;
+    genre: string;
+    tags: string[];
+    questions: Question[];
+    thumbnailUrl: string | null;
+  };
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setTitle: (t: string) => void;
+  setDescription: (d: string) => void;
+  setThumbnailUrl: (url: string | null) => void;
+}
 
-#### AiQuizAuthoringPanel
+export interface UseAiChatAssistantResult {
+  messages: Message[];
+  input: string;
+  isGenerating: boolean;
+  isChatOpen: boolean;
+  setIsChatOpen: (open: boolean) => void;
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  triggerQuickAction: (actionType: 'bulk-generate' | 'check-all' | 'check-single', targetQuestionId?: string) => void;
+}
+
+export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAssistantResult;
+```
+
+* `triggerQuickAction` メソッドは以下のロジックで動作します：
+  1. `setIsChatOpen(true)` を呼び出し、チャットアシスタントパネルを展開する。
+  2. アクションタイプに応じて、ユーザーの代わりに Vercel AI SDK の `append` を呼び出してチャットを開始する。
+     * `'bulk-generate'`: `"クイズを10問一括で作成して、フォームに流し込んでください。"`
+     * `'check-all'`: `"現在エディタにあるすべての問題の包括チェック（ファクトチェック・誤字脱字・表現校正）を実行してください。"`
+     * `'check-single'`: `"ID ${targetQuestionId} の問題について、包括チェック（ファクトチェック・誤字脱字・表現校正）を実行してください。"`
+
+#### AiChatAssistantPanel
 
 | Field | Detail |
 |-------|--------|
-| Intent | プロンプト入力・生成・残り回数・lateral 無効メッセージ |
-| Requirements | 1.3, 2.1–2.2, 2.7, 2.9–2.11, 3.3, 7.1–7.2 |
+| Intent | スライドインチャットパネルおよび対話ログ、入力欄 UI の提供 |
+| Requirements | 1.3, 1.5, 2.2, 2.4, 5.4, 6 |
 
 **Implementation Notes**
-- `format === 'lateral-thinking'` 時: 生成 disabled + 説明文
-- `data-testid`: `ai-quiz-authoring-panel`, `ai-quiz-prompt-input`, `ai-quiz-generate-button`
-- shadcn `Textarea`, `Button`, `Alert` でエラー表示
+- スライドイン時に右側から幅 380px〜420px のエリアを占有。
+- ユーザーのチャット送信履歴と、AIが実行したツール名（および対象問題番号）を判別しやすいカード型表示で統合。
+- AIのテキストおよびツール呼び出し状態のインジケータ（`isGenerating` 時にローディングアニメーション）を表示。
+- `useAiChatAssistant` の結果オブジェクトから閉じるボタンイベントやフォームサブミットを受け取り、完全に同期動作する。 # メッセージ・ツール実行履歴レンダラー
+├── components/quiz/
+│   └── quiz-editor.tsx                  # チャットアシスタント UI の配置 (修正)
+tests/
+├── services/ai-authoring-utils.test.ts  # カウンタ・上限の単体テスト
+└── api/ai-chat-authoring.test.ts        # API ルートとツールコールの結合テスト
+e2e/
+└── ai-chat-assistant.spec.ts            # チャット起動、作問、編集、削除、エラー表示の E2E
+```
 
-#### AiQuizProUpsell
+### Modified Files
+- `src/components/quiz/quiz-editor.tsx` — `AiChatAssistantButton` および `AiChatAssistantPanel` の統合。チャットから返されたツールコールを適用する `handleChatToolCall` 系の状態変更関数との接続。
+- `firestore.rules` — `dailyAiAuthoringCounts/chat` のクライアント書き込みの禁止。
 
-| Field | Detail |
-|-------|--------|
-| Intent | 無料/未ログイン向け Pro CTA |
-| Requirements | 1.1–1.2, 6.2 |
+## System Flows
 
-- 未ログイン: `/login?redirect=...` + Pro 説明
-- 無料: `/pricing` リンク
+### クイックアクションボタンによるハイブリッド起動（コールドスタート対策）
+#### 「全問包括チェック」クリック時
+1. ユーザーがエディタ上の「全問包括チェック」をクリック。
+2. クライアントはチャット開閉状態（`isChatOpen`）を `true` に設定し、スライドインチャットパネルを展開。
+3. クライアントは `useAiChatAssistant` の `append` メソッドを呼び出し、「現在フォームにあるすべての問題の包括チェック（ファクトチェック・誤字脱字）を実行してください。」という指示文を自動送信。
+4. AIエージェントへの API リクエストが即座に自動開始され、AI は `checkAllQuestions` ツールなどの検証処理を開始する。
+
+#### 「AIで作問開始」クリック時
+1. ユーザーがエディタ上の「AIで作問開始」をクリック。
+2. クライアントはチャット開閉状態（`isChatOpen`）を `true` に設定し、スライドインチャットパネルを展開。
+3. クライアントは `useAiChatAssistant` 内のメッセージ状態に、AIからの初期メッセージ（例:「クイズ作問アシスタントです。どのようなテーマや難易度で問題を作成したいですか？」）を追加する（APIへの自動送信は実行しない）。
+4. チャットパネル上にウェルカムメッセージが表示され、ユーザーの手動入力待ち状態となる。
+
+### 対話とツール実行（成功パス）
+1. ユーザーがチャットで指示（「問題 2 の答えを 〇✕ 式から選択式にして」など）を送信。
+2. クライアントはエディタの現在の `questions` 配列とメタデータを `body.quizState` として API に送信。
+3. サーバー側 API で認証・認可を行い、Firestore カウンタを +1。
+4. Gemini は渡されたコンテキストを解釈し、クライアント側ツール `updateQuestion` の呼び出しを決定。
+5. サーバーはツールコールの指示をストリーミング。
+6. クライアントの `useChat` はツール呼び出しを検知（`onToolCall` / `toolInvocations`）。
+7. エディタ状態の `setQuestions` が走り、該当問題が編集される。
+8. AIが「問題 2 を選択式に更新しました」とテキストで回答し、チャットにストリーミング表示される。
+
+### 包括的チェックとファクトチェック（Google検索連携パス）
+1. ユーザーが「問題 3 をファクトチェックして」、または「全問題を一括チェックして」と指示。
+2. AI は `checkQuestion`（または `checkAllQuestions`）ツールを呼び出す。
+3. AI ツール実行ループにおいて、AI は検証用のキーワードを抽出して `googleSearch` ツールを実行。
+4. Google検索を実行し、取得された検索スニペットとソース URL をAIに返す。
+5. AI は検索結果と問題の記述（および誤字脱字、表現の不自然さ）を比較・検証。
+6. AI は検出された不備を整理し、チャットに応答しつつ、修正適用のため `updateQuestion` ツールを呼び出す（マルチステップ）。
+7. クライアント側で問題が自動更新され、ソース URL がチャット上に表示される。
+
+## Requirements Traceability
+
+| Requirement | Summary | Components | Interfaces / Files | Flows / Notes |
+|-------------|---------|------------|---------------------|---------------|
+| 1.1 - 1.5 | UI開閉、Pro制限 | `AiChatAssistantButton`, `AiChatAssistantPanel` | `components/quiz/editor/` | 起動・スライド表示、Proプラン認可 |
+| 2.1 - 2.4 | Vercel AI SDK基本対話 | `POST /api/quiz/ai-chat-authoring`, `useChat` | `route.ts`, `useAiChatAssistant.ts` | クイズのコンテキスト送信、ストリーミング |
+| 3.1 - 3.7 | エディタ操作ツール (Tool Use) | `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail` | API ツールスキーマ定義、クライアント Tool Handlers | クイズエディタ状態の即時更新と検証 |
+| 4.1 - 4.5 | 包括チェック & Google検索ファクトチェック | `checkQuestion`, `checkAllQuestions`, `googleSearch` | API ツール定義、Gemini Search Grounding | Google検索結果のソース提示、誤字脱字・不自然表現の校正 |
+| 5.1 - 5.5 | 100回/日利用制限 | `ai-authoring-utils`, Firestore カウンタ | `users/{uid}/dailyAiAuthoringCounts/chat` | サーバー側制限、チャットへの警告表示 |
+| 6.1 - 6.3 | エラーハンドリング | チャットエラー UI | Panel / Hook | エラー時の再送ボタン、日本語での説明表示 |
+
+## Components and Interfaces
+
+### API ツール（Tool Use）のスキーマ定義
+
+AI エージェントが実行可能なツールは、`streamText` の `tools` に定義され、引数は Zod スキーマで指定します。
+
+```typescript
+import { z } from 'zod';
+
+const questionSchema = z.object({
+  id: z.string().optional(),
+  type: z.enum(['multiple-choice', 'true-false', 'text-input', 'quick-press', 'sorting', 'association', 'lateral-thinking']),
+  questionText: z.string(),
+  explanation: z.string(),
+  hint: z.string().nullable().optional(),
+  choices: z.array(z.object({
+    id: z.string(),
+    choiceText: z.string(),
+    isCorrect: z.boolean(),
+  })).optional(),
+  correctTextAnswerList: z.array(z.string()).optional(),
+  sortingItems: z.array(z.object({
+    id: z.string(),
+    text: z.string(),
+    correctOrder: z.number(),
+  })).optional(),
+  associationHints: z.array(z.string()).optional(),
+});
+
+export const chatTools = {
+  // 1. 一括生成
+  generateBulkQuestions: {
+    description: '指定されたテーマやプロンプトに沿って、複数のクイズ問題を一括生成します。通常10問生成されます。',
+    parameters: z.object({
+      questions: z.array(questionSchema).length(10),
+    }),
+  },
+  // 2. 単一追加
+  createQuestion: {
+    description: '新しいクイズ問題を1問作成し、エディタの問題リストの末尾に追加します。',
+    parameters: z.object({
+      question: questionSchema,
+    }),
+  },
+  // 3. 問題更新
+  updateQuestion: {
+    description: '指定された問題 ID の問題データ（問題文、選択肢、正解、解説など）を指定された新しい内容で更新します。',
+    parameters: z.object({
+      id: z.string().describe('更新対象の問題ID'),
+      updates: questionSchema.partial(),
+    }),
+  },
+  // 4. 問題削除
+  deleteQuestion: {
+    description: '指定された問題 ID の問題をエディタの問題リストから削除します。',
+    parameters: z.object({
+      id: z.string().describe('削除対象の問題ID'),
+    }),
+  },
+  // 5. サムネ生成
+  generateThumbnail: {
+    description: '現在のクイズのタイトルと説明に基づいてクイズカバー画像をAI生成し、エディタに適用します。',
+    parameters: z.object({
+      prompt: z.string().optional().describe('画像のテーマに関する追加指示'),
+    }),
+  },
+  // 6. 指定問題の包括的チェック
+  checkQuestion: {
+    description: '指定された問題の事実関係（ファクトチェック）、誤字脱字、および表現の不自然さを包括的に検証します。必要に応じて内部で googleSearch ツールを実行します。',
+    parameters: z.object({
+      id: z.string().describe('チェック対象の問題ID'),
+      questionText: z.string().describe('チェック対象の問題文'),
+      correctAnswer: z.string().describe('チェック対象の答えテキスト（正解テキストまたは正解選択肢）'),
+    }),
+  },
+  // 7. 全問題の一括包括的チェック
+  checkAllQuestions: {
+    description: 'エディタ上にあるすべての問題について、事実関係、誤字脱字、表現の不自然さを一括して検証します。',
+    parameters: z.object({
+      questionIds: z.array(z.string()).describe('チェック対象のすべての問題IDの配列'),
+    }),
+  },
+  // 8. Google 検索ツール
+  googleSearch: {
+    description: '事実関係を検証するための情報を Google 検索から取得します。',
+    parameters: z.object({
+      query: z.string().describe('Google検索クエリ'),
+    }),
+  },
+};
+```
+
+*※ `checkQuestion` および `checkAllQuestions` はサーバー側で動作し、必要に応じて `googleSearch` ツールを実行した結果を受けて、AI が校正テキストをユーザーに返しつつ、自動で `updateQuestion` ツールを呼ぶことでクライアントの状態を書き換えます。*
+
+### クライアント Hook インターフェース (`useAiChatAssistant`)
+
+```typescript
+export interface UseAiChatAssistantProps {
+  userId?: string;
+  isProUser: boolean;
+  quizState: {
+    title: string;
+    description: string;
+    genre: string;
+    tags: string[];
+    questions: Question[];
+  };
+  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
+  setTitle: (t: string) => void;
+  setDescription: (d: string) => void;
+  setThumbnailUrl: (url: string | null) => void;
+}
+
+export interface UseAiChatAssistantResult {
+  messages: any[]; // Message[] from 'ai'
+  input: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  append: (message: { role: 'user' | 'assistant' | 'system'; content: string }) => Promise<string | null | undefined>;
+  triggerAuthoringWelcome: () => void; // 作問用ウェルカムメッセージ（自動送信なし）をセットしてチャットを開く
+  isChatOpen: boolean;
+  setIsChatOpen: (open: boolean) => void;
+}
+
+export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAssistantResult {
+  // Vercel AI SDK の useChat を内部で呼び出す
+  // onToolCall で各ツール（createQuestion, updateQuestion, deleteQuestion, generateBulkQuestions, generateThumbnail）を処理し、setQuestions 等の State を更新
+  // isChatOpen の開閉状態を State として保持し、append 呼び出し時に isChatOpen を true に自動変更する制御を組み込む
+  // triggerAuthoringWelcome 呼び出し時に、チャットパネルを開き、チャットメッセージ履歴の先頭にAIアシスタントからのウェルカムメッセージ（初期設定）をセットする
+}
+```
 
 ## Data Models
 
-### Firestore: dailyAiAuthoringCounts
-
-**Path**: `users/{uid}/dailyAiAuthoringCounts/{docId}`  
-**docId**: `questions` | `thumbnail`
-
-```typescript
-interface DailyAiAuthoringCountDoc {
-  count: number;
-  lastUpdatedDate: string; // YYYY-MM-DD JST
-}
-```
-
-**Rules**: 認証ユーザ read own のみ可、write は false（Admin SDK のみ）
-
-### AI JSON Schema（Gemini responseSchema の動的設計）
-
-Gemini APIに提供する `responseSchema` は、クイズの出題形式（`format`）に合わせて動的に構築し、不要なプロパティを最初から排除することで生成の安定性を担保します。
-
-#### 1. 単一形式クイズにおけるスキーマ構造
-出題形式（`format`）ごとに以下のプロパティのみを許容・定義します：
-
-* **`multiple-choice` (選択式)**:
-  * `type`: Enum `['multiple-choice', 'true-false']`
-  * `questionText`: String（必須）
-  * `explanation`: String（必須）
-  * `hint`: String（nullable）
-  * `choices`: Choice配列（必須。`choiceText`: String, `isCorrect`: Boolean のオブジェクト配列）
-* **`true-false` (〇×式)**:
-  * `type`: Enum `['true-false']`
-  * `questionText`: String（必須）
-  * `explanation`: String（必須）
-  * `hint`: String（nullable）
-  * `choices`: Choice配列（必須。マッピング処理時に 〇✕ 固定に変換されるがスキーマ上は必須）
-* **`text-input` (記述式) / `quick-press` (早押し)**:
-  * `type`: Enum `[format]`
-  * `questionText`: String（必須）
-  * `explanation`: String（必須）
-  * `hint`: String（nullable）
-  * `correctTextAnswerList`: String配列（必須。正解候補リスト）
-* **`sorting` (並べ替え)**:
-  * `type`: Enum `['sorting']`
-  * `questionText`: String（必須）
-  * `explanation`: String（必須）
-  * `hint`: String（nullable）
-  * `sortingItems`: SortingItem配列（必須。`text`: String, `correctOrder`: Integer のオブジェクト配列）
-* **`association` (連想)**:
-  * `type`: Enum `['association']`
-  * `questionText`: String（必須）
-  * `explanation`: String（必須）
-  * `hint`: String（nullable）
-  * `associationHints`: String配列（必須。連想ヒントリスト）
-  * `correctTextAnswerList`: String配列（必須。正解テキスト）
-
-#### 2. 複合形式（`mixed`）におけるスキーマ構造 (Union / anyOf)
-`format === 'mixed'` の場合は、許容する4種類の問題タイプ（`multiple-choice`, `true-false`, `text-input`, `sorting`）の個別オブジェクト定義を `anyOf` 配列に配置します。
-
-```typescript
-// Schemaのイメージ構造（JSON Schema互換）
-{
-  type: SchemaType.ARRAY,
-  items: {
-    anyOf: [
-      buildSubSchema('multiple-choice'),
-      buildSubSchema('true-false'),
-      buildSubSchema('text-input'),
-      buildSubSchema('sorting')
-    ]
-  },
-  minItems: 10,
-  maxItems: 10
-}
-```
-
-各 `anyOf` のサブスキーマは、対応する問題タイプのみを許容する `type` Enum（例：`['text-input']`）および必須フィールド（例：`correctTextAnswerList`）を定義し、余分なプロパティを含みません。
-
-#### 3. クライアント側マッピングと一括検証
-`mapAiJsonToQuestions` 内では受信したJSONをマッピングし、不要なプロパティが除外されて不足している部分はデフォルト値（`Choice` の `selectedCount: 0` など）で補完します。
-マッピング後、`quiz-validation` の `validateGeneratedQuestions` を必ず通過させ、問題タイプごとの必須プロパティに欠落がないか厳格に検査し、1件でも違反があれば `422 validation-failed` と判定して10問すべてを拒否します。
-
-### Storage Paths
-
-| Case | Path pattern |
-|------|----------------|
-| 編集時 | `quizzes/{quizId}/cover_{timestamp}.png` |
-| 新規作成 | `quizzes/drafts/{uid}/cover_{timestamp}.png` |
-
-## Error Handling
-
-### Error Strategy
-- **Fail closed on validation**: 422 時はエディタ state 不変（要件 6.3, 6.7）
-- **Fail closed on limit**: 429 時も不変（要件 3.6, 5.6）
-- **User-facing Japanese**: `error` + `message` フィールド（ask-ai 同型）
-
-### Error Categories and Responses
-
-| Category | HTTP | User message pattern |
-|----------|------|-------------------|
-| Auth | 401 | ログインが必要です |
-| Pro | 403 | Pro プランで利用できます + /pricing |
-| Limit | 429 | 本日の上限に達しました。明日再試行 |
-| Validation | 422 | 生成に失敗しました。プロンプトを変えて再試行 |
-| AI outage | 503 | 現在 AI を利用できません |
-
-### Monitoring
-- `console.error` with route prefix `[ai-authoring-usage]`, `[ai-generate-questions]`, `[ai-generate-thumbnail]`
-- Gemini / Storage 例外は 503 に正規化（スタックはログのみ）
+### Firestore: dailyAiAuthoringCounts/chat
+- **Path**: `users/{uid}/dailyAiAuthoringCounts/chat`
+- **Schema**:
+  ```typescript
+  interface DailyAiAuthoringChatCountDoc {
+    count: number;             // メッセージ送信およびツール実行の合計回数
+    lastUpdatedDate: string;   // YYYY-MM-DD (JST)
+  }
+  ```
+- **Security Rules**: 読み取りは認証済み本人のみ可。書き込みはクライアントからは拒否（`allow write: if false`）、Admin SDK (API) のみ。
 
 ## Testing Strategy
 
-### Unit Tests
-1. `checkDailyAuthoringLimit` / `readDailyAuthoringUsage` — 100/20 上限、免除、JST 日付 rollover
-2. `validateGeneratedQuestions` — 各 format、mixed 4 種 allowlist、mixed で quick-press 拒否、10 問一括
-3. `mapAiJsonToQuestions` — 各 format、mixed 混在（4 種内）、10 件未満で throw
-4. `buildAiQuizGenerationPrompt` — lateral 除外指示、mixed allowlist 明記、max length
-5. true-false マッピング — 〇✕ choices 固定
+### Unit / Integration Tests
+- **ツール定義・スキーマ検証**: 各ツールの Zod スキーマが正しく定義され、不正な引数でエラーになることをテスト。
+- **カウンタ検証**: `dailyAiAuthoringCounts/chat` のカウントが 100 に達した際に API が 429 エラーを返すこと、JST 日付変更時にリセットされること。
+- **Google検索連携の検証**: `checkQuestion` 実行時に `googleSearch` が呼び出され、検索結果をコンテキストに含めて正しい修正提案が生成されること。
 
-### Integration Tests（API Route + mocked Gemini/Storage）
-1. **GET usage** — Pro ユーザ 200 + questions/thumbnail usage、非 Pro 403
-2. Pro ユーザ POST — 200 + 10 questions + usage decrement
-3. 非 Pro — 403
-4. 101 回目 — 429、body unchanged
-5. 不正 JSON / validate 失敗 — 422
-6. mixed + quick-press type in mock — 422
-7. サムネ — title/description 空で 400
-
-### E2E (`e2e/ai-quiz-authoring.spec.ts`)
-1. Pro fixture — パネル表示時残り回数表示 → プロンプト生成 → 問題数 +10
-2. 無料ユーザ — Upsell 表示、生成不可
-3. lateral format — 生成 disabled + メッセージ
-4. サムネ — タイトル説明入力 → プレビュー URL 更新（API mock 可）
+### E2E Tests (`e2e/ai-chat-assistant.spec.ts`)
+- **UI 表示・開閉**: 右下アイコンの表示、クリックでのスライドパネルの展開、閉じるボタンでのクローズの動作テスト。
+- **対話による作問操作**: 
+  - チャット送信欄から「日本の首都に関する問題を1問追加して」と送信し、エディタ末尾に問題が 1 問追加されること。
+  - 「3問目を削除して」と送信し、該当問題がリストから消えること。
+- **包括チェックの動作**:
+  - 誤字や事実誤認を含んだ問題をエディタに配置し、「この問題をチェックして」と送信すると、不備がリストされ、修正案が提示されること。
 
 ## Security Considerations
-- `GEMINI_API_KEY` / 新 SDK キーは Server Route のみ
-- `userId` は token verified UID と一致必須
-- プロンプトはサーバーで length 検証 + ログに全文を出さない（先頭 N 文字のみ）
-- Storage パスに uid を含め、他ユーザ draft へ書込不可（Route で uid 検証）
-- Firestore Rules: カウンタ doc クライアント write deny
-
-## Performance & Scalability
-- 作問 1 リクエスト ~10–30s 想定 — UI ローディング必須（要件 2.10）
-- Route `maxDuration` を 60s に設定（next.config または segment config）
-- サムネ生成も同様
-
-## Supporting References
-
-Gemini JSON schema の完全 TypeScript 定義およびプロンプトテンプレート全文は `src/services/ai-authoring-utils.ts` 実装時に正本化する。
+- **環境変数の秘匿**: `GEMINI_API_KEY` を含むすべてのセンシティブな環境変数はサーバー（API Route）側でのみ保持・使用する。
+- **入力長バリデーション**: プロンプト長（チャット入力）はサーバー側で上限（例：500文字）をチェックし、超過時は即座にリターンする。
+- **認証検証**: API 呼び出しの Bearer トークンを検証し、送信された `userId` が検証済み UID と一致しない場合はアクセスを遮断する。

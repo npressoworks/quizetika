@@ -1,62 +1,71 @@
 # Brief: quizeum-ai-quiz-authoring
 
 ## Problem
-クリエイター（特に Pro プラン契約者）がクイズを手作業で10問組み上げるには時間がかかり、作問の離脱要因になる。現状エディタに AI 支援はなく、サムネイルも picsum プレースホルダのみで本番品質のカバー画像を用意しづらい。Pro プランの価値として「作問効率化」を明確に提供したい。
+クリエイター（特に Pro プラン契約者）がクイズを手作業で10問組み上げるには時間がかかり、作問の離脱要因になる。現状エディタでは静的な一括作問AIパネルのみが存在し、個別の問題の修正や削除、ファクトチェックを手動で行う必要があり、作問プロセスにおけるAIとの対話的なコラボレーション（「この問題を少し難しくして」「この記述が正しいかファクトチェックして」など）ができない。Pro プランの価値として「対話型AIエージェントによる作問の劇的な効率化」を明確に提供したい。
 
 ## Current State
-- Gemini はプレイ時の水平思考のみ（`POST /api/attempt/ask-ai`, `verify-truth`）。作問 API は未実装。
-- Pro エンタイトルメントは `resolveUserEntitlements` / Stripe 連携で実装済み。プレイ AI は Pro で無制限、無料は 30/クイズ・150/日。
-- クイズエディタ（`quiz-editor.tsx`）は 8 形式・8 問題タイプを手入力。`triggerThumbnail` は picsum ダミー URL。
-- `quizeum-ui-editor` は UI 移行完了。AI 生成 API は明示的に Out of scope。
+- Gemini を用いた一括作問機能（`POST /api/quiz/ai-generate-questions`）が実装済み。静的なテキストエリアとボタンによる一括生成・末尾追加を行う。
+- サムネイル生成機能（`POST /api/quiz/ai-generate-thumbnail`）が実装済み。
+- クイズエディタ（`quiz-editor.tsx`）は 8 形式・8 問題タイプを管理。
+- チャットボットによるエディタのインタラクティブな編集・削除・ファクトチェックは未実装。
 
 ## Desired Outcome
-- Pro（有効契約）ユーザがエディタでプロンプトを入力し「生成」すると、選択中の出題形式に合わせた **10問** が一括生成され、問題カードに即反映される。
-- 同ユーザがタイトル・説明文を基にサムネイルを AI 生成し、`thumbnailUrl` に Storage URL が設定される。
-- Pro ユーザでも作問生成は **1日100回**、サムネ生成は **1日20回**（JST リセット）。上限時は明確なメッセージと `/pricing` 誘導は不要（既に Pro）— 翌日まで待つ旨を表示。
-- 無料・未ログインユーザは機能非表示または Pro 購読 CTA。
+- エディタの画面右下にチャットアイコンを表示し、押すと右側にチャットボットがスライドイン表示される。
+- チャットボットは Vercel AI SDK を使用した対話型インターフェースで、AIエージェントとして動作する。
+- AIエージェントは、エディタの現在のクイズのメタデータや問題リストを文脈として理解し、ユーザーの自然言語による指示に基づいて問題を「作成」「編集」「削除」「ファクトチェック」する。
+- 問題の「作成」「編集」「削除」「ファクトチェック」は、AIエージェントの Tool Use ツールとして定義される。
+- ファクトチェック指示の際、AIエージェントはGoogle検索ツールを実行し、検索結果のソースに基づいて事実関係を検証し、修正案を提示する。
+- プレミアムなダークモードやネオンカラー、Glassmorphism等のモダンなデザインテーマを踏襲した美しいUIを提供する。
 
 ## Approach
-**単一 Gemini 呼び出し + 構造化 JSON + サーバー検証**（アプローチ A — **ユーザー確認済み 2026-06-10**）。
+Vercel AI SDKを用いたサーバー・クライアント間通信と、Gemini モデルの Tool Use 機能による対話型エージェント設計。
 
-テキスト作問: 1 リクエストで 10 問分の JSON を `responseSchema` で取得し、Core の `mapAiJsonToQuestions` で既存 `Question` 型へマッピング → `quiz-validation` で検証後に API レスポンス。サムネ: Gemini 画像生成 → バイナリを `uploadImage` + `getQuizCoverPath` で Storage 化。
+1. **フロントエンド (UI)**:
+   * 右下のフローティングチャットボタンから開閉する右スライド式チャットパネル（幅: 380px〜420px程度、エディタと併存）。
+   * `useChat`（Vercel AI SDK）を用いたストリーミング表示と、サーバーから返されるツールコールのフロントエンド適用。
+   * AIエージェントがエディタの状態を書き換える際、フロントエンドでツール実行をインターセプトして `questions` 等のステートを更新する。
 
-**反映モード（確認済み）**: 生成結果は既存問題リストの末尾へ **追加**（既存問題は削除・上書きしない）。新規 `id` を付与し、エディタは `setQuestions([...questions, ...generated])` 相当で反映する。
+2. **バックエンド (API)**:
+   * 新しいチャット用エンドポイント `POST /api/quiz/ai-chat-authoring` を新設。
+   * Vercel AI SDK（`ai` パッケージ）と `@ai-sdk/google` を使用し、ユーザーのメッセージ履歴とエディタの現在の状態を Gemini（`gemini-2.5-flash` など）に渡す。
+   * エージェント用システムプロンプトと、以下の作問操作ツール群の定義：
+     * `generateBulkQuestions`: 複数問（10問）の一括生成。
+     * `createQuestion`: 単一問題の作成・追加。
+     * `updateQuestion`: 指定問題（ID）の編集。
+     * `deleteQuestion`: 指定問題（ID）の削除。
+     * `googleSearch`: Google検索による情報の取得（Google Search Grounding または API 使用）。
+     * `factCheckQuestion`: 問題のファクトチェック（内部で `googleSearch` を呼び出して事実検証を行う）。
 
 ## Scope
 - **In**:
-  - API 2 本（作問一括・サムネ生成）と日次カウンタ
-  - エディタ AI パネル・サムネ生成 UI
-  - 形式: MC, true-false, text-input, quick-press, sorting, association, mixed（タイプ混在）
-  - Pro ゲート・レート制限・E2E
+  - 右下フローティングチャットボタンおよびスライドインチャットパネル UI。
+  - チャット対話 API エンドポイント（Vercel AI SDK, Gemini連携）。
+  - エディタ状態の AI 操作ツール群（一括生成、単一追加、編集、削除、ファクトチェック）。
+  - Google検索連携によるファクトチェック（検索結果ソースを提示し、必要なら問題を自動編集または提案）。
+  - Pro / Premium 限定アクセス制御、日次利用制限（チャットのやり取り・ツール実行に対する制限）。
 - **Out**:
-  - lateral-thinking（ウミガメ）の AI 一括作問（初版）
-  - 問題単位画像 AI 生成
-  - 無料お試し回数
-  - 生成内容の自動 Firestore 保存
-  - プレイ AI 制限の変更
+  - クイズ一覧やダッシュボードなど、作問エディタ画面以外でのチャットボット表示。
+  - チャット対話の Firestore 永続化（ブラウザをリロードするとチャット履歴はリセットされるが、エディタ側のクイズデータは維持される）。
+  - 無料お試し利用枠。
 
 ## Boundary Candidates
-- **API / レート制限 / Gemini / Storage** → `quizeum-core`
-- **エディタ UX・プロンプト入力・結果反映・ローディング** → `quizeum-ai-quiz-authoring` コンポーネント + `quizeum-ui-editor` レイアウト統合
-- **料金ページ特典文言** → Direct implementation（`pricing-display.ts`）
+- **API / Vercel AI SDK / Google Search / Gemini** → `quizeum-core` (または API Routes)
+- **チャット UI・開閉状態・履歴表示・ローディング** → `quizeum-ai-quiz-authoring` の新規チャットコンポーネント
+- **エディタとの状態結合（Tool コールの適用）** → `quiz-editor.tsx` 側への Tool Handler の統合
 
 ## Out of Boundary
-- プレイ画面の AI チャット・真相判定
-- クイズ公開バリデーション lib の根本変更（既存ルールを再利用）
-- Stripe / サブスクリプション契約ロジック自体
-- リストエディタへの AI 機能
+- プレイ中の水平思考チャットボット（仕様が異なるため独立して維持）。
+- クイズ公開時の Firestore 自動保存（ユーザーが明示的に保存ボタンを押すまで保存しない）。
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core`（エンタイトルメント、Question 型、`quiz-validation`、Storage）、`quizeum-ui-editor`（エディタシェル）、`GEMINI_API_KEY`
-- **Downstream**: 料金ページの Pro 特典一覧、クリエイター向けドキュメント、将来的な lateral-thinking AI 作問拡張
+- **Upstream**: `quizeum-core` (Firestore, Auth, Entitlements), Vercel AI SDK (`ai`, `@ai-sdk/google`), `GEMINI_API_KEY`
+- **Downstream**: 作問のユーザー体験向上、Pro プランの魅力向上
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core`（新 API・カウンタ）、`quizeum-ui-editor`（パネル統合・picsum スタブ削除）
-- **Adjacent**: `quizeum-billing-subscription-ui`（Pro CTA）、`quizeum-play-flow-ui`（プレイ AI — カウンタ分離で重複回避）
+- **Extends**: `quizeum-ai-quiz-authoring` (本スペック自体をチャットボット型にアップデート)。
+- **Adjacent**: `quizeum-ui-editor` (エディタレイアウトとの干渉を避けるレスポンシブデザイン)。
 
 ## Constraints
-- サーバー側 Pro 判定必須（`hasPaidEntitlements`）
-- 日次カウンタは `dailyAiAuthoringCounts`（プレイ用 `dailyAiTurnCounts` と分離）
-- JST 日付境界は `ask-ai` と同型
-- 固定 10 問生成
-- Tailwind + shadcn UI パターンに準拠
+- Vanilla CSS / CSS Modules を使用し、既存のネオン＋ダークテーマに完璧にフィットさせる。
+- Pro 判定および日次チャット/ツール利用回数制限をサーバー側で厳格に実施する。
+- 日本語でのスムーズな対話と、正確な日本語クイズスキーマへの準拠。

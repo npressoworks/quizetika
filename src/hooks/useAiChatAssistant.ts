@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { z } from 'zod';
 import type { Question } from '@/types';
 
@@ -78,19 +79,16 @@ export function useAiChatAssistant({
 }: UseAiChatAssistantProps): UseAiChatAssistantResult {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  const {
-    messages,
-    input,
-    setMessages,
-    handleInputChange,
-    handleSubmit,
-    isLoading: isGenerating,
-    append,
-  } = useChat({
-    api: '/api/quiz/ai-chat-authoring',
-    body: {
-      userId,
-      quizState,
+  const chatResult = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/quiz/ai-chat-authoring',
+      body: {
+        userId,
+        quizState,
+      },
+    }),
+    onError(err) {
+      console.error('[DEBUG useChat onError]', err);
     },
     async onToolCall({ toolCall }) {
       if (!isProUser) return { error: 'pro-required', message: 'Pro機能です' };
@@ -180,6 +178,31 @@ export function useAiChatAssistant({
     },
   });
 
+  const {
+    messages,
+    setMessages,
+    status,
+    sendMessage,
+  } = chatResult;
+
+  const isGenerating = status === 'submitted' || status === 'streaming';
+
+  const [input, setInput] = useState('');
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    setInput(e.target.value);
+  };
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!input.trim() || isGenerating) return;
+
+    sendMessage({ text: input });
+    setInput('');
+  };
+
   const triggerQuickAction = (
     actionType: 'bulk-generate' | 'check-all' | 'check-single',
     targetQuestionId?: string
@@ -196,7 +219,10 @@ export function useAiChatAssistant({
     }
 
     if (promptText) {
-      append({ role: 'user', content: promptText });
+      console.log('[DEBUG] calling sendMessage with:', promptText);
+      sendMessage({ text: promptText })
+        .then(() => console.log('[DEBUG] sendMessage resolved'))
+        .catch(err => console.error('[DEBUG] sendMessage failed:', err));
     }
   };
 

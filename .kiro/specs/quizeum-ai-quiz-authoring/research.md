@@ -2,129 +2,64 @@
 
 ## Summary
 - **Feature**: `quizeum-ai-quiz-authoring`
-- **Discovery Scope**: Extension（既存 Gemini プレイ AI・Pro エンタイトルメント・クイズエディタへの追加）
+- **Discovery Scope**: Extension（既存 Gemini 一括作問・Pro エンタイトルメント・クイズエディタのチャットエージェント化）
 - **Key Findings**:
-  - 作問 API は未実装。Gemini 利用は `ask-ai` / `verify-truth` のテキスト生成のみ（`@google/generative-ai` ^0.24.1）
-  - サムネは `triggerThumbnail` が picsum ダミー。Storage `uploadImage` はジャンルアイコンのみ
-  - 画像生成は `@google/generative-ai` では非対応。`@google/genai` + 画像対応モデル（例: `gemini-2.5-flash-image`、env で上書き）が必要
-  - Admin SDK に Storage ヘルパー未整備 — サムネ API は `firebase-admin/storage` 経由のサーバーアップロードを新設
-  - 新規作成クイズ（`quizId` 未確定）でもサムネ生成可能にするため `quizzes/drafts/{uid}/` パスを採用
+  - 静的な一括作問パネルから、右下の対話型チャットアシスタント（スライドインパネル）に移行し、ユーザーとAIとの共同作業を実現。
+  - Vercel AI SDK (`ai` パッケージ) を導入し、クライアント (`useChat`) とサーバー (`streamText` + `@ai-sdk/google`) での対話と Tool Use をスマートに管理可能。
+  - ツール群（追加、編集、削除、一括生成、サムネイル生成、包括的チェック）を定義し、APIからのツールコールをクライアントで検知して React ステートを即時更新。
+  - 事実確認（ファクトチェック）は Gemini の Google Search Grounding または Custom Search 経由で Google 検索を行い、取得したソース URL をチャット上に表示可能。
+  - ファクトチェックは誤字脱字・日本語表現の校正も含む「包括的チェック」へ拡張し、指定問題 (`checkQuestion`) または全問題の一括チェック (`checkAllQuestions`) をサポート。
 
 ## Research Log
 
-### 既存 Gemini 統合（プレイ AI）
-- **Context**: 作問 API の認証・レート制限パターンを揃える
-- **Sources Consulted**: `src/app/api/attempt/ask-ai/route.ts`, `src/services/ask-ai-utils.ts`, `src/services/entitlement.ts`
+### Vercel AI SDK を用いた Tool Use とエディタ連携
+- **Context**: 自然言語によるエディタ操作とストリーミング対話。
+- **Sources Consulted**: [Vercel AI SDK Documentation](https://sdk.vercel.ai/docs), `src/components/quiz/quiz-editor.tsx`。
 - **Findings**:
-  - Bearer + `verifyFirebaseIdToken` + `resolveUserEntitlements`
-  - JST 日付文字列 + `users/{uid}/dailyAiTurnCounts/{docId}` トランザクション更新
-  - モデレータ `moderationTier` による無制限免除
-- **Implications**: 作問用は `dailyAiAuthoringCounts` に docId `questions` / `thumbnail` で同型実装。プレイカウンタと分離
+  - `useChat` フックの `onToolCall` を使うことで、サーバーから送られてきたツールコール（`updateQuestion` など）をフロントエンドで検知・実行できる。
+  - サーバーの API ルートで `streamText` の `maxSteps` を 2 以上に設定することで、AI が内部で `googleSearch` や `checkQuestion` を実行して結果を得たのち、次のステップとして `updateQuestion` を自動で呼び出すマルチステップ制御が可能。
+- **Implications**: エディタのステート更新はクライアント側で実行するツールとし、情報取得（検索）や検証ロジックはサーバー側（AI）で自律実行するハイブリッド設計を採用。
 
-### 問題型・エディタ初期化
-- **Context**: AI 出力を `Question[]` にマッピング
-- **Sources Consulted**: `src/types/index.ts`, `src/components/quiz/quiz-editor.tsx` (`addDefaultQuestion`), `src/services/quiz-choice-utils.ts`, `src/lib/true-false-defaults.ts`
+### 包括的チェック（事実確認・誤字脱字・表現校正）の設計
+- **Context**: クイズ内容の信頼性と品質向上。
 - **Findings**:
-  - 形式別必須フィールドが明確（choices, sortingItems, associationHints 等）
-  - 新規 `id` はクライアント同型のランダム文字列で付与
-  - `correctCount` / `incorrectCount` は 0 初期化
-- **Implications**: `mapAiJsonToQuestions` は `addDefaultQuestion` と同型のデフォルト埋め + AI フィールド上書き
+  - クイズ問題は、正しい事実関係だけでなく、誤字脱字や日本語としての自然さ、設定された出題形式（例：記述式なのに選択肢フィールドが存在するなど）との適合性が品質に直結する。
+  - AI が全問題を一括スキャンする `checkAllQuestions` ツールを用意し、問題リスト全体を検証した結果をチャットパネルにリストアップさせ、修正可能な問題に対して `updateQuestion` を呼び出す。
+- **Implications**: AI エージェントのプロンプトで「誤字脱字」「不自然な表現」「形式不適合」を検証項目として明確にし、Google検索を利用する事実確認と合わせて一度のチェックで包括的に網羅する。
 
-### サムネイル・Storage
-- **Context**: AI 生成画像の永続化
-- **Sources Consulted**: `src/services/storage.ts`, `src/lib/firebase/admin.ts`, `src/lib/genre-icon-upload.ts`
+### Google 検索 Grounding の仕組み
+- **Context**: 事実確認での Google 検索の利用。
+- **Sources Consulted**: Gemini API Grounding with Google Search。
 - **Findings**:
-  - クライアント `uploadImage` は PNG/JPEG/GIF 2MB 制限（SVG 禁止）
-  - Admin Storage 未使用。API Route からバイナリ保存が必要
-  - `getQuizCoverPath(quizId)` は quizId 必須 — 下書き用パス拡張が必要
-- **Implications**: `uploadQuizCoverBuffer`（Admin）新設。draft は `getQuizDraftCoverPath(uid)`
-
-### Gemini 画像生成 SDK
-- **Context**: サムネ AI 生成の技術選定
-- **Sources Consulted**: [Gemini API Image Generation](https://ai.google.dev/gemini-api/docs/image-generation), `@google/generative-ai` package.json
-- **Findings**:
-  - 画像出力は `@google/genai` SDK + 画像対応モデルが推奨
-  - 既存 `@google/generative-ai` はテキスト作問に継続利用可
-  - モデル ID は env `GEMINI_IMAGE_MODEL_ID` で設定（デフォルト `gemini-2.5-flash-image`、デプロイ時に ListModels で検証）
-- **Implications**: 依存追加 `@google/genai`（サムネ Route のみ）。テキスト作問は既存 SDK を維持し移行リスクを最小化
+  - Gemini API は Google 検索結果に基づくグラウンディング出力をビルトインで提供している。Vercel AI SDK のプロバイダでも `googleSearch` ツールとしてモデルに渡す、あるいは検索グラウンディングを有効化することで、AI が自律的に最新情報を検索し、回答のソース URL を明示できる。
+  - プロジェクト側の追加の API キー管理コストやレート制限を回避するため、Gemini 自体の検索連携機能を最優先で採用。
 
 ## Architecture Pattern Evaluation
 
 | Option | Description | Strengths | Risks / Limitations | Notes |
 |--------|-------------|-----------|---------------------|-------|
-| A. 単一 Route + utils（採用） | 3 API Route + 共有 `ai-authoring-utils` | ask-ai パターン踏襲、テスト容易 | Route 重複（ゲート処理） | ゲートは `assertAiAuthoringAccess` に集約 |
-| B. 10回逐次 Gemini | 問題ごと API | 品質向上余地 | 遅延・コスト・100回/日の実効値低下 | 要件で却下済み |
-| C. クライアント Gemini | ブラウザ直接呼び出し | 実装簡易 | キー漏洩・改ざん | セキュリティ上却下 |
+| A. Vercel AI SDK エージェント (採用) | チャットパネルから API を呼び出し、サーバー・クライアント間で Tool Use 制御 | 自然言語による対話作問、直感的UX、ファクトチェックのソース明示 | クライアント側ステート書き換えの同期検証が複雑 | `onToolCall` にて厳密にスキーマ検証を行う |
+| B. 静的フォーム一括チェック | チャットではなくボタン押下によるバッチ検証 | 実装がシンプル | 対話的な修正（「やっぱり元に戻して」「〜の部分だけ直して」等）が困難 | 要件でチャットボットに決定 |
+| C. クライアント側での検索 | クライアント側から検索APIを呼んでAIに投げる | サーバー側コストの削減 | APIキーがブラウザ上に露出するセキュリティリスク | セキュリティ上却下 |
 
 ## Design Decisions
 
-### Decision: 作問は既存 SDK + JSON 構造化出力（出題形式別の動的スキーマ生成とanyOfの採用）
-- **Context**: 要件 2.5, 2.6, 2.13 — 10問一括生成において、出題形式に適したJSON構造のみを出力させ、不要なフィールドの混入を防ぐ
-- **Alternatives Considered**:
-  1. すべてのプロパティを省略可能（nullable）とした単一の汎用スキーマ（既存）：AIが不要なフィールド（例：記述式におけるchoicesなど）を誤生成するリスクがあり、検証エラーを招くため却下。
-  2. プロンプト（自然言語）の指示による制限：スキーマ自体が汎用的なままだと、AIは依然として不正確なプロパティを返却することがあり、挙動の安定性に欠けるため却下。
-- **Selected Approach**: `@google/generative-ai` の `responseSchema` に渡す `Schema` オブジェクトを、要求された `format` に応じて動的にビルドする。さらに、`format === 'mixed'` の場合は、許容する4つの問題タイプ（`multiple-choice`, `true-false`, `text-input`, `sorting`）のスキーマを `anyOf` 配列に指定したUnion構造にする。
-- **Rationale**: Gemini APIの構造化出力はJSON Schemaの `anyOf` に対応しており、不要なフィールドを最初からスキーマから除外することで、各問題タイプに特化した正確なJSON構造を強制できる。
-- **Trade-offs**: TypeScriptの `Schema` 型定義で `anyOf` が直接サポートされていないため、キャスト（`as unknown as Schema`）が必要になる。
-- **Follow-up**: 実装時に各問題タイプで必要な必須プロパティ（`choices`, `correctTextAnswerList`, `sortingItems`, `associationHints`）が正しく含まれているかの検証ロジック（`validateGeneratedQuestions`）も整備する。
+### Decision: チャット用日次上限 doc の追加
+- **Context**: API コスト抑制と悪用防止。
+- **Selected Approach**: `users/{uid}/dailyAiAuthoringCounts/chat` ドキュメントを新設し、メッセージ送信とツール実行の合計回数を 100回/日 に制限する。
+- **Rationale**: 従来の「作問100回」「サムネ20回」の枠組みをチャット対話型に移行するため、チャット利用回数（1往復+ツール）を 1 単位としてカウントするシンプルな制限に統合・整理。
 
-### Decision: サムネは @google/genai + Admin Storage
-- **Context**: 要件 4 — タイトル・説明から画像生成・Storage URL
-- **Alternatives**: picsum 継続 / クライアント upload / 外部 URL のみ
-- **Selected Approach**: `@google/genai` で PNG バイナリ取得 → Admin Storage 保存 → download URL 返却
-- **Rationale**: OGP 永続化・既存 `thumbnailUrl` 契約・セキュリティ
-- **Trade-offs**: 新 SDK 依存・Admin Storage 新設
-- **Follow-up**: E2E は Storage エミュレータ or API モック
-
-### Decision: 日次カウンタ doc 分離
-- **Context**: 要件 3.2, 5.2
-- **Selected Approach**: `users/{uid}/dailyAiAuthoringCounts/questions` と `.../thumbnail`
-- **Rationale**: プレイ AI `dailyAiTurnCounts` と混同防止
-- **Follow-up**: Firestore Rules でクライアント書き込み deny
-
-### Decision: 反映モードは末尾追加のみ
-- **Context**: ユーザー確認済み（discovery）
-- **Selected Approach**: API は `Question[]` のみ返却。UI は `setQuestions(prev => [...prev, ...generated])`
-- **Rationale**: 要件 2.3, 6.7（部分反映禁止）と整合
-
-### Decision: 残り回数初回表示 — GET `/api/quiz/ai-authoring-usage`（design review 2026-06-10）
-- **Context**: 要件 3.3 / 5.3
-- **Selected Approach**: 読み取り専用 GET。Firestore カウンタ read のみ
-- **Rationale**: 生成 POST だけでは初回表示を満たせない
-- **Follow-up**: Hook mount 時 fetch + POST 成功後 usage 上書き
-
-### Decision: `validateGeneratedQuestions` export（design review 2026-06-10）
-- **Context**: private `collectQuestionValidationErrors` では 422 判定がぶれる
-- **Selected Approach**: `quiz-validation.ts` に export 追加
-- **Rationale**: 要件 6.7 の一括拒否を単一正本で担保
-
-### Decision: mixed allowlist 4 種固定（design review 2026-06-10）
-- **Context**: `quiz-validation.ts` mixed は MC/〇×/記述/並べ替えのみ
-- **Selected Approach**: Gemini schema enum + `mapAiJsonToQuestions` 二重チェック
-- **Rationale**: 要件 2.6 とコード正本の一致
+### Decision: 包括的チェックと一括チェックのマルチステップ実行
+- **Context**: 全問題一括チェックの利便性向上。
+- **Selected Approach**:
+  - `checkQuestion` と `checkAllQuestions` ツールはサーバー側で実行。
+  - AI が内部で `googleSearch` 等をマルチステップで呼び出して事実検証を行い、最終的に `updateQuestion` ツールを呼び出してエディタを書き換える。
+- **Rationale**: ユーザーが一回「全問チェックして」と頼むだけで、AI が自律的に複数の問題の誤りを調査し、適切な修正案をエディタに適用できる。
 
 ## Synthesis Outcomes
-
-### Generalization
-- `assertAiAuthoringAccess` + `incrementDailyAuthoringCount` を作問・サムネ両 API で共有
-- `AiAuthoringUsage` 型で残り回数レスポンスを統一
-
-### Build vs. Adopt
-- **Adopt**: `resolveUserEntitlements`, `verifyFirebaseIdToken`, `createDefaultChoices`, `createTrueFalseChoices`, JST 日付 util（ask-ai から抽出共通化可）
-- **Build**: `mapAiJsonToQuestions`, Admin Storage upload, AI 作問パネル UI（ドメイン固有）
-
-### Simplification
-- 専用 Service クラスは作らず Route + utils パターン（ask-ai 同型）
-- 残り回数は **GET usage（初回）+ POST レスポンス（更新）** で同型 `AiAuthoringUsage` を共有
+- **Generalization**: AI チャットにおけるエラーレスポンス形式および認証制限チェックロジックを既存のプレイ AI (`ask-ai`) と同じ認可・免除ヘルパー (`assertAiAuthoringAccess`) を再利用して統一。
+- **Build vs. Adopt**: Vercel AI SDK の `useChat` と Gemini のツールコールのライフサイクル（`onToolCall`）を採用し、エディタへの適用ロジックのみを独自ビルド。
 
 ## Risks & Mitigations
-- **Gemini JSON truncation** — schema でフィールド最小化、10問固定、不足時 422 全体拒否
-- **画像モデル利用不可** — env 切替 + 503 `ai-unavailable` + ログ
-- **新規クイズ quizId なし** — draft Storage パス + 公開保存時に cover 再アップロードは out of scope（URL はそのまま有効）
-- **@google/genai 追加** — サムネ Route のみ import、バンドル影響は Route 単位で隔離
-
-## References
-- [Gemini API Image Generation](https://ai.google.dev/gemini-api/docs/image-generation)
-- `src/app/api/attempt/ask-ai/route.ts` — 認証・カウンタ・Gemini 呼び出しパターン
-- `src/services/entitlement.ts` — Pro 判定
-- `.kiro/specs/quizeum-ai-quiz-authoring/requirements.md` — 要件正本
+- **エディタ側ステートとの競合**: ユーザーが手動編集している最中に AI がツールで `questions` を上書きする競合リスク。
+  - *対策*: AI チャットの送信時に、その瞬間のエディタ状態を常にサーバーに送り、AI が最新のインデックスとIDに基づいて `updateQuestion` を指示する。ツール適用時にも ID の有無をクライアント側で厳密に確認する。
