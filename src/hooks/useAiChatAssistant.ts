@@ -82,9 +82,15 @@ export function useAiChatAssistant({
   const chatResult = useChat({
     transport: new DefaultChatTransport({
       api: '/api/quiz/ai-chat-authoring',
-      body: {
-        userId,
-        quizState,
+      prepareSendMessagesRequest: ({ messages, id }) => {
+        return {
+          body: {
+            messages,
+            id,
+            userId,
+            quizState,
+          },
+        };
       },
     }),
     onError(err) {
