@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamText } from 'ai';
+import { streamText, tool, stepCountIs, zodSchema } from 'ai';
 import { google } from '@ai-sdk/google';
 import { z } from 'zod';
 import { getAdminFirestore } from '@/lib/firebase/admin';
@@ -140,78 +140,76 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
       model: google(process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash'),
       system: systemPrompt,
       messages,
-      maxSteps: 5,
+      stopWhen: stepCountIs(5),
       tools: {
         // 1. 一括生成 (クライアント反映)
-        generateBulkQuestions: {
+        generateBulkQuestions: tool({
           description: '指定されたテーマやプロンプトに沿って、複数のクイズ問題を一括生成します。通常10問生成されます。',
-          parameters: z.object({
+          parameters: zodSchema(z.object({
             questions: z.array(questionSchema).length(10),
-          }),
-        },
+          })),
+        }),
         // 2. 単一追加 (クライアント反映)
-        createQuestion: {
+        createQuestion: tool({
           description: '新しいクイズ問題を1問作成し、エディタの問題リストの末尾に追加します。',
-          parameters: z.object({
-            question: questionSchema,
-          }),
-        },
+          parameters: zodSchema(questionSchema),
+        }),
         // 3. 問題更新 (クライアント反映)
-        updateQuestion: {
+        updateQuestion: tool({
           description: '指定された問題 ID の問題データ（問題文、選択肢、正解、解説など）を指定された新しい内容で更新します。',
-          parameters: z.object({
+          parameters: zodSchema(z.object({
             id: z.string().describe('更新対象の問題ID'),
             updates: questionSchema.partial(),
-          }),
-        },
+          })),
+        }),
         // 4. 問題削除 (クライアント反映)
-        deleteQuestion: {
+        deleteQuestion: tool({
           description: '指定された問題 ID の問題をエディタの問題リストから削除します。',
-          parameters: z.object({
+          parameters: zodSchema(z.object({
             id: z.string().describe('削除対象の問題ID'),
-          }),
-        },
+          })),
+        }),
         // 5. サムネ生成 (クライアント反映)
-        generateThumbnail: {
+        generateThumbnail: tool({
           description: '現在のクイズのタイトルと説明に基づいてクイズカバー画像をAI生成し、エディタに適用します。',
-          parameters: z.object({
+          parameters: zodSchema(z.object({
             prompt: z.string().optional().describe('画像のテーマに関する追加指示'),
-          }),
-        },
+          })),
+        }),
         // 6. 指定問題の包括的チェック (サーバー実行)
-        checkQuestion: {
+        checkQuestion: tool({
           description: '指定された問題の事実関係（ファクトチェック）、誤字脱字、および表現の不自然さを包括的に検証します。必要に応じて内部で googleSearch ツールを実行します。',
-          parameters: z.object({
+          parameters: zodSchema(z.object({
             id: z.string().describe('チェック対象の問題ID'),
             questionText: z.string().describe('チェック対象の問題文'),
             correctAnswer: z.string().describe('チェック対象の答えテキスト（正解テキストまたは正解選択肢）'),
-          }),
+          })),
           execute: async ({ id, questionText, correctAnswer }) => {
             return {
               checked: true,
               message: `問題 (ID: ${id}) の包括的チェックを開始しました。AIは次に Google 検索等を使用して事実の裏付けを行い、校正・ファクトチェック結果を提示します。`,
             };
           },
-        },
+        }),
         // 7. 全問題の一括包括的チェック (サーバー実行)
-        checkAllQuestions: {
+        checkAllQuestions: tool({
           description: 'エディタ上にあるすべての問題について、事実関係、誤字脱字、表現の不自然さを一括して検証します。',
-          parameters: z.object({
-            questionIds: z.array(z.string()).describe('チェック対象のすべての問題IDの配列'),
-          }),
+          parameters: zodSchema(z.object({
+            questionIds: z.array(z.string()).describe('チェック対象のすべての問題ID of 配列'),
+          })),
           execute: async ({ questionIds }) => {
             return {
               checked: true,
               message: `全問題 (計 ${questionIds.length} 問) の包括的な一括チェックを開始しました。AIは問題ごとに必要に応じて検索等を行い、チェック結果を整理して提示します。`,
             };
           },
-        },
+        }),
         // 8. Google 検索ツール (サーバー実行)
-        googleSearch: {
+        googleSearch: tool({
           description: '事実関係を検証するための情報を Google 検索から取得します。',
-          parameters: z.object({
+          parameters: zodSchema(z.object({
             query: z.string().describe('Google検索クエリ'),
-          }),
+          })),
           execute: async ({ query }) => {
             const results = await fetchGoogleSearchResults(query);
             return {
@@ -219,7 +217,7 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
               results,
             };
           },
-        },
+        }),
       },
     });
 
