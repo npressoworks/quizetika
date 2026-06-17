@@ -60,9 +60,13 @@ jest.mock('@/services/ai-authoring-utils', () => {
 
 // streamText のモック
 const mockStreamText = jest.fn();
-jest.mock('ai', () => ({
-  streamText: (...args: unknown[]) => mockStreamText(...args),
-}));
+jest.mock('ai', () => {
+  const actual = jest.requireActual('ai');
+  return {
+    ...actual,
+    streamText: (...args: unknown[]) => mockStreamText(...args),
+  };
+});
 
 describe('POST /api/quiz/ai-chat-authoring', () => {
   beforeEach(() => {
@@ -73,7 +77,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
       hasUnlimitedAiQuestions: false,
     });
     mockStreamText.mockReturnValue({
-      toDataStreamResponse: () => new Response('mocked-stream', { status: 200 }),
+      toUIMessageStreamResponse: () => new Response('mocked-stream', { status: 200 }),
     });
     mockChatSnap.data = () => ({ count: 5, lastUpdatedDate: '2026-06-10' });
   });
@@ -90,7 +94,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     const res = await POST(
       makeRequest({
         userId: 'uid-pro',
-        messages: [{ role: 'user', content: 'こんにちは' }],
+        messages: [{ role: 'user', parts: [{ type: 'text', text: 'こんにちは' }] }],
         quizState: { title: '', description: '', genre: '', tags: [], questions: [] },
       })
     );
@@ -106,7 +110,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     const res = await POST(
       makeRequest({
         userId: 'uid-free',
-        messages: [{ role: 'user', content: 'こんにちは' }],
+        messages: [{ role: 'user', parts: [{ type: 'text', text: 'こんにちは' }] }],
         quizState: { title: '', description: '', genre: '', tags: [], questions: [] },
       })
     );
@@ -118,7 +122,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     const res = await POST(
       makeRequest({
         userId: 'uid-pro',
-        messages: [{ role: 'user', content: 'こんにちは' }],
+        messages: [{ role: 'user', parts: [{ type: 'text', text: 'こんにちは' }] }],
         quizState: { title: '', description: '', genre: '', tags: [], questions: [] },
       })
     );
@@ -129,7 +133,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     const res = await POST(
       makeRequest({
         userId: 'uid-pro',
-        messages: [{ role: 'user', content: 'こんにちは' }],
+        messages: [{ role: 'user', parts: [{ type: 'text', text: 'こんにちは' }] }],
         quizState: { title: 'テストクイズ', description: 'テストです', genre: '歴史', tags: ['テスト'], questions: [] },
       })
     );
@@ -144,7 +148,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     const res = await POST(
       makeRequest({
         userId: 'uid-pro',
-        messages: [{ role: 'user', content: '「東京の人口」を検索してファクトチェックして' }],
+        messages: [{ role: 'user', parts: [{ type: 'text', text: '「東京の人口」を検索してファクトチェックして' }] }],
         quizState: { title: '東京', description: '', genre: '地理', tags: [], questions: [] },
       })
     );
@@ -163,7 +167,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     const res = await POST(
       makeRequest({
         userId: 'uid-pro',
-        messages: [{ role: 'user', content: '問題 1 をチェックして' }],
+        messages: [{ role: 'user', parts: [{ type: 'text', text: '問題 1 をチェックして' }] }],
         quizState: { title: 'テスト', description: '', genre: '', tags: [], questions: [] },
       })
     );

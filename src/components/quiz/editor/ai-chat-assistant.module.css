@@ -2,7 +2,7 @@
 
 .floatingButton {
   position: fixed;
-  bottom: 24px;
+  bottom: 96px;
   right: 24px;
   z-index: 1000;
   width: 60px;
@@ -34,6 +34,7 @@
   background: #1e1e2e;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  right: 524px;
 }
 
 .floatingButtonOpen:hover {
@@ -46,7 +47,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 400px;
+  width: 500px;
   max-width: 100%;
   background: rgba(15, 15, 25, 0.85);
   backdrop-filter: blur(20px) saturate(180%);

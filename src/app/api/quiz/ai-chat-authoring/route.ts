@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamText, tool, stepCountIs } from 'ai';
-import { google } from '@ai-sdk/google';
+import { streamText, tool, stepCountIs, convertToModelMessages } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
 import { getAdminFirestore } from '@/lib/firebase/admin';
+
+const googleProvider = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY || 'dummy-api-key-for-tests',
+});
 import {
   authorizeAiAuthoringRequest,
   type AuthoringAuthFailure,
@@ -49,7 +53,6 @@ const questionSchema = z.object({
 export async function POST(request: NextRequest): Promise<Response> {
   try {
     const body = await request.json();
-    console.log('[DEBUG /api/quiz/ai-chat-authoring] body:', JSON.stringify(body, null, 2));
     const { userId, messages, quizState } = body as {
       userId?: string;
       messages?: any[];
@@ -138,9 +141,9 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
 
     // streamText を呼び出し
     const result = streamText({
-      model: google(process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash'),
+      model: googleProvider(process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash'),
       system: systemPrompt,
-      messages,
+      messages: await convertToModelMessages(messages),
       stopWhen: stepCountIs(5),
       tools: {
         // 1. 一括生成 (クライアント反映)
