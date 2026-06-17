@@ -33,6 +33,14 @@ interface AiChatAssistantPanelProps {
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   chatLimitUsage: ChatLimitUsage | null;
+  pendingApprovals: Record<string, {
+    toolCallId: string;
+    toolName: string;
+    args: any;
+    resolve: (result: any) => void;
+  }>;
+  approveToolCall: (toolCallId: string) => void;
+  rejectToolCall: (toolCallId: string) => void;
 }
 
 function getJapaneseToolName(name: string): string {
@@ -58,6 +66,9 @@ export function AiChatAssistantPanel({
   handleInputChange,
   handleSubmit,
   chatLimitUsage,
+  pendingApprovals,
+  approveToolCall,
+  rejectToolCall,
 }: AiChatAssistantPanelProps) {
   const historyRef = useRef<HTMLDivElement>(null);
 
@@ -154,6 +165,146 @@ export function AiChatAssistantPanel({
     ? chatLimitUsage.limit !== null && chatLimitUsage.usedToday >= chatLimitUsage.limit 
     : false;
 
+  const hasPendingApproval = Object.keys(pendingApprovals).length > 0;
+
+  const getJapaneseFormatName = (type: string) => {
+    switch (type) {
+      case 'multiple-choice': return '4択選択式';
+      case 'true-false': return '〇✕選択式';
+      case 'text-input': return '記述入力式';
+      case 'quick-press': return '早押し式';
+      case 'sorting': return '並び替え式';
+      case 'association': return '連想式';
+      case 'lateral-thinking': return 'ウミガメのスープ';
+      default: return type;
+    }
+  };
+
+  const renderToolPreview = (toolName: string, args: any) => {
+    switch (toolName) {
+      case 'createQuestion': {
+        const q = args.question;
+        if (!q) return null;
+        return (
+          <div className={styles.questionPreview}>
+            <div className={styles.previewBadge}>問題の追加</div>
+            <div className={styles.previewField}>
+              <strong>形式:</strong> {getJapaneseFormatName(q.type)}
+            </div>
+            <div className={styles.previewField}>
+              <strong>問題文:</strong> {q.questionText || '（空欄）'}
+            </div>
+            {q.choices && q.choices.length > 0 && (
+              <div className={styles.previewField}>
+                <strong>選択肢:</strong>
+                <ul className="list-disc pl-4 text-xs">
+                  {q.choices.map((c: any, i: number) => (
+                    <li key={c.id || i} className={c.isCorrect ? 'text-primary font-semibold' : ''}>
+                      {c.choiceText} {c.isCorrect ? '✓' : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {q.correctTextAnswerList && q.correctTextAnswerList.length > 0 && (
+              <div className={styles.previewField}>
+                <strong>答え:</strong> {q.correctTextAnswerList.join(', ')}
+              </div>
+            )}
+            {q.explanation && (
+              <div className={styles.previewField}>
+                <strong>解説:</strong> {q.explanation}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      case 'updateQuestion': {
+        const updates = args.updates;
+        if (!updates) return null;
+        return (
+          <div className={styles.questionPreview}>
+            <div className={styles.previewBadge}>問題の変更 (ID: {args.id?.substring(0, 6)}...)</div>
+            {updates.questionText !== undefined && (
+              <div className={styles.previewField}>
+                <strong>問題文:</strong> {updates.questionText || '（空欄）'}
+              </div>
+            )}
+            {updates.choices && updates.choices.length > 0 && (
+              <div className={styles.previewField}>
+                <strong>選択肢の更新:</strong>
+                <ul className="list-disc pl-4 text-xs">
+                  {updates.choices.map((c: any, i: number) => (
+                    <li key={c.id || i} className={c.isCorrect ? 'text-primary font-semibold' : ''}>
+                      {c.choiceText} {c.isCorrect ? '✓' : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {updates.correctTextAnswerList && (
+              <div className={styles.previewField}>
+                <strong>答えの更新:</strong> {updates.correctTextAnswerList.join(', ')}
+              </div>
+            )}
+            {updates.explanation !== undefined && (
+              <div className={styles.previewField}>
+                <strong>解説:</strong> {updates.explanation}
+              </div>
+            )}
+            {updates.hint !== undefined && (
+              <div className={styles.previewField}>
+                <strong>ヒント:</strong> {updates.hint || '（なし）'}
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      case 'deleteQuestion': {
+        return (
+          <div className={styles.questionPreviewDanger}>
+            <div className={styles.previewBadgeDanger}>問題の削除</div>
+            <p className="text-xs text-destructive">
+              ID: {args.id} の問題をエディタから削除します。
+            </p>
+          </div>
+        );
+      }
+
+      case 'generateBulkQuestions': {
+        const list = args.questions;
+        if (!Array.isArray(list)) return null;
+        return (
+          <div className={styles.questionPreview}>
+            <div className={styles.previewBadge}>一括作問 (計 {list.length} 問)</div>
+            <ul className="list-decimal pl-4 text-[10px] max-h-32 overflow-y-auto">
+              {list.map((q: any, i: number) => (
+                <li key={i}>
+                  [{getJapaneseFormatName(q.type)}] {q.questionText || '（空欄）'}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+
+      case 'generateThumbnail': {
+        return (
+          <div className={styles.questionPreview}>
+            <div className={styles.previewBadge}>カバー画像生成</div>
+            <p className="text-xs">AIカバー画像を生成してエディタに設定します。</p>
+            {args.prompt && <p className="text-[10px] text-muted-foreground">指示: {args.prompt}</p>}
+          </div>
+        );
+      }
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div
       data-testid="ai-chat-assistant-panel"
@@ -211,24 +362,83 @@ export function AiChatAssistantPanel({
                 {toolInvocations?.map((tool: any) => {
                   const isCall = tool.state === 'call';
                   const isSearch = tool.toolName === 'googleSearch';
+                  const pending = pendingApprovals[tool.toolCallId];
+                  const isPendingApproval = isCall && !!pending;
                   
+                  // 承認・却下の確定状態
+                  const isApproved = tool.state === 'result' && tool.result?.success === true;
+                  const isRejected = tool.state === 'result' && tool.result?.error === 'rejected';
+                  const isFailed = tool.state === 'result' && tool.result?.success === false && tool.result?.error !== 'rejected';
+                  
+                  // 承認対象のツールかどうか
+                  const approvalRequiredTools = [
+                    'createQuestion',
+                    'updateQuestion',
+                    'deleteQuestion',
+                    'generateBulkQuestions',
+                    'generateThumbnail'
+                  ];
+                  const isApprovalRequired = approvalRequiredTools.includes(tool.toolName);
+
+                  // 状態に応じた表示文言
+                  const labelText = (() => {
+                    if (isApprovalRequired) {
+                      if (isPendingApproval) return `${getJapaneseToolName(tool.toolName)}の承認待ち…`;
+                      if (isApproved) return `${getJapaneseToolName(tool.toolName)}を反映しました`;
+                      if (isRejected) return `${getJapaneseToolName(tool.toolName)}をキャンセルしました`;
+                      if (isFailed) return `${getJapaneseToolName(tool.toolName)}の反映に失敗しました`;
+                    }
+                    return `${getJapaneseToolName(tool.toolName)}${isCall ? 'を実行中…' : 'が完了しました'}`;
+                  })();
+
+                  const statusClass = (() => {
+                    if (isCall && !isPendingApproval) return '';
+                    if (isPendingApproval) return styles.toolWarning || ''; 
+                    if (isApproved) return styles.toolSuccess;
+                    if (isRejected || isFailed) return styles.toolError;
+                    return styles.toolSuccess;
+                  })();
+
                   return (
                     <div key={tool.toolCallId} className="flex flex-col">
-                      <div
-                        className={`${styles.toolInvocation} ${
-                          !isCall ? styles.toolSuccess : ''
-                        }`}
-                      >
-                        {isCall ? (
+                      <div className={`${styles.toolInvocation} ${statusClass}`}>
+                        {isCall && !isPendingApproval ? (
                           <Loader2 size={12} className="animate-spin" />
+                        ) : isPendingApproval ? (
+                          <Sparkles size={12} className="animate-pulse text-amber-500" />
+                        ) : isRejected || isFailed ? (
+                          <X size={12} className="text-destructive" />
                         ) : (
                           <Check size={12} />
                         )}
-                        <span>
-                          {getJapaneseToolName(tool.toolName)}
-                          {isCall ? 'を実行中…' : 'が完了しました'}
-                        </span>
+                        <span>{labelText}</span>
                       </div>
+
+                      {/* 承認待ち時のプレビュー & ボタン */}
+                      {isPendingApproval && (
+                        <div className={styles.approvalContainer}>
+                          <div className={styles.approvalPreview}>
+                            <div className={styles.previewTitle}>📋 提案内容のプレビュー:</div>
+                            {renderToolPreview(tool.toolName, tool.args)}
+                          </div>
+                          <div className={styles.approvalActions}>
+                            <button
+                              type="button"
+                              className={styles.approveButton}
+                              onClick={() => approveToolCall(tool.toolCallId)}
+                            >
+                              フォームに反映する
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.rejectButton}
+                              onClick={() => rejectToolCall(tool.toolCallId)}
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Display Google Search citations */}
                       {isSearch && tool.state === 'result' && tool.result?.results && (
@@ -278,15 +488,21 @@ export function AiChatAssistantPanel({
           <input
             type="text"
             className={styles.input}
-            placeholder={isLimitReached ? '本日の制限回数に達しました' : 'AIに指示を送る...'}
+            placeholder={
+              isLimitReached 
+                ? '本日の制限回数に達しました' 
+                : hasPendingApproval 
+                  ? '提案の承認/却下を選択してください' 
+                  : 'AIに指示を送る...'
+            }
             value={input || ''}
             onChange={handleInputChange}
-            disabled={isGenerating || isLimitReached}
+            disabled={isGenerating || isLimitReached || hasPendingApproval}
           />
           <button
             type="submit"
             className={styles.sendButton}
-            disabled={isGenerating || !input?.trim() || isLimitReached}
+            disabled={isGenerating || !input?.trim() || isLimitReached || hasPendingApproval}
             aria-label="メッセージを送信"
           >
             <Send size={16} />

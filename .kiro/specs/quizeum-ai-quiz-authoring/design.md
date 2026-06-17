@@ -66,7 +66,6 @@
 ```mermaid
 sequenceDiagram
     participant Editor as QuizEditor
-    participant Btn as QuickActionButton (Generate/Check)
     participant Panel as AiChatAssistantPanel
     participant Hook as useAiChatAssistant (useChat)
     participant API as POST /api/quiz/ai-chat-authoring
@@ -74,17 +73,13 @@ sequenceDiagram
     participant FS as Firestore (Limits)
     participant GS as GoogleSearch
 
-    Note over Editor, Btn: 1. クイックアクションによる起動
-    Btn->>Panel: setIsChatOpen(true)
-    Btn->>Hook: append({ role: 'user', content: '...' })
-    
-    Note over Panel, Hook: 2. 対話型メッセージ送信 (通常会話も同様)
+    Note over Panel, Hook: 1. メッセージ送信 / ツール起動
     Hook->>API: POST /api/quiz/ai-chat-authoring (context + messages)
     API->>FS: check & increment daily limit
     API->>Gemini: streamText with tools
     
     rect rgb(30, 30, 40)
-        note right of Gemini: サーバー側検証ループ (googleSearch)
+        note right of Gemini: サーバー側検証 (googleSearch)
         Gemini->>API: Call checkQuestion
         API->>GS: googleSearch (grounding)
         GS-->>API: search results
@@ -93,8 +88,19 @@ sequenceDiagram
     
     Gemini->>API: Call client tools (e.g. updateQuestion)
     API-->>Hook: stream tool call (updateQuestion)
-    Hook->>Editor: setQuestions / state update
-    API-->>Hook: Stream text response ("〜を更新しました")
+    Note over Hook: 2. onToolCall 内で Promise 保留
+    Hook->>Panel: 承認待ちステート更新 & UI表示 (変更プレビュー)
+    
+    Note over Panel: 3. ユーザーが「承認（適用）」をクリック
+    Panel->>Hook: approveToolCall(toolCallId)
+    Hook->>Editor: setQuestions / state update (エディタ適用)
+    Hook-->>API: resolve(success)
+    
+    Note over Panel: 4. ユーザーが「却下」をクリックした場合
+    Panel->>Hook: rejectToolCall(toolCallId)
+    Hook-->>API: resolve(rejected) (エディタ適用なし)
+    
+    API-->>Hook: Stream text response ("〜の更新を承認しました")
     Hook-->>Panel: Render text response
 ```
 
@@ -139,11 +145,12 @@ e2e/
 ```
 
 ### Modified Files
-- `src/lib/security/sanitize.ts` — `parseMarkdownToHtml` 関数の拡張。コードブロック、インラインコード、リストのパース、およびプレースホルダー保護処理の追加。
-- `src/components/quiz/editor/ai-chat-assistant-panel.tsx` — `MarkdownContent` コンポーネントを使用したマークダウン表示の統合。および、`pre` 要素への動的なコピーボタン配置とクリップボードコピー用イベント処理（`useEffect`）の追加。
-- `src/components/quiz/editor/ai-chat-assistant.module.css` — マークダウンタグ（pre, code, ul, ol, li, a）およびコードコピーボタン（.codeCopyButton）のスタイル定義の追加。
-- `src/components/quiz/quiz-editor.tsx` — `AiChatAssistantButton` および `AiChatAssistantPanel` の統合。
-- `firestore.rules` — `dailyAiAuthoringCounts/chat` のクライアント書き込みの禁止。
+- `src/hooks/useAiChatAssistant.ts` — `onToolCall` 内で Promise をリターンして解決を保留するロジック、および Ref を用いた `resolve` 関数の管理（承認/却下 API の追加）の実装。
+- `src/components/quiz/editor/ai-chat-assistant-panel.tsx` — `toolInvocations` のレンダリング部を拡張し、保留中のツールコールに対する承認・却下ボタンおよび変更プレビューカードの描画処理を追加。
+- `src/lib/security/sanitize.ts` — `parseMarkdownToHtml` 関数の拡張。コードブロック、インラインコード、リストのパース、およびプレースホルダー保護処理の追加（実装済み）。
+- `src/components/quiz/editor/ai-chat-assistant.module.css` — 承認UI用ボタンスタイル、変更プレビュー表示のスタイル定義の追加。
+- `src/components/quiz/quiz-editor.tsx` — チャットパネルに渡す Props の調整。
+- `firestore.rules` — `dailyAiAuthoringCounts/chat` のクライアント書き込みの禁止（実装済み）。
 
 ## System Flows
 
@@ -188,7 +195,7 @@ e2e/
 | 2.5 | チャット内のマークダウン表示 | `AiChatAssistantPanel`, `MarkdownContent` | `ai-chat-assistant-panel.tsx`, `sanitize.ts` | マークダウン（リスト、インラインコード、コードブロック等）のパースとダークテーマ適合表示 |
 | 2.6 | リンクの安全性と新タブ表示 | `MarkdownContent` | `sanitize.ts` | セキュリティ対策（rel="noopener noreferrer"）を施した新タブリンク遷移 |
 | 2.7 | コードブロックコピー機能 | `AiChatAssistantPanel` | `ai-chat-assistant-panel.tsx`, `ai-chat-assistant.module.css` | コードブロック内のコピーボタン（レ点変化付き）の表示とクリップボードコピー処理 |
-| 3.1 - 3.7 | エディタ操作ツール (Tool Use) | `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail` | API ツールスキーマ定義、クライアント Tool Handlers | クイズエディタ状態の即時更新と検証 |
+| 3.1 - 3.6 | エディタ操作ツール (Tool Use) とユーザー承認フロー | `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail` | API ツールスキーマ定義、クライアント Tool Handlers, 承認UI | ツール呼び出し時の承認保留、プレビュー表示、承認（適用）および却下（キャンセル）処理、バリデーション検証 |
 | 4.1 - 4.5 | 包括チェック & Google検索ファクトチェック | `checkQuestion`, `checkAllQuestions`, `googleSearch` | API ツール定義、Gemini Search Grounding | Google検索結果のソース提示、誤字脱字・不自然表現の校正 |
 | 5.1 - 5.5 | 100回/日利用制限 | `ai-authoring-utils`, Firestore カウンタ | `users/{uid}/dailyAiAuthoringCounts/chat` | サーバー側制限、チャットへの警告表示 |
 | 6.1 - 6.3 | エラーハンドリング | チャットエラー UI | Panel / Hook | エラー時の再送ボタン、日本語での説明表示 |
@@ -299,6 +306,7 @@ export interface UseAiChatAssistantProps {
     genre: string;
     tags: string[];
     questions: Question[];
+    thumbnailUrl: string | null;
   };
   setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
   setTitle: (t: string) => void;
@@ -309,19 +317,30 @@ export interface UseAiChatAssistantProps {
 export interface UseAiChatAssistantResult {
   messages: any[]; // Message[] from 'ai'
   input: string;
-  handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  append: (message: { role: 'user' | 'assistant' | 'system'; content: string }) => Promise<string | null | undefined>;
-  triggerAuthoringWelcome: () => void; // 作問用ウェルカムメッセージ（自動送信なし）をセットしてチャットを開く
+  isGenerating: boolean;
   isChatOpen: boolean;
   setIsChatOpen: (open: boolean) => void;
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  triggerQuickAction: (actionType: 'bulk-generate' | 'check-all' | 'check-single', targetQuestionId?: string) => void;
+  triggerAuthoringWelcome: () => void; // 作問用ウェルカムメッセージ（自動送信なし）をセットしてチャットを開く
+  
+  // 承認フロー追加分
+  pendingApprovals: Record<string, {
+    toolCallId: string;
+    toolName: string;
+    args: any;
+    resolve: (result: { success: boolean; message: string; [key: string]: any }) => void;
+  }>;
+  approveToolCall: (toolCallId: string) => void;
+  rejectToolCall: (toolCallId: string) => void;
 }
 
 export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAssistantResult {
   // Vercel AI SDK の useChat を内部で呼び出す
-  // onToolCall で各ツール（createQuestion, updateQuestion, deleteQuestion, generateBulkQuestions, generateThumbnail）を処理し、setQuestions 等の State を更新
-  // isChatOpen の開閉状態を State として保持し、append 呼び出し時に isChatOpen を true に自動変更する制御を組み込む
-  // triggerAuthoringWelcome 呼び出し時に、チャットパネルを開き、チャットメッセージ履歴の先頭にAIアシスタントからのウェルカムメッセージ（初期設定）をセットする
+  // onToolCall が走った際、ツールが generateBulkQuestions / createQuestion / updateQuestion / deleteQuestion / generateThumbnail のいずれかであれば、
+  // 即時解決せず、新しく Promise をリターンして pendingApprovals ステートに resolve 関数と引数情報を格納する
+  // ユーザーが approveToolCall または rejectToolCall を実行した段階で、保存されていた resolve 関数を実行して Promise を完了し、承認の場合は setQuestions 等の State を更新する
 }
 ```
 
@@ -329,8 +348,8 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 
 | Field | Detail |
 |-------|--------|
-| Intent | スライドインチャットパネルおよび対話ログ、入力欄 UI の提供（マークダウンおよびコードコピー対応） |
-| Requirements | 1.3, 1.5, 2.2, 2.4, 2.5, 2.7, 5.4, 6 |
+| Intent | スライドインチャットパネルおよび対話ログ、入力欄 UI の提供（マークダウン表示、コードコピー、およびツール承認フロー対応） |
+| Requirements | 1.3, 1.5, 2.2, 2.4, 2.5, 2.7, 3.1 - 3.6, 5.4, 6 |
 
 **Implementation Notes**
 - スライドイン時に右側から幅 500px のエリアを占有し、エディタ編集領域と並行して手動編集・操作可能。
@@ -338,6 +357,17 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 - メッセージ履歴コンテナ（`.history`）に `useEffect` による DOM 監視処理を実装。メッセージ配列の更新をトリガーに、レンダリングされた `<pre>` タグ（コードブロック）を検出する。
 - 検出された各 `<pre>` タグの中に、絶対配置の「コピーボタン（`.codeCopyButton`）」を動的に生成して挿入する。
 - コピーボタンがクリックされたら、`pre` 要素内の `code` タグのテキストコンテンツを取得し、`navigator.clipboard.writeText` でコピーを実行する。コピー成功時は、ボタンの見た目を「コピー完了（チェックマークと緑色）」へ 2 秒間遷移させる。
+- **ツール承認・却下UIの描画**:
+  - メッセージ履歴内の `toolInvocations` を走査し、承認対象のツールコールについて、かつ `pendingApprovals` に登録されている状態であれば、チャットバブル内に「変更内容プレビューカード」と「承認（フォームに反映）」および「却下」のボタンを描画する。
+  - **変更プレビューの表示規則**:
+    - `createQuestion`: 追加される問題の問題文、タイプ、選択肢、正解、解説を簡潔なカード形式で表示。
+    - `updateQuestion`: 更新対象問題のID/インデックス、更新前の内容、および更新されるフィールドの前後比較（差分）を表示。
+    - `deleteQuestion`: 削除対象問題のインデックスと問題文テキストを警告色付きで表示。
+    - `generateBulkQuestions`: 生成された10問の問題リスト（タイトルや簡易一覧）をプレビュー表示。
+    - `generateThumbnail`: 生成されたモック画像プレビューを表示。
+  - ユーザーが「承認（フォームに反映）」ボタンを押すと `approveToolCall(toolCallId)` を呼び出し、「却下」ボタンを押すと `rejectToolCall(toolCallId)` を呼び出す。
+  - 承認または却下の処理が完了したツールコールはボタンを非表示にし、「適用済み（成功）」または「却下（キャンセル）」の確定済ステート表示に切り替える。
+  - 承認待ちの間は、最下部の入力フォーム（インプット欄および送信ボタン）を `disabled` にし、二重操作を防止する。
 
 ### マークダウンサニタイズユーティリティ (`parseMarkdownToHtml`)
 
@@ -377,12 +407,15 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 - **マークダウンパース検証**: `parseMarkdownToHtml` がコードブロック、インラインコード、リスト、セーフリンクを正しく安全な HTML に変換し、XSS 脆弱性がないこと。
 
 ### E2E Tests (`e2e/ai-chat-assistant.spec.ts`)
-- **UI 表示・開閉**: 右下アイコンの表示、クリックでのスライドパネルの展開、閉じるボタンでのクローズの動作テスト。
-- **対話による作問操作**: 
-  - チャット送信欄から「日本の首都に関する問題を1問追加して」と送信し、エディタ末尾に問題が 1 問追加されること。
-  - 「3問目を削除して」と送信し、該当問題がリストから消えること。
-- **包括チェックの動作**:
-  - 誤字や事実誤認を含んだ問題をエディタに配置し、「この問題をチェックして」と送信すると、不備がリストされ、修正案が提示されること。
+- **UI 表示・開閉**: 右下アイコンの表示、クリックでのスライドパネル of 展開、閉じるボタンでのクローズの動作テスト。
+- **承認フローを挟んだ対話作問操作**: 
+  - チャット送信欄から「日本の首都に関する問題を1問追加して」と送信し、即座には問題がエディタに追加されず、チャット内に「承認待ち」プレビューUIが表示されること。
+  - 承認UI内の「承認（フォームに反映）」をクリックした際に、エディタの末尾に正しい内容で問題が1問追加されること。
+  - 「3問目を削除して」と送信し、保留中の承認UIで「却下」をクリックした際、エディタの問題リストから削除されず維持されること。
+- **包括チェックおよび承認の動作**:
+  - 誤字や事実誤認を含んだ問題をエディタに配置し、「この問題をチェックして」と送信すると、不備と修正案が表示され、その適用ボタンをクリックすることで該当問題が修正されること。
+- **二重入力ガード検証**:
+  - 承認待ちのツールが存在するとき、入力フォームおよび送信ボタンが非活性化されていること。
 - **マークダウン・コピーボタン検証**:
   - マークダウン記法を含む応答が正しく装飾表示されること。
   - コードブロックにコピーボタンが表示され、クリックでクリップボードにコードがコピーされること。

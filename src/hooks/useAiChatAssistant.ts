@@ -34,6 +34,14 @@ export interface UseAiChatAssistantResult {
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   triggerQuickAction: (actionType: 'bulk-generate' | 'check-all' | 'check-single', targetQuestionId?: string) => void;
   triggerAuthoringWelcome: () => void;
+  pendingApprovals: Record<string, {
+    toolCallId: string;
+    toolName: string;
+    args: any;
+    resolve: (result: { success: boolean; message: string; [key: string]: any }) => void;
+  }>;
+  approveToolCall: (toolCallId: string) => void;
+  rejectToolCall: (toolCallId: string) => void;
 }
 
 // クライアント側 Zod バリデーション用スキーマ
@@ -79,6 +87,13 @@ export function useAiChatAssistant({
   setThumbnailUrl,
 }: UseAiChatAssistantProps): UseAiChatAssistantResult {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState<Record<string, {
+    toolCallId: string;
+    toolName: string;
+    args: any;
+    resolve: (result: any) => void;
+  }>>({});
+  const pendingResolvesRef = React.useRef<Record<string, (result: any) => void>>({});
   const addToolResultRef = React.useRef<any>(null);
 
   const userIdRef = React.useRef(userId);
@@ -93,6 +108,7 @@ export function useAiChatAssistant({
   }, [quizState]);
 
   const chatResult = useChat({
+    maxSteps: 5,
     transport: new DefaultChatTransport({
       api: '/api/quiz/ai-chat-authoring',
       prepareSendMessagesRequest: ({ messages, id }) => {
@@ -124,118 +140,72 @@ export function useAiChatAssistant({
       if (!isProUser) {
         addToolResultRef.current?.({
           toolCallId: toolCall.toolCallId,
-          result: { error: 'pro-required', message: 'Pro機能です' },
+          tool: toolCall.toolName as any,
+          output: { error: 'pro-required', message: 'Pro機能です' },
         });
+        return;
+      }
+
+      // 承認フローを必要とするクライアント操作ツール一覧
+      const approvalRequiredTools = [
+        'createQuestion',
+        'updateQuestion',
+        'deleteQuestion',
+        'generateBulkQuestions',
+        'generateThumbnail'
+      ];
+
+      // 対象のツールであれば即時解決せず、pendingApprovals に退避して同期的に終了
+      if (approvalRequiredTools.includes(toolCall.toolName)) {
+        setPendingApprovals((prev) => ({
+          ...prev,
+          [toolCall.toolCallId]: {
+            toolCallId: toolCall.toolCallId,
+            toolName: toolCall.toolName,
+            args: toolCall.input,
+            resolve: () => {} // 互換性のためのダミー解決関数
+          }
+        }));
         return;
       }
 
       try {
         switch (toolCall.toolName) {
-          case 'createQuestion': {
+          case 'checkQuestion': {
             const args = toolCall.input as any;
-            const parsed = questionSchema.safeParse(args.question);
-            if (!parsed.success) {
-              addToolResultRef.current?.({
-                toolCallId: toolCall.toolCallId,
-                result: { success: false, error: 'validation-failed', message: '問題のスキーマ検証に失敗しました' },
-              });
-              return;
-            }
-            const q = parsed.data;
-            const newQuestion: Question = {
-              ...q,
-              id: q.id || Math.random().toString(36).substring(2, 11),
-              imageUrl: null,
-              limitTime: null,
-              correctCount: 0,
-              incorrectCount: 0,
-            } as Question;
-
-            setQuestions((prev) => [...prev, newQuestion]);
             addToolResultRef.current?.({
               toolCallId: toolCall.toolCallId,
-              result: { success: true, message: '新しい問題を追加しました' },
+              tool: 'checkQuestion' as any,
+              output: {
+                checked: true,
+                message: `問題 (ID: ${args.id}) の包括的チェックを開始しました。AIは次に Google 検索等を使用して事実の裏付けを行い、校正・ファクトチェック結果を提示します。`,
+              },
             });
             return;
           }
 
-          case 'updateQuestion': {
+          case 'checkAllQuestions': {
             const args = toolCall.input as any;
-            const parsedUpdates = questionSchema.partial().safeParse(args.updates);
-            if (!parsedUpdates.success || typeof args.id !== 'string') {
-              addToolResultRef.current?.({
-                toolCallId: toolCall.toolCallId,
-                result: { success: false, error: 'validation-failed', message: '更新データのスキーマ検証に失敗しました' },
-              });
-              return;
-            }
-
-            setQuestions((prev) =>
-              prev.map((q) =>
-                q.id === args.id ? { ...q, ...parsedUpdates.data } as Question : q
-              )
-            );
             addToolResultRef.current?.({
               toolCallId: toolCall.toolCallId,
-              result: { success: true, message: `問題(ID: ${args.id})を更新しました` },
+              tool: 'checkAllQuestions' as any,
+              output: {
+                checked: true,
+                message: `全問題 (計 ${args.questionIds?.length || 0} 問) の包括的な一括チェックを開始しました。AIは問題ごとに必要に応じて検索等を行い、チェック結果を整理して提示します。`,
+              },
             });
             return;
           }
 
-          case 'deleteQuestion': {
-            const args = toolCall.input as any;
-            if (typeof args.id !== 'string') {
-              addToolResultRef.current?.({
-                toolCallId: toolCall.toolCallId,
-                result: { success: false, error: 'invalid-params', message: '問題IDが不正です' },
-              });
-              return;
-            }
-
-            setQuestions((prev) => prev.filter((q) => q.id !== args.id));
+          case 'googleSearch': {
+            // クライアント側でダミー応答として解決（APIルート側で本来executeされるが、フロントエンドでも形式上フォールバック）
             addToolResultRef.current?.({
               toolCallId: toolCall.toolCallId,
-              result: { success: true, message: `問題(ID: ${args.id})を削除しました` },
-            });
-            return;
-          }
-
-          case 'generateBulkQuestions': {
-            const args = toolCall.input as any;
-            const parsedArray = z.array(questionSchema).safeParse(args.questions);
-            if (!parsedArray.success) {
-              addToolResultRef.current?.({
-                toolCallId: toolCall.toolCallId,
-                result: { success: false, error: 'validation-failed', message: '一括生成データの検証に失敗しました' },
-              });
-              return;
-            }
-
-            const newQuestions = parsedArray.data.map((q) => ({
-              ...q,
-              id: q.id || Math.random().toString(36).substring(2, 11),
-              imageUrl: null,
-              limitTime: null,
-              correctCount: 0,
-              incorrectCount: 0,
-            })) as Question[];
-
-            setQuestions((prev) => [...prev, ...newQuestions]);
-            addToolResultRef.current?.({
-              toolCallId: toolCall.toolCallId,
-              result: { success: true, message: `クイズ問題を${newQuestions.length}問一括追加しました` },
-            });
-            return;
-          }
-
-          case 'generateThumbnail': {
-            const args = toolCall.input as any;
-            // 実際の実装ではAI画像生成APIなどを呼び出すが、ここではモック生成URLを即時セットする
-            const mockUrl = `/images/ai-generated-${Math.random().toString(36).substring(2, 11)}.jpg`;
-            setThumbnailUrl(mockUrl);
-            addToolResultRef.current?.({
-              toolCallId: toolCall.toolCallId,
-              result: { success: true, thumbnailUrl: mockUrl, message: 'クイズカバー画像を生成してエディタに適用しました' },
+              tool: 'googleSearch' as any,
+              output: {
+                query: (toolCall.input as any).query,
+                results: [],
+              },
             });
             return;
           }
@@ -243,7 +213,8 @@ export function useAiChatAssistant({
           default:
             addToolResultRef.current?.({
               toolCallId: toolCall.toolCallId,
-              result: { error: 'unknown-tool', message: '未定義のツールです' },
+              tool: toolCall.toolName as any,
+              output: { error: 'unknown-tool', message: '未定義のツールです' },
             });
             return;
         }
@@ -251,7 +222,8 @@ export function useAiChatAssistant({
         console.error('[useAiChatAssistant] Tool handling error:', err);
         addToolResultRef.current?.({
           toolCallId: toolCall.toolCallId,
-          result: { success: false, error: 'internal-error', message: 'ツール実行中にエラーが発生しました' },
+          tool: toolCall.toolName as any,
+          output: { success: false, error: 'internal-error', message: 'ツール実行中にエラーが発生しました' },
         });
         return;
       }
@@ -285,6 +257,146 @@ export function useAiChatAssistant({
 
     sendMessage({ text: input });
     setInput('');
+  };
+
+  // ユーザーが提案された変更を承認（エディタへ反映）した際の処理
+  const approveToolCall = (toolCallId: string) => {
+    const pending = pendingApprovals[toolCallId];
+    const resolvePromise = pendingResolvesRef.current[toolCallId];
+    if (!pending) return;
+
+    let resultPayload: any = null;
+
+    try {
+      switch (pending.toolName) {
+        case 'createQuestion': {
+          const args = pending.args as any;
+          const parsed = questionSchema.safeParse(args.question);
+          if (!parsed.success) {
+            resultPayload = { success: false, error: 'validation-failed', message: '問題のスキーマ検証に失敗しました' };
+            break;
+          }
+          const q = parsed.data;
+          const newQuestion: Question = {
+            ...q,
+            id: q.id || Math.random().toString(36).substring(2, 11),
+            imageUrl: null,
+            limitTime: null,
+            correctCount: 0,
+            incorrectCount: 0,
+          } as Question;
+          setQuestions((prev) => [...prev, newQuestion]);
+          resultPayload = { success: true, message: '新しい問題を追加しました' };
+          break;
+        }
+
+        case 'updateQuestion': {
+          const args = pending.args as any;
+          const parsedUpdates = questionSchema.partial().safeParse(args.updates);
+          if (!parsedUpdates.success || typeof args.id !== 'string') {
+            resultPayload = { success: false, error: 'validation-failed', message: '更新データのスキーマ検証に失敗しました' };
+            break;
+          }
+          setQuestions((prev) =>
+            prev.map((q) =>
+              q.id === args.id ? ({ ...q, ...parsedUpdates.data } as Question) : q
+            )
+          );
+          resultPayload = { success: true, message: `問題(ID: ${args.id})を更新しました` };
+          break;
+        }
+
+        case 'deleteQuestion': {
+          const args = pending.args as any;
+          if (typeof args.id !== 'string') {
+            resultPayload = { success: false, error: 'invalid-params', message: '問題IDが不正です' };
+            break;
+          }
+          setQuestions((prev) => prev.filter((q) => q.id !== args.id));
+          resultPayload = { success: true, message: `問題(ID: ${args.id})を削除しました` };
+          break;
+        }
+
+        case 'generateBulkQuestions': {
+          const args = pending.args as any;
+          const parsedArray = z.array(questionSchema).safeParse(args.questions);
+          if (!parsedArray.success) {
+            resultPayload = { success: false, error: 'validation-failed', message: '一括生成データの検証に失敗しました' };
+            break;
+          }
+          const newQuestions = parsedArray.data.map((q) => ({
+            ...q,
+            id: q.id || Math.random().toString(36).substring(2, 11),
+            imageUrl: null,
+            limitTime: null,
+            correctCount: 0,
+            incorrectCount: 0,
+          })) as Question[];
+          setQuestions((prev) => [...prev, ...newQuestions]);
+          resultPayload = { success: true, message: `クイズ問題を${newQuestions.length}問一括追加しました` };
+          break;
+        }
+
+        case 'generateThumbnail': {
+          const mockUrl = `/images/ai-generated-${Math.random().toString(36).substring(2, 11)}.jpg`;
+          setThumbnailUrl(mockUrl);
+          resultPayload = { success: true, thumbnailUrl: mockUrl, message: 'クイズカバー画像を生成してエディタに適用しました' };
+          break;
+        }
+
+        default:
+          resultPayload = { error: 'unknown-tool', message: '未定義のツールです' };
+      }
+    } catch (err) {
+      console.error('[useAiChatAssistant] Approve tool call error:', err);
+      resultPayload = { success: false, error: 'internal-error', message: 'ツール実行中にエラーが発生しました' };
+    }
+
+    if (resultPayload) {
+      if (resolvePromise) {
+        resolvePromise(resultPayload);
+        delete pendingResolvesRef.current[toolCallId];
+      } else if (pending.resolve) {
+        pending.resolve(resultPayload);
+      }
+      addToolResultRef.current?.({
+        toolCallId: toolCallId,
+        tool: pending.toolName as any,
+        output: resultPayload,
+      });
+    }
+
+    setPendingApprovals((prev) => {
+      const next = { ...prev };
+      delete next[toolCallId];
+      return next;
+    });
+  };
+
+  // ユーザーが提案された変更を却下（キャンセル）した際の処理
+  const rejectToolCall = (toolCallId: string) => {
+    const pending = pendingApprovals[toolCallId];
+    const resolvePromise = pendingResolvesRef.current[toolCallId];
+    if (!pending) return;
+
+    const resultPayload = { success: false, error: 'rejected', message: 'ユーザーにより却下されました' };
+    if (resolvePromise) {
+      resolvePromise(resultPayload);
+      delete pendingResolvesRef.current[toolCallId];
+    } else if (pending.resolve) {
+      pending.resolve(resultPayload);
+    }
+    addToolResultRef.current?.({
+      toolCallId: toolCallId,
+      tool: pending.toolName as any,
+      output: resultPayload,
+    });
+
+    setPendingApprovals((prev) => {
+      const next = { ...prev };
+      delete next[toolCallId];
+      return next;
+    });
   };
 
   const triggerQuickAction = (
@@ -336,5 +448,8 @@ export function useAiChatAssistant({
     handleSubmit,
     triggerQuickAction,
     triggerAuthoringWelcome,
+    pendingApprovals,
+    approveToolCall,
+    rejectToolCall,
   };
 }

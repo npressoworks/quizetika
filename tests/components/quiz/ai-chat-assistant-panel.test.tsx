@@ -42,6 +42,10 @@ describe('AiChatAssistantPanel', () => {
     handleInputChange: jest.fn(),
     handleSubmit: jest.fn(),
     chatLimitUsage: { limit: 100, usedToday: 10, remainingToday: 90 },
+    // 承認フロー用 Props（デフォルトは空の承認待ち）
+    pendingApprovals: {} as Record<string, { toolCallId: string; toolName: string; args: any; resolve: (result: any) => void }>,
+    approveToolCall: jest.fn(),
+    rejectToolCall: jest.fn(),
   };
 
   it('非表示の時はレンダリングされない', () => {
@@ -73,5 +77,121 @@ describe('AiChatAssistantPanel', () => {
     const closeBtn = screen.getByTestId('ai-chat-close-button');
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('承認待ちのツールがある場合、入力フォームが disabled になること', () => {
+    const pendingApprovals = {
+      'call-123': {
+        toolCallId: 'call-123',
+        toolName: 'createQuestion',
+        args: { question: { type: 'multiple-choice', questionText: 'テスト問題', explanation: '解説' } },
+        resolve: jest.fn(),
+      },
+    };
+    render(
+      <AiChatAssistantPanel
+        {...defaultProps}
+        pendingApprovals={pendingApprovals}
+        approveToolCall={jest.fn()}
+        rejectToolCall={jest.fn()}
+      />
+    );
+
+    const input = screen.getByPlaceholderText('提案の承認/却下を選択してください');
+    expect(input).toBeDisabled();
+  });
+
+  it('承認ボタンをクリックすると approveToolCall が呼ばれること', () => {
+    const approveToolCall = jest.fn();
+    const rejectToolCall = jest.fn();
+
+    // メッセージに toolInvocations を含むモック
+    const messagesWithTool = [
+      {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'クイズ問題を1問作成します。',
+        toolInvocations: [
+          {
+            toolCallId: 'call-approve-test',
+            toolName: 'createQuestion',
+            args: { question: { type: 'multiple-choice', questionText: '承認テスト問題', explanation: '解説' } },
+            state: 'call' as const,
+          },
+        ],
+      },
+    ];
+
+    const pendingApprovals = {
+      'call-approve-test': {
+        toolCallId: 'call-approve-test',
+        toolName: 'createQuestion',
+        args: { question: { type: 'multiple-choice', questionText: '承認テスト問題', explanation: '解説' } },
+        resolve: jest.fn(),
+      },
+    };
+
+    render(
+      <AiChatAssistantPanel
+        {...defaultProps}
+        messages={messagesWithTool}
+        pendingApprovals={pendingApprovals}
+        approveToolCall={approveToolCall}
+        rejectToolCall={rejectToolCall}
+      />
+    );
+
+    // 承認待ちラベルの表示確認
+    expect(screen.getByText('問題の追加の承認待ち…')).toBeInTheDocument();
+
+    // 承認ボタンのクリック
+    const approveBtn = screen.getByRole('button', { name: 'フォームに反映する' });
+    fireEvent.click(approveBtn);
+    expect(approveToolCall).toHaveBeenCalledWith('call-approve-test');
+  });
+
+  it('却下ボタンをクリックすると rejectToolCall が呼ばれること', () => {
+    const approveToolCall = jest.fn();
+    const rejectToolCall = jest.fn();
+
+    const messagesWithTool = [
+      {
+        id: 'msg-2',
+        role: 'assistant' as const,
+        content: '問題を削除します。',
+        toolInvocations: [
+          {
+            toolCallId: 'call-reject-test',
+            toolName: 'deleteQuestion',
+            args: { id: 'q-001' },
+            state: 'call' as const,
+          },
+        ],
+      },
+    ];
+
+    const pendingApprovals = {
+      'call-reject-test': {
+        toolCallId: 'call-reject-test',
+        toolName: 'deleteQuestion',
+        args: { id: 'q-001' },
+        resolve: jest.fn(),
+      },
+    };
+
+    render(
+      <AiChatAssistantPanel
+        {...defaultProps}
+        messages={messagesWithTool}
+        pendingApprovals={pendingApprovals}
+        approveToolCall={approveToolCall}
+        rejectToolCall={rejectToolCall}
+      />
+    );
+
+    // 却下ボタンのクリック
+    const rejectBtn = screen.getByRole('button', { name: 'キャンセル' });
+    fireEvent.click(rejectBtn);
+    expect(rejectToolCall).toHaveBeenCalledWith('call-reject-test');
   });
 });

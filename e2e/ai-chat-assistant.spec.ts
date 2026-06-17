@@ -180,5 +180,176 @@ test.describe('AI チャットアシスタント E2E', () => {
       await copyBtn.click();
       await expect(copyBtn).toHaveText('コピー完了');
     });
+
+    test('承認フロー: AIが問題追加ツールを呼び出した際にプレビューが表示され、承認するとエディタに反映されること', async ({ page }) => {
+      // ツール呼び出し（createQuestion）をモックしたAPIレスポンス
+      await page.route('**/api/quiz/ai-chat-authoring', async (route) => {
+        const body = route.request().postDataJSON();
+        const messages = body?.messages || [];
+        console.log("MOCK API POST BODY: " + JSON.stringify(body));
+        const hasToolResult = messages.some((m: any) =>
+          m.toolInvocations?.some((ti: any) => ti.state === 'result')
+        );
+
+        let chunks: string[];
+        if (hasToolResult) {
+          chunks = [
+            `data: ${JSON.stringify({ type: 'text-start', id: 'msg-assistant-tool-res' })}`,
+            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool-res', delta: '問題を反映しました。' })}`,
+            `data: ${JSON.stringify({ type: 'text-end', id: 'msg-assistant-tool-res' })}`,
+          ];
+        } else {
+          chunks = [
+            `data: ${JSON.stringify({ type: 'text-start', id: 'msg-assistant-tool' })}`,
+            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool', delta: 'クイズ問題を1問作成します。' })}`,
+            `data: ${JSON.stringify({
+              type: 'tool-input-available',
+              toolCallId: 'call-create-1',
+              toolName: 'createQuestion',
+              input: {
+                question: {
+                  type: 'multiple-choice',
+                  questionText: '日本の首都はどこですか？E2Eテスト',
+                  explanation: '日本の首都は東京です。',
+                  choices: [
+                    { id: 'choice-1', choiceText: '東京', isCorrect: true },
+                    { id: 'choice-2', choiceText: '大阪', isCorrect: false }
+                  ]
+                }
+              }
+            })}`,
+            `data: ${JSON.stringify({ type: 'text-end', id: 'msg-assistant-tool' })}`,
+          ];
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/plain',
+          headers: {
+            'x-vercel-ai-data-stream': 'v1',
+          },
+          body: chunks.join('\n\n') + '\n\n',
+        });
+      });
+
+      await page.goto('/quiz/create');
+      await page.waitForLoadState('domcontentloaded');
+
+      // AIで作問開始をクリックしてチャットを開く
+      const startBtn = page.getByRole('button', { name: 'AIで作問開始' });
+      await startBtn.click();
+
+      // チャットに入力して送信
+      const chatPanel = page.getByTestId('ai-chat-assistant-panel');
+      const input = chatPanel.locator('input[type="text"]');
+      await input.fill('首都に関する問題を1問作成して');
+      await page.keyboard.press('Enter');
+
+      // チャットパネル上に「createQuestionの承認待ち…」というラベルが表示されること
+      await expect(page.getByText('問題の追加の承認待ち…')).toBeVisible({ timeout: 10000 });
+
+      // 提案プレビュー内に「日本の首都はどこですか？E2Eテスト」が表示されていること
+      await expect(page.getByText('日本の首都はどこですか？E2Eテスト')).toBeVisible();
+
+      // 二重送信防止ガード: 送信インプットと送信ボタンが disabled になっていること
+      await expect(input).toBeDisabled();
+      const sendBtn = page.getByRole('button', { name: 'メッセージを送信' });
+      await expect(sendBtn).toBeDisabled();
+
+      // 「フォームに反映する」ボタンをクリック
+      const approveBtn = page.getByRole('button', { name: 'フォームに反映する' });
+      await approveBtn.click();
+
+      // 「問題の追加を反映しました」にステータスが変わること
+      await expect(page.getByText('問題の追加を反映しました')).toBeVisible();
+
+      // 送信インプットが再び enabled になること
+      await expect(input).toBeEnabled();
+
+      // エディタ（画面上）に問題が反映され、追加された問題テキストが画面に表示されていることを確認
+      await expect(page.locator('body')).toContainText('日本の首都はどこですか？E2Eテスト');
+    });
+
+    test('承認フロー: AIが問題追加ツールを呼び出した際に却下するとエディタに反映されないこと', async ({ page }) => {
+      // ツール呼び出し（createQuestion）をモックしたAPIレスポンス
+      await page.route('**/api/quiz/ai-chat-authoring', async (route) => {
+        const body = route.request().postDataJSON();
+        const messages = body?.messages || [];
+        const hasToolResult = messages.some((m: any) =>
+          m.toolInvocations?.some((ti: any) => ti.state === 'result')
+        );
+
+        let chunks: string[];
+        if (hasToolResult) {
+          chunks = [
+            `data: ${JSON.stringify({ type: 'text-start', id: 'msg-assistant-tool-rej-res' })}`,
+            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool-rej-res', delta: 'キャンセルされました。' })}`,
+            `data: ${JSON.stringify({ type: 'text-end', id: 'msg-assistant-tool-rej-res' })}`,
+          ];
+        } else {
+          chunks = [
+            `data: ${JSON.stringify({ type: 'text-start', id: 'msg-assistant-tool-reject' })}`,
+            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool-reject', delta: 'クイズ問題を1問作成します。' })}`,
+            `data: ${JSON.stringify({
+              type: 'tool-input-available',
+              toolCallId: 'call-create-2',
+              toolName: 'createQuestion',
+              input: {
+                question: {
+                  type: 'multiple-choice',
+                  questionText: '却下される問題テキスト',
+                  explanation: '説明です。',
+                  choices: [
+                    { id: 'choice-1', choiceText: '選択肢A', isCorrect: true },
+                    { id: 'choice-2', choiceText: '選択肢B', isCorrect: false }
+                  ]
+                }
+              }
+            })}`,
+            `data: ${JSON.stringify({ type: 'text-end', id: 'msg-assistant-tool-reject' })}`,
+          ];
+        }
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/plain',
+          headers: {
+            'x-vercel-ai-data-stream': 'v1',
+          },
+          body: chunks.join('\n\n') + '\n\n',
+        });
+      });
+
+      await page.goto('/quiz/create');
+      await page.waitForLoadState('domcontentloaded');
+
+      // AIで作問開始をクリックしてチャットを開く
+      const startBtn = page.getByRole('button', { name: 'AIで作問開始' });
+      await startBtn.click();
+
+      // チャットに入力して送信
+      const chatPanel = page.getByTestId('ai-chat-assistant-panel');
+      const input = chatPanel.locator('input[type="text"]');
+      await input.fill('却下する問題を作成して');
+      await page.keyboard.press('Enter');
+
+      // プレビューの表示を待つ
+      await expect(page.getByText('問題の追加の承認待ち…')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('却下される問題テキスト')).toBeVisible();
+
+      // 「キャンセル」ボタンをクリック
+      const rejectBtn = page.getByRole('button', { name: 'キャンセル' });
+      await rejectBtn.click();
+
+      // 「問題の追加をキャンセルしました」にステータスが変わること
+      await expect(page.getByText('問題の追加をキャンセルしました')).toBeVisible();
+
+      // 送信インプットが再び enabled になること
+      await expect(input).toBeEnabled();
+
+      // エディタに問題が反映されていない（画面上に見つからない）ことを確認
+      await expect(page.locator('body')).not.toContainText('却下される問題テキスト');
+    });
   });
 });
+

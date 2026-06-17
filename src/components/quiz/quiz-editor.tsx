@@ -1365,6 +1365,9 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
             handleInputChange={aiChat.handleInputChange}
             handleSubmit={aiChat.handleSubmit}
             chatLimitUsage={aiAuthoring.usageChat}
+            pendingApprovals={aiChat.pendingApprovals}
+            approveToolCall={aiChat.approveToolCall}
+            rejectToolCall={aiChat.rejectToolCall}
           />
         </>
       )}

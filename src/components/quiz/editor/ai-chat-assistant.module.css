@@ -448,3 +448,127 @@
   border-color: rgba(16, 185, 129, 0.4);
   color: #10b981;
 }
+
+/* ツール承認・却下フローUI */
+.approvalContainer {
+  margin-top: 10px;
+  background: rgba(30, 30, 45, 0.95);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4), 0 0 10px rgba(168, 85, 247, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: messageSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.approvalPreview {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.previewTitle {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #a855f7;
+  margin-bottom: 6px;
+}
+
+.previewBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  margin-bottom: 6px;
+}
+
+.previewBadgeDanger {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  margin-bottom: 6px;
+}
+
+.previewField {
+  font-size: 0.8rem;
+  color: #e2e2e9;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.previewField strong {
+  color: #a0a0b0;
+  font-size: 0.75rem;
+  margin-right: 4px;
+}
+
+.questionPreview {
+  display: flex;
+  flex-direction: column;
+}
+
+.questionPreviewDanger {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.05);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.approvalActions {
+  display: flex;
+  gap: 8px;
+}
+
+.approveButton {
+  flex: 1;
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  border: none;
+  color: #ffffff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.2);
+}
+
+.approveButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
+.approveButton:active {
+  transform: translateY(0);
+}
+
+.rejectButton {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a0a0b0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.rejectButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
