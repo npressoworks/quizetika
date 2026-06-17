@@ -214,29 +214,34 @@ export function AiChatAssistantPanel({
     return `${usedToday}/${limit}回使用中`;
   })();
 
-  const isLimitReached = chatLimitUsage 
-    ? chatLimitUsage.limit !== null && chatLimitUsage.usedToday >= chatLimitUsage.limit 
+  const isLimitReached = chatLimitUsage
+    ? chatLimitUsage.limit !== null && chatLimitUsage.usedToday >= chatLimitUsage.limit
     : false;
 
   const hasPendingApproval = Object.keys(pendingApprovals).length > 0;
 
   const getJapaneseFormatName = (type: string) => {
     switch (type) {
-      case 'multiple-choice': return '4択選択式';
-      case 'true-false': return '〇✕選択式';
-      case 'text-input': return '記述入力式';
-      case 'quick-press': return '早押し式';
-      case 'sorting': return '並び替え式';
-      case 'association': return '連想式';
+      case 'multiple-choice': return '選択クイズ';
+      case 'true-false': return '〇✕クイズ';
+      case 'text-input': return '記述クイズ';
+      case 'quick-press': return '早押しクイズ';
+      case 'sorting': return '並び替えクイズ';
+      case 'association': return '連想クイズ';
       case 'lateral-thinking': return 'ウミガメのスープ';
       default: return type;
     }
   };
 
   const renderToolPreview = (toolName: string, args: any, isModal = false) => {
-    const textBaseClass = isModal ? 'text-sm' : 'text-xs';
-    const textTinyClass = isModal ? 'text-xs' : 'text-[10px]';
-    
+    const textQuestionSentenceClass = isModal ? 'text-xl font-semibold' : 'text-base';
+
+    const textBaseClass = isModal ? 'text-base' : 'text-xs';
+    const detailTextClass = isModal ? 'text-base text-muted-foreground' : 'text-xs text-muted-foreground';
+
+    // 正解・正答用の緑色クラス
+    const correctAnswerClass = isModal ? 'text-green-400 font-semibold' : 'text-green-500 font-semibold';
+
     switch (toolName) {
       case 'createQuestion': {
         const q = args.question;
@@ -255,7 +260,7 @@ export function AiChatAssistantPanel({
                 <strong>選択肢:</strong>
                 <ul className={`list-disc pl-4 ${textBaseClass}`}>
                   {q.choices.map((c: any, i: number) => (
-                    <li key={c.id || i} className={c.isCorrect ? 'text-primary font-semibold' : ''}>
+                    <li key={c.id || i} className={c.isCorrect ? correctAnswerClass : ''}>
                       {c.choiceText} {c.isCorrect ? '✓' : ''}
                     </li>
                   ))}
@@ -264,7 +269,7 @@ export function AiChatAssistantPanel({
             )}
             {q.correctTextAnswerList && q.correctTextAnswerList.length > 0 && (
               <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
-                <strong>答え:</strong> {q.correctTextAnswerList.join(', ')}
+                <strong>答え:</strong> <span className={correctAnswerClass}>{q.correctTextAnswerList.join(', ')}</span>
               </div>
             )}
             {q.explanation && (
@@ -292,7 +297,7 @@ export function AiChatAssistantPanel({
                 <strong>選択肢の更新:</strong>
                 <ul className={`list-disc pl-4 ${textBaseClass}`}>
                   {updates.choices.map((c: any, i: number) => (
-                    <li key={c.id || i} className={c.isCorrect ? 'text-primary font-semibold' : ''}>
+                    <li key={c.id || i} className={c.isCorrect ? correctAnswerClass : ''}>
                       {c.choiceText} {c.isCorrect ? '✓' : ''}
                     </li>
                   ))}
@@ -301,7 +306,7 @@ export function AiChatAssistantPanel({
             )}
             {updates.correctTextAnswerList && (
               <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
-                <strong>答えの更新:</strong> {updates.correctTextAnswerList.join(', ')}
+                <strong>答えの更新:</strong> <span className={correctAnswerClass}>{updates.correctTextAnswerList.join(', ')}</span>
               </div>
             )}
             {updates.explanation !== undefined && (
@@ -337,11 +342,64 @@ export function AiChatAssistantPanel({
           <div className={styles.questionPreview}>
             <div className={styles.previewBadge}>一括作問 (計 {list.length} 問)</div>
             <ul className={`list-decimal pl-4 ${textBaseClass} ${listHeightClass} overflow-y-auto`}>
-              {list.map((q: any, i: number) => (
-                <li key={i} className="mb-2">
-                  [{getJapaneseFormatName(q.type)}] {q.questionText || '（空欄）'}
-                </li>
-              ))}
+              {list.map((q: any, i: number) => {
+                const getCorrectAnswerLabel = () => {
+                  if (q.type === 'multiple-choice' || q.type === 'true-false') {
+                    const correctChoice = q.choices?.find((c: any) => c.isCorrect);
+                    return correctChoice ? `正解: ${correctChoice.choiceText}` : '正解: 未設定';
+                  }
+                  if (q.type === 'text-input' || q.type === 'quick-press') {
+                    return q.correctTextAnswerList && q.correctTextAnswerList.length > 0
+                      ? `正解: ${q.correctTextAnswerList.join(', ')}`
+                      : '正解: 未設定';
+                  }
+                  if (q.type === 'sorting') {
+                    const sortedItems = [...(q.sortingItems || [])].sort((a: any, b: any) => a.correctOrder - b.correctOrder);
+                    return sortedItems.length > 0
+                      ? `正解順: ${sortedItems.map((item: any) => item.text).join(' → ')}`
+                      : '正解順: 未設定';
+                  }
+                  if (q.type === 'association') {
+                    return q.correctTextAnswerList && q.correctTextAnswerList.length > 0
+                      ? `正解: ${q.correctTextAnswerList.join(', ')} (ヒント: ${q.associationHints?.join(', ') || ''})`
+                      : '正解: 未設定';
+                  }
+                  return '';
+                };
+
+                const answerLabel = getCorrectAnswerLabel();
+
+                return (
+                  <li key={i} className="mb-3">
+                    <div className={textQuestionSentenceClass}>
+                      [{getJapaneseFormatName(q.type)}] {q.questionText || '（空欄）'}
+                    </div>
+                    {answerLabel && (
+                      <div className={`${correctAnswerClass} mt-0.5 ml-2`}>
+                        ✓ {answerLabel}
+                      </div>
+                    )}
+                    {q.choices && q.choices.length > 0 && (
+                      <div className={`mt-0.5 ml-2 ${detailTextClass}`}>
+                        <strong>選択肢:</strong>{' '}
+                        {q.choices.map((c: any, idx: number) => (
+                          <span key={c.id || idx}>
+                            {idx > 0 && ' / '}
+                            <span className={c.isCorrect ? correctAnswerClass : ''}>
+                              {c.choiceText}{c.isCorrect ? ' (正解)' : ''}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {q.explanation && (
+                      <div className={`mt-0.5 ml-2 italic ${detailTextClass}`}>
+                        <strong>解説:</strong> {q.explanation}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         );
@@ -352,7 +410,7 @@ export function AiChatAssistantPanel({
           <div className={styles.questionPreview}>
             <div className={styles.previewBadge}>カバー画像生成</div>
             <p className={isModal ? 'text-base' : 'text-xs'}>AIカバー画像を生成してエディタに設定します。</p>
-            {args.prompt && <p className={`${textTinyClass} text-muted-foreground`}>指示: {args.prompt}</p>}
+            {args.prompt && <p className={`${textBaseClass} text-muted-foreground`}>指示: {args.prompt}</p>}
           </div>
         );
       }
@@ -406,19 +464,17 @@ export function AiChatAssistantPanel({
             const textContent = getMessageText(msg);
             const toolInvocations = getToolInvocations(msg);
             const isIntroMsg = msg.id === 'intro-message';
-            
+
             return (
               <div
                 key={msg.id}
-                className={`${styles.message} ${
-                  isUser ? styles.messageUser : styles.messageAssistant
-                }`}
+                className={`${styles.message} ${isUser ? styles.messageUser : styles.messageAssistant
+                  }`}
               >
                 {textContent && (
                   <div
-                    className={`${styles.bubble} ${
-                      isUser ? styles.bubbleUser : styles.bubbleAssistant
-                    }`}
+                    className={`${styles.bubble} ${isUser ? styles.bubbleUser : styles.bubbleAssistant
+                      }`}
                   >
                     {isUser ? (
                       textContent
@@ -451,12 +507,12 @@ export function AiChatAssistantPanel({
                   const isSearch = tool.toolName === 'googleSearch';
                   const pending = pendingApprovals[tool.toolCallId];
                   const isPendingApproval = isCall && !!pending;
-                  
+
                   // 承認・却下の確定状態
                   const isApproved = tool.state === 'result' && tool.result?.success === true;
                   const isRejected = tool.state === 'result' && tool.result?.error === 'rejected';
                   const isFailed = tool.state === 'result' && tool.result?.success === false && tool.result?.error !== 'rejected';
-                  
+
                   // 承認対象のツールかどうか
                   const approvalRequiredTools = [
                     'updateQuestion',
@@ -479,7 +535,7 @@ export function AiChatAssistantPanel({
 
                   const statusClass = (() => {
                     if (isCall && !isPendingApproval) return '';
-                    if (isPendingApproval) return styles.toolWarning || ''; 
+                    if (isPendingApproval) return styles.toolWarning || '';
                     if (isApproved) return styles.toolSuccess;
                     if (isRejected || isFailed) return styles.toolError;
                     return styles.toolSuccess;
@@ -582,10 +638,10 @@ export function AiChatAssistantPanel({
             type="text"
             className={styles.input}
             placeholder={
-              isLimitReached 
-                ? '本日の制限回数に達しました' 
-                : hasPendingApproval 
-                  ? '提案の承認/却下を選択してください' 
+              isLimitReached
+                ? '本日の制限回数に達しました'
+                : hasPendingApproval
+                  ? '提案の承認/却下を選択してください'
                   : 'AIに指示を送る...'
             }
             value={input || ''}
@@ -610,7 +666,7 @@ export function AiChatAssistantPanel({
           )}
         </div>
       </div>
-      
+
       {/* プレビュー拡大ポップアップ */}
       {previewModal && typeof document !== 'undefined' && createPortal(
         <div

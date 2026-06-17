@@ -469,11 +469,31 @@
   animation: messageSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.approvalPreview {
+.approvalPreviewButton {
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 10px;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  display: block;
+  transition: all 0.2s;
+}
+
+.approvalPreviewButton:hover {
+  background: rgba(168, 85, 247, 0.06);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.previewExpandHint {
+  font-size: 0.65rem;
+  color: #88889a;
+  margin-left: 4px;
+  font-weight: normal;
 }
 
 .previewTitle {
@@ -651,6 +671,7 @@
   border-radius: 16px;
   width: 90%;
   max-width: 900px;
+  min-height: 650px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
@@ -693,11 +714,38 @@
 }
 
 .previewModalBody {
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
   flex: 1;
   color: #e2e2e9;
-  font-size: 0.95rem;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.previewModalBody .previewField {
+  font-size: 1.1rem !important;
+  margin-bottom: 12px;
+}
+
+.previewModalBody .previewField strong {
+  font-size: 1.05rem !important;
+  color: #c084fc;
+}
+
+.previewModalBody .previewBadge,
+.previewModalBody .previewBadgeDanger {
+  font-size: 0.85rem !important;
+  padding: 6px 12px;
+  margin-bottom: 14px;
+}
+
+.previewModalBody ul,
+.previewModalBody ol {
+  font-size: 1.05rem !important;
+}
+
+.previewModalBody li {
+  margin-bottom: 10px;
 }
 
 @keyframes fadeIn {
