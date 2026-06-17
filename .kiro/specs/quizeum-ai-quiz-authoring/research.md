@@ -9,6 +9,8 @@
   - ツール群（追加、編集、削除、一括生成、サムネイル生成、包括的チェック）を定義し、APIからのツールコールをクライアントで検知して React ステートを即時更新。
   - 事実確認（ファクトチェック）は Gemini の Google Search Grounding または Custom Search 経由で Google 検索を行い、取得したソース URL をチャット上に表示可能。
   - ファクトチェックは誤字脱字・日本語表現の校正も含む「包括的チェック」へ拡張し、指定問題 (`checkQuestion`) または全問題の一括チェック (`checkAllQuestions`) をサポート。
+  - 簡易的な正規表現と状態マシンを組み合わせた独自マークダウンパース処理を実装。コードブロックをプレースホルダーへ一時退避させるアプローチにより、他の置換規則との競合を完全に保護。
+  - メッセージ履歴を表示する DOM コンテナに対して useEffect で監視を行い、コードブロック（pre タグ）内にコピーボタンを動的に追加。ホバーで表示され、成功時にレ点へとアニメーション変化するプレミアムUXを実現。
 
 ## Research Log
 
@@ -34,6 +36,13 @@
   - Gemini API は Google 検索結果に基づくグラウンディング出力をビルトインで提供している。Vercel AI SDK のプロバイダでも `googleSearch` ツールとしてモデルに渡す、あるいは検索グラウンディングを有効化することで、AI が自律的に最新情報を検索し、回答のソース URL を明示できる。
   - プロジェクト側の追加の API キー管理コストやレート制限を回避するため、Gemini 自体の検索連携機能を最優先で採用。
 
+### メッセージにおけるマークダウンパースとコピーの実現
+- **Context**: AIの応答テキスト内のリストやコードの読みやすさ向上と、コードの再利用性。
+- **Findings**:
+  - AIエージェントはプログラムコードや箇条書きを含むマークダウンを頻繁に生成するため、エディタ解説で使われている簡易 HTML パース（`parseMarkdownToHtml`）では表示が崩れる。
+  - コードブロック内の改行や特殊文字が他の HTML 置換（特に `\n -> <br />`）と競合しないよう、パースの初期段階でプレースホルダーへ退避させる設計が最も安全。
+  - DOM 挿入後の `useEffect` 内で `pre` タグを取得し、`button` 要素を動的にアタッチして `navigator.clipboard.writeText` を実行する仕組みにより、仮想 DOM を乱さずコピーボタンを組み込める。
+
 ## Architecture Pattern Evaluation
 
 | Option | Description | Strengths | Risks / Limitations | Notes |
@@ -55,6 +64,18 @@
   - `checkQuestion` と `checkAllQuestions` ツールはサーバー側で実行。
   - AI が内部で `googleSearch` 等をマルチステップで呼び出して事実検証を行い、最終的に `updateQuestion` ツールを呼び出してエディタを書き換える。
 - **Rationale**: ユーザーが一回「全問チェックして」と頼むだけで、AI が自律的に複数の問題の誤りを調査し、適切な修正案をエディタに適用できる。
+
+### Decision: プレースホルダー保護型簡易マークダウンパーサーの採用
+- **Context**: サードパーティライブラリ（`react-markdown` 等）の追加を避け、既存 `sanitize.ts` の枠組みでリスト・コードをパースしたい。
+- **Selected Approach**:
+  - コードブロック（` ``` `）とインラインコード（` ` `）を一時的に `__CODE_BLOCK_N__` などのプレースホルダーに逃がしてから他のパースを実行し、最後にサニタイズした上で書き戻す。
+- **Rationale**: 外部依存関係を追加せずに軽量かつ確実にパース競合を防ぐことができ、バンドルサイズおよびライブラリ選定コストを最小化できるため。
+
+### Decision: useEffect によるコピーボタンの動的インジェクション
+- **Context**: `dangerouslySetInnerHTML` で埋め込んだコードブロックに React からインタラクティブなボタンを配置したい。
+- **Selected Approach**:
+  - チャットメッセージ更新をトリガーとする `useEffect` 内で、DOM 要素（`pre`）を巡回し、コピーボタン要素を動的に `appendChild` する。
+- **Rationale**: React のライフサイクルと DOM 操作を分離し、最もシンプルなバニラ JS で安全にコピー機能を拡張できるため。
 
 ## Synthesis Outcomes
 - **Generalization**: AI チャットにおけるエラーレスポンス形式および認証制限チェックロジックを既存のプレイ AI (`ask-ai`) と同じ認可・免除ヘルパー (`assertAiAuthoringAccess`) を再利用して統一。

@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { Sparkles, X, Send, Globe, Check, Loader2 } from 'lucide-react';
+import { MarkdownContent } from '@/components/markdown/markdown-content';
 import styles from './ai-chat-assistant.module.css';
 
 interface Message {
@@ -102,6 +103,44 @@ export function AiChatAssistantPanel({
     }
   }, [messages, isGenerating]);
 
+  // コードブロックのコピーボタン追加処理
+  useEffect(() => {
+    if (!historyRef.current) return;
+
+    const preElements = historyRef.current.querySelectorAll('pre');
+    preElements.forEach((pre) => {
+      if (pre.querySelector(`.${styles.codeCopyButton}`)) return;
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = styles.codeCopyButton;
+      button.innerHTML = 'コピー';
+      pre.style.position = 'relative';
+
+      button.addEventListener('click', async () => {
+        const codeElement = pre.querySelector('code');
+        if (!codeElement) return;
+
+        const textToCopy = codeElement.textContent || '';
+        try {
+          await navigator.clipboard.writeText(textToCopy);
+          button.innerHTML = 'コピー完了';
+          button.classList.add(styles.codeCopyButtonCopied);
+
+          setTimeout(() => {
+            button.innerHTML = 'コピー';
+            button.classList.remove(styles.codeCopyButtonCopied);
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy text: ', err);
+          button.innerHTML = 'エラー';
+        }
+      });
+
+      pre.appendChild(button);
+    });
+  }, [messages, isGenerating]);
+
   const usageLabel = (() => {
     if (!chatLimitUsage) return '利用回数を読み込み中...';
     const { limit, usedToday, remainingToday } = chatLimitUsage;
@@ -160,7 +199,11 @@ export function AiChatAssistantPanel({
                       isUser ? styles.bubbleUser : styles.bubbleAssistant
                     }`}
                   >
-                    {textContent}
+                    {isUser ? (
+                      textContent
+                    ) : (
+                      <MarkdownContent markdown={textContent} />
+                    )}
                   </div>
                 )}
 

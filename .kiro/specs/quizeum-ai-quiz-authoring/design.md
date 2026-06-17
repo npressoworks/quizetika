@@ -19,6 +19,7 @@
 - `checkQuestion` (指定問題) および `checkAllQuestions` (全問題一括) による、事実検証（Google検索）、誤字脱字、表現校正、形式不適合の包括チェック。
 - 包括チェックで検出された不備をチャットにリスト表示し、ユーザーの同意をもとに `updateQuestion` ツールでエディタに自動反映。
 - サーバー側での厳格な Pro 判定・レート制限（100回/日、JST リセット、モデレータ免除）。
+- AI チャットメッセージのマークダウンパース表示、安全なリンク開閉、およびコードブロックのコピーボタン提供による高品質な対話体験。
 
 ### Non-Goals
 - クイズエディタ画面以外でのチャットボットの表示。
@@ -29,10 +30,11 @@
 ## Boundary Commitments
 
 ### This Spec Owns
-- **チャット UI**: 右下フローティングボタン `AiChatAssistantButton`、スライドインチャットパネル `AiChatAssistantPanel`。
+- **チャット UI**: 右下フローティングボタン `AiChatAssistantButton`、スライドインチャットパネル `AiChatAssistantPanel`（マークダウンおよびコードコピー対応）。
 - **エディタとの結合ロジック**: `useChat` からのツールコールをインターセプトして `questions` 等のエディタ状態に反映するハンドラー。
 - **API 契約定義**: チャット用 API エンドポイント（`POST /api/quiz/ai-chat-authoring`）の Request/Response/Error 型。
 - **AI ツール群の定義**: `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail`, `checkQuestion`, `checkAllQuestions`, `googleSearch` のスキーマ定義。
+- **簡易マークダウンパース拡張**: コードブロック、リスト、インラインコードなどをサポートする安全なマークダウンパースユーティリティ。
 - **E2E テスト**: チャット開閉、メッセージ送信、ツール実行による問題の追加・編集・削除、エラー表示の検証。
 
 ### Out of Boundary
@@ -121,70 +123,14 @@ src/
 │   └── useAiChatAssistant.ts            # useChat ラッパー、エディタ結合ロジック
 ├── components/quiz/editor/
 │   ├── ai-chat-assistant-button.tsx     # フローティング起動ボタン UI
-│   ├── ai-chat-assistant-panel.tsx      # チャットパネル UI
-│   └── #### useAiChatAssistant
-
-| Field | Detail |
-|-------|--------|
-| Intent | Vercel AI SDK `useChat` をラップし、エディタ状態（State）の更新とクイックアクションボタン用の `append` 送信を処理する。 |
-| Requirements | 1.3, 1.6, 1.7, 2.1–2.2, 2.4, 3, 4, 6 |
-
-**Contracts**: State [x]
-
-##### Hook Interface
-```typescript
-export interface UseAiChatAssistantProps {
-  userId?: string;
-  isProUser: boolean;
-  quizState: {
-    title: string;
-    description: string;
-    genre: string;
-    tags: string[];
-    questions: Question[];
-    thumbnailUrl: string | null;
-  };
-  setQuestions: React.Dispatch<React.SetStateAction<Question[]>>;
-  setTitle: (t: string) => void;
-  setDescription: (d: string) => void;
-  setThumbnailUrl: (url: string | null) => void;
-}
-
-export interface UseAiChatAssistantResult {
-  messages: Message[];
-  input: string;
-  isGenerating: boolean;
-  isChatOpen: boolean;
-  setIsChatOpen: (open: boolean) => void;
-  handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-  triggerQuickAction: (actionType: 'bulk-generate' | 'check-all' | 'check-single', targetQuestionId?: string) => void;
-}
-
-export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAssistantResult;
-```
-
-* `triggerQuickAction` メソッドは以下のロジックで動作します：
-  1. `setIsChatOpen(true)` を呼び出し、チャットアシスタントパネルを展開する。
-  2. アクションタイプに応じて、ユーザーの代わりに Vercel AI SDK の `append` を呼び出してチャットを開始する。
-     * `'bulk-generate'`: `"クイズを10問一括で作成して、フォームに流し込んでください。"`
-     * `'check-all'`: `"現在エディタにあるすべての問題の包括チェック（ファクトチェック・誤字脱字・表現校正）を実行してください。"`
-     * `'check-single'`: `"ID ${targetQuestionId} の問題について、包括チェック（ファクトチェック・誤字脱字・表現校正）を実行してください。"`
-
-#### AiChatAssistantPanel
-
-| Field | Detail |
-|-------|--------|
-| Intent | スライドインチャットパネルおよび対話ログ、入力欄 UI の提供 |
-| Requirements | 1.3, 1.5, 2.2, 2.4, 5.4, 6 |
-
-**Implementation Notes**
-- スライドイン時に右側から幅 380px〜420px のエリアを占有。
-- ユーザーのチャット送信履歴と、AIが実行したツール名（および対象問題番号）を判別しやすいカード型表示で統合。
-- AIのテキストおよびツール呼び出し状態のインジケータ（`isGenerating` 時にローディングアニメーション）を表示。
-- `useAiChatAssistant` の結果オブジェクトから閉じるボタンイベントやフォームサブミットを受け取り、完全に同期動作する。 # メッセージ・ツール実行履歴レンダラー
+│   ├── ai-chat-assistant-panel.tsx      # チャットパネル UI (マークダウン表示 & コピー対応)
+│   └── ai-chat-assistant.module.css     # チャットパネル用 CSS スタイル (マークダウン＆コピーボタン定義含む)
 ├── components/quiz/
 │   └── quiz-editor.tsx                  # チャットアシスタント UI の配置 (修正)
+├── components/markdown/
+│   └── markdown-content.tsx             # マークダウン表示用共通コンポーネント (既存)
+├── lib/security/
+│   └── sanitize.ts                      # マークダウン簡易パース & サニタイズ (修正)
 tests/
 ├── services/ai-authoring-utils.test.ts  # カウンタ・上限の単体テスト
 └── api/ai-chat-authoring.test.ts        # API ルートとツールコールの結合テスト
@@ -193,7 +139,10 @@ e2e/
 ```
 
 ### Modified Files
-- `src/components/quiz/quiz-editor.tsx` — `AiChatAssistantButton` および `AiChatAssistantPanel` の統合。チャットから返されたツールコールを適用する `handleChatToolCall` 系の状態変更関数との接続。
+- `src/lib/security/sanitize.ts` — `parseMarkdownToHtml` 関数の拡張。コードブロック、インラインコード、リストのパース、およびプレースホルダー保護処理の追加。
+- `src/components/quiz/editor/ai-chat-assistant-panel.tsx` — `MarkdownContent` コンポーネントを使用したマークダウン表示の統合。および、`pre` 要素への動的なコピーボタン配置とクリップボードコピー用イベント処理（`useEffect`）の追加。
+- `src/components/quiz/editor/ai-chat-assistant.module.css` — マークダウンタグ（pre, code, ul, ol, li, a）およびコードコピーボタン（.codeCopyButton）のスタイル定義の追加。
+- `src/components/quiz/quiz-editor.tsx` — `AiChatAssistantButton` および `AiChatAssistantPanel` の統合。
 - `firestore.rules` — `dailyAiAuthoringCounts/chat` のクライアント書き込みの禁止。
 
 ## System Flows
@@ -236,6 +185,9 @@ e2e/
 |-------------|---------|------------|---------------------|---------------|
 | 1.1 - 1.5 | UI開閉、Pro制限 | `AiChatAssistantButton`, `AiChatAssistantPanel` | `components/quiz/editor/` | 起動・スライド表示、Proプラン認可 |
 | 2.1 - 2.4 | Vercel AI SDK基本対話 | `POST /api/quiz/ai-chat-authoring`, `useChat` | `route.ts`, `useAiChatAssistant.ts` | クイズのコンテキスト送信、ストリーミング |
+| 2.5 | チャット内のマークダウン表示 | `AiChatAssistantPanel`, `MarkdownContent` | `ai-chat-assistant-panel.tsx`, `sanitize.ts` | マークダウン（リスト、インラインコード、コードブロック等）のパースとダークテーマ適合表示 |
+| 2.6 | リンクの安全性と新タブ表示 | `MarkdownContent` | `sanitize.ts` | セキュリティ対策（rel="noopener noreferrer"）を施した新タブリンク遷移 |
+| 2.7 | コードブロックコピー機能 | `AiChatAssistantPanel` | `ai-chat-assistant-panel.tsx`, `ai-chat-assistant.module.css` | コードブロック内のコピーボタン（レ点変化付き）の表示とクリップボードコピー処理 |
 | 3.1 - 3.7 | エディタ操作ツール (Tool Use) | `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail` | API ツールスキーマ定義、クライアント Tool Handlers | クイズエディタ状態の即時更新と検証 |
 | 4.1 - 4.5 | 包括チェック & Google検索ファクトチェック | `checkQuestion`, `checkAllQuestions`, `googleSearch` | API ツール定義、Gemini Search Grounding | Google検索結果のソース提示、誤字脱字・不自然表現の校正 |
 | 5.1 - 5.5 | 100回/日利用制限 | `ai-authoring-utils`, Firestore カウンタ | `users/{uid}/dailyAiAuthoringCounts/chat` | サーバー側制限、チャットへの警告表示 |
@@ -373,6 +325,36 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 }
 ```
 
+### ユーザー UI コンポーネント (`AiChatAssistantPanel`)
+
+| Field | Detail |
+|-------|--------|
+| Intent | スライドインチャットパネルおよび対話ログ、入力欄 UI の提供（マークダウンおよびコードコピー対応） |
+| Requirements | 1.3, 1.5, 2.2, 2.4, 2.5, 2.7, 5.4, 6 |
+
+**Implementation Notes**
+- スライドイン時に右側から幅 500px のエリアを占有し、エディタ編集領域と並行して手動編集・操作可能。
+- AIから返されたメッセージテキスト `textContent` を描画する際、プレーンテキストでの表示から共通コンポーネント `MarkdownContent`（`src/components/markdown/markdown-content.tsx`）を使用したHTMLレンダリングに変更する。
+- メッセージ履歴コンテナ（`.history`）に `useEffect` による DOM 監視処理を実装。メッセージ配列の更新をトリガーに、レンダリングされた `<pre>` タグ（コードブロック）を検出する。
+- 検出された各 `<pre>` タグの中に、絶対配置の「コピーボタン（`.codeCopyButton`）」を動的に生成して挿入する。
+- コピーボタンがクリックされたら、`pre` 要素内の `code` タグのテキストコンテンツを取得し、`navigator.clipboard.writeText` でコピーを実行する。コピー成功時は、ボタンの見た目を「コピー完了（チェックマークと緑色）」へ 2 秒間遷移させる。
+
+### マークダウンサニタイズユーティリティ (`parseMarkdownToHtml`)
+
+| Field | Detail |
+|-------|--------|
+| Intent | 簡易マークダウンのテキストをサニタイズ済みの安全な HTML に変換するヘルパー |
+| Requirements | 2.5, 2.6 |
+
+**Implementation Notes**
+- `src/lib/security/sanitize.ts` の `parseMarkdownToHtml` を拡張。
+- **プレースホルダー退避処理**: マークダウン内のコードブロック（```` ``` ````）およびインラインコード（`` ` ``）をパース前に正規表現で検出し、一時的なユニークトークンプレースホルダー（`__CODE_BLOCK_N__`, `__INLINE_CODE_N__`）に中身を退避させる。これにより、コード内の改行文字やマークダウン類似記号が他のパース処理に干渉するのを完全に保護する。
+- **標準パース**: 太字（`**`）、斜体（`*`）、およびリンク（`[text](url)`）を正規表現で HTML タグへ置換。リンク（`a` タグ）には安全性と要件適合のため必ず `target="_blank" rel="noopener noreferrer"` 属性を自動付与する。
+- **リストのパース**: テキストを改行コードで分割し、箇条書き（`- `, `* `）および番号付きリスト（`1. ` 等）を状態フラグ（`inUl`, `inOl`）で管理しながら、`<ul><li>...</li></ul>` や `<ol><li>...</li></ol>` に構造的にパースする。
+- **改行処理**: リストタグの内側やプレースホルダー部分を除いた、通常のテキスト行に対してのみ末尾に `<br />` を付与して結合する。
+- **プレースホルダー復元**: 退避させていたコードブロック（`<pre><code>` でラッピング、`class="language-..."` も維持）およびインラインコードをプレースホルダー箇所に書き戻す。
+- **強力なサニタイズ**: 最後に `DOMPurify.sanitize` を通してXSSを防止する。`DOMPurify` の `ALLOWED_TAGS` に `pre`, `code`, `ul`, `ol`, `li` を追加登録して、拡張されたマークダウン HTML が安全に許可されるようにする。
+
 ## Data Models
 
 ### Firestore: dailyAiAuthoringCounts/chat
@@ -392,6 +374,7 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 - **ツール定義・スキーマ検証**: 各ツールの Zod スキーマが正しく定義され、不正な引数でエラーになることをテスト。
 - **カウンタ検証**: `dailyAiAuthoringCounts/chat` のカウントが 100 に達した際に API が 429 エラーを返すこと、JST 日付変更時にリセットされること。
 - **Google検索連携の検証**: `checkQuestion` 実行時に `googleSearch` が呼び出され、検索結果をコンテキストに含めて正しい修正提案が生成されること。
+- **マークダウンパース検証**: `parseMarkdownToHtml` がコードブロック、インラインコード、リスト、セーフリンクを正しく安全な HTML に変換し、XSS 脆弱性がないこと。
 
 ### E2E Tests (`e2e/ai-chat-assistant.spec.ts`)
 - **UI 表示・開閉**: 右下アイコンの表示、クリックでのスライドパネルの展開、閉じるボタンでのクローズの動作テスト。
@@ -400,6 +383,10 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
   - 「3問目を削除して」と送信し、該当問題がリストから消えること。
 - **包括チェックの動作**:
   - 誤字や事実誤認を含んだ問題をエディタに配置し、「この問題をチェックして」と送信すると、不備がリストされ、修正案が提示されること。
+- **マークダウン・コピーボタン検証**:
+  - マークダウン記法を含む応答が正しく装飾表示されること。
+  - コードブロックにコピーボタンが表示され、クリックでクリップボードにコードがコピーされること。
+  - リンクをクリックしたとき、新しいタブ（`_blank`）で `noopener noreferrer` 付きで開かれること。
 
 ## Security Considerations
 - **環境変数の秘匿**: `GEMINI_API_KEY` を含むすべてのセンシティブな環境変数はサーバー（API Route）側でのみ保持・使用する。
