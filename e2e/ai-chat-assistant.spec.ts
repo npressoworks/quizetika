@@ -181,8 +181,8 @@ test.describe('AI チャットアシスタント E2E', () => {
       await expect(copyBtn).toHaveText('コピー完了');
     });
 
-    test('承認フロー: AIが問題追加ツールを呼び出した際にプレビューが表示され、承認するとエディタに反映されること', async ({ page }) => {
-      // ツール呼び出し（createQuestion）をモックしたAPIレスポンス
+    test('承認フロー: AIが問題一括生成ツールを呼び出した際にプレビューが表示され、承認するとエディタに反映されること', async ({ page }) => {
+      // ツール呼び出し（generateBulkQuestions）をモックしたAPIレスポンス
       await page.route('**/api/quiz/ai-chat-authoring', async (route) => {
         const body = route.request().postDataJSON();
         const messages = body?.messages || [];
@@ -201,21 +201,23 @@ test.describe('AI チャットアシスタント E2E', () => {
         } else {
           chunks = [
             `data: ${JSON.stringify({ type: 'text-start', id: 'msg-assistant-tool' })}`,
-            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool', delta: 'クイズ問題を1問作成します。' })}`,
+            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool', delta: 'クイズ問題を一括作成します。' })}`,
             `data: ${JSON.stringify({
               type: 'tool-input-available',
-              toolCallId: 'call-create-1',
-              toolName: 'createQuestion',
+              toolCallId: 'call-bulk-1',
+              toolName: 'generateBulkQuestions',
               input: {
-                question: {
-                  type: 'multiple-choice',
-                  questionText: '日本の首都はどこですか？E2Eテスト',
-                  explanation: '日本の首都は東京です。',
-                  choices: [
-                    { id: 'choice-1', choiceText: '東京', isCorrect: true },
-                    { id: 'choice-2', choiceText: '大阪', isCorrect: false }
-                  ]
-                }
+                questions: [
+                  {
+                    type: 'multiple-choice',
+                    questionText: '日本の首都はどこですか？E2Eテスト',
+                    explanation: '日本の首都は東京です。',
+                    choices: [
+                      { id: 'choice-1', choiceText: '東京', isCorrect: true },
+                      { id: 'choice-2', choiceText: '大阪', isCorrect: false }
+                    ]
+                  }
+                ]
               }
             })}`,
             `data: ${JSON.stringify({ type: 'text-end', id: 'msg-assistant-tool' })}`,
@@ -245,8 +247,8 @@ test.describe('AI チャットアシスタント E2E', () => {
       await input.fill('首都に関する問題を1問作成して');
       await page.keyboard.press('Enter');
 
-      // チャットパネル上に「createQuestionの承認待ち…」というラベルが表示されること
-      await expect(page.getByText('問題の追加の承認待ち…')).toBeVisible({ timeout: 10000 });
+      // チャットパネル上に「generateBulkQuestionsの承認待ち…」というラベルが表示されること
+      await expect(page.getByText('問題の一括生成の承認待ち…')).toBeVisible({ timeout: 10000 });
 
       // 提案プレビュー内に「日本の首都はどこですか？E2Eテスト」が表示されていること
       await expect(page.getByText('日本の首都はどこですか？E2Eテスト')).toBeVisible();
@@ -260,8 +262,8 @@ test.describe('AI チャットアシスタント E2E', () => {
       const approveBtn = page.getByRole('button', { name: 'フォームに反映する' });
       await approveBtn.click();
 
-      // 「問題の追加を反映しました」にステータスが変わること
-      await expect(page.getByText('問題の追加を反映しました')).toBeVisible();
+      // 「問題の一括生成を反映しました」にステータスが変わること
+      await expect(page.getByText('問題の一括生成を反映しました')).toBeVisible();
 
       // 送信インプットが再び enabled になること
       await expect(input).toBeEnabled();
@@ -270,8 +272,8 @@ test.describe('AI チャットアシスタント E2E', () => {
       await expect(page.locator('body')).toContainText('日本の首都はどこですか？E2Eテスト');
     });
 
-    test('承認フロー: AIが問題追加ツールを呼び出した際に却下するとエディタに反映されないこと', async ({ page }) => {
-      // ツール呼び出し（createQuestion）をモックしたAPIレスポンス
+    test('承認フロー: AIが問題一括生成ツールを呼び出した際に却下するとエディタに反映されないこと', async ({ page }) => {
+      // ツール呼び出し（generateBulkQuestions）をモックしたAPIレスポンス
       await page.route('**/api/quiz/ai-chat-authoring', async (route) => {
         const body = route.request().postDataJSON();
         const messages = body?.messages || [];
@@ -289,21 +291,23 @@ test.describe('AI チャットアシスタント E2E', () => {
         } else {
           chunks = [
             `data: ${JSON.stringify({ type: 'text-start', id: 'msg-assistant-tool-reject' })}`,
-            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool-reject', delta: 'クイズ問題を1問作成します。' })}`,
+            `data: ${JSON.stringify({ type: 'text-delta', id: 'msg-assistant-tool-reject', delta: 'クイズ問題を一括作成します。' })}`,
             `data: ${JSON.stringify({
               type: 'tool-input-available',
-              toolCallId: 'call-create-2',
-              toolName: 'createQuestion',
+              toolCallId: 'call-bulk-2',
+              toolName: 'generateBulkQuestions',
               input: {
-                question: {
-                  type: 'multiple-choice',
-                  questionText: '却下される問題テキスト',
-                  explanation: '説明です。',
-                  choices: [
-                    { id: 'choice-1', choiceText: '選択肢A', isCorrect: true },
-                    { id: 'choice-2', choiceText: '選択肢B', isCorrect: false }
-                  ]
-                }
+                questions: [
+                  {
+                    type: 'multiple-choice',
+                    questionText: '却下される問題テキスト',
+                    explanation: '説明です。',
+                    choices: [
+                      { id: 'choice-1', choiceText: '選択肢A', isCorrect: true },
+                      { id: 'choice-2', choiceText: '選択肢B', isCorrect: false }
+                    ]
+                  }
+                ]
               }
             })}`,
             `data: ${JSON.stringify({ type: 'text-end', id: 'msg-assistant-tool-reject' })}`,
@@ -334,15 +338,15 @@ test.describe('AI チャットアシスタント E2E', () => {
       await page.keyboard.press('Enter');
 
       // プレビューの表示を待つ
-      await expect(page.getByText('問題の追加の承認待ち…')).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('問題の一括生成の承認待ち…')).toBeVisible({ timeout: 10000 });
       await expect(page.getByText('却下される問題テキスト')).toBeVisible();
 
       // 「キャンセル」ボタンをクリック
       const rejectBtn = page.getByRole('button', { name: 'キャンセル' });
       await rejectBtn.click();
 
-      // 「問題の追加をキャンセルしました」にステータスが変わること
-      await expect(page.getByText('問題の追加をキャンセルしました')).toBeVisible();
+      // 「問題の一括生成をキャンセルしました」にステータスが変わること
+      await expect(page.getByText('問題の一括生成をキャンセルしました')).toBeVisible();
 
       // 送信インプットが再び enabled になること
       await expect(input).toBeEnabled();

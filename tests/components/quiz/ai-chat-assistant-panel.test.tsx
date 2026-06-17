@@ -90,8 +90,8 @@ describe('AiChatAssistantPanel', () => {
     const pendingApprovals = {
       'call-123': {
         toolCallId: 'call-123',
-        toolName: 'createQuestion',
-        args: { question: { type: 'multiple-choice', questionText: 'テスト問題', explanation: '解説' } },
+        toolName: 'generateBulkQuestions',
+        args: { questions: [{ type: 'multiple-choice', questionText: 'テスト問題', explanation: '解説' }] },
         resolve: jest.fn(),
       },
     };
@@ -117,12 +117,12 @@ describe('AiChatAssistantPanel', () => {
       {
         id: 'msg-1',
         role: 'assistant' as const,
-        content: 'クイズ問題を1問作成します。',
+        content: 'クイズ問題を一括作成します。',
         toolInvocations: [
           {
             toolCallId: 'call-approve-test',
-            toolName: 'createQuestion',
-            args: { question: { type: 'multiple-choice', questionText: '承認テスト問題', explanation: '解説' } },
+            toolName: 'generateBulkQuestions',
+            args: { questions: [{ type: 'multiple-choice', questionText: '承認テスト問題', explanation: '解説' }] },
             state: 'call' as const,
           },
         ],
@@ -132,8 +132,8 @@ describe('AiChatAssistantPanel', () => {
     const pendingApprovals = {
       'call-approve-test': {
         toolCallId: 'call-approve-test',
-        toolName: 'createQuestion',
-        args: { question: { type: 'multiple-choice', questionText: '承認テスト問題', explanation: '解説' } },
+        toolName: 'generateBulkQuestions',
+        args: { questions: [{ type: 'multiple-choice', questionText: '承認テスト問題', explanation: '解説' }] },
         resolve: jest.fn(),
       },
     };
@@ -149,10 +149,11 @@ describe('AiChatAssistantPanel', () => {
     );
 
     // 承認待ちラベルの表示確認
-    expect(screen.getByText('問題の追加の承認待ち…')).toBeInTheDocument();
+    expect(screen.getByText('問題の一括生成の承認待ち…')).toBeInTheDocument();
 
     // 承認ボタンのクリック
     const approveBtn = screen.getByRole('button', { name: 'フォームに反映する' });
+
     fireEvent.click(approveBtn);
     expect(approveToolCall).toHaveBeenCalledWith('call-approve-test');
   });

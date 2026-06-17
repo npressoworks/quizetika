@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Sparkles, X, Send, Globe, Check, Loader2, RotateCcw } from 'lucide-react';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import styles from './ai-chat-assistant.module.css';
@@ -118,6 +119,12 @@ export function AiChatAssistantPanel({
   const historyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // プレビューポップアップの状態管理
+  const [previewModal, setPreviewModal] = useState<{
+    toolName: string;
+    args: any;
+  } | null>(null);
+
   const getMessageText = (msg: any) => {
     if (msg.content) return msg.content;
     if (Array.isArray(msg.parts)) {
@@ -226,7 +233,10 @@ export function AiChatAssistantPanel({
     }
   };
 
-  const renderToolPreview = (toolName: string, args: any) => {
+  const renderToolPreview = (toolName: string, args: any, isModal = false) => {
+    const textBaseClass = isModal ? 'text-sm' : 'text-xs';
+    const textTinyClass = isModal ? 'text-xs' : 'text-[10px]';
+    
     switch (toolName) {
       case 'createQuestion': {
         const q = args.question;
@@ -234,16 +244,16 @@ export function AiChatAssistantPanel({
         return (
           <div className={styles.questionPreview}>
             <div className={styles.previewBadge}>問題の追加</div>
-            <div className={styles.previewField}>
+            <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
               <strong>形式:</strong> {getJapaneseFormatName(q.type)}
             </div>
-            <div className={styles.previewField}>
+            <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
               <strong>問題文:</strong> {q.questionText || '（空欄）'}
             </div>
             {q.choices && q.choices.length > 0 && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>選択肢:</strong>
-                <ul className="list-disc pl-4 text-xs">
+                <ul className={`list-disc pl-4 ${textBaseClass}`}>
                   {q.choices.map((c: any, i: number) => (
                     <li key={c.id || i} className={c.isCorrect ? 'text-primary font-semibold' : ''}>
                       {c.choiceText} {c.isCorrect ? '✓' : ''}
@@ -253,12 +263,12 @@ export function AiChatAssistantPanel({
               </div>
             )}
             {q.correctTextAnswerList && q.correctTextAnswerList.length > 0 && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>答え:</strong> {q.correctTextAnswerList.join(', ')}
               </div>
             )}
             {q.explanation && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>解説:</strong> {q.explanation}
               </div>
             )}
@@ -273,14 +283,14 @@ export function AiChatAssistantPanel({
           <div className={styles.questionPreview}>
             <div className={styles.previewBadge}>問題の変更 (ID: {args.id?.substring(0, 6)}...)</div>
             {updates.questionText !== undefined && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>問題文:</strong> {updates.questionText || '（空欄）'}
               </div>
             )}
             {updates.choices && updates.choices.length > 0 && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>選択肢の更新:</strong>
-                <ul className="list-disc pl-4 text-xs">
+                <ul className={`list-disc pl-4 ${textBaseClass}`}>
                   {updates.choices.map((c: any, i: number) => (
                     <li key={c.id || i} className={c.isCorrect ? 'text-primary font-semibold' : ''}>
                       {c.choiceText} {c.isCorrect ? '✓' : ''}
@@ -290,17 +300,17 @@ export function AiChatAssistantPanel({
               </div>
             )}
             {updates.correctTextAnswerList && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>答えの更新:</strong> {updates.correctTextAnswerList.join(', ')}
               </div>
             )}
             {updates.explanation !== undefined && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>解説:</strong> {updates.explanation}
               </div>
             )}
             {updates.hint !== undefined && (
-              <div className={styles.previewField}>
+              <div className={`${styles.previewField} ${isModal ? 'text-base' : ''}`}>
                 <strong>ヒント:</strong> {updates.hint || '（なし）'}
               </div>
             )}
@@ -312,7 +322,7 @@ export function AiChatAssistantPanel({
         return (
           <div className={styles.questionPreviewDanger}>
             <div className={styles.previewBadgeDanger}>問題の削除</div>
-            <p className="text-xs text-destructive">
+            <p className={`${textBaseClass} text-destructive`}>
               ID: {args.id} の問題をエディタから削除します。
             </p>
           </div>
@@ -322,12 +332,13 @@ export function AiChatAssistantPanel({
       case 'generateBulkQuestions': {
         const list = args.questions;
         if (!Array.isArray(list)) return null;
+        const listHeightClass = isModal ? 'max-h-[55vh]' : 'max-h-32';
         return (
           <div className={styles.questionPreview}>
             <div className={styles.previewBadge}>一括作問 (計 {list.length} 問)</div>
-            <ul className="list-decimal pl-4 text-[10px] max-h-32 overflow-y-auto">
+            <ul className={`list-decimal pl-4 ${textBaseClass} ${listHeightClass} overflow-y-auto`}>
               {list.map((q: any, i: number) => (
-                <li key={i}>
+                <li key={i} className="mb-2">
                   [{getJapaneseFormatName(q.type)}] {q.questionText || '（空欄）'}
                 </li>
               ))}
@@ -340,8 +351,8 @@ export function AiChatAssistantPanel({
         return (
           <div className={styles.questionPreview}>
             <div className={styles.previewBadge}>カバー画像生成</div>
-            <p className="text-xs">AIカバー画像を生成してエディタに設定します。</p>
-            {args.prompt && <p className="text-[10px] text-muted-foreground">指示: {args.prompt}</p>}
+            <p className={isModal ? 'text-base' : 'text-xs'}>AIカバー画像を生成してエディタに設定します。</p>
+            {args.prompt && <p className={`${textTinyClass} text-muted-foreground`}>指示: {args.prompt}</p>}
           </div>
         );
       }
@@ -448,7 +459,6 @@ export function AiChatAssistantPanel({
                   
                   // 承認対象のツールかどうか
                   const approvalRequiredTools = [
-                    'createQuestion',
                     'updateQuestion',
                     'deleteQuestion',
                     'generateBulkQuestions',
@@ -490,13 +500,19 @@ export function AiChatAssistantPanel({
                         <span>{labelText}</span>
                       </div>
 
-                      {/* 承認待ち時のプレビュー & ボタン */}
+                      {/* 承認待ち時のプレビュー＆ボタン */}
                       {isPendingApproval && (
                         <div className={styles.approvalContainer}>
-                          <div className={styles.approvalPreview}>
-                            <div className={styles.previewTitle}>📋 提案内容のプレビュー:</div>
+                          {/* クリックで拡大プレビューを開くカード */}
+                          <button
+                            type="button"
+                            className={styles.approvalPreviewButton}
+                            onClick={() => setPreviewModal({ toolName: tool.toolName, args: tool.args })}
+                            title="クリックして詳細を見る"
+                          >
+                            <div className={styles.previewTitle}>📋 提案内容のプレビュー <span className={styles.previewExpandHint}>(タップで拡大)</span></div>
                             {renderToolPreview(tool.toolName, tool.args)}
-                          </div>
+                          </button>
                           <div className={styles.approvalActions}>
                             <button
                               type="button"
@@ -594,6 +610,38 @@ export function AiChatAssistantPanel({
           )}
         </div>
       </div>
+      
+      {/* プレビュー拡大ポップアップ */}
+      {previewModal && typeof document !== 'undefined' && createPortal(
+        <div
+          className={styles.previewModalOverlay}
+          onClick={() => setPreviewModal(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="提案内容の詳細プレビュー"
+        >
+          <div
+            className={styles.previewModalContent}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.previewModalHeader}>
+              <span className={styles.previewModalTitle}>📋 提案内容の詳細</span>
+              <button
+                type="button"
+                className={styles.previewModalClose}
+                onClick={() => setPreviewModal(null)}
+                aria-label="閉じる"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className={styles.previewModalBody}>
+              {renderToolPreview(previewModal.toolName, previewModal.args)}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

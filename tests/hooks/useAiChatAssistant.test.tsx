@@ -114,33 +114,78 @@ describe('useAiChatAssistant', () => {
     );
   });
 
-  it('onToolCall が createQuestion を正しく処理し、setQuestions を更新する', async () => {
+  it('onToolCall が checkQuestion などの即時解決ツールを正しく処理して addToolResult を呼ぶ', async () => {
     renderHook(() => useAiChatAssistant(defaultProps));
 
     const options = (global as any).lastUseChatOptions;
     expect(options).toBeDefined();
 
-    // mock createQuestion tool call
     await options.onToolCall({
       toolCall: {
-        toolCallId: 'call-1',
-        toolName: 'createQuestion',
+        toolCallId: 'call-check',
+        toolName: 'checkQuestion',
         input: {
-          question: {
-            type: 'multiple-choice',
-            questionText: '日本の首都は？',
-            explanation: '東京です',
-          },
+          id: 'q-1',
+          questionText: 'テスト問題',
+          correctAnswer: '正解',
         },
       },
     });
 
     expect(mockAddToolResult).toHaveBeenCalledWith(
       expect.objectContaining({
-        toolCallId: 'call-1',
-        result: expect.objectContaining({ success: true }),
+        toolCallId: 'call-check',
+        tool: 'checkQuestion',
+        output: expect.objectContaining({ checked: true }),
       })
     );
+  });
+
+  it('onToolCall が generateBulkQuestions などの承認必要ツールを受け取ると保留状態になり、approve で setQuestions が呼ばれる', async () => {
+    const { result } = renderHook(() => useAiChatAssistant(defaultProps));
+
+    const options = (global as any).lastUseChatOptions;
+    expect(options).toBeDefined();
+
+    // ツールコールが発生
+    await act(async () => {
+      await options.onToolCall({
+        toolCall: {
+          toolCallId: 'call-bulk',
+          toolName: 'generateBulkQuestions',
+          input: {
+            questions: [
+              {
+                type: 'multiple-choice',
+                questionText: '日本の首都は？',
+                explanation: '東京です',
+              },
+            ],
+          },
+        },
+      });
+    });
+
+    // 保留状態に追加されていることを確認
+    expect(result.current.pendingApprovals['call-bulk']).toBeDefined();
+    expect(result.current.pendingApprovals['call-bulk'].toolName).toBe('generateBulkQuestions');
+
+    // 承認を実行
+    act(() => {
+      result.current.approveToolCall('call-bulk');
+    });
+
+    // setQuestions と addToolResult が走っていることを確認
     expect(mockSetQuestions).toHaveBeenCalled();
+    expect(mockAddToolResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolCallId: 'call-bulk',
+        tool: 'generateBulkQuestions',
+        output: expect.objectContaining({ success: true }),
+      })
+    );
+    // 保留から消えていること
+    expect(result.current.pendingApprovals['call-bulk']).toBeUndefined();
   });
 });
+

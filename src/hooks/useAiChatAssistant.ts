@@ -115,6 +115,7 @@ export function useAiChatAssistant({
   }, [quizState]);
 
   const chatResult = useChat({
+    // @ts-expect-error maxSteps is supported at runtime but missing in local type definitions
     maxSteps: 5,
     transport: new DefaultChatTransport({
       api: '/api/quiz/ai-chat-authoring',
@@ -155,7 +156,6 @@ export function useAiChatAssistant({
 
       // 承認フローを必要とするクライアント操作ツール一覧
       const approvalRequiredTools = [
-        'createQuestion',
         'updateQuestion',
         'deleteQuestion',
         'generateBulkQuestions',
@@ -309,59 +309,11 @@ export function useAiChatAssistant({
 
     try {
       switch (pending.toolName) {
-        case 'createQuestion': {
-          const args = pending.args as any;
-          const parsed = questionSchema.safeParse(args.question);
-          if (!parsed.success) {
-            resultPayload = { success: false, error: 'validation-failed', message: '問題のスキーマ検証に失敗しました' };
-            break;
-          }
-          const q = parsed.data;
-          const newQuestion: Question = {
-            ...q,
-            id: q.id || Math.random().toString(36).substring(2, 11),
-            imageUrl: null,
-            limitTime: null,
-            correctCount: 0,
-            incorrectCount: 0,
-          } as Question;
-          setQuestions((prev) => [...prev, newQuestion]);
-          resultPayload = { success: true, message: '新しい問題を追加しました' };
-          break;
-        }
-
-        case 'updateQuestion': {
-          const args = pending.args as any;
-          const parsedUpdates = questionSchema.partial().safeParse(args.updates);
-          if (!parsedUpdates.success || typeof args.id !== 'string') {
-            resultPayload = { success: false, error: 'validation-failed', message: '更新データのスキーマ検証に失敗しました' };
-            break;
-          }
-          setQuestions((prev) =>
-            prev.map((q) =>
-              q.id === args.id ? ({ ...q, ...parsedUpdates.data } as Question) : q
-            )
-          );
-          resultPayload = { success: true, message: `問題(ID: ${args.id})を更新しました` };
-          break;
-        }
-
-        case 'deleteQuestion': {
-          const args = pending.args as any;
-          if (typeof args.id !== 'string') {
-            resultPayload = { success: false, error: 'invalid-params', message: '問題IDが不正です' };
-            break;
-          }
-          setQuestions((prev) => prev.filter((q) => q.id !== args.id));
-          resultPayload = { success: true, message: `問題(ID: ${args.id})を削除しました` };
-          break;
-        }
-
         case 'generateBulkQuestions': {
           const args = pending.args as any;
           const parsedArray = z.array(questionSchema).safeParse(args.questions);
           if (!parsedArray.success) {
-            resultPayload = { success: false, error: 'validation-failed', message: '一括生成データの検証に失敗しました' };
+            resultPayload = { success: false, error: 'validation-failed', message: '問題データの検証に失敗しました' };
             break;
           }
           const newQuestions = parsedArray.data.map((q) => ({
@@ -373,14 +325,68 @@ export function useAiChatAssistant({
             incorrectCount: 0,
           })) as Question[];
           setQuestions((prev) => [...prev, ...newQuestions]);
-          resultPayload = { success: true, message: `クイズ問題を${newQuestions.length}問一括追加しました` };
+          resultPayload = { success: true, message: `クイズ問題を${newQuestions.length}問追加しました` };
+          break;
+        }
+
+        case 'updateQuestion': {
+          const args = pending.args as any;
+          const parsedUpdates = questionSchema.partial().safeParse(args.updates);
+          if (!parsedUpdates.success) {
+            resultPayload = { success: false, error: 'validation-failed', message: '更新データの検証に失敗しました' };
+            break;
+          }
+          // questionIndex （1始まり）による指定を ID に変換
+          let targetId = args.id;
+          if (!targetId && typeof args.questionIndex === 'number') {
+            const idx = args.questionIndex - 1;
+            targetId = quizStateRef.current.questions[idx]?.id;
+          }
+          if (!targetId) {
+            resultPayload = { success: false, error: 'not-found', message: '指定された問題が見つかりませんでした' };
+            break;
+          }
+          setQuestions((prev) =>
+            prev.map((q) =>
+              q.id === targetId ? ({ ...q, ...parsedUpdates.data } as Question) : q
+            )
+          );
+          const updateLabel = args.questionIndex ? `${args.questionIndex}問目の問題` : `問題(ID: ${targetId})`;
+          resultPayload = { success: true, message: `${updateLabel}を更新しました` };
+          break;
+        }
+
+        case 'deleteQuestion': {
+          const args = pending.args as any;
+          // questionIndex （1始まり）による指定を ID に変換
+          let targetId = args.id;
+          if (!targetId && typeof args.questionIndex === 'number') {
+            const idx = args.questionIndex - 1;
+            targetId = quizStateRef.current.questions[idx]?.id;
+          }
+          if (!targetId) {
+            resultPayload = { success: false, error: 'not-found', message: '指定された問題が見つかりませんでした' };
+            break;
+          }
+          setQuestions((prev) => prev.filter((q) => q.id !== targetId));
+          const deleteLabel = args.questionIndex ? `${args.questionIndex}問目の問題` : `問題(ID: ${targetId})`;
+          resultPayload = { success: true, message: `${deleteLabel}を削除しました` };
           break;
         }
 
         case 'generateThumbnail': {
+          const args = pending.args as any;
+          // クイズ情報 + ユーザー指示を合わせたプロンプトを構築
+          const quizTitle = quizStateRef.current.title || 'クイズ';
+          const quizDesc = quizStateRef.current.description || '';
+          const userInstruction = args.userInstruction || '';
           const mockUrl = `/images/ai-generated-${Math.random().toString(36).substring(2, 11)}.jpg`;
           setThumbnailUrl(mockUrl);
-          resultPayload = { success: true, thumbnailUrl: mockUrl, message: 'クイズカバー画像を生成してエディタに適用しました' };
+          resultPayload = {
+            success: true,
+            thumbnailUrl: mockUrl,
+            message: `「${quizTitle}」のカバー画像を生成してエディタに適用しました`,
+          };
           break;
         }
 
