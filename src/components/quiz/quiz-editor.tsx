@@ -220,7 +220,23 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     }
 
     if (!quizId) {
-      addDefaultQuestion('mixed');
+      // 新規作成時は必ず1問だけ初期表示する（追記式を避けて置き換え）
+      setQuestions((prev) => {
+        if (prev.length > 0) return prev;
+        const q: Question = {
+          id: Math.random().toString(36).substring(2, 9),
+          type: 'multiple-choice',
+          questionText: '',
+          explanation: '',
+          imageUrl: null,
+          hint: null,
+          limitTime: null,
+          correctCount: 0,
+          incorrectCount: 0,
+          choices: createDefaultChoices(),
+        };
+        return [q];
+      });
       return;
     }
 
