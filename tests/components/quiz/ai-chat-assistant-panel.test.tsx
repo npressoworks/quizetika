@@ -170,8 +170,8 @@ describe('AiChatAssistantPanel', () => {
         toolInvocations: [
           {
             toolCallId: 'call-reject-test',
-            toolName: 'deleteQuestion',
-            args: { id: 'q-001' },
+            toolName: 'deleteQuestions',
+            args: { ids: ['q-001'] },
             state: 'call' as const,
           },
         ],
@@ -181,8 +181,8 @@ describe('AiChatAssistantPanel', () => {
     const pendingApprovals = {
       'call-reject-test': {
         toolCallId: 'call-reject-test',
-        toolName: 'deleteQuestion',
-        args: { id: 'q-001' },
+        toolName: 'deleteQuestions',
+        args: { ids: ['q-001'] },
         resolve: jest.fn(),
       },
     };

@@ -137,7 +137,7 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
 1. 必ず日本語で回答・対話してください。
 2. ユーザーが問題の作成・追加・一括生成を指示した場合は generateBulkQuestions ツールを呼び出してください。1問でも generateBulkQuestions を使用してください。問題数の指定がなければ1問生成してください。上限は10問です。
 3. ユーザーが問題の更新・編集を指示した場合は updateQuestion ツールを呼び出してください。「1問目」「2番目」など番号で指定された場合は questionIndex を使用し、IDで指定された場合は id を使用してください。
-4. ユーザーが問題の削除を指示した場合は deleteQuestion ツールを呼び出してください。番号指定は questionIndex、ID指定は id を使用してください。
+4. ユーザーが問題の削除を指示した場合は deleteQuestions ツールを呼び出してください。1問の削除でも複数問の削除でもこのツールを使用します。番号指定は questionIndexes、ID指定は ids を使用してください。
 5. ユーザーがサムネイル・カバー画像の生成を指示した場合は generateThumbnail ツールを呼び出してください。クイズのタイトル・説明を自動的に参照します。ユーザーの追加指示があれば userInstruction に含めてください。
 6. ユーザーが問題のチェックやファクトチェックを求めた場合は、指定された問題に対して checkQuestion または checkAllQuestions ツールを呼び出してください。事実確認には googleSearch ツールを連携して使用してください。
 7. ツール呼び出しと併せて、どのような操作を行うか、あるいは行ったかをユーザーに日本語で親切に説明してください。`;
@@ -166,11 +166,11 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
           }),
         }),
         // 3. 問題削除 (クライアント反映)
-        deleteQuestion: tool({
-          description: '指定された問題（問題番号またはIDで指定）をエディタから削除します。「1問目」「最後の問題」など番号で指定された場合は questionIndex、IDで指定された場合は id を使用してください。',
+        deleteQuestions: tool({
+          description: '指定された問題（問題番号またはIDで指定）をエディタから削除します。1問のみの削除でも複数問まとめての削除でもこのツールを使用してください。「1問目と3問目」など番号で指定された場合は questionIndexes、IDで指定された場合は ids を使用してください。',
           inputSchema: z.object({
-            id: z.string().optional().describe('削除対象の問題ID（IDで指定する場合）'),
-            questionIndex: z.number().int().min(1).optional().describe('削除対象の問題番号（1始まり）。例: 1問目なら1'),
+            ids: z.array(z.string()).optional().describe('削除対象の問題IDの配列（IDで指定する場合）'),
+            questionIndexes: z.array(z.number().int().min(1)).optional().describe('削除対象の問題番号の配列（1始まり）。例: 1問目なら1'),
           }),
         }),
         // 4. サムネイル生成 (クライアント反映)

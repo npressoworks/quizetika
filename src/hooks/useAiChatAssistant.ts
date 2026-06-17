@@ -157,7 +157,7 @@ export function useAiChatAssistant({
       // 承認フローを必要とするクライアント操作ツール一覧
       const approvalRequiredTools = [
         'updateQuestion',
-        'deleteQuestion',
+        'deleteQuestions',
         'generateBulkQuestions',
         'generateThumbnail'
       ];
@@ -356,21 +356,41 @@ export function useAiChatAssistant({
           break;
         }
 
-        case 'deleteQuestion': {
+        case 'deleteQuestions': {
           const args = pending.args as any;
-          // questionIndex （1始まり）による指定を ID に変換
-          let targetId = args.id;
-          if (!targetId && typeof args.questionIndex === 'number') {
-            const idx = args.questionIndex - 1;
-            targetId = quizStateRef.current.questions[idx]?.id;
+          const targetIds: string[] = [];
+
+          // ids または id を配列として処理
+          if (Array.isArray(args.ids)) {
+            targetIds.push(...args.ids);
+          } else if (typeof args.id === 'string') {
+            targetIds.push(args.id);
           }
-          if (!targetId) {
-            resultPayload = { success: false, error: 'not-found', message: '指定された問題が見つかりませんでした' };
+
+          // questionIndexes または questionIndex を処理
+          if (Array.isArray(args.questionIndexes)) {
+            args.questionIndexes.forEach((qIdx: number) => {
+              const idx = qIdx - 1;
+              const q = quizStateRef.current.questions[idx];
+              if (q && q.id && !targetIds.includes(q.id)) {
+                targetIds.push(q.id);
+              }
+            });
+          } else if (typeof args.questionIndex === 'number') {
+            const idx = args.questionIndex - 1;
+            const q = quizStateRef.current.questions[idx];
+            if (q && q.id && !targetIds.includes(q.id)) {
+              targetIds.push(q.id);
+            }
+          }
+
+          if (targetIds.length === 0) {
+            resultPayload = { success: false, error: 'not-found', message: '削除対象の問題が見つかりませんでした' };
             break;
           }
-          setQuestions((prev) => prev.filter((q) => q.id !== targetId));
-          const deleteLabel = args.questionIndex ? `${args.questionIndex}問目の問題` : `問題(ID: ${targetId})`;
-          resultPayload = { success: true, message: `${deleteLabel}を削除しました` };
+
+          setQuestions((prev) => prev.filter((q) => !targetIds.includes(q.id)));
+          resultPayload = { success: true, message: `クイズ問題を${targetIds.length}問削除しました` };
           break;
         }
 

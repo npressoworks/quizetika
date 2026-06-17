@@ -236,11 +236,11 @@ export function AiChatAssistantPanel({
   const renderToolPreview = (toolName: string, args: any, isModal = false) => {
     const textQuestionSentenceClass = isModal ? 'text-xl font-semibold' : 'text-base';
 
-    const textBaseClass = isModal ? 'text-base' : 'text-xs';
-    const detailTextClass = isModal ? 'text-base text-muted-foreground' : 'text-xs text-muted-foreground';
+    const textBaseClass = isModal ? 'text-sm' : 'text-xs';
+    const detailTextClass = isModal ? 'text-sm text-muted-foreground' : 'text-xs text-muted-foreground';
 
     // 正解・正答用の緑色クラス
-    const correctAnswerClass = isModal ? 'text-green-400 font-semibold' : 'text-green-500 font-semibold';
+    const correctAnswerClass = isModal ? 'text-green-500 font-semibold' : 'text-green-500 font-semibold';
 
     switch (toolName) {
       case 'createQuestion': {
@@ -323,12 +323,30 @@ export function AiChatAssistantPanel({
         );
       }
 
-      case 'deleteQuestion': {
+      case 'deleteQuestions': {
+        const targetLabel = (() => {
+          if (args.questionIndexes && args.questionIndexes.length > 0) {
+            return `${args.questionIndexes.join(', ')}問目の問題`;
+          }
+          if (args.questionIndex !== undefined) {
+            return `${args.questionIndex}問目の問題`;
+          }
+          if (args.ids && args.ids.length > 0) {
+            return args.ids.map((id: string) => `ID: ${id.substring(0, 6)}...`).join(', ');
+          }
+          if (args.id) {
+            return `ID: ${args.id.substring(0, 6)}...`;
+          }
+          return '指定された問題';
+        })();
+
+        const count = args.questionIndexes?.length || args.ids?.length || 1;
+
         return (
           <div className={styles.questionPreviewDanger}>
-            <div className={styles.previewBadgeDanger}>問題の削除</div>
+            <div className={styles.previewBadgeDanger}>問題の削除 (計 {count} 問)</div>
             <p className={`${textBaseClass} text-destructive`}>
-              ID: {args.id} の問題をエディタから削除します。
+              {targetLabel} をエディタから削除します。
             </p>
           </div>
         );
