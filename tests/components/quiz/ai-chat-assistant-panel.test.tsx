@@ -10,22 +10,25 @@ import { AiChatAssistantButton } from '@/components/quiz/editor/ai-chat-assistan
 describe('AiChatAssistantButton', () => {
   it('Pro ユーザーでない場合は表示されない', () => {
     const { container } = render(
-      <AiChatAssistantButton isProUser={false} isChatOpen={false} setIsChatOpen={jest.fn()} />
+      <AiChatAssistantButton isProUser={false} isChatOpen={false} onOpen={jest.fn()} onClose={jest.fn()} />
     );
     expect(container.firstChild).toBeNull();
   });
 
-  it('Pro ユーザーの場合は表示され、クリックで開閉関数を呼ぶ', () => {
-    const setIsChatOpen = jest.fn();
+  it('Pro ユーザーの場合は表示され、クリックで onOpen を呼ぶ', () => {
+    const onOpen = jest.fn();
+    const onClose = jest.fn();
     render(
-      <AiChatAssistantButton isProUser={true} isChatOpen={false} setIsChatOpen={setIsChatOpen} />
+      <AiChatAssistantButton isProUser={true} isChatOpen={false} onOpen={onOpen} onClose={onClose} />
     );
 
     const button = screen.getByTestId('ai-chat-assistant-button');
     expect(button).toBeInTheDocument();
 
     fireEvent.click(button);
-    expect(setIsChatOpen).toHaveBeenCalledWith(true);
+    // チャットが閉じている状態でクリックすると onOpen が呼ばれること
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 

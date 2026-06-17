@@ -34,6 +34,7 @@ export interface UseAiChatAssistantResult {
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   triggerQuickAction: (actionType: 'bulk-generate' | 'check-all' | 'check-single', targetQuestionId?: string) => void;
   triggerAuthoringWelcome: () => void;
+  openChatWithIntro: () => void;
   pendingApprovals: Record<string, {
     toolCallId: string;
     toolName: string;
@@ -438,6 +439,28 @@ export function useAiChatAssistant({
     ]);
   };
 
+  // アイコンからチャットを開いた場合に表示する「できること」紹介メッセージ
+  const openChatWithIntro = () => {
+    // すでに会話履歴があれば初期メッセージをセットせずそのまま開く
+    if (messages.length > 0) {
+      setIsChatOpen(true);
+      return;
+    }
+    setIsChatOpen(true);
+    setMessages([
+      {
+        id: 'intro-message',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'text',
+            text: 'こんにちは！**AI作問アシスタント**です 🎓\n\nクイズ作問をサポートします。以下のことができます：\n\n- 📝 **問題を作成** — テーマを伝えると問題・選択肢を生成します\n- 🔍 **ファクトチェック** — 問題の内容が正確か検証します\n- ✏️ **問題を編集・修正** — 既存の問題をブラッシュアップします\n- 🗑️ **問題を削除** — 不要な問題を取り除きます\n- 🖼️ **サムネイル画像を生成** — クイズのカバー画像をAIで作成します\n\nなんでもお気軽にどうぞ！',
+          },
+        ],
+      },
+    ]);
+  };
+
   return {
     messages,
     input,
@@ -448,6 +471,7 @@ export function useAiChatAssistant({
     handleSubmit,
     triggerQuickAction,
     triggerAuthoringWelcome,
+    openChatWithIntro,
     pendingApprovals,
     approveToolCall,
     rejectToolCall,

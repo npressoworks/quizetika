@@ -7,13 +7,17 @@ import styles from './ai-chat-assistant.module.css';
 interface AiChatAssistantButtonProps {
   isProUser: boolean;
   isChatOpen: boolean;
-  setIsChatOpen: (open: boolean) => void;
+  /** チャットを開くときのコールバック（初期メッセージ表示などを含む） */
+  onOpen: () => void;
+  /** チャットを閉じるときのコールバック */
+  onClose: () => void;
 }
 
 export function AiChatAssistantButton({
   isProUser,
   isChatOpen,
-  setIsChatOpen,
+  onOpen,
+  onClose,
 }: AiChatAssistantButtonProps) {
   if (!isProUser) return null;
 
@@ -21,7 +25,7 @@ export function AiChatAssistantButton({
     <button
       data-testid="ai-chat-assistant-button"
       className={`${styles.floatingButton} ${isChatOpen ? styles.floatingButtonOpen : ''}`}
-      onClick={() => setIsChatOpen(!isChatOpen)}
+      onClick={() => (isChatOpen ? onClose() : onOpen())}
       aria-label="AIアシスタントを開く"
     >
       {isChatOpen ? (

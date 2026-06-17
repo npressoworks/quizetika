@@ -1354,7 +1354,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           <AiChatAssistantButton
             isProUser={canUseAiAuthoring}
             isChatOpen={aiChat.isChatOpen}
-            setIsChatOpen={aiChat.setIsChatOpen}
+            onOpen={aiChat.openChatWithIntro}
+            onClose={() => aiChat.setIsChatOpen(false)}
           />
           <AiChatAssistantPanel
             isOpen={aiChat.isChatOpen}
