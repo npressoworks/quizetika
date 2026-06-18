@@ -78,7 +78,8 @@ export default function CommunityGenresPage() {
   const [iconPreviewUrl, setIconPreviewUrl] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiGeneratedUrl, setAiGeneratedUrl] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [tempIconUrl, setTempIconUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const TIER_RANK: Record<string, number> = {
@@ -150,12 +151,12 @@ export default function CommunityGenresPage() {
     };
   }, [activeTab, user]);
 
-  const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setIconError(null);
     setFormIconFile(null);
     setIconPreviewUrl(null);
-    setAiGeneratedUrl(null);
+    setTempIconUrl(null);
 
     if (!file) return;
 
@@ -165,10 +166,33 @@ export default function CommunityGenresPage() {
       return;
     }
 
-    setFormIconFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setIconPreviewUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    setUploadLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/genres/upload-icon', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || 'アイコン画像のアップロードに失敗しました。');
+      }
+
+      setFormIconFile(file);
+      setIconPreviewUrl(data.tempUrl);
+      setTempIconUrl(data.tempUrl);
+    } catch (err) {
+      console.error('アイコンアップロードエラー:', err);
+      setIconError(
+        err instanceof Error ? err.message : 'アップロードに失敗しました。'
+      );
+    } finally {
+      setUploadLoading(false);
+    }
   };
 
   const handleGenerateIconAi = async () => {
@@ -207,7 +231,7 @@ export default function CommunityGenresPage() {
         throw new Error(data.message || '画像の生成に失敗しました。');
       }
 
-      setAiGeneratedUrl(data.iconImageUrl);
+      setTempIconUrl(data.iconImageUrl);
       setIconPreviewUrl(data.iconImageUrl);
       setFormIconFile(null); // ファイルアップロードをクリア
       if (fileInputRef.current) {
@@ -229,7 +253,7 @@ export default function CommunityGenresPage() {
     e.preventDefault();
     if (!user) return;
 
-    if (!formIconFile && !aiGeneratedUrl) {
+    if (!tempIconUrl) {
       setErrorMessage('アイコン画像を選択または生成してください。');
       return;
     }
@@ -248,13 +272,8 @@ export default function CommunityGenresPage() {
     try {
       let iconUrl = '';
 
-      if (formIconFile) {
-        let extension = formIconFile.type.split('/')[1] || 'png';
-        if (extension === 'jpeg') extension = 'jpg';
-        const path = getGenreIconPath(formGenreId, extension);
-        iconUrl = await uploadImage(formIconFile, path);
-      } else if (aiGeneratedUrl) {
-        // AIで生成された一時保存アイコン画像を正式パスに移行
+      if (tempIconUrl) {
+        // 一時保存アイコン画像を正式パスに移行
         const token = await firebaseUser!.getIdToken();
         const migrateRes = await fetch('/api/genres/migrate-icon', {
           method: 'POST',
@@ -263,7 +282,7 @@ export default function CommunityGenresPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            tempUrl: aiGeneratedUrl,
+            tempUrl: tempIconUrl,
             genreId: formGenreId,
             userId: firebaseUser!.uid,
           }),
@@ -284,7 +303,7 @@ export default function CommunityGenresPage() {
       setFormDescription('');
       setFormIconFile(null);
       setIconPreviewUrl(null);
-      setAiGeneratedUrl(null);
+      setTempIconUrl(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: unknown) {
       console.error('申請送信エラー:', err);
@@ -514,7 +533,7 @@ export default function CommunityGenresPage() {
                 <Button
                   type="submit"
                   id="submit-genre-btn"
-                  disabled={submitLoading || (!formIconFile && !aiGeneratedUrl) || !!iconError}
+                  disabled={submitLoading || !tempIconUrl || !!iconError}
                 >
                   {submitLoading ? (
                     <>

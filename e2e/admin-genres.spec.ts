@@ -120,7 +120,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/admin_123.png',
+          iconImageUrl: '/api/assets/genre/temp/admin_123.png',
           usage: { limit: null, usedToday: 0, remainingToday: null }
         })
       });
@@ -159,7 +159,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/user_123.png',
+          iconImageUrl: '/api/assets/genre/temp/user_123.png',
           usage: { limit: 5, usedToday: 1, remainingToday: 4 }
         })
       });
@@ -171,7 +171,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          iconImageUrl: 'https://storage.googleapis.com/quizeum-test-bucket/genres/test-ai-community/icon_123.png'
+          iconImageUrl: '/api/assets/genre/test-ai-community/icon_123.png'
         })
       });
     });
