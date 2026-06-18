@@ -5,18 +5,22 @@
 - **スコープ**:
   - Phase 6 (ジャンルアイコンSVG禁止): 実装完了。
   - **管理者ジャンル直接追加機能**: システム管理者がコミュニティ投票を介さずにジャンルを直接新設・管理できる専用のUI `/admin/genres` および API ルート `/api/admin/genres` を実装する。
-  - **管理者メニューポータル画面 (2026-06-18 追加)**: 各管理者用画面（モデレーション審査、ユーザー評判管理、ジャンル直接管理）への相互導線を集約した共通ランディングページ `/admin` を実装する。
+  - **管理者メニューポータル画面**: 各管理者用画面（モデレーション審査、ユーザー評判管理、ジャンル直接管理）への相互導線を集約した共通ランディングページ `/admin` を実装する。
+  - **ジャンル画像のローカル保存化 (2026-06-18 追加)**: ジャンルアイコン画像および一時画像の保存先を Firebase Storage からローカルファイルシステム（`assets/genre/`）へ変更し、エミュレータバケットエラーを解消してファイル管理を簡素化する。
 - **最大ギャップ**:
   - 現在、ジャンルの追加は `src/app/api/admin/seed-genres` による一括シード投入のみで、任意の個別ジャンルを管理画面から追加する機能およびAPIが存在しない（本スペックで解決済み）。
   - 管理者機能的ルートパス `/admin` にアクセスした際、ランディングページが存在しないため 404 となる。
+  - すべてのジャンルアイコンアップロードおよびAI生成画像が Firebase Storage に直接アップロードされるようになっており、ローカル環境でのバケット未存在エラーが発生する。
 - **推奨アプローチ**:
   - 新規画面 `/admin/genres` を構築し、Tailwind CSS + shadcn/ui を採用する。
   - 新規画面 `/admin/page.tsx` をサーバーコンポーネント（RSC）として構築し、静的フレームを描画し、3つの管理者用サブページへの遷移カードを提供する。
   - 新規 API エンドポイント `/api/admin/genres` を作成する（実装完了）。
+  - ローカルアセット配信 API `/api/assets/genre/[...path]` を新設し、`assets/genre/` からアセットを読み出して配信する。
+  - クライアント用ローカルアップロード API `/api/genres/upload-icon` を新設し、AI生成と手動アップロードの両方をローカル一時領域 `assets/genre/temp/` に一度保存した上で、共通の移行ロジックを用いて正式ディレクトリに移行する構造へ統一する。
 
 ---
 
-## 1. Research Log (管理者ジャンル直接追加機能)
+## 1. Research Log (管理者ジャンル直接追加機能 & ローカル保存化)
 
 ### [Topic] ジャンル直接追加の書き込み経路（クライアント直接 vs サーバーAPI）
 - **Context**: Firestore Security Rules では `canWriteMetadataGenres()` が定義されており、管理者/モデレーターはクライアントサイドから直接 `metadata_genres` コレクションへ書き込み可能であるが、どちらを採用すべきか。
@@ -25,7 +29,7 @@
   - クライアント直接書き込みの場合、一意性（重複ID）の検証を Firestore トランザクションまたはルールで厳密に行う必要があるが、クライアント側だけでの制御は不具合時のデータ破壊リスクがある。
   - 既存の `seed-genres` API や `users` 管理 API はサーバーサイドの Next.js API Route と Firebase Admin SDK を利用している。
 - **Implications**:
-  - サーバーサイド API `/api/admin/genres` (GET / POST) を新設し、管理者認証チェックを施した上で Admin SDK で `metadata_genres` に書き込むアプローチを採用する。これにより、一意性チェックや監査性の高いデータバリデーションをサーバー側で一元化できる。
+  - サーバーサイド API `/api/admin/genres` (GET / POST) を新設し、管理者認可チェックを施した上で Admin SDK で `metadata_genres` に書き込むアプローチを採用する。これにより、一意性チェックや監査性の高いデータバリデーションをサーバー側で一元化できる。
 
 ### [Topic] AIジャンルアイコン生成 API の設計と生成制限
 - **Context**: ジャンルアイコン画像を Gemini (Imagen) API を使って生成する際の API 設計、保存先、および生成制限の適用。
@@ -37,8 +41,25 @@
 - **Implications**:
   - ジャンル用にも同様に、Gemini を呼び出す新規 API `/api/genres/generate-icon` を追加。
   - 入力パラメータは `displayName` (表示名) と `description` (説明文)。
-  - 生成制限：一般ユーザー（申請画面）には1日5回のデイリー制限を適用。管理者には制限をかけない。制限数は `users/{uid}/ai_authoring_limits` または `aiGenreIconCount` 等の Firestore ドキュメント、あるいは既存の `thumbnailCountRef` パターン（`users/{uid}/authoring_limits/genre-icon`）でトラッキングする。
-  - 生成された一時画像は Firebase Storage の `temp/genre-icons/{uid}_{timestamp}.png` に保存し、フロントエンドに URL を返却する。追加・申請確定時に正式な `genres/{genreId}/icon_{timestamp}.png` へと保存・設定する。
+  - 生成制限：一般ユーザー（申請画面）には1日5回のデイリー制限を適用。管理者には制限をかけない。制限数は `users/{uid}/authoring_limits/genre-icon` でトラッキングする。
+
+### [Topic] ローカルアセットの保存と配信経路の設計
+- **Context**: Firebase Storage を使わず、ローカルの `assets/genre/` に画像を保存する場合、Webアプリから画像をどのように配信・参照するか。
+- **Sources Consulted**: Next.js App Router 配信ドキュメント
+- **Findings**:
+  - Next.js でプロジェクトルートにある `assets/` は自動配信されないため、配信用の API Route を構築する必要がある。
+  - GET `/api/assets/genre/[...path]` を作成し、ファイル名をパラメータとして受け取って `fs.readFileSync` で読み込み、`Content-Type` を設定してレスポンスを返すことで、通常の画像 URL（`/api/assets/genre/math-science/icon_123.png`）として配信可能。
+- **Implications**:
+  - 配信 API Route `/api/assets/genre/[...path]` を実装する。また、一時的な画像は `/api/assets/genre/temp/{uid}_{timestamp}.png` として配信する。これによりフロントエンドのプレビュー表示などがスムーズに行える。
+
+### [Topic] クライアント画像アップロードのローカル保存対応
+- **Context**: フロントエンドUIで手動選択されたファイルをローカルに保存するためのアップロード経路。
+- **Sources Consulted**: Next.js API Routes (Request FormData)
+- **Findings**:
+  - Next.js 13+ では `request.formData()` を使ってマルチパートフォームのファイルデータを容易にパースできる。
+  - 新設する POST `/api/genres/upload-icon` でファイルを受け取り、サイズや MIME バリデーション後に `assets/genre/temp/` 配下に保存する。
+- **Implications**:
+  - 手動アップロードもAI生成と同様に「一時フォルダに保存し、一時URLを返す」という仕様に統一することで、フロント側のプレビュー処理や、保存・申請確定時の移行処理（正式フォルダへのコピー＆一時ファイル削除）を完全に同一ロジックに集約できる。
 
 ---
 
@@ -46,12 +67,8 @@
 
 ### Decision: 新規画面 `/admin/genres` のUIスタックと構成
 - **Context**: 新画面の UI 実装におけるスタイリングとコンポーネント選択。
-- **Alternatives Considered**:
-  1. Vanilla CSS / CSS Modules — 既存の古い画面で一部使用。
-  2. Tailwind CSS + shadcn/ui — ロードマップ Phase 24 の UI 刷新以降の標準スタック。
 - **Selected Approach**: Tailwind CSS + shadcn/ui を採用し、`src/components/ui/` の Card, Button, Input, Table, Label などを利用する。
-- **Rationale**: 既存の管理者画面（`/admin/moderation`, `/admin/users`）はすでに shadcn/ui と Tailwind に完全に移行されており、一貫したルック＆フィール（プレミアムなデザイン）を保つために同一スタックを利用する。
-- **Trade-offs**: CSS Modules よりも再利用性が高く、迅速に構築できる。
+- **Rationale**: 既存の管理者画面はすでに shadcn/ui と Tailwind に完全に移行されており、一貫したルック＆フィール（プレミアムなデザイン）を保つために同一スタックを利用する。
 
 ### Decision: ジャンルの一意性チェック
 - **Context**: 既存のジャンル ID が重複した状態での登録を防ぐ。
@@ -61,27 +78,41 @@
 ### Decision: 管理者メニューポータル画面（/admin）のUI構成
 - **Context**: 管理者パス（`/admin`）アクセス時に、統一されたナビゲーションメニューを提供する。
 - **Selected Approach**: `src/app/admin/page.tsx` をサーバーコンポーネント（RSC）および一部クライアントサイドガードを併用した構造で新規作成し、3つの管理者用サブページ（モデレーション審査、ユーザー管理、ジャンル直接管理）へリンクするカード型ナビゲーションUIを採用する。
-- **Rationale**: 各画面へのアクセス制限はすでにミドルウェアおよび各ページコンポーネントで二重防御されている。本ランディングページでは、それらの管理機能を美しくカードUI（Lucideアイコン付き）として整理し、管理者の操作体験を大きく向上させる。
-- **Trade-offs**: 完全なクライアントサイドガードのためのラッパーを利用し、非管理者時には `/not-found` へリダイレクトする。
 
 ### Decision: AIアイコン生成 API の分離と制限の実装
 - **Context**: AI画像生成の処理フローと制限管理。
-- **Selected Approach**: 新規 API `/api/genres/generate-icon` を追加し、既存のクイズ用 API とは分離する。一般ユーザー向けに1日5回のデイリー制限を適用し、管理者ユーザーは制限フリーとする。
-- **Rationale**: ジャンルアイコンに適した専用のプロンプト（「テキストなし、シンプルなアイコンイラスト」）の構築や、クイズ画像生成枠とは独立した生成制限ポリシーを適用可能にし、影響範囲をクイズ作成ドメインから分離するため。
+- **Selected Approach**: 新規 API `/api/genres/generate-icon` を追加し、一般ユーザー向けに1日5回のデイリー制限を適用し、管理者ユーザーは制限フリーとする。
+- **Rationale**: ジャンルアイコンに適した専用のプロンプトの構築や、クイズ画像生成枠とは独立した生成制限ポリシーを適用するため。
+
+### Decision: ローカルアセット配信 API (/api/assets/genre/[...path]) の導入
+- **Context**: Firebase Storage 廃止に伴うローカル画像配信。
+- **Selected Approach**: GET `/api/assets/genre/[...path]` API Route を構築し、`assets/genre/` ディレクトリから静的ファイルを動的読み込みしてバイナリ配信する。
+- **Rationale**: シンボリックリンクの構築や外部アセットサーバーの準備なしに、Next.js単体でローカルに書き込まれたアセットを誰でも安全かつ即座に参照可能にするため。
+
+### Decision: アップロードフローの統一 (upload-icon API の新設)
+- **Context**: クライアントからの手動アップロード画像とAI生成画像のライフサイクル管理。
+- **Selected Approach**: POST `/api/genres/upload-icon` を新設し、手動画像ファイルをローカル一時領域 `assets/genre/temp/` に保存する。
+- **Rationale**: これにより手動アップロード画像も、AI生成画像（`generate-icon`）と同様に一時URLがフロントエンドに返却されるようになり、最終登録処理（直接追加 or 申請確定）の時点で正式フォルダ（`assets/genre/{genreId}/icon_{timestamp}.png`）へとコピー・リネーム移行される共通のサーバーサイド処理に一元化できる。
 
 ---
 
 ## 3. Risks & Mitigations
-- **不正アクセス（権限リーク）**: 一般ユーザーが `/admin/genres` や `/api/admin/genres` に直接アクセスするリスク。
-  - *対策*: UI側では `useAuth()` を使用し、`moderationTier !== 'admin'` かつ `role !== 'admin'` の場合は即時 `/not-found` へ遷移するルートガードを実装。API側では Firebase ID Token を検証し、対象ユーザーが管理者ロールを所有しているかデータベースから取得して検証（Defense in depth）。
+
+- **不正アクセス（権限リーク）**: 一般ユーザーが管理者用 API に直接アクセスするリスク。
+  - *対策*: UI側ガードに加え、API側で Firebase ID Token を検証し、対象ユーザーが管理者ロールを所有しているかデータベースから取得して検証（二重検証）。
 - **SVG形式によるXSS脆弱性 (SEC-08)**:
-  - *対策*: フロントエンドの画像選択時に `validateGenreIconFile` で拡張子およびMIMEタイプを検証し、SVGを完全に弾く。また、API 登録段階でファイル拡張子が不適切な場合はエラーとする。
-- **Gemini API 呼び出しの乱用によるコスト急増リスク**: 一般ユーザーが無限に画像を生成して API コストが爆発するリスク。
-  - *対策*: サーバー側で UID に基づくデイリー生成制限（1日5回）を厳密にチェックする。管理者は制限フリーとするが、認証済みの管理者セッションのみ実行可能にする。
+  - *対策*: フロントエンドの画像選択時に `validateGenreIconFile` で MIME タイプを検証し、SVGを弾く。また、API 登録段階（`upload-icon`）でファイル拡張子が不適切な場合はエラーとする。
+- **Gemini API 呼び出しの乱用によるコスト急増リスク**:
+  - *対策*: サーバー側で UID に基づくデイリー生成制限（1日5回）を厳密にチェックする（管理者は制限フリー）。
+- **ローカルファイル書き込み・読み込み時のディレクトリトラバーサル脆弱性**:
+  - *リスク*: リクエストに含まれるファイルパスやジャンルIDに `..` などの相対パス文字列が含まれていた場合、サーバー上の任意のシステムファイルを上書き・漏洩されるリスク。
+  - *対策*: ジャンルIDおよびファイルパスに対して、英数字・ハイフン・ドット・アンダースコアのみを許容する正規表現（`^[a-z0-9-]+$` 等）を用いてサーバーサイドで厳密なサニタイズ・検証を実行する。
+- **サーバー再起動時のローカルアセット永続化リスク**:
+  - *リスク*: コンテナ環境などにおいて、サーバー再起動や再デプロイ時に `assets/genre/` ディレクトリ配下の画像が消失する可能性。
+  - *対策*: 要件ドキュメント内の Adjacent expectations に「ローカル保存された画像ファイルの永続化やパス解決はホスト・インフラ環境に依存する」ことを明記し、開発環境ではローカルファイル、本番環境では永続ボリューム（PV）のマウント等を前提とする。
 
 ---
 
 ## 4. References
-- [firestore.rules](file:///d:/quizeum/firestore.rules#L297-L301) — metadata_genres へのパーミッション定義
 - [src/lib/genre-icon-upload.ts](file:///d:/quizeum/src/lib/genre-icon-upload.ts) — ジャンルアイコン用共通バリデーションロジック
-- [src/services/storage.ts](file:///d:/quizeum/src/services/storage.ts#L90-L96) — ジャンルアイコン保存先パス決定ロジック
+- [src/services/storage.ts](file:///d:/quizeum/src/services/storage.ts) — 旧ジャンルアイコン保存先パス決定ロジック

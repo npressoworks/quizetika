@@ -5,6 +5,7 @@
 
 **Phase 6（2026-06）**: ジャンルアイコンアップロードの仕様文言を SEC-08 / `docs/` と整合（**SVG 禁止、PNG/JPEG/GIF のみ**）。実装済み UI との乖離を解消する。
 **管理者ジャンル直接追加機能の追加（2026-06-18 追加）**: システム管理者が直接ジャンルを定義・新設できる専用画面（`/admin/genres`）と、そこへの相互ナビゲーションを追加する。
+**ジャンル画像のローカル保存化（2026-06-18 追加）**: ジャンルアイコン画像および一時画像の保存先を Firebase Storage からローカルファイルシステム（`assets/genre/`）へ変更し、Storage への依存を排除する。
 
 ## Boundary Context
 - **In scope**:
@@ -28,58 +29,58 @@
 ## Requirements
 
 ### Requirement 1: 管理者モデレーション審査画面 (Page: `/admin/moderation`)
-**Objective:** As a System Administrator, I want to review flagged quizzes, lists, and profiles, so that I can keep the platform safe and clean.
+**Objective:** システム管理者として、通報されたクイズ、リスト、プロフィールを審査し、プラットフォームの安全性と健全性を維持したい。
 
 #### Acceptance Criteria
-1. The Admin Moderation Screen shall restrict access, showing a 404/403 page if the authenticated user does not have the 'admin' or 'senior_moderator' role.
-2. The Admin Moderation Screen shall display a moderation queue of quizzes that have reached the flag count threshold of 5 and `status: 'suspended'`. Lists and profiles are out of scope until core exposes equivalent flag/suspend fields.
-3. For each queue item, the Admin Moderation Screen shall display the specific violation flags (harassment, spam, etc.) and player-provided feedback details.
-4. The Admin Moderation Screen shall display action buttons allowing the administrator to either "公開に復帰 (Restore)" (which resets flag counts to 0) or "コンテンツ削除 (Permanent Hide/Delete)" (which sends warning notification to creator).
-5. When the administrator clicks a flagged quiz in the queue, the system shall open a special read-only Quiz Detail View with a "管理者審査用特別ビュー" header overlay.
+1. If [認証されたユーザーが 'admin' または 'senior_moderator' ロールを持っていないとき], then the [Moderation Governance UI] shall [404または403ページを表示してアクセスを制限すること]。
+2. The [Moderation Governance UI] shall [通報数が閾値の5回に達し `status` が 'suspended' になったクイズの審査待ちキューを表示すること] (リストおよびプロフィールは、core側で同等の通報/保留フィールドが提供されるまで対象外)。
+3. For each [キュー項目について], the [Moderation Governance UI] shall [具体的な違反フラグ（ハラスメント、スパム等）とプレイヤーが提供したフィードバック詳細を表示すること]。
+4. The [Moderation Governance UI] shall [「公開に復帰 (Restore)」（通報カウントを0にリセット）または「コンテンツ削除 (Permanent Hide/Delete)」（作成者に警告通知を送信）のアクションを実行できるボタンを表示すること]。
+5. When [管理者がキュー内の通報されたクイズをクリックしたとき], the [Moderation Governance UI] shall [「管理者審査用特別ビュー」のヘッダーオーバーレイが付いた閲覧専用の特別クイズ詳細ビューを開くこと]。
 
 ### Requirement 2: タグ/ジャンルマージリクエスト画面 (Page: `/community/merge`)
-**Objective:** As a Community Moderator, I want to propose synonym merges and vote on pending requests, so that we can organize tags and genres coherently.
+**Objective:** コミュニティモデレータとして、同義タグやジャンルのマージ提案および保留中のリクエストへの投票を行い、タグとジャンルを論理的かつ一貫して整理したい。
 
 #### Acceptance Criteria
-1. The Merge Request Screen shall restrict access, showing a 404/403 page if the user's `moderationTier` is less than 'moderator'.
-2. The Merge Request Screen shall display a "提案起案" tab containing a form to input source tags/genres, target canonical tag/genre, and structural reasoning.
-3. The Merge Request Screen shall display a "投票一覧" tab displaying pending merge requests.
-4. When the moderator clicks the source tag or genre in the request card, the system shall redirect them to the corresponding Tag/Genre Quiz List Screen in a split view.
-5. The Merge Request Screen shall allow eligible moderators to cast binary votes (👍 Propose / 👎 Reject).
-6. When a Senior Moderator views the merge request card, the system shall display a "投票の重み: x2" badge and apply double-weighting on click.
-7. The Merge Request Screen shall display a real-time progress bar visualizing `weightedVotesFor` and `weightedVotesAgainst` and the current approval rate.
+1. If [ユーザーの `moderationTier` が 'moderator' 未満であるとき], then the [Moderation Governance UI] shall [404または403ページを表示してアクセスを制限すること]。
+2. The [Moderation Governance UI] shall [マージ元のタグ/ジャンル、マージ先の正規タグ/ジャンル、およびマージ理由を入力するフォームを含む「提案起案」タブを表示すること]。
+3. The [Moderation Governance UI] shall [保留中のマージリクエスト一覧を表示する「投票一覧」タブを表示すること]。
+4. When [モデレータがリクエストカード内のマージ元タグまたはジャンルをクリックしたとき], the [Moderation Governance UI] shall [分割表示で対応するタグ/ジャンルクイズリスト画面に遷移させること]。
+5. The [Moderation Governance UI] shall [権限を持つモデレータが賛否投票（👍 賛成 / 👎 反対）を行えるようにすること]。
+6. When [シニアモデレータがマージリクエストカードを表示したとき], the [Moderation Governance UI] shall [「投票の重み: x2」バッジを表示し、クリック時に2倍の投票重みを適用すること]。
+7. The [Moderation Governance UI] shall [賛否の加重投票数（`weightedVotesFor`, `weightedVotesAgainst`）と現在の賛成率を可視化するリアルタイムプログレスバーを表示すること]。
 
 ### Requirement 3: ジャンル新設申請・投票画面 (Page: `/community/genres`)
-**Objective:** As a Quizeum User, I want to request new genres, and as a Moderator, I want to vote on request approvals, so that we can expand our quiz catalog collaboratively.
+**Objective:** Quizeum ユーザーとして新規ジャンルを申請し、モデレータとして申請の承認・非承認に投票することで、共同でクイズカタログを拡張したい。
 
 #### Acceptance Criteria
-1. The Community Genre Screen shall display an "申請フォーム" tab visible to all authenticated users, containing fields for English genre ID (lowercase, hyphen-separated), Japanese display name, and an icon upload field that accepts **PNG, JPEG, or GIF only** (maximum 2MB). **SVG and other formats shall be rejected** with an inline error before upload.
-2. The Community Genre Screen shall display a "投票" tab visible only to users with `moderationTier >= 'moderator'`, displaying pending genre requests.
-3. The Community Genre Screen shall allow moderators to cast Pro/Con votes on pending genre requests.
-4. If a genre request reaches the approval threshold (weighted votes >= 5 and approval rate >= 80%), then the system shall automatically register the genre to `metadata_genres` and show an success alert "ジャンルが追加されました".
-5. The Community Genre Screen shall display an "承認・否決履歴" tab displaying completed genre requests.
+1. The [Moderation Governance UI] shall [すべての認証済みユーザーに表示される「申請フォーム」タブを表示すること。このタブには、英語ジャンルID（小文字、ハイフン区切り）、日本語表示名、および PNG, JPEG, GIF 形式のみ（最大2MB）を受け入れるアイコンアップロードフィールドを含み、SVG やその他の形式はローカル一時ディレクトリに保存される前にインラインエラーで拒否されること]。
+2. The [Moderation Governance UI] shall [`moderationTier >= 'moderator'` のユーザーにのみ表示され、保留中のジャンル申請一覧を表示する「投票」タブを表示すること]。
+3. The [Moderation Governance UI] shall [モデレータが保留中のジャンル申請に対して賛否投票を行えるようにすること]。
+4. If [ジャンル申請が承認閾値（加重投票数 >= 5 かつ賛成率 >= 80%）に達したとき], then the [Moderation Governance UI] shall [一時アイコン画像をローカルの一時ディレクトリから正規のジャンル用ローカルディレクトリ（`assets/genre/`）に移動し、ジャンルを `metadata_genres` に自動登録して「ジャンルが追加されました」という成功アラートを表示すること]。
+5. The [Moderation Governance UI] shall [処理が完了したジャンル申請を表示する「承認・否決履歴」タブを表示すること]。
 
-### Requirement 4: ジャンルアイコン仕様整合（Phase 6）
-**Objective:** As a platform operator, I want genre request UI and documentation to consistently forbid SVG uploads, so that SEC-08 XSS defenses are not undermined by outdated spec text.
+### Requirement 4: ジャンルアイコン仕様整合（Phase 6 & 保存先ローカル化）
+**Objective:** プラットフォーム運営者として、ジャンル申請UIおよびドキュメントでSVGアップロードを一貫して禁止し、ローカルファイル保存をサポートすることで、SEC-08のXSS防御が損なわれるのを防ぎ、ファイル管理を簡素化したい。
 
 #### Acceptance Criteria
-1. All in-spec references to genre icon uploads shall state **PNG/JPEG/GIF only** and explicitly **exclude SVG** (aligned with `docs/security_architecture.md`, `docs/screen_transition.md`, and `storage.rules`).
-2. The Community Genre Screen's file input `accept` attribute and client-side MIME validation shall match the allowed set (`image/png`, `image/jpeg`, `image/gif`) and maximum size (2MB).
-3. When the user selects a disallowed file (including `.svg` or `image/svg+xml`), the Community Genre Screen shall block submit and show a clear inline error; it shall not upload to Storage.
-4. On genre request approval, the system shall continue to copy `iconImageUrl` from the approved request into `metadata_genres` via existing core transaction (`voteGenreRequest`); no SVG normalization step is required in this spec.
-5. E2E or unit tests shall assert that SVG selection is rejected at the UI layer (optional but recommended in task 5.4).
+1. All [仕様内のジャンルアイコンアップロードに関するすべての参照記述] shall [PNG/JPEG/GIFのみを許可し、SVGを明示的に除外すること（`docs/security_architecture.md`, `docs/screen_transition.md`, およびローカルのアプリケーション検証ルールに準拠）]。
+2. The [Moderation Governance UI] shall [ジャンル申請画面のファイル入力の `accept` 属性およびクライアントサイドの MIME 検証を、許可されるセット（`image/png`, `image/jpeg`, `image/gif`）および最大サイズ（2MB）と一致させること]。
+3. When [ユーザーが許可されていないファイル（`.svg` または `image/svg+xml` を含む）を選択したとき], the [Moderation Governance UI] shall [送信をブロックして明確なインラインエラーを表示し、ローカルファイルシステムにファイルを保存しないこと]。
+4. On [ジャンル申請の承認時], the [Moderation Governance UI] shall [アイコン画像をローカルの一時パスから正規のローカルディレクトリ（`assets/genre/`）に移動し、`metadata_genres` の `iconImageUrl` を更新してローカルアセットパスを指すようにすること（本仕様ではSVGノーマライズのステップは不要とする）]。
+5. The [Testing Framework] shall [UIレイヤーでSVG選択が拒否されることをE2Eまたは単体テストで検証すること] (タスク 5.4 の任意推奨事項)。
 
 ### Requirement 5: 初期ジャンル一括投入機能 (System Administration: Seed Initial Genres)
-**Objective:** As a System Administrator, I want to batch-insert a predefined list of initial genres (seed data) into the database, so that the application has a standardized set of default categories available for creators and players without manual setup.
+**Objective:** システム管理者として、事前定義された初期ジャンル（シードデータ）のリストをデータベースに一括投入し、手動設定なしでクリエイターとプレイヤーが利用できる標準的なデフォルトカテゴリを用意したい。
 
 #### Acceptance Criteria
-1. The Admin Moderation Screen shall restrict access to the Seed Genres UI section, making it visible or accessible only if the authenticated user has the 'admin' role or `moderationTier` is 'admin'.
-2. The Admin Moderation Screen shall display a "初期ジャンル一括投入 (Seed Initial Genres)" button or section within the admin workspace.
-3. When the administrator clicks the seeding button, the system shall fetch the initial genres predefined in `src/data/initial_genres.json` and send a request to a dedicated backend API route (e.g. `/api/admin/seed-genres`).
-4. The backend seeding logic shall parse the pre-defined initial genres and write them to the `metadata_genres` Firestore collection.
-5. During seeding, the system shall check if each genre ID already exists in `metadata_genres`. If it exists, the system shall skip or update the record, avoiding duplicates or primary key conflicts.
-6. The Admin Moderation Screen shall display a loading state (e.g., disable the button, show a spinner) while the seeding request is in progress.
-7. Upon successful execution of the seeding process, the Admin Moderation Screen shall display a success message specifying the count of added/updated genres. If a failure occurs, it shall display an appropriate error alert.
+1. If [認証されたユーザーが 'admin' ロールまたは `moderationTier` 'admin' を持っていないとき], then the [Moderation Governance UI] shall [初期ジャンル一括投入のUIセクションへのアクセスを制限すること]。
+2. The [Moderation Governance UI] shall [管理者用ワークスペース内に「初期ジャンル一括投入」のボタンまたはセクションを表示すること]。
+3. When [管理者が一括投入ボタンをクリックしたとき], the [Moderation Governance UI] shall [`src/data/initial_genres.json` に事前定義された初期ジャンルを取得し、専用のバックエンド API ルート（例: `/api/admin/seed-genres`）にリクエストを送信すること]。
+4. The [Moderation Governance UI] shall [事前定義された初期ジャンルをパースし、Firestore の `metadata_genres` コレクションに書き込むこと]。
+5. While [一括投入の実行中], the [Moderation Governance UI] shall [各ジャンルIDがすでに `metadata_genres` 内に存在するかチェックし、存在する場合はレコードをスキップまたは更新して重複やプライマリーキーの衝突を避けること]。
+6. While [一括投入リクエストが実行中である間], the [Moderation Governance UI] shall [ローディング状態（ボタンの非活性化、スピナーの表示等）を表示すること]。
+7. When [一括投入処理が正常に実行されたとき], the [Moderation Governance UI] shall [追加/更新されたジャンル数を明記した成功メッセージを表示すること]。If [処理が失敗したとき], then the [Moderation Governance UI] shall [適切なエラーアラートを表示すること]。
 
 ### Requirement 6: モデレーション関連画面の非同期表示最適化 (Asynchronous Data Fetch & Skeleton Loading) (Phase 12 追加)
 **目的:** コミュニティモデレータや管理者、一般プレイヤーとして、通報審査画面、マージリクエスト画面、ジャンル新設申請画面等にアクセスした際、画面全体の白紙ローディングを待つことなく、静的なサイドバー、ヘッダー、タイトル枠、タブ等が即座に表示され、データが揃った箇所から順番にコンテンツが表示されるようにしたい。これにより、待機時のストレスや画面の点滅による不快感を防ぐことができる。
@@ -113,20 +114,20 @@
 16. The [Moderation Governance UI] shall [ジャンル管理画面のスケルトン領域に `data-testid="genres-management-skeleton"` を付与すること]。
 
 ### Requirement 7: 管理者専用ジャンル直接追加画面 (Page: `/admin/genres`)
-**Objective:** As a System Administrator, I want to add new genres directly to the platform, so that I can organize quiz categories instantly without waiting for community votes.
+**Objective:** システム管理者として、コミュニティの投票を待つことなく即座に新しいジャンルをプラットフォームに直接追加し、クイズのカテゴリを整理したい。
 
 #### Acceptance Criteria
 1. When [管理者以外のユーザーが `/admin/genres` にアクセスしたとき], the [Moderation Governance UI] shall [404または403エラー画面を表示してアクセスを遮断すること]。
 2. While [ユーザーの認証情報を確認中である間], the [Moderation Governance UI] shall [画面全体にローディングインジケータを表示すること]。
 3. When [管理者が `/admin/genres` にアクセスしたとき], the [Moderation Governance UI] shall [現在登録されているジャンルの一覧（ID、表示名、説明、ステータス）を表示し、かつ新規ジャンル直接追加用の入力フォームを提供すること]。
-4. When [管理者が追加フォームに有効な値（半角英数字とハイフンのみで構成される一意なジャンルID、表示名、説明、および任意でPNG/JPEG/GIF形式かつ最大2MBのアイコン画像）を入力して「ジャンルを追加」ボタンをクリックしたとき], the [Moderation Governance UI] shall [Firestore の `metadata_genres` コレクションへ新規ジャンル情報を直接書き込み、保存成功メッセージを表示すること]。
+4. When [管理者が追加フォームに有効な値（半角英数字とハイフンのみで構成される一意なジャンルID、表示名、説明、および任意でPNG/JPEG/GIF形式かつ最大2MBのアイコン画像）を入力して「ジャンルを追加」ボタンをクリックしたとき], the [Moderation Governance UI] shall [アイコン画像ファイルをローカルの `assets/genre/` ディレクトリ配下に保存し、Firestore の `metadata_genres` コレクションへ新規ジャンル情報を直接書き込み、保存成功メッセージを表示すること]。
 5. If [追加時に入力されたジャンルIDがすでに `metadata_genres` 内に存在するとき], the [Moderation Governance UI] shall [「このジャンルIDはすでに登録されています」というエラーメッセージを表示し、書き込み処理を中止すること]。
-6. If [追加選択されたアイコン画像ファイルが PNG/JPEG/GIF 形式以外である、またはファイルサイズが 2MB を超えるとき], the [Moderation Governance UI] shall [画面上にエラーメッセージを表示してアップロード処理および登録処理を中止すること]。
+6. If [追加選択されたアイコン画像ファイルが PNG/JPEG/GIF 形式以外である、またはファイルサイズが 2MB を超えるとき], the [Moderation Governance UI] shall [画面上にエラーメッセージを表示してローカルへのファイル保存処理および登録処理を中止すること]。
 7. When [ジャンルの追加登録が成功したとき], the [Moderation Governance UI] shall [ジャンル一覧表示を自動で最新情報に更新し、追加されたジャンルを即座に表示に反映すること]。
 8. When [管理者が `/admin/moderation` 画面を表示したとき], the [Moderation Governance UI] shall [新規ジャンル管理画面（`/admin/genres`）へのナビゲーションリンクを表示すること]。
 
 ### Requirement 8: 管理者メニューポータル画面 (Page: `/admin`)
-**Objective:** As a System Administrator, I want to access a central menu portal page, so that I can easily navigate to various admin tools.
+**Objective:** システム管理者として、中央メニューポータルページにアクセスし、様々な管理ツールへ簡単に遷移したい。
 
 #### Acceptance Criteria
 1. When [管理者以外のユーザーが `/admin` にアクセスしたとき], the [Moderation Governance UI] shall [404または403エラー画面を表示してアクセスを遮断すること]。
@@ -135,7 +136,7 @@
 
 
 ### Requirement 9: AIジャンルアイコン生成機能 (AI Genre Icon Generation)
-**Objective:** As a System Administrator or Quizeum User, I want to generate a genre icon image using AI based on the genre display name and description, so that I can easily create a high-quality icon without manually uploading a file.
+**Objective:** システム管理者または Quizeum ユーザーとして、ジャンルの表示名と説明に基づいて AI を使用してジャンルアイコン画像を生成し、ファイルを手動でアップロードすることなく高品質なアイコンを簡単に作成したい。
 
 #### Acceptance Criteria
 1. When [管理者またはユーザーが「AIで生成」ボタンをクリックしたとき], if [ジャンル名（日本語）または説明文が未入力であるとき], the [Moderation Governance UI] shall [「ジャンル名と説明を入力してください」というインラインエラーを表示し、生成処理を中止すること]。

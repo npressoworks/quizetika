@@ -136,7 +136,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       imageBuffer = extractImageBuffer(response);
     } catch (aiError) {
       console.error('[generate-icon] GenAI API エラー:', aiError);
-      
+
       // AIエラー時は、一般ユーザーであれば増やしてしまったカウンターを元に戻す
       if (!isAdmin) {
         await db.runTransaction(async (transaction) => {
