@@ -56,7 +56,64 @@ export default function AdminGenresClient() {
   const [formIconFile, setFormIconFile] = useState<File | null>(null);
   const [iconPreviewUrl, setIconPreviewUrl] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGeneratedUrl, setAiGeneratedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // AIアイコン生成処理の実行
+  const handleGenerateIconAi = async () => {
+    if (!firebaseUser) {
+      setIconError('ログインセッションが無効です。');
+      return;
+    }
+
+    if (!formDisplayName.trim() || !formDescription.trim()) {
+      setIconError('ジャンル名と説明を入力してください。');
+      return;
+    }
+
+    setAiGenerating(true);
+    setIconError(null);
+    setErrorMessage(null);
+
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/genres/generate-icon', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          displayName: formDisplayName,
+          description: formDescription,
+          userId: firebaseUser.uid,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || '画像の生成に失敗しました。');
+      }
+
+      setAiGeneratedUrl(data.iconImageUrl);
+      setIconPreviewUrl(data.iconImageUrl);
+      setFormIconFile(null); // 手動アップロードファイルをクリア
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('AIアイコン生成エラー:', err);
+      setIconError(
+        err instanceof Error
+          ? err.message
+          : '画像の生成に失敗しました。しばらくしてから再度お試しください。'
+      );
+    } finally {
+      setAiGenerating(false);
+    }
+  };
 
   // 管理者チェック
   const isAdmin = Boolean(user && isAdminUser(user));
@@ -115,6 +172,7 @@ export default function AdminGenresClient() {
     setIconError(null);
     setFormIconFile(null);
     setIconPreviewUrl(null);
+    setAiGeneratedUrl(null);
 
     if (!file) return;
 
@@ -160,6 +218,8 @@ export default function AdminGenresClient() {
         if (extension === 'jpeg') extension = 'jpg';
         const path = getGenreIconPath(formGenreId, extension);
         iconImageUrl = await uploadImage(formIconFile, path);
+      } else if (aiGeneratedUrl) {
+        iconImageUrl = aiGeneratedUrl;
       }
 
       const token = await firebaseUser.getIdToken();
@@ -191,6 +251,7 @@ export default function AdminGenresClient() {
       setFormDescription('');
       setFormIconFile(null);
       setIconPreviewUrl(null);
+      setAiGeneratedUrl(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -284,7 +345,25 @@ export default function AdminGenresClient() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="iconFile">アイコン画像</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="iconFile">アイコン画像</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateIconAi}
+                    disabled={aiGenerating || submitLoading}
+                  >
+                    {aiGenerating ? (
+                      <>
+                        <Loader2 className="mr-1 size-3 animate-spin" />
+                        生成中...
+                      </>
+                    ) : (
+                      '✨ AIで生成'
+                    )}
+                  </Button>
+                </div>
                 <div
                   className="cursor-pointer rounded-lg border border-dashed p-4 text-center transition-colors hover:bg-muted/50"
                   onClick={() => fileInputRef.current?.click()}
@@ -297,7 +376,7 @@ export default function AdminGenresClient() {
                         className="size-12 rounded object-cover"
                       />
                       <span className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
-                        {formIconFile?.name}
+                        {formIconFile ? formIconFile.name : '✨ AI生成画像'}
                       </span>
                     </div>
                   ) : (

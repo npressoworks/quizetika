@@ -145,12 +145,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    let finalIconImageUrl = iconImageUrl || null;
+
+    // AIで一時保存されたアイコン画像を正式なパスに移行する
+    if (finalIconImageUrl && finalIconImageUrl.includes('temp/genre-icons/')) {
+      try {
+        const { getAdminStorage } = await import('@/lib/firebase/admin');
+        const bucket = getAdminStorage().bucket();
+        const bucketPrefix = `https://storage.googleapis.com/${bucket.name}/`;
+
+        if (finalIconImageUrl.startsWith(bucketPrefix)) {
+          const tempPath = finalIconImageUrl.replace(bucketPrefix, '');
+          const timestamp = Date.now();
+          const destPath = `genres/${id}/icon_${timestamp}.png`;
+
+          const tempFile = bucket.file(tempPath);
+          const destFile = bucket.file(destPath);
+
+          await tempFile.copy(destFile);
+          await destFile.makePublic();
+
+          finalIconImageUrl = `https://storage.googleapis.com/${bucket.name}/${destPath}`;
+
+          // 一時ファイルの削除（エラーになっても本処理は止めない）
+          await tempFile.delete().catch((err) => {
+            console.error('[API/admin/genres] 一時ファイルの削除に失敗しました:', err);
+          });
+        }
+      } catch (copyError) {
+        console.error('[API/admin/genres] アイコン画像移行処理エラー:', copyError);
+      }
+    }
+
     const now = new Date();
     const payload = {
       id,
       displayName,
       description: description || '',
-      iconImageUrl: iconImageUrl || null,
+      iconImageUrl: finalIconImageUrl,
       canonicalId: null,
       mergedGenreIds: [],
       isActive: true,

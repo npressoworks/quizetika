@@ -22,13 +22,26 @@ jest.mock('firebase/firestore', () => {
   };
 });
 
-// firebase-admin/firestore のモック
+const mockBucket = {
+  name: 'quizeum-test-bucket',
+  file: jest.fn((path: string) => ({
+    copy: jest.fn().mockResolvedValue(undefined),
+    makePublic: jest.fn().mockResolvedValue(undefined),
+    delete: jest.fn().mockResolvedValue(undefined),
+  })),
+};
+
+// firebase-admin/firestore および storage のモック
 jest.mock('@/lib/firebase/admin', () => {
   const mockFirestore = {
     collection: jest.fn(),
   };
+  const mockStorage = {
+    bucket: jest.fn(() => mockBucket),
+  };
   return {
     getAdminFirestore: () => mockFirestore,
+    getAdminStorage: () => mockStorage,
   };
 });
 
@@ -235,6 +248,36 @@ describe('Admin Genres API', () => {
       expect(setArg.isActive).toBe(true);
       expect(setArg.createdAt).toBeDefined();
       expect(setArg.updatedAt).toBeDefined();
+    });
+
+    test('一時アイコン画像（AI生成）のパスを正式なパスに移行して保存すること', async () => {
+      mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+      mockGetDoc.mockResolvedValue({
+        exists: () => true,
+        data: () => ({ moderationTier: 'admin' }),
+      } as never);
+
+      const mockDoc = {
+        get: jest.fn().mockResolvedValue({ exists: false }),
+        set: jest.fn().mockResolvedValue(undefined),
+      };
+      mockGenresCollection.doc.mockReturnValue(mockDoc);
+
+      const tempPayload = {
+        ...validPayload,
+        iconImageUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/user1_12345.png',
+      };
+
+      const res = await POST(buildRequest('POST', tempPayload));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(mockDoc.set).toHaveBeenCalledTimes(1);
+      
+      const setArg = mockDoc.set.mock.calls[0][0];
+      expect(setArg.iconImageUrl).toContain('genres/new-genre/icon_');
+      expect(mockBucket.file).toHaveBeenCalledWith('temp/genre-icons/user1_12345.png');
     });
   });
 });
