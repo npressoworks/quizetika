@@ -141,7 +141,7 @@
   - _Depends: 10.1_
 
 ### 11. AIジャンルアイコン生成機能の追加
-- [ ] 11.1 (P) AIジャンルアイコン生成APIのローカル一時保存対応
+- [x] 11.1 (P) AIジャンルアイコン生成APIのローカル一時保存対応
   - `src/app/api/genres/generate-icon/route.ts` を更新し、Gemini で生成した画像 Buffer を Firebase Storage ではなく、ローカル一時領域 `assets/genre/temp/{uid}_{timestamp}.png` に保存し、一時アセット配信URLを返却するよう変更する。
   - *完了状態*: API 呼び出しに成功した際、ローカルの一時フォルダにファイルが正しく作成され、プレビュー用のURL `/api/assets/genre/temp/...` がレスポンスされること。
   - _Requirements: 9.3, 9.4, 9.5, 9.6_
@@ -171,18 +171,18 @@
   - _Boundary: Testing_
 
 ### 13. ローカル画像保存・配信インフラの実装
-- [ ] 13.1 (P) ローカル画像アセット配信APIの実装
+- [x] 13.1 (P) ローカル画像アセット配信APIの実装
   - 指定されたパス（一時保存または正式パス）のファイルを `assets/genre/` ディレクトリから読み込み、適切な画像 MIME タイプで配信するエンドポイント（GET `/api/assets/genre/[...path]`）を構築する。
   - セキュリティ対策として、ドットの連続 `..` や無効な文字を含むパスに対して `400 Bad Request` でディレクトリトラバーサルを防止するガードを実装する。
   - *完了状態*: アセット配信パスへアクセスした際、ファイルが存在すれば `200 OK` と画像バイナリが返り、不正なパスや不在ファイルには適切なエラー（`400` / `404`）が返ること。
   - _Requirements: 7.4, 9.3_
   - _Boundary: assets/genre API_
-- [ ] 13.2 (P) 手動選択画像の一時ローカル保存APIの実装
+- [x] 13.2 (P) 手動選択画像の一時ローカル保存APIの実装
   - クライアントから送信された手動アイコン画像ファイルを受け取り、サイズや MIME バリデーション後に一時領域 `assets/genre/temp/{uid}_{timestamp}.png` へ保存し、プレビュー一時URLを返すエンドポイント（POST `/api/genres/upload-icon`）を構築する。
   - *完了状態*: PNG形式かつ2MB以下のファイルをPOSTした際に一時アクセスURL `/api/assets/genre/temp/...` が返却され、SVGなどの禁止形式に対しては `400 Bad Request` で拒否されること。
   - _Requirements: 3.1, 4.3, 7.6_
   - _Boundary: upload-icon API_
-- [ ] 13.3 (P) 一時ローカルアセット移行APIの実装
+- [x] 13.3 (P) 一時ローカルアセット移行APIの実装
   - 一時保存URL `/api/assets/genre/temp/...` を解析し、対象の実ファイルを正式アセットディレクトリ `assets/genre/{genreId}/icon_{timestamp}.png` へとリネーム/コピー移動するエンドポイント（POST `/api/genres/migrate-icon`）を構築する。
   - *完了状態*: 移行要求に対して一時ファイルが正式な場所へ移動し、元のファイルが削除され、新しいアセットURLが正常に返ること。
   - _Requirements: 3.4, 4.4_

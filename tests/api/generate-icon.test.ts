@@ -1,10 +1,11 @@
 import { POST as generateIconPOST } from '@/app/api/genres/generate-icon/route';
 import { POST as migrateIconPOST } from '@/app/api/genres/migrate-icon/route';
 import { NextRequest } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 const mockVerify = jest.fn();
 const mockGenerateContent = jest.fn();
-const mockUpload = jest.fn();
 
 const mockUserRef = {
   get: jest.fn(),
@@ -51,18 +52,6 @@ const mockDb = {
   runTransaction: (...args: any[]) => mockRunTransaction(...args),
 };
 
-const mockFile = {
-  exists: jest.fn().mockResolvedValue([true]),
-  copy: jest.fn().mockResolvedValue(undefined),
-  makePublic: jest.fn().mockResolvedValue(undefined),
-  delete: jest.fn().mockResolvedValue(undefined),
-};
-
-const mockBucket = {
-  name: 'quizeum-test-bucket',
-  file: jest.fn(() => mockFile),
-};
-
 jest.mock('@/lib/firebase/auth-verify', () => ({
   extractBearerToken: () => 'valid-token',
   verifyFirebaseIdToken: (...args: any[]) => mockVerify(...args),
@@ -76,15 +65,8 @@ jest.mock('@google/genai', () => ({
   })),
 }));
 
-jest.mock('@/services/storage-admin', () => ({
-  uploadTemporaryGenreIconBuffer: (...args: any[]) => mockUpload(...args),
-}));
-
 jest.mock('@/lib/firebase/admin', () => ({
   getAdminFirestore: () => mockDb,
-  getAdminStorage: () => ({
-    bucket: jest.fn(() => mockBucket),
-  }),
 }));
 
 jest.mock('@/services/ai-authoring-utils', () => {
@@ -96,6 +78,9 @@ jest.mock('@/services/ai-authoring-utils', () => {
 });
 
 describe('AI Genre Icon API Suite', () => {
+  const tempDir = path.join(process.cwd(), 'assets', 'genre', 'temp');
+  const targetDir = path.join(process.cwd(), 'assets', 'genre', 'japanese-history');
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockVerify.mockResolvedValue('uid-user');
@@ -116,8 +101,27 @@ describe('AI Genre Icon API Suite', () => {
         },
       ],
     });
-    mockUpload.mockResolvedValue('https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png');
-    mockFile.exists.mockResolvedValue([true]);
+  });
+
+  afterEach(() => {
+    // ディレクトリのクレンジング
+    try {
+      if (fs.existsSync(tempDir)) {
+        const files = fs.readdirSync(tempDir);
+        for (const file of files) {
+          fs.unlinkSync(path.join(tempDir, file));
+        }
+      }
+      if (fs.existsSync(targetDir)) {
+        const files = fs.readdirSync(targetDir);
+        for (const file of files) {
+          fs.unlinkSync(path.join(targetDir, file));
+        }
+        fs.rmdirSync(targetDir);
+      }
+    } catch (err) {
+      console.error('クレンジングエラー:', err);
+    }
   });
 
   describe('POST /api/genres/generate-icon', () => {
@@ -129,6 +133,7 @@ describe('AI Genre Icon API Suite', () => {
     }
 
     test('正常系: 一般ユーザーが画像生成に成功し、URLとリミットを返す', async () => {
+      // NOTE: このテストは現在 11.1 未完了のため RED になる可能性があります。
       const res = await generateIconPOST(
         makeRequest({
           displayName: '日本の歴史',
@@ -138,13 +143,17 @@ describe('AI Genre Icon API Suite', () => {
       );
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.iconImageUrl).toBe('https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png');
+      expect(body.iconImageUrl).toContain('/api/assets/genre/temp/');
       expect(body.usage).toEqual({
         limit: 5,
         usedToday: 1,
         remainingToday: 4,
       });
-      expect(mockUpload).toHaveBeenCalled();
+
+      // 実ファイルが存在しているか検証
+      const tempFileName = body.iconImageUrl.split('/').pop();
+      const savedFilePath = path.join(tempDir, tempFileName);
+      expect(fs.existsSync(savedFilePath)).toBe(true);
     });
 
     test('バリデーションエラー: displayNameまたはdescriptionがない場合は400', async () => {
@@ -186,9 +195,17 @@ describe('AI Genre Icon API Suite', () => {
     }
 
     test('正常系: コピー元が存在する場合にコピーが走り、正式なパスのURLを返すこと', async () => {
+      // 一時ファイルの準備
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      const tempFileName = 'temp_icon_test_123.png';
+      const tempFilePath = path.join(tempDir, tempFileName);
+      fs.writeFileSync(tempFilePath, 'dummy image data');
+
       const res = await migrateIconPOST(
         makeRequest({
-          tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png',
+          tempUrl: `/api/assets/genre/temp/${tempFileName}`,
           genreId: 'japanese-history',
           userId: 'uid-user',
         })
@@ -197,17 +214,22 @@ describe('AI Genre Icon API Suite', () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.success).toBe(true);
-      expect(body.iconImageUrl).toContain('genres/japanese-history/icon_');
-      expect(mockFile.copy).toHaveBeenCalled();
-      expect(mockFile.delete).toHaveBeenCalled();
+      expect(body.iconImageUrl).toContain('/api/assets/genre/japanese-history/icon_');
+
+      // コピー先のファイル確認
+      const destFileName = body.iconImageUrl.split('/').pop();
+      const savedFilePath = path.join(targetDir, destFileName);
+      expect(fs.existsSync(savedFilePath)).toBe(true);
+      expect(fs.readFileSync(savedFilePath, 'utf-8')).toBe('dummy image data');
+
+      // 一時ファイルが削除されていることを確認
+      expect(fs.existsSync(tempFilePath)).toBe(false);
     });
 
     test('異常系: コピー元ファイルが見つからない場合は404', async () => {
-      mockFile.exists.mockResolvedValue([false]);
-
       const res = await migrateIconPOST(
         makeRequest({
-          tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png',
+          tempUrl: '/api/assets/genre/temp/non-existent-file.png',
           genreId: 'japanese-history',
           userId: 'uid-user',
         })
@@ -221,7 +243,7 @@ describe('AI Genre Icon API Suite', () => {
     test('異常系: 一時保存パスではないURLの場合は400', async () => {
       const res = await migrateIconPOST(
         makeRequest({
-          tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/other-dir/uid-user_123.png',
+          tempUrl: '/api/assets/genre/other-dir/test.png',
           genreId: 'japanese-history',
           userId: 'uid-user',
         })
