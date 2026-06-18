@@ -147,30 +147,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     let finalIconImageUrl = iconImageUrl || null;
 
-    // AIで一時保存されたアイコン画像を正式なパスに移行する
-    if (finalIconImageUrl && finalIconImageUrl.includes('temp/genre-icons/')) {
+    // 一時保存されたアイコン画像（AI生成/手動アップロード）を正式なパスに移行する
+    if (finalIconImageUrl && finalIconImageUrl.includes('/api/assets/genre/temp/')) {
       try {
-        const { getAdminStorage } = await import('@/lib/firebase/admin');
-        const bucket = getAdminStorage().bucket();
-        const bucketPrefix = `https://storage.googleapis.com/${bucket.name}/`;
+        const fs = await import('fs');
+        const path = await import('path');
 
-        if (finalIconImageUrl.startsWith(bucketPrefix)) {
-          const tempPath = finalIconImageUrl.replace(bucketPrefix, '');
+        // URLからファイル名を抽出
+        const urlParts = finalIconImageUrl.split('/');
+        const tempFilename = urlParts[urlParts.length - 1];
+
+        // 一時ファイルの絶対パス
+        const tempFilePath = path.join(process.cwd(), 'assets', 'genre', 'temp', tempFilename);
+
+        if (fs.existsSync(tempFilePath)) {
+          // コピー先の準備
+          const destDir = path.join(process.cwd(), 'assets', 'genre', id);
+          if (!fs.existsSync(destDir)) {
+            fs.mkdirSync(destDir, { recursive: true });
+          }
+
+          // コピー先ファイル名の決定
           const timestamp = Date.now();
-          const destPath = `genres/${id}/icon_${timestamp}.png`;
+          const ext = path.extname(tempFilename).toLowerCase() || '.png';
+          const destFilename = `icon_${timestamp}${ext}`;
+          const destFilePath = path.join(destDir, destFilename);
 
-          const tempFile = bucket.file(tempPath);
-          const destFile = bucket.file(destPath);
+          // ファイルコピーの実行
+          fs.copyFileSync(tempFilePath, destFilePath);
 
-          await tempFile.copy(destFile);
-          await destFile.makePublic();
+          // 新しいローカルアセット配信URL
+          finalIconImageUrl = `/api/assets/genre/${id}/${destFilename}`;
 
-          finalIconImageUrl = `https://storage.googleapis.com/${bucket.name}/${destPath}`;
-
-          // 一時ファイルの削除（エラーになっても本処理は止めない）
-          await tempFile.delete().catch((err) => {
-            console.error('[API/admin/genres] 一時ファイルの削除に失敗しました:', err);
-          });
+          // 一時ファイルの削除
+          try {
+            fs.unlinkSync(tempFilePath);
+          } catch (unlinkErr) {
+            console.error('[API/admin/genres] 一時ファイルの削除に失敗しました:', unlinkErr);
+          }
         }
       } catch (copyError) {
         console.error('[API/admin/genres] アイコン画像移行処理エラー:', copyError);

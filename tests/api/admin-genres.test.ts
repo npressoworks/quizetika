@@ -250,7 +250,20 @@ describe('Admin Genres API', () => {
       expect(setArg.updatedAt).toBeDefined();
     });
 
-    test('一時アイコン画像（AI生成）のパスを正式なパスに移行して保存すること', async () => {
+    test('一時アイコン画像（AI生成/アップロード）のパスを正式なパスに移行して保存すること', async () => {
+      const fs = require('fs');
+      const path = require('path');
+      const tempDir = path.join(process.cwd(), 'assets', 'genre', 'temp');
+      const destDir = path.join(process.cwd(), 'assets', 'genre', 'new-genre');
+
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+
+      const tempFileName = 'temp_icon_admin_12345.png';
+      const tempFilePath = path.join(tempDir, tempFileName);
+      fs.writeFileSync(tempFilePath, 'dummy data');
+
       mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
       mockGetDoc.mockResolvedValue({
         exists: () => true,
@@ -265,19 +278,41 @@ describe('Admin Genres API', () => {
 
       const tempPayload = {
         ...validPayload,
-        iconImageUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/user1_12345.png',
+        iconImageUrl: `/api/assets/genre/temp/${tempFileName}`,
       };
 
-      const res = await POST(buildRequest('POST', tempPayload));
-      const body = await res.json();
+      try {
+        const res = await POST(buildRequest('POST', tempPayload));
+        const body = await res.json();
 
-      expect(res.status).toBe(200);
-      expect(body.success).toBe(true);
-      expect(mockDoc.set).toHaveBeenCalledTimes(1);
-      
-      const setArg = mockDoc.set.mock.calls[0][0];
-      expect(setArg.iconImageUrl).toContain('genres/new-genre/icon_');
-      expect(mockBucket.file).toHaveBeenCalledWith('temp/genre-icons/user1_12345.png');
+        expect(res.status).toBe(200);
+        expect(body.success).toBe(true);
+        expect(mockDoc.set).toHaveBeenCalledTimes(1);
+        
+        const setArg = mockDoc.set.mock.calls[0][0];
+        expect(setArg.iconImageUrl).toContain('/api/assets/genre/new-genre/icon_');
+
+        // コピー先ファイルの存在確認
+        const destFileName = setArg.iconImageUrl.split('/').pop();
+        const savedFilePath = path.join(destDir, destFileName);
+        expect(fs.existsSync(savedFilePath)).toBe(true);
+        expect(fs.readFileSync(savedFilePath, 'utf-8')).toBe('dummy data');
+
+        // 一時ファイルの削除確認
+        expect(fs.existsSync(tempFilePath)).toBe(false);
+      } finally {
+        // クリーンアップ
+        if (fs.existsSync(tempFilePath)) {
+          fs.unlinkSync(tempFilePath);
+        }
+        if (fs.existsSync(destDir)) {
+          const files = fs.readdirSync(destDir);
+          for (const file of files) {
+            fs.unlinkSync(path.join(destDir, file));
+          }
+          fs.rmdirSync(destDir);
+        }
+      }
     });
   });
 });
