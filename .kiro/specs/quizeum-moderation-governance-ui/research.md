@@ -1,135 +1,60 @@
-# Gap Analysis: quizeum-moderation-governance-ui（2026-06-03）
+# Gap & Discovery Analysis: quizeum-moderation-governance-ui
 
 ## Analysis Summary
 
-- **スコープ**: 要件 1〜3 は**実装済み**（`/admin/moderation`, `/community/merge`, `/community/genres` + `middleware.ts`）。Phase 6（要件 4）は**挙動はほぼ充足**だが、**共通化・テスト・コメント整合**が未完了。
-- **最大ギャップ**: `src/lib/genre-icon-upload.ts` 未作成、ジャンルアイコン検証の単体テストなし、`page.tsx` 先頭コメントに旧「PNG/SVG」残存。
-- **重複**: `community/genres/page.tsx` の `ALLOWED_ICON_TYPES` / 2MB 検証と `src/services/storage.ts` の `uploadImage` 検証が二重（意図は正しいが DRY 未達）。
-- **上流**: `voteGenreRequest` → `metadata_genres` 登録は `tagMerge.ts`（core）で**実装済み**。
-- **推奨**: **Option C（ハイブリッド）** — コメント修正 + `validateGenreIconFile` 抽出 + 単体テスト。工数 **S（0.5〜1 日）**、リスク **低**。
+- **スコープ**:
+  - Phase 6 (ジャンルアイコンSVG禁止): 実装完了。
+  - **管理者ジャンル直接追加機能 (2026-06-18 追加)**: システム管理者がコミュニティ投票を介さずにジャンルを直接新設・管理できる専用のUI `/admin/genres` および API ルート `/api/admin/genres` を実装する。
+- **最大ギャップ**:
+  - 現在、ジャンルの追加は `src/app/api/admin/seed-genres` による一括シード投入のみで、任意の個別ジャンルを管理画面から追加する機能およびAPIが存在しない。
+  - 管理者画面（`/admin/moderation`）から新しいジャンル管理画面への遷移動線がない。
+- **推奨アプローチ**:
+  - 新規画面 `/admin/genres`（ジャンル一覧 + 新規追加フォーム）を構築し、Tailwind CSS + shadcn/ui を採用する。
+  - 新規 API エンドポイント `/api/admin/genres` を作成し、Firebase Admin SDK を通じてサーバーサイドで一意性チェックと管理者認証チェック（ID Token検証）を実施の上、`metadata_genres` へ直接登録する。
+  - クライアント側でのアイコン画像アップロードには、既存の `src/lib/genre-icon-upload.ts` (validateGenreIconFile) を用いて PNG/JPEG/GIF かつ 2MB 以下（SVG禁止）を徹底する。
 
 ---
 
-## 1. Current State Investigation
+## 1. Research Log (管理者ジャンル直接追加機能)
 
-### 既存アセット
-
-| 領域 | パス | 状態 |
-|------|------|------|
-| 管理者審査 | `src/app/admin/moderation/page.tsx` | キュー、復帰/削除、特別ビュー遷移 |
-| マージ投票 | `src/app/community/merge/page.tsx` | 起案・投票・x2 バッジ・プログレスバー・`window.open` で一覧 |
-| ジャンル申請 | `src/app/community/genres/page.tsx` | 申請・投票・履歴、MIME/2MB 検証、Storage アップロード |
-| ルートガード | `src/middleware.ts` | Cookie tier + ページ側 `useAuth` |
-| コア投票 | `src/services/tagMerge.ts` | `submitGenreRequest`, `voteGenreRequest`, 可決時 `metadata_genres` |
-| Storage | `src/services/storage.ts` | `ALLOWED_MIME_TYPES`（SVG 除外）、2MB |
-| E2E | `e2e/moderation-feedback.spec.ts` | 申請フォーム・履歴タブ（SVG 拒否は未検証） |
-
-### ジャンルアイコン（Phase 6 関連コード）
-
-```56:58:src/app/community/genres/page.tsx
-/** PNG/JPEG/GIF のみ許可 (SEC-08 SVG-based XSS防御のためSVG形式を排除) */
-const ALLOWED_ICON_TYPES = ['image/png', 'image/jpeg', 'image/gif'];
-const MAX_ICON_SIZE = 2 * 1024 * 1024; // 2MB
-```
-
-- UI ラベル: 「PNG / JPEG / GIF、最大2MB」
-- `accept`: `.png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif`
-- `handleIconChange`: 非許可 MIME → `iconError`、submit ブロック
-- **残存**: ファイル先頭コメント L5 が「PNG/SVGアイコンアップロード」（要件 4.1 未完了）
+### [Topic] ジャンル直接追加の書き込み経路（クライアント直接 vs サーバーAPI）
+- **Context**: Firestore Security Rules では `canWriteMetadataGenres()` が定義されており、管理者/モデレーターはクライアントサイドから直接 `metadata_genres` コレクションへ書き込み可能であるが、どちらを採用すべきか。
+- **Sources Consulted**: `firestore.rules`, `src/app/api/admin/seed-genres/route.ts`
+- **Findings**:
+  - クライアント直接書き込みの場合、一意性（重複ID）の検証を Firestore トランザクションまたはルールで厳密に行う必要があるが、クライアント側だけでの制御は不具合時のデータ破壊リスクがある。
+  - 既存の `seed-genres` API や `users` 管理 API はサーバーサイドの Next.js API Route と Firebase Admin SDK を利用している。
+- **Implications**:
+  - サーバーサイド API `/api/admin/genres` (GET / POST) を新設し、管理者認証チェックを施した上で Admin SDK で `metadata_genres` に書き込むアプローチを採用する。これにより、一意性チェックや監査性の高いデータバリデーションをサーバー側で一元化できる。
 
 ---
 
-## 2. Requirement-to-Asset Map
+## 2. Design Decisions
 
-| 要件 | 状態 | ギャップ |
-|------|------|----------|
-| **1.1〜1.5** 管理者審査 | ✅ 充足 | `admin` は `quizeum_role` cookie で判定（tier の `admin` 文字列ではない）— 現行設計どおり |
-| **2.1〜2.7** マージ | ✅ おおむね充足 | 2.4「分割ビュー」は `window.open` 新規タブ（厳密な split view ではないが実用上可） |
-| **3.1〜3.5** ジャンル申請・投票 | ✅ 充足 | 可決通知・`metadata_genres` は core トランザクション |
-| **4.1** スペック SVG 禁止の明記 | ⚠️ 部分 | スペック本文は更新済み。**コードコメント**（`page.tsx` L5）のみ旧表記 |
-| **4.2** accept / MIME 一致 | ✅ 充足 | 実装と `storage.ts` 整合 |
-| **4.3** SVG 拒否 UX | ✅ 充足 | `file.type` 検証（拡張子偽装は Storage 側でも拒否） |
-| **4.4** 可決時 icon コピー | ✅ 充足 | `tagMerge.voteGenreRequest` |
-| **4.5** テスト | ❌ 欠落 | `genre-icon-upload` 単体テスト・E2E SVG 拒否なし |
+### Decision: 新規画面 `/admin/genres` のUIスタックと構成
+- **Context**: 新画面の UI 実装におけるスタイリングとコンポーネント選択。
+- **Alternatives Considered**:
+  1. Vanilla CSS / CSS Modules — 既存の古い画面で一部使用。
+  2. Tailwind CSS + shadcn/ui — ロードマップ Phase 24 の UI 刷新以降の標準スタック。
+- **Selected Approach**: Tailwind CSS + shadcn/ui を採用し、`src/components/ui/` の Card, Button, Input, Table, Label などを利用する。
+- **Rationale**: 既存の管理者画面（`/admin/moderation`, `/admin/users`）はすでに shadcn/ui と Tailwind に完全に移行されており、一貫したルック＆フィール（プレミアムなデザイン）を保つために同一スタックを利用する。
+- **Trade-offs**: CSS Modules よりも再利用性が高く、迅速に構築できる。
 
-### Phase 6 タスク対応
-
-| タスク | ギャップ |
-|--------|----------|
-| 5.1 | `page.tsx` 先頭コメント 1 箇所 |
-| 5.2 | `genre-icon-upload.ts` 未作成、`storage.ts` との定数重複 |
-| 5.3 | Jest 未追加 |
-| 5.4 | E2E 任意 |
+### Decision: ジャンルの一意性チェック
+- **Context**: 既存のジャンル ID が重複した状態での登録を防ぐ。
+- **Selected Approach**: API POST リクエスト処理内で、送信された `id` を持つドキュメントが `metadata_genres` コレクションに存在するかどうかを `get()` でチェックする。
+- **Rationale**: 存在する場合は 409 Conflict レスポンスを返し、フロントエンドで「このジャンルIDはすでに登録されています」とエラー表示することで、重複登録を防ぐ。
 
 ---
 
-## 3. Implementation Approach Options
-
-### Option A: コメント修正のみ
-
-- `page.tsx` L5 を修正して完了扱い。
-
-| 長所 | 短所 |
-|------|------|
-| 最小 diff | 要件 4.5・設計の `validateGenreIconFile` 未達 |
-| 即日完了 | DRY・回帰テストなし |
-
-**Effort**: XS | **Risk**: Low（挙動変更なし）
-
-### Option B: `storage.ts` のみ共通化
-
-- `uploadImage` の定数を export し genres ページから import。
-
-| 長所 | 短所 |
-|------|------|
-| サーバー側と一致保証 | ページの `handleIconChange` は依然インライン |
-
-**Effort**: S | **Risk**: Low
-
-### Option C: ハイブリッド（推奨）
-
-- 新規 `src/lib/genre-icon-upload.ts`: `validateGenreIconFile(file) => { ok, error }`、定数 export。
-- `community/genres/page.tsx` と（任意）`storage.ts` から利用。
-- `tests/lib/genre-icon-upload.test.ts`（PNG OK、SVG NG、2MB+ NG）。
-- L5 コメント修正。
-
-| 長所 | 短所 |
-|------|------|
-| tasks.md 5.1〜5.3 と一致 | 新規ファイル 2 |
-| 回帰テストで SEC-08 固定 | `storage.ts` 変更は任意 |
-
-**Effort**: **S（0.5〜1 日）** | **Risk**: **低**
+## 3. Risks & Mitigations
+- **不正アクセス（権限リーク）**: 一般ユーザーが `/admin/genres` や `/api/admin/genres` に直接アクセスするリスク。
+  - *対策*: UI側では `useAuth()` を使用し、`moderationTier !== 'admin'` かつ `role !== 'admin'` の場合は即時 `/not-found` へ遷移するルートガードを実装。API側では Firebase ID Token を検証し、対象ユーザーが管理者ロールを所有しているかデータベースから取得して検証（Defense in depth）。
+- **SVG形式によるXSS脆弱性 (SEC-08)**:
+  - *対策*: フロントエンドの画像選択時に `validateGenreIconFile` で拡張子およびMIMEタイプを検証し、SVGを完全に弾く。また、API 登録段階でファイル拡張子が不適切な場合はエラーとする。
 
 ---
 
-## 4. Research Needed（実装時）
-
-| 項目 | 内容 |
-|------|------|
-| `file.type` 空のケース | 一部ブラウザで MIME 未設定 — 拡張子フォールバック要否（現状は拒否で安全側） |
-| E2E SVG | Playwright で `image/svg+xml` の File モックまたは fixture パス |
-| マージ 2.4 | split view 要件を「新規タブで一覧」で充足とみなすか spec 文言を更新するか（Phase 6 外） |
-
----
-
-## 5. Upstream / Downstream
-
-| 依存 | 状態 |
-|------|------|
-| `quizeum-core` `voteGenreRequest` | ✅ |
-| `quizeum-play-flow-ui` / `creator-dash-ui` | 可決後 `listActiveGenres` に反映（別スペック・実装済み） |
-| `docs/detailed_design.md` L832 | 旧パス例 `.svg` 記載あり — **docs-sync-genre**（roadmap 直接候補）が別タスク |
-
----
-
-## 6. Design Phase Recommendations
-
-1. **採用**: Option C。
-2. **優先**: 5.1 コメント → 5.2 `genre-icon-upload.ts` → 5.3 テスト。
-3. **完了定義**: SVG 選択で `iconError` + submit disabled；`npm test` / `build` PASS。
-4. **Out of scope 維持**: 可決時 Storage パス正規化・アイコン移動は core/docs follow-up のまま。
-
-## Document Status
-
-- 手法: コード Grep/Read + 要件 4 トレース + `tasks.md` 照合
-- 出力: 本ファイル（新規）
+## 4. References
+- [firestore.rules](file:///d:/quizeum/firestore.rules#L297-L301) — metadata_genres へのパーミッション定義
+- [src/lib/genre-icon-upload.ts](file:///d:/quizeum/src/lib/genre-icon-upload.ts) — ジャンルアイコン用共通バリデーションロジック
+- [src/services/storage.ts](file:///d:/quizeum/src/services/storage.ts#L90-L96) — ジャンルアイコン保存先パス決定ロジック

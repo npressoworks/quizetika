@@ -1,22 +1,28 @@
 # Requirements Document: quizeum-moderation-governance-ui
 
 ## Introduction
-本ドキュメントは、クイズ投稿SNS「quizeum」における管理者向け通報コンテンツ審査キュー画面、モデレータ向けタグ/ジャンルの仮想マージリクエスト画面、およびジャンル新設申請・投票画面を含む、コミュニティ自治（モデレーションとガバナンス）に関するフロントエンドUI要件を定義します。
+本ドキュメントは、クイズ投稿SNS「quizeum」における管理者向け通報コンテンツ審査キュー画面、モデレータ向けタグ/ジャンルの仮想マージリクエスト画面、ジャンル新設申請・投票画面、および管理者専用のジャンル直接追加画面を含む、コミュニティ自治（モデレーションとガバナンス）に関するフロントエンドUI要件を定義します。
 
 **Phase 6（2026-06）**: ジャンルアイコンアップロードの仕様文言を SEC-08 / `docs/` と整合（**SVG 禁止、PNG/JPEG/GIF のみ**）。実装済み UI との乖離を解消する。
+**管理者ジャンル直接追加機能の追加（2026-06-18 追加）**: システム管理者が直接ジャンルを定義・新設できる専用画面（`/admin/genres`）と、そこへの相互ナビゲーションを追加する。
 
 ## Boundary Context
 - **In scope**:
   - 管理者ロール専用の通報審査画面におけるクイズの審査待ちリスト表示（リスト・プロフィールは `quizeum-core` の通報スキーマ整備後に拡張）。
   - 「公開に復帰させる（通報却下）」または「永久非公開化 / 削除」のアクション実行ボタンUI。
   - 審査対象クイズの中身を確認するための「管理者特別検証閲覧ビュー」動線。
-  - モデレータ専用のマージリクエスト画面におけるマージ提案の起案および保留提案に対する賛否加重投票UI。
+  - モデレータ専用のマージリクエスト画面におけるマージ提案 of 起案および保留提案に対する賛否加重投票UI。
   - シニアモデレータに対する「投票重み: x2」のインジケーター表示、および賛成率プログレスバーのリアルタイム可視化。
   - 認証済みユーザー向けの新ジャンル申請フォーム（ID、日本語名、**PNG/JPEG/GIF** アイコン画像のアップロード、最大2MB、**SVG 不可**）。
   - 新設ジャンルの保留中リストに対するモデレータ投票、可決承認条件達成時のシステム自動反映通知、履歴閲覧タブ。
   - `moderationTier` を用いた管理者・モデレータ専用画面への厳格なアクセス制限（ガード）。
+  - 管理者専用のジャンル管理・追加画面（`/admin/genres`）の新規作成、およびそこでのジャンル直接追加フォーム（ID、表示名、説明、PNG/JPEG/GIFアイコン画像アップロード）の提供。
+  - 管理画面間（`/admin/moderation`, `/admin/users`, `/admin/genres`）の相互ナビゲーション導線の追加。
 - **Out of scope**:
   - `metadata_genres` ドキュメントの書き込みや Cloud Functions 側の投票集計トリガー本体のバックエンド処理（`quizeum-core`が担当）。
+  - 既存ジャンルの物理的な削除機能（不要になったジャンルは非表示または非アクティブ化で対応し、物理削除は本要件の対象外とする）。
+- **Adjacent expectations**:
+  - 管理者によるジャンル追加操作は、Firestore の `metadata_genres` コレクションに直接書き込みを行う（Security Rules の `canWriteMetadataGenres()` の定義に依存）。
 
 ## Requirements
 
@@ -94,8 +100,26 @@
 8. While [保留中・履歴対象のジャンル申請データや投票状況がロード中である間], the [Moderation Governance UI] shall [投票タブや履歴タブのエリアに専用 of スケルトンプレースホルダーを表示すること]。
 9. When [ジャンル申請データのロードが完了したとき], the [Moderation Governance UI] shall [スケルトン表示領域を、実際の保留ジャンルリストや履歴コンテンツに差し替えること]。
 
+**管理者専用ジャンル直接追加画面における非同期表示最適化**
+10. When [管理者がジャンル管理画面（`/admin/genres`）にアクセスしたとき], the [Moderation Governance UI] shall [サーバーコンポーネントとして管理者用サイドバー、ヘッダー、タイトル枠等の静的フレームを即座にレンダリングし、Next.jsのStreaming機能を通じてクライアントへ送信すること]。
+11. While [登録済みジャンル一覧がロード中である間], the [Moderation Governance UI] shall [ジャンル一覧表示エリアに専用のスケルトンプレースホルダーを表示すること]。
+12. When [ジャンル一覧データのロードが完了したとき], the [Moderation Governance UI] shall [スケルトン表示領域を、実際の登録済みジャンル一覧コンテンツに差し替えること]。
+
 **アクセシビリティ・テスト支援**
-10. The [Moderation Governance UI] shall [通報審査キューのスケルトン領域に `data-testid="moderation-queue-skeleton"`、マージリクエスト投票のスケルトン領域に `data-testid="merge-requests-skeleton"` を付与すること]。
-11. The [Moderation Governance UI] shall [ジャンル申請・投票のスケルトン領域に `data-testid="genres-moderation-skeleton"` を付与すること]。
+13. The [Moderation Governance UI] shall [通報審査キューのスケルトン領域に `data-testid="moderation-queue-skeleton"` を付与すること]。
+14. The [Moderation Governance UI] shall [マージリクエスト投票のスケルトン領域に `data-testid="merge-requests-skeleton"` を付与すること]。
+15. The [Moderation Governance UI] shall [ジャンル申請・投票のスケルトン領域に `data-testid="genres-moderation-skeleton"` を付与すること]。
+16. The [Moderation Governance UI] shall [ジャンル管理画面のスケルトン領域に `data-testid="genres-management-skeleton"` を付与すること]。
 
+### Requirement 7: 管理者専用ジャンル直接追加画面 (Page: `/admin/genres`)
+**Objective:** As a System Administrator, I want to add new genres directly to the platform, so that I can organize quiz categories instantly without waiting for community votes.
 
+#### Acceptance Criteria
+1. When [管理者以外のユーザーが `/admin/genres` にアクセスしたとき], the [Moderation Governance UI] shall [404または403エラー画面を表示してアクセスを遮断すること]。
+2. While [ユーザーの認証情報を確認中である間], the [Moderation Governance UI] shall [画面全体にローディングインジケータを表示すること]。
+3. When [管理者が `/admin/genres` にアクセスしたとき], the [Moderation Governance UI] shall [現在登録されているジャンルの一覧（ID、表示名、説明、ステータス）を表示し、かつ新規ジャンル直接追加用の入力フォームを提供すること]。
+4. When [管理者が追加フォームに有効な値（半角英数字とハイフンのみで構成される一意なジャンルID、表示名、説明、および任意でPNG/JPEG/GIF形式かつ最大2MBのアイコン画像）を入力して「ジャンルを追加」ボタンをクリックしたとき], the [Moderation Governance UI] shall [Firestore の `metadata_genres` コレクションへ新規ジャンル情報を直接書き込み、保存成功メッセージを表示すること]。
+5. If [追加時に入力されたジャンルIDがすでに `metadata_genres` 内に存在するとき], the [Moderation Governance UI] shall [「このジャンルIDはすでに登録されています」というエラーメッセージを表示し、書き込み処理を中止すること]。
+6. If [追加選択されたアイコン画像ファイルが PNG/JPEG/GIF 形式以外である、またはファイルサイズが 2MB を超えるとき], the [Moderation Governance UI] shall [画面上にエラーメッセージを表示してアップロード処理および登録処理を中止すること]。
+7. When [ジャンルの追加登録が成功したとき], the [Moderation Governance UI] shall [ジャンル一覧表示を自動で最新情報に更新し、追加されたジャンルを即座に表示に反映すること]。
+8. When [管理者が `/admin/moderation` 画面を表示したとき], the [Moderation Governance UI] shall [新規ジャンル管理画面（`/admin/genres`）へのナビゲーションリンクを表示すること]。
