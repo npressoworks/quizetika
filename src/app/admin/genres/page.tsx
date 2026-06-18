@@ -23,6 +23,9 @@ export default function AdminGenresPage() {
           コミュニティ投票を経由せずに、新しいジャンルを即時に定義・追加します。
         </p>
         <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <Link href="/admin" className="hover:text-foreground hover:underline">
+            ⚙️ 管理者ポータルへ
+          </Link>
           <Link href="/admin/moderation" className="hover:text-foreground hover:underline">
             🛡️ モデレーション審査画面へ
           </Link>

@@ -71,8 +71,8 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // /admin/users: 管理者のみ (Req 1.1)
-  if (pathname.startsWith('/admin/users')) {
+  // /admin, /admin/users, /admin/genres: 管理者のみ (Req 1.1, 7.1, 8.1)
+  if (pathname === '/admin' || pathname.startsWith('/admin/users') || pathname.startsWith('/admin/genres')) {
     const isAdmin = request.cookies.get('quizeum_role')?.value === 'admin';
     if (!uid || !isAdmin) {
       const notFound = new URL('/not-found', request.url);

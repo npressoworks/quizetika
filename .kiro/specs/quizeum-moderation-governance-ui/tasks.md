@@ -179,3 +179,19 @@
 - Phase 6 実装（2026-06-03）: `genre-icon-upload.ts` + `storage.ts` 統合。Jest 304 件・build PASS。
 - Phase 6 タスク 6（2026-06-04）: `seedInitialGenres` + `/api/admin/seed-genres` + 管理者モデレーション画面の投入UI。`isAdminUser` を middleware-auth-cookies から export。Jest 328 件・build PASS。
 - 管理者ジャンル直接追加実装（2026-06-18 追加分）: `/api/admin/genres` (GET / POST) 新設 + `/admin/genres` (Table/Form) 構築 + 相互リンク追加。
+
+### 10. 管理者メニューポータル画面の実装と検証
+
+- [x] 10.1 (P) 管理者メニューポータル画面のUI実装
+  - `src/app/admin/page.tsx` を新規作成し、管理者（`admin` ロールまたは `moderationTier: 'admin'`）以外のアクセスを遮断し `/not-found` へリダイレクトするアクセスガードを実装する。
+  - 3つの管理者用サブ画面（モデレーション審査、ユーザー評判管理、ジャンル直接管理）へ遷移する、Lucide アイコンおよびホバーエフェクト付きのポータルカードUIを提供する。
+  - **完了状態**: 管理者としてログイン時にポータルカードメニューが表示され、非管理者ユーザーアクセス時は `/not-found` へリダイレクトされること。
+  - _Requirements: 8.1, 8.2, 8.3_
+  - _Boundary: UI_
+
+- [x] 10.2 ポータル画面の検証テストの構築
+  - Jest 単体・結合テスト（`tests/app/admin/portal.test.tsx`）および Playwright E2E テスト（`e2e/admin-portal.spec.ts`）を新規作成し、非管理者アクセス制限、カードUI의表示、および各管理者サブ画面への遷移を自動検証する。
+  - **完了状態**: 追加された Jest および Playwright テストを実行し、すべてグリーンでパスすること。
+  - _Requirements: 8.1, 8.2, 8.3_
+  - _Boundary: Testing_
+  - _Depends: 10.1_

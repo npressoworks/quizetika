@@ -280,10 +280,16 @@ export default function AdminUsersPage() {
       <div>
         <div className="flex gap-4">
           <Link
+            href="/admin"
+            className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+          >
+            ⚙️ 管理者ポータルへ
+          </Link>
+          <Link
             href="/admin/moderation"
             className="text-sm text-muted-foreground hover:text-foreground hover:underline"
           >
-            ← モデレーション審査キューに戻る
+            🛡️ モデレーション審査画面へ
           </Link>
           <Link
             href="/admin/genres"

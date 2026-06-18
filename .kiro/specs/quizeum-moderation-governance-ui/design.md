@@ -62,6 +62,7 @@
 src/
 ├── app/
 │   ├── admin/
+│   │   ├── page.tsx           # [NEW] 管理者メニューポータル画面 (8.1, 8.2, 8.3)
 │   │   ├── moderation/
 │   │   │   └── page.tsx           # 管理者モデレーション審査画面 (1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.2, 5.3, 5.6, 5.7, 7.8, 6.13)
 │   │   ├── users/
@@ -182,6 +183,9 @@ sequenceDiagram
 | 7.6 | アイコン画像のPNG/JPEG/GIF制限と容量制限 | `/admin/genres` Page | `validateGenreIconFile` | 直接追加フロー |
 | 7.7 | 登録成功時のジャンル一覧自動更新 | `/admin/genres` Page | React state refresh | 直接追加フロー |
 | 7.8 | モデレーション画面でのジャンル管理リンク表示 | `/admin/moderation` Page | Navigation link | 直接追加フロー |
+| 8.1 | 管理者以外のポータル画面アクセス制限 | `/admin` Page | middleware.ts / guard | ポータル表示フロー |
+| 8.2 | ポータル画面ロード中インジケータ表示 | `/admin` Page | UI spinner | ポータル表示フロー |
+| 8.3 | 各管理者メニューカードおよびリンクの表示 | `/admin` Page | UI Card | ポータル表示フロー |
 
 ---
 
@@ -191,6 +195,7 @@ sequenceDiagram
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
 |-----------|--------------|--------|--------------|------------------|-----------|
+| `AdminPortal` | UI / Page | 各種管理者用サブ画面へのナビゲーションポータル | 8.1-8.3 | `useAuth` | UI State |
 | `AdminModeration` | UI / Page | 通報審査、初期ジャンル投入UI | 1.1-1.5, 5.1-5.3, 5.6, 5.7, 7.8, 6.13 | `useAuth`, `/api/admin/seed-genres` | UI State |
 | `AdminGenres` | UI / Page | 登録済みジャンル一覧、ジャンル直接登録フォーム | 7.1-7.7, 6.10-6.12, 6.16 | `useAuth`, `/api/admin/genres`, `uploadImage`, `validateGenreIconFile` | UI State / TSX |
 | `CommunityMerge` | UI / Page | マージ起案、加重投票、進捗可視化 | 2.1-2.7, 6.4-6.6, 6.14 | `ModerationService`, `useAuth` | UI State |
@@ -201,6 +206,14 @@ sequenceDiagram
 ---
 
 ### UI Page / Components
+
+#### AdminPortalPage Component (`src/app/admin/page.tsx`)
+- **Intent**: 管理者が各種管理ツール（モデレーション審査、ユーザー評判管理、ジャンル直接管理）に容易に遷移できるポータルメニューを提供する。
+- **Requirements**: 8.1, 8.2, 8.3
+- **Responsibilities & Constraints**:
+  - `isAdminUser` ガードにより、`admin` ロール以外のユーザーのアクセスを遮断し `/not-found` へ遷移させる。
+  - PC/タブレット左 Sidebar、モバイル BottomNav 共通レイアウトを踏襲する。
+  - 各種管理者用機能への遷移カード（タイトル、説明、 Lucide アイコン、ホバーエフェクト付き）を表示する。
 
 #### AdminGenresPage Component (`src/app/admin/genres/page.tsx`)
 - **Intent**: 管理者が現在登録されているすべてのジャンルを一覧表示し、新しいジャンルを即時に作成・追加するためのインターフェースを提供。

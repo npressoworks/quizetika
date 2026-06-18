@@ -19,6 +19,7 @@ Next.js App Routerでの専用パス（`/admin/*`, `/community/*`）を構築し
 
 ## Scope
 - **In**:
+  - 管理者メニューポータル画面 (`/admin`): モデレーション審査、ユーザー評判管理、ジャンル直接管理の各管理者機能へのナビゲーションカードを表示する専用ランディングページ。
   - 管理者モデレーション画面 (`/admin/moderation`): 不適切通報（5回到達で `suspended`）となったクイズの審査キュー表示（リスト・プロフィールは core スキーマ整備後に拡張）。通報理由と詳細内容の確認、「公開復帰」または「永久非公開/削除」のモデレーションアクション実行UI。審査対象クイズの特別検証ビュー。初期ジャンルの一括投入（シード）ボタンの設置と、一括登録APIの呼び出し。
   - タグ/ジャンルマージリクエスト画面 (`/community/merge`): モデレータによるマージ提案の起案フォーム。現在保留中（pending）のリクエスト一覧表示。賛成/反対の加重投票機能（シニアモデレータの重みx2表示）、賛成率のプログレスバー表示。
   - ジャンル新設申請・投票画面 (`/community/genres`): 認証済みユーザーによる新ジャンル申請フォーム（ID、日本語名、**PNG/JPEG/GIF** アイコン画像のアップロード、最大2MB、SVG不可）。保留中の申請一覧表示、モデレータ投票UI、可決時の自動システム反映通知、承認/否決履歴タブ。
@@ -26,7 +27,10 @@ Next.js App Routerでの専用パス（`/admin/*`, `/community/*`）を構築し
   - 一般ユーザー向けのプレイ・探索画面。
 
 ## Boundary Candidates
+- `src/app/admin/page.tsx`
 - `src/app/admin/moderation/page.tsx`
+- `src/app/admin/merge/page.tsx` (or mapping files)
+- `src/app/admin/genres/page.tsx`
 - `src/app/community/merge/page.tsx`
 - `src/app/community/genres/page.tsx`
 

@@ -260,6 +260,12 @@ export default function AdminModerationPage() {
         {isAdmin && (
           <div className="flex gap-4">
             <Link
+              href="/admin"
+              className="inline-block text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              ⚙️ 管理者ポータルへ
+            </Link>
+            <Link
               href="/admin/users"
               className="inline-block text-sm text-muted-foreground hover:text-foreground hover:underline"
             >

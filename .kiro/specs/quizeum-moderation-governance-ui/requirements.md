@@ -123,3 +123,12 @@
 6. If [追加選択されたアイコン画像ファイルが PNG/JPEG/GIF 形式以外である、またはファイルサイズが 2MB を超えるとき], the [Moderation Governance UI] shall [画面上にエラーメッセージを表示してアップロード処理および登録処理を中止すること]。
 7. When [ジャンルの追加登録が成功したとき], the [Moderation Governance UI] shall [ジャンル一覧表示を自動で最新情報に更新し、追加されたジャンルを即座に表示に反映すること]。
 8. When [管理者が `/admin/moderation` 画面を表示したとき], the [Moderation Governance UI] shall [新規ジャンル管理画面（`/admin/genres`）へのナビゲーションリンクを表示すること]。
+
+### Requirement 8: 管理者メニューポータル画面 (Page: `/admin`)
+**Objective:** As a System Administrator, I want to access a central menu portal page, so that I can easily navigate to various admin tools.
+
+#### Acceptance Criteria
+1. When [管理者以外のユーザーが `/admin` にアクセスしたとき], the [Moderation Governance UI] shall [404または403エラー画面を表示してアクセスを遮断すること]。
+2. While [ユーザーの認証情報を確認中である間], the [Moderation Governance UI] shall [画面全体にローディングインジケータを表示すること]。
+3. When [管理者が `/admin` にアクセスしたとき], the [Moderation Governance UI] shall [「モデレーション審査（`/admin/moderation`）」「ユーザー評判管理（`/admin/users`）」「ジャンル直接管理（`/admin/genres`）」の各機能のタイトル、説明、および遷移用リンクを含んだナビゲーションカードを表示すること]。
+
