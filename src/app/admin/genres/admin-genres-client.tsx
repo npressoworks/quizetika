@@ -57,7 +57,8 @@ export default function AdminGenresClient() {
   const [iconPreviewUrl, setIconPreviewUrl] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiGeneratedUrl, setAiGeneratedUrl] = useState<string | null>(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [tempIconUrl, setTempIconUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // AIアイコン生成処理の実行
@@ -97,7 +98,7 @@ export default function AdminGenresClient() {
         throw new Error(data.message || '画像の生成に失敗しました。');
       }
 
-      setAiGeneratedUrl(data.iconImageUrl);
+      setTempIconUrl(data.iconImageUrl);
       setIconPreviewUrl(data.iconImageUrl);
       setFormIconFile(null); // 手動アップロードファイルをクリア
       if (fileInputRef.current) {
@@ -167,12 +168,12 @@ export default function AdminGenresClient() {
   }, [isAdmin, firebaseUser]);
 
   // アイコンファイル選択時のハンドラ
-  const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setIconError(null);
     setFormIconFile(null);
     setIconPreviewUrl(null);
-    setAiGeneratedUrl(null);
+    setTempIconUrl(null);
 
     if (!file) return;
 
@@ -183,10 +184,33 @@ export default function AdminGenresClient() {
       return;
     }
 
-    setFormIconFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setIconPreviewUrl(ev.target?.result as string);
-    reader.readAsDataURL(file);
+    setUploadLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/genres/upload-icon', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || 'アイコン画像のアップロードに失敗しました。');
+      }
+
+      setFormIconFile(file);
+      setIconPreviewUrl(data.tempUrl);
+      setTempIconUrl(data.tempUrl);
+    } catch (err) {
+      console.error('アイコンアップロードエラー:', err);
+      setIconError(
+        err instanceof Error ? err.message : 'アップロードに失敗しました。'
+      );
+    } finally {
+      setUploadLoading(false);
+    }
   };
 
   // ジャンルの追加登録送信処理
@@ -210,17 +234,7 @@ export default function AdminGenresClient() {
     setErrorMessage(null);
 
     try {
-      let iconImageUrl: string | null = null;
-
-      // アイコン画像がある場合は Storage へアップロード
-      if (formIconFile) {
-        let extension = formIconFile.type.split('/')[1] || 'png';
-        if (extension === 'jpeg') extension = 'jpg';
-        const path = getGenreIconPath(formGenreId, extension);
-        iconImageUrl = await uploadImage(formIconFile, path);
-      } else if (aiGeneratedUrl) {
-        iconImageUrl = aiGeneratedUrl;
-      }
+      const iconImageUrl = tempIconUrl;
 
       const token = await firebaseUser.getIdToken();
       const res = await fetch('/api/admin/genres', {
@@ -251,7 +265,7 @@ export default function AdminGenresClient() {
       setFormDescription('');
       setFormIconFile(null);
       setIconPreviewUrl(null);
-      setAiGeneratedUrl(null);
+      setTempIconUrl(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }

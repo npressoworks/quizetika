@@ -180,9 +180,15 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
       isActive: true,
     };
 
-    // fetch のモックを定義（初期ロード時のGETと、追加POST）
+    // fetch のモックを定義（初期ロード時のGETと、一時アップロードPOST、追加POST）
     const fetchMock = jest.fn().mockImplementation((url, options) => {
-      if (options?.method === 'POST') {
+      if (url === '/api/genres/upload-icon' && options?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, tempUrl: 'https://example.com/temp/icon.png' }),
+        });
+      }
+      if (url === '/api/admin/genres' && options?.method === 'POST') {
         return Promise.resolve({
           ok: true,
           json: async () => ({ success: true, data: newGenre }),
@@ -218,13 +224,15 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
     const file = new File(['mock content'], 'test.png', { type: 'image/png' });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
+    // アップロード完了とプレビューのファイル名表示を待つ
+    await screen.findByText('test.png');
+
     // フォーム送信
     const submitButton = screen.getByRole('button', { name: /ジャンルを追加/ });
     fireEvent.click(submitButton);
 
-    // アップロードとPOST処理が呼ばれることを検証
+    // POST処理が呼ばれることを検証
     await waitFor(() => {
-      expect(mockUploadImage).toHaveBeenCalled();
       expect(fetchMock).toHaveBeenCalledWith(
         '/api/admin/genres',
         expect.objectContaining({
@@ -233,7 +241,7 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
             id: 'science',
             displayName: '科学',
             description: '科学のクイズ',
-            iconImageUrl: 'https://example.com/icon.png',
+            iconImageUrl: 'https://example.com/temp/icon.png',
           }),
         })
       );
