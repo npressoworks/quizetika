@@ -60,6 +60,7 @@ export interface GenreRequest {
   id?: string;
   genreId: string;
   displayName: string;
+  description: string;
   iconImageUrl: string;
   requesterId: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -370,6 +371,7 @@ export async function runMigration(
 export async function submitGenreRequest(
   genreId: string,
   displayName: string,
+  description: string,
   iconImageUrl: string,
   requesterId: string
 ): Promise<string> {
@@ -382,6 +384,7 @@ export async function submitGenreRequest(
   const requestPayload: Omit<GenreRequest, 'id'> = {
     genreId,
     displayName,
+    description,
     iconImageUrl,
     requesterId,
     status: 'pending',
@@ -457,11 +460,13 @@ export async function voteGenreRequest(
       transaction.set(newGenreRef, {
         id: request.genreId,
         displayName: request.displayName,
+        description: request.description || '',
         iconImageUrl: request.iconImageUrl,
         canonicalId: null,
         mergedGenreIds: [],
         isActive: true,
         createdAt: now,
+        updatedAt: now,
       });
     } else if (weightedAgainst >= 5) {
       updates.status = 'rejected';

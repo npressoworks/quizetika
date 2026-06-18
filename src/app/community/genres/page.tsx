@@ -58,7 +58,7 @@ interface GenreRequest {
 type TabType = 'request' | 'vote' | 'history';
 
 export default function CommunityGenresPage() {
-  const { user, loading } = useAuth();
+  const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<TabType>('request');
@@ -73,9 +73,12 @@ export default function CommunityGenresPage() {
 
   const [formGenreId, setFormGenreId] = useState('');
   const [formDisplayName, setFormDisplayName] = useState('');
+  const [formDescription, setFormDescription] = useState('');
   const [formIconFile, setFormIconFile] = useState<File | null>(null);
   const [iconPreviewUrl, setIconPreviewUrl] = useState<string | null>(null);
   const [iconError, setIconError] = useState<string | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiGeneratedUrl, setAiGeneratedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const TIER_RANK: Record<string, number> = {
@@ -152,6 +155,7 @@ export default function CommunityGenresPage() {
     setIconError(null);
     setFormIconFile(null);
     setIconPreviewUrl(null);
+    setAiGeneratedUrl(null);
 
     if (!file) return;
 
@@ -167,10 +171,66 @@ export default function CommunityGenresPage() {
     reader.readAsDataURL(file);
   };
 
+  const handleGenerateIconAi = async () => {
+    if (!firebaseUser) {
+      setIconError('ログインセッションが無効です。');
+      return;
+    }
+
+    if (!formDisplayName.trim() || !formDescription.trim()) {
+      setIconError('ジャンル名と説明を入力してください。');
+      return;
+    }
+
+    setAiGenerating(true);
+    setIconError(null);
+    setErrorMessage(null);
+
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/genres/generate-icon', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          displayName: formDisplayName,
+          description: formDescription,
+          userId: firebaseUser.uid,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || '画像の生成に失敗しました。');
+      }
+
+      setAiGeneratedUrl(data.iconImageUrl);
+      setIconPreviewUrl(data.iconImageUrl);
+      setFormIconFile(null); // ファイルアップロードをクリア
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('AIアイコン生成エラー:', err);
+      setIconError(
+        err instanceof Error
+          ? err.message
+          : '画像の生成に失敗しました。しばらくしてから再度お試しください。'
+      );
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !formIconFile) {
-      setErrorMessage('アイコン画像を選択してください。');
+    if (!user) return;
+
+    if (!formIconFile && !aiGeneratedUrl) {
+      setErrorMessage('アイコン画像を選択または生成してください。');
       return;
     }
 
@@ -186,18 +246,45 @@ export default function CommunityGenresPage() {
     setErrorMessage(null);
 
     try {
-      let extension = formIconFile.type.split('/')[1] || 'png';
-      if (extension === 'jpeg') extension = 'jpg';
-      const path = getGenreIconPath(formGenreId, extension);
-      const iconUrl = await uploadImage(formIconFile, path);
+      let iconUrl = '';
 
-      await submitGenreRequest(formGenreId, formDisplayName, iconUrl, user.id);
+      if (formIconFile) {
+        let extension = formIconFile.type.split('/')[1] || 'png';
+        if (extension === 'jpeg') extension = 'jpg';
+        const path = getGenreIconPath(formGenreId, extension);
+        iconUrl = await uploadImage(formIconFile, path);
+      } else if (aiGeneratedUrl) {
+        // AIで生成された一時保存アイコン画像を正式パスに移行
+        const token = await firebaseUser!.getIdToken();
+        const migrateRes = await fetch('/api/genres/migrate-icon', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            tempUrl: aiGeneratedUrl,
+            genreId: formGenreId,
+            userId: firebaseUser!.uid,
+          }),
+        });
+
+        const migrateData = await migrateRes.json().catch(() => ({}));
+        if (!migrateRes.ok) {
+          throw new Error(migrateData.message || 'アイコン画像の保存処理に失敗しました。');
+        }
+        iconUrl = migrateData.iconImageUrl;
+      }
+
+      await submitGenreRequest(formGenreId, formDisplayName, formDescription, iconUrl, user.id);
 
       setSuccessMessage(`「${formDisplayName}」のジャンル申請を送信しました。`);
       setFormGenreId('');
       setFormDisplayName('');
+      setFormDescription('');
       setFormIconFile(null);
       setIconPreviewUrl(null);
+      setAiGeneratedUrl(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: unknown) {
       console.error('申請送信エラー:', err);
@@ -364,7 +451,37 @@ export default function CommunityGenresPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>アイコン画像（PNG / JPEG / GIF、最大2MB）</Label>
+                  <Label htmlFor="description">説明</Label>
+                  <Input
+                    id="description"
+                    type="text"
+                    placeholder="例: 日本の歴史や文化に関するクイズ"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>アイコン画像（PNG / JPEG / GIF、最大2MB）</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateIconAi}
+                      disabled={aiGenerating || submitLoading}
+                    >
+                      {aiGenerating ? (
+                        <>
+                          <Loader2 className="mr-1 size-3 animate-spin" />
+                          生成中...
+                        </>
+                      ) : (
+                        '✨ AIで生成'
+                      )}
+                    </Button>
+                  </div>
                   <div
                     className="cursor-pointer rounded-lg border border-dashed p-6 text-center transition-colors hover:bg-muted/50"
                     onClick={() => fileInputRef.current?.click()}
@@ -376,7 +493,9 @@ export default function CommunityGenresPage() {
                           alt="アイコンプレビュー"
                           className="size-16 rounded-md object-cover"
                         />
-                        <span className="text-sm text-muted-foreground">{formIconFile?.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {formIconFile ? formIconFile.name : '✨ AI生成画像'}
+                        </span>
                       </div>
                     ) : (
                       <div className="space-y-1 text-muted-foreground">
@@ -400,7 +519,7 @@ export default function CommunityGenresPage() {
                 <Button
                   type="submit"
                   id="submit-genre-btn"
-                  disabled={submitLoading || !formIconFile || !!iconError}
+                  disabled={submitLoading || (!formIconFile && !aiGeneratedUrl) || !!iconError}
                 >
                   {submitLoading ? (
                     <>

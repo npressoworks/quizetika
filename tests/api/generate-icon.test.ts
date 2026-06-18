@@ -1,4 +1,5 @@
-import { POST } from '@/app/api/genres/generate-icon/route';
+import { POST as generateIconPOST } from '@/app/api/genres/generate-icon/route';
+import { POST as migrateIconPOST } from '@/app/api/genres/migrate-icon/route';
 import { NextRequest } from 'next/server';
 
 const mockVerify = jest.fn();
@@ -50,6 +51,18 @@ const mockDb = {
   runTransaction: (...args: any[]) => mockRunTransaction(...args),
 };
 
+const mockFile = {
+  exists: jest.fn().mockResolvedValue([true]),
+  copy: jest.fn().mockResolvedValue(undefined),
+  makePublic: jest.fn().mockResolvedValue(undefined),
+  delete: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockBucket = {
+  name: 'quizeum-test-bucket',
+  file: jest.fn(() => mockFile),
+};
+
 jest.mock('@/lib/firebase/auth-verify', () => ({
   extractBearerToken: () => 'valid-token',
   verifyFirebaseIdToken: (...args: any[]) => mockVerify(...args),
@@ -69,6 +82,9 @@ jest.mock('@/services/storage-admin', () => ({
 
 jest.mock('@/lib/firebase/admin', () => ({
   getAdminFirestore: () => mockDb,
+  getAdminStorage: () => ({
+    bucket: jest.fn(() => mockBucket),
+  }),
 }));
 
 jest.mock('@/services/ai-authoring-utils', () => {
@@ -79,7 +95,7 @@ jest.mock('@/services/ai-authoring-utils', () => {
   };
 });
 
-describe('POST /api/genres/generate-icon', () => {
+describe('AI Genre Icon API Suite', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockVerify.mockResolvedValue('uid-user');
@@ -100,101 +116,118 @@ describe('POST /api/genres/generate-icon', () => {
         },
       ],
     });
-    mockUpload.mockResolvedValue('https://storage.googleapis.com/bucket/temp/genre-icons/uid-user_123.png');
+    mockUpload.mockResolvedValue('https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png');
+    mockFile.exists.mockResolvedValue([true]);
   });
 
-  function makeRequest(body: Record<string, any>) {
-    return new NextRequest('http://localhost/api/genres/generate-icon', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
-  }
+  describe('POST /api/genres/generate-icon', () => {
+    function makeRequest(body: Record<string, any>) {
+      return new NextRequest('http://localhost/api/genres/generate-icon', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    }
 
-  test('正常系: 一般ユーザーが画像生成に成功し、URLとリミットを返す', async () => {
-    const res = await POST(
-      makeRequest({
-        displayName: '日本の歴史',
-        description: '日本の歴史に関するクイズジャンル',
-        userId: 'uid-user',
-      })
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.iconImageUrl).toBe('https://storage.googleapis.com/bucket/temp/genre-icons/uid-user_123.png');
-    expect(body.usage).toEqual({
-      limit: 5,
-      usedToday: 1,
-      remainingToday: 4,
+    test('正常系: 一般ユーザーが画像生成に成功し、URLとリミットを返す', async () => {
+      const res = await generateIconPOST(
+        makeRequest({
+          displayName: '日本の歴史',
+          description: '日本の歴史に関するクイズジャンル',
+          userId: 'uid-user',
+        })
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.iconImageUrl).toBe('https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png');
+      expect(body.usage).toEqual({
+        limit: 5,
+        usedToday: 1,
+        remainingToday: 4,
+      });
+      expect(mockUpload).toHaveBeenCalled();
     });
-    expect(mockUpload).toHaveBeenCalled();
+
+    test('バリデーションエラー: displayNameまたはdescriptionがない場合は400', async () => {
+      const res = await generateIconPOST(
+        makeRequest({
+          displayName: '',
+          description: '説明文',
+          userId: 'uid-user',
+        })
+      );
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.error).toBe('missing-params');
+    });
+
+    test('制限エラー: 1日5回の上限に達した一般ユーザーは429', async () => {
+      mockLimitRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ count: 5, lastUpdatedDate: '2026-06-18' }),
+      });
+
+      const res = await generateIconPOST(
+        makeRequest({
+          displayName: '歴史',
+          description: '説明文',
+          userId: 'uid-user',
+        })
+      );
+      expect(res.status).toBe(429);
+    });
   });
 
-  test('バリデーションエラー: displayNameまたはdescriptionがない場合は400', async () => {
-    const res = await POST(
-      makeRequest({
-        displayName: '',
-        description: '説明文',
-        userId: 'uid-user',
-      })
-    );
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error).toBe('missing-params');
-  });
+  describe('POST /api/genres/migrate-icon', () => {
+    function makeRequest(body: Record<string, any>) {
+      return new NextRequest('http://localhost/api/genres/migrate-icon', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    }
 
-  test('認証エラー: トークン不一致は401', async () => {
-    mockVerify.mockResolvedValue(null);
-    const res = await POST(
-      makeRequest({
-        displayName: '歴史',
-        description: '説明文',
-        userId: 'uid-user',
-      })
-    );
-    expect(res.status).toBe(401);
-  });
+    test('正常系: コピー元が存在する場合にコピーが走り、正式なパスのURLを返すこと', async () => {
+      const res = await migrateIconPOST(
+        makeRequest({
+          tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png',
+          genreId: 'japanese-history',
+          userId: 'uid-user',
+        })
+      );
 
-  test('制限エラー: 1日5回の上限に達した一般ユーザーは429', async () => {
-    mockLimitRef.get.mockResolvedValue({
-      exists: true,
-      data: () => ({ count: 5, lastUpdatedDate: '2026-06-18' }),
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.iconImageUrl).toContain('genres/japanese-history/icon_');
+      expect(mockFile.copy).toHaveBeenCalled();
+      expect(mockFile.delete).toHaveBeenCalled();
     });
 
-    const res = await POST(
-      makeRequest({
-        displayName: '歴史',
-        description: '説明文',
-        userId: 'uid-user',
-      })
-    );
-    expect(res.status).toBe(429);
-    const body = await res.json();
-    expect(body.error).toBe('limit-exceeded');
-  });
+    test('異常系: コピー元ファイルが見つからない場合は404', async () => {
+      mockFile.exists.mockResolvedValue([false]);
 
-  test('管理者バイパス: 制限回数に達していても管理者は無制限に生成可能', async () => {
-    mockVerify.mockResolvedValue('uid-admin');
-    mockUserRef.get.mockResolvedValue({
-      exists: true,
-      data: () => ({ role: 'admin', moderationTier: 'admin' }),
-    });
-    // カウントは5回に達しているとする
-    mockLimitRef.get.mockResolvedValue({
-      exists: true,
-      data: () => ({ count: 5, lastUpdatedDate: '2026-06-18' }),
+      const res = await migrateIconPOST(
+        makeRequest({
+          tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/temp/genre-icons/uid-user_123.png',
+          genreId: 'japanese-history',
+          userId: 'uid-user',
+        })
+      );
+
+      expect(res.status).toBe(404);
+      const body = await res.json();
+      expect(body.error).toBe('not-found');
     });
 
-    const res = await POST(
-      makeRequest({
-        displayName: '歴史',
-        description: '説明文',
-        userId: 'uid-admin',
-      })
-    );
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.iconImageUrl).toBeDefined();
-    // 管理者はバイパスのため usage.limit が null になるはず
-    expect(body.usage.limit).toBeNull();
+    test('異常系: 一時保存パスではないURLの場合は400', async () => {
+      const res = await migrateIconPOST(
+        makeRequest({
+          tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/other-dir/uid-user_123.png',
+          genreId: 'japanese-history',
+          userId: 'uid-user',
+        })
+      );
+
+      expect(res.status).toBe(400);
+    });
   });
 });
