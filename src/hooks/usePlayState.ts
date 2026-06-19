@@ -119,6 +119,7 @@ export function usePlayState({
   const [answeredIds, setAnsweredIds] = useState<string[]>([]);
   const [failedIds, setFailedIds] = useState<string[]>([]);
   const [questionAnswers, setQuestionAnswers] = useState<Record<string, string>>({});
+  const [questionAnswerDetails, setQuestionAnswerDetails] = useState<QuestionAnswerDetail[]>([]); // 新規追加
   const [score, setScore] = useState<number>(0);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -127,11 +128,51 @@ export function usePlayState({
   const [feedbackPending, setFeedbackPending] = useState<boolean>(false);
   const [lastAnswerResult, setLastAnswerResult] = useState<AnswerRecordResult | null>(null);
 
+  // 解答詳細トラッキング用の一時状態
+  const [hintsUsed, setHintsUsed] = useState<Record<string, number>>({});
+  const [choicesInteractions, setChoicesInteractions] = useState<Record<string, { order: string[], count: number }>>({});
+  const [choicesOrders, setChoicesOrders] = useState<Record<string, string[]>>({});
+  const [initialItemOrders, setInitialItemOrders] = useState<Record<string, string[]>>({});
+
+  // 設問ごとの解答開始時間および早押しタイミング計測用 Ref
+  const questionShowTimeRef = useRef<number>(0);
+  const quickPressShowTimeRef = useRef<number | null>(null);
+
   const isInitialized = useRef<boolean>(false);
   const recordAnswerRef = useRef<(answer: string) => AnswerRecordResult | null>(() => null);
   const segmentStateRef = useRef<ElapsedSegmentState>(createElapsedSegmentState());
   const elapsedPolicyRef = useRef(elapsedPolicy);
   elapsedPolicyRef.current = elapsedPolicy;
+
+  // トラッキング情報登録用コールバック
+  const registerChoicesOrder = useCallback((questionId: string, order: string[]) => {
+    setChoicesOrders((prev) => ({ ...prev, [questionId]: order }));
+  }, []);
+
+  const registerInitialItemOrder = useCallback((questionId: string, order: string[]) => {
+    setInitialItemOrders((prev) => ({ ...prev, [questionId]: order }));
+  }, []);
+
+  const incrementHintsUsed = useCallback((questionId: string) => {
+    setHintsUsed((prev) => ({ ...prev, [questionId]: (prev[questionId] || 0) + 1 }));
+  }, []);
+
+  const trackChoiceClick = useCallback((questionId: string, choiceId: string) => {
+    setChoicesInteractions((prev) => {
+      const current = prev[questionId] || { order: [], count: 0 };
+      return {
+        ...prev,
+        [questionId]: {
+          order: [...current.order, choiceId],
+          count: current.count + 1,
+        },
+      };
+    });
+  }, []);
+
+  const startQuickPressTimer = useCallback(() => {
+    quickPressShowTimeRef.current = Date.now();
+  }, []);
 
   const elapsedPolicyTickKey =
     elapsedPolicy?.kind === 'quick-press'
@@ -160,6 +201,7 @@ export function usePlayState({
       setAnsweredIds(saved.answeredQuestionIds);
       setFailedIds(saved.failedQuestionIds);
       setQuestionAnswers(saved.questionAnswers ?? {});
+      setQuestionAnswerDetails(saved.questionAnswerDetails ?? []); // 新規追加
       setScore(saved.currentScore);
       segmentStateRef.current = createElapsedSegmentState(saved.elapsedSeconds);
       setElapsedSeconds(saved.elapsedSeconds);
@@ -188,6 +230,7 @@ export function usePlayState({
       answeredQuestionIds: answeredIds,
       failedQuestionIds: failedIds,
       questionAnswers,
+      questionAnswerDetails, // 新規追加
       currentScore: score,
       totalQuestions: questions.length,
       elapsedSeconds,
@@ -203,6 +246,7 @@ export function usePlayState({
     answeredIds,
     failedIds,
     questionAnswers,
+    questionAnswerDetails, // 新規追加
     score,
     elapsedSeconds,
     questions,
@@ -250,6 +294,51 @@ export function usePlayState({
         [currentQuestion.id]: answerTextOrChoiceId,
       }));
 
+      // ── 新規: 詳細解答データの収集と蓄積 ──
+      const nowMs = Date.now();
+      const diffSeconds = questionShowTimeRef.current > 0
+        ? (nowMs - questionShowTimeRef.current) / 1000
+        : 0;
+      const qElapsed = Number(diffSeconds.toFixed(3));
+
+      let quickPressSec: number | null = null;
+      if (currentQuestion.type === 'quick-press' && quickPressShowTimeRef.current) {
+        quickPressSec = Number(((nowMs - quickPressShowTimeRef.current) / 1000).toFixed(3));
+      }
+
+      const interaction = choicesInteractions[currentQuestion.id] || { order: [], count: 0 };
+      const hintsCount = hintsUsed[currentQuestion.id] || 0;
+      const cOrder = choicesOrders[currentQuestion.id] || null;
+      const initItemOrd = initialItemOrders[currentQuestion.id] || null;
+
+      const detailRecord: QuestionAnswerDetail = {
+        questionId: currentQuestion.id,
+        questionType: currentQuestion.type,
+        isCorrect: result.judgeable ? result.isCorrect : false,
+        elapsedSeconds: qElapsed,
+        hintsUsedCount: hintsCount,
+        selectedChoiceId: (currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false')
+          ? answerTextOrChoiceId
+          : null,
+        choicesOrder: cOrder,
+        choicesInteractionsCount: interaction.count,
+        userAnswer: (currentQuestion.type === 'text-input' || currentQuestion.type === 'quick-press' || currentQuestion.type === 'association')
+          ? answerTextOrChoiceId
+          : null,
+        quickPressSeconds: quickPressSec,
+        initialItemOrder: initItemOrd,
+        finalItemOrder: currentQuestion.type === 'sorting'
+          ? answerTextOrChoiceId.split(',')
+          : null,
+        answerChanged: interaction.count > 1,
+      };
+
+      setQuestionAnswerDetails((prev) => {
+        const filtered = prev.filter((d) => d.questionId !== currentQuestion.id);
+        return [...filtered, detailRecord];
+      });
+      // ──────────────────────────────────────
+
       if (manualAdvance) {
         setFeedbackPending(true);
         setLastAnswerResult(result);
@@ -267,6 +356,10 @@ export function usePlayState({
       skipJudgmentWhenIncomplete,
       manualAdvance,
       finalizeCurrentSegment,
+      choicesInteractions,
+      hintsUsed,
+      choicesOrders,
+      initialItemOrders,
     ]
   );
 
@@ -365,6 +458,9 @@ export function usePlayState({
 
   useEffect(() => {
     setShowAnswer(false);
+    // 設問表示時のタイマー記録および早押し初期化
+    questionShowTimeRef.current = Date.now();
+    quickPressShowTimeRef.current = null;
 
     if (questions.length === 0 || currentIdx >= questions.length) return;
 
@@ -394,6 +490,7 @@ export function usePlayState({
     answeredIds,
     failedIds,
     questionAnswers,
+    questionAnswerDetails, // 新規追加
     score,
     elapsedSeconds,
     timeLeft,
@@ -408,5 +505,11 @@ export function usePlayState({
     lastAnswerResult,
     isFinished,
     beginLimitCountdown,
+    // 以下、新規追加のトラッキング関数
+    registerChoicesOrder,
+    registerInitialItemOrder,
+    incrementHintsUsed,
+    trackChoiceClick,
+    startQuickPressTimer,
   };
 }

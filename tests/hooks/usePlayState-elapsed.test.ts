@@ -211,4 +211,99 @@ describe('usePlayState 区間累計経過時間', () => {
 
     expect(result.current.timeLeft).toBeNull();
   });
+
+  describe('解答詳細トラッキング', () => {
+    const trackingQuestions: Question[] = [
+      {
+        ...baseQuestion,
+        id: 'q_choice',
+        type: 'multiple-choice',
+        choices: [
+          { id: 'c1', text: '選択肢1', isCorrect: true },
+          { id: 'c2', text: '選択肢2', isCorrect: false },
+        ],
+        correctTextAnswerList: ['c1'],
+      },
+      {
+        ...baseQuestion,
+        id: 'q_sort',
+        type: 'sorting',
+        sortingItems: [
+          { id: 'i1', text: 'アイテム1' },
+          { id: 'i2', text: 'アイテム2' },
+        ],
+        correctTextAnswerList: ['i1,i2'],
+      }
+    ];
+
+    test('多肢選択問題での詳細トラッキングが機能すること', () => {
+      const { result } = renderHook(() =>
+        usePlayState({
+          quizId: 'quiz1',
+          userId: 'user1',
+          mode: 'normal',
+          questions: [trackingQuestions[0]],
+          persistSession: false,
+          manualAdvance: true,
+        })
+      );
+
+      // ヒント使用、選択肢選択
+      act(() => {
+        result.current.registerChoicesOrder('q_choice', ['c1', 'c2']);
+        result.current.incrementHintsUsed('q_choice');
+        result.current.incrementHintsUsed('q_choice');
+        result.current.trackChoiceClick('q_choice', 'c2');
+        result.current.trackChoiceClick('q_choice', 'c1');
+      });
+
+      // 回答を記録
+      act(() => {
+        result.current.recordAnswer('c1');
+      });
+
+      const details = result.current.questionAnswerDetails;
+      expect(details).toHaveLength(1);
+      expect(details[0]).toEqual(expect.objectContaining({
+        questionId: 'q_choice',
+        questionType: 'multiple-choice',
+        isCorrect: true,
+        hintsUsedCount: 2,
+        selectedChoiceId: 'c1',
+        choicesOrder: ['c1', 'c2'],
+        choicesInteractionsCount: 2,
+        answerChanged: true,
+      }));
+    });
+
+    test('並べ替え問題での詳細トラッキングが機能すること', () => {
+      const { result } = renderHook(() =>
+        usePlayState({
+          quizId: 'quiz1',
+          userId: 'user1',
+          mode: 'normal',
+          questions: [trackingQuestions[1]],
+          persistSession: false,
+          manualAdvance: true,
+        })
+      );
+
+      act(() => {
+        result.current.registerInitialItemOrder('q_sort', ['i2', 'i1']);
+      });
+
+      act(() => {
+        result.current.recordAnswer('i1,i2');
+      });
+
+      const details = result.current.questionAnswerDetails;
+      expect(details).toHaveLength(1);
+      expect(details[0]).toEqual(expect.objectContaining({
+        questionId: 'q_sort',
+        questionType: 'sorting',
+        initialItemOrder: ['i2', 'i1'],
+        finalItemOrder: ['i1', 'i2'],
+      }));
+    });
+  });
 });
