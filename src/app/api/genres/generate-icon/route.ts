@@ -132,6 +132,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const response = await genAiClient.models.generateContent({
         model: imageModelId,
         contents: buildIconPrompt(displayName.trim(), description.trim()),
+        config: {
+          imageConfig: {
+            aspectRatio: '1:1',
+            imageSize: '1K',
+          }
+        }
       });
       imageBuffer = extractImageBuffer(response);
     } catch (aiError) {

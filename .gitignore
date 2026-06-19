@@ -48,3 +48,5 @@ next-env.d.ts
 
 *.log
 .env.local
+
+/assets
