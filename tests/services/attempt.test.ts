@@ -170,6 +170,143 @@ describe('AttemptService - saveAttempt', () => {
       })
     );
   });
+
+  test('questionAnswerDetails の件数が不整合な場合にエラーを投げること', async () => {
+    const mockQuizSnap = {
+      exists: () => true,
+      data: () => ({
+        playCount: 10,
+        questions: [{ id: 'q1' }, { id: 'q2' }],
+      }),
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockReturnValue(mockQuizSnap),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+
+    const attemptData = {
+      userId,
+      quizId,
+      mode: 'normal' as const,
+      score: 1,
+      totalQuestions: 2,
+      elapsedSeconds: 30,
+      failedQuestionIds: ['q2'],
+      aiTurnCount: 0,
+      aiTurnLimit: null,
+      questionAnswerDetails: [
+        {
+          questionId: 'q1',
+          questionType: 'multiple-choice' as const,
+          isCorrect: true,
+          elapsedSeconds: 15,
+          hintsUsedCount: 0,
+        },
+      ],
+    };
+
+    await expect(saveAttempt(attemptData)).rejects.toThrow('解答詳細の件数が不整合です');
+  });
+
+  test('questionAnswerDetails の正解数とスコアが不整合な場合にエラーを投げること', async () => {
+    const mockQuizSnap = {
+      exists: () => true,
+      data: () => ({
+        playCount: 10,
+        questions: [{ id: 'q1' }, { id: 'q2' }],
+      }),
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockReturnValue(mockQuizSnap),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+
+    const attemptData = {
+      userId,
+      quizId,
+      mode: 'normal' as const,
+      score: 1,
+      totalQuestions: 2,
+      elapsedSeconds: 30,
+      failedQuestionIds: ['q2'],
+      aiTurnCount: 0,
+      aiTurnLimit: null,
+      questionAnswerDetails: [
+        {
+          questionId: 'q1',
+          questionType: 'multiple-choice' as const,
+          isCorrect: true,
+          elapsedSeconds: 15,
+          hintsUsedCount: 0,
+        },
+        {
+          questionId: 'q2',
+          questionType: 'multiple-choice' as const,
+          isCorrect: true,
+          elapsedSeconds: 15,
+          hintsUsedCount: 0,
+        },
+      ],
+    };
+
+    await expect(saveAttempt(attemptData)).rejects.toThrow('解答詳細の正解数 (2) が送信されたスコア (1) と一致しません');
+  });
+
+  test('questionAnswerDetails にクイズに存在しない不正な問題IDがある場合にエラーを投げること', async () => {
+    const mockQuizSnap = {
+      exists: () => true,
+      data: () => ({
+        playCount: 10,
+        questions: [{ id: 'q1' }, { id: 'q2' }],
+      }),
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockReturnValue(mockQuizSnap),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+
+    const attemptData = {
+      userId,
+      quizId,
+      mode: 'normal' as const,
+      score: 1,
+      totalQuestions: 2,
+      elapsedSeconds: 30,
+      failedQuestionIds: ['q2'],
+      aiTurnCount: 0,
+      aiTurnLimit: null,
+      questionAnswerDetails: [
+        {
+          questionId: 'q1',
+          questionType: 'multiple-choice' as const,
+          isCorrect: true,
+          elapsedSeconds: 15,
+          hintsUsedCount: 0,
+        },
+        {
+          questionId: 'q_hack',
+          questionType: 'multiple-choice' as const,
+          isCorrect: false,
+          elapsedSeconds: 15,
+          hintsUsedCount: 0,
+        },
+      ],
+    };
+
+    await expect(saveAttempt(attemptData)).rejects.toThrow('該当クイズに存在しない不正な問題IDが解答詳細に含まれています: q_hack');
+  });
 });
 
 describe('AttemptService - getFailedQuestions', () => {

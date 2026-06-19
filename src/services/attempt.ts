@@ -28,6 +28,7 @@ import {
   PlayHistoryEntry,
   assertPlayModeAllowedForSave,
   satisfiesMyQuizAttemptContract,
+  QuestionAnswerDetail,
 } from '../types';
 import {
   buildLeaderboardUpdatesForQuiz,
@@ -150,6 +151,28 @@ export async function saveAttempt(
       : actualTotalQuestions - attemptData.failedQuestionIds.length;
     if (attemptData.score !== calculatedScore) {
       throw new Error(`スコアデータの不整合が検知されました。計算スコア: ${calculatedScore}, 送信スコア: ${attemptData.score}`);
+    }
+
+    if (attemptData.questionAnswerDetails && attemptData.questionAnswerDetails.length > 0) {
+      const details = attemptData.questionAnswerDetails;
+      if (details.length !== attemptData.totalQuestions) {
+        throw new Error(
+          `解答詳細の件数が不整合です。期待される問題数: ${attemptData.totalQuestions}, 送信された詳細件数: ${details.length}`
+        );
+      }
+      const detailsCorrectCount = details.filter((d) => d.isCorrect).length;
+      if (detailsCorrectCount !== attemptData.score) {
+        throw new Error(
+          `解答詳細の正解数 (${detailsCorrectCount}) が送信されたスコア (${attemptData.score}) と一致しません`
+        );
+      }
+      for (const detail of details) {
+        if (!quizQuestionIds.has(detail.questionId)) {
+          throw new Error(
+            `該当クイズに存在しない不正な問題IDが解答詳細に含まれています: ${detail.questionId}`
+          );
+        }
+      }
     }
     // ───────────────────────────────────────────────────────────────
 
