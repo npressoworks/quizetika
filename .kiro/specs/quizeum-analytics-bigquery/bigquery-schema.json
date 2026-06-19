@@ -1,0 +1,89 @@
+[
+  {
+    "name": "questionAnswerDetails",
+    "type": "RECORD",
+    "mode": "REPEATED",
+    "fields": [
+      {
+        "name": "questionId",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "questionType",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "isCorrect",
+        "type": "BOOLEAN",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "elapsedSeconds",
+        "type": "FLOAT",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "hintsUsedCount",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "selectedChoiceId",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "choicesOrder",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "choicesInteractionsCount",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "userAnswer",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "quickPressSeconds",
+        "type": "FLOAT",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "initialItemOrder",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "finalItemOrder",
+        "type": "STRING",
+        "mode": "REPEATED"
+      },
+      {
+        "name": "aiTurnCount",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "truthSummary",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "lateralPlayEndedStatus",
+        "type": "STRING",
+        "mode": "NULLABLE"
+      },
+      {
+        "name": "answerChanged",
+        "type": "BOOLEAN",
+        "mode": "NULLABLE"
+      }
+    ]
+  }
+]

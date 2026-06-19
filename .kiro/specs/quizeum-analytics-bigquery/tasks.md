@@ -36,7 +36,7 @@
   - _Requirements: 1.5, 3.2, 3.3_
   - _Boundary: AttemptService_
   - _Depends: 2.1_
-- [ ] 2.4 (P) BigQuery 同期スキーマおよび移行ガイドの配置
+- [x] 2.4 (P) BigQuery 同期スキーマおよび移行ガイドの配置
   - 同期先 BigQuery テーブル用のカラムスキーマ定義 JSON を作成
   - 配列データをアンネスト展開して設問ごとのフラットな統計行にする分析用ビューの SQL スクリプトを作成
   - 既存の Firestore 内の履歴データを BigQuery に一括移行するためのインポートコマンド手順書をドキュメントとして作成
