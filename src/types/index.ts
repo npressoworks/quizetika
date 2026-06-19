@@ -184,6 +184,14 @@ export interface AiQuestion {
   createdAt: Date;
 }
 
+export interface AiTruthAttempt {
+  id: string;
+  truthText: string;
+  isCorrect: boolean;
+  aiFeedback: string;
+  createdAt: Date | any; // Firestore の FieldValue.arrayUnion を考慮
+}
+
 // クイズ挑戦結果 (APIやローカル再生の記録用)
 export interface QuestionAnswerRecord {
   questionId: string;
@@ -217,6 +225,7 @@ export interface QuestionAnswerDetail {
   aiTurnCount?: number | null;           // 質問ターン数
   truthSummary?: string | null;          // 真相解答の最終テキスト
   lateralPlayEndedStatus?: 'passed' | 'gave_up' | null; // 合格/リタイアのステータス
+  answerChanged?: boolean;               // 回答変更有無
 }
 
 export interface Attempt {
@@ -248,6 +257,7 @@ export interface Attempt {
   questionAnswerDetails?: QuestionAnswerDetail[]; // 各問題ごとの詳細な解答行動データ（新規追加）
   difficultyVote?: number | null; // 難易度投票値
   aiQuestionsHistory?: AiQuestion[]; // AI対話履歴
+  aiTruthAttempts?: AiTruthAttempt[]; // 真相提出履歴（水平思考用）
   aiTurnCount: number;    // 質問ターン数
   aiTurnLimit: number | null; // 質問制限数
   completedAt: Date;

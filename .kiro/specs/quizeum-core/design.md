@@ -61,6 +61,7 @@
 - **Phase 21 ホームフィード段階的取得（2026-06）**: `PaginatedQuizResult`、タブ別ページ API、複合検索のページ分割、カーソル encode/decode lib。
 - **Phase 22 ホーム／検索 IA（2026-06）**: ディスカバリーホーム向け Top 10 一覧再利用、`search-url-state.ts` による URL ↔ 探索状態変換。
 - **Phase 23 リスト探索・マイクイズ Core API（2026-06）**: `searchLists`、`buildMyQuizQuestionPool`、`my-quiz-session`、`my-quiz` 試行記録、`saveAttempt` 1問契約。
+- **Phase 28 解答詳細トラッキングとサーバー検証（2026-06）**: 全問題形式に対応する `QuestionAnswerDetail` 構造設計、`saveAttempt` 内でのサーバー二重検証（件数・正誤・問題ID実在性）、オンライン復旧時の一括バッチ同期（`syncPendingAttempts`）設計。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -129,6 +130,7 @@
 - **Phase 13**: `User` の `subscriptionTier` / 課金関連フィールド追加、`resolveUserEntitlements` の tier 解釈変更、Checkout / Portal / Webhook API のリクエスト・レスポンス形状変更、`subscription-plans` マスタへの `premium` tier 追加。
 - **Phase 17**: `FREE_TIER_PER_QUIZ_LIMIT` / `FREE_TIER_GLOBAL_DAILY_LIMIT` の変更、`dailyAiTurnCounts/_global` doc 契約変更、`limit-exceeded` の `limitType` 追加、諦め API 応答形状変更（`revealText` 廃止）、`normalizeQuestionText` 規則変更。
 - **Phase 18**: `isLeaderboardEligibleAttempt` の除外モード集合変更、`countPriorCompletedAttempts` のカウント対象（全モード／test-play 除外）変更。
+- **Phase 28**: `Attempt.questionAnswerDetails` のデータ定義変更、`saveAttempt` 内検証ロジック（件数・正解数・問題ID実在）の変更、`PendingSyncAttempt` キュー構造変更。
 
 ---
 
@@ -3576,3 +3578,143 @@ function canReadQuiz() {
 **Effort**: **M**（2–3日、UI スペックは Core 完了後）
 
 **Document Status（Phase 27 設計）**: 本節に反映。
+
+---
+
+## Phase 28: クイズプレイ解答詳細トラッキングと二重検証（Core）
+
+### 1. Overview
+
+Phase 28 は、クイズプレイ時の詳細な回答データ（解答秒数、正誤、ヒント使用履歴、選択順、回答変更有無など）を `QuestionAnswerDetail` オブジェクトとして収集し、試行完了時に `attempts` ドキュメントに保存・蓄積する設計仕様である。また、不正なクライアント送信やデータの改ざんを防ぐため、`saveAttempt` 時にサーバーサイドで詳細レコードと全体のスコア・問題数・クイズ内の問題構成に矛盾がないかを二重検証する。オフラインプレイ時のデータは一時退避し、オンライン復旧時に `syncPendingAttempts` 経由でバッチ同期する。
+
+### 2. Boundary Commitments（Phase 28）
+
+| Owns | Out |
+|------|-----|
+| `QuestionAnswerDetail` 型・`Attempt.questionAnswerDetails` 型定義 | クイズプレイ中のタイマー測定・ヒント閲覧・選択肢変更検知 UI フック（lifecycle UI） |
+| `saveAttempt` における解答詳細データのサーバー二重検証 | BigQuery への自動データ同期設定（Firebase Extension 管理） |
+| `syncPendingAttempts` API / 未同期 attempt バッチ処理 | BigQuery 上のデータ展開ビュー（BigQuery ビュー SQL 定義） |
+
+**Allowed dependencies**: `attempts` コレクション、`quizzes` コレクション、および `saveAttempt` トランザクション処理。
+
+**Revalidation triggers**: `QuestionAnswerDetail` のスキーマ定義の変更、`saveAttempt` バリデーションエラー条件の変更、または `syncPendingAttempts` バッチ契約の変更。
+
+### 3. Architecture & Data Models
+
+#### 3.1 型定義 (`src/types/index.ts`)
+
+```typescript
+export interface QuestionAnswerDetail {
+  questionId: string;
+  questionType: 'true-false' | 'multiple-choice' | 'text-input' | 'quick-press' | 'sorting' | 'association' | 'lateral-thinking';
+  isCorrect: boolean;
+  elapsedSeconds: number;                // 小数点を含む解答経過時間（秒）
+  hintsUsedCount: number;                // 使用したヒント数
+
+  // 1. 選択式・真偽値クイズ用 (multiple-choice, true-false)
+  selectedChoiceId?: string | null;      // 選択した選択肢ID
+  choicesOrder?: string[] | null;        // 提示された選択肢IDのシャッフル順
+  choicesInteractionsCount?: number;     // 決定までに選択肢をクリック・変更した回数
+
+  // 2. 記述式・短答・早押しクイズ用 (text-input, quick-press, association)
+  userAnswer?: string | null;            // 入力された回答文字列
+  quickPressSeconds?: number | null;     // 早押しボタンを押すまでの経過時間
+
+  // 3. 並び替えクイズ用 (sorting)
+  initialItemOrder?: string[] | null;    // 提示時の初期アイテム順
+  finalItemOrder?: string[] | null;      // 最終アイテム順
+
+  // 4. 水平思考クイズ用 (lateral-thinking)
+  aiTurnCount?: number | null;           // 質問ターン数
+  truthSummary?: string | null;          // 真相解答の最終テキスト
+  lateralPlayEndedStatus?: 'passed' | 'gave_up' | null; // 合格/リタイアのステータス
+  answerChanged?: boolean;               // 回答変更有無
+}
+
+export interface Attempt {
+  // ...既存フィールド
+  questionAnswerDetails?: QuestionAnswerDetail[]; // 各問題ごとの詳細な解答行動データ（新規追加）
+}
+```
+
+#### 3.2 サーバーサイド二重検証 (`src/services/attempt.ts`)
+
+`saveAttempt` API は、クライアントから送信されたデータをトランザクションで書き込む前に、サーバーサイドで以下の整合性を検証し、不整合があればエラー（書き込み拒否）とする。
+
+```typescript
+// 整合性検証 (double-validation)
+if (attemptData.questionAnswerDetails && attemptData.questionAnswerDetails.length > 0) {
+  const details = attemptData.questionAnswerDetails;
+  
+  // 1. 詳細データの件数が全体の総問題数と一致しているか
+  if (details.length !== attemptData.totalQuestions) {
+    throw new Error(`解答詳細の件数が不整合です。期待される問題数: ${attemptData.totalQuestions}, 送信された詳細件数: ${details.length}`);
+  }
+  
+  // 2. 詳細データ内の正解数（isCorrect == true）が送信されたスコア（score）と一致しているか
+  const detailsCorrectCount = details.filter((d) => d.isCorrect).length;
+  if (detailsCorrectCount !== attemptData.score) {
+    throw new Error(`解答詳細の正解数 (${detailsCorrectCount}) が送信されたスコア (${attemptData.score}) と一致しません`);
+  }
+  
+  // 3. 詳細データ内のすべての questionId が、対象クイズの questionIds に実在しているか
+  for (const detail of details) {
+    if (!quizQuestionIds.has(detail.questionId)) {
+      throw new Error(`該当クイズに存在しない不正な問題IDが解答詳細に含まれています: ${detail.questionId}`);
+    }
+  }
+}
+```
+
+#### 3.3 オフラインキューおよびバッチ同期
+
+オフライン時に完了した attempt データは、`QuestionAnswerDetail[]` を含んだ状態で `localStorage` の `PendingSyncAttempt` 配列にキューイングされる。オンライン復旧時、以下の同期関数が呼び出される。
+
+```typescript
+export async function syncPendingAttempts(): Promise<number> {
+  const pending = getPendingSyncAttempts();
+  if (pending.length === 0) return 0;
+
+  let successCount = 0;
+  for (const pendingAttempt of pending) {
+    try {
+      const attempt = pendingSyncToAttempt(pendingAttempt);
+      await saveAttempt(attempt); // トランザクション版を呼び出して同期・検証
+      clearPendingSyncAttempt(pendingAttempt.localId);
+      successCount++;
+    } catch (e) {
+      console.warn(`[AttemptService] 未同期データの同期に失敗 (localId=${pendingAttempt.localId}):`, e);
+    }
+  }
+  return successCount;
+}
+```
+
+### 4. File Structure Plan（Phase 28）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/types/index.ts` | Modify | `QuestionAnswerDetail` 型定義の追加、`Attempt` スキーマ拡張 |
+| `src/services/attempt.ts` | Modify | `saveAttempt` トランザクション内での解答詳細二重検証、`syncPendingAttempts` バッチ同期の実装 |
+| `src/services/attempt-session.ts` | Modify | クライアント側プレイセッション型定義への `questionAnswerDetails` 拡張 |
+
+### 5. Requirements Traceability（Phase 28）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 28.1 | `QuestionAnswerDetail` 保存 | `Attempt` スキーマ定義, `saveAttempt` |
+| 28.2 | サーバー二重検証 | `saveAttempt` 内バリデーションロジック |
+| 28.3 | オフラインバッチ同期 | `syncPendingAttempts` |
+
+### 6. Testing Strategy（Phase 28）
+
+| 種別 | 検証 |
+|------|------|
+| **Unit** | `saveAttempt` 二重検証 — 詳細件数不整合、正誤数不整合、存在しない問題IDの混入で例外がスローされること |
+| **Unit** | `syncPendingAttempts` — オンライン復帰時のバッチ同期で、未同期詳細データが正常に永続化され、ローカルキューが空になること |
+| **Regression** | `questionAnswerDetails` が空の legacy 試行に対しても `saveAttempt` がエラーなしで成功すること |
+
+**Effort**: **S** (既に実装済みのコードの同期)
+
+**Document Status（Phase 28 設計）**: 本節に反映。
+

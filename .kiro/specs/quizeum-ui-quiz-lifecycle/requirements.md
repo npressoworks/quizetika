@@ -12,6 +12,8 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 
 移行順序はリスク低減のため詳細→結果→復習→プレイ（最後）とする。`quizeum-ui-layout-shell` に依存し、`/play` および `/quiz/test-play/*` では LayoutWrapper のシェル非表示契約を維持する。移行完了時に関連 Playwright E2E および Jest テストがグリーンであることを要求する。
 
+**Phase 27（2026-06）**: クイズプレイ統計の BigQuery 連携基盤として、すべての問題形式（真偽値、多肢選択、記述、早押し、並べ替え、連想、水平思考）に対応した詳細な回答データ（解答時間、正誤、ヒント使用履歴、選択順、回答変更有無、記述回答内容など）をトラッキングし、完了ペイロードの `questionAnswerDetails` に含めて保存する要件を追加します。
+
 ## Boundary Context
 
 - **In scope**:
@@ -26,6 +28,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
   - 既存 `data-testid` の維持
   - 当該 `.module.css` の削除
   - 関連 E2E・Jest 回帰確認
+  - **Phase 27**: クイズプレイ画面（通常・ウミガメスープ・並び替え等）でのタイマー測定・ヒント閲覧・選択肢アクションのトラッキング UI/フック実装、および完了ペイロードへの解答詳細（`QuestionAnswerDetail[]`）の統合。
 - **Out of scope**:
   - クイズエディタ（`/quiz/create`, `/quiz/[id]/edit`）、`quiz-editor.tsx`, `quiz-list-editor`, `genre-editor-select`, `author-quiz-reference-panel`, `editor-skeleton`
   - `feedback-skeleton`（`quizeum-ui-admin-creator` が所有）
@@ -105,6 +108,9 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 5. When ユーザーがテストプレイ結果画面に遷移したとき, the Quiz Lifecycle UI shall 本番結果画面と同等の結果 UI 契約を維持する。
 6. The Quiz Lifecycle UI shall プレイ画面の DOM 契約および `data-testid` を E2E 互換の範囲で維持する。
 7. The Quiz Lifecycle UI shall プレイ画面で旧 Quizeum ビジュアルを使用せず、没入型レイアウト（全画面コンテンツ、十分なタップ領域）を維持する。
+8. When [プレイヤーがクイズ（通常・ウミガメスープ・並び替え等の全形式）をプレイしているとき], the Quiz Lifecycle UI shall [解答時間、ヒント閲覧アクション、および選択肢変更アクション（最初のクリックから別の選択肢への変更等）をフックしトラッキングする]。
+9. When [クイズプレイが完了したとき], the Quiz Lifecycle UI shall [トラッキングされた `QuestionAnswerDetail[]` 配列を構築し、完了ペイロードとして `attempts` 保存処理に統合する]。
+
 
 ### Requirement 7: 通報モーダルと補助コンポーネント
 **Objective:** As a プレイヤー, I want 通報や補助 UI が shadcn 標準の Dialog で操作できること, so that モデレーション導線と情報表示が一貫する。

@@ -1361,3 +1361,48 @@
 - `getQuiz` 単体は引き続き ID 取得可とし、**呼び出し側または assertCanViewQuiz ラッパ**で遮断（lifecycle UI / API が消費）。
 - マイグレーション本番実行はステージング検証後。インデックス追加はクエリ変更と同 PR 推奨。
 - Phase 27 実装完了（2026-06-10）: Jest 168 suites / 848 tests グリーン。`saveQuiz` も visibility ゲート対象。既存 attempt テストは `assertCanViewQuizAsync` を mock。
+
+---
+
+### 25. Phase 28: クイズプレイ解答詳細トラッキングと二重検証（2026-06）
+
+- [x] 25.1 解答詳細データモデル（QuestionAnswerDetail）の定義
+  - `src/types/index.ts` に `QuestionAnswerDetail` インターフェースを定義し、各問題形式特有のフィールド（シャッフル順、クリック回数、早押し時間、並べ替え結果、AI対話ターン、真相要約等）を設定
+  - `Attempt` スキーマに `questionAnswerDetails` 配列を追加
+  - **完了状態**: コンパイルが正常に通る状態になり、解答詳細の型が安全に参照できること
+  - _Requirements: 28.1_
+  - _Boundary: types_
+
+- [x] 25.2 saveAttempt トランザクション内のサーバーサイド二重検証
+  - `src/services/attempt.ts` の `saveAttempt` にて、送信された `questionAnswerDetails` の数とスコア、および問題IDの実在検証をアトミックに検証するロジックを実装
+  - 不整合検知時はエラーをスローし、Firestore への書き込みを拒否する
+  - **完了状態**: テストで不整合データ送信時に例外がスローされ、トランザクションがロールバックされること
+  - _Requirements: 28.2_
+  - _Depends: 25.1_
+  - _Boundary: AttemptService_
+
+- [x] 25.3 オフラインプレイ結果の永続化とオンライン自動バッチ同期
+  - `localStorage` に退避された未同期データ（`PendingSyncAttempt` 配列）をオンライン復帰時に一括して Firestore へ同期する `syncPendingAttempts` の同期連携処理を実装
+  - **完了状態**: オンライン復旧時にバッチ同期処理が走り、未同期 attempts が検証をクリアした上で安全に永続化されること
+  - _Requirements: 28.3_
+  - _Depends: 25.2_
+  - _Boundary: AttemptService_
+
+- [x] 25.4 (P) Phase 28 単体・サービステスト
+  - `saveAttempt` のバリデーション（件数不整合、スコア不整合、無効ID）および `syncPendingAttempts` の同期成功/ロールバック挙動を Jest テストで検証する
+  - **完了状態**: 解答詳細トラッキング・検証・同期に関連するすべての単体テストがグリーンであること
+  - _Requirements: 28.2, 28.3_
+  - _Depends: 25.2, 25.3_
+  - _Boundary: Testing_
+
+- [x] 25.5 Phase 28 統合検証
+  - 全体のクイズプレイフローにおいて、詳細行動のトラッキングデータ（タイマー値、クリック回数、ヒント使用数等）が破損なく保存されることを検証
+  - **完了状態**: 統合テストスイートが正常にパスし、既存のクイズプレイおよび統計更新に退行がないこと
+  - _Requirements: 28.1, 28.2, 28.3_
+  - _Depends: 25.4_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 28)
+
+- 実装順: 25.1 → 25.2 → 25.3 → 25.4 → 25.5。
+- UI プレイ画面（`quizeum-ui-quiz-lifecycle`）側でのフックトラッキング実装が先行または同時に完了している必要があります。

@@ -8,6 +8,8 @@
 
 **Impact**: クイズライフサイクル領域の CSS Modules（`play.module.css` 約 773 行を含む計 24+ ファイル）を削除し、shadcn 標準サーフェスに置換。UI 刷新における最高リスク・最大 CSS 量のスライスとなる。
 
+**Phase 27（2026-06）**: クイズプレイ統計の BigQuery 連携基盤として、すべての問題形式に対応した詳細な回答データ（解答時間、正誤、ヒント使用履歴、選択順、回答変更有無など）をトラッキング・収集する設計、および完了ペイロードとして `saveAttempt` 等の保存処理へ統合する設計を追加します。
+
 ### Goals
 - ライフサイクル全画面の Tailwind + shadcn 再実装（shadcn 標準寄せ）
 - プレイ没入型 UX、回答フィードバック、タイマー/進捗表示の機能・体感維持
@@ -38,6 +40,7 @@
   - スケルトン: `detail-skeleton`, `play-skeleton`, `result-skeleton`, `recommend-skeleton`, `leaderboard-skeleton`
 - ライフサイクル関連 `.module.css` の削除
 - E2E 回帰（`quiz-play.spec.ts`, `leaderboard.spec.ts` 等）
+- **Phase 27**: プレイ画面（通常・ウミガメスープ・並び替え等）でのタイマー測定・ヒント表示・選択肢アクション等のトラッキング UI/フック設計、および完了ペイロードへの `questionAnswerDetails` 統合。
 
 ### Out of Boundary
 - `src/app/quiz/create/`, `src/app/quiz/[id]/edit/` — エディタ（`quizeum-ui-editor`）
@@ -201,6 +204,8 @@ e2e/
 - 共有コンポーネント 18 ファイル — CSS Modules import 削除、Tailwind + shadcn 適用
 - ページ Client 8 ファイル — 同上。ロジック・hooks 呼び出しは不変
 - `e2e/quiz-play.spec.ts` — class 依存 selector が破損した場合のみ `data-testid` へ更新
+- `src/hooks/usePlayState.ts` — 解答時間、ヒント数、選択肢操作回数の測定・トラッキングフック、`questionAnswerDetails` 状態の管理。
+- `src/app/quiz/[id]/play/quiz-play-client.tsx` — プレイ完了時の `saveAttempt` 呼び出しに `questionAnswerDetails` を含める統合設計。
 
 ---
 
@@ -249,6 +254,7 @@ sequenceDiagram
 | 4.1–4.4 | グローバル LB | LeaderboardClient | Tabs | Leaderboard |
 | 5.1–5.5 | 回答 UI | ChoiceAnswerPanel, TrueFalseAnswerPanel, PostAnswerFeedback | onConfirm props | Play |
 | 6.1–6.7 | プレイ没入 | QuizPlayClient, TestPlayClient, PlaySkeleton | usePlayState | Play |
+| 6.8–6.9 | 詳細トラッキングと統合 | usePlayState, QuizPlayClient | props 統合 | Play flow |
 | 7.1–7.4 | 通報・スケルトン | ReportModal, Skeletons | Dialog | Modal |
 | 8.1–8.5 | shadcn ビジュアル | 全コンポーネント | Tailwind tokens | Theme |
 | 9.1–9.4 | CSS 削除 | 全対象ファイル | — | Migration |
@@ -323,6 +329,7 @@ type ChoiceAnswerPanelProps = {
 - 進捗: shadcn Progress + `play-elapsed-seconds` testid 維持
 - 全画面レイアウト: `playContainer` 相当を Tailwind で再現（padding なし、シェル非表示は LayoutWrapper 委譲）
 - `play-skip-question`, `quiz-play-skeleton`, `quiz-play-completing` testid 維持
+- プレイ完了時、`usePlayState` から返却される `questionAnswerDetails` 配列を `saveAttempt` のペイロードに統合して送信する。
 
 **Dependencies**
 - Inbound: play/page.tsx — initialQuiz（P0）

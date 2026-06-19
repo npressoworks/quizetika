@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Question } from '@/types';
+import { Question, QuestionAnswerDetail } from '@/types';
 import { LocalAttemptSession, PlayProgressData } from '@/services/attempt-session';
 import { isChoiceAnswerCorrect } from '@/services/choice-answer-utils';
 import { isTextInputAnswerCorrect } from '@/services/text-answer-utils';

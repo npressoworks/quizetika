@@ -178,11 +178,50 @@
   - _Requirements: 6.7, 8.2, 8.3, 8.4, 10.5_
   - _Depends: 10.2_
 
-- [x]* 10.4 回答パネルと ReportModal のスモークレンダリングテストを追加する
+- [x] 10.4 回答パネルと ReportModal のスモークレンダリングテストを追加する
   - ChoiceAnswerPanel / TrueFalseAnswerPanel / PostAnswerFeedback / ReportModal を mount し、主要 `data-testid` が存在することを検証するテストを追加する
   - `npm run test` がパスすることを確認する
   - _Requirements: 5.1, 5.2, 5.3, 7.1_
   - _Depends: 10.1_
+
+---
+
+## 11. Phase 27: クイズプレイ解答詳細トラッキングと完了ペイロード統合（2026-06）
+
+- [x] 11.1 プレイ進行中における各種行動（解答時間、ヒント、選択肢操作）のトラッキング
+  - `src/hooks/usePlayState.ts` にて、問題開始時刻の測定、回答決定時またはタイムアップ時の解答時間（`elapsedSeconds`）計算、ヒント表示回数の累積、選択肢操作（クリック・変更）の回数カウントなどのトラッキングフックを実装
+  - 各問題形式ごとの専用データ（早押し秒数、並べ替え初期・最終順、対話質問履歴、水平思考ステータス等）を測定し、`QuestionAnswerDetail[]` 配列を更新・保持する
+  - **完了状態**: プレイ中のユーザー操作に応じて `questionAnswerDetails` 状態が正確に更新され、問題ごとのログが蓄積されること
+  - _Requirements: 6.8_
+  - _Boundary: usePlayState_
+
+- [x] 11.2 プレイ完了ペイロードへの解答詳細（questionAnswerDetails）統合
+  - `src/app/quiz/[id]/play/quiz-play-client.tsx` のプレイ完了処理および attempt 保存ペイロード構築ロジックを更新
+  - `usePlayState` から返却された最新の `questionAnswerDetails` 配列を `saveAttempt` 呼び出し時の引数に含めて送信する
+  - **完了状態**: プレイ完了時の `saveAttempt` API コールに、蓄積された全問題の `QuestionAnswerDetail` が正しいスキーマで含められること
+  - _Requirements: 6.9_
+  - _Depends: 11.1_
+  - _Boundary: QuizPlayClient_
+
+- [x] 11.3 (P) Phase 27 関連モジュールの単体・サービステスト
+  - `usePlayState` フックにおけるトラッキングデータの蓄積ロジックが期待通り動作することを検証するテストを追加する
+  - **完了状態**: トラッキング機能に関する Jest がすべてグリーンであること
+  - _Requirements: 6.8, 6.9_
+  - _Depends: 11.1, 11.2_
+  - _Boundary: Testing_
+
+- [x] 11.4 Phase 27 統合検証
+  - クイズ全体のライフサイクルテスト（E2E、スモーク）を実行し、トラッキング情報が attempt 永続化に正しく反映され、かつプレイ体験に退行がないことを確認する
+  - **完了状態**: テストスイート全体が正常にパスし、`npm run build` がエラーなしで成功すること
+  - _Requirements: 6.8, 6.9_
+  - _Depends: 11.3_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 27)
+
+- 実装順: 11.1 → 11.2 → 11.3 → 11.4。
+- クイズコア（`quizeum-core`）側の `saveAttempt` のバリデーション対応が先行または同時に完了している必要があります。
+
 
 ## Implementation Notes
 - 大規模ページは `*-classes.ts` Tailwind クラスマップで CSS Modules の API を置換（play/detail/result/success/review/leaderboard）
