@@ -94,7 +94,7 @@ export function AnnouncementsTab() {
           <CardContent className="pt-0">
             <div
               data-testid={`announcement-content-${ann.id}`}
-              className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert"
+              className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert announcement-content"
               dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(ann.content) }}
             />
           </CardContent>

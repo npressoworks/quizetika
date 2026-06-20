@@ -253,7 +253,7 @@ export default function AdminAnnouncementsClient() {
 
               {isPreview ? (
                 <div 
-                  className="border rounded-md p-3 min-h-[150px] bg-muted/40 prose prose-sm max-w-none"
+                  className="border rounded-md p-3 min-h-[150px] bg-muted/40 prose prose-sm max-w-none announcement-content"
                   dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(content) }}
                 />
               ) : (
