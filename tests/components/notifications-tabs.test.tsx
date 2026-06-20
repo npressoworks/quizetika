@@ -23,6 +23,10 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+jest.mock('@/app/notifications/announcements-tab', () => ({
+  AnnouncementsTab: () => <div data-testid="announcements-tab-stub">Announcements Tab Stub</div>,
+}));
+
 describe('NotificationsClient - Tabs Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
