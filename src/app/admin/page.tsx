@@ -12,7 +12,7 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Shield, Users, Layers, ArrowRight, Loader2 } from 'lucide-react';
+import { Shield, Users, Layers, ArrowRight, Loader2, Bell } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { Badge } from '@/components/ui/badge';
@@ -78,6 +78,14 @@ export default function AdminPortalPage() {
       color: 'from-emerald-500/20 to-teal-500/20 text-emerald-500 border-emerald-500/30',
       iconBg: 'bg-emerald-500/10',
     },
+    {
+      title: '運営からのお知らせ管理',
+      description: 'ビルドなしで運営からのお知らせを追加・編集・削除し、一般ユーザーへ公開します。',
+      href: '/admin/announcements',
+      icon: Bell,
+      color: 'from-purple-500/20 to-pink-500/20 text-purple-500 border-purple-500/30',
+      iconBg: 'bg-purple-500/10',
+    },
   ];
 
   return (
@@ -99,7 +107,7 @@ export default function AdminPortalPage() {
       </header>
 
       {/* メニューカード一覧 (Requirement 8.3) */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {menuItems.map((item) => {
           const IconComponent = item.icon;
           return (
