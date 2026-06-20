@@ -25,7 +25,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-const isMockAuthEnabled = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_ENV === 'test';
+const isMockAuthEnabled = process.env.NEXT_PUBLIC_ENV === 'test';
 
 function LoginLoading() {
   return (

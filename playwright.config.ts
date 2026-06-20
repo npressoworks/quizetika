@@ -4,6 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwrightの設定ファイル
  * 詳細はこちら: https://playwright.dev/docs/test-configuration
  */
+const PORT = process.env.PORT || '3000';
+
 export default defineConfig({
   // テストファイルが配置されるディレクトリ
   testDir: './e2e',
@@ -37,7 +39,7 @@ export default defineConfig({
   // すべてのプロジェクトで共有するグローバルなオプション設定
   use: {
     // 操作対象のベースURL。Next.jsの開発サーバーに合わせる
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${PORT}`,
     
     // アクションごとのデフォルトタイムアウト - Firebase認証完了を考慮して15秒
     actionTimeout: 15000,
@@ -76,10 +78,10 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: false, // テスト用環境変数を確実に反映するため再利用しない
-    timeout: 120 * 1000,
+    command: `npm run build && npx next start -p ${PORT}`,
+    url: `http://localhost:${PORT}`,
+    reuseExistingServer: false, // 独立したテストサーバーを起動する
+    timeout: 180 * 1000, // ビルド時間を考慮してタイムアウトを延長
     env: {
       NEXT_PUBLIC_ENV: 'test', // E2Eテスト環境変数を指定
       FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',

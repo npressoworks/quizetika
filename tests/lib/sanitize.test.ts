@@ -44,7 +44,7 @@ describe('parseMarkdownToHtml', () => {
   test('箇条書きリスト（- または *）が ul/li にパースされること', () => {
     const markdown = '- アイテム1\n- アイテム2\n* アイテム3';
     const html = parseMarkdownToHtml(markdown);
-    expect(html).toContain('<ul><li>アイテム1</li><li>アイテム2</li><li>アイテム3</li></ul>');
+    expect(html).toContain('<ul>\n<li>アイテム1</li><li>アイテム2</li><li>アイテム3</li></ul>');
     expect(html).not.toContain('<ul><br>');
     expect(html).not.toContain('</li><br>');
   });
@@ -52,14 +52,14 @@ describe('parseMarkdownToHtml', () => {
   test('番号付きリストが ol/li にパースされること', () => {
     const markdown = '1. 第一\n2. 第二\n3. 第三';
     const html = parseMarkdownToHtml(markdown);
-    expect(html).toContain('<ol><li>第一</li><li>第二</li><li>第三</li></ol>');
+    expect(html).toContain('<ol>\n<li>第一</li><li>第二</li><li>第三</li></ol>');
   });
 
   test('リストの前後や間にある通常行の改行が適切に処理されること', () => {
     const markdown = '導入文\n- リスト1\n- リスト2\n結び文';
     const html = parseMarkdownToHtml(markdown);
     // ブロックレベル要素の前後には br は挿入されないのが正しい挙動
-    expect(html).toBe('導入文<ul><li>リスト1</li><li>リスト2</li></ul>結び文');
+    expect(html).toBe('<p>導入文</p><ul>\n<li>リスト1</li><li>リスト2</li></ul><p>結び文</p>');
   });
 
   test('不正な HTML タグや危険な URL スキーマが安全にエスケープまたはサニタイズされること', () => {
@@ -70,5 +70,21 @@ describe('parseMarkdownToHtml', () => {
     expect(html).toContain('&lt;iframe src="x"&gt;&lt;/iframe&gt;');
     // javascript: スキーマのリンクは href 自体がサニタイズされ除去される
     expect(html).not.toContain('href="javascript:');
+  });
+
+  test('見出し記法（h1〜h6）が適切にパースされること', () => {
+    const markdown = '# 見出し1\n## 見出し2\n### 見出し3';
+    const html = parseMarkdownToHtml(markdown);
+    expect(html).toContain('<h1>見出し1</h1>');
+    expect(html).toContain('<h2>見出し2</h2>');
+    expect(html).toContain('<h3>見出し3</h3>');
+  });
+
+  test('引用ブロック記法が blockquote にパースされること', () => {
+    const markdown = '> これは引用です。\n> 二行目の引用。';
+    const html = parseMarkdownToHtml(markdown);
+    expect(html).toContain('<blockquote>');
+    expect(html).toContain('これは引用です。');
+    expect(html).toContain('二行目の引用。');
   });
 });

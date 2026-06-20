@@ -110,6 +110,7 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     await expect(e2eLoginBtn).toBeVisible({ timeout: 10000 });
     await e2eLoginBtn.click();
     await page.waitForURL('/', { timeout: 10000 });
+    await page.waitForTimeout(3000); // クッキー同期の完了を十分に待つ
 
     // 2. 管理者ポータルからお知らせ管理画面に遷移
     await page.goto('/admin');

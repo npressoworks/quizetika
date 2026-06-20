@@ -7,6 +7,57 @@
  */
 
 import DOMPurify from 'isomorphic-dompurify';
+import { marked } from 'marked';
+
+// marked のカスタムレンダラーを作成
+const renderer = new marked.Renderer();
+
+// リンクに target="_blank" と rel="noopener noreferrer" を自動付与
+renderer.link = function (this: any, hrefOrToken: any, title?: any, text?: any) {
+  let href = '';
+  let titleStr = '';
+  let linkText = '';
+
+  if (hrefOrToken && typeof hrefOrToken === 'object') {
+    href = hrefOrToken.href || '';
+    titleStr = hrefOrToken.title || '';
+    linkText = (this && this.parser && hrefOrToken.tokens)
+      ? this.parser.parseInline(hrefOrToken.tokens)
+      : (hrefOrToken.text || '');
+  } else {
+    href = hrefOrToken || '';
+    titleStr = title || '';
+    linkText = text || '';
+  }
+
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleStr ? ` title="${titleStr}"` : ''}>${linkText}</a>`;
+};
+
+// コードブロックの末尾の不要な改行を取り除く
+renderer.code = function (codeOrToken: any, infostring?: any, escaped?: any) {
+  let code = '';
+  let lang = '';
+
+  if (codeOrToken && typeof codeOrToken === 'object') {
+    code = codeOrToken.text || '';
+    lang = codeOrToken.lang || '';
+  } else {
+    code = codeOrToken || '';
+    lang = infostring || '';
+  }
+
+  const langClass = lang ? ` class="language-${lang}"` : '';
+  const trimmedCode = code.replace(/\n$/, '');
+  return `<pre><code${langClass}>${trimmedCode}</code></pre>`;
+};
+
+marked.use({ renderer });
+
+// marked のデフォルト設定を適用
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
 
 /**
  * HTML文字列をDOMPurifyを使用して強力にサニタイズ（無害化）する。
@@ -32,11 +83,8 @@ export function sanitizeHtml(html: string): string {
 }
 
 /**
- * 簡易マークダウンのプレーンテキストを安全なHTMLにパースして無害化する。
- * - 太字 (`**text**` -> `<strong>text</strong>`)
- * - 斜体 (`*text*` -> `<em>text</em>`)
- * - 外部リンク (`[text](url)` -> `<a href="url" ...>text</a>`)
- * - 改行 (`\n` -> `<br />`)
+ * マークダウンを安全なHTMLにパースして無害化する。
+ * - 見出し、太字、斜体、リスト、リンク、コードブロック、表などの完全なマークダウンに対応。
  *
  * @param markdown ユーザーが入力した問題文・解説文等のマークダウン文字列
  * @returns サニタイズ済みの安全なHTML文字列
@@ -44,108 +92,79 @@ export function sanitizeHtml(html: string): string {
 export function parseMarkdownToHtml(markdown: string): string {
   if (!markdown) return '';
 
-  // 1. 特殊文字（&, <, >）のエスケープ
-  let escaped = markdown
+  // 1. マークダウン箇条書き記号の正規化と、リストの自動クローズ処理
+  const lines = markdown.split(/\r?\n/);
+  const processedLines: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    // 行頭の引用記号（例: `>`, `>>`, ` >` 等）を一時的にプレースホルダーに置換してエスケープから保護
+    let blockquotePrefix = '';
+    const bqMatch = line.match(/^(\s*(?:>\s*)+)/);
+    if (bqMatch) {
+      blockquotePrefix = bqMatch[1];
+      line = line.slice(blockquotePrefix.length);
+    }
+
+    // 行頭の * 箇条書きを - に正規化 (例: '* アイテム' -> '- アイテム')
+    line = line.replace(/^(\s*)\*\s+/, '$1- ');
+
+    if (blockquotePrefix) {
+      const protectedPrefix = blockquotePrefix.replace(/>/g, '__BQ_TEMP_MARKER__');
+      processedLines.push(protectedPrefix + line);
+    } else {
+      processedLines.push(line);
+    }
+    
+    if (i < lines.length - 1) {
+      const currentLine = line.trim();
+      const nextLineRaw = lines[i + 1];
+
+      // 次の行の引用プレフィックスを解析
+      let nextBqPrefix = '';
+      let nextLine = nextLineRaw;
+      const nextBqMatch = nextLineRaw.match(/^(\s*(?:>\s*)+)/);
+      if (nextBqMatch) {
+        nextBqPrefix = nextBqMatch[1];
+        nextLine = nextLineRaw.slice(nextBqPrefix.length);
+      }
+
+      const isCurrentList = /^([-]|\d+\.)\s+/.test(currentLine);
+      const isNextList = /^([*-]|\d+\.)\s+/.test(nextLine.trim());
+      if (isCurrentList && !isNextList && nextLine.trim() !== '') {
+        // 次の行と同じ引用レベルを維持した空行を挿入してリストを確実に閉じる
+        const protectedNextBqPrefix = nextBqPrefix.replace(/>/g, '__BQ_TEMP_MARKER__');
+        processedLines.push(protectedNextBqPrefix);
+      }
+    }
+  }
+  const normalizedMarkdown = processedLines.join('\n');
+
+  // 2. 特殊文字（&, <, >）のエスケープ（生HTMLインジェクション防止ポリシーの維持）
+  let escaped = normalizedMarkdown
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // 2. コードブロックの保護
-  const codeBlocks: string[] = [];
-  escaped = escaped.replace(/```(\w*)\r?\n([\s\S]*?)\r?\n```/g, (match, lang, code) => {
-    const index = codeBlocks.length;
-    const langClass = lang ? ` class="language-${lang}"` : '';
-    codeBlocks.push(`<pre><code${langClass}>${code}</code></pre>`);
-    return `__CODE_BLOCK_${index}__`;
-  });
+  // 退避していた引用記号を元に戻す
+  escaped = escaped.replace(/__BQ_TEMP_MARKER__/g, '>');
 
-  // 3. インラインコードの保護
-  const inlineCodes: string[] = [];
-  escaped = escaped.replace(/`(.*?)`/g, (match, code) => {
-    const index = inlineCodes.length;
-    inlineCodes.push(`<code>${code}</code>`);
-    return `__INLINE_CODE_${index}__`;
-  });
-
-  // 4. 標準マークダウンパース（太字、斜体、リンク）
-  let html = escaped
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-
-  // 5. リストのパース（行ごとの処理）
-  const lines = html.split(/\r?\n/);
-  let inUl = false;
-  let inOl = false;
-  const processedLines: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const ulMatch = line.match(/^([*-])\s+(.*)/);
-    const olMatch = line.match(/^(\d+)\.\s+(.*)/);
-
-    if (ulMatch) {
-      if (inOl) {
-        processedLines.push('</ol>');
-        inOl = false;
-      }
-      if (!inUl) {
-        processedLines.push('<ul>');
-        inUl = true;
-      }
-      processedLines.push(`<li>${ulMatch[2]}</li>`);
-    } else if (olMatch) {
-      if (inUl) {
-        processedLines.push('</ul>');
-        inUl = false;
-      }
-      if (!inOl) {
-        processedLines.push('<ol>');
-        inOl = true;
-      }
-      processedLines.push(`<li>${olMatch[2]}</li>`);
-    } else {
-      if (inUl) {
-        processedLines.push('</ul>');
-        inUl = false;
-      }
-      if (inOl) {
-        processedLines.push('</ol>');
-        inOl = false;
-      }
-      processedLines.push(line);
-    }
-  }
-
-  if (inUl) processedLines.push('</ul>');
-  if (inOl) processedLines.push('</ol>');
-
-  // 6. 改行（<br />）の適切な挿入と結合
-  let resultHtml = '';
-  for (let i = 0; i < processedLines.length; i++) {
-    const line = processedLines[i];
-    const isListTag = /<\/?(ul|ol|li)>/.test(line);
+  try {
+    // 3. marked によるマークダウンパース
+    let parsedHtml = marked.parse(escaped, { async: false }) as string;
     
-    resultHtml += line;
-    if (i < processedLines.length - 1) {
-      const nextLine = processedLines[i + 1];
-      const currentIsBlock = isListTag || line.startsWith('__CODE_BLOCK_');
-      const nextIsBlock = /<\/?(ul|ol)>/.test(nextLine) || nextLine.startsWith('__CODE_BLOCK_');
+    // 4. タグ末尾の余分な改行文字の整理
+    parsedHtml = parsedHtml
+      .replace(/<\/pre>\n/g, '</pre>')
+      .replace(/<\/ul>\n/g, '</ul>')
+      .replace(/<\/ol>\n/g, '</ol>')
+      .replace(/<\/p>\n/g, '</p>')
+      .replace(/<\/li>\n/g, '</li>');
 
-      if (!currentIsBlock && !nextIsBlock && line !== '') {
-        resultHtml += '<br />';
-      }
-    }
+    // 5. サニタイズ
+    return sanitizeHtml(parsedHtml);
+  } catch (error) {
+    console.error('[parseMarkdownToHtml] Failed to parse markdown:', error);
+    return sanitizeHtml(escaped);
   }
-
-  // 7. プレースホルダーの書き戻し
-  inlineCodes.forEach((codeHtml, idx) => {
-    resultHtml = resultHtml.replace(`__INLINE_CODE_${idx}__`, codeHtml);
-  });
-  codeBlocks.forEach((codeHtml, idx) => {
-    resultHtml = resultHtml.replace(`__CODE_BLOCK_${idx}__`, codeHtml);
-  });
-
-  // 8. サニタイズ
-  return sanitizeHtml(resultHtml);
 }

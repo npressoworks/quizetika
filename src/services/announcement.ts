@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import type { Announcement } from '../types';
+export type { Announcement };
 
 const announcementsCollection = collection(db, 'announcements');
 
