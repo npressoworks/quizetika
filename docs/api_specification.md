@@ -222,6 +222,33 @@ export interface BookmarkFeed {
 
 ---
 
+### 2.2c AnnouncementService (`src/services/announcement.ts`) [NEW]
+運営からのお知らせ（Announcement）のCRUDおよび一般ユーザー向けの取得を制御します。
+
+#### メソッド定義一覧
+
+| メソッド名                     | 説明                                                                                    | 主要引数                                                            | 戻り値                             | 認証要否 |
+| :----------------------------- | :-------------------------------------------------------------------------------------- | :------------------------------------------------------------------ | :--------------------------------- | :------- |
+| **`getAnnouncement`**          | 指定されたIDのお知らせを取得する。                                                      | `id: string`                                                        | `Promise<Announcement \| null>`    | 不要     |
+| **`listPublishedAnnouncements`** | 公開済みのお知らせ一覧を `publishedAt` 降順で取得する。                                  | なし                                                                | `Promise<Announcement[]>`          | 不要     |
+| **`createAnnouncement`**       | お知らせを新規作成する（下書きまたは公開）。                                            | `data: Omit<Announcement, 'id' \| 'createdAt' \| 'updatedAt'>`      | `Promise<string>` (作成したID)     | 必要     |
+| **`updateAnnouncement`**       | お知らせを更新する。statusが公開に変更された際は `publishedAt` をアトミックに記録する。  | `id: string`, `updates: Partial<Announcement>`                      | `Promise<void>`                    | 必要     |
+| **`deleteAnnouncement`**       | お知らせを物理削除する。                                                                | `id: string`                                                        | `Promise<void>`                    | 必要     |
+
+```typescript
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string; // Markdown形式の本文
+  status: 'draft' | 'published';
+  publishedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+---
+
 ### 2.3 AttemptService (`src/services/attempt.ts`)
 解答結果（プレイ履歴）の永続化、および間違えた問題の復習データ（弱点克服）の抽出・更新を担当します。
 
@@ -229,7 +256,7 @@ export interface BookmarkFeed {
 
 | メソッド名                  | 説明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 主要引数                                                            | 戻り値                                                                                                          | 認証要否 |
 | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------- | :------- |
-| **`saveAttempt`**           | クイズ解答結果を保存し、クイズの `playCount` をトランザクションでアトミックに加算する。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `attempt: Omit<Attempt, 'id'>`                                      | `Promise<string>` (AttemptのID)                                                                                 | 必要     |
+| **`saveAttempt`**           | クイズ解答結果を保存し、クイズの `playCount` をトランザクションでアトミックに加算する。解答詳細情報 `questionAnswerDetails` も一括保存される。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `attempt: Omit<Attempt, 'id'>`                                      | `Promise<string>` (AttemptのID)                                                                                 | 必要     |
 | **`getFailedQuestions`**    | 特定クイズにおいて、過去に自身が間違えた問題配列のみを抽出し、復習用データとして提供。`genreFilter = null` (または未指定) の場合は全クイズID横断で集約する。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `userId: string`, `quizId?: string`, `genreFilter?: string \| null` | `Promise<Question[]>`                                                                                           | 必要     |
 | **`updateFailedQuestions`** | 復習プレイ（弱点克服）で正解した問題を、ユーザーの過去の間違いリストからアトミックに削除する。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `userId: string`, `quizId: string`, `solvedQuestionIds: string[]`   | `Promise<void>`                                                                                                 | 必要     |
 | **`askAiQuestion`**         | 水平思考クイズ（ウミガメのスープ）において、AIへ自由記述の質問を送信し、判定結果と補足コメントを取得・履歴保存する。本プレイモードはAI質問 of ターン制限を管理する都合上、ゲストプレイは不可（ログイン必須）とする。**①質問文字数上限**: `questionText` は最大100文字に制限し、超過時は `validation-error` をスロー。**②同一質問キャッシュ**: `aiQuestionsHistory` を照合し、`questionText` が完全一致する履歴が存在する場合はAI API呼び出しを行わず即座に既存の回答を返す（`isFromCache: true`、質問カウントも消費しない）。**③1日同一クイズ20回制限（無料枠）**: 無料ユーザーは同一クイズに対して1日最大20ターンに制限する。別セッション（Attempt）を開始した場合でもカウントは累積され、毎日日付変更時にクリアされる。判定時は `users/{uid}/dailyAiTurnCounts/{quizId}` から当日の `count` を読み込んでチェックし、質問成立時にアトミックにインクリメント・本日日付を更新する。超過時は `limit-exceeded` をスロー。有料プラン（`aiTurnLimit: null`）は無制限。**④AIステートフル対話**: AI API呼び出し時は `aiQuestionsHistory` に記録された直近最大20回分の質問・回答履歴をマッピングして Gemini API（`startChat`）へ送信し、文脈（「それ」「彼」などの代名詞など）を考慮したステートフルな対話を行う。**⑤セキュリティ**: APIキー漏洩防止のため、Next.js API Route または Cloud Functions 等のサーバーサイドを経由して呼び出し、クライアントからの直接呼び出しを禁止する。 | `attemptId: string`, `questionText: string` (max 100文字)           | `Promise<{ answerType: 'yes' \| 'no' \| 'irrelevant' \| 'unknown', aiComment?: string, isFromCache: boolean }>` | 必要     |
@@ -263,6 +290,39 @@ export interface PlayHistoryEntry {
 export interface PlayHistoryPage {
   items: PlayHistoryEntry[];
   nextCursor: string | null;
+}
+
+export interface QuestionAnswerDetail {
+  questionId: string;
+  elapsedSeconds: number;
+  hintsUsedCount: number;
+  answerChanged: boolean;
+  choicesInteractionsCount?: number;
+  selectedChoiceId?: string;
+  choicesOrder?: string[];
+  userAnswer?: string;
+  quickPressSeconds?: number;
+  initialItemOrder?: string[];
+  finalItemOrder?: string[];
+  aiTurnCount?: number;
+  truthSummary?: string;
+  lateralPlayEndedStatus?: 'completed' | 'gave_up';
+}
+
+export interface Attempt {
+  id: string;
+  userId: string;
+  quizId: string;
+  listId?: string;
+  mode: 'normal' | 'exam' | 'flashcard' | 'review' | 'list' | 'question-list' | 'test-play';
+  score: number;
+  totalQuestions: number;
+  elapsedSeconds: number;
+  failedQuestionIds: string[];
+  questionAnswers?: QuestionAnswerRecord[];
+  questionAnswerDetails?: QuestionAnswerDetail[];
+  difficultyVote?: number | null;
+  completedAt: Date;
 }
 ```
 

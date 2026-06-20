@@ -12,6 +12,7 @@ erDiagram
     USERS ||--o{ QUIZZES : "creates"
     USERS ||--o{ QUIZ_LISTS : "creates"
     USERS ||--o{ ATTEMPTS : "performs"
+    USERS ||--o{ ANNOUNCEMENTS : "creates (admin only)"
     USERS ||--o{ FOLLOWS : "follower/following"
     USERS ||--o{ BOOKMARKS : "bookmarks"
     USERS ||--o{ FEEDBACK_REPORTS : "reports errors"
@@ -277,7 +278,24 @@ erDiagram
 | `aiQuestionsHistory` | `array (AiQuestion)`           | 任意        | `[]`                                                                                        | 水平思考プレイの直近最大20ターン分の対話履歴（ステートフル対話の文脈参照用）。                                                                                                                                                                                                                                                                                                                                  |
 | `aiTurnCount`        | `number`                       | 任意        | `0`                                                                                         | 現在のセッションで発行した質問の総数（キャッシュヒット分を導く）。                                                                                                                                                                                                                                                                                                                                              |
 | `aiTurnLimit`        | `number \| null`               | 任意        | `20`（無料）/ `null`（有料）                                                                | 適用されるターン制限値。`null` の場合は無制限（プレミアムプラン）。                                                                                                                                                                                                                                                                                                                                             |
+| `questionAnswerDetails` | `array (QuestionAnswerDetail)` | 任意      | `[]`                                                                                        | 各問題に対する詳細解答オブジェクト。BigQuery同期用。                                                                                                                                                                                                                                                                                                                                                            |
 | `completedAt`        | `timestamp`                    | **必須**    | `request.time`                                                                              | プレイ完了日時。                                                                                                                                                                                                                                                                                                                                                                                                |
+
+#### ネストされる `QuestionAnswerDetail` オブジェクト型
+* `questionId` (`string`): 問題の一意ID。
+* `elapsedSeconds` (`number`): 解答開始から回答決定までの経過秒数（ミリ秒精度を含む秒数）。
+* `hintsUsedCount` (`number`): ヒント使用数。
+* `answerChanged` (`boolean`): 最初に入力または選択した回答から、決定までの間に別の選択肢や値へ回答を変更したかどうか。
+* `choicesInteractionsCount` (`number`, 任意): 決定までに選択肢をクリック・変更した総回数（選択式専用）。
+* `selectedChoiceId` (`string`, 任意): 最終的に選択された選択肢の一意ID。複数正解問題の場合は選んだIDをカンマ区切りで連結（選択式専用）。
+* `choicesOrder` (`array (string)`, 任意): プレイヤーに提示された選択肢のシャッフル順ID配列（選択式専用）。
+* `userAnswer` (`string`, 任意): プレイヤーが入力した回答文字列（記述、早押し、連想、水平思考専用）。
+* `quickPressSeconds` (`number`, 任意): 早押しクイズにおいて、問読み開始から早押しボタンが押されるまでの経過秒数（早押し専用）。
+* `initialItemOrder` (`array (string)`, 任意): プレイヤーに提示された初期状態の並び順ID配列（並び替え専用）。
+* `finalItemOrder` (`array (string)`, 任意): プレイヤーが最終決定した並び順ID配列（並び替え専用）。
+* `aiTurnCount` (`number`, 任意): AIとの対話質問回数（水平思考専用）。
+* `truthSummary` (`string`, 任意): 最終提出された真相解答テキスト（水平思考専用）。
+* `lateralPlayEndedStatus` (`string`, 任意): クリアまたはギブアップのステータス（`'completed' | 'gave_up'`、水平思考専用）。
 
 #### ネストされる `AiQuestion` オブジェクト型
 * `id` (`string`): 一意ID。
@@ -477,6 +495,21 @@ erDiagram
 
 ---
 
+### 2.19 `announcements` コレクション (自動割り当てドキュメントID) [NEW]
+運営からのお知らせ情報を管理します。
+
+| フィールド名   | 論理物理型  | 必須 / 任意 | 初期値 / 制約                | 説明                                                                     |
+| :------------- | :---------- | :---------- | :--------------------------- | :----------------------------------------------------------------------- |
+| `id`           | `string`    | **必須**    | 自動割り当てID               | お知らせの一意なID。                                                     |
+| `title`        | `string`    | **必須**    | 最大50文字                   | お知らせのタイトル。                                                     |
+| `content`      | `string`    | **必須**    | マークダウン対応             | お知らせの本文（簡易マークダウン形式をサポート）。                       |
+| `status`       | `string`    | **必須**    | `'draft' \| 'published'`     | お知らせの公開ステータス（下書き、公開中）。                             |
+| `publishedAt`  | `timestamp` | 任意        | `null`                       | 公開された日時のタイムスタンプ（statusがpublishedに変更された際に記録）。 |
+| `createdAt`    | `timestamp` | **必須**    | `request.time`               | お知らせの作成日時。                                                     |
+| `updatedAt`    | `timestamp` | **必須**    | `request.time`               | お知らせの最終更新日時。                                                 |
+
+---
+
 ## 3. 主要インデックス設計 (Indexes)
 パフォーマンスを最適化し、Firestoreクエリの遅延を抑えるための複合インデックスの配置計画です。
 
@@ -527,7 +560,11 @@ erDiagram
 15. **作成者別リスト種別一覧（Phase 8）用**:
     * コレクション: `quizLists`
     * フィールド: `authorId` (昇順) ＋ `listType` (昇順) ＋ `createdAt` (降順)
-    * 備考: 公開のみの場合は `isPublished` (昇順) を追加した複合インデックスも `firestore.indexes.json` に定義。`listType` 未設定ドキュメントはアプリ層 `resolveListType()` で後方互換。
+    * 備考: 公開のみの場合は `isPublished` (昇順) を追加した複合インデックスも `firestore.indexes.json` に定義。`listType` 未設定ドキュメント is アプリ層 `resolveListType()` で後方互換。
+16. **お知らせ一覧（一般・管理共通）用**:
+    * コレクション: `announcements`
+    * フィールド: `status` (昇順) ＋ `publishedAt` (降順)
+    * 備考: 一般ユーザー向けには `status == 'published'`、管理者向けには全件（または下書き含む）を取得する際に使用。
 
 ---
 

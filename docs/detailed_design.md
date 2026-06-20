@@ -181,6 +181,23 @@ sequenceDiagram
   - 結果画面では `attempt.questionAnswers`（`QuestionAnswerRecord[]`）を参照し、各問題カードに「あなたの回答」欄を表示する。回答の整形（選択肢テキストへの変換・並び替え順のアロー連結等）は `attempt-answer-display.ts` の `formatUserAnswer` / `formatCorrectAnswer` に集約する。`questionAnswers` が空の旧レコードの場合は「（記録なし）」にフォールバックする。
 * **弱点克服プレイ**: 復習画面でも `quick-press` 問題は難読化を適用。表示は全文を即時復号表示（一文字アニメーションは省略）。正誤判定はプレイ画面と同一の正規化・復号ロジックを使用します。
 
+##### 1.1.2 アナリティクス解答詳細データのトラッキングロジック
+* **トラッキングされるデータ**:
+  - 解答時間 (`elapsedSeconds`): 各問題が表示されてから、プレイヤーが「解答を確定する」（またはタイムアップ・スキップ）ボタンを押すまでの秒数。
+  - ヒント使用数 (`hintsUsedCount`): プレイ中に「ヒントを表示」ボタンが押された回数。
+  - 回答変更有無 (`answerChanged`): 決定までに選択または入力した回答が変更されたかどうか。
+  - 各問題形式ごとの特化データ（選択肢シャッフル順、並び替えの初期・最終順、早押しタイム、水平思考のAI対話回数・最終真相テキスト）。
+* **収集タイミング**:
+  - クライアントのプレイ状態（`usePlayState` 等）で各問題のイベントをフックし、`QuestionAnswerDetail` オブジェクトを構築します。
+  - 全問解答完了時に、既存の `attempts` ドキュメントの `questionAnswerDetails` 配列フィールドに格納して一括保存します。
+
+##### 1.1.3 オフラインプレイ時データ復旧同期ロジック
+* **オフライン検知と退避**:
+  - クイズプレイ完了時にネットワークがオフラインである場合、詳細な解答ログ配列を含むプレイデータを `localStorage`（キー: `quizeum_pending_attempts`）にシリアライズして退避します。
+* **自動復旧・同期**:
+  - アプリケーション起動時またはネットワーク復旧イベント（`window.addEventListener('online')`）を検知した際、`localStorage` から保留中のデータを順次読み込み、サーバーサイドAPIへ再送信します。
+  - 同期成功時にローカルの保留データを削除します。送信中にエラーが発生した場合は、次回以降に再試行できるようデータを保持し続けます。
+
 ---
 
 ### 1.2 クイズ作成・公開フロー
@@ -352,6 +369,14 @@ sequenceDiagram
 * テストプレイルートは認証必須（未ログイン時は `/login?redirect=...`）。
 * `TestPlayPayload.authorId` がログインユーザーの `uid` と一致しない場合は payload を拒否（他者の draft 流用防止）。
 * テストプレイデータは `sessionStorage` のみに保持し、Firestore / API へ送信しない（水平思考 AI を除くローカル判定のみ）。
+
+##### 1.2.3 運営からのお知らせ Markdown パースとサニタイズ仕様
+* **パーサーとサニタイズの統合**:
+  - お知らせの本文はマークダウン形式で Firestore に保存されます。表示の際は `marked` ライブラリを使用して HTML にパースします。
+  - パースされた HTML に対し、クロスサイトスクリプティング（XSS）を防ぐため、必ず `isomorphic-dompurify` によるサニタイズ処理（`DOMPurify.sanitize`）を適用します。
+  - これにより、お知らせの本文内に悪意ある `<script>`、`<iframe>`、または `javascript:` スキーマのリンクが混入していても、描画直前に完全に無害化されます。
+* **プレビュー表示**:
+  - UI上で編集や作成を行う際、入力中の Markdown テキストを同一のサニタイズパイプライン（`parseMarkdownToHtml`）を通して、安全にリアルタイムプレビューします。
 
 ---
 
@@ -771,6 +796,80 @@ sequenceDiagram
 2. 保存時 `partitionQuestionsForSave` が参照 ID のみ / 新規所有問題 / 内容変更による切り離しコピーを分類。
 3. 参照問題は既存 `questions/{id}` を `quiz.questionIds` に追加するのみ（新規 `questions` ドキュメントは作成しない）。
 4. 参照問題の内容を編集した場合は `owned` 問題として新規 `questions` ドキュメントを作成（CoW）。
+
+### 1.8 運営からのお知らせ登録・表示フロー
+管理者によるお知らせの作成・編集・削除（CRUD）と、一般ユーザー（ゲスト含む）への公開・表示を行うフローです。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as システム管理者
+    actor User as 一般ユーザー/ゲスト
+    participant Portal as 管理者ポータル (/admin/announcements)
+    participant NotifPage as 通知画面 (/notifications)
+    participant Service as AnnouncementService
+    participant DB as Firestore (Database)
+
+    Note over Admin, Portal: 管理者によるお知らせ作成・公開
+    Admin->>Portal: 新規お知らせ入力 (タイトル・本文[Markdown])
+    Portal->>Portal: Markdown プレビュー表示
+    Admin->>Portal: 「公開」で保存をクリック
+    Portal->>Service: createAnnouncement(announcementData)
+    activate Service
+    Service->>DB: announcements ドキュメント作成<br>(status = 'published', publishedAt = サーバータイムスタンプ)
+    Service-->>Portal: 作成完了
+    deactivate Service
+
+    Note over User, NotifPage: 一般ユーザー/ゲストによる閲覧
+    User->>NotifPage: お知らせ画面を開く (未ログイン可)
+    NotifPage->>Service: listPublishedAnnouncements()
+    activate Service
+    Service->>DB: status == 'published' を publishedAt 降順でクエリ
+    DB-->>Service: 公開お知らせ一覧
+    Service-->>NotifPage: お知らせリスト
+    deactivate Service
+    NotifPage->>NotifPage: isomorphic-dompurify でサニタイズ後に HTML レンダリング
+    NotifPage-->>User: お知らせ一覧表示
+```
+
+### 1.9 解答詳細トラッキングとBigQuery同期フロー
+クイズプレイ時の詳細解答ログを収集し、Attempt 完了時に保存し、Firebase Extension を介して BigQuery へリアルタイム同期するフローです。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Player as プレイヤー
+    participant PlayUI as プレイ画面 (/quiz/[id]/play)
+    participant LS as localStorage
+    participant AttemptService as AttemptService (API Route)
+    participant DB as Firestore (Database)
+    participant Extension as Firebase Extension<br>(firestore-bigquery-export)
+    participant BQ as BigQuery (attempts_raw)
+
+    PlayUI->>PlayUI: プレイ開始 (各問題の表示タイミングで計測開始)
+    loop 各問題の解答
+        Player->>PlayUI: 解答の決定・変更・ヒント閲覧
+        PlayUI->>PlayUI: QuestionAnswerDetail を構築・一時保持
+    end
+    Player->>PlayUI: プレイ完了
+    
+    alt オンライン状態
+        PlayUI->>AttemptService: saveAttempt(attemptWithDetails) [Authorization付与]
+        activate AttemptService
+        Note over AttemptService: サーバーサイドで解答の二重検証を実施
+        AttemptService->>DB: attempts コレクションに書き込み<br>(questionAnswerDetails 配列を含む)
+        deactivate AttemptService
+    else オフライン状態
+        PlayUI->>LS: 詳細解答ログ付きプレイデータを localStorage に退避保存
+        Note over PlayUI, LS: オンライン復旧時にバックグラウンドで自動同期送信
+    end
+
+    Note over DB, BQ: Firestore トリガーによる自動同期
+    DB->>Extension: ドキュメント作成イベント検知
+    activate Extension
+    Extension->>BQ: BigQuery の attempts_raw テーブルへ<br>レコードをストリーミング挿入
+    deactivate Extension
+```
 
 ---
 
