@@ -17,7 +17,7 @@
 
 ## 2. Core: 管理者・一般ユーザーUIの実装
 
-- [ ] 2.1 (P) 管理者向けお知らせ管理UIの実装
+- [x] 2.1 (P) 管理者向けお知らせ管理UIの実装
   - `src/app/admin/announcements/page.tsx` および `client.tsx` を新規作成する。
   - お知らせの一覧表示、新規作成、編集、削除を行うCRUD画面を構築する。
   - 本文入力中のMarkdownプレビュー表示機能を追加する（`parseMarkdownToHtml` を使用）。
