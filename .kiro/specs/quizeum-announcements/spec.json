@@ -1,0 +1,22 @@
+{
+  "feature_name": "quizeum-announcements",
+  "created_at": "2026-06-20T14:24:00Z",
+  "updated_at": "2026-06-20T14:28:30Z",
+  "language": "ja",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true
+}
