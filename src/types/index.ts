@@ -368,3 +368,17 @@ export interface AdminLog {
   createdAt: Date;
 }
 
+// 10. 運営からのお知らせ (announcements)
+export interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  category: 'info' | 'maintenance' | 'update';
+  status: 'draft' | 'published';
+  publishedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  authorId: string;
+}
+
+
