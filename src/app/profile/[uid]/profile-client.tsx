@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import {
   isFollowing
 } from '@/services/user';
 import { getQuizzesByAuthor } from '@/services/quiz';
+import { getSnsLogoUrl } from '@/services/storage';
 import {
   Award,
   Zap,
@@ -89,6 +90,7 @@ export function ProfileClient() {
   const [loading, setLoading] = useState(true);
   const [submittingFollow, setSubmittingFollow] = useState(false);
   const [isDeletedPending, setIsDeletedPending] = useState(false);
+  const [snsLogoUrls, setSnsLogoUrls] = useState<Record<string, string>>({});
 
   const isMyProfile = currentUser?.id === uid;
 
@@ -129,6 +131,30 @@ export function ProfileClient() {
       loadProfileData();
     }
   }, [uid, currentUser, isMyProfile]);
+
+  useEffect(() => {
+    async function resolveSnsLogos() {
+      if (!profileUser?.snsLinks) return;
+      const urls: Record<string, string> = {};
+      const activeSns = Object.keys(profileUser.snsLinks).filter(
+        key => profileUser.snsLinks?.[key as keyof typeof profileUser.snsLinks]
+      );
+      
+      await Promise.all(
+        activeSns.map(async (sns) => {
+          try {
+            const url = await getSnsLogoUrl(sns);
+            urls[sns] = url;
+          } catch (e) {
+            console.error(`Failed to get logo for ${sns}:`, e);
+          }
+        })
+      );
+      setSnsLogoUrls(urls);
+    }
+    
+    resolveSnsLogos();
+  }, [profileUser]);
 
   if (isDeletedPending) {
     notFound();
@@ -220,6 +246,37 @@ export function ProfileClient() {
               <p className="text-muted-foreground">
                 {profileUser.bio || '自己紹介はまだ登録されていません。'}
               </p>
+
+              {profileUser.snsLinks && Object.values(profileUser.snsLinks).some(Boolean) && (
+                <div className="flex flex-wrap gap-4 items-center mt-2" data-testid="sns-links-container">
+                  {Object.entries(profileUser.snsLinks).map(([sns, url]) => {
+                    if (!url) return null;
+                    const logoUrl = snsLogoUrls[sns];
+                    return (
+                      <a
+                        key={sns}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                        title={`${sns} を開く`}
+                        data-testid={`sns-link-${sns}`}
+                      >
+                        {logoUrl ? (
+                          <img
+                            src={logoUrl}
+                            alt={sns}
+                            className="size-5 object-contain"
+                          />
+                        ) : (
+                          <span className="text-xs uppercase font-medium">{sns}</span>
+                        )}
+                        <span className="capitalize">{sns}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
 
               <div>
                 {isMyProfile ? (

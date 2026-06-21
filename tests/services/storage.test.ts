@@ -22,7 +22,7 @@ describe('getSnsLogoUrl', () => {
     const { getDownloadURL, ref } = require('firebase/storage');
 
     const mockUrl = 'https://firebasestorage.googleapis.com/v0/b/.../youtube.png';
-    const mockRef = { path: 'assets/logos/youtube.png' };
+    const mockRef = { path: '/sns-logos/youtube.png' };
     
     ref.mockReturnValue(mockRef);
     getDownloadURL.mockResolvedValue(mockUrl);
@@ -30,7 +30,7 @@ describe('getSnsLogoUrl', () => {
     // 1回目
     const url1 = await getSnsLogoUrl('youtube');
     expect(url1).toBe(mockUrl);
-    expect(ref).toHaveBeenCalledWith(expect.any(Object), 'assets/logos/youtube.png');
+    expect(ref).toHaveBeenCalledWith(expect.any(Object), '/sns-logos/youtube.png');
     expect(getDownloadURL).toHaveBeenCalledWith(mockRef);
     expect(getDownloadURL).toHaveBeenCalledTimes(1);
 

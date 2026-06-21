@@ -30,6 +30,10 @@ export function ProfileEditClient() {
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
+  const [youtube, setYoutube] = useState('');
+  const [x, setX] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [tiktok, setTiktok] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<ProfileValidationError[]>([]);
@@ -47,6 +51,12 @@ export function ProfileEditClient() {
         if (userData) {
           setDisplayName(userData.displayName || '');
           setBio(userData.bio || '');
+          if (userData.snsLinks) {
+            setYoutube(userData.snsLinks.youtube || '');
+            setX(userData.snsLinks.x || '');
+            setInstagram(userData.snsLinks.instagram || '');
+            setTiktok(userData.snsLinks.tiktok || '');
+          }
         }
       } catch (err) {
         console.error('Failed to load user profile for editing:', err);
@@ -60,9 +70,13 @@ export function ProfileEditClient() {
 
   useEffect(() => {
     if (loading) return;
-    const validationErrors = validateProfileData({ displayName, bio });
+    const validationErrors = validateProfileData({
+      displayName,
+      bio,
+      snsLinks: { youtube, x, instagram, tiktok }
+    });
     setErrors(validationErrors);
-  }, [displayName, bio, loading]);
+  }, [displayName, bio, youtube, x, instagram, tiktok, loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +86,11 @@ export function ProfileEditClient() {
     setSubmitError('');
 
     try {
-      await updateProfile(currentUser.id, { displayName, bio });
+      await updateProfile(currentUser.id, {
+        displayName,
+        bio,
+        snsLinks: { youtube, x, instagram, tiktok }
+      });
       router.push(`/profile/${currentUser.id}`);
     } catch (err: unknown) {
       console.error('Profile update failed:', err);
@@ -82,7 +100,7 @@ export function ProfileEditClient() {
     }
   };
 
-  const getFieldError = (field: 'displayName' | 'bio') => {
+  const getFieldError = (field: 'displayName' | 'bio' | 'snsLinks.youtube' | 'snsLinks.x' | 'snsLinks.instagram' | 'snsLinks.tiktok') => {
     return errors.find(err => err.field === field)?.message;
   };
 
@@ -160,6 +178,75 @@ export function ProfileEditClient() {
                 <span className={cn('text-muted-foreground', bio.length > 200 && 'text-destructive')}>
                   {bio.length} / 200
                 </span>
+              </div>
+            </div>
+
+            {/* SNS Links */}
+            <div className="flex flex-col gap-4 border-t pt-4">
+              <h3 className="text-sm font-semibold">SNSリンクの登録</h3>
+              
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="youtube">YouTube</Label>
+                <Input
+                  id="youtube"
+                  type="text"
+                  value={youtube}
+                  onChange={(e) => setYoutube(e.target.value)}
+                  className={cn(getFieldError('snsLinks.youtube') && 'border-destructive')}
+                  placeholder="https://www.youtube.com/channel/..."
+                  disabled={submitting}
+                />
+                {getFieldError('snsLinks.youtube') && (
+                  <span className="text-xs text-destructive">{getFieldError('snsLinks.youtube')}</span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="x">X (旧 Twitter)</Label>
+                <Input
+                  id="x"
+                  type="text"
+                  value={x}
+                  onChange={(e) => setX(e.target.value)}
+                  className={cn(getFieldError('snsLinks.x') && 'border-destructive')}
+                  placeholder="https://x.com/..."
+                  disabled={submitting}
+                />
+                {getFieldError('snsLinks.x') && (
+                  <span className="text-xs text-destructive">{getFieldError('snsLinks.x')}</span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="instagram">Instagram</Label>
+                <Input
+                  id="instagram"
+                  type="text"
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                  className={cn(getFieldError('snsLinks.instagram') && 'border-destructive')}
+                  placeholder="https://www.instagram.com/..."
+                  disabled={submitting}
+                />
+                {getFieldError('snsLinks.instagram') && (
+                  <span className="text-xs text-destructive">{getFieldError('snsLinks.instagram')}</span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="tiktok">TikTok</Label>
+                <Input
+                  id="tiktok"
+                  type="text"
+                  value={tiktok}
+                  onChange={(e) => setTiktok(e.target.value)}
+                  className={cn(getFieldError('snsLinks.tiktok') && 'border-destructive')}
+                  placeholder="https://www.tiktok.com/@..."
+                  disabled={submitting}
+                />
+                {getFieldError('snsLinks.tiktok') && (
+                  <span className="text-xs text-destructive">{getFieldError('snsLinks.tiktok')}</span>
+                )}
               </div>
             </div>
 
