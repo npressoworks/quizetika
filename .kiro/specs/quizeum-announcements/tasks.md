@@ -58,3 +58,37 @@
   - _Requirements: 1.2, 1.3, 1.5, 2.2, 2.3, 2.4, 3.2, 3.3_
   - _Boundary: E2E Testing_
   - _Depends: 3.1_
+
+## 4. Phase 2 (Extension): 省略・展開表示と不具合カテゴリの追加
+
+- [x] 4.1 型定義とサービス層のカテゴリ追加
+  - `src/types/index.ts` の `Announcement['category']` 型定義に `'bug'` を追加する。
+  - 関連サービス `src/services/announcement.ts` 等で型定義にエラーがないことを確認する。
+  - **Observable completion**: TypeScript のコンパイルが通り、型変更によるエラーが発生しないこと。
+  - _Requirements: 1.6_
+  - _Boundary: Core Model & Service_
+
+- [x] 4.2 (P) 管理画面への不具合カテゴリの追加
+  - `src/app/admin/announcements/client.tsx` を修正し、カテゴリ選択肢に「不具合」を追加する。
+  - **Observable completion**: 管理者画面のお知らせ作成・編集フォームの「種類」セレクトボックスで「不具合」が選択可能であり、Firestore に `category: 'bug'` として保存されること。
+  - _Requirements: 1.6_
+  - _Boundary: Admin Announcements UI_
+  - _Depends: 4.1_
+
+- [x] 4.3 (P) お知らせ一覧での省略・トグル展開表示とバッジ表示の実装
+  - `src/app/notifications/announcements-tab.tsx` を修正し、各お知らせカードに展開・折りたたみのトグル状態（`isExpanded`）を追加し、クリック時に切り替えられるようにする。
+  - 初期状態（省略表示）では、本文のプレーンテキスト（Markdown記法を除去した文字列など）の先頭100文字を抽出し、「...」を付加して簡易表示する。
+  - 展開表示時には、マークダウンをHTMLにパースして全文表示する。
+  - カテゴリ「不具合」用のアイコン（例：`Bug` または `AlertCircle`）とローズ系（例えば `destructive` やカスタム赤色）のバッジを追加する。
+  - **Observable completion**: `/notifications` の「運営からのお知らせ」タブで、お知らせが初期状態で省略表示され、クリックすると全文展開され、再度クリックすると省略されること。また、「不具合」のお知らせには対応するアイコンとバッジが表示されること。
+  - _Requirements: 2.5, 2.6, 2.7, 2.8_
+  - _Boundary: Announcements Tab UI_
+  - _Depends: 4.1_
+
+- [x] 4.4 (P) テストの修正・追加
+  - `tests/components/announcements-tab.test.tsx` や管理画面テスト、E2Eテストに「不具合」カテゴリの表示テストおよび省略・展開表示のインタラクションテストを追加・修正する。
+  - **Observable completion**: `npm run test` および `npm run test:e2e` がすべて正常にパスすること。
+  - _Requirements: 1.6, 2.5, 2.6, 2.7, 2.8_
+  - _Boundary: Testing_
+  - _Depends: 4.2, 4.3_
+

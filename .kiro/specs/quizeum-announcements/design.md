@@ -140,7 +140,7 @@ export interface Announcement {
   id: string;
   title: string;
   content: string;
-  category: 'info' | 'maintenance' | 'update';
+  category: 'info' | 'maintenance' | 'update' | 'bug';
   status: 'draft' | 'published';
   publishedAt: Date | null;
   createdAt: Date;
@@ -159,13 +159,13 @@ export function deleteAnnouncement(id: string): Promise<void>;
 ### UI Components
 
 #### AnnouncementsTab (`src/app/notifications/announcements-tab.tsx`)
-- **Intent**: 一般ユーザー向けにお知らせ一覧を公開日時降順で表示し、Markdownで本文をレンダリングする。
-- **Requirements**: 2.2, 2.5
+- **Intent**: 一般ユーザー向けにお知らせ一覧を公開日時降順で表示し、初期状態ではタイトルと省略された本文（プレーンテキスト最大100文字）を表示し、クリック時にアコーディオンのように全文をマークダウン形式で展開表示（トグル可）する。
+- **Requirements**: 2.2, 2.5, 2.6, 2.7, 2.8
 - **Dependencies**: `AnnouncementService.getAnnouncements`, `parseMarkdownToHtml`
 
 #### AdminAnnouncementsClient (`src/app/admin/announcements/client.tsx`)
-- **Intent**: 管理者がお知らせのCRUD操作（作成、編集、削除、プレビュー）を行うためのインタラクティブなUIを提供する。
-- **Requirements**: 1.2, 1.3, 1.4, 1.5
+- **Intent**: 管理者がお知らせのCRUD操作（作成、編集、削除、プレビュー、カテゴリ「不具合」を含む選択）を行うためのインタラクティブなUIを提供する。
+- **Requirements**: 1.2, 1.3, 1.4, 1.5, 1.6
 - **Dependencies**: `AnnouncementService`, `parseMarkdownToHtml`
 
 ## Data Models

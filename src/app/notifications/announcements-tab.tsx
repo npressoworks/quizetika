@@ -5,11 +5,25 @@ import { getAnnouncements, Announcement } from '@/services/announcement';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Info, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Info, AlertTriangle, RefreshCw, Bug } from 'lucide-react';
+
+// HTMLタグおよび実体参照を除去してプレーンテキストにするヘルパー
+function stripHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, '') // タグの除去
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ') // 連続する空白や改行をスペース1つに統合
+    .trim();
+}
 
 export function AnnouncementsTab() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function load() {
@@ -24,6 +38,20 @@ export function AnnouncementsTab() {
     }
     load();
   }, []);
+
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const getTruncatedContent = (content: string) => {
+    const html = parseMarkdownToHtml(content);
+    const plainText = stripHtml(html);
+    if (plainText.length <= 100) return plainText;
+    return plainText.slice(0, 100) + '...';
+  };
 
   if (loading) {
     return (
@@ -49,6 +77,8 @@ export function AnnouncementsTab() {
         return <AlertTriangle size={16} className="text-amber-500 mr-1 shrink-0" />;
       case 'update':
         return <RefreshCw size={16} className="text-blue-500 mr-1 shrink-0" />;
+      case 'bug':
+        return <Bug size={16} className="text-rose-500 mr-1 shrink-0" />;
       case 'info':
       default:
         return <Info size={16} className="text-muted-foreground mr-1 shrink-0" />;
@@ -61,6 +91,8 @@ export function AnnouncementsTab() {
         return 'メンテナンス';
       case 'update':
         return 'アップデート';
+      case 'bug':
+        return '不具合';
       case 'info':
       default:
         return '案内';
@@ -70,7 +102,12 @@ export function AnnouncementsTab() {
   return (
     <div className="flex flex-col gap-4">
       {announcements.map((ann) => (
-        <Card key={ann.id} className="overflow-hidden border border-border bg-card">
+        <Card 
+          key={ann.id} 
+          className="overflow-hidden border border-border bg-card cursor-pointer hover:bg-accent/5 transition-colors"
+          onClick={() => toggleExpand(ann.id)}
+          data-testid="announcement-card"
+        >
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="flex items-center">
@@ -92,11 +129,20 @@ export function AnnouncementsTab() {
             <CardTitle className="text-lg font-bold mt-2">{ann.title}</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <div
-              data-testid={`announcement-content-${ann.id}`}
-              className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert announcement-content"
-              dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(ann.content) }}
-            />
+            {expandedIds[ann.id] ? (
+              <div
+                data-testid={`announcement-content-${ann.id}`}
+                className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert announcement-content"
+                dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(ann.content) }}
+              />
+            ) : (
+              <div
+                data-testid={`announcement-content-${ann.id}`}
+                className="text-sm leading-relaxed text-muted-foreground announcement-content"
+              >
+                {getTruncatedContent(ann.content)}
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}

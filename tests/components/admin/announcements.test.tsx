@@ -95,4 +95,42 @@ describe('AdminAnnouncementsClient', () => {
       );
     });
   });
+
+  test('フォームで不具合カテゴリのお知らせを作成できること', async () => {
+    (adminGetAnnouncements as jest.Mock).mockResolvedValue([]);
+    (createAnnouncement as jest.Mock).mockResolvedValue('bug-ann-id');
+
+    render(<AdminAnnouncementsClient />);
+
+    // 「新規作成」ボタンをクリック
+    const createBtn = screen.getByTestId('open-create-announcement-btn');
+    fireEvent.click(createBtn);
+
+    // フォームへの入力
+    fireEvent.change(screen.getByPlaceholderText('お知らせのタイトルを入力'), {
+      target: { value: '不具合修正のお知らせ' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('お知らせの本文を入力 (Markdown対応)'), {
+      target: { value: '不具合を修正しました。' },
+    });
+
+    // カテゴリを「不具合」に変更
+    const categorySelect = screen.getByDisplayValue('一般案内 (info)') as HTMLSelectElement;
+    fireEvent.change(categorySelect, { target: { value: 'bug' } });
+
+    // 送信
+    const submitBtn = screen.getByTestId('submit-announcement-btn');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(createAnnouncement).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: '不具合修正のお知らせ',
+          content: '不具合を修正しました。',
+          category: 'bug',
+        })
+      );
+    });
+  });
 });
+

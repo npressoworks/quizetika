@@ -44,13 +44,20 @@
     - `id`: string (docId)
     - `title`: string
     - `content`: string (Markdown形式のソース)
-    - `category`: 'info' | 'maintenance' | 'update'
+    - `category`: 'info' | 'maintenance' | 'update' | 'bug'
     - `status`: 'draft' | 'published'
     - `publishedAt`: Timestamp | null
     - `createdAt`: Timestamp
     - `updatedAt`: Timestamp
     - `authorId`: string
-- **Rationale**: 管理者が下書き（`draft`）を保存し、確認後に公開（`published`）に切り替えるワークフローを実現するため。
+- **Rationale**: 管理者が下書き（`draft`）を保存し、確認後に公開（`published`）に切り替えるワークフローを実現するため。カテゴリに「不具合（bug）」を追加し、アプリ内バグ報告や障害情報を明示可能にする。
+
+### Decision: Announcement Truncation and Expansion (2026-06-21 追加)
+- **Context**: 一般ユーザーへのお知らせ一覧における本文の省略と展開表示。
+- **Selected Approach**: 
+  - 初期状態では、マークダウン記法を含まないプレーンテキストとしての本文（またはマークダウンを除去した文字列）の先頭100文字を抽出し、「...」を付加して簡易表示する。
+  - 各お知らせカードをクリックすることで展開状態（`isExpanded`）をトグルし、展開された場合にはマークダウンをHTMLにパースして安全に全文表示する。
+- **Rationale**: ユーザーが一目で多くのお知らせを確認できるようにするため。また、展開・折りたたみをトグル式にすることで操作性を向上させる。
 
 ## Risks & Mitigations
 - 非管理者の不正書き込みリスク — Firestoreのセキュリティルール（`firestore.rules`）および API Route で `isAdminUser` 判定を用いて厳格に防御する。

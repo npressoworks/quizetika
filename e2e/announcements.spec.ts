@@ -176,6 +176,11 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     // 作成・編集したお知らせが一般ユーザー画面で見えることを確認
     await expect(page.locator(`text=${updatedTitle}`)).toBeVisible();
     
+    // 初期状態は省略表示のため、お知らせカードをクリックして展開する
+    const announcementCard = page.locator('[data-testid="announcement-card"]', { hasText: updatedTitle });
+    await announcementCard.click();
+    await page.waitForTimeout(500);
+
     // Markdownが正しくHTMLレンダリングされていることをアサート
     const contentElement = page.locator('strong:has-text("E2Eテスト")');
     await expect(contentElement).toBeVisible();

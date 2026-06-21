@@ -50,6 +50,24 @@ describe('AnnouncementService', () => {
       expect(addDoc).toHaveBeenCalled();
       expect(newId).toBe('new-announcement-id');
     });
+
+    test('不具合カテゴリのお知らせが正しく作成されること', async () => {
+      const mockData = {
+        title: '不具合お知らせ',
+        content: '不具合内容',
+        category: 'bug' as const,
+        status: 'published' as const,
+        publishedAt: new Date(),
+        authorId: 'admin-uid',
+      };
+
+      (addDoc as jest.Mock).mockResolvedValue({ id: 'bug-announcement-id' });
+
+      const newId = await createAnnouncement(mockData);
+
+      expect(addDoc).toHaveBeenCalled();
+      expect(newId).toBe('bug-announcement-id');
+    });
   });
 
   describe('getAnnouncements', () => {
