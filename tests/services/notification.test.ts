@@ -1,9 +1,16 @@
 import { 
   getNotifications, 
   markAsRead, 
-  createNotification 
+  createNotification,
+  getUnreadNotificationsCount,
+  markAllNotificationsAsRead
 } from '../../src/services/notification';
-import { getDocs, updateDoc, addDoc } from 'firebase/firestore';
+import { getDocs, updateDoc, addDoc, getCountFromServer, writeBatch } from 'firebase/firestore';
+
+const mockBatch = {
+  update: jest.fn(),
+  commit: jest.fn().mockResolvedValue(undefined),
+};
 
 // Firebase Firestore モック
 jest.mock('firebase/firestore', () => {
@@ -14,10 +21,15 @@ jest.mock('firebase/firestore', () => {
     query: jest.fn(),
     where: jest.fn(),
     orderBy: jest.fn(),
+    limit: jest.fn(),
     getDocs: jest.fn(),
     doc: jest.fn((ref, ...paths) => ({ id: paths[paths.length - 1] || 'mock-notif-id' })),
     addDoc: jest.fn(),
     updateDoc: jest.fn(),
+    startAfter: jest.fn(),
+    count: jest.fn(),
+    getCountFromServer: jest.fn(),
+    writeBatch: jest.fn(() => mockBatch),
   };
 });
 
@@ -26,6 +38,8 @@ describe('NotificationService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBatch.update.mockClear();
+    mockBatch.commit.mockClear();
   });
 
   describe('createNotification', () => {
@@ -49,7 +63,7 @@ describe('NotificationService', () => {
   });
 
   describe('getNotifications', () => {
-    test('ユーザー宛ての通知一覧を降順で取得できること', async () => {
+    test('ユーザー宛ての通知一覧を降順で取得できること（ページング対応）', async () => {
       const mockDocs = [
         {
           id: 'notif-1',
@@ -63,31 +77,17 @@ describe('NotificationService', () => {
             createdAt: { toDate: () => new Date('2026-05-29T10:00:00Z') },
           }),
         },
-        {
-          id: 'notif-2',
-          data: () => ({
-            userId,
-            type: 'correction_resolved',
-            senderId: 'sender-2',
-            senderName: 'ユーザー2',
-            senderAvatar: 'avatar-2',
-            targetId: 'quiz-1',
-            targetTitle: 'クイズタイトル',
-            isRead: true,
-            createdAt: { toDate: () => new Date('2026-05-29T09:00:00Z') },
-          }),
-        },
       ];
 
       (getDocs as jest.Mock).mockResolvedValue({
         docs: mockDocs,
       });
 
-      const list = await getNotifications(userId);
+      const res = await getNotifications(userId, 10);
 
       expect(getDocs).toHaveBeenCalled();
-      expect(list).toHaveLength(2);
-      expect(list[0]).toEqual({
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0]).toEqual({
         id: 'notif-1',
         userId,
         type: 'follow',
@@ -97,6 +97,40 @@ describe('NotificationService', () => {
         isRead: false,
         createdAt: new Date('2026-05-29T10:00:00Z'),
       });
+      expect(res.lastVisible).toBeDefined();
+    });
+  });
+
+  describe('getUnreadNotificationsCount', () => {
+    test('未読の通知件数を正しくカウントできること', async () => {
+      (getCountFromServer as jest.Mock).mockResolvedValue({
+        data: () => ({ count: 5 })
+      });
+
+      const count = await getUnreadNotificationsCount(userId);
+
+      expect(getCountFromServer).toHaveBeenCalled();
+      expect(count).toBe(5);
+    });
+  });
+
+  describe('markAllNotificationsAsRead', () => {
+    test('すべての未読通知を一括で既読にできること', async () => {
+      const mockDocs = [
+        { id: 'notif-1', ref: 'doc-ref-1' },
+        { id: 'notif-2', ref: 'doc-ref-2' },
+      ];
+
+      (getDocs as jest.Mock).mockResolvedValue({
+        docs: mockDocs,
+      });
+
+      await markAllNotificationsAsRead(userId);
+
+      expect(getDocs).toHaveBeenCalled();
+      expect(writeBatch).toHaveBeenCalled();
+      expect(mockBatch.update).toHaveBeenCalledTimes(2);
+      expect(mockBatch.commit).toHaveBeenCalled();
     });
   });
 

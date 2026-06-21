@@ -6,7 +6,12 @@ import {
   getDocs, 
   doc, 
   addDoc,
-  updateDoc 
+  updateDoc,
+  QueryDocumentSnapshot,
+  startAfter,
+  count,
+  getCountFromServer,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 
@@ -25,18 +30,36 @@ export interface Notification {
 
 const notificationsCollection = collection(db, 'notifications');
 
+export interface PaginatedNotifications {
+  items: Notification[];
+  lastVisible: QueryDocumentSnapshot | null;
+}
+
 /**
- * ユーザー宛ての通知一覧を降順で取得
+ * ユーザー宛ての通知一覧を降順で取得（ページング対応）
  */
-export async function getNotifications(userId: string): Promise<Notification[]> {
-  const q = query(
+export async function getNotifications(
+  userId: string,
+  limitCount?: number,
+  startAfterDoc?: QueryDocumentSnapshot | null
+): Promise<PaginatedNotifications> {
+  let q = query(
     notificationsCollection,
     where('userId', '==', userId),
     orderBy('createdAt', 'desc')
   );
   
+  if (startAfterDoc) {
+    q = query(q, startAfter(startAfterDoc));
+  }
+  
+  if (limitCount && limitCount > 0) {
+    const { limit } = require('firebase/firestore');
+    q = query(q, limit(limitCount));
+  }
+  
   const snap = await getDocs(q);
-  return snap.docs.map(docSnap => {
+  const items = snap.docs.map(docSnap => {
     const data = docSnap.data();
     return {
       id: docSnap.id,
@@ -51,6 +74,10 @@ export async function getNotifications(userId: string): Promise<Notification[]> 
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
     } as Notification;
   });
+  
+  const lastVisible = snap.docs.length > 0 ? (snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot) : null;
+  
+  return { items, lastVisible };
 }
 
 /**
@@ -80,4 +107,37 @@ export async function createNotification(
 
   const docRef = await addDoc(notificationsCollection, payload);
   return docRef.id;
+}
+
+/**
+ * ユーザーの未読通知件数を取得
+ */
+export async function getUnreadNotificationsCount(userId: string): Promise<number> {
+  const q = query(
+    notificationsCollection,
+    where('userId', '==', userId),
+    where('isRead', '==', false)
+  );
+  const countQuery = query(q, count());
+  const snap = await getCountFromServer(countQuery);
+  return snap.data().count;
+}
+
+/**
+ * ユーザーのすべての未読通知を一括で既読にする
+ */
+export async function markAllNotificationsAsRead(userId: string): Promise<void> {
+  const q = query(
+    notificationsCollection,
+    where('userId', '==', userId),
+    where('isRead', '==', false)
+  );
+  const snap = await getDocs(q);
+  if (snap.docs.length === 0) return;
+  
+  const batch = writeBatch(db);
+  snap.docs.forEach(docSnap => {
+    batch.update(docSnap.ref, { isRead: true });
+  });
+  await batch.commit();
 }

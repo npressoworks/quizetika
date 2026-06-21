@@ -102,7 +102,7 @@
   - _Requirements: 1.6, 4.1, 4.4_
   - _Boundary: Core Model & Service_
 
-- [ ] 5.2 サービス層の機能拡張（通知ページング・未読カウント・一括既読）
+- [x] 5.2 サービス層の機能拡張（通知ページング・未読カウント・一括既読）
   - `src/services/notification.ts` の `getNotifications` を修正し、Firestore の `QueryDocumentSnapshot` カーソルを受け取り、`PaginatedNotifications` 構造（`items` と `lastVisible`）を返すようにする。
   - `src/services/notification.ts` に `getUnreadNotificationsCount` を追加し、Firestoreの集計クエリ（`count()`）を用いて該当ユーザーの `isRead == false` の通知件数を取得する。
   - `src/services/notification.ts` に `markAllNotificationsAsRead` を追加し、該当ユーザーの `isRead == false` のドキュメントを一括で `isRead = true` に更新する。
