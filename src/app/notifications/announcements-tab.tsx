@@ -5,7 +5,10 @@ import { getAnnouncements, Announcement } from '@/services/announcement';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Info, AlertTriangle, RefreshCw, Bug } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Info, AlertTriangle, RefreshCw, Bug, Check, AlertOctagon } from 'lucide-react';
+import { QueryDocumentSnapshot } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 
 // HTMLタグおよび実体参照を除去してプレーンテキストにするヘルパー
 function stripHtml(html: string): string {
@@ -20,16 +23,28 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-export function AnnouncementsTab() {
+interface AnnouncementsTabProps {
+  lastReadAt: Date | null;
+  onMarkAllRead: () => void;
+  unreadCount: number;
+}
+
+export function AnnouncementsTab({ lastReadAt, onMarkAllRead, unreadCount }: AnnouncementsTabProps) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await getAnnouncements(20);
-        setAnnouncements(data);
+        setLoading(true);
+        const res = await getAnnouncements(10, null);
+        setAnnouncements(res.items);
+        setLastVisible(res.lastVisible);
+        setHasMore(res.items.length === 10);
       } catch (err) {
         console.error('[AnnouncementsTab] Failed to load announcements:', err);
       } finally {
@@ -38,6 +53,21 @@ export function AnnouncementsTab() {
     }
     load();
   }, []);
+
+  const loadMore = async () => {
+    if (loadingMore || !lastVisible) return;
+    try {
+      setLoadingMore(true);
+      const res = await getAnnouncements(10, lastVisible);
+      setAnnouncements(prev => [...prev, ...res.items]);
+      setLastVisible(res.lastVisible);
+      setHasMore(res.items.length === 10);
+    } catch (err) {
+      console.error('[AnnouncementsTab] Failed to load more:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => ({
@@ -51,6 +81,38 @@ export function AnnouncementsTab() {
     const plainText = stripHtml(html);
     if (plainText.length <= 100) return plainText;
     return plainText.slice(0, 100) + '...';
+  };
+
+  const getCategoryIcon = (category: Announcement['category']) => {
+    switch (category) {
+      case 'important':
+        return <AlertOctagon size={16} className="text-rose-500 mr-1 shrink-0" />;
+      case 'maintenance':
+        return <AlertTriangle size={16} className="text-amber-500 mr-1 shrink-0" />;
+      case 'update':
+        return <RefreshCw size={16} className="text-blue-500 mr-1 shrink-0" />;
+      case 'bug':
+        return <Bug size={16} className="text-rose-500 mr-1 shrink-0" />;
+      case 'info':
+      default:
+        return <Info size={16} className="text-muted-foreground mr-1 shrink-0" />;
+    }
+  };
+
+  const getCategoryLabel = (category: Announcement['category']) => {
+    switch (category) {
+      case 'important':
+        return '重要';
+      case 'maintenance':
+        return 'メンテナンス';
+      case 'update':
+        return 'アップデート';
+      case 'bug':
+        return '不具合';
+      case 'info':
+      default:
+        return '案内';
+    }
   };
 
   if (loading) {
@@ -71,81 +133,86 @@ export function AnnouncementsTab() {
     );
   }
 
-  const getCategoryIcon = (category: Announcement['category']) => {
-    switch (category) {
-      case 'maintenance':
-        return <AlertTriangle size={16} className="text-amber-500 mr-1 shrink-0" />;
-      case 'update':
-        return <RefreshCw size={16} className="text-blue-500 mr-1 shrink-0" />;
-      case 'bug':
-        return <Bug size={16} className="text-rose-500 mr-1 shrink-0" />;
-      case 'info':
-      default:
-        return <Info size={16} className="text-muted-foreground mr-1 shrink-0" />;
-    }
-  };
-
-  const getCategoryLabel = (category: Announcement['category']) => {
-    switch (category) {
-      case 'maintenance':
-        return 'メンテナンス';
-      case 'update':
-        return 'アップデート';
-      case 'bug':
-        return '不具合';
-      case 'info':
-      default:
-        return '案内';
-    }
-  };
-
   return (
     <div className="flex flex-col gap-4">
-      {announcements.map((ann) => (
-        <Card 
-          key={ann.id} 
-          className="overflow-hidden border border-border bg-card cursor-pointer hover:bg-accent/5 transition-colors"
-          onClick={() => toggleExpand(ann.id)}
-          data-testid="announcement-card"
-        >
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="flex items-center">
-                {getCategoryIcon(ann.category)}
-                {getCategoryLabel(ann.category)}
-              </Badge>
-              {ann.publishedAt && (
-                <span className="text-xs text-muted-foreground">
-                  {new Date(ann.publishedAt).toLocaleDateString('ja-JP', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </span>
-              )}
-            </div>
-            <CardTitle className="text-lg font-bold mt-2">{ann.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {expandedIds[ann.id] ? (
-              <div
-                data-testid={`announcement-content-${ann.id}`}
-                className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert announcement-content"
-                dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(ann.content) }}
-              />
-            ) : (
-              <div
-                data-testid={`announcement-content-${ann.id}`}
-                className="text-sm leading-relaxed text-muted-foreground announcement-content"
-              >
-                {getTruncatedContent(ann.content)}
-              </div>
+      {unreadCount > 0 && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={onMarkAllRead} data-testid="announcements-mark-all-read-btn">
+            <Check size={16} className="mr-1" />
+            <span>すべて既読にする</span>
+          </Button>
+        </div>
+      )}
+
+      {announcements.map((ann) => {
+        const isImportant = ann.category === 'important';
+        return (
+          <Card 
+            key={ann.id} 
+            className={cn(
+              "overflow-hidden border cursor-pointer transition-colors",
+              isImportant
+                ? "border-rose-500 bg-rose-50/30 dark:bg-rose-950/10 hover:bg-rose-50/50 dark:hover:bg-rose-950/20"
+                : "border-border bg-card hover:bg-accent/5"
             )}
-          </CardContent>
-        </Card>
-      ))}
+            onClick={() => toggleExpand(ann.id)}
+            data-testid="announcement-card"
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge 
+                  variant={isImportant ? "destructive" : "outline"} 
+                  className="flex items-center"
+                >
+                  {getCategoryIcon(ann.category)}
+                  {getCategoryLabel(ann.category)}
+                </Badge>
+                {ann.publishedAt && (
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(ann.publishedAt).toLocaleDateString('ja-JP', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                )}
+              </div>
+              <CardTitle className="text-lg font-bold mt-2">{ann.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {expandedIds[ann.id] ? (
+                <div
+                  data-testid={`announcement-content-${ann.id}`}
+                  className="text-sm leading-relaxed text-muted-foreground prose prose-sm max-w-none dark:prose-invert announcement-content"
+                  dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(ann.content) }}
+                />
+              ) : (
+                <div
+                  data-testid={`announcement-content-${ann.id}`}
+                  className="text-sm leading-relaxed text-muted-foreground announcement-content"
+                >
+                  {getTruncatedContent(ann.content)}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {hasMore && (
+        <div className="mt-4 flex justify-center">
+          <Button 
+            variant="outline" 
+            onClick={loadMore} 
+            disabled={loadingMore}
+            data-testid="load-more-announcements-btn"
+          >
+            {loadingMore ? '読み込み中...' : 'もっと見る'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

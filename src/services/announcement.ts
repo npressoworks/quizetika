@@ -11,7 +11,6 @@ import {
   deleteDoc,
   QueryDocumentSnapshot,
   startAfter,
-  count,
   getCountFromServer
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
@@ -159,7 +158,6 @@ export async function getUnreadAnnouncementsCount(lastReadAt: Date | null): Prom
     where('publishedAt', '>', lastReadAt)
   );
   
-  const countQuery = query(q, count());
-  const snap = await getCountFromServer(countQuery);
+  const snap = await getCountFromServer(q);
   return snap.data().count;
 }

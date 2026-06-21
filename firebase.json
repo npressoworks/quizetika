@@ -20,8 +20,9 @@
       "port": 9199
     },
     "ui": {
-      "enabled": false
-    }
+      "enabled": true
+    },
+    "singleProjectMode": true
   },
   "extensions": {
     "firestore-bigquery-export": "firebase/firestore-bigquery-export@0.3.2"

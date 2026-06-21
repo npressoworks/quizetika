@@ -9,7 +9,6 @@ import {
   updateDoc,
   QueryDocumentSnapshot,
   startAfter,
-  count,
   getCountFromServer,
   writeBatch
 } from 'firebase/firestore';
@@ -118,8 +117,7 @@ export async function getUnreadNotificationsCount(userId: string): Promise<numbe
     where('userId', '==', userId),
     where('isRead', '==', false)
   );
-  const countQuery = query(q, count());
-  const snap = await getCountFromServer(countQuery);
+  const snap = await getCountFromServer(q);
   return snap.data().count;
 }
 

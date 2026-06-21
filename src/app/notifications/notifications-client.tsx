@@ -3,7 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { getNotifications, markAsRead, Notification } from '@/services/notification';
+import { 
+  getNotifications, 
+  markAsRead, 
+  getUnreadNotificationsCount, 
+  markAllNotificationsAsRead, 
+  Notification 
+} from '@/services/notification';
+import { getUnreadAnnouncementsCount } from '@/services/announcement';
 import {
   UserPlus,
   CheckCircle,
@@ -19,6 +26,7 @@ import { CardContent, Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AnnouncementsTab } from './announcements-tab';
+import { QueryDocumentSnapshot } from 'firebase/firestore';
 
 export function NotificationsClient() {
   const { user: currentUser, loading: authLoading } = useAuth();
@@ -26,29 +34,75 @@ export function NotificationsClient() {
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(false);
 
+  // 未読カウント状態
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [unreadAnnCount, setUnreadAnnCount] = useState(0);
+  const [lastReadAnnAt, setLastReadAnnAt] = useState<Date | null>(null);
+
+  // 初期ロード：通知とお知らせ未読数
   useEffect(() => {
     if (authLoading) return;
-    if (!currentUser) {
-      setLoading(false);
-      return;
+
+    // お知らせ未読数の初期化
+    const storedLastRead = localStorage.getItem('quizeum_announcements_last_read_at');
+    let parsedLastRead: Date | null = null;
+    if (storedLastRead) {
+      parsedLastRead = new Date(storedLastRead);
+      setLastReadAnnAt(parsedLastRead);
+    } else {
+      // 初回アクセス時は現在時刻を保存して未読 0 とする
+      const now = new Date();
+      localStorage.setItem('quizeum_announcements_last_read_at', now.toISOString());
+      parsedLastRead = now;
+      setLastReadAnnAt(now);
     }
 
-    const currentUserId = currentUser.id;
-
-    async function loadNotifications() {
+    async function loadInitialData() {
       try {
-        const list = await getNotifications(currentUserId);
-        setNotifications(list);
+        setLoading(true);
+
+        // 1. お知らせ未読数の取得
+        const annCount = await getUnreadAnnouncementsCount(parsedLastRead);
+        setUnreadAnnCount(annCount);
+
+        // 2. ログインユーザー宛て通知の取得
+        if (currentUser) {
+          const notifRes = await getNotifications(currentUser.id, 10, null);
+          setNotifications(notifRes.items);
+          setLastVisible(notifRes.lastVisible);
+          setHasMore(notifRes.items.length === 10);
+
+          const notifUnread = await getUnreadNotificationsCount(currentUser.id);
+          setUnreadNotifCount(notifUnread);
+        }
       } catch (err) {
-        console.error('[NotificationsClient] Failed to fetch notifications:', err);
+        console.error('[NotificationsClient] Failed to load initial data:', err);
       } finally {
         setLoading(false);
       }
     }
 
-    loadNotifications();
+    loadInitialData();
   }, [currentUser, authLoading]);
+
+  const loadMoreNotifications = async () => {
+    if (loadingMore || !lastVisible || !currentUser) return;
+    try {
+      setLoadingMore(true);
+      const res = await getNotifications(currentUser.id, 10, lastVisible);
+      setNotifications(prev => [...prev, ...res.items]);
+      setLastVisible(res.lastVisible);
+      setHasMore(res.items.length === 10);
+    } catch (err) {
+      console.error('[NotificationsClient] Failed to load more notifications:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleNotificationClick = async (notif: Notification) => {
     try {
@@ -57,6 +111,7 @@ export function NotificationsClient() {
         setNotifications(prev =>
           prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n)
         );
+        setUnreadNotifCount(prev => Math.max(0, prev - 1));
       }
 
       if (notif.type === 'follow' && notif.senderId) {
@@ -73,14 +128,22 @@ export function NotificationsClient() {
     }
   };
 
-  const handleAllRead = async () => {
+  const handleAllNotifRead = async () => {
+    if (!currentUser) return;
     try {
-      const unreadList = notifications.filter(n => !n.isRead);
-      await Promise.all(unreadList.map(n => markAsRead(n.id)));
+      await markAllNotificationsAsRead(currentUser.id);
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setUnreadNotifCount(0);
     } catch (err) {
-      console.error('[NotificationsClient] Failed to mark all as read:', err);
+      console.error('[NotificationsClient] Failed to mark all notifications as read:', err);
     }
+  };
+
+  const handleAllAnnRead = () => {
+    const now = new Date();
+    localStorage.setItem('quizeum_announcements_last_read_at', now.toISOString());
+    setLastReadAnnAt(now);
+    setUnreadAnnCount(0);
   };
 
   if (authLoading || loading) {
@@ -120,19 +183,27 @@ export function NotificationsClient() {
     }
   };
 
-  const hasUnread = notifications.some(n => !n.isRead);
-
   return (
     <CardContent data-testid="notifications-page-container" className="pt-2">
-      <Tabs defaultValue="announcements">
+      <Tabs defaultValue="personal">
         <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="announcements">運営からのお知らせ</TabsTrigger>
-          <TabsTrigger value="personal">通知</TabsTrigger>
+          <TabsTrigger value="personal" data-testid="personal-tab-trigger">
+            通知
+            {currentUser && unreadNotifCount > 0 && (
+              <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground font-bold shrink-0">
+                {unreadNotifCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="announcements" data-testid="announcements-tab-trigger">
+            運営からのお知らせ
+            {unreadAnnCount > 0 && (
+              <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground font-bold shrink-0">
+                {unreadAnnCount}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="announcements">
-          <AnnouncementsTab />
-        </TabsContent>
 
         <TabsContent value="personal">
           {!currentUser ? (
@@ -154,10 +225,10 @@ export function NotificationsClient() {
             </Card>
           ) : (
             <>
-              {hasUnread && (
+              {unreadNotifCount > 0 && (
                 <div className="mb-4 flex justify-end">
-                  <Button type="button" variant="outline" size="sm" onClick={handleAllRead}>
-                    <Check size={16} />
+                  <Button type="button" variant="outline" size="sm" onClick={handleAllNotifRead} data-testid="notifications-mark-all-read-btn">
+                    <Check size={16} className="mr-1" />
                     <span>すべて既読にする</span>
                   </Button>
                 </div>
@@ -211,10 +282,31 @@ export function NotificationsClient() {
                       )}
                     </div>
                   ))}
+
+                  {hasMore && (
+                    <div className="mt-4 flex justify-center">
+                      <Button 
+                        variant="outline" 
+                        onClick={loadMoreNotifications} 
+                        disabled={loadingMore}
+                        data-testid="load-more-notifications-btn"
+                      >
+                        {loadingMore ? '読み込み中...' : 'もっと見る'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="announcements">
+          <AnnouncementsTab 
+            lastReadAt={lastReadAnnAt} 
+            onMarkAllRead={handleAllAnnRead} 
+            unreadCount={unreadAnnCount} 
+          />
         </TabsContent>
       </Tabs>
     </CardContent>

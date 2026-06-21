@@ -84,13 +84,13 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     await page.goto('/notifications');
     await page.waitForTimeout(2000);
 
-    // デフォルトで「運営からのお知らせ」タブが選択されているか確認
-    const announcementTabTrigger = page.locator('button', { hasText: '運営からのお知らせ' });
-    await expect(announcementTabTrigger).toHaveAttribute('aria-selected', 'true');
-
-    // 「通知」タブを選択
+    // デフォルトで「通知」タブが選択されているか確認
     const personalTabTrigger = page.locator('button', { hasText: '通知' });
-    await personalTabTrigger.click();
+    await expect(personalTabTrigger).toHaveAttribute('aria-selected', 'true');
+
+    // 「運営からのお知らせ」タブを選択
+    const announcementTabTrigger = page.locator('button', { hasText: '運営からのお知らせ' });
+    await announcementTabTrigger.click();
 
     // ログイン誘導UIが表示されることを確認
     await expect(page.locator('text=通知機能を利用するにはログインが必要です')).toBeVisible();
@@ -173,6 +173,11 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     await page.goto('/notifications');
     await page.waitForTimeout(2000);
     
+    // 「運営からのお知らせ」タブを選択
+    const announcementTabTrigger = page.locator('button', { hasText: '運営からのお知らせ' });
+    await announcementTabTrigger.click();
+    await page.waitForTimeout(1000);
+
     // 作成・編集したお知らせが一般ユーザー画面で見えることを確認
     await expect(page.locator(`text=${updatedTitle}`)).toBeVisible();
     
@@ -206,7 +211,77 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     // 一般画面でも削除されたことを確認
     await page.goto('/notifications');
     await page.waitForTimeout(2000);
+    // 「運営からのお知らせ」タブを選択
+    const announcementTabTriggerAfterDel = page.locator('button', { hasText: '運営からのお知らせ' });
+    await announcementTabTriggerAfterDel.click();
+    await page.waitForTimeout(1000);
     await expect(page.locator(`text=${updatedTitle}`).first()).not.toBeVisible();
+
+    await context.close();
+  });
+
+  test('一般・管理者ユーザー：重要お知らせの強調表示・お知らせの一括既読の検証', async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
+
+    // 1. ログイン
+    await page.goto('/login');
+    const e2eLoginBtn = page.locator('#e2e-test-login-btn');
+    await expect(e2eLoginBtn).toBeVisible({ timeout: 10000 });
+    await e2eLoginBtn.click();
+    await page.waitForURL('/', { timeout: 10000 });
+    await page.waitForTimeout(3000);
+
+    // 2. お知らせ管理画面で重要お知らせを作成
+    await page.goto('/admin/announcements');
+    await page.waitForTimeout(2000);
+
+    await page.locator('[data-testid="open-create-announcement-btn"]').click();
+    const testTitle = 'E2E重要おしらせ-' + Date.now();
+    await page.locator('input[placeholder="お知らせのタイトルを入力"]').fill(testTitle);
+    await page.locator('select').first().selectOption('important'); // 重要カテゴリ
+    await page.locator('select').nth(1).selectOption('published'); // 公開
+    await page.locator('textarea[placeholder="お知らせの本文を入力 (Markdown対応)"]').fill('これはE2Eテストによる重要お知らせです。');
+    await page.locator('[data-testid="submit-announcement-btn"]').click();
+    await page.waitForTimeout(2000);
+
+    // 3. 通知画面に遷移し、未読バッジとお知らせカードの強調表示を検証
+    await page.goto('/notifications');
+    await page.waitForTimeout(2000);
+
+    // 「運営からのお知らせ」タブの横に未読バッジ（数が1以上）が表示されているか確認
+    const annTabTrigger = page.locator('[data-testid="announcements-tab-trigger"]');
+    await expect(annTabTrigger.locator('span')).toBeVisible();
+
+    // タブをクリックして切り替え
+    await annTabTrigger.click();
+    await page.waitForTimeout(1000);
+
+    // 重要お知らせカードが表示されているか
+    const card = page.locator('[data-testid="announcement-card"]', { hasText: testTitle });
+    await expect(card).toBeVisible();
+    // 重要お知らせカードには border-rose-500 クラス（またはそれに類する赤いスタイル）が適用されているか
+    await expect(card).toHaveClass(/border-rose-500/);
+
+    // 4. 一括既読ボタンを押下して、未読バッジが消える（件数0）ことを確認
+    const markAllReadBtn = page.locator('[data-testid="announcements-mark-all-read-btn"]');
+    await expect(markAllReadBtn).toBeVisible();
+    await markAllReadBtn.click();
+    await page.waitForTimeout(1000);
+
+    // 未読バッジ（件数表示）が消えていることを確認
+    await expect(annTabTrigger.locator('span')).not.toBeVisible();
+
+    // 5. 後片付け：作成したお知らせを削除
+    await page.goto('/admin/announcements');
+    await page.waitForTimeout(2000);
+
+    page.on('dialog', async (dialog) => {
+      await dialog.accept();
+    });
+    const updatedCard = page.locator('div.relative', { hasText: testTitle });
+    await updatedCard.locator('button:has-text("削除")').click();
+    await page.waitForTimeout(2000);
 
     await context.close();
   });

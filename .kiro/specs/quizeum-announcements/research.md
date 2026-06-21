@@ -44,13 +44,13 @@
     - `id`: string (docId)
     - `title`: string
     - `content`: string (Markdown形式のソース)
-    - `category`: 'info' | 'maintenance' | 'update' | 'bug'
+    - `category`: 'info' | 'maintenance' | 'update' | 'bug' | 'important'
     - `status`: 'draft' | 'published'
     - `publishedAt`: Timestamp | null
     - `createdAt`: Timestamp
     - `updatedAt`: Timestamp
     - `authorId`: string
-- **Rationale**: 管理者が下書き（`draft`）を保存し、確認後に公開（`published`）に切り替えるワークフローを実現するため。カテゴリに「不具合（bug）」を追加し、アプリ内バグ報告や障害情報を明示可能にする。
+- **Rationale**: 管理者が下書き（`draft`）を保存し、確認後に公開（`published`）に切り替えるワークフローを実現するため。カテゴリに「重要（important）」を追加し、アプリ全体の重大な案内、アップデート、不具合を赤色バッジで明示できるようにする。
 
 ### Decision: Announcement Truncation and Expansion (2026-06-21 追加)
 - **Context**: 一般ユーザーへのお知らせ一覧における本文の省略と展開表示。
@@ -58,6 +58,22 @@
   - 初期状態では、マークダウン記法を含まないプレーンテキストとしての本文（またはマークダウンを除去した文字列）の先頭100文字を抽出し、「...」を付加して簡易表示する。
   - 各お知らせカードをクリックすることで展開状態（`isExpanded`）をトグルし、展開された場合にはマークダウンをHTMLにパースして安全に全文表示する。
 - **Rationale**: ユーザーが一目で多くのお知らせを確認できるようにするため。また、展開・折りたたみをトグル式にすることで操作性を向上させる。
+
+### Decision: LocalStorage-based Timestamp Read Tracking for Announcements (2026-06-21 追加)
+- **Context**: 運営からのお知らせの未読・既読管理。
+- **Alternatives Considered**:
+  1. ユーザー別にお知らせ既読IDの配列をローカルストレージやデータベースに保存する。
+  2. 最後に「全件既読」にしたタイムスタンプをローカルストレージに1つだけ保存する。
+- **Selected Approach**: 2（タイムスタンプ保存方式）。
+- **Rationale**: ID配列を保存する方式はお知らせが増えた際にデータが肥大化し判定処理が重くなる。タイムスタンプ方式であれば、保存するデータは常に1つの日時文字列のみであり、肥大化リスクは完全にゼロとなる。また、未ログインユーザーでも同様に動作する。
+- **Trade-offs**: 異なるブラウザやデバイス間での既読状態の同期は行われないが、運営からのお知らせというユースケースにおいては十分に許容される。
+
+### Decision: Firestore Query Cursors for Pagination (2026-06-21 追加)
+- **Context**: 通知およびお知らせの10件ずつのページング取得。
+- **Selected Approach**:
+  - Firestore の `limit(10)` および `startAfter(lastVisibleDoc)` を使用して、サーバー側でページングを行う。
+  - サービス層（`getAnnouncements`, `getNotifications`）のシグネチャを拡張し、カーソル（`QueryDocumentSnapshot` またはその類似データ）を指定できるようにする。
+- **Rationale**: クライアントサイドでの全件取得＋ローカルページングは、データ量増加に伴ってネットワーク転送量および Firestore 読み取りコストが増大する。サーバーサイドでのカーソル指定型ページングにすることで、必要な時に必要な分（10件）だけを取得し、初期ロード時間の短縮とリソースコストの最適化（Firestore読み取りコスト削減）を実現する。
 
 ## Risks & Mitigations
 - 非管理者の不正書き込みリスク — Firestoreのセキュリティルール（`firestore.rules`）および API Route で `isAdminUser` 判定を用いて厳格に防御する。

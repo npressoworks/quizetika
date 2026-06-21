@@ -12,26 +12,37 @@ jest.mock('@/services/announcement', () => ({
 }));
 
 describe('AnnouncementsTab Component', () => {
+  const mockOnMarkAllRead = jest.fn();
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   test('お知らせ一覧が正しく表示され、初期状態では省略表示で、クリック時にMarkdown全文が展開されること', async () => {
-    (getAnnouncements as jest.Mock).mockResolvedValue([
-      {
-        id: 'ann-1',
-        title: '新バージョン公開！',
-        content: '**新機能**とバグ修正を行いました。[詳細リンク](https://example.com) ' + 'A'.repeat(120),
-        category: 'update',
-        status: 'published',
-        publishedAt: new Date('2026-06-20T12:00:00Z'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        authorId: 'admin-uid',
-      },
-    ]);
+    (getAnnouncements as jest.Mock).mockResolvedValue({
+      items: [
+        {
+          id: 'ann-1',
+          title: '新バージョン公開！',
+          content: '**新機能**とバグ修正を行いました。[詳細リンク](https://example.com) ' + 'A'.repeat(120),
+          category: 'update',
+          status: 'published',
+          publishedAt: new Date('2026-06-20T12:00:00Z'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authorId: 'admin-uid',
+        },
+      ],
+      lastVisible: null,
+    });
 
-    render(<AnnouncementsTab />);
+    render(
+      <AnnouncementsTab 
+        lastReadAt={null} 
+        onMarkAllRead={mockOnMarkAllRead} 
+        unreadCount={0} 
+      />
+    );
 
     // タイトルが表示されること
     await waitFor(() => {
@@ -65,21 +76,30 @@ describe('AnnouncementsTab Component', () => {
   });
 
   test('不具合カテゴリのお知らせがアイコンとバッジとともに表示されること', async () => {
-    (getAnnouncements as jest.Mock).mockResolvedValue([
-      {
-        id: 'ann-2',
-        title: '接続障害について',
-        content: '現在サーバーが不安定になっています。',
-        category: 'bug',
-        status: 'published',
-        publishedAt: new Date('2026-06-20T12:00:00Z'),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        authorId: 'admin-uid',
-      },
-    ]);
+    (getAnnouncements as jest.Mock).mockResolvedValue({
+      items: [
+        {
+          id: 'ann-2',
+          title: '接続障害について',
+          content: '現在サーバーが不安定になっています。',
+          category: 'bug',
+          status: 'published',
+          publishedAt: new Date('2026-06-20T12:00:00Z'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authorId: 'admin-uid',
+        },
+      ],
+      lastVisible: null,
+    });
 
-    render(<AnnouncementsTab />);
+    render(
+      <AnnouncementsTab 
+        lastReadAt={null} 
+        onMarkAllRead={mockOnMarkAllRead} 
+        unreadCount={0} 
+      />
+    );
 
     await waitFor(() => {
       expect(screen.getByText('接続障害について')).toBeInTheDocument();
@@ -90,12 +110,55 @@ describe('AnnouncementsTab Component', () => {
   });
 
   test('お知らせが0件のときにメッセージが表示されること', async () => {
-    (getAnnouncements as jest.Mock).mockResolvedValue([]);
+    (getAnnouncements as jest.Mock).mockResolvedValue({
+      items: [],
+      lastVisible: null,
+    });
 
-    render(<AnnouncementsTab />);
+    render(
+      <AnnouncementsTab 
+        lastReadAt={null} 
+        onMarkAllRead={mockOnMarkAllRead} 
+        unreadCount={0} 
+      />
+    );
 
     await waitFor(() => {
       expect(screen.getByText('掲載中のお知らせはありません。')).toBeInTheDocument();
     });
+  });
+
+  test('未読件数が1以上の時「すべて既読にする」ボタンが表示され、クリック時にコールバックが呼ばれること', async () => {
+    (getAnnouncements as jest.Mock).mockResolvedValue({
+      items: [
+        {
+          id: 'ann-3',
+          title: 'お知らせ3',
+          content: 'コンテンツ3',
+          category: 'info',
+          status: 'published',
+          publishedAt: new Date('2026-06-20T12:00:00Z'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authorId: 'admin-uid',
+        },
+      ],
+      lastVisible: null,
+    });
+
+    render(
+      <AnnouncementsTab 
+        lastReadAt={null} 
+        onMarkAllRead={mockOnMarkAllRead} 
+        unreadCount={1} 
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('announcements-mark-all-read-btn')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('announcements-mark-all-read-btn'));
+    expect(mockOnMarkAllRead).toHaveBeenCalled();
   });
 });
