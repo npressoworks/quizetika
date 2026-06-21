@@ -1419,7 +1419,7 @@
   - _Requirements: 1.7, 1.8_
   - _Boundary: UserService_
 
-- [ ] 26.2 (P) StorageロゴダウンロードURL取得ヘルパーの実装
+- [x] 26.2 (P) StorageロゴダウンロードURL取得ヘルパーの実装
   - `src/services/storage.ts` にインメモリキャッシュオブジェクト（`snsLogoCache: Record<string, string>`）を定義する
   - `getSnsLogoUrl(snsName: string): Promise<string>` ヘルパーを実装し、キャッシュに存在すれば即時返し、存在しなければ Firebase Storage 上の `assets/logos/{snsName}.png` の `getDownloadURL` を呼び出してキャッシュに格納したのち返却する
   - **完了状態**: 指定されたSNS名に対する Storage のダウンロードURLが取得でき、2回目以降の呼び出しでは Storage への問い合わせ（API呼び出し）をせずにキャッシュから即座にURLが返されること

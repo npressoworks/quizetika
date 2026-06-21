@@ -94,3 +94,23 @@ export function getGenreIconPath(genreId: string, extension: string = 'png'): st
   const timestamp = Date.now();
   return `genres/${genreId}/icon_${timestamp}.${extension}`;
 }
+
+// SNSロゴダウンロードURLのインメモリキャッシュ
+const snsLogoCache: Record<string, string> = {};
+
+/**
+ * 指定されたSNSのロゴ画像のダウンロードURLを取得する
+ * キャッシュがあれば即時返却し、なければ Firebase Storage から取得してキャッシュする
+ */
+export async function getSnsLogoUrl(snsName: string): Promise<string> {
+  const name = snsName.trim().toLowerCase();
+  if (snsLogoCache[name]) {
+    return snsLogoCache[name];
+  }
+
+  const logoPath = `assets/logos/${name}.png`;
+  const logoRef = ref(storage, logoPath);
+  const url = await getDownloadURL(logoRef);
+  snsLogoCache[name] = url;
+  return url;
+}
