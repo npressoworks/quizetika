@@ -42,6 +42,7 @@ export function NotificationsClient() {
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [unreadAnnCount, setUnreadAnnCount] = useState(0);
   const [lastReadAnnAt, setLastReadAnnAt] = useState<Date | null>(null);
+  const [readAnnouncementIds, setReadAnnouncementIds] = useState<string[]>([]);
 
   // 初期ロード：通知とお知らせ未読数
   useEffect(() => {
@@ -61,12 +62,24 @@ export function NotificationsClient() {
       setLastReadAnnAt(epoch);
     }
 
+    // 既読お知らせIDリストの初期化
+    const storedReadIds = localStorage.getItem('quizeum_read_announcement_ids');
+    let parsedReadIds: string[] = [];
+    if (storedReadIds) {
+      try {
+        parsedReadIds = JSON.parse(storedReadIds);
+      } catch (e) {
+        console.error('[NotificationsClient] Failed to parse read announcement IDs:', e);
+      }
+    }
+    setReadAnnouncementIds(parsedReadIds);
+
     async function loadInitialData() {
       try {
         setLoading(true);
 
         // 1. お知らせ未読数の取得
-        const annCount = await getUnreadAnnouncementsCount(parsedLastRead);
+        const annCount = await getUnreadAnnouncementsCount(parsedLastRead, parsedReadIds);
         setUnreadAnnCount(annCount);
 
         // 2. ログインユーザー宛て通知の取得
@@ -142,8 +155,18 @@ export function NotificationsClient() {
   const handleAllAnnRead = () => {
     const now = new Date();
     localStorage.setItem('quizeum_announcements_last_read_at', now.toISOString());
+    localStorage.setItem('quizeum_read_announcement_ids', JSON.stringify([]));
     setLastReadAnnAt(now);
+    setReadAnnouncementIds([]);
     setUnreadAnnCount(0);
+  };
+
+  const handleAnnRead = (id: string) => {
+    if (readAnnouncementIds.includes(id)) return;
+    const updatedIds = [...readAnnouncementIds, id];
+    localStorage.setItem('quizeum_read_announcement_ids', JSON.stringify(updatedIds));
+    setReadAnnouncementIds(updatedIds);
+    setUnreadAnnCount(prev => Math.max(0, prev - 1));
   };
 
   if (authLoading || loading) {
@@ -306,6 +329,8 @@ export function NotificationsClient() {
             lastReadAt={lastReadAnnAt} 
             onMarkAllRead={handleAllAnnRead} 
             unreadCount={unreadAnnCount} 
+            readAnnouncementIds={readAnnouncementIds}
+            onMarkAsRead={handleAnnRead}
           />
         </TabsContent>
       </Tabs>

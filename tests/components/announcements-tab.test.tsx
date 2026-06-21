@@ -36,11 +36,14 @@ describe('AnnouncementsTab Component', () => {
       lastVisible: null,
     });
 
+    const mockOnMarkAsRead = jest.fn();
     render(
       <AnnouncementsTab 
         lastReadAt={null} 
         onMarkAllRead={mockOnMarkAllRead} 
         unreadCount={0} 
+        readAnnouncementIds={[]}
+        onMarkAsRead={mockOnMarkAsRead}
       />
     );
 
@@ -98,6 +101,8 @@ describe('AnnouncementsTab Component', () => {
         lastReadAt={null} 
         onMarkAllRead={mockOnMarkAllRead} 
         unreadCount={0} 
+        readAnnouncementIds={[]}
+        onMarkAsRead={jest.fn()}
       />
     );
 
@@ -120,6 +125,8 @@ describe('AnnouncementsTab Component', () => {
         lastReadAt={null} 
         onMarkAllRead={mockOnMarkAllRead} 
         unreadCount={0} 
+        readAnnouncementIds={[]}
+        onMarkAsRead={jest.fn()}
       />
     );
 
@@ -151,6 +158,8 @@ describe('AnnouncementsTab Component', () => {
         lastReadAt={null} 
         onMarkAllRead={mockOnMarkAllRead} 
         unreadCount={1} 
+        readAnnouncementIds={[]}
+        onMarkAsRead={jest.fn()}
       />
     );
 
@@ -160,5 +169,67 @@ describe('AnnouncementsTab Component', () => {
 
     fireEvent.click(screen.getByTestId('announcements-mark-all-read-btn'));
     expect(mockOnMarkAllRead).toHaveBeenCalled();
+  });
+
+  test('未読のお知らせを展開したときに onMarkAsRead コールバックが呼ばれ、未読バッジが表示されること', async () => {
+    (getAnnouncements as jest.Mock).mockResolvedValue({
+      items: [
+        {
+          id: 'ann-unread',
+          title: '未読のお知らせ',
+          content: '未読コンテンツのテスト',
+          category: 'info',
+          status: 'published',
+          publishedAt: new Date('2026-06-20T12:00:00Z'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authorId: 'admin-uid',
+        },
+        {
+          id: 'ann-read',
+          title: '既読のお知らせ',
+          content: '既読コンテンツのテスト',
+          category: 'info',
+          status: 'published',
+          publishedAt: new Date('2026-06-20T12:00:00Z'),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          authorId: 'admin-uid',
+        },
+      ],
+      lastVisible: null,
+    });
+
+    const mockOnMarkAsRead = jest.fn();
+
+    render(
+      <AnnouncementsTab 
+        lastReadAt={null} 
+        onMarkAllRead={mockOnMarkAllRead} 
+        unreadCount={2} 
+        readAnnouncementIds={['ann-read']}
+        onMarkAsRead={mockOnMarkAsRead}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('未読のお知らせ')).toBeInTheDocument();
+      expect(screen.getByText('既読のお知らせ')).toBeInTheDocument();
+    });
+
+    const cards = screen.getAllByTestId('announcement-card');
+    expect(cards).toHaveLength(2);
+
+    const unreadCard = cards[0];
+    const readCard = cards[1];
+    expect(unreadCard.querySelector('[data-testid="announcement-unread-badge"]')).toBeInTheDocument();
+    expect(readCard.querySelector('[data-testid="announcement-unread-badge"]')).not.toBeInTheDocument();
+
+    fireEvent.click(unreadCard);
+    expect(mockOnMarkAsRead).toHaveBeenCalledWith('ann-unread');
+
+    mockOnMarkAsRead.mockClear();
+    fireEvent.click(readCard);
+    expect(mockOnMarkAsRead).not.toHaveBeenCalled();
   });
 });

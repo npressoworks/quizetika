@@ -27,9 +27,17 @@ interface AnnouncementsTabProps {
   lastReadAt: Date | null;
   onMarkAllRead: () => void;
   unreadCount: number;
+  readAnnouncementIds: string[];
+  onMarkAsRead: (id: string) => void;
 }
 
-export function AnnouncementsTab({ lastReadAt, onMarkAllRead, unreadCount }: AnnouncementsTabProps) {
+export function AnnouncementsTab({ 
+  lastReadAt, 
+  onMarkAllRead, 
+  unreadCount,
+  readAnnouncementIds,
+  onMarkAsRead 
+}: AnnouncementsTabProps) {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -69,11 +77,27 @@ export function AnnouncementsTab({ lastReadAt, onMarkAllRead, unreadCount }: Ann
     }
   };
 
+  // お知らせが既読であるかを判定
+  const isAnnouncementRead = (ann: Announcement) => {
+    if (readAnnouncementIds.includes(ann.id)) {
+      return true;
+    }
+    if (ann.publishedAt && lastReadAt) {
+      return new Date(ann.publishedAt) <= new Date(lastReadAt);
+    }
+    return false;
+  };
+
   const toggleExpand = (id: string) => {
     setExpandedIds((prev) => ({
       ...prev,
       [id]: !prev[id],
     }));
+    // 展開する際、未読の場合は既読にする
+    const ann = announcements.find((a) => a.id === id);
+    if (ann && !isAnnouncementRead(ann)) {
+      onMarkAsRead(id);
+    }
   };
 
   const getTruncatedContent = (content: string) => {
@@ -146,18 +170,26 @@ export function AnnouncementsTab({ lastReadAt, onMarkAllRead, unreadCount }: Ann
 
       {announcements.map((ann) => {
         const isImportant = ann.category === 'important';
+        const isRead = isAnnouncementRead(ann);
         return (
           <Card 
             key={ann.id} 
             className={cn(
-              "overflow-hidden border cursor-pointer transition-colors",
+              "relative overflow-hidden border cursor-pointer transition-colors",
               isImportant
-                ? "border-rose-500 bg-rose-50/30 dark:bg-rose-950/10 hover:bg-rose-50/50 dark:hover:bg-rose-950/20"
-                : "border-border bg-card hover:bg-accent/5"
+                ? (isRead 
+                    ? "border-rose-500 bg-rose-50/30 dark:bg-rose-950/10 hover:bg-rose-50/50 dark:hover:bg-rose-950/20"
+                    : "border-rose-500 bg-rose-100/50 dark:bg-rose-950/30 hover:bg-rose-100/70 dark:hover:bg-rose-950/40")
+                : (isRead
+                    ? "border-border bg-card hover:bg-accent/5"
+                    : "border-primary/30 bg-primary/5 hover:bg-primary/10")
             )}
             onClick={() => toggleExpand(ann.id)}
             data-testid="announcement-card"
           >
+            {!isRead && (
+              <span className="absolute top-4 right-4 size-2 rounded-full bg-primary" data-testid="announcement-unread-badge" />
+            )}
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge 

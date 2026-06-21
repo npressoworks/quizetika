@@ -11,7 +11,8 @@ import {
   deleteDoc,
   QueryDocumentSnapshot,
   startAfter,
-  getCountFromServer
+  getCountFromServer,
+  limit
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import type { Announcement } from '../types';
@@ -146,8 +147,13 @@ export async function deleteAnnouncement(id: string): Promise<void> {
 
 /**
  * 未読のお知らせ件数を取得
+ * lastReadAt 以降に公開されたお知らせを最大30件取得し、
+ * そのうち readIds（既読お知らせIDリスト）に含まれない件数をカウントする。
  */
-export async function getUnreadAnnouncementsCount(lastReadAt: Date | null): Promise<number> {
+export async function getUnreadAnnouncementsCount(
+  lastReadAt: Date | null,
+  readIds: string[]
+): Promise<number> {
   if (!lastReadAt) {
     return 0;
   }
@@ -155,9 +161,14 @@ export async function getUnreadAnnouncementsCount(lastReadAt: Date | null): Prom
   const q = query(
     announcementsCollection,
     where('status', '==', 'published'),
-    where('publishedAt', '>', lastReadAt)
+    where('publishedAt', '>', lastReadAt),
+    orderBy('publishedAt', 'desc'),
+    limit(30)
   );
   
-  const snap = await getCountFromServer(q);
-  return snap.data().count;
+  const snap = await getDocs(q);
+  const items = snap.docs.map(doc => doc.id);
+  const unreadCount = items.filter(id => !readIds.includes(id)).length;
+  
+  return unreadCount;
 }

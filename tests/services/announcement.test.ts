@@ -126,15 +126,22 @@ describe('AnnouncementService', () => {
 
   describe('getUnreadAnnouncementsCount', () => {
     test('未読のお知らせ件数を正しくカウントできること', async () => {
-      (getCountFromServer as jest.Mock).mockResolvedValue({
-        data: () => ({ count: 3 })
+      const mockDocs = [
+        { id: 'ann-1' },
+        { id: 'ann-2' },
+        { id: 'ann-3' },
+      ];
+
+      (getDocs as jest.Mock).mockResolvedValue({
+        docs: mockDocs,
       });
 
       const lastReadAt = new Date('2026-06-21T00:00:00Z');
-      const count = await getUnreadAnnouncementsCount(lastReadAt);
+      const readIds = ['ann-1']; // ann-1 は既読
+      const count = await getUnreadAnnouncementsCount(lastReadAt, readIds);
 
-      expect(getCountFromServer).toHaveBeenCalled();
-      expect(count).toBe(3);
+      expect(getDocs).toHaveBeenCalled();
+      expect(count).toBe(2); // ann-2, ann-3 が未読
     });
   });
 
