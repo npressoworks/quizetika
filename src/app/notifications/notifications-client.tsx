@@ -54,11 +54,11 @@ export function NotificationsClient() {
       parsedLastRead = new Date(storedLastRead);
       setLastReadAnnAt(parsedLastRead);
     } else {
-      // 初回アクセス時は現在時刻を保存して未読 0 とする
-      const now = new Date();
-      localStorage.setItem('quizeum_announcements_last_read_at', now.toISOString());
-      parsedLastRead = now;
-      setLastReadAnnAt(now);
+      // 初回アクセス時は過去の時刻（Unixエポック）を設定し、既存のお知らせを未読とする
+      const epoch = new Date(0);
+      localStorage.setItem('quizeum_announcements_last_read_at', epoch.toISOString());
+      parsedLastRead = epoch;
+      setLastReadAnnAt(epoch);
     }
 
     async function loadInitialData() {
