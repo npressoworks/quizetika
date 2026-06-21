@@ -4,9 +4,10 @@ import {
   getAnnouncementById,
   createAnnouncement, 
   updateAnnouncement, 
-  deleteAnnouncement 
+  deleteAnnouncement,
+  getUnreadAnnouncementsCount
 } from '../../src/services/announcement';
-import { getDocs, updateDoc, addDoc, deleteDoc } from 'firebase/firestore';
+import { getDocs, updateDoc, addDoc, deleteDoc, getCountFromServer } from 'firebase/firestore';
 
 // Firebase Firestore モック
 jest.mock('firebase/firestore', () => {
@@ -24,6 +25,9 @@ jest.mock('firebase/firestore', () => {
     addDoc: jest.fn(),
     updateDoc: jest.fn(),
     deleteDoc: jest.fn(),
+    startAfter: jest.fn(),
+    count: jest.fn(),
+    getCountFromServer: jest.fn(),
   };
 });
 
@@ -68,10 +72,28 @@ describe('AnnouncementService', () => {
       expect(addDoc).toHaveBeenCalled();
       expect(newId).toBe('bug-announcement-id');
     });
+
+    test('重要カテゴリのお知らせが正しく作成されること', async () => {
+      const mockData = {
+        title: '重要お知らせ',
+        content: '重要内容',
+        category: 'important' as const,
+        status: 'published' as const,
+        publishedAt: new Date(),
+        authorId: 'admin-uid',
+      };
+
+      (addDoc as jest.Mock).mockResolvedValue({ id: 'important-announcement-id' });
+
+      const newId = await createAnnouncement(mockData);
+
+      expect(addDoc).toHaveBeenCalled();
+      expect(newId).toBe('important-announcement-id');
+    });
   });
 
   describe('getAnnouncements', () => {
-    test('一般向け公開お知らせを降順で取得できること', async () => {
+    test('一般向け公開お知らせを降順で取得できること（ページング対応）', async () => {
       const mockDocs = [
         {
           id: 'announcement-1',
@@ -92,12 +114,27 @@ describe('AnnouncementService', () => {
         docs: mockDocs,
       });
 
-      const list = await getAnnouncements();
+      const res = await getAnnouncements(10);
 
       expect(getDocs).toHaveBeenCalled();
-      expect(list).toHaveLength(1);
-      expect(list[0].id).toBe('announcement-1');
-      expect(list[0].status).toBe('published');
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].id).toBe('announcement-1');
+      expect(res.items[0].status).toBe('published');
+      expect(res.lastVisible).toBeDefined();
+    });
+  });
+
+  describe('getUnreadAnnouncementsCount', () => {
+    test('未読のお知らせ件数を正しくカウントできること', async () => {
+      (getCountFromServer as jest.Mock).mockResolvedValue({
+        data: () => ({ count: 3 })
+      });
+
+      const lastReadAt = new Date('2026-06-21T00:00:00Z');
+      const count = await getUnreadAnnouncementsCount(lastReadAt);
+
+      expect(getCountFromServer).toHaveBeenCalled();
+      expect(count).toBe(3);
     });
   });
 

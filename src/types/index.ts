@@ -373,7 +373,7 @@ export interface Announcement {
   id: string;
   title: string;
   content: string;
-  category: 'info' | 'maintenance' | 'update' | 'bug';
+  category: 'info' | 'maintenance' | 'update' | 'bug' | 'important';
   status: 'draft' | 'published';
   publishedAt: Date | null;
   createdAt: Date;

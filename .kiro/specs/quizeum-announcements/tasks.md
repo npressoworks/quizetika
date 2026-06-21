@@ -92,3 +92,62 @@
   - _Boundary: Testing_
   - _Depends: 4.2, 4.3_
 
+## 5. Phase 3 (Extension): ページング、未読・既読管理、および重要カテゴリ
+
+- [x] 5.1 型定義とサービス層の機能拡張（お知らせ重要カテゴリ・ページング・未読カウント）
+  - `src/types/index.ts` の `Announcement['category']` に `'important'` を追加する。
+  - `src/services/announcement.ts` の `getAnnouncements` を修正し、`limitCount` と Firestore の `QueryDocumentSnapshot` カーソルを受け取り、`PaginatedAnnouncements` 構造（`items` と `lastVisible`）を返すようにする。
+  - `src/services/announcement.ts` に `getUnreadAnnouncementsCount` を追加し、Firestoreの集計クエリ（`count()`）を用いて、指定のタイムスタンプ以降に公開されたお知らせの件数を取得する。
+  - **Observable completion**: TypeScript のコンパイルが通り、サービス層の型シグネチャのエラーがなく、カーソルを使用したテスト用のFirestoreクエリがエラーなく動作すること。
+  - _Requirements: 1.6, 4.1, 4.4_
+  - _Boundary: Core Model & Service_
+
+- [ ] 5.2 サービス層の機能拡張（通知ページング・未読カウント・一括既読）
+  - `src/services/notification.ts` の `getNotifications` を修正し、Firestore の `QueryDocumentSnapshot` カーソルを受け取り、`PaginatedNotifications` 構造（`items` と `lastVisible`）を返すようにする。
+  - `src/services/notification.ts` に `getUnreadNotificationsCount` を追加し、Firestoreの集計クエリ（`count()`）を用いて該当ユーザーの `isRead == false` の通知件数を取得する。
+  - `src/services/notification.ts` に `markAllNotificationsAsRead` を追加し、該当ユーザーの `isRead == false` のドキュメントを一括で `isRead = true` に更新する。
+  - **Observable completion**: 通知サービスに追加された関数について型エラーが発生しないこと。また、通知一括既読実行後に該当ユーザーの未読通知数が0に更新されること。
+  - _Requirements: 4.1, 4.4, 4.6_
+  - _Boundary: Core Model & Service_
+
+- [ ] 5.3 (P) 管理画面への「重要」カテゴリの追加
+  - `src/app/admin/announcements/client.tsx` を修正し、カテゴリのセレクトボックスに「重要」の選択肢を追加する。
+  - 管理者お知らせ一覧画面で、カテゴリが「重要」のバッジが正しく表示されるように変換ロジックを修正する。
+  - **Observable completion**: 管理画面でお知らせの種類に「重要」を選択して保存可能であり、一覧表示で「重要」バッジが表示されること。
+  - _Requirements: 1.6_
+  - _Boundary: Admin Announcements UI_
+  - _Depends: 5.1_
+
+- [ ] 5.4 (P) お知らせ一覧でのページング・一括既読と「重要」の赤色強調表示
+  - `src/app/notifications/announcements-tab.tsx` を修正し、10件ずつのページング取得を実装する（「もっと見る」ボタンでカーソルを渡して追加取得）。次のページが存在しない場合はボタンを非表示または無効化する。
+  - ローカルストレージを使用した一括既読機能（「すべて既読にする」ボタン）を実装し、最新の公開日時タイムスタンプをローカルストレージに保存する。
+  - お知らせのカテゴリが「重要」である場合、カードの枠線を赤くし、赤い「重要」バッジを表示して強調する。
+  - **Observable completion**: 「運営からのお知らせ」タブで最新10件が表示され、「もっと見る」ボタンで追加取得ができ、一括既読ボタンをクリックするとお知らせの未読カウント（親コンポーネントに通知）が0になること。また、「重要」カテゴリのお知らせが赤く強調表示されること。
+  - _Requirements: 2.8, 2.9, 4.1, 4.2, 4.3, 4.7_
+  - _Boundary: Announcements Tab UI_
+  - _Depends: 5.1_
+
+- [ ] 5.5 (P) 通知メニューのタブ順変更・初期タブおよび通知ページング・未読数バッジと一括既読の統合
+  - `src/app/notifications/notifications-client.tsx` を修正し、タブの並び順を左に「通知」、右に「運営からのお知らせ」にし、初期アクティブタブを「通知」に設定する。
+  - 各タブの横に未読数（通知は `getUnreadNotificationsCount`、お知らせは `getUnreadAnnouncementsCount`）を表示する。未ログイン時は通知の未読数を表示しない。
+  - 個人宛て通知の10件ずつのページング取得（「もっと見る」ボタン）を実装する。
+  - 通知の「すべて既読にする」ボタンが押された際、`markAllNotificationsAsRead` を呼び出して表示リストをすべて既読に更新し、未読バッジ数を0にする。
+  - **Observable completion**: `/notifications` ページを開いたときにデフォルトで「通知」タブが表示され、各タブの横に件数がバッジ表示され、通知のページングと一括既読が機能すること。
+  - _Requirements: 2.1, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
+  - _Boundary: Notifications Client UI_
+  - _Depends: 5.2, 5.4_
+
+- [ ] 5.6 単体テストと結合テストの修正・追加
+  - ページング、未読数表示、一括既読、重要カテゴリ追加に伴う機能拡張に対して、テストファイルを追加または修正し、検証を行う。
+  - **Observable completion**: `npm run test` がすべて正常にパスすること。
+  - _Requirements: 1.6, 2.1, 2.9, 4.1, 4.4, 4.6, 4.7_
+  - _Boundary: Testing_
+  - _Depends: 5.3, 5.4, 5.5_
+
+- [ ] 5.7 E2Eテストによる動作検証
+  - Playwright E2Eテストファイルに、ページングの挙動（「もっと見る」ボタン）、一括既読ボタン押下時の挙動、重要お知らせの赤色強調表示、未読カウントバッジの表示をアサーションするテストケースを追加する。
+  - **Observable completion**: `npm run test:e2e` を実行し、すべて正常にパスすること。
+  - _Requirements: 1.6, 2.1, 2.9, 4.1, 4.2, 4.4, 4.6, 4.7_
+  - _Boundary: E2E Testing_
+  - _Depends: 5.6_
+

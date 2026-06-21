@@ -8,7 +8,11 @@ import {
   doc, 
   addDoc,
   updateDoc,
-  deleteDoc
+  deleteDoc,
+  QueryDocumentSnapshot,
+  startAfter,
+  count,
+  getCountFromServer
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import type { Announcement } from '../types';
@@ -31,15 +35,27 @@ function mapDocToAnnouncement(docSnap: any): Announcement {
   };
 }
 
+export interface PaginatedAnnouncements {
+  items: Announcement[];
+  lastVisible: QueryDocumentSnapshot | null;
+}
+
 /**
- * 一般ユーザー向け: 公開済みのお知らせ一覧を降順で取得
+ * 一般ユーザー向け: 公開済みのお知らせ一覧を降順で取得（ページング対応）
  */
-export async function getAnnouncements(limitCount?: number): Promise<Announcement[]> {
+export async function getAnnouncements(
+  limitCount?: number,
+  startAfterDoc?: QueryDocumentSnapshot | null
+): Promise<PaginatedAnnouncements> {
   let q = query(
     announcementsCollection,
     where('status', '==', 'published'),
     orderBy('publishedAt', 'desc')
   );
+  
+  if (startAfterDoc) {
+    q = query(q, startAfter(startAfterDoc));
+  }
   
   if (limitCount && limitCount > 0) {
     const { limit } = require('firebase/firestore');
@@ -47,7 +63,10 @@ export async function getAnnouncements(limitCount?: number): Promise<Announcemen
   }
 
   const snap = await getDocs(q);
-  return snap.docs.map(mapDocToAnnouncement);
+  const items = snap.docs.map(mapDocToAnnouncement);
+  const lastVisible = snap.docs.length > 0 ? (snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot) : null;
+  
+  return { items, lastVisible };
 }
 
 /**
@@ -124,4 +143,23 @@ export async function updateAnnouncement(
 export async function deleteAnnouncement(id: string): Promise<void> {
   const docRef = doc(announcementsCollection, id);
   await deleteDoc(docRef);
+}
+
+/**
+ * 未読のお知らせ件数を取得
+ */
+export async function getUnreadAnnouncementsCount(lastReadAt: Date | null): Promise<number> {
+  if (!lastReadAt) {
+    return 0;
+  }
+  
+  const q = query(
+    announcementsCollection,
+    where('status', '==', 'published'),
+    where('publishedAt', '>', lastReadAt)
+  );
+  
+  const countQuery = query(q, count());
+  const snap = await getCountFromServer(countQuery);
+  return snap.data().count;
 }
