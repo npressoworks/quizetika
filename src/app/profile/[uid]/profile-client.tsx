@@ -248,7 +248,7 @@ export function ProfileClient() {
               </p>
 
               {profileUser.snsLinks && Object.values(profileUser.snsLinks).some(Boolean) && (
-                <div className="flex flex-wrap gap-4 items-center mt-2" data-testid="sns-links-container">
+                <div className="flex flex-wrap gap-3 items-center mt-3" data-testid="sns-links-container">
                   {Object.entries(profileUser.snsLinks).map(([sns, url]) => {
                     if (!url) return null;
                     const logoUrl = snsLogoUrls[sns];
@@ -258,20 +258,22 @@ export function ProfileClient() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                        className="inline-flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shadow-sm"
                         title={`${sns} を開く`}
                         data-testid={`sns-link-${sns}`}
                       >
-                        {logoUrl ? (
-                          <img
-                            src={logoUrl}
-                            alt={sns}
-                            className="h-5 w-auto object-contain"
-                          />
-                        ) : (
-                          <span className="text-xs uppercase font-medium">{sns}</span>
-                        )}
-                        <span className="capitalize">{sns}</span>
+                        <div className="flex size-5 items-center justify-center shrink-0">
+                          {logoUrl ? (
+                            <img
+                              src={logoUrl}
+                              alt={sns}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase">{sns.slice(0, 2)}</span>
+                          )}
+                        </div>
+                        <span className="capitalize font-medium">{sns}</span>
                       </a>
                     );
                   })}
