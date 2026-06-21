@@ -266,7 +266,7 @@ export function ProfileClient() {
                           <img
                             src={logoUrl}
                             alt={sns}
-                            className="size-5 object-contain"
+                            className="h-5 w-auto object-contain"
                           />
                         ) : (
                           <span className="text-xs uppercase font-medium">{sns}</span>
