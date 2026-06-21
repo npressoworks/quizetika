@@ -32,7 +32,7 @@ export default function AdminAnnouncementsClient() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [category, setCategory] = useState<'info' | 'maintenance' | 'update' | 'bug'>('info');
+  const [category, setCategory] = useState<'info' | 'maintenance' | 'update' | 'bug' | 'important'>('info');
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [isPreview, setIsPreview] = useState(false);
 
@@ -154,7 +154,7 @@ export default function AdminAnnouncementsClient() {
                     {ann.status === 'published' ? '公開中' : '下書き'}
                   </Badge>
                   <Badge variant="outline">
-                    {ann.category === 'info' ? '案内' : ann.category === 'maintenance' ? 'メンテナンス' : ann.category === 'update' ? 'アップデート' : '不具合'}
+                    {ann.category === 'info' ? '案内' : ann.category === 'maintenance' ? 'メンテナンス' : ann.category === 'update' ? 'アップデート' : ann.category === 'bug' ? '不具合' : '重要'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
                     {new Date(ann.createdAt).toLocaleDateString('ja-JP')}
@@ -223,6 +223,7 @@ export default function AdminAnnouncementsClient() {
                   <option value="maintenance">メンテナンス (maintenance)</option>
                   <option value="update">アップデート (update)</option>
                   <option value="bug">不具合 (bug)</option>
+                  <option value="important">重要 (important)</option>
                 </select>
               </div>
 
