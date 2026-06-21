@@ -1426,7 +1426,7 @@
   - _Requirements: 1.10_
   - _Boundary: StorageService_
 
-- [ ] 26.3 `updateProfile` へのSNSリンク保存の統合
+- [x] 26.3 `updateProfile` へのSNSリンク保存の統合
   - `src/services/user.ts` の `updateProfile` サービスにおいて、バリデーションに合格した `snsLinks` オブジェクトを Firestore の `users/{userId}` ドキュメントに保存する処理を実装する
   - **完了状態**: 認証ユーザーが正しいSNSリンク情報を送信した際、データベース上の `users/{userId}` ドキュメント内の `snsLinks` フィールドにオブジェクトが正常に保存されること
   - _Requirements: 1.9_

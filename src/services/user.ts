@@ -256,7 +256,7 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
   }
 
   const docRef = doc(usersRef, uid);
-  const updateData: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>> & { updatedAt: Date } = {
+  const updateData: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>> & { updatedAt: Date } & { snsLinks?: Record<string, string> } = {
     displayName: data.displayName.trim(),
     bio: data.bio,
     updatedAt: new Date(),
@@ -264,6 +264,16 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
 
   if (data.followedGenres !== undefined) {
     updateData.followedGenres = data.followedGenres;
+  }
+
+  if (data.snsLinks !== undefined) {
+    const snsLinks: Record<string, string> = {};
+    for (const [key, value] of Object.entries(data.snsLinks)) {
+      if (value && value.trim() !== '') {
+        snsLinks[key] = value.trim();
+      }
+    }
+    updateData.snsLinks = snsLinks;
   }
 
   await updateDoc(docRef, updateData as any);
