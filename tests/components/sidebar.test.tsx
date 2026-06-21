@@ -144,4 +144,36 @@ describe('Sidebar Component', () => {
     expect(screen.getByTestId('sidebar-settings-link')).toBeInTheDocument();
     expect(screen.getByText('ログアウト')).toBeInTheDocument();
   });
+
+  it('管理者ユーザーログイン時は「管理者メニュー」を主要メニューおよびポップアップに表示し、/admin パスでアクティブ表示になる', () => {
+    mockUser = { id: 'admin-123', displayName: '管理者', avatarUrl: 'avatar.png', role: 'admin' };
+    render(<Sidebar />);
+    
+    expect(screen.getByTestId('nav-admin')).toBeInTheDocument();
+    expect(screen.getByText('管理者メニュー')).toBeInTheDocument();
+    
+    expect(screen.queryByTestId('sidebar-admin-link')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('sidebar-profile-btn'));
+    expect(screen.getByTestId('sidebar-admin-link')).toBeInTheDocument();
+  });
+
+  it('管理者ユーザーログイン時、/admin では管理者メニューが active になる', () => {
+    mockUser = { id: 'admin-123', displayName: '管理者', avatarUrl: 'avatar.png', role: 'admin' };
+    mockPathname = '/admin';
+    render(<Sidebar />);
+    
+    expect(screen.getByTestId('nav-admin')).toHaveClass('active');
+    expect(screen.getByTestId('nav-home')).not.toHaveClass('active');
+  });
+
+  it('一般ユーザー（非管理者）ログイン時は「管理者メニュー」を主要メニューおよびポップアップに表示しない', () => {
+    mockUser = { id: 'user-123', displayName: '一般ユーザー', avatarUrl: 'avatar.png', role: 'user' };
+    render(<Sidebar />);
+    
+    expect(screen.queryByTestId('nav-admin')).not.toBeInTheDocument();
+    expect(screen.queryByText('管理者メニュー')).not.toBeInTheDocument();
+    
+    fireEvent.click(screen.getByTestId('sidebar-profile-btn'));
+    expect(screen.queryByTestId('sidebar-admin-link')).not.toBeInTheDocument();
+  });
 });

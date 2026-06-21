@@ -12,7 +12,9 @@ import {
   LogOut,
   ClipboardList,
   Settings,
+  Shield,
 } from 'lucide-react';
+import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -87,6 +89,20 @@ export const Header: React.FC = () => {
                   className="w-[200px]"
                   data-testid="header-profile-popup"
                 >
+                  {isAdminUser(user) && (
+                    <DropdownMenuItem
+                      render={
+                        <Link
+                          href="/admin"
+                          onClick={() => setPopupOpen(false)}
+                          data-testid="header-admin-link"
+                        />
+                      }
+                    >
+                      <Shield size={18} />
+                      <span>管理者メニュー</span>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     render={
                       <Link

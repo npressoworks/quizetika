@@ -91,6 +91,63 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(page).toHaveURL(/\/my-quiz/);
   });
 
+  test('Phase 27: Admin menu is visible and active on /admin for Admin User', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto('/login');
+    
+    const loginBtn = page.locator('#e2e-test-login-btn');
+    if (await loginBtn.isVisible()) {
+      await loginBtn.click();
+    }
+    
+    await page.waitForURL(/\/$/);
+
+    const adminLink = page.getByTestId('nav-admin');
+    await expect(adminLink).toBeVisible();
+    await expect(adminLink).not.toHaveClass(/active/);
+
+    await adminLink.click();
+    await expect(page).toHaveURL(/\/admin/);
+    await expect(adminLink).toHaveClass(/active/);
+  });
+
+  test('Phase 27: Admin popup links are visible for Admin User', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto('/');
+    
+    const loginBtn = page.locator('#e2e-test-login-btn');
+    if (await loginBtn.isVisible()) {
+      await page.goto('/login');
+      await loginBtn.click();
+      await page.waitForURL(/\/$/);
+    }
+
+    const profileBtn = page.getByTestId('sidebar-profile-btn');
+    await expect(profileBtn).toBeVisible();
+    await profileBtn.click();
+    
+    const adminPopupLink = page.getByTestId('sidebar-admin-link');
+    await expect(adminPopupLink).toBeVisible();
+
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto('/');
+    
+    const mobileProfileBtn = page.getByTestId('header-profile-btn');
+    await expect(mobileProfileBtn).toBeVisible();
+    await mobileProfileBtn.click();
+    
+    const mobileAdminPopupLink = page.getByTestId('header-admin-link');
+    await expect(mobileAdminPopupLink).toBeVisible();
+  });
+
+  test('Phase 27: Admin menu is hidden for Guest (Not Logged In)', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto('/');
+    
+    const adminLink = page.getByTestId('nav-admin');
+    await expect(adminLink).toBeHidden();
+  });
+
   test('Play page (/quiz/[id]/play) hides all navigation elements on all viewports', async ({ page }) => {
     // プレイ画面にアクセス (テスト用の仮クイズID)
     await page.goto('/quiz/test-quiz-id/play');

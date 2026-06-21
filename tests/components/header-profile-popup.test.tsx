@@ -36,4 +36,18 @@ describe('Header profile popup', () => {
     expect(screen.getByTestId('header-nav-my-quiz')).toBeInTheDocument();
     expect(screen.getByTestId('header-settings-link')).toBeInTheDocument();
   });
+
+  test('管理者ログイン時は header-admin-link が表示されること', () => {
+    mockUser = { id: 'admin-1', displayName: 'Admin Tester', avatarUrl: '/a.png', role: 'admin' } as any;
+    render(<Header />);
+    fireEvent.click(screen.getByTestId('header-profile-btn'));
+    expect(screen.getByTestId('header-admin-link')).toBeInTheDocument();
+  });
+
+  test('一般ユーザーログイン時は header-admin-link が表示されないこと', () => {
+    mockUser = { id: 'user-1', displayName: 'User Tester', avatarUrl: '/a.png', role: 'user' } as any;
+    render(<Header />);
+    fireEvent.click(screen.getByTestId('header-profile-btn'));
+    expect(screen.queryByTestId('header-admin-link')).not.toBeInTheDocument();
+  });
 });

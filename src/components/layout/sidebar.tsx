@@ -19,7 +19,9 @@ import {
   Sparkles,
   ClipboardList,
   Settings,
+  Shield,
 } from 'lucide-react';
+import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -122,6 +124,22 @@ export const Sidebar: React.FC = () => {
           </Link>
         )}
 
+        {user && isAdminUser(user) && (
+          <Link
+            href="/admin"
+            className={cn(
+              navLinkBase,
+              (pathname === '/admin' || pathname?.startsWith('/admin/')) && navLinkActive,
+            )}
+            data-testid="nav-admin"
+          >
+            <span className="flex size-6 shrink-0 items-center justify-center">
+              <Shield size={22} />
+            </span>
+            <span className="nav-label max-lg:hidden">管理者メニュー</span>
+          </Link>
+        )}
+
         {user && (
           <Link
             href="/quiz/create"
@@ -165,6 +183,20 @@ export const Sidebar: React.FC = () => {
               sideOffset={12}
               className="z-[100] w-[220px]"
             >
+              {isAdminUser(user) && (
+                <DropdownMenuItem
+                  render={
+                    <Link
+                      href="/admin"
+                      onClick={() => setPopupOpen(false)}
+                      data-testid="sidebar-admin-link"
+                    />
+                  }
+                >
+                  <Shield size={18} />
+                  <span>管理者メニュー</span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 render={
                   <Link href={`/profile/${user.id}`} onClick={() => setPopupOpen(false)} />
