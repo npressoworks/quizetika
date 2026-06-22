@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
-import fs from 'fs';
 import path from 'path';
+import { getAdminStorage } from '@/lib/firebase/admin';
+
+const DEFAULT_BUCKET =
+  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ??
+  process.env.FIREBASE_STORAGE_BUCKET;
+
+function resolveBucketName(): string {
+  if (DEFAULT_BUCKET) {
+    return DEFAULT_BUCKET.replace(/^gs:\/\//, '');
+  }
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  if (projectId) {
+    return `${projectId}.appspot.com`;
+  }
+  throw new Error('Firebase Storage バケット名が設定されていません');
+}
 
 export const maxDuration = 15;
 
@@ -43,8 +58,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    let bucketName: string;
+    try {
+      bucketName = resolveBucketName();
+    } catch (err) {
+      return NextResponse.json(
+        { error: 'internal-error', message: 'ストレージの設定が不正です' },
+        { status: 500 }
+      );
+    }
+
     // 一時画像URLのパスパターン検証
-    const tempPrefix = '/api/assets/genre/temp/';
+    const tempPrefix = `https://storage.googleapis.com/${bucketName}/genres/temp/`;
     if (!tempUrl.startsWith(tempPrefix)) {
       return NextResponse.json(
         { error: 'bad-request', message: '無効な一時画像URLです' },
@@ -61,38 +86,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 実ファイルのパス解決
-    const tempDir = path.join(process.cwd(), 'assets', 'genre', 'temp');
-    const tempFilePath = path.join(tempDir, tempFilename);
+    const bucket = getAdminStorage().bucket(bucketName);
+    const tempFile = bucket.file(`genres/temp/${tempFilename}`);
 
     // 一時ファイルの存在確認
-    if (!fs.existsSync(tempFilePath)) {
+    const [exists] = await tempFile.exists().catch(() => [false]);
+    if (!exists) {
       return NextResponse.json(
         { error: 'not-found', message: '一時画像ファイルが見つかりません' },
         { status: 404 }
       );
     }
 
-    // コピー先の準備
-    const destDir = path.join(process.cwd(), 'assets', 'genre', genreId);
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
-    }
-
     // コピー先ファイル名の決定 (安全なファイル名の自動生成)
     const timestamp = Date.now();
     const ext = path.extname(tempFilename).toLowerCase() || '.png';
     const destFilename = `icon_${timestamp}${ext}`;
-    const destFilePath = path.join(destDir, destFilename);
+    const destFile = bucket.file(`genres/${genreId}/${destFilename}`);
 
     // ファイルコピーの実行
-    fs.copyFileSync(tempFilePath, destFilePath);
+    await tempFile.copy(destFile);
+    await destFile.makePublic();
 
-    const permanentUrl = `/api/assets/genre/${genreId}/${destFilename}`;
+    const permanentUrl = `https://storage.googleapis.com/${bucketName}/genres/${genreId}/${destFilename}`;
 
-    // 一時ファイルの削除 (非同期ではなく同期的かつ安全に削除)
+    // 一時ファイルの削除 (非同期かつ安全に削除)
     try {
-      fs.unlinkSync(tempFilePath);
+      await tempFile.delete();
     } catch (unlinkErr) {
       console.error('[API/genres/migrate-icon] 一時ファイルの削除に失敗しました:', unlinkErr);
     }

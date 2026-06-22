@@ -16,7 +16,7 @@
   - _Requirements: 1.1, 1.2_
   - _Boundary: upload-icon API_
 
-- [ ] 2.2 (P) アイコン移行 API の Storage 移行
+- [x] 2.2 (P) アイコン移行 API の Storage 移行
   - `/api/genres/migrate-icon` を修正し、`genres/temp/` から `genres/${genreId}/` パスへの Storage 間コピー処理に変更する
   - コピー完了後、元の `genres/temp/` の一時アセットを Storage から完全に削除する
   - コピーされた正式ファイルの公開権限付与 (`makePublic`) を行い、正式な Storage 公開 URL を返却する
