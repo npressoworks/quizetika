@@ -84,6 +84,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
     menuItems.push(
       { href: '/notifications', label: '通知', icon: <Bell size={22} /> },
       { href: '/bookmarks', label: 'ブックマーク', icon: <Bookmark size={22} /> },
+      {
+        href: `/profile/${user.id}`,
+        label: 'プロフィール',
+        icon: <UserIcon size={22} />,
+        testId: 'nav-profile',
+      }
     );
   }
 
@@ -213,29 +219,68 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
         {loading ? (
           <Skeleton className="size-11 rounded-full" />
         ) : user ? (
-          <Link
-            href={`/profile/${user.id}`}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-full p-2 text-left transition-colors hover:bg-muted/50 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:justify-center md:max-lg:p-0 group relative",
-              isCollapsed && "lg:mx-auto lg:size-11 lg:justify-center lg:p-0"
-            )}
-            data-testid="sidebar-profile-btn"
-          >
-            <Avatar size="sm" className="size-10">
-              <AvatarImage src={user.avatarUrl} alt={user.displayName} />
-              <AvatarFallback>{user.displayName.slice(0, 1)}</AvatarFallback>
-            </Avatar>
-            <div className={cn("min-w-0 flex-1 max-lg:hidden", isCollapsed && "lg:hidden")}>
-              <span className="block truncate text-sm font-semibold">{user.displayName}</span>
-            </div>
-            {/* ミニ表示時にホバーで表示されるツールチップ */}
-            <span className={cn(
-              "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
-              isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
-            )}>
-              {user.displayName}
-            </span>
-          </Link>
+          <DropdownMenu open={popupOpen} onOpenChange={setPopupOpen}>
+            <DropdownMenuTrigger
+              className={cn(
+                "flex w-full items-center gap-3 rounded-full p-2 text-left transition-colors hover:bg-muted/50 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:justify-center md:max-lg:p-0 group relative",
+                isCollapsed && "lg:mx-auto lg:size-11 lg:justify-center lg:p-0"
+              )}
+              data-testid="sidebar-profile-btn"
+            >
+              <Avatar size="sm" className="size-10">
+                <AvatarImage src={user.avatarUrl} alt={user.displayName} />
+                <AvatarFallback>{user.displayName.slice(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className={cn("min-w-0 flex-1 max-lg:hidden", isCollapsed && "lg:hidden")}>
+                <span className="block truncate text-sm font-semibold">{user.displayName}</span>
+              </div>
+              {/* ミニ表示時にホバーで表示されるツールチップ */}
+              <span className={cn(
+                "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
+                isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
+              )}>
+                {user.displayName}
+              </span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="right"
+              align="end"
+              sideOffset={12}
+              className="z-[100] w-[220px]"
+            >
+              {isAdminUser(user) && (
+                <DropdownMenuItem
+                  render={
+                    <Link
+                      href="/admin"
+                      onClick={() => setPopupOpen(false)}
+                      data-testid="sidebar-admin-link"
+                    />
+                  }
+                >
+                  <Shield size={18} />
+                  <span>管理者メニュー</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/settings"
+                    onClick={() => setPopupOpen(false)}
+                    data-testid="sidebar-settings-link"
+                  />
+                }
+              >
+                <Settings size={18} />
+                <span>設定</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut size={18} />
+                <span>ログアウト</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
           <Link href="/login" className={cn(buttonVariants(), 'w-full justify-center')} data-analytics="nav-login">
             ログイン

@@ -68,6 +68,7 @@ describe('Sidebar Component', () => {
     expect(screen.getByTestId('nav-my-quiz')).toBeInTheDocument();
     expect(screen.getAllByText('通知')[0]).toBeInTheDocument();
     expect(screen.getAllByText('ブックマーク')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('プロフィール')[0]).toBeInTheDocument();
     expect(screen.getAllByText('作問する')[0]).toBeInTheDocument();
     expect(screen.getAllByText('ダッシュボード')[0]).toBeInTheDocument();
     
@@ -131,18 +132,23 @@ describe('Sidebar Component', () => {
     expect(screen.getByTestId('nav-home')).not.toHaveClass('active');
   });
 
-  it('プロフィール領域はプロフィールページへの直接リンクとして機能し、ポップアップは表示されない', () => {
+  it('プロフィール領域はクリック時にドロップダウンメニュー（ポップアップ）を展開し、設定やログアウトが表示される', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
     
     const profileBtn = screen.getByTestId('sidebar-profile-btn');
     expect(profileBtn).toBeInTheDocument();
-    expect(profileBtn.closest('a')).toHaveAttribute('href', '/profile/user-123');
     
-    // ポップアップメニューや関連リンクが表示されないこと
-    expect(screen.queryByText('マイページ')).not.toBeInTheDocument();
+    // 初期状態ではポップアップアイテムは非表示
     expect(screen.queryByTestId('sidebar-settings-link')).not.toBeInTheDocument();
     expect(screen.queryByText('ログアウト')).not.toBeInTheDocument();
+    
+    // クリックして開く
+    fireEvent.click(profileBtn);
+    
+    // ポップアップアイテムが表示されること
+    expect(screen.getByTestId('sidebar-settings-link')).toBeInTheDocument();
+    expect(screen.getByText('ログアウト')).toBeInTheDocument();
   });
 
   it('管理者ユーザーログイン時は「管理者メニュー」を主要メニューに表示し、/admin パスでアクティブ表示になる', () => {
@@ -221,13 +227,16 @@ describe('Sidebar Component', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     const { container } = render(<Sidebar isCollapsed={true} onToggle={jest.fn()} />);
 
-    // ホーム・検索・アバターに対するツールチップ要素の検証
+    // ホーム・検索・アバター・プロフィールに対するツールチップ要素の検証
     const homeTooltip = screen.getAllByText('ホーム').find((el) => el.classList.contains('absolute'));
     expect(homeTooltip).toBeInTheDocument();
-
+ 
     const searchTooltip = screen.getAllByText('検索').find((el) => el.classList.contains('absolute'));
     expect(searchTooltip).toBeInTheDocument();
 
+    const profileTooltip = screen.getAllByText('プロフィール').find((el) => el.classList.contains('absolute'));
+    expect(profileTooltip).toBeInTheDocument();
+ 
     const avatarTooltip = screen.getAllByText('ななみ').find((el) => el.classList.contains('absolute'));
     expect(avatarTooltip).toBeInTheDocument();
   });

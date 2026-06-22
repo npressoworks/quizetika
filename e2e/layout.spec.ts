@@ -165,7 +165,7 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(page.locator('nav').filter({ has: page.locator('[data-testid="bottom-nav-home"]') })).toBeHidden();
   });
 
-  test('Phase 28: PC sidebar collapse toggle and avatar direct navigation', async ({ page }) => {
+  test('Phase 28: PC sidebar collapse toggle, avatar popup, and profile nav link', async ({ page }) => {
     // PCサイズに設定
     await page.setViewportSize({ width: 1200, height: 800 });
     await page.goto('/');
@@ -190,7 +190,7 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(sidebar).toHaveClass(/lg:w-\[275px\]/);
     await expect(wrapper).toHaveClass(/lg:pl-\[275px\]/);
 
-    // ログイン状態でのアバター直接遷移検証
+    // ログイン状態での検証
     await page.goto('/login');
     const loginBtn = page.locator('#e2e-test-login-btn');
     if (await loginBtn.isVisible()) {
@@ -198,12 +198,30 @@ test.describe('Responsive Navigation Layout', () => {
       await page.waitForURL(/\/$/);
     }
 
+    // 1. 主要メニューのプロフィールリンクの検証
+    const profileNavLink = page.getByTestId('nav-profile');
+    await expect(profileNavLink).toBeVisible();
+    await profileNavLink.click();
+    await expect(page).toHaveURL(/\/profile\/[a-zA-Z0-9_-]+$/);
+
+    // 2. フッターアバターのポップアップ（ドロップダウン）検証
+    await page.goto('/');
     const profileBtn = page.getByTestId('sidebar-profile-btn');
     await expect(profileBtn).toBeVisible();
     
-    // アバターをクリックすると、ポップアップを開くことなく直接プロフィール画面に遷移すること
+    // クリックすると直接遷移するのではなくドロップダウンが表示されること
     await profileBtn.click();
-    await expect(page).toHaveURL(/\/profile\/[a-zA-Z0-9_-]+$/);
+    const settingsLink = page.getByTestId('sidebar-settings-link');
+    await expect(settingsLink).toBeVisible();
+
+    // ログアウトボタンを取得してクリック
+    const logoutBtn = page.getByRole('menuitem', { name: 'ログアウト' });
+    await expect(logoutBtn).toBeVisible();
+    await logoutBtn.click();
+
+    // ログアウト後にホームにリダイレクトされ、ログインボタンが表示されていること
+    await page.waitForURL(/\/$/);
+    await expect(page.locator('aside a:has-text("ログイン")')).toBeVisible();
   });
 });
 
