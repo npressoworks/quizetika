@@ -131,30 +131,26 @@ describe('Sidebar Component', () => {
     expect(screen.getByTestId('nav-home')).not.toHaveClass('active');
   });
 
-  it('プロフィール領域をクリックするとポップアップ（マイページ、設定、ログアウト）が表示される', () => {
+  it('プロフィール領域はプロフィールページへの直接リンクとして機能し、ポップアップは表示されない', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
     
+    const profileBtn = screen.getByTestId('sidebar-profile-btn');
+    expect(profileBtn).toBeInTheDocument();
+    expect(profileBtn.closest('a')).toHaveAttribute('href', '/profile/user-123');
+    
+    // ポップアップメニューや関連リンクが表示されないこと
     expect(screen.queryByText('マイページ')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sidebar-settings-link')).not.toBeInTheDocument();
-    
-    fireEvent.click(screen.getByTestId('sidebar-profile-btn'));
-    
-    expect(screen.getByText('マイページ')).toBeInTheDocument();
-    expect(screen.getByTestId('sidebar-settings-link')).toBeInTheDocument();
-    expect(screen.getByText('ログアウト')).toBeInTheDocument();
+    expect(screen.queryByText('ログアウト')).not.toBeInTheDocument();
   });
 
-  it('管理者ユーザーログイン時は「管理者メニュー」を主要メニューおよびポップアップに表示し、/admin パスでアクティブ表示になる', () => {
+  it('管理者ユーザーログイン時は「管理者メニュー」を主要メニューに表示し、/admin パスでアクティブ表示になる', () => {
     mockUser = { id: 'admin-123', displayName: '管理者', avatarUrl: 'avatar.png', role: 'admin' };
     render(<Sidebar />);
     
     expect(screen.getByTestId('nav-admin')).toBeInTheDocument();
     expect(screen.getByText('管理者メニュー')).toBeInTheDocument();
-    
-    expect(screen.queryByTestId('sidebar-admin-link')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('sidebar-profile-btn'));
-    expect(screen.getByTestId('sidebar-admin-link')).toBeInTheDocument();
   });
 
   it('管理者ユーザーログイン時、/admin では管理者メニューが active になる', () => {
@@ -166,15 +162,12 @@ describe('Sidebar Component', () => {
     expect(screen.getByTestId('nav-home')).not.toHaveClass('active');
   });
 
-  it('一般ユーザー（非管理者）ログイン時は「管理者メニュー」を主要メニューおよびポップアップに表示しない', () => {
+  it('一般ユーザー（非管理者）ログイン時は「管理者メニュー」を主要メニューに表示しない', () => {
     mockUser = { id: 'user-123', displayName: '一般ユーザー', avatarUrl: 'avatar.png', role: 'user' };
     render(<Sidebar />);
     
     expect(screen.queryByTestId('nav-admin')).not.toBeInTheDocument();
     expect(screen.queryByText('管理者メニュー')).not.toBeInTheDocument();
-    
-    fireEvent.click(screen.getByTestId('sidebar-profile-btn'));
-    expect(screen.queryByTestId('sidebar-admin-link')).not.toBeInTheDocument();
   });
 
   it('isCollapsed が true のときはミニ幅になり、ラベルを非表示にする', () => {
@@ -211,5 +204,16 @@ describe('Sidebar Component', () => {
     labels.forEach((label) => {
       expect(label).not.toHaveClass('lg:hidden');
     });
+  });
+
+  it('トグルボタンが表示され、クリック時に onToggle が呼ばれる', () => {
+    const mockToggle = jest.fn();
+    render(<Sidebar isCollapsed={false} onToggle={mockToggle} />);
+    
+    const toggleBtn = screen.getByTestId('sidebar-toggle-btn');
+    expect(toggleBtn).toBeInTheDocument();
+    
+    fireEvent.click(toggleBtn);
+    expect(mockToggle).toHaveBeenCalledTimes(1);
   });
 });

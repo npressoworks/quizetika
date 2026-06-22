@@ -20,6 +20,8 @@ import {
   ClipboardList,
   Settings,
   Shield,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { cn } from '@/lib/utils';
@@ -94,6 +96,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
           : 'md:w-[70px] md:px-2 lg:w-[275px] lg:p-6 lg:px-4'
       )}
     >
+      {onToggle && (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="absolute right-[-14px] top-6 z-[100] hidden lg:flex size-7 items-center justify-center rounded-full border border-border bg-background shadow-md hover:bg-muted text-muted-foreground transition-colors"
+          data-testid="sidebar-toggle-btn"
+          aria-label="Toggle Sidebar"
+        >
+          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+      )}
+
       <div className="mb-8 px-2 md:max-lg:px-0">
         <Link href="/" className="flex items-center text-2xl font-extrabold tracking-tight lg:text-3xl">
           <span>Quiz</span>
@@ -169,75 +183,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
         {loading ? (
           <Skeleton className="size-11 rounded-full" />
         ) : user ? (
-          <DropdownMenu open={popupOpen} onOpenChange={setPopupOpen}>
-            <DropdownMenuTrigger
-              render={
-                <button
-                  type="button"
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-full p-2 text-left transition-colors hover:bg-muted/50 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:justify-center md:max-lg:p-0",
-                    isCollapsed && "lg:mx-auto lg:size-11 lg:justify-center lg:p-0"
-                  )}
-                  data-testid="sidebar-profile-btn"
-                />
-              }
-            >
-              <Avatar size="sm" className="size-10">
-                <AvatarImage src={user.avatarUrl} alt={user.displayName} />
-                <AvatarFallback>{user.displayName.slice(0, 1)}</AvatarFallback>
-              </Avatar>
-              <div className={cn("min-w-0 flex-1 max-lg:hidden", isCollapsed && "lg:hidden")}>
-                <span className="block truncate text-sm font-semibold">{user.displayName}</span>
-              </div>
-              <ChevronUp size={16} className={cn("text-muted-foreground max-lg:hidden", isCollapsed && "lg:hidden")} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="right"
-              align="end"
-              sideOffset={12}
-              className="z-[100] w-[220px]"
-            >
-              {isAdminUser(user) && (
-                <DropdownMenuItem
-                  render={
-                    <Link
-                      href="/admin"
-                      onClick={() => setPopupOpen(false)}
-                      data-testid="sidebar-admin-link"
-                    />
-                  }
-                >
-                  <Shield size={18} />
-                  <span>管理者メニュー</span>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                render={
-                  <Link href={`/profile/${user.id}`} onClick={() => setPopupOpen(false)} />
-                }
-              >
-                <UserIcon size={18} />
-                <span>マイページ</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href="/settings"
-                    onClick={() => setPopupOpen(false)}
-                    data-testid="sidebar-settings-link"
-                  />
-                }
-              >
-                <Settings size={18} />
-                <span>設定</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={handleLogout} data-analytics="auth-logout">
-                <LogOut size={18} />
-                <span>ログアウト</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Link
+            href={`/profile/${user.id}`}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-full p-2 text-left transition-colors hover:bg-muted/50 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:justify-center md:max-lg:p-0",
+              isCollapsed && "lg:mx-auto lg:size-11 lg:justify-center lg:p-0"
+            )}
+            data-testid="sidebar-profile-btn"
+          >
+            <Avatar size="sm" className="size-10">
+              <AvatarImage src={user.avatarUrl} alt={user.displayName} />
+              <AvatarFallback>{user.displayName.slice(0, 1)}</AvatarFallback>
+            </Avatar>
+            <div className={cn("min-w-0 flex-1 max-lg:hidden", isCollapsed && "lg:hidden")}>
+              <span className="block truncate text-sm font-semibold">{user.displayName}</span>
+            </div>
+          </Link>
         ) : (
           <Link href="/login" className={cn(buttonVariants(), 'w-full justify-center')} data-analytics="nav-login">
             ログイン
