@@ -7,22 +7,31 @@ import { useAuth } from '@/context/auth-context';
 import { auth } from '@/lib/firebase/config';
 import { signOut } from '@/lib/firebase/auth';
 import {
-  Bell,
-  Bookmark,
-  PlusCircle,
-  BookOpen,
-  User as UserIcon,
-  LogOut,
-  ChevronUp,
   Home,
+  HomeOutlined,
   Search,
-  Sparkles,
-  ClipboardList,
-  Settings,
-  Shield,
+  SearchOutlined,
+  AutoAwesome,
+  AutoAwesomeOutlined,
+  Assignment,
+  AssignmentOutlined,
+  Notifications,
+  NotificationsOutlined,
+  Bookmark,
+  BookmarkOutlined,
+  Person,
+  PersonOutlined,
+  Dashboard,
+  DashboardOutlined,
+  AdminPanelSettings,
+  AdminPanelSettingsOutlined,
+  AddCircle,
+  AddCircleOutlined,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react';
+  SettingsOutlined,
+  ExitToAppOutlined,
+} from '@mui/icons-material';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -72,22 +81,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
     {
       href: '/',
       label: 'ホーム',
-      icon: <Home size={22} />,
-      activeIcon: <Home size={22} fill="currentColor" />,
+      icon: <HomeOutlined sx={{ fontSize: 22 }} />,
+      activeIcon: <Home sx={{ fontSize: 22 }} />,
       testId: 'nav-home'
     },
     {
       href: '/search',
       label: '検索',
-      icon: <Search size={22} />,
-      activeIcon: <Search size={22} strokeWidth={3} />,
+      icon: <SearchOutlined sx={{ fontSize: 22 }} />,
+      activeIcon: <Search sx={{ fontSize: 22 }} />,
       testId: 'nav-search'
     },
     {
       href: '/pricing',
       label: 'Proプラン',
-      icon: <Sparkles size={22} />,
-      activeIcon: <Sparkles size={22} fill="currentColor" />
+      icon: <AutoAwesomeOutlined sx={{ fontSize: 22 }} />,
+      activeIcon: <AutoAwesome sx={{ fontSize: 22 }} />
     },
   ];
 
@@ -95,28 +104,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
     menuItems.splice(2, 0, {
       href: '/my-quiz',
       label: 'マイクイズ',
-      icon: <ClipboardList size={22} />,
-      activeIcon: <ClipboardList size={22} fill="currentColor" />,
+      icon: <AssignmentOutlined sx={{ fontSize: 22 }} />,
+      activeIcon: <Assignment sx={{ fontSize: 22 }} />,
       testId: 'nav-my-quiz',
     });
     menuItems.push(
       {
         href: '/notifications',
         label: '通知',
-        icon: <Bell size={22} />,
-        activeIcon: <Bell size={22} fill="currentColor" />
+        icon: <NotificationsOutlined sx={{ fontSize: 22 }} />,
+        activeIcon: <Notifications sx={{ fontSize: 22 }} />
       },
       {
         href: '/bookmarks',
         label: 'ブックマーク',
-        icon: <Bookmark size={22} />,
-        activeIcon: <Bookmark size={22} fill="currentColor" />
+        icon: <BookmarkOutlined sx={{ fontSize: 22 }} />,
+        activeIcon: <Bookmark sx={{ fontSize: 22 }} />
       },
       {
         href: `/profile/${user.id}`,
         label: 'プロフィール',
-        icon: <UserIcon size={22} />,
-        activeIcon: <UserIcon size={22} fill="currentColor" />,
+        icon: <PersonOutlined sx={{ fontSize: 22 }} />,
+        activeIcon: <Person sx={{ fontSize: 22 }} />,
         testId: 'nav-profile',
       }
     );
@@ -139,7 +148,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
           data-testid="sidebar-toggle-btn"
           aria-label="Toggle Sidebar"
         >
-          {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          {isCollapsed ? <ChevronRight sx={{ fontSize: 14 }} /> : <ChevronLeft sx={{ fontSize: 14 }} />}
         </button>
       )}
 
@@ -186,9 +195,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
           >
             <span className="flex size-6 shrink-0 items-center justify-center">
               {pathname === '/creator/dashboard' ? (
-                <BookOpen size={22} fill="currentColor" />
+                <Dashboard sx={{ fontSize: 22 }} />
               ) : (
-                <BookOpen size={22} />
+                <DashboardOutlined sx={{ fontSize: 22 }} />
               )}
             </span>
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>ダッシュボード</span>
@@ -213,10 +222,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             data-testid="nav-admin"
           >
             <span className="flex size-6 shrink-0 items-center justify-center">
-              {(pathname === '/admin' || pathname?.startsWith('/admin/')) ? (
-                <Shield size={22} fill="currentColor" />
+              {pathname === '/admin' || pathname?.startsWith('/admin/') ? (
+                <AdminPanelSettings sx={{ fontSize: 22 }} />
               ) : (
-                <Shield size={22} />
+                <AdminPanelSettingsOutlined sx={{ fontSize: 22 }} />
               )}
             </span>
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>管理者メニュー</span>
@@ -241,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             )}
             data-analytics="nav-create-quiz"
           >
-            <PlusCircle size={22} />
+            <AddCircleOutlined sx={{ fontSize: 22 }} />
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作問する</span>
             {/* ミニ表示時にホバーで表示されるツールチップ */}
             <span className={cn(
@@ -297,7 +306,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                     />
                   }
                 >
-                  <Shield size={18} />
+                  <AdminPanelSettingsOutlined sx={{ fontSize: 18 }} />
                   <span>管理者メニュー</span>
                 </DropdownMenuItem>
               )}
@@ -310,12 +319,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                   />
                 }
               >
-                <Settings size={18} />
+                <SettingsOutlined sx={{ fontSize: 18 }} />
                 <span>設定</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
-                <LogOut size={18} />
+                <ExitToAppOutlined sx={{ fontSize: 18 }} />
                 <span>ログアウト</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
