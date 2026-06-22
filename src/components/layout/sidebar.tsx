@@ -122,11 +122,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             <Link
               key={item.href}
               href={item.href}
-              className={cn(navLinkBase, isActive && navLinkActive)}
+              className={cn(navLinkBase, isActive && navLinkActive, 'group relative')}
               {...(item.testId ? { 'data-testid': item.testId } : {})}
             >
               <span className="flex size-6 shrink-0 items-center justify-center">{item.icon}</span>
               <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>{item.label}</span>
+              {/* ミニ表示時にホバーで表示されるツールチップ */}
+              <span className={cn(
+                "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
+                isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
+              )}>
+                {item.label}
+              </span>
             </Link>
           );
         })}
@@ -137,12 +144,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             className={cn(
               navLinkBase,
               pathname === '/creator/dashboard' && navLinkActive,
+              'group relative'
             )}
           >
             <span className="flex size-6 shrink-0 items-center justify-center">
               <BookOpen size={22} />
             </span>
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>ダッシュボード</span>
+            {/* ミニ表示時にホバーで表示されるツールチップ */}
+            <span className={cn(
+              "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
+              isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
+            )}>
+              ダッシュボード
+            </span>
           </Link>
         )}
 
@@ -152,6 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             className={cn(
               navLinkBase,
               (pathname === '/admin' || pathname?.startsWith('/admin/')) && navLinkActive,
+              'group relative'
             )}
             data-testid="nav-admin"
           >
@@ -159,6 +175,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
               <Shield size={22} />
             </span>
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>管理者メニュー</span>
+            {/* ミニ表示時にホバーで表示されるツールチップ */}
+            <span className={cn(
+              "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
+              isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
+            )}>
+              管理者メニュー
+            </span>
           </Link>
         )}
 
@@ -166,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
           <Link
             href="/quiz/create"
             className={cn(
-              'mt-4 inline-flex items-center justify-center gap-2.5 rounded-lg bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:rounded-full md:max-lg:p-0',
+              'mt-4 inline-flex items-center justify-center gap-2.5 rounded-lg bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:rounded-full md:max-lg:p-0 group relative',
               isCollapsed
                 ? 'lg:mx-auto lg:size-11 lg:rounded-full lg:p-0'
                 : 'lg:px-6 lg:py-3 lg:w-full',
@@ -175,6 +198,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
           >
             <PlusCircle size={22} />
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作問する</span>
+            {/* ミニ表示時にホバーで表示されるツールチップ */}
+            <span className={cn(
+              "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
+              isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
+            )}>
+              作問する
+            </span>
           </Link>
         )}
       </nav>
@@ -186,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
           <Link
             href={`/profile/${user.id}`}
             className={cn(
-              "flex w-full items-center gap-3 rounded-full p-2 text-left transition-colors hover:bg-muted/50 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:justify-center md:max-lg:p-0",
+              "flex w-full items-center gap-3 rounded-full p-2 text-left transition-colors hover:bg-muted/50 md:max-lg:mx-auto md:max-lg:size-11 md:max-lg:justify-center md:max-lg:p-0 group relative",
               isCollapsed && "lg:mx-auto lg:size-11 lg:justify-center lg:p-0"
             )}
             data-testid="sidebar-profile-btn"
@@ -198,6 +228,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             <div className={cn("min-w-0 flex-1 max-lg:hidden", isCollapsed && "lg:hidden")}>
               <span className="block truncate text-sm font-semibold">{user.displayName}</span>
             </div>
+            {/* ミニ表示時にホバーで表示されるツールチップ */}
+            <span className={cn(
+              "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
+              isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
+            )}>
+              {user.displayName}
+            </span>
           </Link>
         ) : (
           <Link href="/login" className={cn(buttonVariants(), 'w-full justify-center')} data-analytics="nav-login">

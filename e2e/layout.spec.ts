@@ -164,4 +164,46 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(page.locator('header')).toBeHidden();
     await expect(page.locator('nav').filter({ has: page.locator('[data-testid="bottom-nav-home"]') })).toBeHidden();
   });
+
+  test('Phase 28: PC sidebar collapse toggle and avatar direct navigation', async ({ page }) => {
+    // PCサイズに設定
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto('/');
+
+    const toggleBtn = page.getByTestId('sidebar-toggle-btn');
+    const sidebar = page.locator('aside');
+    // LayoutWrapperのコンテナ
+    const wrapper = page.locator('div.relative.flex.min-h-screen');
+
+    // 初期状態は通常表示 (275px)
+    await expect(sidebar).toHaveClass(/lg:w-\[275px\]/);
+    await expect(wrapper).toHaveClass(/lg:pl-\[275px\]/);
+
+    // トグルボタンをクリックして折りたたむ
+    await toggleBtn.click();
+    // ミニ表示 (70px) になること
+    await expect(sidebar).toHaveClass(/lg:w-\[70px\]/);
+    await expect(wrapper).toHaveClass(/lg:pl-\[70px\]/);
+
+    // 再度トグルボタンをクリックして通常に戻る
+    await toggleBtn.click();
+    await expect(sidebar).toHaveClass(/lg:w-\[275px\]/);
+    await expect(wrapper).toHaveClass(/lg:pl-\[275px\]/);
+
+    // ログイン状態でのアバター直接遷移検証
+    await page.goto('/login');
+    const loginBtn = page.locator('#e2e-test-login-btn');
+    if (await loginBtn.isVisible()) {
+      await loginBtn.click();
+      await page.waitForURL(/\/$/);
+    }
+
+    const profileBtn = page.getByTestId('sidebar-profile-btn');
+    await expect(profileBtn).toBeVisible();
+    
+    // アバターをクリックすると、ポップアップを開くことなく直接プロフィール画面に遷移すること
+    await profileBtn.click();
+    await expect(page).toHaveURL(/\/profile\/[a-zA-Z0-9_-]+$/);
+  });
 });
+

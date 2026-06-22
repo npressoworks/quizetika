@@ -50,9 +50,9 @@ describe('Sidebar Component', () => {
     expect(screen.getByRole('link', { name: 'ログイン' })).toBeInTheDocument();
     
     // ホーム・Proプランはあるが、通知やブックマーク、作問、ダッシュボードはないこと
-    expect(screen.getByText('ホーム')).toBeInTheDocument();
-    expect(screen.getByText('検索')).toBeInTheDocument();
-    expect(screen.getByText('Proプラン')).toBeInTheDocument();
+    expect(screen.getAllByText('ホーム')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('検索')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('Proプラン')[0]).toBeInTheDocument();
     expect(screen.queryByText('通知')).not.toBeInTheDocument();
     expect(screen.queryByText('ブックマーク')).not.toBeInTheDocument();
     expect(screen.queryByText('作問する')).not.toBeInTheDocument();
@@ -63,16 +63,16 @@ describe('Sidebar Component', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
     
-    expect(screen.getByText('ホーム')).toBeInTheDocument();
+    expect(screen.getAllByText('ホーム')[0]).toBeInTheDocument();
     expect(screen.queryByTestId('nav-lists')).not.toBeInTheDocument();
     expect(screen.getByTestId('nav-my-quiz')).toBeInTheDocument();
-    expect(screen.getByText('通知')).toBeInTheDocument();
-    expect(screen.getByText('ブックマーク')).toBeInTheDocument();
-    expect(screen.getByText('作問する')).toBeInTheDocument();
-    expect(screen.getByText('ダッシュボード')).toBeInTheDocument();
+    expect(screen.getAllByText('通知')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('ブックマーク')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('作問する')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('ダッシュボード')[0]).toBeInTheDocument();
     
     // ログインユーザーのアバター・表示名が表示されること
-    expect(screen.getByText('ななみ')).toBeInTheDocument();
+    expect(screen.getAllByText('ななみ')[0]).toBeInTheDocument();
     expect(screen.getByTestId('sidebar-profile-btn')).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe('Sidebar Component', () => {
     
     // ブックマークリンクに active クラス（またはそれに類するスタイル）が付与されること
     // CSS modules をモックしてない場合はクラス名そのままでテストするか、テスト属性をチェック
-    const bookmarkLink = screen.getByText('ブックマーク').closest('a');
+    const bookmarkLink = screen.getAllByText('ブックマーク')[0].closest('a');
     expect(bookmarkLink).toHaveClass('active');
   });
 
@@ -112,7 +112,7 @@ describe('Sidebar Component', () => {
 
     render(<Sidebar />);
 
-    const pricingLink = screen.getByText('Proプラン').closest('a');
+    const pricingLink = screen.getAllByText('Proプラン')[0].closest('a');
     expect(pricingLink).toHaveClass('active');
   });
 
@@ -150,7 +150,7 @@ describe('Sidebar Component', () => {
     render(<Sidebar />);
     
     expect(screen.getByTestId('nav-admin')).toBeInTheDocument();
-    expect(screen.getByText('管理者メニュー')).toBeInTheDocument();
+    expect(screen.getAllByText('管理者メニュー')[0]).toBeInTheDocument();
   });
 
   it('管理者ユーザーログイン時、/admin では管理者メニューが active になる', () => {
@@ -215,5 +215,20 @@ describe('Sidebar Component', () => {
     
     fireEvent.click(toggleBtn);
     expect(mockToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it('ミニサイドバー表示時、ホバーツールチップ要素が各メニューにレンダリングされる', () => {
+    mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
+    const { container } = render(<Sidebar isCollapsed={true} onToggle={jest.fn()} />);
+
+    // ホーム・検索・アバターに対するツールチップ要素の検証
+    const homeTooltip = screen.getAllByText('ホーム').find((el) => el.classList.contains('absolute'));
+    expect(homeTooltip).toBeInTheDocument();
+
+    const searchTooltip = screen.getAllByText('検索').find((el) => el.classList.contains('absolute'));
+    expect(searchTooltip).toBeInTheDocument();
+
+    const avatarTooltip = screen.getAllByText('ななみ').find((el) => el.classList.contains('absolute'));
+    expect(avatarTooltip).toBeInTheDocument();
   });
 });
