@@ -1,26 +1,18 @@
-import { NextRequest } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizeum-test-bucket';
 
-// テスト対象APIの遅延ロード
+import { NextRequest } from 'next/server';
+
+const mockUploadTemporaryGenreIconBuffer = jest.fn();
+jest.mock('@/services/storage-admin', () => ({
+  uploadTemporaryGenreIconBuffer: mockUploadTemporaryGenreIconBuffer,
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { POST } = require('@/app/api/genres/upload-icon/route') as typeof import('@/app/api/genres/upload-icon/route');
 
 describe('Upload Icon API Route', () => {
-  const tempDir = path.join(process.cwd(), 'assets', 'genre', 'temp');
-
-  afterEach(() => {
-    // temp ディレクトリ内のテストファイルをクレンジング
-    try {
-      if (fs.existsSync(tempDir)) {
-        const files = fs.readdirSync(tempDir);
-        for (const file of files) {
-          fs.unlinkSync(path.join(tempDir, file));
-        }
-      }
-    } catch (err) {
-      console.error('クレンジングエラー:', err);
-    }
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   function buildUploadRequest(fileName: string, mimeType: string, content: string | Buffer): NextRequest {
@@ -35,19 +27,20 @@ describe('Upload Icon API Route', () => {
   }
 
   test('正常系: 正しいPNG形式画像をアップロードした際、200 OK と一時URLを返すこと', async () => {
+    const mockUrl = 'https://storage.googleapis.com/quizeum-test-bucket/genres/temp/upload_12345.png';
+    mockUploadTemporaryGenreIconBuffer.mockResolvedValue(mockUrl);
+
     const req = buildUploadRequest('test.png', 'image/png', 'dummy png content');
     const res = await POST(req);
 
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.tempUrl).toContain('/api/assets/genre/temp/');
+    expect(body.tempUrl).toBe(mockUrl);
 
-    // 保存された実ファイルの存在確認
-    const tempFileName = body.tempUrl.split('/').pop();
-    const savedFilePath = path.join(tempDir, tempFileName);
-    expect(fs.existsSync(savedFilePath)).toBe(true);
-    expect(fs.readFileSync(savedFilePath, 'utf-8')).toBe('dummy png content');
+    expect(mockUploadTemporaryGenreIconBuffer).toHaveBeenCalledTimes(1);
+    const bufferArg = mockUploadTemporaryGenreIconBuffer.mock.calls[0][0];
+    expect(bufferArg.toString()).toBe('dummy png content');
   });
 
   test('異常系: SVG形式が送られた場合は 400 Bad Request で拒否すること', async () => {
@@ -58,10 +51,10 @@ describe('Upload Icon API Route', () => {
     const body = await res.json();
     expect(body.error).toBe('bad-request');
     expect(body.message).toContain('PNG, JPEG, GIF');
+    expect(mockUploadTemporaryGenreIconBuffer).not.toHaveBeenCalled();
   });
 
   test('異常系: 2MBを超える画像ファイルは 400 Bad Request で拒否すること', async () => {
-    // 2.1MBのダミーバッファ
     const largeBuffer = Buffer.alloc(2.1 * 1024 * 1024);
     const req = buildUploadRequest('huge.png', 'image/png', largeBuffer);
     const res = await POST(req);
@@ -70,5 +63,6 @@ describe('Upload Icon API Route', () => {
     const body = await res.json();
     expect(body.error).toBe('bad-request');
     expect(body.message).toContain('2MB');
+    expect(mockUploadTemporaryGenreIconBuffer).not.toHaveBeenCalled();
   });
 });

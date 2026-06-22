@@ -9,9 +9,9 @@
   - _Boundary: Storage Service_
 
 - [ ] 2. Core API: アップロード・AI生成・移行 API の修正
-- [ ] 2.1 (P) 手動画像アップロード API の Storage 移行
+- [x] 2.1 (P) 手動画像アップロード API の Storage 移行
   - `/api/genres/upload-icon` を修正し、送信された画像データを `genres/temp/` に直接保存するように変更する
-  - 既存의 `validateGenreIconFile` によるファイル種別（PNG/JPEG/GIFのみ、SVG禁止）および容量（2MB以下）の制限が正しく適用されることを維持する
+  - 既存の `validateGenreIconFile` によるファイル種別（PNG/JPEG/GIFのみ、SVG禁止）および容量（2MB以下）の制限が正しく適用されることを維持する
   - Postman または Curl で有効な画像を送信した際、Firebase Storage の一時 URL が返却されることを確認する
   - _Requirements: 1.1, 1.2_
   - _Boundary: upload-icon API_
