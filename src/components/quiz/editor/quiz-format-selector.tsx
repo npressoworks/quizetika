@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { HelpCircle } from 'lucide-react';
+import { HelpOutlineOutlined } from '@mui/icons-material';
 import { cn } from '@/lib/utils';
 import { getFormatDescription } from '@/lib/quiz-format-labels';
 import type { QuizFormat } from '@/lib/quiz-format';
@@ -27,7 +27,7 @@ export function QuizFormatSelector({ format, onFormatChange }: QuizFormatSelecto
   return (
     <div className={editorClasses.editorCard}>
       <h2 className={editorClasses.sectionTitle}>
-        <HelpCircle size={20} />
+        <HelpOutlineOutlined sx={{ fontSize: 20 }} />
         クイズ全体の出題形式 <span className="text-destructive">*</span>
       </h2>
       <p className="mb-4 text-sm text-muted-foreground">

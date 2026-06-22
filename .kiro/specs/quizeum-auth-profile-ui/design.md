@@ -48,7 +48,7 @@
 ### Allowed Dependencies
 - **`quizeum-core`**: `UserService`, `AuthContext`, **`PlayHistoryPage` / `PlayHistoryEntry` 型（`@/types`）**
 - **`GET /api/user/play-history`**: Bearer ID トークン（`auth.currentUser.getIdToken()`）
-- **`lucide-react`**
+- **`@mui/icons-material`**
 - **Phase 8**: `getQuizListsByAuthor`（`@/services/quiz-list`）、`resolveListType`（`@/types`）。任意フィルタ時は既取得配列のクライアント絞り込みを優先（再フェッチは `options.listType` 利用可だが初版は不要）。
 
 ### Revalidation Triggers
@@ -68,7 +68,7 @@
 ### Technology Stack
 - **Frontend**: Next.js v16.2.6 (App Router), React v19.2.4, TypeScript
 - **Styling**: Vanilla CSS (CSS Modules)
-- **Icons**: `lucide-react`
+- **Icons**: `@mui/icons-material`
 
 ---
 
@@ -486,7 +486,7 @@ export interface ProfileEditFormInput {
 
 #### This Phase Owns
 - `ProfileClient` の本人向け `profileActions` からリアクション履歴 `Link` の削除。
-- 未使用になる `Heart`（`lucide-react`）import の削除。
+- 未使用になる `Heart`（`@mui/icons-material`）import の削除。
 - 要件 10・要件 2.7・要件 6（レガシー）に対するトレーサビリティ更新。
 
 #### Out of Boundary

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 
 export interface QuizTagEditorProps {
@@ -45,7 +45,7 @@ export function QuizTagEditor({
           tabIndex={0}
           onKeyDown={(e) => e.key === 'Enter' && onApplySuggestedTag()}
         >
-          <AlertTriangle size={16} />
+          <WarningAmberOutlined sx={{ fontSize: 16 }} />
           <div>
             <span className="font-bold">推奨:</span> 類似するタグ{' '}
             <span className="underline">#{suggestedTag}</span>{' '}

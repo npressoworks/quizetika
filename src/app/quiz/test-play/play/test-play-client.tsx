@@ -4,11 +4,11 @@ import { getTextInputFieldProps } from '@/services/text-answer-utils';
 import React, { useCallback, useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ArrowLeft,
-  Check,
-  X,
-  ShieldAlert,
-} from 'lucide-react';
+  ArrowBackOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  SecurityOutlined,
+} from '@mui/icons-material';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { QuestionTextDisplay } from '@/components/quiz/question-text-display';
 import { useQuickPressStream } from '@/hooks/useQuickPressStream';
@@ -316,7 +316,7 @@ function TestPlayClient() {
             onClick={() => router.push(buildTestPlayReturnUrl(sourcePath))}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <ArrowLeft size={16} />
+            <ArrowBackOutlined sx={{ fontSize: 16 }} />
             編集画面に戻る
           </button>
         </div>
@@ -358,7 +358,7 @@ function TestPlayClient() {
               alignItems: 'flex-start',
             }}
           >
-            <ShieldAlert size={18} style={{ color: '#ffb703', flexShrink: 0 }} />
+            <SecurityOutlined sx={{ fontSize: 18, color: '#ffb703' }} style={{ flexShrink: 0 }} />
             <span>
               正解設定が不完全なため、正誤判定をスキップします。
               {currentQuestion.explanation ? ' 解説を確認して次へ進んでください。' : ''}

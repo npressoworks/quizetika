@@ -16,7 +16,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { CircularProgress } from '@mui/material';
 import {
   collection,
   query,
@@ -241,7 +241,7 @@ export default function AdminModerationPage() {
   if (loading || fetchLoading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Loader2 className="size-8 animate-spin" />
+        <CircularProgress size={32} color="inherit" />
         <p>審査キューを読み込んでいます...</p>
       </div>
     );
@@ -311,7 +311,7 @@ export default function AdminModerationPage() {
             >
               {seedLoading ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> 投入中...
+                  <CircularProgress size={16} color="inherit" className="mr-2" /> 投入中...
                 </>
               ) : (
                 '🌱 初期ジャンル一括投入'
@@ -399,7 +399,7 @@ export default function AdminModerationPage() {
                     disabled={actionLoading !== null}
                   >
                     {actionLoading === quiz.id + 'restore' ? (
-                      <Loader2 className="size-4 animate-spin" />
+                      <CircularProgress size={16} color="inherit" />
                     ) : (
                       '✅ 公開に復帰'
                     )}
@@ -411,7 +411,7 @@ export default function AdminModerationPage() {
                     disabled={actionLoading !== null}
                   >
                     {actionLoading === quiz.id + 'delete' ? (
-                      <Loader2 className="size-4 animate-spin" />
+                      <CircularProgress size={16} color="inherit" />
                     ) : (
                       '🗑️ コンテンツ削除'
                     )}

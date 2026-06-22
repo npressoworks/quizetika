@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Crown } from 'lucide-react';
+import { WorkspacePremiumOutlined } from '@mui/icons-material';
 import { Badge } from '@/components/ui/badge';
 
 interface SubscriptionStatusBadgeProps {
@@ -13,7 +13,7 @@ export function SubscriptionStatusBadge({ visible }: SubscriptionStatusBadgeProp
 
   return (
     <Badge variant="secondary" className="gap-1" data-testid="subscription-status-badge">
-      <Crown size={14} />
+      <WorkspacePremiumOutlined sx={{ fontSize: 14 }} />
       Pro 契約中
     </Badge>
   );

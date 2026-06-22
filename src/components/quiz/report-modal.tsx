@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle, X } from 'lucide-react';
+import { WarningAmberOutlined, CheckCircleOutlined, CloseOutlined } from '@mui/icons-material';
 import { flagContent } from '@/services/moderation';
 import {
   Dialog,
@@ -64,7 +64,7 @@ export function ReportModal({ isOpen, onClose, quizId, reporterId }: ReportModal
         <DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle size={18} className="text-destructive" />
+              <WarningAmberOutlined sx={{ fontSize: 18 }} className="text-destructive" />
               クイズの通報
             </DialogTitle>
             <Button
@@ -74,7 +74,7 @@ export function ReportModal({ isOpen, onClose, quizId, reporterId }: ReportModal
               onClick={onClose}
               aria-label="閉じる"
             >
-              <X size={18} />
+              <CloseOutlined sx={{ fontSize: 18 }} />
             </Button>
           </div>
           <DialogDescription className="sr-only">
@@ -84,7 +84,7 @@ export function ReportModal({ isOpen, onClose, quizId, reporterId }: ReportModal
 
         {submitted ? (
           <div className="py-8 text-center font-medium" data-testid="report-success-message">
-            <CheckCircle size={32} className="mx-auto mb-3 text-emerald-600 dark:text-emerald-400" />
+            <CheckCircleOutlined sx={{ fontSize: 32 }} className="mx-auto mb-3 text-emerald-600 dark:text-emerald-400" />
             <p>通報を送信しました。ご協力ありがとうございました。</p>
           </div>
         ) : (

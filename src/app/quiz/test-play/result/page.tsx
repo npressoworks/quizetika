@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, X, ArrowLeft, MinusCircle } from 'lucide-react';
+import { CheckOutlined, CloseOutlined, ArrowBackOutlined, RemoveCircleOutlineOutlined } from '@mui/icons-material';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useAuth } from '@/context/auth-context';
@@ -137,15 +137,15 @@ function TestPlayResultContent() {
                         fontWeight: 600,
                       }}
                     >
-                      <MinusCircle size={16} /> 判定スキップ
+                      <RemoveCircleOutlineOutlined sx={{ fontSize: 16 }} /> 判定スキップ
                     </span>
                   ) : isCorrect ? (
                     <span className={styles.correctLabel}>
-                      <Check size={16} /> 正解
+                      <CheckOutlined sx={{ fontSize: 16 }} /> 正解
                     </span>
                   ) : (
                     <span className={styles.incorrectLabel}>
-                      <X size={16} /> 不正解
+                      <CloseOutlined sx={{ fontSize: 16 }} /> 不正解
                     </span>
                   )}
                 </div>
@@ -205,7 +205,7 @@ function TestPlayResultContent() {
           onClick={handleBackToEditor}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px' }}
         >
-          <ArrowLeft size={18} />
+          <ArrowBackOutlined sx={{ fontSize: 18 }} />
           編集画面に戻る
         </button>
       </div>

@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Loader2, Sparkles } from 'lucide-react';
+import { CheckOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { getProPlanForUi } from '@/lib/pricing-display';
 import type { PricingUiCtaMode } from '@/lib/pricing-entitlement';
 import {
@@ -132,7 +133,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
     <Card className="border-primary/30" data-testid="pricing-pro-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles size={24} className="text-primary" />
+          <AutoAwesomeOutlined sx={{ fontSize: 24 }} className="text-primary" />
           {plan.displayName}
         </CardTitle>
       </CardHeader>
@@ -182,7 +183,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
         <ul className="flex flex-col gap-2">
           {plan.featureBullets.map((feature) => (
             <li key={feature.id} className="flex items-start gap-2 text-sm">
-              <Check size={16} className="mt-0.5 shrink-0 text-primary" />
+              <CheckOutlined sx={{ fontSize: 16 }} className="mt-0.5 shrink-0 text-primary" />
               <span>{feature.label}</span>
             </li>
           ))}
@@ -203,7 +204,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
             data-testid="pricing-portal-btn"
             aria-label="契約内容を管理する"
           >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : null}
+            {loading ? <CircularProgress size={18} /> : null}
             契約を管理する
           </Button>
         ) : (
@@ -215,7 +216,7 @@ export function ProPlanCard({ ctaMode }: ProPlanCardProps) {
             data-testid="pricing-subscribe-btn"
             aria-label={ctaMode === 'guest' ? 'ログインして Pro プランに加入する' : 'Pro プランに加入する'}
           >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : null}
+            {loading ? <CircularProgress size={18} /> : null}
             {ctaMode === 'guest' ? 'ログインして加入する' : 'Pro プランに加入する'}
           </Button>
         )}

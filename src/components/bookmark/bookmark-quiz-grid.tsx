@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Bookmark } from 'lucide-react';
+import { BookmarkRounded } from '@mui/icons-material';
 import { Quiz } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +62,7 @@ export function BookmarkQuizGrid({ quizzes, onRemove }: BookmarkQuizGridProps) {
                   }}
                   title="ブックマーク解除"
                 >
-                  <Bookmark size={18} className="fill-primary text-primary" />
+                  <BookmarkRounded sx={{ fontSize: 18 }} className="fill-primary text-primary" />
                 </Button>
               </div>
             </CardContent>

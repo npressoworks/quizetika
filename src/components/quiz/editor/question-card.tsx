@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { WarningAmberOutlined, DeleteOutlineOutlined, ExpandMoreOutlined, ExpandLessOutlined } from '@mui/icons-material';
 import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import { ReferenceQuestionBadge } from '@/components/quiz/reference-question-badge';
 import { MarkdownFieldHint } from '@/components/markdown/markdown-field-hint';
@@ -76,7 +76,7 @@ export function QuestionCard({
             title={isCollapsed ? '展開する' : '折りたたむ'}
             aria-expanded={!isCollapsed}
           >
-            {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+            {isCollapsed ? <ExpandMoreOutlined sx={{ fontSize: 18 }} /> : <ExpandLessOutlined sx={{ fontSize: 18 }} />}
           </button>
 
           {/* 削除ボタン */}
@@ -86,7 +86,7 @@ export function QuestionCard({
             onClick={() => handlers.onRemoveQuestion(qIdx)}
             title="問題を削除"
           >
-            <Trash2 size={18} />
+            <DeleteOutlineOutlined sx={{ fontSize: 18 }} />
           </button>
         </div>
       </div>
@@ -96,7 +96,7 @@ export function QuestionCard({
         <>
           {cowNoticeIds.has(question.id) && (
             <div className={editorClasses.tagWarning} role="status" data-testid="cow-detach-notice">
-              <AlertTriangle size={16} />
+              <WarningAmberOutlined sx={{ fontSize: 16 }} />
               <span>保存時に独自コピーとして切り離されます</span>
             </div>
           )}

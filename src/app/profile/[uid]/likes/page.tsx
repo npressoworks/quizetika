@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowBackOutlined } from '@mui/icons-material';
 import { LikesClient } from './likes-client';
 import { LikesSkeleton } from '@/components/profile/likes-skeleton';
 
@@ -18,7 +18,7 @@ export default async function LikesPage({ params }: PageProps) {
           href={`/profile/${uid}`}
           className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft size={16} />
+          <ArrowBackOutlined sx={{ fontSize: 16 }} />
           <span>プロフィールに戻る</span>
         </Link>
 

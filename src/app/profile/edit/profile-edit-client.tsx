@@ -9,7 +9,7 @@ import {
   validateProfileData,
   ProfileValidationError
 } from '@/services/user';
-import { AlertCircle, Save, ArrowLeft } from 'lucide-react';
+import { ErrorOutlined, SaveOutlined, ArrowBackOutlined } from '@mui/icons-material';
 import { ProfileEditSkeleton } from '@/components/profile/profile-skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -118,7 +118,7 @@ export function ProfileEditClient() {
         className="mb-4 -ml-2"
         onClick={() => router.push(`/profile/${currentUser?.id}`)}
       >
-        <ArrowLeft size={16} />
+        <ArrowBackOutlined sx={{ fontSize: 16 }} />
         <span>プロフィールに戻る</span>
       </Button>
 
@@ -129,7 +129,7 @@ export function ProfileEditClient() {
         <CardContent>
           {submitError && (
             <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="size-4" />
+              <ErrorOutlined sx={{ fontSize: 16 }} className="size-4" />
               <AlertDescription>{submitError}</AlertDescription>
             </Alert>
           )}
@@ -260,7 +260,7 @@ export function ProfileEditClient() {
                 キャンセル
               </Button>
               <Button type="submit" disabled={hasErrors || submitting}>
-                <Save size={18} />
+                <SaveOutlined sx={{ fontSize: 18 }} />
                 <span>{submitting ? '保存中...' : '保存'}</span>
               </Button>
             </div>

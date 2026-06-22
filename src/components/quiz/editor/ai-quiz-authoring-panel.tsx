@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
+import { AutoAwesomeOutlined, CheckCircleOutlined } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
@@ -74,7 +75,7 @@ export function AiQuizAuthoringPanel({
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-base font-semibold">
-          <Sparkles size={18} className="text-primary" />
+          <AutoAwesomeOutlined sx={{ fontSize: 18 }} className="text-primary" />
           AI 作問（10問一括）
         </h3>
         {usageLabel && (
@@ -113,12 +114,12 @@ export function AiQuizAuthoringPanel({
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <CircularProgress size={16} className="mr-2" />
                   {generationStatus === 'generating' ? '生成中…' : '検証中…'}
                 </>
               ) : generationStatus === 'completed' ? (
                 <>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" />
+                  <CheckCircleOutlined sx={{ fontSize: 16 }} className="mr-2 text-emerald-400" />
                   生成完了！
                 </>
               ) : (

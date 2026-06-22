@@ -3,7 +3,23 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Check, X, ShieldAlert, Award, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle, ArrowLeft, CheckCircle, ChevronRight, Bookmark, UserPlus, UserCheck } from 'lucide-react';
+import {
+  CheckOutlined,
+  CloseOutlined,
+  SecurityOutlined,
+  EmojiEventsOutlined,
+  ThumbUpOutlined,
+  ThumbDownOutlined,
+  SmsOutlined,
+  WarningAmberOutlined,
+  ArrowBackOutlined,
+  CheckCircleOutlined,
+  ChevronRightOutlined,
+  BookmarkOutlined,
+  BookmarkRounded,
+  PersonAddOutlined,
+  HowToRegOutlined
+} from '@mui/icons-material';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useAuth } from '@/context/auth-context';
@@ -582,7 +598,7 @@ export function QuizResultClient({
       {/* 優しいオフライン警告ヘッダー */}
       {!online && (
         <div className={styles.offlineAlert}>
-          <ShieldAlert size={24} style={{ color: '#ff007f' }} />
+          <SecurityOutlined sx={{ fontSize: 24 }} style={{ color: '#ff007f' }} />
           <div className={styles.offlineText}>
             現在オフラインのため、良問評価や間違い指摘、作家リアクションは送信できません。
           </div>
@@ -607,11 +623,11 @@ export function QuizResultClient({
             aria-label="クイズをブックマーク"
             type="button"
           >
-            <Bookmark
-              size={24}
-              color={bookmarkedQuizIds.has(quiz.id) ? '#00ff66' : 'currentColor'}
-              fill={bookmarkedQuizIds.has(quiz.id) ? '#00ff66' : 'none'}
-            />
+            {bookmarkedQuizIds.has(quiz.id) ? (
+              <BookmarkRounded sx={{ fontSize: 24, color: '#00ff66' }} />
+            ) : (
+              <BookmarkOutlined sx={{ fontSize: 24 }} />
+            )}
           </button>
         </div>
 
@@ -647,11 +663,11 @@ export function QuizResultClient({
             >
               {isFollowingAuthor ? (
                 <>
-                  <UserCheck size={12} /> フォロー中
+                  <HowToRegOutlined sx={{ fontSize: 12 }} /> フォロー中
                 </>
               ) : (
                 <>
-                  <UserPlus size={12} /> フォロー
+                  <PersonAddOutlined sx={{ fontSize: 12 }} /> フォロー
                 </>
               )}
             </button>
@@ -724,7 +740,7 @@ export function QuizResultClient({
       <div className={styles.feedbackPanel}>
         {quiz.isReviewMasked && (
           <div className={styles.maskedAlert}>
-            <AlertTriangle size={18} style={{ color: '#ffb703', flexShrink: 0 }} />
+            <WarningAmberOutlined sx={{ fontSize: 18, color: '#ffb703' }} style={{ flexShrink: 0 }} />
             <span style={{ fontSize: '0.9rem', color: '#ffb703', fontWeight: 600 }}>
               ⚠️ 修正に伴う再評価期間中
             </span>
@@ -741,7 +757,7 @@ export function QuizResultClient({
               disabled={!online || voted !== null || user?.id === quiz.authorId}
               data-analytics="quiz-review-vote-positive"
             >
-              <ThumbsUp size={16} /> 良問
+              <ThumbUpOutlined sx={{ fontSize: 16 }} /> 良問
             </button>
             <button
               className={`${styles.voteBtn} ${voted === 'negative' ? styles.voteActive : ''}`}
@@ -749,7 +765,7 @@ export function QuizResultClient({
               disabled={!online || voted !== null || user?.id === quiz.authorId}
               data-analytics="quiz-review-vote-negative"
             >
-              <ThumbsDown size={16} /> 微妙
+              <ThumbDownOutlined sx={{ fontSize: 16 }} /> 微妙
             </button>
           </div>
         </div>
@@ -789,7 +805,7 @@ export function QuizResultClient({
             onClick={() => openFeedbackModal(null)}
             disabled={!online}
           >
-            <MessageSquare size={16} /> {openReports.some((r) => r.questionId === 'unknown') ? 'クイズ全体の指摘 (指摘済)' : 'クイズ全体の指摘'}
+            <SmsOutlined sx={{ fontSize: 16 }} /> {openReports.some((r) => r.questionId === 'unknown') ? 'クイズ全体の指摘 (指摘済)' : 'クイズ全体の指摘'}
           </button>
           <button
             className="btn btn-secondary"
@@ -799,7 +815,7 @@ export function QuizResultClient({
             data-testid="quiz-report-btn"
             data-analytics="quiz-report-open"
           >
-            <AlertTriangle size={16} /> クイズを通報
+            <WarningAmberOutlined sx={{ fontSize: 16 }} /> クイズを通報
           </button>
         </div>
 
@@ -821,7 +837,7 @@ export function QuizResultClient({
                 style={{ width: '100%', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               >
                 <span>次の問題へ</span>
-                <ChevronRight size={18} />
+                <ChevronRightOutlined sx={{ fontSize: 18 }} />
               </button>
             ) : isLastInMyQuiz ? (
               <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
@@ -856,11 +872,11 @@ export function QuizResultClient({
                   </h3>
                   {isCorrect ? (
                     <span className={styles.correctLabel}>
-                      <Check size={16} /> 正解
+                      <CheckOutlined sx={{ fontSize: 16 }} /> 正解
                     </span>
                   ) : (
                     <span className={styles.incorrectLabel}>
-                      <X size={16} /> 不正解
+                      <CloseOutlined sx={{ fontSize: 16 }} /> 不正解
                     </span>
                   )}
                   {isCorrect && quickPressTimes && quickPressTimes[q.id] !== undefined && (
@@ -905,7 +921,7 @@ export function QuizResultClient({
                     onClick={() => openFeedbackModal(q)}
                     disabled={!online}
                   >
-                    <MessageSquare size={12} style={{ marginRight: '4px', display: 'inline', verticalAlign: 'text-bottom' }} />
+                    <SmsOutlined sx={{ fontSize: 12, marginRight: '4px', display: 'inline', verticalAlign: 'text-bottom' }} />
                     {openReports.some((r) => r.questionId === q.id) ? '問題指摘済' : 'この問題を指摘'}
                   </button>
                 </div>
@@ -987,13 +1003,13 @@ export function QuizResultClient({
         <div className={styles.modalOverlay} onClick={() => setShowFeedbackModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.modalTitle}>
-              <AlertTriangle size={18} style={{ color: '#ffb703' }} />
+              <WarningAmberOutlined sx={{ fontSize: 18, color: '#ffb703' }} />
               問題の間違い・別解の指摘
             </h3>
 
             {feedbackSubmitted ? (
               <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--color-accent)' }}>
-                <CheckCircle size={32} style={{ margin: '0 auto 12px' }} />
+                <CheckCircleOutlined sx={{ fontSize: 32 }} style={{ margin: '0 auto 12px' }} />
                 指摘レポートを送信しました。ご協力ありがとうございました！
               </div>
             ) : (

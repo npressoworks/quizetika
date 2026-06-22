@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Settings } from 'lucide-react';
+import { ArrowBackOutlined, SettingsOutlined } from '@mui/icons-material';
 import { SettingsClient } from './settings-client';
 
 export default function SettingsPage() {
@@ -10,12 +10,12 @@ export default function SettingsPage() {
         href="/"
         className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft size={16} /> ホームに戻る
+        <ArrowBackOutlined sx={{ fontSize: 16 }} /> ホームに戻る
       </Link>
 
       <div>
         <h1 className="flex items-center gap-3 text-2xl font-bold tracking-tight">
-          <Settings size={32} />
+          <SettingsOutlined sx={{ fontSize: 32 }} />
           設定
         </h1>
         <p className="mt-2 text-muted-foreground">

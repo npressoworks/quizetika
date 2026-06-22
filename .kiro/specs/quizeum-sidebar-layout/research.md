@@ -82,7 +82,7 @@
 Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時5アイコン（ホーム・検索・通知・ブックマーク・プロフィール）。`pathname === '/search'` と `'/'` で active を排他制御。
 
 ### Design Decisions
-1. **Search icon** — `lucide-react` `Search` をホーム直後に配置。
+1. **Search icon** — `@mui/icons-material` `Search` をホーム直後に配置。
 2. **testid** — `nav-search` / `bottom-nav-search` を要件どおり付与。
 3. **Out of scope** — 検索画面コンテンツ・URL lib は触らない。
 
@@ -130,12 +130,12 @@ Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時
 
 ### Key Findings
 1. **管理者判定**: `src/lib/middleware-auth-cookies.ts` の `isAdminUser(user)` を使用して `User` が管理者権限を持つかを判定できます。この判定処理はすでに実装済みのため、Sidebar と Header にインポートして利用します。
-2. **遷移先とアイコン**: 遷移先ルートは `/admin` です。アイコンは `lucide-react` の `Shield` アイコンを使用します。
+2. **遷移先とアイコン**: 遷移先ルートは `/admin` です。アイコンは `@mui/icons-material` の `Shield` アイコンを使用します。
 3. **Sidebar の配置**: `user` が存在し、かつ `isAdminUser(user)` が真の場合に、主要ナビゲーション部分（「ダッシュボード」の下、かつ「作問する」ボタンの上）に管理者メニューリンクを追加します。
 4. **Header の配置**: モバイル用 `Header` 内のプロフィール用 `<DropdownMenuContent>` に、`isAdminUser(user)` が真の場合にドロップダウン項目として管理者メニューを追加します。
 
 ### Design Decisions
-1. **Icons** — 管理者メニュー: `Shield` (from `lucide-react`)。
+1. **Icons** — 管理者メニュー: `Shield` (from `@mui/icons-material`)。
 2. **Active判定** — パスが `/admin` または `/admin/` で始まるとき、アクティブ（ハイライト）表示します。
 3. **testid** — Sidebar主要ナビ: `data-testid="nav-admin"`、PCドロップダウンリンク: `data-testid="sidebar-admin-link"`、モバイルドロップダウンリンク: `data-testid="header-admin-link"`。
 

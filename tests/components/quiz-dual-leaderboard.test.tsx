@@ -10,11 +10,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QuizDualLeaderboard } from '@/components/quiz/quiz-dual-leaderboard';
 import type { LeaderboardRecord, Quiz } from '@/types';
 
-jest.mock('lucide-react', () => ({
-  Trophy: (props: React.SVGAttributes<SVGSVGElement>) => (
-    <svg data-testid="icon-trophy" {...props} />
-  ),
-}));
+
 
 function lbEntry(
   userId: string,

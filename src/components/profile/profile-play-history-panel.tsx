@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { History, RefreshCw } from 'lucide-react';
+import { HistoryOutlined, RefreshOutlined } from '@mui/icons-material';
 import {
   fetchPlayHistoryPage,
   getAttemptModeLabel,
@@ -82,7 +82,7 @@ export function ProfilePlayHistoryPanel({ isActive }: ProfilePlayHistoryPanelPro
     <div data-testid="play-history-section">
       {loading && items.length === 0 && (
         <div className="flex items-center py-8 text-muted-foreground">
-          <History size={20} className="mr-2" />
+          <HistoryOutlined sx={{ fontSize: 20 }} className="mr-2" />
           プレイ履歴を読み込み中...
         </div>
       )}
@@ -97,7 +97,7 @@ export function ProfilePlayHistoryPanel({ isActive }: ProfilePlayHistoryPanelPro
               </Link>
             ) : (
               <Button type="button" variant="secondary" onClick={handleRetry}>
-                <RefreshCw size={16} />
+                <RefreshOutlined sx={{ fontSize: 16 }} />
                 再試行
               </Button>
             )}

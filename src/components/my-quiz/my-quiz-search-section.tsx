@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import { TuneOutlined } from '@mui/icons-material';
 import { UnifiedSearchField } from '@/components/explore/unified-search-field';
 import { GenreCarousel } from '@/components/explore/genre-carousel';
 import { FormatCarousel } from '@/components/explore/format-carousel';
@@ -142,7 +142,7 @@ export function MyQuizSearchSection({
           onClick={() => setShowFilters(!showFilters)}
           data-testid="my-quiz-filter-toggle"
         >
-          <SlidersHorizontal size={18} />
+          <TuneOutlined sx={{ fontSize: 18 }} />
           フィルター
         </Button>
       </div>

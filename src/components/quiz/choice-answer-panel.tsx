@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check } from 'lucide-react';
+import { CheckOutlined } from '@mui/icons-material';
 import { Question } from '@/types';
 import {
   isMultiCorrectChoiceQuestion,
@@ -111,9 +111,8 @@ export function ChoiceAnswerPanel({
                   )}
                   aria-hidden
                 >
-                  <Check
+                  <CheckOutlined
                     className={cn('size-3.5 transition-transform', isSelected ? 'scale-100 opacity-100' : 'scale-75 opacity-0')}
-                    strokeWidth={3}
                   />
                 </span>
                 <span className="flex-1 text-base font-medium leading-snug text-foreground">

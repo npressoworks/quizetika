@@ -2,7 +2,8 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles, X, Send, Globe, Check, Loader2, RotateCcw } from 'lucide-react';
+import { AutoAwesomeOutlined, CloseOutlined, SendOutlined, LanguageOutlined, CheckOutlined, ReplayOutlined } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import styles from './ai-chat-assistant.module.css';
 
@@ -447,7 +448,7 @@ export function AiChatAssistantPanel({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerTitle}>
-          <Sparkles size={18} className={styles.headerIcon} />
+          <AutoAwesomeOutlined sx={{ fontSize: 18 }} className={styles.headerIcon} />
           <span>AI作問アシスタント</span>
         </div>
         <div className={styles.headerActions}>
@@ -459,7 +460,7 @@ export function AiChatAssistantPanel({
             aria-label="会話をリセット"
             title="会話をリセット"
           >
-            <RotateCcw size={15} />
+            <ReplayOutlined sx={{ fontSize: 15 }} />
           </button>
           <button
             type="button"
@@ -468,7 +469,7 @@ export function AiChatAssistantPanel({
             onClick={onClose}
             aria-label="チャットを閉じる"
           >
-            <X size={18} />
+            <CloseOutlined sx={{ fontSize: 18 }} />
           </button>
         </div>
       </div>
@@ -563,13 +564,13 @@ export function AiChatAssistantPanel({
                     <div key={tool.toolCallId} className="flex flex-col">
                       <div className={`${styles.toolInvocation} ${statusClass}`}>
                         {isCall && !isPendingApproval ? (
-                          <Loader2 size={12} className="animate-spin" />
+                          <CircularProgress size={12} />
                         ) : isPendingApproval ? (
-                          <Sparkles size={12} className="animate-pulse text-amber-500" />
+                          <AutoAwesomeOutlined sx={{ fontSize: 12 }} className="text-amber-500" style={{ animation: 'pulse 2s infinite' }} />
                         ) : isRejected || isFailed ? (
-                          <X size={12} className="text-destructive" />
+                          <CloseOutlined sx={{ fontSize: 12 }} className="text-destructive" />
                         ) : (
-                          <Check size={12} />
+                          <CheckOutlined sx={{ fontSize: 12 }} />
                         )}
                         <span>{labelText}</span>
                       </div>
@@ -672,7 +673,7 @@ export function AiChatAssistantPanel({
             disabled={isGenerating || !input?.trim() || isLimitReached || hasPendingApproval}
             aria-label="メッセージを送信"
           >
-            <Send size={16} />
+            <SendOutlined sx={{ fontSize: 16 }} />
           </button>
         </form>
         <div className={styles.limitInfo}>
@@ -706,7 +707,7 @@ export function AiChatAssistantPanel({
                 onClick={() => setPreviewModal(null)}
                 aria-label="閉じる"
               >
-                <X size={18} />
+                <CloseOutlined sx={{ fontSize: 18 }} />
               </button>
             </div>
             <div className={styles.previewModalBody}>

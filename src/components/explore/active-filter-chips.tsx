@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X } from 'lucide-react';
+import { CloseOutlined } from '@mui/icons-material';
 import {
   DEFAULT_HOME_FEED_FILTERS,
   type HomeFeedFilters,
@@ -151,7 +151,7 @@ export function ActiveFilterChips({
               aria-label={`${chip.label} を解除`}
               onClick={() => onRemove(chip.key, chip.value)}
             >
-              <X size={14} aria-hidden />
+              <CloseOutlined sx={{ fontSize: 14 }} aria-hidden />
             </button>
           </Badge>
         ))}

@@ -37,7 +37,7 @@
 - **Findings**:
   - 必須: `tailwindcss`, `@tailwindcss/postcss`, `postcss`, `clsx`, `tailwind-merge`, `class-variance-authority`
   - プリミティブごとに `@radix-ui/react-*` が必要（Dialog, Tabs 等）
-  - `lucide-react` は既に導入済み（^1.16.0）
+  - `@mui/icons-material`（Material Icons）および `@mui/material/CircularProgress` を導入済み（`lucide-react` から完全移行）
   - `src/lib/utils.ts` に `cn()` を配置（shadcn 標準）
 - **Implications**: CLI で init 後、Button/Input/Dialog/Tabs/Skeleton/Badge/Card を `npx shadcn@latest add` で追加。
 

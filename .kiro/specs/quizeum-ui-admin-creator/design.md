@@ -51,7 +51,7 @@
 - **`isAdminUser` from `@/lib/middleware-auth-cookies`**: 管理者判定（P0）
 - **既存サービス**: `resolveFlag`, `getQuizzesByAuthor`, `getReportsForCreator`, `tagMerge` 等（P0、呼び出し維持）
 - **Firestore / REST API**: 既存 fetch パターン（P0）
-- **`lucide-react`**: アイコン（P0）
+- **`@mui/icons-material`**: アイコン（P0）
 - **foundation Primitive Wave 2**: Table, AlertDialog, Select, Textarea, Label, Chart（P0、存在確認のみ）
 - **`recharts`**: shadcn Chart 依存（P1）
 
@@ -149,7 +149,7 @@ graph TD
 | Styling | Tailwind CSS v4 | ユーティリティクラス | foundation 経由 |
 | UI | shadcn/ui | Table, AlertDialog, Chart 等 | foundation + 本 spec add |
 | Charts | recharts (via shadcn Chart) | トレンド・円グラフ | CLI add chart |
-| Icons | lucide-react | ダッシュボード・管理 UI | 既存 |
+| Icons | @mui/icons-material | ダッシュボード・管理 UI | 既存 |
 | Data | Firestore, REST API | 既存 fetch 維持 | 変更なし |
 | Auth | useAuth, middleware cookies | ガード維持 | 読み取りのみ |
 | Testing | Jest, Playwright | 単体・E2E 回帰 | 既存 spec 更新 |

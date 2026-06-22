@@ -43,7 +43,7 @@
 - **`QuizList` / `resolveListType`**（`@/types`）: リスト型（P0）
 - **`getProfileListTypeLabel` / `getProfileListItemCount`**（`@/lib/profile-list-display`）: 種別ラベル・件数表示（P1）
 - **`next/navigation`**: ルーティング、ログインリダイレクト（P0）
-- **`lucide-react`**: アイコン（P2）
+- **`@mui/icons-material`**: アイコン（P2）
 
 ### Revalidation Triggers
 - `searchLists` の引数・戻り値型変更
@@ -100,7 +100,7 @@ graph TD
 | Frontend | Next.js 16.2.6 (App Router) | `/lists` ルート、Client ページ | RSC + Client 分離 |
 | UI/Styling | Vanilla CSS (CSS Modules) | タブ・検索バー・グリッド | Tailwind 不使用 |
 | Data | Firebase Firestore（Core 経由） | リスト一覧クエリ | `searchLists` が抽象化 |
-| Icons | Lucide React | ページタイトル・種別アイコン | |
+| Icons | Material Icons (@mui/icons-material) | ページタイトル・種別アイコン | |
 
 ---
 

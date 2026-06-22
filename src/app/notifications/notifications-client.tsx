@@ -12,14 +12,14 @@ import {
 } from '@/services/notification';
 import { getUnreadAnnouncementsCount } from '@/services/announcement';
 import {
-  UserPlus,
-  CheckCircle,
-  AlertTriangle,
-  Heart,
-  Bell,
-  Check,
-  LogIn,
-} from 'lucide-react';
+  PersonAddOutlined,
+  CheckCircleOutlined,
+  WarningAmberOutlined,
+  FavoriteOutlined,
+  NotificationsOutlined,
+  CheckOutlined,
+  LoginOutlined,
+} from '@mui/icons-material';
 import { NotificationsSkeleton } from '@/components/ui/notifications-skeleton';
 import { Button } from '@/components/ui/button';
 import { CardContent, Card } from '@/components/ui/card';
@@ -176,16 +176,16 @@ export function NotificationsClient() {
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
       case 'follow':
-        return <UserPlus size={20} className="text-blue-500" />;
+        return <PersonAddOutlined sx={{ fontSize: 20 }} className="text-blue-500" />;
       case 'correction_resolved':
-        return <CheckCircle size={20} className="text-green-500" />;
+        return <CheckCircleOutlined sx={{ fontSize: 20 }} className="text-green-500" />;
       case 'bookmark':
-        return <Heart size={20} className="text-pink-500" />;
+        return <FavoriteOutlined sx={{ fontSize: 20 }} className="text-pink-500" />;
       case 'badge_unlocked':
-        return <Bell size={20} className="text-green-500" />;
+        return <NotificationsOutlined sx={{ fontSize: 20 }} className="text-green-500" />;
       case 'quiz_review_warning':
       default:
-        return <AlertTriangle size={20} className="text-amber-500" />;
+        return <WarningAmberOutlined sx={{ fontSize: 20 }} className="text-amber-500" />;
     }
   };
 
@@ -232,7 +232,7 @@ export function NotificationsClient() {
           {!currentUser ? (
             <Card className="border-dashed bg-muted/20">
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Bell size={48} className="text-muted-foreground mb-4 opacity-50" />
+                <NotificationsOutlined sx={{ fontSize: 48 }} className="text-muted-foreground mb-4 opacity-50" />
                 <h3 className="text-lg font-bold mb-2">通知機能を利用するにはログインが必要です</h3>
                 <p className="text-sm text-muted-foreground mb-6 max-w-sm">
                   ログインすると、あなたのクイズへのブックマーク、フォロー、間違い指摘の解決などの通知を受け取ることができます。
@@ -241,7 +241,7 @@ export function NotificationsClient() {
                   onClick={() => router.push('/login?redirect=/notifications')}
                   data-testid="login-redirect-btn"
                 >
-                  <LogIn className="size-4 mr-2" />
+                  <LoginOutlined sx={{ fontSize: 16 }} className="mr-2 size-4" />
                   ログイン画面へ
                 </Button>
               </CardContent>
@@ -251,7 +251,7 @@ export function NotificationsClient() {
               {unreadNotifCount > 0 && (
                 <div className="mb-4 flex justify-end">
                   <Button type="button" variant="outline" size="sm" onClick={handleAllNotifRead} data-testid="notifications-mark-all-read-btn">
-                    <Check size={16} className="mr-1" />
+                    <CheckOutlined sx={{ fontSize: 16 }} className="mr-1" />
                     <span>すべて既読にする</span>
                   </Button>
                 </div>
@@ -259,7 +259,7 @@ export function NotificationsClient() {
 
               {notifications.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
-                  <Bell size={40} />
+                  <NotificationsOutlined sx={{ fontSize: 40 }} />
                   <p>届いている通知はありません。</p>
                 </div>
               ) : (

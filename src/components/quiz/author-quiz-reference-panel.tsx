@@ -8,7 +8,7 @@ import {
   sortQuestionsForKeywordDisplay,
 } from '@/lib/question-search-text';
 import type { Question } from '@/types';
-import { ChevronDown, Link2, Search } from 'lucide-react';
+import { ExpandMoreOutlined, LinkOutlined, SearchOutlined } from '@mui/icons-material';
 
 export interface AuthorQuizReferencePanelProps {
   authorId: string;
@@ -134,9 +134,9 @@ export function AuthorQuizReferencePanel({
           listStyle: 'none',
         }}
       >
-        <Link2 size={18} />
+        <LinkOutlined sx={{ fontSize: 18 }} />
         過去の自作クイズから問題を参照リンク
-        <ChevronDown size={16} style={{ marginLeft: 'auto' }} />
+        <ExpandMoreOutlined sx={{ fontSize: 16 }} style={{ marginLeft: 'auto' }} />
       </summary>
 
       <div style={{ marginTop: 16 }}>
@@ -177,7 +177,7 @@ export function AuthorQuizReferencePanel({
             }}
           />
           <span style={{ display: 'flex', alignItems: 'center', opacity: 0.5 }}>
-            <Search size={16} />
+            <SearchOutlined sx={{ fontSize: 16 }} />
           </span>
         </div>
 

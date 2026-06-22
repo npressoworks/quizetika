@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { uploadImage, getGenreIconPath } from '@/services/storage';
@@ -290,7 +290,7 @@ export default function AdminGenresClient() {
   if (loading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Loader2 className="size-8 animate-spin" />
+        <CircularProgress size={32} color="inherit" />
         <p>認証情報を確認しています...</p>
       </div>
     );
@@ -370,7 +370,7 @@ export default function AdminGenresClient() {
                   >
                     {aiGenerating ? (
                       <>
-                        <Loader2 className="mr-1 size-3 animate-spin" />
+                        <CircularProgress size={12} color="inherit" className="mr-1" />
                         生成中...
                       </>
                     ) : (
@@ -419,7 +419,7 @@ export default function AdminGenresClient() {
               >
                 {submitLoading ? (
                   <>
-                    <Loader2 className="mr-2 size-4 animate-spin" /> 追加中...
+                    <CircularProgress size={16} color="inherit" className="mr-2" /> 追加中...
                   </>
                 ) : (
                   '➕ ジャンルを追加'

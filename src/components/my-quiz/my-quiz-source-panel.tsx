@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Check } from 'lucide-react';
+import { CheckOutlined } from '@mui/icons-material';
 import type { MyQuizSourceFlags } from '@/lib/my-quiz-pool';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,7 +39,7 @@ export function MyQuizSourcePanel({ flags, onChange }: MyQuizSourcePanelProps) {
                 data-testid={src.testId}
                 aria-pressed={pressed}
               >
-                {pressed && <Check className="size-3.5 shrink-0" aria-hidden />}
+                {pressed && <CheckOutlined className="size-3.5 shrink-0" aria-hidden />}
                 {src.label}
               </Button>
             );

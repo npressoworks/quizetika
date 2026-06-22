@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Trophy, Award, Flame } from 'lucide-react';
+import { EmojiEventsOutlined, LocalFireDepartmentOutlined } from '@mui/icons-material';
 import { db } from '@/lib/firebase/config';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { User as DBUser } from '@/types';
@@ -88,7 +88,7 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
     <div className={styles.container} data-testid="leaderboard-page-container">
       <div className={styles.titleSection}>
         <h1 className={styles.title} data-testid="leaderboard-global-title">
-          <Trophy size={36} style={{ color: '#ffd700', verticalAlign: 'text-bottom' }} />
+          <EmojiEventsOutlined sx={{ fontSize: 36 }} style={{ color: '#ffd700', verticalAlign: 'text-bottom' }} />
           quizeum 殿堂入りリーダーボード
         </h1>
         <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
@@ -103,7 +103,7 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
           onClick={() => setActiveTab('score')}
           data-testid="leaderboard-tab-score"
         >
-          <Flame size={16} style={{ display: 'inline', marginRight: '6px' }} />
+          <LocalFireDepartmentOutlined sx={{ fontSize: 16 }} style={{ display: 'inline', marginRight: '6px' }} />
           総合信頼スコア
         </div>
         <div
@@ -111,7 +111,7 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
           onClick={() => setActiveTab('plays')}
           data-testid="leaderboard-tab-plays"
         >
-          <Trophy size={16} style={{ display: 'inline', marginRight: '6px' }} />
+          <EmojiEventsOutlined sx={{ fontSize: 16 }} style={{ display: 'inline', marginRight: '6px' }} />
           累計プレイ数
         </div>
         <div
@@ -119,7 +119,7 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
           onClick={() => setActiveTab('creators')}
           data-testid="leaderboard-tab-creators"
         >
-          <Award size={16} style={{ display: 'inline', marginRight: '6px' }} />
+          <EmojiEventsOutlined sx={{ fontSize: 16 }} style={{ display: 'inline', marginRight: '6px' }} />
           クリエイターランキング
         </div>
       </div>

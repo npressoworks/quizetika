@@ -11,17 +11,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
-  Play,
-  Bookmark,
-  Star,
-  ThumbsUp,
-  FileText,
-  Edit3,
-  AlertCircle,
-  TrendingUp,
-  ChevronRight,
-  Inbox,
-} from 'lucide-react';
+  PlayArrowOutlined as PlayIcon,
+  BookmarkOutlined as BookmarkIcon,
+  StarOutlined as StarIcon,
+  ThumbUpOutlined as ThumbsUpIcon,
+  DescriptionOutlined as FileTextIcon,
+  EditOutlined as EditIcon,
+  ErrorOutlineOutlined as AlertCircleIcon,
+  TrendingUpOutlined as TrendingUpIcon,
+  ChevronRight as ChevronRightIcon,
+  InboxOutlined as InboxIcon,
+} from '@mui/icons-material';
 
 const playsTrendData = [
   { label: '5/23', value: 12 },
@@ -54,15 +54,15 @@ const statIconVariants = {
 
 export function StatsGridSection({ stats }: { stats: DashboardStats }) {
   const items = [
-    { icon: Play, label: '累計プレイ数', value: `${stats.totalPlays} 回`, variant: 'primary' as const },
-    { icon: Bookmark, label: 'ブックマーク数', value: `${stats.totalBookmarks} 個`, variant: 'accent' as const },
+    { icon: PlayIcon, label: '累計プレイ数', value: `${stats.totalPlays} 回`, variant: 'primary' as const },
+    { icon: BookmarkIcon, label: 'ブックマーク数', value: `${stats.totalBookmarks} 個`, variant: 'accent' as const },
     {
-      icon: Star,
+      icon: StarIcon,
       label: '平均良問評価率',
       value: stats.averageRating > 0 ? `${stats.averageRating}%` : '-',
       variant: 'warning' as const,
     },
-    { icon: FileText, label: '作成クイズ総数', value: `${stats.quizCount} 個`, variant: 'info' as const },
+    { icon: FileTextIcon, label: '作成クイズ総数', value: `${stats.quizCount} 個`, variant: 'info' as const },
   ];
 
   return (
@@ -100,7 +100,7 @@ export function ChartsSection() {
     >
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
-          <TrendingUp className="size-5 text-primary" />
+          <TrendingUpIcon className="size-5 text-primary" />
           <CardTitle className="text-base">アクセス・プレイトレンド</CardTitle>
         </CardHeader>
         <CardContent>
@@ -109,7 +109,7 @@ export function ChartsSection() {
       </Card>
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
-          <Star className="size-5 text-chart-2" />
+          <StarIcon className="size-5 text-chart-2" />
           <CardTitle className="text-base">良問評価率の推移</CardTitle>
         </CardHeader>
         <CardContent>
@@ -128,13 +128,13 @@ export function QuizListSection({ quizzes }: { quizzes: Quiz[] }) {
     <>
       <Card data-testid="creator-quiz-list" className="lg:col-span-1">
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
-          <FileText className="size-5" />
+          <FileTextIcon className="size-5" />
           <CardTitle className="text-base">作成したクイズ一覧 ({quizzes.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {quizzes.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
-              <Inbox className="size-12 opacity-40" />
+              <InboxIcon className="size-12 opacity-40" />
               <p>作成したクイズがまだありません。</p>
             </div>
           ) : (
@@ -163,7 +163,7 @@ export function QuizListSection({ quizzes }: { quizzes: Quiz[] }) {
                         className="inline-flex items-center gap-1"
                         data-testid="creator-quiz-review-score"
                       >
-                        <ThumbsUp className="size-3.5" aria-hidden />
+                        <ThumbsUpIcon className="size-3.5" aria-hidden />
                         {formatReviewScorePercent(quiz.reviewScore) ?? '-'}
                       </span>
                     </div>
@@ -178,10 +178,10 @@ export function QuizListSection({ quizzes }: { quizzes: Quiz[] }) {
                         router.push(`/quiz/${quiz.id}/edit`);
                       }}
                     >
-                      <Edit3 className="size-3.5" />
+                      <EditIcon className="size-3.5" />
                       編集
                     </Button>
-                    <ChevronRight className="size-4 text-muted-foreground" />
+                    <ChevronRightIcon className="size-4 text-muted-foreground" />
                   </div>
                 </div>
               ))}
@@ -268,7 +268,7 @@ export function FeedbackSection({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center gap-2 pb-2">
-        <AlertCircle className="size-5 text-destructive" />
+        <AlertCircleIcon className="size-5 text-destructive" />
         <CardTitle className="text-base">
           プレイヤーからの間違い指摘キュー ({feedbacks.length})
         </CardTitle>
@@ -276,7 +276,7 @@ export function FeedbackSection({
       <CardContent>
         {feedbacks.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
-            <Inbox className="size-12 opacity-40" />
+            <InboxIcon className="size-12 opacity-40" />
             <p>現在、未解決の指摘報告はありません。素晴らしいクオリティです！</p>
           </div>
         ) : (
@@ -298,7 +298,7 @@ export function FeedbackSection({
                     対象: {report.quizTitle}
                   </span>
                   <Button type="button" variant="outline" size="sm" onClick={() => handleFixFeedback(report)}>
-                    <Edit3 className="size-3" />
+                    <EditIcon className="size-3" />
                     修正する
                   </Button>
                 </div>

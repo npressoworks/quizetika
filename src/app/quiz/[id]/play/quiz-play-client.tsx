@@ -4,7 +4,7 @@ import { getTextInputFieldProps } from '@/services/text-answer-utils';
 import React, { useCallback, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Timer, HelpCircle, Send, Play, Check, X, ShieldAlert } from 'lucide-react';
+import { ArrowBackOutlined, TimerOutlined, HelpOutlineOutlined, SendOutlined, PlayArrowOutlined, CheckOutlined, CloseOutlined, SecurityOutlined } from '@mui/icons-material';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { useAuth } from '@/context/auth-context';
 import { usePlayState, type QuestionElapsedPolicy } from '@/hooks/usePlayState';
@@ -677,7 +677,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                   : `${aiPlay.perQuizUsed} / ${FREE_TIER_PER_QUIZ_LIMIT}`}
               </span>
               <span className={styles.elapsedCounter}>
-                <Timer size={14} aria-hidden="true" />
+                <TimerOutlined sx={{ fontSize: 14 }} aria-hidden="true" />
                 経過時間: {formatPlayElapsedSeconds(lateralElapsedSeconds)}
               </span>
             </div>
@@ -841,7 +841,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                     aria-busy={aiPlay.isAwaitingResponse}
                     data-analytics="quiz-lateral-question-send"
                   >
-                    <Send size={16} />
+                    <SendOutlined sx={{ fontSize: 16 }} />
                   </button>
                 </>
               ) : (
@@ -952,7 +952,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       <div className={styles.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Link href={`/quiz/${quiz.id}`} className={styles.backBtn} onClick={clearSession}>
-            <ArrowLeft size={16} />
+            <ArrowBackOutlined sx={{ fontSize: 16 }} />
             中断する
           </Link>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>| モード: {playMode}</span>
@@ -975,7 +975,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         <div className={styles.progressText}>
           <span>解答済み: {answeredIds.length} / {playQuestions.length} 問</span>
           <span data-testid="play-elapsed-seconds">
-            <Timer size={14} aria-hidden="true" style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+            <TimerOutlined sx={{ fontSize: 14, verticalAlign: 'middle', marginRight: '4px' }} aria-hidden="true" />
             経過時間: {formatPlayElapsedSeconds(elapsedSeconds)}
           </span>
         </div>
@@ -1212,7 +1212,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                       handleAnswerSubmit('correct');
                     }}
                   >
-                    <Check size={18} /> 分かった (正解)
+                    <CheckOutlined sx={{ fontSize: 18 }} /> 分かった (正解)
                   </button>
                   <button
                     className="btn btn-outline"
@@ -1223,7 +1223,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                       handleAnswerSubmit('incorrect');
                     }}
                   >
-                    <X size={18} /> 分からなかった (不正解)
+                    <CloseOutlined sx={{ fontSize: 18 }} /> 分からなかった (不正解)
                   </button>
                 </div>
               </div>

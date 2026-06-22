@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MessageSquare, Sparkles } from 'lucide-react';
+import { SmsOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
 import styles from './ai-chat-assistant.module.css';
 
 interface AiChatAssistantButtonProps {
@@ -29,9 +29,9 @@ export function AiChatAssistantButton({
       aria-label="AIアシスタントを開く"
     >
       {isChatOpen ? (
-        <Sparkles size={24} className={styles.headerIcon} />
+        <AutoAwesomeOutlined sx={{ fontSize: 24 }} className={styles.headerIcon} />
       ) : (
-        <MessageSquare size={24} />
+        <SmsOutlined sx={{ fontSize: 24 }} />
       )}
     </button>
   );

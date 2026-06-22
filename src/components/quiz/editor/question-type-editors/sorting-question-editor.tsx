@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { AddOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
 import { SortableSortingList } from '@/components/sorting/sortable-sorting-list';
 import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-validation';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
@@ -39,7 +39,7 @@ export function SortingQuestionEditor({ qIdx, question, validationErrors, handle
               }}
               title="この要素を削除"
             >
-              <Trash2 size={18} />
+              <DeleteOutlineOutlined sx={{ fontSize: 18 }} />
             </button>
           </div>
         )}
@@ -49,7 +49,7 @@ export function SortingQuestionEditor({ qIdx, question, validationErrors, handle
         className={`${editorClasses.addTextAnswerBtn} mt-2`}
         onClick={() => handlers.onAddSortingItem(qIdx)}
       >
-        <Plus size={14} /> 要素を追加する
+        <AddOutlined sx={{ fontSize: 14 }} /> 要素を追加する
       </button>
       <FieldValidationMessages
         errors={validationErrors}

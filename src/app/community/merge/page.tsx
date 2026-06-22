@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { CircularProgress } from '@mui/material';
 
 interface MergeRequest {
   id: string;
@@ -191,7 +191,7 @@ export default function CommunityMergePage() {
   if (loading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Loader2 className="size-8 animate-spin" />
+        <CircularProgress size={32} />
         <p>読み込んでいます...</p>
       </div>
     );
@@ -241,7 +241,7 @@ export default function CommunityMergePage() {
         <TabsContent value="votes" className="mt-4">
           {fetchLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              <CircularProgress size={32} className="text-muted-foreground" />
             </div>
           ) : mergeRequests.length === 0 ? (
             <Card>
@@ -310,7 +310,7 @@ export default function CommunityMergePage() {
                           disabled={voteLoading !== null}
                         >
                           {voteLoading === req.id + 'approve' ? (
-                            <Loader2 className="size-4 animate-spin" />
+                            <CircularProgress size={16} />
                           ) : (
                             '👍 賛成'
                           )}
@@ -322,7 +322,7 @@ export default function CommunityMergePage() {
                           disabled={voteLoading !== null}
                         >
                           {voteLoading === req.id + 'reject' ? (
-                            <Loader2 className="size-4 animate-spin" />
+                            <CircularProgress size={16} />
                           ) : (
                             '👎 反対'
                           )}
@@ -410,7 +410,7 @@ export default function CommunityMergePage() {
                 <Button type="submit" id="submit-propose-btn" disabled={submitLoading}>
                   {submitLoading ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" /> 送信中...
+                      <CircularProgress size={16} /> 送信中...
                     </>
                   ) : (
                     '🚀 マージ提案を起案する'

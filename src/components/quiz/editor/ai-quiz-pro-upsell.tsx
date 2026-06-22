@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import { AutoAwesomeOutlined } from '@mui/icons-material';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
@@ -18,7 +18,7 @@ export function AiQuizProUpsell({ isLoggedIn, redirectPath }: AiQuizProUpsellPro
     <div className={editorClasses.editorCard} data-testid="ai-quiz-pro-upsell">
       <div className="flex flex-col gap-3">
         <h3 className="flex items-center gap-2 text-lg font-semibold">
-          <Sparkles size={20} className="text-primary" />
+          <AutoAwesomeOutlined sx={{ fontSize: 20 }} className="text-primary" />
           AI アシスタント（Pro 限定）
         </h3>
         <p className="text-sm text-muted-foreground">

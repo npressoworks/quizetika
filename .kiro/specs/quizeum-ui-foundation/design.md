@@ -50,7 +50,7 @@
 - **既存 `lib/theme.ts` API**（`Theme`, `parseTheme`, `readStoredTheme`, `writeStoredTheme`, `THEME_STORAGE_KEY`）: 公開インターフェース維持（P0）
 - **既存 `ThemeProvider` / `useTheme`**: Context API 維持（P0）
 - **`layout.tsx` の Provider ツリー順序**: `PostHogProvider` → `AuthProvider` → `ThemeProvider` → `LayoutWrapper`（P0）
-- **`lucide-react`**: shadcn プリミティブ内アイコン（P1、既存導入済み）
+- **`@mui/icons-material`**: shadcn プリミティブ内アイコン（P1、既存導入済み）
 - **`variables.css`**: 移行期のみ `globals.css` から import（P1）
 - **Next.js 16 App Router / React 19**: フレームワーク基盤（P0）
 
@@ -143,7 +143,7 @@ graph TD
 | Fonts | Geist Sans/Mono (`next/font`) | shadcn 推奨タイポグラフィ | Outfit 依存撤廃 |
 | Theme | `dark` class + `data-theme` dual | 移行期ブリッジ | 完了後 data-theme 削除可 |
 | Persistence | `localStorage` (`quizeum-theme`) | テーマ永続化 | 既存キー維持 |
-| Icons | `lucide-react` ^1.16.0 | プリミティブ内アイコン | 既存導入済み |
+| Icons | `@mui/icons-material` | プリミティブ内アイコン | 既存導入済み |
 | Testing | Jest 30, Playwright 1.60 | 単体・E2E 回帰 | 既存スイート |
 
 ---

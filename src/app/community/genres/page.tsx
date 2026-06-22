@@ -38,7 +38,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { CircularProgress } from '@mui/material';
 
 interface GenreRequest {
   id: string;
@@ -368,7 +368,7 @@ export default function CommunityGenresPage() {
   if (loading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Loader2 className="size-8 animate-spin" />
+        <CircularProgress size={32} />
         <p>読み込んでいます...</p>
       </div>
     );
@@ -488,7 +488,7 @@ export default function CommunityGenresPage() {
                     >
                       {aiGenerating ? (
                         <>
-                          <Loader2 className="mr-1 size-3 animate-spin" />
+                          <CircularProgress size={12} className="mr-1" />
                           生成中...
                         </>
                       ) : (
@@ -537,7 +537,7 @@ export default function CommunityGenresPage() {
                 >
                   {submitLoading ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" /> アップロード中...
+                      <CircularProgress size={16} /> アップロード中...
                     </>
                   ) : (
                     '🚀 ジャンルを申請する'
@@ -617,7 +617,7 @@ export default function CommunityGenresPage() {
                             disabled={voteLoading !== null}
                           >
                             {voteLoading === req.id + 'approve' ? (
-                              <Loader2 className="size-4 animate-spin" />
+                              <CircularProgress size={16} />
                             ) : (
                               '👍 賛成'
                             )}
@@ -629,7 +629,7 @@ export default function CommunityGenresPage() {
                             disabled={voteLoading !== null}
                           >
                             {voteLoading === req.id + 'reject' ? (
-                              <Loader2 className="size-4 animate-spin" />
+                              <CircularProgress size={16} />
                             ) : (
                               '👎 反対'
                             )}
@@ -647,7 +647,7 @@ export default function CommunityGenresPage() {
         <TabsContent value="history" className="mt-4">
           {fetchLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              <CircularProgress size={32} className="text-muted-foreground" />
             </div>
           ) : historyRequests.length === 0 ? (
             <Card>

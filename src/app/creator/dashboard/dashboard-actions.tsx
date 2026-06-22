@@ -4,7 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { exportQuizzes } from '@/services/quiz';
-import { Download, Plus } from 'lucide-react';
+import { DownloadOutlined, AddOutlined } from '@mui/icons-material';
 import { Button } from '@/components/ui/button';
 
 export function DashboardActions() {
@@ -40,7 +40,7 @@ export function DashboardActions() {
         onClick={handleExportAll}
         data-analytics="creator-export-all"
       >
-        <Download className="size-4" />
+        <DownloadOutlined sx={{ fontSize: 16 }} className="size-4" />
         クイズ一括エクスポート
       </Button>
       <Button
@@ -48,7 +48,7 @@ export function DashboardActions() {
         onClick={() => router.push('/quiz/create')}
         data-analytics="creator-create-quiz"
       >
-        <Plus className="size-4" />
+        <AddOutlined sx={{ fontSize: 16 }} className="size-4" />
         クイズを新規作成
       </Button>
     </div>

@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { getSentReactions, getReceivedReactions, Reaction } from '@/services/reaction';
 import { getUser } from '@/services/user';
-import { Heart, ExternalLink } from 'lucide-react';
+import { FavoriteOutlined, OpenInNewOutlined } from '@mui/icons-material';
 import { User } from '@/types';
 import { LikesSkeleton } from '@/components/profile/likes-skeleton';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -77,7 +77,7 @@ export function LikesClient() {
     <Card data-testid="likes-page-container">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Heart size={24} className="text-pink-500" />
+          <FavoriteOutlined sx={{ fontSize: 24 }} className="text-pink-500" />
           リアクション履歴
         </CardTitle>
       </CardHeader>
@@ -91,7 +91,7 @@ export function LikesClient() {
           <TabsContent value={activeTab}>
             {currentList.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
-                <Heart size={40} />
+                <FavoriteOutlined sx={{ fontSize: 40 }} />
                 <p>
                   {activeTab === 'sent'
                     ? '送ったリアクション（お礼）はまだありません。'
@@ -128,7 +128,7 @@ export function LikesClient() {
                         })}
                       </span>
                     </div>
-                    <ExternalLink size={18} className="shrink-0 text-muted-foreground" />
+                    <OpenInNewOutlined sx={{ fontSize: 18 }} className="shrink-0 text-muted-foreground" />
                   </Link>
                 ))}
               </div>

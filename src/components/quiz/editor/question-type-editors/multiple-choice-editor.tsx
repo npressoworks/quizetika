@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { AddOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
 import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-validation';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 import {
@@ -39,7 +39,7 @@ export function MultipleChoiceEditor({ qIdx, question, validationErrors, handler
             onClick={() => handlers.onRemoveChoice(qIdx, cIdx)}
             title="この選択肢を削除"
           >
-            <Trash2 size={16} />
+            <DeleteOutlineOutlined sx={{ fontSize: 16 }} />
           </button>
         </div>
       ))}
@@ -49,7 +49,7 @@ export function MultipleChoiceEditor({ qIdx, question, validationErrors, handler
         onClick={() => handlers.onAddChoice(qIdx)}
         disabled={question.choices.length >= MAX_MULTIPLE_CHOICE_COUNT}
       >
-        <Plus size={14} /> 選択肢を追加する
+        <AddOutlined sx={{ fontSize: 14 }} /> 選択肢を追加する
       </button>
       <FieldValidationMessages
         errors={validationErrors}

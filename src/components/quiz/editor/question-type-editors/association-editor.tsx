@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { AddOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
 import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-validation';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 import type { QuestionTypeEditorProps } from '@/components/quiz/editor/question-editor-types';
@@ -30,7 +30,7 @@ export function AssociationEditor({ qIdx, question, validationErrors, handlers }
             onClick={() => handlers.onRemoveAssociationHint(qIdx, hIdx)}
             title="このヒントを削除"
           >
-            <Trash2 size={18} />
+            <DeleteOutlineOutlined sx={{ fontSize: 18 }} />
           </button>
         </div>
       ))}
@@ -39,7 +39,7 @@ export function AssociationEditor({ qIdx, question, validationErrors, handlers }
         className={`${editorClasses.addTextAnswerBtn} mt-2 mb-4`}
         onClick={() => handlers.onAddAssociationHint(qIdx)}
       >
-        <Plus size={14} /> ヒントを追加する
+        <AddOutlined sx={{ fontSize: 14 }} /> ヒントを追加する
       </button>
       <FieldValidationMessages
         errors={validationErrors}
@@ -68,12 +68,12 @@ export function AssociationEditor({ qIdx, question, validationErrors, handlers }
                 onClick={() => handlers.onRemoveTextAnswer(qIdx, aIdx)}
                 title="この正解を削除"
               >
-                <Trash2 size={16} />
+                <DeleteOutlineOutlined sx={{ fontSize: 16 }} />
               </button>
             </div>
           ))}
           <button type="button" className={editorClasses.addTextAnswerBtn} onClick={() => handlers.onAddTextAnswer(qIdx)}>
-            <Plus size={14} /> 正解候補を追加する
+            <AddOutlined sx={{ fontSize: 14 }} /> 正解候補を追加する
           </button>
           <FieldValidationMessages
             errors={validationErrors}

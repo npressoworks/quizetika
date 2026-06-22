@@ -228,7 +228,7 @@
 ## 8. Phase 27: 管理者メニューへのナビ導線追加（2026-06-21）
 
 - [x] 8.1 (P) Sidebar への管理者メニュー主要ナビ導線追加
-  - `sidebar.tsx` に `isAdminUser` と `Shield` アイコン (from `lucide-react`) をインポートする。
+  - `sidebar.tsx` に `isAdminUser` と `Shield` アイコン (from `@mui/icons-material`) をインポートする。
   - `user` が存在し、かつ `isAdminUser(user)` が真の場合に、「ダッシュボード」の下、「作問する」ボタンの上に「管理者メニュー」リンク（遷移先: `/admin`）を追加する。
   - `data-testid="nav-admin"` を付与する。
   - パスが `/admin` または `/admin/` で始まるとき、管理者メニュー項目を active とし、他の項目が active にならないよう排他制御する。
@@ -266,7 +266,7 @@
 
 - **実装順**: 8.1 と 8.2 は並行可能。8.3 と 8.4 は 8.1 と 8.2 の完了後に実行。
 - **管理者判定メソッド**: `src/lib/middleware-auth-cookies.ts` の `isAdminUser` をそのまま使用し、再実装しないこと。
-- **アイコン**: インポートするアイコンは `Shield` (from `lucide-react`)。
+- **アイコン**: インポートするアイコンは `Shield` (from `@mui/icons-material`)。
 
 ---
 

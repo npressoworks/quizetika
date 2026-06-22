@@ -12,7 +12,14 @@
 import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Shield, Users, Layers, ArrowRight, Loader2, Bell } from 'lucide-react';
+import {
+  ShieldOutlined as ShieldIcon,
+  PeopleOutlined as UsersIcon,
+  LayersOutlined as LayersIcon,
+  ArrowForwardOutlined as ArrowRightIcon,
+  NotificationsOutlined as BellIcon,
+} from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +50,7 @@ export default function AdminPortalPage() {
         data-testid="admin-portal-loading"
         className="flex min-h-[60vh] flex-col items-center justify-center gap-3 text-muted-foreground"
       >
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <CircularProgress size={32} color="primary" />
         <p className="text-sm font-medium">管理者認証情報を確認しています...</p>
       </div>
     );
@@ -58,7 +65,7 @@ export default function AdminPortalPage() {
       title: 'モデレーション審査',
       description: '通報されたコンテンツ（クイズなど）を確認し、公開復帰または削除の審査判断を行います。',
       href: '/admin/moderation',
-      icon: Shield,
+      icon: ShieldIcon,
       color: 'from-amber-500/20 to-orange-500/20 text-orange-500 border-orange-500/30',
       iconBg: 'bg-orange-500/10',
     },
@@ -66,7 +73,7 @@ export default function AdminPortalPage() {
       title: 'ユーザー評判管理',
       description: 'ユーザーの評判スコア（Reputation）や権限レベル（ModerationTier）を一元管理します。',
       href: '/admin/users',
-      icon: Users,
+      icon: UsersIcon,
       color: 'from-blue-500/20 to-indigo-500/20 text-blue-500 border-blue-500/30',
       iconBg: 'bg-blue-500/10',
     },
@@ -74,7 +81,7 @@ export default function AdminPortalPage() {
       title: 'ジャンル直接管理',
       description: 'コミュニティ投票を経由せずに、新しいクイズジャンルを直接新設・管理します。',
       href: '/admin/genres',
-      icon: Layers,
+      icon: LayersIcon,
       color: 'from-emerald-500/20 to-teal-500/20 text-emerald-500 border-emerald-500/30',
       iconBg: 'bg-emerald-500/10',
     },
@@ -82,7 +89,7 @@ export default function AdminPortalPage() {
       title: '運営からのお知らせ管理',
       description: 'ビルドなしで運営からのお知らせを追加・編集・削除し、一般ユーザーへ公開します。',
       href: '/admin/announcements',
-      icon: Bell,
+      icon: BellIcon,
       color: 'from-purple-500/20 to-pink-500/20 text-purple-500 border-purple-500/30',
       iconBg: 'bg-purple-500/10',
     },
@@ -121,7 +128,7 @@ export default function AdminPortalPage() {
                     <div className={`flex size-12 items-center justify-center rounded-xl ${item.iconBg} ${item.color.split(' ')[2]} transition-transform duration-300 group-hover:scale-110`}>
                       <IconComponent className="size-6" />
                     </div>
-                    <ArrowRight className="size-5 text-muted-foreground opacity-0 -translate-x-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 group-hover:text-foreground" />
+                    <ArrowRightIcon className="size-5 text-muted-foreground opacity-0 -translate-x-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0 group-hover:text-foreground" />
                   </div>
                   <CardTitle className="mt-4 text-xl font-bold group-hover:text-foreground">
                     {item.title}

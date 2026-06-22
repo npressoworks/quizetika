@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, Check, X, Award, AlertCircle } from 'lucide-react';
+import { ArrowBackOutlined, MenuBookOutlined, CheckOutlined, CloseOutlined, EmojiEventsOutlined, ErrorOutlined } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
 import { getFailedQuestions, updateFailedQuestions } from '@/services/attempt';
 import { ChoiceAnswerPanel } from '@/components/quiz/choice-answer-panel';
@@ -172,7 +172,7 @@ export function ReviewClient({ initialGenres }: ReviewClientProps) {
   return (
     <div className={styles.container} data-testid="review-page-container">
       <Link href="/" className={styles.backBtn}>
-        <ArrowLeft size={16} />
+        <ArrowBackOutlined sx={{ fontSize: 16 }} />
         ホームに戻る
       </Link>
 
@@ -217,7 +217,7 @@ export function ReviewClient({ initialGenres }: ReviewClientProps) {
 
           {noQuestions && (
             <div style={{ color: '#ffb703', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '10px' }}>
-              <AlertCircle size={18} />
+              <ErrorOutlined sx={{ fontSize: 18 }} />
               選択されたジャンルに未復習の間違い問題はありません。
             </div>
           )}
@@ -320,7 +320,7 @@ export function ReviewClient({ initialGenres }: ReviewClientProps) {
       {/* 3. 復習完了フェーズ */}
       {phase === 'completed' && (
         <div className={styles.completedCard}>
-          <Award size={64} style={{ color: 'var(--color-accent)', filter: 'drop-shadow(0 0 10px var(--color-accent-glow))' }} />
+          <EmojiEventsOutlined sx={{ fontSize: 64 }} style={{ color: 'var(--color-accent)', filter: 'drop-shadow(0 0 10px var(--color-accent-glow))' }} />
           <h1 className={styles.completedTitle}>復習完了！</h1>
           <p className={styles.completedDesc}>
             間違い問題の復習セッションが完了しました。<br />

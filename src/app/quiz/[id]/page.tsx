@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowBackOutlined } from '@mui/icons-material';
 import { QuizDetailClient } from './quiz-detail-client';
 import { QuizDualLeaderboard } from '@/components/quiz/quiz-dual-leaderboard';
 import { DetailSkeleton } from '@/components/quiz/detail-skeleton';
@@ -19,7 +19,7 @@ export default async function QuizDetailPage({ params }: PageProps) {
   return (
     <div className={styles.container}>
       <Link href="/" className={styles.backBtn}>
-        <ArrowLeft size={16} />
+        <ArrowBackOutlined sx={{ fontSize: 16 }} />
         探索に戻る
       </Link>
 

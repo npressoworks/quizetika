@@ -40,7 +40,7 @@
 ### Allowed Dependencies
 - **`useAuth`** (from `@/context/auth-context`): ログイン状態、ユーザー情報、アバター画像の取得。
 - **`usePathname` / `useRouter`** (from `next/navigation`): 現在のパスの判定、ページ遷移処理。
-- **`lucide-react`**: メニュー用アイコンコンポーネント。
+- **`@mui/icons-material`**: メニュー用アイコンコンポーネント。
 
 ### Revalidation Triggers
 - 認証コンテキスト (`useAuth`) の返り値の型定義の変更。
@@ -91,7 +91,7 @@ graph TD
 | :--- | :--- | :--- | :--- |
 | Frontend | Next.js 16.2.6 (App Router) | 全体レイアウト、ナビゲーション | クライアントコンポーネントによるレイアウト切り替え |
 | UI/Styling | Vanilla CSS (CSS Modules) | 各コンポーネントのレスポンシブ配置、パディング制御 | TailwindCSSは使用しない |
-| Icons | Lucide React | ナビゲーションメニュー用アイコン | |
+| Icons | Material Icons | ナビゲーションメニュー用アイコン | |
 
 ---
 
@@ -312,7 +312,7 @@ const menuItems = [
 ];
 ```
 
-- `Search` アイコン: `lucide-react` の `Search`
+- `Search` アイコン: `@mui/icons-material` の `Search`
 - active 判定:
   - `pathname === '/'` → ホーム active（`/search` は非 active）
   - `pathname === '/search' || pathname.startsWith('/search?')` → 検索 active
@@ -413,8 +413,8 @@ if (user) {
 }
 ```
 
-- **リスト** アイコン: `lucide-react` の `List`
-- **マイクイズ** アイコン: `lucide-react` の `ClipboardList`（代替候補: `BookMarked`。視認性比較後に確定可）
+- **リスト** アイコン: `@mui/icons-material` の `List`
+- **マイクイズ** アイコン: `@mui/icons-material` の `ClipboardList`（代替候補: `BookMarked`。視認性比較後に確定可）
 - 配置順: ホーム → 検索 → Proプラン → **リスト** → **マイクイズ** → 通知 → ブックマーク → ダッシュボード → 作問
 - 未ログイン時: リスト・マイクイズは `menuItems.push` しない（Req 6.2）
 
@@ -431,7 +431,7 @@ if (user) {
   onClick={() => setPopupOpen(false)}
   data-testid="sidebar-settings-link"
 >
-  <Settings size={18} />  {/* lucide-react Settings */}
+  <SettingsIcon sx={{ fontSize: 18 }} />  {/* @mui/icons-material Settings */}
   <span>設定</span>
 </Link>
 <hr className={styles.divider} />
@@ -709,14 +709,14 @@ if (user) {
     data-testid="nav-admin"
   >
     <span className="flex size-6 shrink-0 items-center justify-center">
-      <Shield size={22} />
+      <ShieldIcon sx={{ fontSize: 22 }} />
     </span>
     <span className="nav-label max-lg:hidden">管理者メニュー</span>
   </Link>
 )}
 ```
 
-- **管理者メニュー** アイコン: `lucide-react` の `Shield`
+- **管理者メニュー** アイコン: `@mui/icons-material` の `Shield`
 - 配置位置: ダッシュボード（`/creator/dashboard`）リンクの下、作問する（`/quiz/create`）リンクの上。
 
 #### Sidebar アカウントポップアップ（`sidebar.tsx`）
@@ -739,7 +739,7 @@ if (user) {
         />
       }
     >
-      <Shield size={18} />
+      <ShieldIcon sx={{ fontSize: 18 }} />
       <span>管理者メニュー</span>
     </DropdownMenuItem>
   )}
@@ -774,7 +774,7 @@ if (user) {
         />
       }
     >
-      <Shield size={18} />
+      <ShieldIcon sx={{ fontSize: 18 }} />
       <span>管理者メニュー</span>
     </DropdownMenuItem>
   )}
@@ -787,7 +787,7 @@ if (user) {
       />
     }
   >
-    <ClipboardList size={18} />
+    <ClipboardListIcon sx={{ fontSize: 18 }} />
     <span>マイクイズ</span>
   </DropdownMenuItem>
 ...

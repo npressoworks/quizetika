@@ -14,7 +14,8 @@ import {
   createUserWithEmailAndPassword
 } from '@/lib/firebase/auth';
 import type { AuthProvider } from 'firebase/auth';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { ErrorOutlined } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -30,7 +31,7 @@ const isMockAuthEnabled = process.env.NEXT_PUBLIC_ENV === 'test';
 function LoginLoading() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
-      <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <CircularProgress size={32} className="text-muted-foreground" />
     </div>
   );
 }
@@ -141,7 +142,7 @@ function LoginPageContent() {
         <CardContent className="flex flex-col gap-4">
           {errorMsg && (
             <Alert variant="destructive">
-              <AlertCircle className="size-4" />
+              <ErrorOutlined sx={{ fontSize: 16 }} className="size-4" />
               <AlertDescription>{errorMsg}</AlertDescription>
             </Alert>
           )}

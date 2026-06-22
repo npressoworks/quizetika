@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Play, Save, Send } from 'lucide-react';
+import { PlayArrowOutlined, SaveOutlined, SendOutlined } from '@mui/icons-material';
 import { Button } from '@/components/ui/button';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 
@@ -27,7 +27,7 @@ export function QuizEditorActionBar({
         disabled={loading}
         data-analytics="quiz-save-draft"
       >
-        <Save size={18} />
+        <SaveOutlined sx={{ fontSize: 18 }} />
         下書き保存
       </Button>
       <Button
@@ -37,7 +37,7 @@ export function QuizEditorActionBar({
         disabled={loading}
         data-analytics="quiz-test-play"
       >
-        <Play size={18} />
+        <PlayArrowOutlined sx={{ fontSize: 18 }} />
         テストプレイ
       </Button>
       <Button
@@ -46,7 +46,7 @@ export function QuizEditorActionBar({
         disabled={loading}
         data-analytics="quiz-publish"
       >
-        <Send size={18} />
+        <SendOutlined sx={{ fontSize: 18 }} />
         公開
       </Button>
     </div>

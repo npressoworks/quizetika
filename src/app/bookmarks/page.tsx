@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bookmark } from 'lucide-react';
+import { ArrowBackOutlined as ArrowBackIcon, BookmarkOutlined as BookmarkIcon } from '@mui/icons-material';
 import { BookmarksClient } from './bookmarks-client';
 import { BookmarksSkeleton } from '@/components/ui/bookmarks-skeleton';
 
@@ -11,12 +11,12 @@ export default async function BookmarksPage() {
         href="/"
         className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft size={16} /> ホームに戻る
+        <ArrowBackIcon sx={{ fontSize: 16 }} /> ホームに戻る
       </Link>
 
       <div>
         <h1 className="flex items-center gap-3 text-2xl font-bold tracking-tight">
-          <Bookmark size={32} className="text-primary" />
+          <BookmarkIcon sx={{ fontSize: 32 }} className="text-primary" />
           ブックマーク
         </h1>
         <p className="mt-2 text-muted-foreground">

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Tag } from 'lucide-react';
+import { ArrowBackOutlined, LocalOfferOutlined } from '@mui/icons-material';
 import { getQuizzesByTag, type QuizListSort } from '@/services/quiz';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { useAuth } from '@/context/auth-context';
@@ -106,12 +106,12 @@ export function TagExploreClient({ tagName, initialQuizzes, initialGenres }: Tag
   return (
     <div className={discoveryPageContainerClass} data-testid="tag-explore-page">
       <Link href="/" className={exploreBackLinkClass}>
-        <ArrowLeft size={16} /> 戻る
+        <ArrowBackOutlined sx={{ fontSize: 16 }} /> 戻る
       </Link>
 
       <div className={explorePageHeaderClass}>
         <h1 className="flex items-center gap-2 text-3xl font-extrabold text-foreground">
-          <Tag size={28} className="text-primary" />
+          <LocalOfferOutlined sx={{ fontSize: 28 }} className="text-primary" />
           #{tagName} のクイズ一覧
         </h1>
         <p className="mt-2 text-muted-foreground">

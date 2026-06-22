@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import {
   filterValidationErrors,
   formatValidationErrorSummary,
@@ -71,7 +71,7 @@ export const QuizEditorErrorSummary: React.FC<{
 
   return (
     <Alert variant="destructive" className="mb-6">
-      <AlertTriangle />
+      <WarningAmberOutlined />
       <AlertTitle>保存できませんでした。以下の項目をご確認ください：</AlertTitle>
       <AlertDescription>
         {errorText && <p className="mb-2.5 text-sm">{errorText}</p>}

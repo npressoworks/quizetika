@@ -4,7 +4,15 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { Home, Search, Bell, Bookmark, User as UserIcon } from 'lucide-react';
+import {
+  HomeOutlined,
+  Home,
+  SearchOutlined,
+  NotificationsOutlined,
+  BookmarkOutlined,
+  Bookmark,
+  PersonOutlined,
+} from '@mui/icons-material';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { isHomeActive, isSearchActive } from './nav-active';
@@ -29,7 +37,7 @@ export const BottomNav: React.FC = () => {
         className={cn(bottomNavLinkBase, isHomeActive(pathname) && bottomNavLinkActive)}
         data-testid="bottom-nav-home"
       >
-        <Home size={22} />
+        <Home sx={{ fontSize: 22 }} />
       </Link>
 
       <Link
@@ -37,7 +45,7 @@ export const BottomNav: React.FC = () => {
         className={cn(bottomNavLinkBase, isSearchActive(pathname) && bottomNavLinkActive)}
         data-testid="bottom-nav-search"
       >
-        <Search size={22} />
+        <SearchOutlined sx={{ fontSize: 22 }} />
       </Link>
 
       {user ? (
@@ -47,7 +55,7 @@ export const BottomNav: React.FC = () => {
             className={cn(bottomNavLinkBase, pathname === '/notifications' && bottomNavLinkActive)}
             data-testid="bottom-nav-notifications"
           >
-            <Bell size={22} />
+            <NotificationsOutlined sx={{ fontSize: 22 }} />
           </Link>
 
           <Link
@@ -55,7 +63,7 @@ export const BottomNav: React.FC = () => {
             className={cn(bottomNavLinkBase, pathname === '/bookmarks' && bottomNavLinkActive)}
             data-testid="bottom-nav-bookmarks"
           >
-            <Bookmark size={22} />
+            <Bookmark sx={{ fontSize: 22 }} />
           </Link>
 
           <Link
@@ -70,11 +78,11 @@ export const BottomNav: React.FC = () => {
               <Avatar size="sm" className="size-6">
                 <AvatarImage src={user.avatarUrl} alt={user.displayName} />
                 <AvatarFallback>
-                  <UserIcon size={16} />
+                  <PersonOutlined sx={{ fontSize: 16 }} />
                 </AvatarFallback>
               </Avatar>
             ) : (
-              <UserIcon size={22} />
+              <PersonOutlined sx={{ fontSize: 22 }} />
             )}
           </Link>
         </>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Link2 } from 'lucide-react';
+import { LinkOutlined } from '@mui/icons-material';
 
 export function ReferenceQuestionBadge() {
   return (
@@ -21,7 +21,7 @@ export function ReferenceQuestionBadge() {
         marginLeft: 8,
       }}
     >
-      <Link2 size={12} />
+      <LinkOutlined sx={{ fontSize: 12 }} />
       参照リンク
     </span>
   );

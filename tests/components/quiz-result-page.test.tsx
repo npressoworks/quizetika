@@ -62,26 +62,7 @@ jest.mock('@/services/review', () => ({
   updateFeedbackReport: jest.fn(),
 }));
 
-// Lucide icon mocks
-jest.mock('lucide-react', () => ({
-  Check: () => <span>Check</span>,
-  X: () => <span>X</span>,
-  ShieldAlert: () => <span>ShieldAlert</span>,
-  Award: () => <span>Award</span>,
-  Heart: () => <span>Heart</span>,
-  ThumbsUp: () => <span>ThumbsUp</span>,
-  ThumbsDown: () => <span>ThumbsDown</span>,
-  MessageSquare: () => <span>MessageSquare</span>,
-  AlertTriangle: () => <span>AlertTriangle</span>,
-  ArrowLeft: () => <span>ArrowLeft</span>,
-  Trophy: () => <span>Trophy</span>,
-  CheckCircle: () => <span>CheckCircle</span>,
-  ChevronRight: () => <span>ChevronRight</span>,
-  ChevronDown: () => <span>ChevronDown</span>,
-  Bookmark: () => <span>Bookmark</span>,
-  UserPlus: () => <span>UserPlus</span>,
-  UserCheck: () => <span>UserCheck</span>,
-}));
+
 
 // Mock Firebase config
 jest.mock('@/lib/firebase/config', () => ({

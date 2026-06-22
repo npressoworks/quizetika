@@ -6,7 +6,7 @@ import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Info, AlertTriangle, RefreshCw, Bug, Check, AlertOctagon } from 'lucide-react';
+import { InfoOutlined, WarningAmberOutlined, RefreshOutlined, BugReportOutlined, CheckOutlined, ReportOutlined } from '@mui/icons-material';
 import { QueryDocumentSnapshot } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 
@@ -110,16 +110,16 @@ export function AnnouncementsTab({
   const getCategoryIcon = (category: Announcement['category']) => {
     switch (category) {
       case 'important':
-        return <AlertOctagon size={16} className="text-rose-500 mr-1 shrink-0" />;
+        return <ReportOutlined sx={{ fontSize: 16 }} className="text-rose-500 mr-1 shrink-0" />;
       case 'maintenance':
-        return <AlertTriangle size={16} className="text-amber-500 mr-1 shrink-0" />;
+        return <WarningAmberOutlined sx={{ fontSize: 16 }} className="text-amber-500 mr-1 shrink-0" />;
       case 'update':
-        return <RefreshCw size={16} className="text-blue-500 mr-1 shrink-0" />;
+        return <RefreshOutlined sx={{ fontSize: 16 }} className="text-blue-500 mr-1 shrink-0" />;
       case 'bug':
-        return <Bug size={16} className="text-rose-500 mr-1 shrink-0" />;
+        return <BugReportOutlined sx={{ fontSize: 16 }} className="text-rose-500 mr-1 shrink-0" />;
       case 'info':
       default:
-        return <Info size={16} className="text-muted-foreground mr-1 shrink-0" />;
+        return <InfoOutlined sx={{ fontSize: 16 }} className="text-muted-foreground mr-1 shrink-0" />;
     }
   };
 
@@ -151,7 +151,7 @@ export function AnnouncementsTab({
   if (announcements.length === 0) {
     return (
       <div className="py-12 text-center text-muted-foreground">
-        <Info size={40} className="mx-auto mb-3 opacity-40" />
+        <InfoOutlined sx={{ fontSize: 40 }} className="mx-auto mb-3 opacity-40" />
         <p>掲載中のお知らせはありません。</p>
       </div>
     );
@@ -162,7 +162,7 @@ export function AnnouncementsTab({
       {unreadCount > 0 && (
         <div className="flex justify-end">
           <Button type="button" variant="outline" size="sm" onClick={onMarkAllRead} data-testid="announcements-mark-all-read-btn">
-            <Check size={16} className="mr-1" />
+            <CheckOutlined sx={{ fontSize: 16 }} className="mr-1" />
             <span>すべて既読にする</span>
           </Button>
         </div>

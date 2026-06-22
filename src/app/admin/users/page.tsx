@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { getUserProfile } from '@/services/user';
 import { User } from '@/types';
@@ -267,7 +267,7 @@ export default function AdminUsersPage() {
   if (loading) {
     return (
       <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Loader2 className="size-8 animate-spin" />
+        <CircularProgress size={32} />
         <p>認証情報を確認しています...</p>
       </div>
     );
@@ -335,7 +335,7 @@ export default function AdminUsersPage() {
               className="flex-1"
             />
             <Button type="submit" disabled={fetchLoading || actionLoading}>
-              {fetchLoading ? <Loader2 className="size-4 animate-spin" /> : '検索'}
+              {fetchLoading ? <CircularProgress size={16} /> : '検索'}
             </Button>
           </form>
         </CardContent>
@@ -429,7 +429,7 @@ export default function AdminUsersPage() {
                 >
                   {actionLoading && pendingAction === 'reset' ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" /> 処理中...
+                      <CircularProgress size={16} /> 処理中...
                     </>
                   ) : (
                     '🚨 評判と権限を緊急リセットする'
@@ -463,7 +463,7 @@ export default function AdminUsersPage() {
                   >
                     {actionLoading && pendingAction === 'unban' ? (
                       <>
-                        <Loader2 className="size-4 animate-spin" /> 処理中...
+                        <CircularProgress size={16} /> 処理中...
                       </>
                     ) : (
                       '🟢 アカウント停止を解除する'
@@ -499,7 +499,7 @@ export default function AdminUsersPage() {
                     >
                       {actionLoading && pendingAction === 'ban' ? (
                         <>
-                          <Loader2 className="size-4 animate-spin" /> 処理中...
+                          <CircularProgress size={16} /> 処理中...
                         </>
                       ) : (
                         '🚨 このユーザーをBANする'

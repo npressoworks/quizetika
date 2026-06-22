@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowBackOutlined } from '@mui/icons-material';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { type QuizListSort } from '@/services/quiz';
 import { useAuth } from '@/context/auth-context';
@@ -141,7 +141,7 @@ export function GenreExploreClient({
   return (
     <div className={discoveryPageContainerClass} data-testid="genre-explore-page">
       <Link href="/" className={exploreBackLinkClass}>
-        <ArrowLeft size={16} /> 戻る
+        <ArrowBackOutlined sx={{ fontSize: 16 }} /> 戻る
       </Link>
 
       <div className={explorePageHeaderClass}>

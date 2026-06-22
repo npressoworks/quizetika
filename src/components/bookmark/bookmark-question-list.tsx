@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark } from 'lucide-react';
+import { BookmarkRounded } from '@mui/icons-material';
 import { BookmarkedQuestionEntry } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,7 +70,7 @@ export function BookmarkQuestionList({ questions, onRemove }: BookmarkQuestionLi
               onClick={() => onRemove(entry.question.id)}
               title="ブックマーク解除"
             >
-              <Bookmark size={20} className="fill-primary text-primary" />
+              <BookmarkRounded sx={{ fontSize: 20 }} className="fill-primary text-primary" />
             </Button>
           </div>
         </Card>

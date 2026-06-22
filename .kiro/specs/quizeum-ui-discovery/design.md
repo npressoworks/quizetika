@@ -59,7 +59,7 @@
 - **`useAuth`**: ブックマーク・リスト非公開タブ（P0）
 - **`QuizCard`**: フィード/カルーセル内カード表示（P0、既存 props 維持）
 - **foundation Primitive Wave 2**: Accordion, Popover（P0、存在確認のみ）
-- **`lucide-react`**: 既存アイコン（P0）
+- **`@mui/icons-material`**: 既存アイコン（P0）
 
 ### Revalidation Triggers
 - `search-url-state` のパラメータ名・パース契約変更

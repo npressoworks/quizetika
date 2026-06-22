@@ -23,7 +23,7 @@ import {
 } from '@/services/quiz-choice-utils';
 import { Quiz, Question } from '@/types';
 import { editorClasses as styles } from '@/components/quiz/editor/quiz-editor-classes';
-import { Plus, AlertTriangle, ArrowLeft, Sparkles, ChevronsUpDown } from 'lucide-react';
+import { AddOutlined, WarningAmberOutlined, ArrowBackOutlined, AutoAwesomeOutlined, UnfoldMoreOutlined } from '@mui/icons-material';
 import { reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
 import {
   buildTestPlayPayload,
@@ -1167,7 +1167,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       <div className={styles.container}>
         <div className={styles.editorCard}>
           <div className={styles.errorTitle}>
-            <AlertTriangle size={24} />
+            <WarningAmberOutlined sx={{ fontSize: 24 }} />
             <h2>アクセス権限がありません</h2>
           </div>
           <p>クイズを作成・編集するにはログインしてください。</p>
@@ -1184,7 +1184,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       <div className={styles.container}>
         <div className={styles.editorCard}>
           <div className={styles.errorTitle}>
-            <AlertTriangle size={24} />
+            <WarningAmberOutlined sx={{ fontSize: 24 }} />
             <h2>アクセス権限がありません</h2>
           </div>
           <p>このクイズは他のユーザーが作成したものであるため、編集できません。</p>
@@ -1200,7 +1200,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     <div className={styles.container}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
         <button className={styles.removeQuestionBtn} onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center' }}>
-          <ArrowLeft size={20} />
+          <ArrowBackOutlined sx={{ fontSize: 20 }} />
         </button>
         <h1 className={styles.title}>{quizId ? 'クイズを編集する' : 'クイズを新規作成'}</h1>
       </div>
@@ -1249,7 +1249,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           <div className="flex flex-wrap gap-3 mb-6 bg-muted/20 border border-border p-4 rounded-xl items-center justify-between">
             <div className="flex flex-col gap-1">
               <span className="text-sm font-bold flex items-center gap-1.5">
-                <Sparkles size={16} className="text-primary" /> AI アシスタント
+                <AutoAwesomeOutlined sx={{ fontSize: 16 }} className="text-primary" /> AI アシスタント
               </span>
               <span className="text-xs text-muted-foreground">対話形式またはワンクリックで AI に作問やチェックを依頼できます</span>
             </div>
@@ -1298,11 +1298,11 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
                 }}
                 title={questions.every((q) => collapsedIds.has(q.id)) ? 'すべて展開' : 'すべて折りたたむ'}
               >
-                <ChevronsUpDown size={15} />
+                <UnfoldMoreOutlined sx={{ fontSize: 15 }} />
                 {questions.every((q) => collapsedIds.has(q.id)) ? 'すべて展開' : 'すべて折りたたむ'}
               </button>
               <button type="button" className={styles.addQuestionBtn} onClick={handleAddQuestion}>
-                <Plus size={16} /> 問題を追加
+                <AddOutlined sx={{ fontSize: 16 }} /> 問題を追加
               </button>
             </div>
           </div>

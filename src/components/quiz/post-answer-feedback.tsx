@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircleOutlined, WarningAmberOutlined } from '@mui/icons-material';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,7 +37,7 @@ export function PostAnswerFeedback({
       >
         {isCorrect ? (
           <>
-            <CheckCircle size={32} className="shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <CheckCircleOutlined sx={{ fontSize: 32 }} className="shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
             <div>
               <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300">正解！</div>
               {quickPressTime != null && (
@@ -50,7 +50,7 @@ export function PostAnswerFeedback({
           </>
         ) : (
           <>
-            <AlertTriangle size={32} className="shrink-0 text-destructive" aria-hidden="true" />
+            <WarningAmberOutlined sx={{ fontSize: 32 }} className="shrink-0 text-destructive" aria-hidden="true" />
             <div>
               <div className="text-xl font-bold text-destructive">不正解...</div>
               {quickPressTime != null && (

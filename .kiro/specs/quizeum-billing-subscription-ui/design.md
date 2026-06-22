@@ -46,7 +46,7 @@
 - **`quizeum-auth-profile-ui`（P0）**: `useAuth`、`refreshUser`、`/login?redirect=`。
 - **`@/types`（P0）**: `User`, `SubscriptionTier`, `PriceInterval`。
 - **`getPaidTierDefinitions()`（P1）**: core 側 Price ID 参照（UI は直接 import しない）。
-- **`lucide-react`（P1）**: アイコン。
+- **`@mui/icons-material`（P1）**: アイコン。
 
 ### Revalidation Triggers
 - **Prices API** レスポンス形状変更（トップレベル `monthly` / `yearly` / `savingsLabel`）。

@@ -192,7 +192,7 @@
 
 - [x] 10.1 本人プロフィール `profileActions` からリアクション履歴導線を削除
   - `src/app/profile/[uid]/profile-client.tsx` の本人（`isMyProfile`）向け `profileActions` から、`/profile/[uid]/likes` への `Link`（Heart アイコン付き「リアクション履歴」）を削除する。
-  - 未使用となる `Heart`（`lucide-react`）import を削除する。
+  - 未使用となる `Heart`（`@mui/icons-material`）import を削除する。
   - `data-testid="profile-reaction-history-link"` 等の導線用 testid は付与しない。
   - **完了状態**: 本人プロフィールの `profileActions` に「プロフィールの編集」のみ表示され、「リアクション履歴」リンクが DOM に存在しないこと。弱点克服セクション・他ユーザー側フォローボタンは従来どおり。
   - _Requirements: 2.7, 6.1, 10.1, 10.2, 10.3, 10.6_

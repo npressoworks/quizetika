@@ -2,7 +2,7 @@ import React from 'react';
 import { Metadata } from 'next';
 import { getQuiz } from '@/services/quiz';
 import { SuccessClient } from './success-client';
-import { AlertTriangle } from 'lucide-react';
+import { WarningAmberOutlined } from '@mui/icons-material';
 import Link from 'next/link';
 
 interface SuccessPageProps {
@@ -45,7 +45,7 @@ export default async function QuizSuccessPage({ params }: SuccessPageProps) {
           padding: '40px',
         }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: 'var(--color-danger)' }}>
-            <AlertTriangle size={48} />
+            <WarningAmberOutlined sx={{ fontSize: 48 }} />
           </div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '12px' }}>クイズが見つかりません</h2>
           <p style={{ color: 'var(--text-muted)', marginBottom: '30px' }}>

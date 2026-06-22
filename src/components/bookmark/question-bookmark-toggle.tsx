@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark } from 'lucide-react';
+import { BookmarkOutlined, BookmarkRounded } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
 import { toggleBookmark } from '@/services/bookmark';
 import { Button } from '@/components/ui/button';
@@ -66,10 +66,9 @@ export function QuestionBookmarkToggle({
         data-testid={`question-bookmark-toggle-${questionId}`}
         className={cn(bookmarked && 'text-primary')}
       >
-        <Bookmark
-          size={18}
-          className={cn(bookmarked && 'fill-primary text-primary')}
-        />
+        {bookmarked
+          ? <BookmarkRounded sx={{ fontSize: 18 }} className="fill-primary text-primary" />
+          : <BookmarkOutlined sx={{ fontSize: 18 }} />}
       </Button>
       {error && (
         <span className="max-w-[120px] text-center text-[0.7rem] text-destructive">

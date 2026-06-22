@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { AddOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
 import { getTextInputFieldProps } from '@/services/text-answer-utils';
 import { filterValidationErrors } from '@/services/quiz-validation';
 import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-validation';
@@ -103,7 +103,7 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
                 onClick={() => handlers.onRemoveTextAnswer(qIdx, aIdx)}
                 title="この正解を削除"
               >
-                <Trash2 size={16} />
+                <DeleteOutlineOutlined sx={{ fontSize: 16 }} />
               </button>
             </div>
             <FieldValidationMessages
@@ -117,7 +117,7 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
         );
       })}
       <button type="button" className={editorClasses.addTextAnswerBtn} onClick={() => handlers.onAddTextAnswer(qIdx)}>
-        <Plus size={14} /> 正解候補を追加する
+        <AddOutlined sx={{ fontSize: 14 }} /> 正解候補を追加する
       </button>
       <FieldValidationMessages
         errors={validationErrors}

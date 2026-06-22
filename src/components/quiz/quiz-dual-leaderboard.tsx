@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Trophy } from 'lucide-react';
+import { EmojiEventsOutlined } from '@mui/icons-material';
 import { getLeaderboardFirstPlay, getLeaderboardReplay } from '@/lib/leaderboard-ranking';
 import type { LeaderboardRecord, Quiz } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,7 +91,7 @@ export function QuizDualLeaderboard({ quiz }: QuizDualLeaderboardProps) {
     <Card data-testid="quiz-leaderboard">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Trophy size={20} aria-hidden />
+          <EmojiEventsOutlined sx={{ fontSize: 20 }} aria-hidden />
           クイズランキング
         </CardTitle>
       </CardHeader>

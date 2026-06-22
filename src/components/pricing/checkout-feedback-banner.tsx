@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, Info } from 'lucide-react';
+import { CheckCircleOutlined, InfoOutlined } from '@mui/icons-material';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export type CheckoutFeedbackVariant = 'success' | 'canceled';
@@ -29,7 +29,7 @@ export function CheckoutFeedbackBanner({
       data-testid={`checkout-feedback-${variant}`}
       className={isSuccess ? 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400' : undefined}
     >
-      {isSuccess ? <CheckCircle2 className="size-4" /> : <Info className="size-4" />}
+      {isSuccess ? <CheckCircleOutlined className="size-4" /> : <InfoOutlined className="size-4" />}
       <AlertDescription>
         <p>{MESSAGES[variant]}</p>
         {pendingWebhook && (

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { SearchOutlined, CloseOutlined } from '@mui/icons-material';
 import { filterTagSuggestions } from '@/lib/filter-tag-suggestions';
 import { normalizeTag } from '@/services/quiz-validation';
 import type { TagMetadata } from '@/types';
@@ -96,7 +96,7 @@ export function UnifiedSearchField({
 
   return (
     <div className="relative flex flex-1 items-stretch" ref={wrapRef} data-testid="unified-search-field">
-      <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-[18px] -translate-y-1/2 text-muted-foreground" />
+      <SearchOutlined className="pointer-events-none absolute left-4 top-1/2 z-10 size-[18px] -translate-y-1/2 text-muted-foreground" />
       <div className="flex min-h-12 w-full items-center rounded-lg border border-input bg-background py-1.5 pr-12 pl-11 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
           <div className="flex flex-wrap gap-1.5" data-testid="search-tag-chips">
@@ -174,7 +174,7 @@ export function UnifiedSearchField({
           aria-label="クリア"
           data-testid="search-clear-btn"
         >
-          <X size={18} />
+          <CloseOutlined sx={{ fontSize: 18 }} />
         </Button>
       )}
 

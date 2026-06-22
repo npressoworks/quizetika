@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Image, Info, Loader2, Sparkles } from 'lucide-react';
+import { ImageOutlined, InfoOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
+import { CircularProgress } from '@mui/material';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
@@ -79,7 +80,7 @@ export function QuizMetadataSection({
   return (
     <div className={editorClasses.editorCard}>
       <h2 className={editorClasses.sectionTitle}>
-        <Info size={20} />
+        <InfoOutlined sx={{ fontSize: 20 }} />
         クイズの基本設定
       </h2>
 
@@ -119,7 +120,7 @@ export function QuizMetadataSection({
                 <img src={thumbnailUrl} alt="Thumbnail preview" className={editorClasses.thumbnailPreview} />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Image size={32} />
+                  <ImageOutlined sx={{ fontSize: 32 }} />
                   <span className="text-sm">AI でサムネイルを生成</span>
                 </div>
               )}
@@ -140,12 +141,12 @@ export function QuizMetadataSection({
                 >
                   {isAiThumbnailGenerating ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <CircularProgress size={16} className="mr-2" />
                       生成中…
                     </>
                   ) : (
                     <>
-                      <Sparkles className="mr-2 h-4 w-4" />
+                      <AutoAwesomeOutlined sx={{ fontSize: 16 }} className="mr-2" />
                       AI でサムネイル生成
                     </>
                   )}

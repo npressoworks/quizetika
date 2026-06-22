@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ExpandMoreOutlined, ChevronRightOutlined } from '@mui/icons-material';
 import { cn } from '@/lib/utils';
 
 export interface ResultQuestionDetailsAccordionProps {
@@ -30,7 +30,7 @@ export function ResultQuestionDetailsAccordion({
       >
         {open ? '回答と解説を隠す' : '回答と解説を表示'}
         <span className="text-muted-foreground" aria-hidden>
-          {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+          {open ? <ExpandMoreOutlined className="size-4" /> : <ChevronRightOutlined className="size-4" />}
         </span>
       </button>
       {open && <div className="border-t px-3 pb-4 pt-2">{children}</div>}

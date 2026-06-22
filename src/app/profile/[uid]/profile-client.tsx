@@ -13,22 +13,22 @@ import {
 import { getQuizzesByAuthor } from '@/services/quiz';
 import { getSnsLogoUrl } from '@/services/storage';
 import {
-  Award,
-  Zap,
-  Star,
-  Crown,
-  Play,
-  PenTool,
-  BookOpen,
-  Users,
-  TrendingUp,
-  Sparkles,
-  Shield,
-  Grid,
-  History,
-  ChevronRight,
-  AlertTriangle
-} from 'lucide-react';
+  EmojiEventsOutlined,
+  FlashOnOutlined,
+  StarBorderOutlined,
+  WorkspacePremiumOutlined,
+  PlayArrowOutlined,
+  CreateOutlined,
+  MenuBookOutlined,
+  GroupOutlined,
+  TrendingUpOutlined,
+  AutoAwesomeOutlined,
+  SecurityOutlined,
+  GridViewOutlined,
+  HistoryOutlined,
+  ChevronRightOutlined,
+  WarningAmberOutlined
+} from '@mui/icons-material';
 import { User, Quiz, Badge } from '@/types';
 import { resolveModerationTierDisplay, type ModerationTierDisplayKey } from '@/lib/moderation-tier-display';
 import { ProfilePlayHistoryPanel } from '@/components/profile/profile-play-history-panel';
@@ -46,28 +46,28 @@ type ProfileContentTab = 'quizzes' | 'history';
 const getBadgeIcon = (iconName: string) => {
   switch (iconName) {
     case 'play-circle':
-      return <Play size={20} />;
+      return <PlayArrowOutlined sx={{ fontSize: 20 }} />;
     case 'zap':
-      return <Zap size={20} />;
+      return <FlashOnOutlined sx={{ fontSize: 20 }} />;
     case 'star':
-      return <Star size={20} />;
+      return <StarBorderOutlined sx={{ fontSize: 20 }} />;
     case 'award':
-      return <Award size={20} />;
+      return <EmojiEventsOutlined sx={{ fontSize: 20 }} />;
     case 'crown':
-      return <Crown size={20} />;
+      return <WorkspacePremiumOutlined sx={{ fontSize: 20 }} />;
     case 'pencil':
-      return <PenTool size={20} />;
+      return <CreateOutlined sx={{ fontSize: 20 }} />;
     case 'book-open':
     case 'library':
-      return <BookOpen size={20} />;
+      return <MenuBookOutlined sx={{ fontSize: 20 }} />;
     case 'users':
-      return <Users size={20} />;
+      return <GroupOutlined sx={{ fontSize: 20 }} />;
     case 'trending-up':
-      return <TrendingUp size={20} />;
+      return <TrendingUpOutlined sx={{ fontSize: 20 }} />;
     case 'sparkles':
-      return <Sparkles size={20} />;
+      return <AutoAwesomeOutlined sx={{ fontSize: 20 }} />;
     default:
-      return <Award size={20} />;
+      return <EmojiEventsOutlined sx={{ fontSize: 20 }} />;
   }
 };
 
@@ -187,7 +187,7 @@ export function ProfileClient() {
   if (!profileUser) {
     return (
       <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-4 py-16 text-center">
-        <AlertTriangle size={48} className="text-muted-foreground" />
+        <WarningAmberOutlined sx={{ fontSize: 48 }} className="text-muted-foreground" />
         <h2 className="text-xl font-semibold">ユーザーが見つかりません</h2>
         <p className="text-muted-foreground">指定されたユーザーは存在しないか、退会済みです。</p>
         <Link href="/" className={cn(buttonVariants())}>
@@ -205,7 +205,7 @@ export function ProfileClient() {
       <div className="flex flex-col gap-6">
         {profileUser.deleteStatus === 'delete_pending' && isMyProfile && (
           <Alert variant="destructive">
-            <AlertTriangle className="size-4" />
+            <WarningAmberOutlined className="size-4" />
             <AlertDescription>
               このアカウントは現在削除処理中です。一部の機能が非活性化されている可能性があります。
             </AlertDescription>
@@ -223,7 +223,7 @@ export function ProfileClient() {
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl font-bold">{profileUser.displayName}</h1>
                 <UiBadge variant="outline" className={cn('gap-1', tierBadgeClass)}>
-                  <Shield size={14} />
+                  <SecurityOutlined sx={{ fontSize: 14 }} />
                   {tierDisplay.label}
                 </UiBadge>
               </div>
@@ -310,7 +310,7 @@ export function ProfileClient() {
             <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start gap-4">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Zap size={24} />
+                  <FlashOnOutlined sx={{ fontSize: 24 }} />
                 </div>
                 <div>
                   <h3 className="font-semibold">弱点克服プレイ（復習）</h3>
@@ -326,7 +326,7 @@ export function ProfileClient() {
                 className={cn(buttonVariants())}
               >
                 復習をはじめる
-                <ChevronRight size={18} />
+                <ChevronRightOutlined sx={{ fontSize: 18 }} />
               </Link>
             </CardContent>
           </Card>
@@ -366,12 +366,12 @@ export function ProfileClient() {
           >
             <TabsList className="mb-6">
               <TabsTrigger value="quizzes" className="gap-2">
-                <Grid size={18} />
+                <GridViewOutlined sx={{ fontSize: 18 }} />
                 作成したクイズ ({quizzes.length})
               </TabsTrigger>
               {isMyProfile && (
                 <TabsTrigger value="history" className="gap-2" data-testid="profile-tab-history">
-                  <History size={18} />
+                  <HistoryOutlined sx={{ fontSize: 18 }} />
                   プレイ履歴
                 </TabsTrigger>
               )}

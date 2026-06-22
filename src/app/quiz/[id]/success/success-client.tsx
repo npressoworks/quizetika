@@ -5,14 +5,13 @@ import { useRouter } from 'next/navigation';
 import { Quiz } from '@/types';
 import { successClasses as styles } from './success-classes';
 import { 
-  Check, 
-  Copy, 
-  Play, 
-  LayoutDashboard, 
-  Plus, 
-  MessageCircle, 
-  ExternalLink 
-} from 'lucide-react';
+  CheckOutlined, 
+  ContentCopyOutlined, 
+  PlayArrowOutlined, 
+  DashboardOutlined, 
+  AddOutlined, 
+  SmsOutlined
+} from '@mui/icons-material';
 
 interface SuccessClientProps {
   quiz: Quiz;
@@ -80,7 +79,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
           <div className={styles.badgeWrapper}>
             <div className={styles.badgeGlow} />
             <div className={styles.badge}>
-              <Check size={48} strokeWidth={3} />
+              <CheckOutlined sx={{ fontSize: 48 }} />
             </div>
           </div>
 
@@ -132,7 +131,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
                 rel="noopener noreferrer" 
                 className={`${styles.btnShare} ${styles.btnLine}`}
               >
-                <MessageCircle size={18} fill="currentColor" />
+                <SmsOutlined sx={{ fontSize: 18 }} />
                 LINEで送る
               </a>
 
@@ -141,7 +140,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
                 onClick={handleCopyUrl} 
                 className={`${styles.btnShare} ${styles.btnCopy}`}
               >
-                <Copy size={18} />
+                <ContentCopyOutlined sx={{ fontSize: 18 }} />
                 URLをコピー
                 {copied && <span className={styles.copyToast}>コピーしました！</span>}
               </button>
@@ -157,7 +156,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
                 className="btn btn-primary" 
                 style={{ flex: 1 }}
               >
-                <Play size={18} fill="currentColor" />
+                <PlayArrowOutlined sx={{ fontSize: 18 }} />
                 自分でプレイする
               </button>
 
@@ -167,7 +166,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
                 className="btn btn-secondary" 
                 style={{ flex: 1 }}
               >
-                <LayoutDashboard size={18} />
+                <DashboardOutlined sx={{ fontSize: 18 }} />
                 ダッシュボードに戻る
               </button>
             </div>
@@ -178,7 +177,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
               className="btn btn-outline" 
               style={{ width: '100%' }}
             >
-              <Plus size={18} />
+              <AddOutlined sx={{ fontSize: 18 }} />
               新しいクイズを新規作成する
             </button>
           </div>

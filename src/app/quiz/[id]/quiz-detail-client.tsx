@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Bookmark, Play, Award, Timer, Layers, HelpCircle, Edit, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { BookmarkOutlined, BookmarkRounded, PlayArrowOutlined, EmojiEventsOutlined, TimerOutlined, LayersOutlined, HelpOutlineOutlined, EditOutlined, WarningAmberOutlined, CheckCircleOutlined } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
 import { getDifficultyColor } from '@/lib/difficulty-color';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
@@ -122,11 +122,9 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
             title="ブックマーク"
             data-analytics="quiz-bookmark-toggle"
           >
-            <Bookmark
-              size={20}
-              color={bookmarked ? '#00ff66' : 'currentColor'}
-              fill={bookmarked ? '#00ff66' : 'none'}
-            />
+            {bookmarked
+              ? <BookmarkRounded sx={{ fontSize: 20, color: '#00ff66' }} className="fill-current" />
+              : <BookmarkOutlined sx={{ fontSize: 20 }} />}
           </button>
         </div>
 
@@ -137,7 +135,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
               <div className={styles.badgeMasked}>⏳ 評価再集計中...</div>
             ) : (
               <div className={styles.badgeGlow}>
-                <Award size={16} />
+                <EmojiEventsOutlined sx={{ fontSize: 16 }} />
                 🏅 {quiz.reviewBadge} (良問率: {formatReviewScorePercent(quiz.reviewScore) ?? '0%'})
               </div>
             )
@@ -156,7 +154,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
             >
               {hasPlayedThisQuiz ? (
                 <>
-                  <CheckCircle2 size={14} aria-hidden />
+                  <CheckCircleOutlined sx={{ fontSize: 14 }} aria-hidden />
                   プレイ済み
                 </>
               ) : (
@@ -226,7 +224,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
                 cursor: 'pointer'
               }}
             >
-              <Edit size={16} />
+              <EditOutlined sx={{ fontSize: 16 }} />
               クイズを編集
             </Link>
           )}
@@ -256,7 +254,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
         {isLateralThinkingQuiz ? (
           <div className={`${styles.modeOption} ${styles.modeSelected}`}>
             <div className={styles.modeHeader}>
-              <HelpCircle size={18} className="text-neon-accent" />
+              <HelpOutlineOutlined sx={{ fontSize: 18 }} className="text-neon-accent" />
               <span>水平思考チャットモード</span>
             </div>
             <p className={styles.modeDesc}>
@@ -267,7 +265,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
         ) : isQuickPressQuiz ? (
           <div className={`${styles.modeOption} ${styles.modeSelected}`} style={{ cursor: 'default' }}>
             <div className={styles.modeHeader}>
-              <Timer size={18} className="text-neon-accent" />
+              <TimerOutlined sx={{ fontSize: 18 }} className="text-neon-accent" />
               <span>早押し通常プレイ</span>
             </div>
             <p className={styles.modeDesc}>
@@ -282,7 +280,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
               onClick={() => setSelectedMode('normal')}
             >
               <div className={styles.modeHeader}>
-                <Play size={16} />
+                <PlayArrowOutlined sx={{ fontSize: 16 }} />
                 <span>通常モード</span>
               </div>
               <p className={styles.modeDesc}>
@@ -295,7 +293,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
               onClick={() => setSelectedMode('exam')}
             >
               <div className={styles.modeHeader}>
-                <Timer size={16} />
+                <TimerOutlined sx={{ fontSize: 16 }} />
                 <span>模擬試験モード</span>
               </div>
               <p className={styles.modeDesc}>
@@ -308,7 +306,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
               onClick={() => setSelectedMode('flashcard')}
             >
               <div className={styles.modeHeader}>
-                <Layers size={16} />
+                <LayersOutlined sx={{ fontSize: 16 }} />
                 <span>フラッシュカードモード</span>
               </div>
               <p className={styles.modeDesc}>
@@ -333,7 +331,7 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
             className={styles.modeLeaderboardWarning}
             data-testid="play-mode-leaderboard-warning"
           >
-            <AlertTriangle size={16} aria-hidden />
+            <WarningAmberOutlined sx={{ fontSize: 16 }} aria-hidden />
             <p>
               模擬試験モード・フラッシュカードモードの記録は、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。先にこれらのモードでプレイした場合、のちに通常モードでプレイしても初回プレイランキングには掲載されません（リプレイランキングのみ対象となります）。
             </p>

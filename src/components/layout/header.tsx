@@ -7,13 +7,13 @@ import { useAuth } from '@/context/auth-context';
 import { auth } from '@/lib/firebase/config';
 import { signOut } from '@/lib/firebase/auth';
 import {
-  PlusCircle,
-  User as UserIcon,
-  LogOut,
-  ClipboardList,
-  Settings,
-  Shield,
-} from 'lucide-react';
+  AddCircleOutlineOutlined,
+  PersonOutlined,
+  LogoutOutlined,
+  AssignmentOutlined,
+  SettingsOutlined,
+  AdminPanelSettingsOutlined,
+} from '@mui/icons-material';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -65,7 +65,7 @@ export const Header: React.FC = () => {
                 data-testid="mobile-header-create-btn"
                 data-analytics="nav-create-quiz"
               >
-                <PlusCircle size={20} />
+                <AddCircleOutlineOutlined sx={{ fontSize: 20 }} />
               </Link>
 
               <DropdownMenu open={popupOpen} onOpenChange={setPopupOpen}>
@@ -99,7 +99,7 @@ export const Header: React.FC = () => {
                         />
                       }
                     >
-                      <Shield size={18} />
+                      <AdminPanelSettingsOutlined sx={{ fontSize: 18 }} />
                       <span>管理者メニュー</span>
                     </DropdownMenuItem>
                   )}
@@ -112,7 +112,7 @@ export const Header: React.FC = () => {
                       />
                     }
                   >
-                    <ClipboardList size={18} />
+                    <AssignmentOutlined sx={{ fontSize: 18 }} />
                     <span>マイクイズ</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -120,7 +120,7 @@ export const Header: React.FC = () => {
                       <Link href={`/profile/${user.id}`} onClick={() => setPopupOpen(false)} />
                     }
                   >
-                    <UserIcon size={18} />
+                    <PersonOutlined sx={{ fontSize: 18 }} />
                     <span>マイページ</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
@@ -132,12 +132,12 @@ export const Header: React.FC = () => {
                       />
                     }
                   >
-                    <Settings size={18} />
+                    <SettingsOutlined sx={{ fontSize: 18 }} />
                     <span>設定</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" onClick={handleLogout} data-analytics="auth-logout">
-                    <LogOut size={18} />
+                    <LogoutOutlined sx={{ fontSize: 18 }} />
                     <span>ログアウト</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>

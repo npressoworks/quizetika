@@ -138,7 +138,7 @@ graph TD
 | UI | shadcn/ui | Form, Table, ToggleGroup, Card, Tabs, Switch | foundation + 本 spec add |
 | Auth | Firebase Auth | login ソーシャル/E2E | 既存 |
 | State | React hooks | useMyQuizPool 等 | Out of Boundary |
-| Icons | lucide-react | 通知・プロフィール・pricing | 既存 |
+| Icons | @mui/icons-material | 通知・プロフィール・pricing | 既存 |
 | Testing | Jest, Playwright | 回帰 | 既存 spec |
 
 ---

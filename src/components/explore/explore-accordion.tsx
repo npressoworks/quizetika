@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ExpandMoreOutlined, ChevronRightOutlined } from '@mui/icons-material';
 import { cn } from '@/lib/utils';
 
 export interface ExploreAccordionProps {
@@ -32,7 +32,7 @@ export function ExploreAccordion({
       >
         {title}
         <span className="text-muted-foreground" aria-hidden>
-          {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+          {open ? <ExpandMoreOutlined className="size-4" /> : <ChevronRightOutlined className="size-4" />}
         </span>
       </button>
       {open && <div className="pb-4">{children}</div>}

@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { AutoAwesomeOutlined } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
 import { resolvePricingUiState } from '@/lib/pricing-entitlement';
 import { CheckoutFeedbackBanner } from '@/components/pricing/checkout-feedback-banner';
@@ -54,7 +54,7 @@ function PricingPageContent() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-10">
       <header className="flex flex-col gap-3 text-center">
         <h1 className="flex items-center justify-center gap-3 text-3xl font-extrabold tracking-tight">
-          <Sparkles size={32} className="text-primary" aria-hidden />
+          <AutoAwesomeOutlined sx={{ fontSize: 32 }} className="text-primary" aria-hidden />
           料金プラン
         </h1>
         <p className="text-muted-foreground">

@@ -23,7 +23,7 @@ Next.js（App Router）によるフルスタックフロントエンドと、Fir
 - **Animations**: Framer Motion 12.40.0
 - **Drag & Drop**: @dnd-kit (Core / Sortable)
 - **Sanitizer**: Isomorphic DOMPurify (XSS防止のためのHTMLサニタイズ)
-- **Icons**: Lucide React
+- **Icons**: Material Icons
 
 ## 開発標準 (Development Standards)
 

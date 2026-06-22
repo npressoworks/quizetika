@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical } from 'lucide-react';
+import { DragIndicatorOutlined } from '@mui/icons-material';
 import { cn } from '@/lib/utils';
 
 export type SortableSortingItem = {
@@ -73,7 +73,7 @@ function SortableRow({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={18} aria-hidden />
+        <DragIndicatorOutlined sx={{ fontSize: 18 }} aria-hidden />
       </button>
       {showIndex && (
         <span className="min-w-6 shrink-0 text-sm font-bold text-primary">{index + 1}</span>

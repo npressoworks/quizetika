@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ import {
   unfollowUser,
   isFollowing
 } from '@/services/user';
-import { UserPlus, UserCheck, Users } from 'lucide-react';
+import { PersonAddOutlined, HowToRegOutlined, GroupOutlined } from '@mui/icons-material';
 import { User } from '@/types';
 import { ConnectionsSkeleton } from '@/components/profile/connections-skeleton';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -153,7 +153,7 @@ export function ConnectionsClient() {
           <TabsContent value={activeTab}>
             {currentList.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
-                <Users size={40} />
+                <GroupOutlined sx={{ fontSize: 40 }} />
                 <p>
                   {activeTab === 'following'
                     ? 'フォローしているユーザーはまだいません。'
@@ -195,12 +195,12 @@ export function ConnectionsClient() {
                         >
                           {isFollowedByMe ? (
                             <>
-                              <UserCheck size={16} />
+                              <HowToRegOutlined sx={{ fontSize: 16 }} />
                               フォロー中
                             </>
                           ) : (
                             <>
-                              <UserPlus size={16} />
+                              <PersonAddOutlined sx={{ fontSize: 16 }} />
                               フォロー
                             </>
                           )}

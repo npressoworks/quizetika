@@ -1,7 +1,7 @@
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion"
 
 import { cn } from "@/lib/utils"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { KeyboardArrowDownOutlined as ChevronDown, KeyboardArrowUpOutlined as ChevronUp } from "@mui/icons-material"
 
 function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
   return (

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeftOutlined, ChevronRightOutlined } from '@mui/icons-material';
 import { EXPLORE_FORMAT_OPTIONS } from '@/lib/explore-formats';
 import { hasActiveMyQuizFilters, type MyQuizFilterState } from '@/lib/my-quiz-filter';
 import type { MyQuizQuestionCandidate, MyQuizSource } from '@/lib/my-quiz-pool';
@@ -171,7 +171,7 @@ export function MyQuizFilteredTable({
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               data-testid="my-quiz-table-prev"
             >
-              <ChevronLeft size={18} aria-hidden />
+              <ChevronLeftOutlined sx={{ fontSize: 18 }} aria-hidden />
               前へ
             </Button>
             <span
@@ -189,7 +189,7 @@ export function MyQuizFilteredTable({
               data-testid="my-quiz-table-next"
             >
               次へ
-              <ChevronRight size={18} aria-hidden />
+              <ChevronRightOutlined sx={{ fontSize: 18 }} aria-hidden />
             </Button>
           </nav>
         )}

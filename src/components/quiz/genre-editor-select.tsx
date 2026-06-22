@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import type { GenreMetadata } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { AlertCircle } from 'lucide-react';
+import { ErrorOutlined } from '@mui/icons-material';
 
 export interface GenreEditorSelectProps {
   value: string;
@@ -131,7 +131,7 @@ export function GenreEditorSelect({
         />
         {hasOrphanValue && (
           <div className="mt-1 flex items-center gap-1.5 text-sm text-amber-500">
-            <AlertCircle size={16} />
+            <ErrorOutlined sx={{ fontSize: 16 }} />
             <span>{value}（マスタ未登録・要確認）</span>
           </div>
         )}

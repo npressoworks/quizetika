@@ -56,7 +56,7 @@
 - **`useAuth`**: ログイン状態表示（P0）
 - **既存 hooks/services**: `usePlayState`, `usePlayedQuizIds`, `services/bookmark`, `services/attempt` 等（P0、契約維持）
 - **foundation Primitive Wave 2**: RadioGroup, Progress, Accordion, Tabs, Label（P0、存在確認のみ）
-- **`lucide-react`**: アイコン（P0）
+- **`@mui/icons-material`**: アイコン（P0）
 
 ### Revalidation Triggers
 - プレイ画面 DOM 構造または `data-testid` の変更
@@ -134,7 +134,7 @@ graph TD
 | Frontend | Next.js 16, React 19 | App Router, Client Components | 既存維持 |
 | Styling | Tailwind CSS v4 | ユーティリティクラス | foundation 経由 |
 | UI | shadcn/ui | Button, RadioGroup, Progress, Accordion, Dialog, Tabs, Card, Skeleton | foundation Wave 1+2 |
-| Icons | lucide-react | プレイ/結果アイコン | 既存 |
+| Icons | @mui/icons-material | プレイ/結果アイコン | 既存 |
 | State | usePlayState 等 | プレイ状態 | 変更しない |
 | Data | Firebase / services | attempt, bookmark | 変更しない |
 | Testing | Jest, Playwright | 単体・E2E 回帰 | 既存 spec 更新 |

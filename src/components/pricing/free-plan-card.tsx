@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, User } from 'lucide-react';
+import { CheckOutlined, PersonOutlined } from '@mui/icons-material';
 import { getFreePlanForUi } from '@/lib/pricing-display';
 import type { PricingUiCtaMode } from '@/lib/pricing-entitlement';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ export function FreePlanCard({ ctaMode }: FreePlanCardProps) {
     <Card data-testid="pricing-free-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <User size={24} className="text-muted-foreground" />
+          <PersonOutlined sx={{ fontSize: 24 }} className="text-muted-foreground" />
           {plan.displayName}
         </CardTitle>
       </CardHeader>
@@ -46,7 +46,7 @@ export function FreePlanCard({ ctaMode }: FreePlanCardProps) {
         <ul className="flex flex-col gap-2">
           {plan.featureBullets.map((feature) => (
             <li key={feature.id} className="flex items-start gap-2 text-sm">
-              <Check size={16} className="mt-0.5 shrink-0 text-primary" />
+              <CheckOutlined sx={{ fontSize: 16 }} className="mt-0.5 shrink-0 text-primary" />
               <span>{feature.label}</span>
             </li>
           ))}

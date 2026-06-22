@@ -47,7 +47,7 @@
 - **`quizeum-ui-foundation`**: Tailwind, `globals.css` CSS 変数, `cn()`, Button, Card, Skeleton（P0）
 - **`useAuth` / `AuthProvider`**: ログイン状態・ユーザー情報（P0、読み取りのみ）
 - **`next/link`, `next/navigation`**: ルーティング（P0）
-- **`lucide-react`**: ナビアイコン（P0、既存）
+- **`@mui/icons-material`**: ナビアイコン（P0、既存）
 - **`signOut` from `@/lib/firebase/auth`**: ログアウト（P0、既存呼び出し維持）
 - **foundation Primitive Wave 2**: Avatar, DropdownMenu, Separator（P0、存在確認のみ）
 
@@ -135,7 +135,7 @@ graph TD
 | Frontend | Next.js 16, React 19 | Client Components (`'use client'`) | 既存維持 |
 | Styling | Tailwind CSS v4 | レイアウト・レスポンシブ | foundation 経由 |
 | UI | shadcn/ui | Button, Avatar, DropdownMenu, Separator | foundation Wave 1+2 |
-| Icons | lucide-react | ナビアイコン | 既存 |
+| Icons | @mui/icons-material | ナビアイコン | 既存 |
 | Routing | next/navigation | pathname 判定 | 既存 |
 | Auth | useAuth context | 表示切替 | 読み取りのみ |
 | Testing | Jest, Playwright | 単体・E2E | 既存 spec 回帰 |

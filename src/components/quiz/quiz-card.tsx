@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { Bookmark, ThumbsUp } from 'lucide-react';
+import { BookmarkBorderOutlined, Bookmark, ThumbUpAltOutlined } from '@mui/icons-material';
 import type { Quiz } from '../../types';
 import { resolveQuizFormat } from '@/lib/quiz-format';
 import { getDifficultyColor } from '@/lib/difficulty-color';
@@ -75,9 +75,8 @@ export function QuizCard({
           type="button"
         >
           <Bookmark
-            size={18}
-            color={isBookmarked ? '#00ff66' : 'currentColor'}
-            fill={isBookmarked ? '#00ff66' : 'none'}
+            sx={{ fontSize: 18 }}
+            style={{ color: isBookmarked ? '#00ff66' : 'currentColor' }}
           />
         </button>
         {quiz.reviewScore != null && (
@@ -85,7 +84,7 @@ export function QuizCard({
             className="absolute right-2 bottom-2 z-10 flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur-sm shadow-sm"
             data-testid="quiz-card-review-score"
           >
-            <ThumbsUp size={12} aria-hidden />
+            <ThumbUpAltOutlined sx={{ fontSize: 12 }} aria-hidden />
             {formatReviewScorePercent(quiz.reviewScore)}
           </span>
         )}
