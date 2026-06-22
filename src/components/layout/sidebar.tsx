@@ -41,7 +41,7 @@ const navLinkBase =
   'flex items-center gap-4 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground md:max-lg:justify-center md:max-lg:px-3';
 
 const navLinkActive =
-  'active border-l-2 border-primary bg-accent/10 font-semibold text-accent-foreground md:max-lg:rounded-lg md:max-lg:border-l-0 md:max-lg:border-primary';
+  'active bg-accent/10 font-semibold text-accent-foreground md:max-lg:rounded-lg';
 
 export interface SidebarProps {
   isCollapsed?: boolean;
@@ -69,9 +69,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
   };
 
   const menuItems = [
-    { href: '/', label: 'ホーム', icon: <Home size={22} />, testId: 'nav-home' },
-    { href: '/search', label: '検索', icon: <Search size={22} />, testId: 'nav-search' },
-    { href: '/pricing', label: 'Proプラン', icon: <Sparkles size={22} /> },
+    {
+      href: '/',
+      label: 'ホーム',
+      icon: <Home size={22} />,
+      activeIcon: <Home size={22} fill="currentColor" />,
+      testId: 'nav-home'
+    },
+    {
+      href: '/search',
+      label: '検索',
+      icon: <Search size={22} />,
+      activeIcon: <Search size={22} strokeWidth={3} />,
+      testId: 'nav-search'
+    },
+    {
+      href: '/pricing',
+      label: 'Proプラン',
+      icon: <Sparkles size={22} />,
+      activeIcon: <Sparkles size={22} fill="currentColor" />
+    },
   ];
 
   if (user) {
@@ -79,15 +96,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
       href: '/my-quiz',
       label: 'マイクイズ',
       icon: <ClipboardList size={22} />,
+      activeIcon: <ClipboardList size={22} fill="currentColor" />,
       testId: 'nav-my-quiz',
     });
     menuItems.push(
-      { href: '/notifications', label: '通知', icon: <Bell size={22} /> },
-      { href: '/bookmarks', label: 'ブックマーク', icon: <Bookmark size={22} /> },
+      {
+        href: '/notifications',
+        label: '通知',
+        icon: <Bell size={22} />,
+        activeIcon: <Bell size={22} fill="currentColor" />
+      },
+      {
+        href: '/bookmarks',
+        label: 'ブックマーク',
+        icon: <Bookmark size={22} />,
+        activeIcon: <Bookmark size={22} fill="currentColor" />
+      },
       {
         href: `/profile/${user.id}`,
         label: 'プロフィール',
         icon: <UserIcon size={22} />,
+        activeIcon: <UserIcon size={22} fill="currentColor" />,
         testId: 'nav-profile',
       }
     );
@@ -131,7 +160,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
               className={cn(navLinkBase, isActive && navLinkActive, 'group relative')}
               {...(item.testId ? { 'data-testid': item.testId } : {})}
             >
-              <span className="flex size-6 shrink-0 items-center justify-center">{item.icon}</span>
+              <span className="flex size-6 shrink-0 items-center justify-center">
+                {isActive ? item.activeIcon : item.icon}
+              </span>
               <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>{item.label}</span>
               {/* ミニ表示時にホバーで表示されるツールチップ */}
               <span className={cn(
@@ -154,7 +185,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             )}
           >
             <span className="flex size-6 shrink-0 items-center justify-center">
-              <BookOpen size={22} />
+              {pathname === '/creator/dashboard' ? (
+                <BookOpen size={22} fill="currentColor" />
+              ) : (
+                <BookOpen size={22} />
+              )}
             </span>
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>ダッシュボード</span>
             {/* ミニ表示時にホバーで表示されるツールチップ */}
@@ -178,7 +213,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             data-testid="nav-admin"
           >
             <span className="flex size-6 shrink-0 items-center justify-center">
-              <Shield size={22} />
+              {(pathname === '/admin' || pathname?.startsWith('/admin/')) ? (
+                <Shield size={22} fill="currentColor" />
+              ) : (
+                <Shield size={22} />
+              )}
             </span>
             <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>管理者メニュー</span>
             {/* ミニ表示時にホバーで表示されるツールチップ */}
