@@ -39,27 +39,25 @@ export async function uploadQuizCoverBuffer(
 }
 
 /**
- * AI生成されたジャンルアイコン画像（一時保存用）をローカルに保存し、配信 URL を返す
+ * AI生成されたジャンルアイコン画像（一時保存用）を Firebase Storage に保存し、公開 URL を返す
  */
 export async function uploadTemporaryGenreIconBuffer(
   buffer: Buffer,
   uid: string
 ): Promise<string> {
-  const fs = require('fs');
-  const path = require('path');
-  
+  const bucket = getAdminStorage().bucket(resolveBucketName());
   const timestamp = Date.now();
   const filename = `${uid}_${timestamp}.png`;
-  const tempDir = path.join(process.cwd(), 'assets', 'genre', 'temp');
+  const path = `genres/temp/${filename}`;
 
-  if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-  }
+  const file = bucket.file(path);
+  await file.save(buffer, {
+    metadata: { contentType: 'image/png' },
+    resumable: false,
+  });
 
-  const filePath = path.join(tempDir, filename);
-  fs.writeFileSync(filePath, buffer);
-
-  return `/api/assets/genre/temp/${filename}`;
+  await file.makePublic();
+  return `https://storage.googleapis.com/${bucket.name}/${path}`;
 }
 
 
