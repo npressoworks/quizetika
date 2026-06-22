@@ -3,6 +3,11 @@ import { test, expect } from '@playwright/test';
 test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
 
   test('非管理者ユーザーでのアクセス制限確認', async ({ page }) => {
+    // 認証状態が残っている場合はクリアして非ログイン状態にする
+    await page.context().clearCookies();
+    await page.goto('/login');
+    await page.evaluate(() => localStorage.clear());
+
     // 1. 管理者以外の状態で /admin/genres へのアクセスを試みる
     await page.goto('/admin/genres');
     
@@ -120,7 +125,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: '/api/assets/genre/temp/admin_123.png',
+          iconImageUrl: 'https://storage.googleapis.com/quizeum-77bc6.appspot.com/genres/temp/admin_123.png',
           usage: { limit: null, usedToday: 0, remainingToday: null }
         })
       });
@@ -159,7 +164,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: '/api/assets/genre/temp/user_123.png',
+          iconImageUrl: 'https://storage.googleapis.com/quizeum-77bc6.appspot.com/genres/temp/user_123.png',
           usage: { limit: 5, usedToday: 1, remainingToday: 4 }
         })
       });
@@ -171,7 +176,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          iconImageUrl: '/api/assets/genre/test-ai-community/icon_123.png'
+          iconImageUrl: 'https://storage.googleapis.com/quizeum-77bc6.appspot.com/genres/test-ai-community/icon_123.png'
         })
       });
     });

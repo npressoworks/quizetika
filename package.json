@@ -10,7 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
-    "emulators": "firebase emulators:start --only auth,firestore,storage --project quizeum-77bc6",
+    "emulators": "firebase emulators:start --only auth,firestore,storage --project quizeum-77bc6 --import=./firebase-export --export-on-exit",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "deploy:rules": "firebase deploy --only firestore:rules --project quizeum-77bc6",

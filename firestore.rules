@@ -26,7 +26,7 @@ service cloud.firestore {
       return isAuthenticated() && (
         getUserData(request.auth.uid).moderationTier == 'senior_moderator' ||
         getUserData(request.auth.uid).moderationTier == 'admin' ||
-        getUserData(request.auth.uid).role == 'admin'
+        ('role' in getUserData(request.auth.uid) && getUserData(request.auth.uid).role == 'admin')
       );
     }
     
@@ -43,7 +43,7 @@ service cloud.firestore {
     function isSystemAdmin() {
       return isAuthenticated() && (
         getUserData(request.auth.uid).moderationTier == 'admin' ||
-        getUserData(request.auth.uid).role == 'admin'
+        ('role' in getUserData(request.auth.uid) && getUserData(request.auth.uid).role == 'admin')
       );
     }
 

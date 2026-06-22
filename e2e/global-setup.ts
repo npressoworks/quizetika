@@ -1,5 +1,6 @@
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 import initialGenresData from '../src/data/initial_genres.json';
 import type { InitialGenreSeed } from '../src/services/tagMerge';
 
@@ -12,12 +13,15 @@ const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6
 export default async function globalSetup() {
   process.env.FIRESTORE_EMULATOR_HOST =
     process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
+  process.env.FIREBASE_AUTH_EMULATOR_HOST =
+    process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
 
   if (getApps().length === 0) {
     initializeApp({ projectId: PROJECT_ID });
   }
 
   const db = getFirestore();
+  const auth = getAuth();
   const genres = initialGenresData as InitialGenreSeed[];
   const now = new Date();
 
@@ -41,16 +45,40 @@ export default async function globalSetup() {
       );
   }
 
-  const e2eUid = 'e2e-test-uid-123456';
+  const email = 'e2e-test-user@example.com';
+  const password = 'e2e-test-password-999';
+  let e2eUid = 'e2e-test-uid-123456';
+
+  try {
+    const userRecord = await auth.getUserByEmail(email);
+    e2eUid = userRecord.uid;
+  } catch (err: any) {
+    if (err.code === 'auth/user-not-found') {
+      try {
+        const userRecord = await auth.createUser({
+          uid: e2eUid,
+          email,
+          password,
+          displayName: 'e2e-test-user',
+        });
+        e2eUid = userRecord.uid;
+      } catch (createErr) {
+        console.error('E2E Authユーザー自動作成エラー:', createErr);
+      }
+    } else {
+      console.error('E2E Authユーザー取得エラー:', err);
+    }
+  }
+
   await db
     .collection('users')
     .doc(e2eUid)
     .set(
       {
         id: e2eUid,
-        email: 'e2e-test-user@example.com',
+        email: email,
         displayName: 'e2e-test-user',
-        avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=e2e-test-uid-123456',
+        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${e2eUid}`,
         bio: '',
         followedGenres: [],
         badges: [],
@@ -72,3 +100,4 @@ export default async function globalSetup() {
       { merge: true }
     );
 }
+

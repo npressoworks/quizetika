@@ -38,6 +38,8 @@
 
 **Phase 23（2026-06-09）**: リスト探索（`/lists`）向け `searchLists`、マイクイズ（`/my-quiz`）向け4ソース問題プール合成（`buildMyQuizQuestionPool`）、アドホック連続プレイ用 `my-quiz-session`、および `Attempt.mode: 'my-quiz'` と `saveAttempt` の1問単位検証バイパスをコア層に追加する。UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が担当。
 
+**Phase 30（2026-06-21）**: ユーザープロフィール情報に `snsLinks` オブジェクト（YouTube, X, Instagram, TikTokのURL）を追加します。更新時の各URLに対する正規ドメイン（`youtube.com`, `x.com`, `twitter.com`, `instagram.com`, `tiktok.com`）の検証と一括保存、および Firebase Storage からのSNSロゴ画像URL取得（キャッシュ併用）をコア層に追加します（UIは `quizeum-auth-profile-ui` が担当）。
+
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
 - プレイ中の不意なリロードやオフライン切断時における解答データ損失をローカルで保護・復元する。
@@ -60,8 +62,9 @@
 - **Phase 20 〇×問題形式（2026-06）**: `true-false` の第一級 format 化、固定選択肢 lib、公開検証・形式解決・ラベル整合。
 - **Phase 21 ホームフィード段階的取得（2026-06）**: `PaginatedQuizResult`、タブ別ページ API、複合検索のページ分割、カーソル encode/decode lib。
 - **Phase 22 ホーム／検索 IA（2026-06）**: ディスカバリーホーム向け Top 10 一覧再利用、`search-url-state.ts` による URL ↔ 探索状態変換。
-- **Phase 23 リスト探索・マイクイズ Core API（2026-06）**: `searchLists`、`buildMyQuizQuestionPool`、`my-quiz-session`、`my-quiz` 試行記録、`saveAttempt` 1問契約。
+- **Phase 23 リスト探索・マイクイズ Core API（2026-06）**: `searchLists`、`buildMyQuizQuestionPool` , `my-quiz-session`、`my-quiz` 試行記録、`saveAttempt` 1問契約。
 - **Phase 28 解答詳細トラッキングとサーバー検証（2026-06）**: 全問題形式に対応する `QuestionAnswerDetail` 構造設計、`saveAttempt` 内でのサーバー二重検証（件数・正誤・問題ID実在性）、オンライン復旧時の一括バッチ同期（`syncPendingAttempts`）設計。
+- **Phase 30 プロフィールSNSリンク登録・表示機能**: 各SNSリンクの正確なドメイン検証と一括永続化の保証、および Firebase Storage からの各SNSロゴダウンロードURLの高速取得（インメモリキャッシュ付き）の提供。
 
 ### Non-Goals
 - 外部システムや外部ファイルからのクイズ・クイズリストの一括インポート機能の実装。
@@ -84,11 +87,12 @@
 - **Phase 8 — 分類ブックマーク**: 3種 `toggleBookmark`、公開親クイズ検証、分類一覧取得、問題ブックマーク通知。
 - **Phase 8 — 問題リスト**: `listType` 付きリスト CRUD、公開問題追加検証、問題 ID 並び替え、問題リストエクスポート、`question-list` attempt 記録契約。
 - **Phase 8 — 参照リンク作問**: `searchAuthorQuizzes`、参照 ID のみの保存パス、Copy-on-Write 切り離し、共有問題の安全な参照解除。
-- **Phase 9 — 統合検索コアロジック**: `searchQuizzes` API 内における複数インデックス並行クエリ（タグ、作者名、ジャンル名等）、クライアント側マージ・重複排除、および大文字小文字を区別しない各種項目（タイトル、説明、作者名、タグ、ジャンル）の部分一致フィルタリング処理。
+- **Phase 9 — 統合検索コアロジック**: `searchQuizzes` API における複数インデックス並行クエリ（タグ、作者名、ジャンル名等）、クライアント側マージ・重複排除、および大文字小文字を区別しない各種項目（タイトル、説明、作者名、タグ、ジャンル）の部分一致フィルタリング処理。
 - **Phase 10 — タグマスタ一覧とタグ AND 検索**: `listActiveTags`、`quiz-tag-match` 純関数、`searchQuizzes` の `filters.tags` 拡張。
 - **Phase 11 — 出題形式フィルタと scoped 検索**: `SearchFilters.format`、`quiz-format-match` 純関数、`searchQuizzes` 後段形式フィルタ（`resolveQuizFormat` 一致）。ジャンル固定 scoped 検索は既存 `genreId` + `expandGenreIdsForQuery` を維持。
 - **Phase 10 スマートサジェスト（2026-06-06 追記）**: `search_logs` コレクションのスキーマ（`userId`, `queryText`, `tags[]`, `genreId`, `loggedAt`）および TTL、`searchQuizzes` 内での fire-and-forget ログ書き込み。`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` の集計 API Route（server-side Firestore Admin SDK、Next.js revalidate: 1800）。ユーザー個人履歴の保存は UI 側 `localStorage` のみ（Core に記録しない）。
 - **Phase 13 — Stripe サブスクリプション（2026-06）**: `users` の契約 tier・Stripe 識別子・契約状態フィールド、`subscription-plans` マスタ、`resolveUserEntitlements`、Checkout / Portal / Webhook API Routes、Webhook 冪等ログ（`stripe_processed_events`）、Firestore Rules による課金フィールドのクライアント書き込み遮断、`AskAiQuestionAPI` の tier 連動。
+- **Phase 30 — SNSリンク連携**: ユーザーの `snsLinks`（マップ）の構造設計、プロフィール更新時のバリデーション（ドメインおよびURL形式）、および `storage.ts` 内の `getSnsLogoUrl` ヘルパー（インメモリキャッシュ付き）の定義。
 
 ### Out of Boundary
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
@@ -131,6 +135,7 @@
 - **Phase 17**: `FREE_TIER_PER_QUIZ_LIMIT` / `FREE_TIER_GLOBAL_DAILY_LIMIT` の変更、`dailyAiTurnCounts/_global` doc 契約変更、`limit-exceeded` の `limitType` 追加、諦め API 応答形状変更（`revealText` 廃止）、`normalizeQuestionText` 規則変更。
 - **Phase 18**: `isLeaderboardEligibleAttempt` の除外モード集合変更、`countPriorCompletedAttempts` のカウント対象（全モード／test-play 除外）変更。
 - **Phase 28**: `Attempt.questionAnswerDetails` のデータ定義変更、`saveAttempt` 内検証ロジック（件数・正解数・問題ID実在）の変更、`PendingSyncAttempt` キュー構造変更。
+- **Phase 30**: `User.snsLinks` のオブジェクト定義変更、SNSドメイン検証ルールの変更、Storage上のSNSロゴパスや拡張子の変更。
 
 ---
 
@@ -223,7 +228,9 @@ src/
 ```
 
 ### Modified Files
-- `src/types/index.ts` — 称号、ウミガメスープ履歴、必須キーワード `truthKeywords` などの型定義を網羅。
+- `src/types/index.ts` — **Phase 30**: `User` インターフェースに `snsLinks` オブジェクト（オプショナル）を追加。また、称号、ウミガメスープ履歴、必須キーワード `truthKeywords` などの型定義を網羅。
+- `src/services/user.ts` — **Phase 30**: `UpdateProfileData` の拡張、`validateProfileData` 内での各SNS正規ドメインの検証（正規表現パターン適用）、および `updateProfile` への `snsLinks` 保存処理の統合。
+- `src/services/storage.ts` — **Phase 30**: 各SNS名（youtube, x, instagram, tiktok）から Storage 上の `assets/logos/` 内にある画像のダウンロードURLを非同期に取得して返す `getSnsLogoUrl` ヘルパー（インメモリキャッシュ付き）を追加。
 - `src/services/quiz.ts` — クイズ公開時バリデーション（ウミガメスープにおけるキーワード設定検証）等を追加。
 - `src/services/quiz-validation.ts` — ウミガメスープ形式の時、必須キーワードが最低1つ指定されているかどうかの検証を追加。
 - `src/services/ask-ai-utils.ts` — 会話履歴を反映したシステムインラインプロンプト構築と Gemini Chat API 連携用マッピングロジックを追加。
@@ -3717,4 +3724,122 @@ export async function syncPendingAttempts(): Promise<number> {
 **Effort**: **S** (既に実装済みのコードの同期)
 
 **Document Status（Phase 28 設計）**: 本節に反映。
+
+---
+
+## Phase 30: プロフィールSNSリンク登録・表示機能（2026-06-21 設計詳細）
+
+### 1. 概要と目標
+本フェーズでは、プロフィール画面および編集画面でのSNSリンク（YouTube, X, Instagram, TikTok）機能のデータモデル、検証、およびStorageロゴ取得をコア層に実装します。
+
+### 2. データモデル設計
+`User` インターフェース（`src/types/index.ts`）に `snsLinks` オブジェクトを追加します。
+
+```typescript
+export interface User {
+  // 既存フィールド...
+  snsLinks?: {
+    youtube?: string;
+    x?: string;
+    instagram?: string;
+    tiktok?: string;
+  };
+}
+```
+
+### 3. バリデーション設計
+`src/services/user.ts` にて、`UpdateProfileData` 型に `snsLinks` を追加し、`validateProfileData` 関数にドメインと形式の検証を追加します。
+
+- **URL形式検証**: 各値が存在する場合、`URL` 形式に合致することを検証します。
+- **ドメイン検証規則**:
+  - `youtube`: `youtube.com` または `youtu.be` に合致すること。
+  - `x`: `x.com` または `twitter.com` に合致すること。
+  - `instagram`: `instagram.com` に合致すること。
+  - `tiktok`: `tiktok.com` に合致すること。
+- **検証エラー**: `ProfileValidationError` インターフェースの `field` に `snsLinks.youtube` などのキーを許容し、エラーメッセージを返却します。
+
+### 4. Storageロゴ取得ヘルパー設計
+`src/services/storage.ts` に、各SNSのロゴ画像のダウンロードURLを高速に取得するための `getSnsLogoUrl` ヘルパーを追加します。
+
+- **インメモリキャッシュ**: `getDownloadURL` のAPI呼び出しによる遅延を防ぐため、一度取得したURLをインメモリキャッシュ（`snsLogoCache: Record<string, string>`）に保持し、2回目以降はキャッシュから即時に返却します。
+- **Storageパス**:
+  - `youtube` -> `assets/logos/youtube.png`
+  - `x` -> `assets/logos/x.png`
+  - `instagram` -> `assets/logos/instagram.png`
+  - `tiktok` -> `assets/logos/tiktok.png`
+
+### 5. システムフロー
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as profile-edit-client
+    participant API as updateUserProfile / updateProfile
+    participant Val as validateProfileData
+    participant DB as Firestore (users)
+
+    UI->>API: updateProfile(uid, { displayName, bio, snsLinks })
+    API->>Val: validateProfileData({ displayName, bio, snsLinks })
+    alt バリデーション失敗 (形式またはドメイン不一致)
+        Val-->>API: ProfileValidationError[]
+        API-->>UI: エラー返却・更新中断
+    else バリデーション成功
+        Val-->>API: エラーなし
+        API->>DB: userドキュメント更新 (snsLinks オブジェクトをセット)
+        DB-->>API: 成功
+        API-->>UI: 完了
+    end
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as profile-client
+    participant Svc as storage.ts (getSnsLogoUrl)
+    participant Cache as snsLogoCache
+    participant Store as Firebase Storage
+
+    UI->>Svc: getSnsLogoUrl('youtube')
+    Svc->>Cache: キャッシュ存在確認
+    alt キャッシュあり
+        Cache-->>Svc: url
+        Svc-->>UI: url
+    else キャッシュなし
+        Svc->>Store: getDownloadURL(ref(storage, 'assets/logos/youtube.png'))
+        Store-->>Svc: url
+        Svc->>Cache: キャッシュに保存
+        Svc-->>UI: url
+    end
+```
+
+### 6. File Structure Plan（Phase 30）
+
+| ファイル | 操作 | 責務 |
+|----------|------|------|
+| `src/types/index.ts` | Modify | `User` インターフェースへの `snsLinks` オブジェクト定義の追加 |
+| `src/services/user.ts` | Modify | `UpdateProfileData` の拡張、`validateProfileData` でのドメイン検証、および `updateProfile` への統合 |
+| `src/services/storage.ts` | Modify | `getSnsLogoUrl` ヘルパー（インメモリキャッシュ付き）の追加 |
+
+### 7. Requirements Traceability（Phase 30）
+
+| Req | Summary | Component |
+|-----|---------|-----------|
+| 1.7 | SNSリンク正規ドメイン検証 | `validateProfileData` 内ドメイン正規表現チェック |
+| 1.8 | バリデーションエラー処理 | `validateProfileData` および `updateProfile` エラー返却 |
+| 1.9 | `snsLinks` マップ保存 | `updateProfile` トランザクション / Firestore保存 |
+| 1.10 | StorageロゴURL取得 | `storage.ts` の `getSnsLogoUrl` |
+
+### 8. Testing Strategy（Phase 30）
+
+| 種別 | 検証 |
+|------|------|
+| **Unit** | `validateProfileData` — 正規ドメイン（youtube.com, x.com, twitter.com, instagram.com, tiktok.com）のURLが正しくパスすること |
+| **Unit** | `validateProfileData` — 不正なドメインのURL（例: google.com, x.com.attacker.com）や、非URL形式が適切に弾かれ、`ProfileValidationError` を返すこと |
+| **Unit** | `getSnsLogoUrl` — 指定されたSNS名に対して、Storageアセットパス（assets/logos/）の正しい `getDownloadURL` を呼び出すこと |
+| **Unit** | `getSnsLogoUrl` — 2回目以降の呼び出しにおいて、`getDownloadURL` APIを呼び出すことなくキャッシュから同一URLを即時返却すること |
+
+**Effort**: **S** (既に十分に型やサービス層が整備されている既存コンポーネントへの小規模な機能追加)
+**Risk**: **Low** (既存フローへの影響はなく、純粋な追加と入力バリデーションで完結するため)
+
+**Document Status（Phase 30 設計）**: 本節に反映。
 

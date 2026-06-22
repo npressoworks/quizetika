@@ -1050,3 +1050,53 @@ src/app/api/webhooks/stripe/           — Missing
 
 **Document Status（Phase 27 設計）**: `design.md` Phase 27 節に反映済。
 
+---
+
+## Phase 30: プロフィールSNSリンク登録・表示機能（2026-06-21 ギャップ分析）
+
+### 1. 現状のコードベース調査 (Current State Investigation)
+* **関連資産と配置**:
+  * [src/types/index.ts](file:///d:/quizeum/src/types/index.ts): `User` 型定義。現在 `snsLinks` フィールドは存在しない。
+  * [src/services/user.ts](file:///d:/quizeum/src/services/user.ts): プロフィール情報更新API（`updateProfile`）および検証ロジック（`validateProfileData`）が実装されている。
+  * [src/services/storage.ts](file:///d:/quizeum/src/services/storage.ts): Firebase Storage上のファイルアップロード・削除処理が配置されている。現在、アセットロゴの取得用ヘルパーは存在しない。
+* **データモデルとAPI連携**:
+  * Firestore `users` コレクションの各ドキュメントが `User` 型に対応している。
+  * `firestore.rules` において、`isOwner(userId)` の場合は特権情報の変更（`moderationTier`, `reputationScore`, `deleteStatus`）や課金関連以外のフィールド更新は特段制限されていないため、`snsLinks` フィールドの書き込みは可能。
+
+### 2. 要件の実現可能性分析 (Requirements Feasibility Analysis)
+* **技術的ニーズ**:
+  * **データモデル**: `User` インターフェースに `snsLinks` オブジェクト（`youtube?: string; x?: string; instagram?: string; tiktok?: string;`）を追加。
+  * **バリデーションロジック**: `validateProfileData` 関数を拡張し、送信された各SNSの値が有効なURLであること、またそれぞれの正規ドメイン（`youtube.com`, `x.com`, `twitter.com`, `instagram.com`, `tiktok.com`）に合致することを検証する。
+  * **Storage画像URL取得**: Storage内の `assets/logos/{snsName}.png` から `getDownloadURL` でダウンロードURLを取得するユーティリティ関数を `storage.ts` に追加。
+* **ギャップと制約 (Gaps & Constraints)**:
+  * **MIME制限**: `storage.rules` で `request.resource.contentType.matches('image/(png|jpeg|gif)')` のみが許可されており、SVGは禁止されているため、SNSのロゴ画像は `png` 等の形式で事前にアップロードされている必要がある（アップロード時の拡張子とパスの固定が必要）。
+  * **ダウンロードURLの非同期取得**: クライアント側で都度 `getDownloadURL` を呼ぶと遅延が発生する可能性があるため、UIレンダリングに影響を及ぼさない形でURLを取得・保持する設計が必要。
+
+### 3. 実装アプローチのオプション (Implementation Options)
+#### Option A: 既存機能の拡張 (Extend Existing Components) - 推奨
+* **対象モジュール**: `src/types/index.ts`、`src/services/user.ts`、`src/services/storage.ts`
+* **メリット**: 
+  * 既存のプロフィール更新フロー（`updateProfile`）とアセット管理（`storage.ts`）に直接ロジックを追加するため、不要なコードの重複が発生しない。
+  * Firebase Security Rules の変更が不要。
+* **デメリット**:
+  * プロフィール検証ロジック（`validateProfileData`）が若干複雑化するが、標準的なヘルパーで対応可能。
+
+#### Option B: 新規モジュールの作成 (Create New Components)
+* **対象モジュール**: `src/services/sns.ts` を新設し、SNS関連のバリデーションやStorageからのロゴURL取得を一元管理。
+* **メリット**: SNSリンク機能の関心の分離が明確になる。
+* **デメリット**: 既存の `updateProfile` 内で結局インポートして連携する必要があり、ファイル数が増えるだけで結合度が低くならない。
+
+#### **比較まとめ**:
+Option A（既存機能の拡張）が最も一貫性があり、無駄のない実装となります。
+
+### 4. 開発見積もりとリスク (Complexity & Risk)
+* **開発規模 (Effort)**: S (1〜2日程度)
+  * データ型の追加、バリデーションの実装、Storageヘルパーの実装、単体テストの追加。
+* **リスク (Risk)**: Low
+  * 既存のデータ構造やフローへの破壊的変更はなく、機能の単純な拡張に留まる。
+
+### 5. 設計フェーズに向けた推奨事項 (Recommendations)
+* `src/services/storage.ts` に各SNS名から `assets/logos/` 配下のロゴURLを取得する `getSnsLogoUrl(snsName: string)` 関数を実装する。
+* 各SNSのURLドメイン検証用に、正規表現（例: `^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.*$` など）を定義し、堅牢にバリデーションを行う。
+
+

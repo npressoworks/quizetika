@@ -108,7 +108,7 @@ export async function getSnsLogoUrl(snsName: string): Promise<string> {
     return snsLogoCache[name];
   }
 
-  const logoPath = `assets/logos/${name}.png`;
+  const logoPath = `/sns-logos/${name}.png`;
   const logoRef = ref(storage, logoPath);
   const url = await getDownloadURL(logoRef);
   snsLogoCache[name] = url;
