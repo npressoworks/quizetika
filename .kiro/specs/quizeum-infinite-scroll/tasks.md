@@ -8,7 +8,7 @@
   - _Requirements: 2.1, 2.2_
   - _Boundary: quiz-feed-cursor_
 
-- [/] 2. Core: データロードAPIと共通スクロールローダーコンポーネントの実装
+- [x] 2. Core: データロードAPIと共通スクロールローダーコンポーネントの実装
 - [x] 2.1 (P) 作者クイズ段階取得サービス関数の実装
   - `getQuizzesByAuthorPage` を `src/services/quiz.ts` に実装する
   - `authorId`、`limit`、`cursor`、`includeUnpublished` をオプションとして受け取る
@@ -18,7 +18,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.5_
   - _Boundary: quiz-service_
 
-- [ ] 2.2 (P) 共通ハイブリッド無限スクロールローダーコンポーネントの構築
+- [x] 2.2 (P) 共通ハイブリッド無限スクロールローダーコンポーネントの構築
   - `InfiniteScrollLoader` コンポーネントを `src/components/ui/infinite-scroll-loader.tsx` に新設する
   - 内部ステートとして `isInfinite` (無限スクロール有効フラグ) を持ち、初期状態は `false` とする
   - 初期状態（`isInfinite === false`）の時は「もっと見る」ボタンをレンダリングし、クリック時に `onLoadMore()` を呼び出して自動無限スクロールモード（`isInfinite = true`）に移行する
