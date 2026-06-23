@@ -50,4 +50,4 @@ next-env.d.ts
 .env.local
 
 /assets
-/firebase-export
+/firebase-export*
