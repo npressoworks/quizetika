@@ -115,8 +115,18 @@ export default async function globalSetup() {
       { merge: true }
     );
 
-  // 広告テスト用のダミークイズを12件シード
-  for (let i = 1; i <= 12; i++) {
+  // 広告テスト用のダミークイズを25件シード（既存データは事前に削除）
+  // 前回のテスト実行でデータが蓄積しないよう e2e-ad-test-quiz-* を事前削除
+  const existingQuizSnap = await db.collection('quizzes')
+    .where('authorId', '==', e2eUid)
+    .get();
+  const deletePromises = existingQuizSnap.docs.map(doc => doc.ref.delete());
+  if (deletePromises.length > 0) {
+    await Promise.all(deletePromises);
+    console.log(`[global-setup] 既存E2Eクイズを${deletePromises.length}件削除しました。`);
+  }
+
+  for (let i = 1; i <= 25; i++) {
     const qid = `e2e-ad-test-quiz-${i}`;
     await db.collection('quizzes').doc(qid).set({
       id: qid,

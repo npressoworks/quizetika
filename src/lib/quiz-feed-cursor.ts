@@ -74,6 +74,11 @@ export function decodeQuizFeedCursor(
     !decoded.quizId ||
     typeof decoded.sortKey !== 'number'
   ) {
+    console.error('[decodeQuizFeedCursor] Validation failed:', {
+      cursor,
+      expectedKind,
+      decoded,
+    });
     throw new QuizFeedCursorError('Invalid cursor');
   }
   return decoded;

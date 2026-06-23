@@ -19,26 +19,28 @@ import { detailClasses as styles } from './detail-classes';
 import { getQuiz } from '@/services/quiz';
 
 interface QuizDetailClientProps {
-  quizId: string;
+  quizId?: string;
+  quiz?: Quiz;
 }
 
-export function QuizDetailClient({ quizId }: QuizDetailClientProps) {
+export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { genres: activeGenres } = useActiveGenres();
   const { playedQuizIds, loading: playedStatusLoading } = usePlayedQuizIds(user?.id);
 
-  const [quiz, setQuiz] = useState<Quiz | null>(null);
-  const [quizLoading, setQuizLoading] = useState<boolean>(true);
+  const [quiz, setQuiz] = useState<Quiz | null>(quizProp ?? null);
+  const [quizLoading, setQuizLoading] = useState<boolean>(!quizProp);
   const [bookmarked, setBookmarked] = useState<boolean>(false);
   const [selectedMode, setSelectedMode] = useState<'normal' | 'exam' | 'flashcard'>('normal');
   const [bookmarkLoading, setBookmarkLoading] = useState<boolean>(false);
 
-  // クライアントサイドでクイズをロード
+  // クライアントサイドでクイズをロード（quizプロップスがない場合のみ）
   useEffect(() => {
+    if (quizProp) return;
     async function loadQuiz() {
       try {
-        const data = await getQuiz(quizId);
+        const data = await getQuiz(quizId!);
         setQuiz(data);
       } catch (e) {
         console.error('[QuizDetailClient] ロード失敗:', e);
@@ -47,7 +49,7 @@ export function QuizDetailClient({ quizId }: QuizDetailClientProps) {
       }
     }
     loadQuiz();
-  }, [quizId]);
+  }, [quizId, quizProp]);
 
   // クイックプレイでのブックマーク状態の初期取得
   useEffect(() => {

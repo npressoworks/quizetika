@@ -725,11 +725,13 @@ function orderFieldForTabKind(kind: QuizFeedTabKind): QuizFeedOrderField {
 function quizSortKeyValue(quiz: Quiz, field: QuizFeedOrderField): number {
   if (field === 'createdAt') {
     const d = quiz.createdAt;
+    if (!d) return Date.now();
     if (d instanceof Date) return d.getTime();
     if (typeof d === 'object' && d !== null && 'seconds' in d) {
       return (d as { seconds: number }).seconds * 1000;
     }
-    return new Date(d as unknown as string).getTime();
+    const ms = new Date(d as unknown as string).getTime();
+    return isNaN(ms) ? Date.now() : ms;
   }
   if (field === 'playCount') return quiz.playCount ?? 0;
   return quiz.bookmarksCount ?? 0;
