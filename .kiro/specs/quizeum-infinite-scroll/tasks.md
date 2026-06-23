@@ -28,8 +28,8 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
   - _Boundary: UI Components_
 
-- [ ] 3. Integration: 各画面への統合とインライン広告挿入
-- [ ] 3.1 検索画面へのハイブリッド無限スクロール統合
+- [/] 3. Integration: 各画面への統合とインライン広告挿入
+- [x] 3.1 検索画面へのハイブリッド無限スクロール統合
   - `src/app/search/search-client.tsx` を修正し、従来の自動無限スクロール監視 `loadMoreSentinelRef` の直接埋め込みを廃止する
   - 検索一覧 of クイズの最下部に `InfiniteScrollLoader` コンポーネントを組み込み、ロード中プレースホルダー（`GridSkeleton`）を統合する
   - 検索画面を開いた時、最初はスクロールしても自動ロードされず、「もっと見る」ボタンをクリックした後に自動スクロールロードされることをブラウザで確認する

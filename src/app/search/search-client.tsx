@@ -7,7 +7,7 @@ import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { useActiveTags } from '@/hooks/useActiveTags';
 import { useExploreQuizFeed } from '@/hooks/useExploreQuizFeed';
-import { useIntersectionLoadMore } from '@/hooks/useIntersectionLoadMore';
+import { InfiniteScrollLoader } from '@/components/ui/infinite-scroll-loader';
 import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
 import { useSearchUrlState } from '@/hooks/useSearchUrlState';
 import { ExploreSearchSection } from '@/components/explore/explore-search-section';
@@ -131,10 +131,6 @@ export function SearchClient({
     [quizzes, playStatus, playedQuizIds]
   );
 
-  const loadMoreSentinelRef = useIntersectionLoadMore({
-    onIntersect: loadMore,
-    enabled: hasMore && !feedLoading && !loadingMore,
-  });
 
   const autoLoadGuardRef = useRef<string | null>(null);
 
@@ -302,14 +298,11 @@ export function SearchClient({
                 return acc;
               }, [])}
             </div>
-            {loadingMore && (
-              <GridSkeleton data-testid="search-feed-load-more" />
-            )}
-            <div
-              ref={loadMoreSentinelRef}
-              data-testid="search-feed-load-more-sentinel"
-              aria-hidden
-              className="h-px"
+            <InfiniteScrollLoader
+              hasMore={hasMore}
+              loading={loadingMore}
+              onLoadMore={loadMore}
+              testIdPrefix="search-feed"
             />
           </>
         )}
