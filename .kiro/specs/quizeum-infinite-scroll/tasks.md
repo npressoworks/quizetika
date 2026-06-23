@@ -28,7 +28,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
   - _Boundary: UI Components_
 
-- [/] 3. Integration: 各画面への統合とインライン広告挿入
+- [x] 3. Integration: 各画面への統合とインライン広告挿入
 - [x] 3.1 検索画面へのハイブリッド無限スクロール統合
   - `src/app/search/search-client.tsx` を修正し、従来の自動無限スクロール監視 `loadMoreSentinelRef` の直接埋め込みを廃止する
   - 検索一覧 of クイズの最下部に `InfiniteScrollLoader` コンポーネントを組み込み、ロード中プレースホルダー（`GridSkeleton`）を統合する
@@ -37,7 +37,7 @@
   - _Depends: 2.2_
   - _Boundary: search-client_
 
-- [ ] 3.2 プロフィール画面用クイズパネルコンポーネントの実装と統合
+- [x] 3.2 プロフィール画面用クイズパネルコンポーネントの実装と統合
   - プロフィール画面用のクイズ表示パネル `ProfileQuizzesPanel` を `src/components/profile/profile-quizzes-panel.tsx` に新設する
   - `searchQuery`（検索語）が空の時は `getQuizzesByAuthorPage` による段階取得と `InfiniteScrollLoader` によるハイブリッドスクロールを行う
   - `searchQuery` が入力された時は `getQuizzesByAuthor` を使って一括取得（最大200件）し、メモリ上でフィルタした分を20件ずつ切り出して表示する

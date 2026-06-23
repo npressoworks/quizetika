@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ProfileClient } from '@/app/profile/[uid]/profile-client';
-import { getQuizzesByAuthor } from '@/services/quiz';
+import { getQuizzesByAuthor, getQuizzesByAuthorPage } from '@/services/quiz';
 import { getBookmarkedQuizIds, toggleBookmark } from '@/services/bookmark';
 
 const mockPush = jest.fn();
@@ -40,6 +40,7 @@ jest.mock('@/services/user', () => ({
 
 jest.mock('@/services/quiz', () => ({
   getQuizzesByAuthor: jest.fn(),
+  getQuizzesByAuthorPage: jest.fn(),
 }));
 
 jest.mock('@/services/bookmark', () => ({
@@ -51,7 +52,15 @@ jest.mock('@/services/storage', () => ({
   getSnsLogoUrl: jest.fn().mockResolvedValue(''),
 }));
 
-const mockQuizzes = Array.from({ length: 12 }, (_, i) => ({
+// 共通UI用の IntersectionObserver の簡易モック
+class IntersectionObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.IntersectionObserver = IntersectionObserverMock as any;
+
+const mockQuizzes = Array.from({ length: 25 }, (_, i) => ({
   id: `quiz-${i + 1}`,
   authorId: 'user-1',
   authorName: 'テストユーザー',
@@ -69,7 +78,7 @@ const mockQuizzes = Array.from({ length: 12 }, (_, i) => ({
   questionIds: [],
 }));
 
-describe('ProfileClient - Created Quizzes Search & Pagination with Common QuizCard', () => {
+describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = jest.fn();
   });
@@ -77,10 +86,29 @@ describe('ProfileClient - Created Quizzes Search & Pagination with Common QuizCa
   beforeEach(() => {
     jest.clearAllMocks();
     (getQuizzesByAuthor as jest.Mock).mockResolvedValue(mockQuizzes);
+    (getQuizzesByAuthorPage as jest.Mock).mockImplementation((authorId, options = {}) => {
+      const limit = options.limit ?? 20;
+      const cursor = options.cursor;
+      
+      let items = mockQuizzes;
+      if (cursor) {
+        // 簡易カーソルシミュレーション (1つ前の最後のIDの次から limit 件数分ロード)
+        const lastId = cursor.replace('cursor-', '');
+        const index = mockQuizzes.findIndex(q => q.id === lastId);
+        items = mockQuizzes.slice(index + 1);
+      }
+      
+      const pageItems = items.slice(0, limit);
+      const hasMore = items.length > limit;
+      return Promise.resolve({
+        items: pageItems,
+        nextCursor: hasMore ? `cursor-${pageItems[pageItems.length - 1].id}` : null,
+      });
+    });
     (getBookmarkedQuizIds as jest.Mock).mockResolvedValue(['quiz-1']);
   });
 
-  it('検索入力欄とページングUIが表示されること', async () => {
+  it('検索入力欄と「もっと見る」ボタンが表示されること', async () => {
     render(<ProfileClient />);
     
     // 非同期のデータロードを待つ
@@ -92,12 +120,12 @@ describe('ProfileClient - Created Quizzes Search & Pagination with Common QuizCa
     const searchInput = screen.getByTestId('profile-quiz-search-input');
     expect(searchInput).toBeInTheDocument();
 
-    // ページングUIが存在すること
-    const pagination = screen.getByTestId('profile-quiz-pagination');
-    expect(pagination).toBeInTheDocument();
+    // 25件あるので、初期20件ロードされた状態になり、「もっと見る」ボタンが存在すること
+    const loadMoreButton = screen.getByTestId('profile-feed-load-more-button');
+    expect(loadMoreButton).toBeInTheDocument();
   });
 
-  it('検索キーワードによってクイズがフィルタリングされ、ページが1ページ目にリセットされること', async () => {
+  it('検索キーワードによってクイズがフィルタリングされ、一括フェッチからインメモリ表示されること', async () => {
     render(<ProfileClient />);
     
     await waitFor(() => {
@@ -106,44 +134,51 @@ describe('ProfileClient - Created Quizzes Search & Pagination with Common QuizCa
 
     const searchInput = screen.getByTestId('profile-quiz-search-input');
 
-    // 「history」というキーワードで検索（モックデータのジャンルID）
+    // 「history」というキーワードで検索
     fireEvent.change(searchInput, { target: { value: 'history' } });
+
+    // 一括フェッチ getQuizzesByAuthor が呼ばれることを確認
+    await waitFor(() => {
+      expect(getQuizzesByAuthor).toHaveBeenCalledWith('user-1', true);
+    });
 
     // 「history」ジャンルのクイズのみ表示されていることを確認
     // 奇数インデックス（偶数番号）が history
-    expect(screen.getByText('クイズタイトル 2')).toBeInTheDocument();
-    expect(screen.queryByText('クイズタイトル 1')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('クイズタイトル 2')).toBeInTheDocument();
+      expect(screen.queryByText('クイズタイトル 1')).not.toBeInTheDocument();
+    });
   });
 
-  it('クイズが10件以上ある場合、1ページ目には9件のみ表示され、ページングが制御されること', async () => {
+  it('初期20件が表示され、「もっと見る」をクリックすると追加の 5件が表示されること', async () => {
     render(<ProfileClient />);
 
     await waitFor(() => {
       expect(screen.getByText('クイズタイトル 1')).toBeInTheDocument();
     });
 
-    // 1ページ目には最大9件表示されているはず（クイズ1〜9）
+    // 1ページ目には最大20件表示されているはず（クイズ1〜20）
     expect(screen.getByText('クイズタイトル 1')).toBeInTheDocument();
-    expect(screen.getByText('クイズタイトル 9')).toBeInTheDocument();
-    expect(screen.queryByText('クイズタイトル 10')).not.toBeInTheDocument();
+    expect(screen.getByText('クイズタイトル 20')).toBeInTheDocument();
+    expect(screen.queryByText('クイズタイトル 21')).not.toBeInTheDocument();
 
-    // 「前へ」ボタンが非活性、かつ「次へ」ボタンが活性状態であることを確認
-    const prevButton = screen.getByRole('button', { name: /前へ/i });
-    const nextButton = screen.getByRole('button', { name: /次へ/i });
-    expect(prevButton).toBeDisabled();
-    expect(nextButton).not.toBeDisabled();
+    // 「もっと見る」ボタンが存在することを確認
+    const loadMoreButton = screen.getByTestId('profile-feed-load-more-button');
+    expect(loadMoreButton).toBeInTheDocument();
 
-    // 「次へ」をクリックして2ページ目に遷移
-    fireEvent.click(nextButton);
+    // 「もっと見る」をクリックして追加取得
+    await act(async () => {
+      fireEvent.click(loadMoreButton);
+    });
 
-    // 2ページ目のクイズ（10〜12）が表示されること
-    expect(screen.getByText('クイズタイトル 10')).toBeInTheDocument();
-    expect(screen.getByText('クイズタイトル 12')).toBeInTheDocument();
-    expect(screen.queryByText('クイズタイトル 1')).not.toBeInTheDocument();
+    // 2ページ目のクイズ（21〜25）が表示されること
+    await waitFor(() => {
+      expect(screen.getByText('クイズタイトル 21')).toBeInTheDocument();
+      expect(screen.getByText('クイズタイトル 25')).toBeInTheDocument();
+    });
 
-    // 2ページ目（最終ページ）なので、「次へ」が非活性、「前へ」が活性状態であること
-    expect(prevButton).not.toBeDisabled();
-    expect(nextButton).toBeDisabled();
+    // 全て読み込み終わったので「もっと見る」ボタンが非表示になること
+    expect(screen.queryByTestId('profile-feed-load-more-button')).not.toBeInTheDocument();
   });
 
   it('ブックマークの切り替えができること', async () => {
@@ -156,7 +191,7 @@ describe('ProfileClient - Created Quizzes Search & Pagination with Common QuizCa
 
     // 共通QuizCard内のブックマークボタンを取得 (1つ目のクイズ用)
     const bookmarkButtons = screen.getAllByTestId('quiz-card-bookmark-btn');
-    expect(bookmarkButtons).toHaveLength(9); // 1ページ目に9つのカードがあるため
+    expect(bookmarkButtons).toHaveLength(20); // 1ページ目に20のカードがあるため
 
     await act(async () => {
       fireEvent.click(bookmarkButtons[0]);

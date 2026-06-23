@@ -10,7 +10,7 @@ import {
   unfollowUser,
   isFollowing
 } from '@/services/user';
-import { getQuizzesByAuthor } from '@/services/quiz';
+import { ProfileQuizzesPanel } from '@/components/profile/profile-quizzes-panel';
 import { QuizCard } from '@/components/quiz/quiz-card';
 import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
 import { getSnsLogoUrl } from '@/services/storage';
@@ -88,7 +88,7 @@ export function ProfileClient() {
   const router = useRouter();
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzesCount, setQuizzesCount] = useState(0);
   const [followingState, setFollowingState] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileContentTab>('quizzes');
   const [loading, setLoading] = useState(true);
@@ -96,11 +96,7 @@ export function ProfileClient() {
   const [isDeletedPending, setIsDeletedPending] = useState(false);
   const [snsLogoUrls, setSnsLogoUrls] = useState<Record<string, string>>({});
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
-
-  const ITEMS_PER_PAGE = 9;
 
   useEffect(() => {
     async function loadBookmarks() {
@@ -140,33 +136,6 @@ export function ProfileClient() {
   const handleCardClick = (quizId: string) => {
     router.push(`/quiz/${quizId}`);
   };
-
-  const filteredQuizzes = quizzes.filter(quiz => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase().trim();
-    return (
-      quiz.title.toLowerCase().includes(q) ||
-      (quiz.description || '').toLowerCase().includes(q) ||
-      quiz.genre.toLowerCase().includes(q) ||
-      quiz.tags.some(tag => tag.toLowerCase().includes(q))
-    );
-  });
-
-  const totalPages = Math.ceil(filteredQuizzes.length / ITEMS_PER_PAGE);
-
-  const paginatedQuizzes = filteredQuizzes.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    const element = document.getElementById('profile-quizzes-container');
-    if (element && typeof element.scrollIntoView === 'function') {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   const isMyProfile = currentUser?.id === uid;
 
   useEffect(() => {
@@ -187,9 +156,6 @@ export function ProfileClient() {
         }
 
         setProfileUser(userData);
-
-        const quizzesResult = await getQuizzesByAuthor(uid, isMyProfile);
-        setQuizzes(quizzesResult);
 
         if (currentUser && !isMyProfile) {
           const following = await isFollowing(currentUser.id, uid);
@@ -442,7 +408,7 @@ export function ProfileClient() {
             <TabsList className="mb-6">
               <TabsTrigger value="quizzes" className="gap-2">
                 <GridViewOutlined sx={{ fontSize: 18 }} />
-                作成したクイズ ({quizzes.length})
+                作成したクイズ ({quizzesCount})
               </TabsTrigger>
               {isMyProfile && (
                 <TabsTrigger value="history" className="gap-2" data-testid="profile-tab-history">
@@ -457,86 +423,14 @@ export function ProfileClient() {
             </TabsContent>
 
             <TabsContent value="quizzes">
-              {quizzes.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground">
-                  作成したクイズはまだありません。
-                </div>
-              ) : (
-                <div id="profile-quizzes-container" className="flex flex-col gap-6">
-                  {/* 検索入力欄 */}
-                  <div className="max-w-md">
-                    <Input
-                      type="text"
-                      placeholder="クイズを検索（タイトル、説明、ジャンル、タグ）"
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      data-testid="profile-quiz-search-input"
-                      className="w-full"
-                    />
-                  </div>
-
-                  {filteredQuizzes.length === 0 ? (
-                    <div className="py-12 text-center text-muted-foreground">
-                      該当するクイズが見つかりませんでした。
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
-                        {paginatedQuizzes.map((quiz) => (
-                          <QuizCard
-                            key={quiz.id}
-                            quiz={quiz}
-                            isBookmarked={bookmarkedIds.has(quiz.id)}
-                            onBookmarkToggle={handleBookmarkToggle}
-                            onPlayClick={handleCardClick}
-                          />
-                        ))}
-                      </div>
-
-                      {/* ページングUI (フィルタ後の件数が1ページの上限を超える場合のみ表示) */}
-                      {filteredQuizzes.length > ITEMS_PER_PAGE && (
-                        <div
-                          data-testid="profile-quiz-pagination"
-                          className="flex items-center justify-center gap-2 mt-4"
-                        >
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                          >
-                            前へ
-                          </Button>
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                              <Button
-                                key={page}
-                                variant={currentPage === page ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => handlePageChange(page)}
-                                className="size-8 p-0"
-                              >
-                                {page}
-                              </Button>
-                            ))}
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                          >
-                            次へ
-                          </Button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
+              <ProfileQuizzesPanel
+                authorId={uid}
+                isMyProfile={isMyProfile}
+                bookmarkedIds={bookmarkedIds}
+                onBookmarkToggle={handleBookmarkToggle}
+                onPlayClick={handleCardClick}
+                onQuizzesCountChange={setQuizzesCount}
+              />
             </TabsContent>
 
           </Tabs>
