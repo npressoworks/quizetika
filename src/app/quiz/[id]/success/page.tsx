@@ -5,6 +5,8 @@ import { SuccessClient } from './success-client';
 import { WarningAmberOutlined } from '@mui/icons-material';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 interface SuccessPageProps {
   params: Promise<{
     id: string;
@@ -30,35 +32,7 @@ export async function generateMetadata({ params }: SuccessPageProps): Promise<Me
  */
 export default async function QuizSuccessPage({ params }: SuccessPageProps) {
   const { id } = await params;
-  const quiz = await getQuiz(id);
 
-  // 対象のクイズが見つからなかった場合のエラー表示
-  if (!quiz) {
-    return (
-      <div style={{ maxWidth: '600px', margin: '80px auto', padding: '0 20px', textAlign: 'center' }}>
-        <div style={{
-          background: 'var(--glass-bg)',
-          backdropFilter: 'var(--glass-blur)',
-          border: 'var(--glass-border)',
-          boxShadow: 'var(--glass-shadow)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '40px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: 'var(--color-danger)' }}>
-            <WarningAmberOutlined sx={{ fontSize: 48 }} />
-          </div>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '12px' }}>クイズが見つかりません</h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '30px' }}>
-            指定されたIDのクイズ情報が取得できないか、削除された可能性があります。
-          </p>
-          <Link href="/creator/dashboard" className="btn btn-primary" style={{ width: '100%' }}>
-            ダッシュボードに戻る
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // クイズ情報をクライアントコンポーネントへ引き継ぐ
-  return <SuccessClient quiz={quiz} />;
+  // クイズ情報をクライアントコンポーネントへ引き継ぎ、クライアント側で取得させる
+  return <SuccessClient quizId={id} />;
 }

@@ -4,6 +4,8 @@ import { getTextInputFieldProps } from '@/services/text-answer-utils';
 import React, { useCallback, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { getQuiz } from '@/services/quiz';
+import { obfuscateQuickPressQuestions } from '@/lib/quick-press-obfuscate';
 import { ArrowBackOutlined, TimerOutlined, HelpOutlineOutlined, SendOutlined, PlayArrowOutlined, CheckOutlined, CloseOutlined, SecurityOutlined } from '@mui/icons-material';
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { useAuth } from '@/context/auth-context';
@@ -35,16 +37,44 @@ import { useElapsedSeconds } from '@/hooks/useElapsedSeconds';
 import { formatPlayElapsedSeconds } from '@/lib/format-play-elapsed';
 import { hasUnlimitedAiQuestionsForUser } from '@/lib/pricing-entitlement';
 import { FREE_TIER_PER_QUIZ_LIMIT } from '@/services/ask-ai-utils';
+import { useAds } from '@/hooks/useAds';
+import { VideoAdModal } from '@/components/ads/video-ad-modal';
 
-interface QuizPlayClientProps {
+export interface QuizPlayClientProps {
   quizId: string;
-  initialQuiz: Quiz;
+  initialQuiz?: Quiz;
 }
 
 function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+
+  // 広告制御用のフックとステート
+  const { shouldShowVideoAd } = useAds();
+  const [showVideoAdModal, setShowVideoAdModal] = useState<boolean>(false);
+  const showVideoAdModalRef = useRef(false);
+  useEffect(() => {
+    showVideoAdModalRef.current = showVideoAdModal;
+  }, [showVideoAdModal]);
+  const [pendingTransition, setPendingTransition] = useState<(() => void) | null>(null);
+
+  const triggerResultTransition = useCallback((transitionFn: () => void) => {
+    if (shouldShowVideoAd()) {
+      setPendingTransition(() => transitionFn);
+      setShowVideoAdModal(true);
+    } else {
+      transitionFn();
+    }
+  }, [shouldShowVideoAd]);
+
+  const handleAdComplete = useCallback(() => {
+    setShowVideoAdModal(false);
+    if (pendingTransition) {
+      pendingTransition();
+      setPendingTransition(null);
+    }
+  }, [pendingTransition]);
 
   const rawMode = searchParams.get('mode') || 'normal';
   const myQuizMode = rawMode === 'my-quiz';
@@ -169,18 +199,23 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   useEffect(() => {
     const q = playQuestions[currentIdx];
     if (!isNormalFeedbackFlow || q?.type !== 'quick-press') {
-      setElapsedPolicy({ kind: 'standard' });
+      setElapsedPolicy((prev) => prev.kind === 'standard' ? prev : { kind: 'standard' });
       return;
     }
-    if (feedbackPending) {
-      setElapsedPolicy({ kind: 'quick-press', phase: 'feedback' });
-    } else if (!isReadingStarted) {
-      setElapsedPolicy({ kind: 'quick-press', phase: 'pre_reading' });
-    } else if (isQuickPressed) {
-      setElapsedPolicy({ kind: 'quick-press', phase: 'post_reading' });
-    } else {
-      setElapsedPolicy({ kind: 'quick-press', phase: 'reading' });
-    }
+    const targetPhase = feedbackPending
+      ? 'feedback'
+      : !isReadingStarted
+      ? 'pre_reading'
+      : isQuickPressed
+      ? 'post_reading'
+      : 'reading';
+
+    setElapsedPolicy((prev) => {
+      if (prev.kind === 'quick-press' && prev.phase === targetPhase) {
+        return prev;
+      }
+      return { kind: 'quick-press', phase: targetPhase };
+    });
   }, [
     currentIdx,
     isReadingStarted,
@@ -288,7 +323,9 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     addPendingSyncAttempt(pendingPayload);
     persistAuxiliaryAttemptData(resolvedLocalId);
 
-    router.push(`/quiz/${quiz.id}/result?localId=${resolvedLocalId}`);
+    triggerResultTransition(() => {
+      router.push(`/quiz/${quiz.id}/result?localId=${resolvedLocalId}`);
+    });
   };
 
   const handlePlayComplete = async (finalScore = score, finalFailed = failedIds) => {
@@ -305,7 +342,9 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         }
         persistAuxiliaryAttemptData(attemptId);
 
-        router.push(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
+        triggerResultTransition(() => {
+          router.push(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
+        });
       } catch (error) {
         console.error('[QuizPlay] 保存失敗:', error);
         saveOffline(attemptData);
@@ -332,7 +371,9 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     setOptimisticAttempt(localId, pendingPayload);
     persistAuxiliaryAttemptData(localId);
 
-    router.push(`/quiz/${quiz.id}/result?localId=${localId}`);
+    triggerResultTransition(() => {
+      router.push(`/quiz/${quiz.id}/result?localId=${localId}`);
+    });
 
     if (online) {
       void (async () => {
@@ -343,7 +384,14 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           }
           migrateAuxiliaryAttemptData(localId, attemptId);
           clearOptimisticAttempt(localId);
-          router.replace(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
+
+          if (showVideoAdModalRef.current) {
+            setPendingTransition(() => () => {
+              router.push(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
+            });
+          } else {
+            router.replace(`/quiz/${quiz.id}/result?attemptId=${attemptId}`);
+          }
         } catch (error) {
           console.error('[QuizPlay] バックグラウンド保存失敗:', error);
           addPendingSyncAttempt(pendingPayload);
@@ -484,7 +532,9 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
         setTruthPassed(true);
         // クリアアニメーション後、結果画面へ遷移
         setTimeout(() => {
-          router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`);
+          triggerResultTransition(() => {
+            router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`);
+          });
         }, 3000);
       } else {
         setTruthAdvice(data.advice || null);
@@ -760,7 +810,9 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                   type="button"
                   className="btn btn-primary"
                   onClick={() =>
-                    router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`)
+                    triggerResultTransition(() => {
+                      router.push(`/quiz/${quiz?.id}/result?attemptId=${lateralAttemptId}`);
+                    })
                   }
                   data-analytics="quiz-lateral-give-up-result"
                 >
@@ -1380,14 +1432,54 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           </div>
         </div>
       )}
+
+      {/* 動画広告モーダル */}
+      <VideoAdModal isOpen={showVideoAdModal} onComplete={handleAdComplete} />
     </div>
   );
 }
 
-export function QuizPlayClientBoundary(props: QuizPlayClientProps) {
+export function QuizPlayClientBoundary({ quizId, initialQuiz }: QuizPlayClientProps) {
+  const [quiz, setQuiz] = useState<Quiz | null>(initialQuiz || null);
+  const [loading, setLoading] = useState<boolean>(!initialQuiz);
+
+  useEffect(() => {
+    if (initialQuiz) return;
+
+    async function loadQuiz() {
+      try {
+        const data = await getQuiz(quizId);
+        if (data) {
+          const plainQuiz = JSON.parse(
+            JSON.stringify({
+              ...data,
+              questions: obfuscateQuickPressQuestions(data.questions ?? []),
+            })
+          );
+          setQuiz(plainQuiz);
+        }
+      } catch (err) {
+        console.error('Failed to load quiz for play:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadQuiz();
+  }, [quizId, initialQuiz]);
+
+  if (loading) {
+    return <PlaySkeleton data-testid="quiz-play-skeleton" />;
+  }
+
+  if (!quiz) {
+    return (
+      <div className={styles.container}>
+        <p>クイズが見つかりませんでした。</p>
+      </div>
+    );
+  }
+
   return (
-    <Suspense fallback={<PlaySkeleton data-testid="quiz-play-skeleton" />}>
-      <QuizPlayClient {...props} />
-    </Suspense>
+    <QuizPlayClient quizId={quizId} initialQuiz={quiz} />
   );
 }

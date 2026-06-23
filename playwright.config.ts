@@ -77,19 +77,28 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: `npm run build && npx next start -p ${PORT}`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: false, // 独立したテストサーバーを起動する
-    timeout: 180 * 1000, // ビルド時間を考慮してタイムアウトを延長
-    env: {
-      NEXT_PUBLIC_ENV: 'test', // E2Eテスト環境変数を指定
-      FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-      FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-      FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
-      NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-      NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-      NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
-    },
-  },
+  webServer: process.env.CI
+    ? {
+        // CI環境: 独立ビルドサーバーを起動する
+        command: `npm run build && npx next start -p ${PORT}`,
+        url: `http://localhost:${PORT}`,
+        reuseExistingServer: false,
+        timeout: 180 * 1000,
+        env: {
+          NEXT_PUBLIC_ENV: 'test',
+          FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+          FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+          FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
+          NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
+          NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
+          NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
+        },
+      }
+    : {
+        // ローカル環境: 既存のnpm run devサーバーを再利用する
+        command: `npx next dev -p ${PORT}`,
+        url: `http://localhost:${PORT}`,
+        reuseExistingServer: true, // 既存のdevサーバーを再利用する
+        timeout: 60 * 1000,
+      },
 });

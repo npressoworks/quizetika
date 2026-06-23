@@ -16,8 +16,11 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
+import { getQuiz } from '@/services/quiz';
+
 export interface QuizDualLeaderboardProps {
-  quiz: Quiz;
+  quiz?: Quiz;
+  quizId?: string;
 }
 
 function formatCompletedAt(value: Date): string {
@@ -77,15 +80,47 @@ function LeaderboardTable({
   );
 }
 
-export function QuizDualLeaderboard({ quiz }: QuizDualLeaderboardProps) {
+export function QuizDualLeaderboard({ quiz: initialQuiz, quizId }: QuizDualLeaderboardProps) {
+  const [quiz, setQuiz] = React.useState<Quiz | null>(initialQuiz || null);
+  const [loading, setLoading] = React.useState<boolean>(!initialQuiz && !!quizId);
+
+  React.useEffect(() => {
+    if (initialQuiz) {
+      setQuiz(initialQuiz);
+      setLoading(false);
+      return;
+    }
+    if (quizId) {
+      async function loadQuiz() {
+        try {
+          const data = await getQuiz(quizId!);
+          setQuiz(data);
+        } catch (e) {
+          console.error('[QuizDualLeaderboard] ロード失敗:', e);
+        } finally {
+          setLoading(false);
+        }
+      }
+      loadQuiz();
+    }
+  }, [initialQuiz, quizId]);
+
   const firstPlayEntries = useMemo(
-    () => getLeaderboardFirstPlay(quiz).slice(0, 5),
+    () => (quiz ? getLeaderboardFirstPlay(quiz).slice(0, 5) : []),
     [quiz]
   );
   const replayEntries = useMemo(
-    () => getLeaderboardReplay(quiz).slice(0, 5),
+    () => (quiz ? getLeaderboardReplay(quiz).slice(0, 5) : []),
     [quiz]
   );
+
+  if (loading) {
+    return <p className="py-6 text-center text-sm text-muted-foreground">読み込み中...</p>;
+  }
+
+  if (!quiz) {
+    return null;
+  }
 
   return (
     <Card data-testid="quiz-leaderboard">

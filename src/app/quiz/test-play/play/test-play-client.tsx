@@ -30,6 +30,8 @@ import {
   buildTestPlayReturnUrl,
 } from '@/lib/test-play';
 import { PlaySkeleton } from '@/components/quiz/play-skeleton';
+import { useAds } from '@/hooks/useAds';
+import { VideoAdModal } from '@/components/ads/video-ad-modal';
 import { playClasses as styles } from '@/app/quiz/[id]/play/play-classes';
 import { ChoiceAnswerPanel } from '@/components/quiz/choice-answer-panel';
 import { TrueFalseAnswerPanel } from '@/components/quiz/true-false-answer-panel';
@@ -39,6 +41,28 @@ function TestPlayClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+
+  // 広告制御用のフックとステート
+  const { shouldShowVideoAd } = useAds();
+  const [showVideoAdModal, setShowVideoAdModal] = useState<boolean>(false);
+  const [pendingTransition, setPendingTransition] = useState<(() => void) | null>(null);
+
+  const triggerResultTransition = useCallback((transitionFn: () => void) => {
+    if (shouldShowVideoAd()) {
+      setPendingTransition(() => transitionFn);
+      setShowVideoAdModal(true);
+    } else {
+      transitionFn();
+    }
+  }, [shouldShowVideoAd]);
+
+  const handleAdComplete = useCallback(() => {
+    setShowVideoAdModal(false);
+    if (pendingTransition) {
+      pendingTransition();
+      setPendingTransition(null);
+    }
+  }, [pendingTransition]);
 
   const playMode = (searchParams.get('mode') || 'normal') as 'normal' | 'exam' | 'flashcard';
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -112,7 +136,9 @@ function TestPlayClient() {
       failedQuestionIds: failedIds,
     };
     saveTestPlayResult(result);
-    router.push('/quiz/test-play/result');
+    triggerResultTransition(() => {
+      router.push('/quiz/test-play/result');
+    });
   };
 
   const [isReadingStarted, setIsReadingStarted] = useState(false);
@@ -716,6 +742,9 @@ function TestPlayClient() {
           </div>
         </div>
       )}
+
+      {/* 動画広告モーダル */}
+      <VideoAdModal isOpen={showVideoAdModal} onComplete={handleAdComplete} />
     </div>
   );
 }

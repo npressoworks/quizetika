@@ -64,6 +64,7 @@ const globalWithEmulators = global as typeof globalThis & {
 
 const useEmulators =
   process.env.NEXT_PUBLIC_ENV === 'test' ||
+  !!process.env.FIRESTORE_EMULATOR_HOST ||
   (process.env.NODE_ENV === 'development' &&
     !!process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST?.trim());
 
@@ -75,19 +76,25 @@ if (useEmulators && !globalWithEmulators.emulatorsConnected) {
   }
 
   // 2. Firestore Emulator
-  const firestoreHost = process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
+  const firestoreHost =
+    process.env.FIRESTORE_EMULATOR_HOST ||
+    process.env.NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST ||
+    '127.0.0.1:8080';
   const [fsIp, fsPort] = firestoreHost.split(':');
   connectFirestoreEmulator(db, fsIp, parseInt(fsPort || '8080'));
 
   // 3. Storage Emulator
-  const storageHost = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST || '127.0.0.1:9199';
+  const storageHost =
+    process.env.FIREBASE_STORAGE_EMULATOR_HOST ||
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST ||
+    '127.0.0.1:9199';
   const [stIp, stPort] = storageHost.split(':');
   connectStorageEmulator(storage, stIp, parseInt(stPort || '9199'));
 
   // 接続済みフラグをセット
   globalWithEmulators.emulatorsConnected = true;
   const label =
-    process.env.NEXT_PUBLIC_ENV === 'test'
+    process.env.NEXT_PUBLIC_ENV === 'test' || process.env.FIRESTORE_EMULATOR_HOST
       ? 'E2Eテスト環境'
       : 'ローカル開発環境';
   console.log(`[firebase-config] ${label}用のFirebase Local Emulator Suiteに接続しました。`);

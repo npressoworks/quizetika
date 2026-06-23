@@ -114,5 +114,66 @@ export default async function globalSetup() {
       },
       { merge: true }
     );
+
+  // 広告テスト用のダミークイズを12件シード
+  for (let i = 1; i <= 12; i++) {
+    const qid = `e2e-ad-test-quiz-${i}`;
+    await db.collection('quizzes').doc(qid).set({
+      id: qid,
+      authorId: e2eUid,
+      authorName: 'e2e-test-user',
+      authorAvatar: '',
+      title: `[AD_TEST] クイズ_${i}`,
+      description: `E2E広告テスト用のダミークイズ ${i} です。`,
+      thumbnailUrl: null,
+      difficulty: 3,
+      genre: 'ノンジャンル・総合',
+      canonicalGenreId: 'genre-all',
+      tags: ['e2e-ad-test'],
+      originalTags: ['e2e-ad-test'],
+      canonicalTagIds: ['e2e-ad-test'],
+      questionIds: ['q-1'],
+      questions: [
+        {
+          id: 'q-1',
+          quizId: qid,
+          authorId: e2eUid,
+          authorName: 'e2e-test-user',
+          authorAvatar: '',
+          type: 'multiple-choice',
+          questionText: `問題_${i} の本文`,
+          explanation: '解説の内容です。',
+          imageUrl: null,
+          hint: null,
+          limitTime: null,
+          choices: [
+            { id: '1', choiceText: '正解', isCorrect: true, selectedCount: 0 },
+            { id: '2', choiceText: '不正解', isCorrect: false, selectedCount: 0 }
+          ],
+          correctCount: 0,
+          incorrectCount: 0
+        }
+      ],
+      questionCount: 1,
+      status: 'published',
+      visibility: 'public',
+      flagsCount: 0,
+      playCount: 10 + i,
+      bookmarksCount: 0,
+      positiveCount: 0,
+      negativeCount: 0,
+      tempPositiveCount: 0,
+      tempNegativeCount: 0,
+      reviewScore: null,
+      reviewBadge: null,
+      isReviewMasked: false,
+      activeResetRequestId: null,
+      leaderboardFirstPlay: [],
+      leaderboardReplay: [],
+      format: 'multiple-choice',
+      createdAt: now,
+      updatedAt: now
+    });
+  }
 }
 

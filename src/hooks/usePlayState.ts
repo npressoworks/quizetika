@@ -146,11 +146,23 @@ export function usePlayState({
 
   // トラッキング情報登録用コールバック
   const registerChoicesOrder = useCallback((questionId: string, order: string[]) => {
-    setChoicesOrders((prev) => ({ ...prev, [questionId]: order }));
+    setChoicesOrders((prev) => {
+      const currentOrder = prev[questionId];
+      if (currentOrder && currentOrder.length === order.length && currentOrder.every((id, idx) => id === order[idx])) {
+        return prev;
+      }
+      return { ...prev, [questionId]: order };
+    });
   }, []);
 
   const registerInitialItemOrder = useCallback((questionId: string, order: string[]) => {
-    setInitialItemOrders((prev) => ({ ...prev, [questionId]: order }));
+    setInitialItemOrders((prev) => {
+      const currentOrder = prev[questionId];
+      if (currentOrder && currentOrder.length === order.length && currentOrder.every((id, idx) => id === order[idx])) {
+        return prev;
+      }
+      return { ...prev, [questionId]: order };
+    });
   }, []);
 
   const incrementHintsUsed = useCallback((questionId: string) => {
@@ -182,7 +194,8 @@ export function usePlayState({
   const syncElapsedDisplay = useCallback(() => {
     if (mode !== 'normal') return;
     const ticking = isSegmentTicking(elapsedPolicyRef.current, feedbackPending);
-    setElapsedSeconds(getElapsedDisplaySeconds(segmentStateRef.current, ticking));
+    const nextSeconds = getElapsedDisplaySeconds(segmentStateRef.current, ticking);
+    setElapsedSeconds((prev) => prev === nextSeconds ? prev : nextSeconds);
   }, [mode, feedbackPending]);
 
   const finalizeCurrentSegment = useCallback(() => {
@@ -457,7 +470,7 @@ export function usePlayState({
   }, [mode, answeredIds, questions, manualAdvance, handleAnswerSubmit, feedbackPending, elapsedPolicyTickKey]);
 
   useEffect(() => {
-    setShowAnswer(false);
+    setShowAnswer((prev) => prev ? false : prev);
     // 設問表示時のタイマー記録および早押し初期化
     questionShowTimeRef.current = Date.now();
     quickPressShowTimeRef.current = null;
@@ -467,12 +480,12 @@ export function usePlayState({
     const currentQuestion = questions[currentIdx];
     if (mode === 'normal' && currentQuestion?.limitTime) {
       if (currentQuestion.type === 'quick-press') {
-        setTimeLeft(null);
+        setTimeLeft((prev) => prev === null ? prev : null);
       } else {
-        setTimeLeft(currentQuestion.limitTime);
+        setTimeLeft((prev) => prev === currentQuestion.limitTime ? prev : currentQuestion.limitTime);
       }
     } else {
-      setTimeLeft(null);
+      setTimeLeft((prev) => prev === null ? prev : null);
     }
   }, [currentIdx, questions, mode]);
 

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import type { Quiz } from '@/types';
 import { QuizCard } from '@/components/quiz/quiz-card';
 import { useAuth } from '@/context/auth-context';
+import { useAds } from '@/hooks/useAds';
+import { AdsenseInlineAd } from '@/components/ads/adsense-inline-ad';
 import { toggleBookmark } from '@/services/bookmark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -34,6 +36,7 @@ export function QuizCarousel({
 }: QuizCarouselProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { showAds } = useAds();
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
   const handleBookmarkToggle = useCallback(
@@ -88,18 +91,29 @@ export function QuizCarousel({
 
   return (
     <HorizontalScrollCarousel className="pt-3" data-testid="quiz-carousel">
-      {quizzes.map((quiz) => (
-        <div key={quiz.id} className={quizCarouselSlotClass}>
-          <QuizCard
-            quiz={quiz}
-            href={quiz.id ? `/quiz/${quiz.id}` : undefined}
-            genreDisplayName={genreLabelById?.get(quiz.genre)}
-            isBookmarked={bookmarkedIds.has(quiz.id ?? '')}
-            onBookmarkToggle={handleBookmarkToggle}
-            onPlayClick={handlePlayClick}
-          />
-        </div>
-      ))}
+      {quizzes.reduce<React.ReactNode[]>((acc, quiz, index) => {
+        acc.push(
+          <div key={quiz.id} className={quizCarouselSlotClass}>
+            <QuizCard
+              quiz={quiz}
+              href={quiz.id ? `/quiz/${quiz.id}` : undefined}
+              genreDisplayName={genreLabelById?.get(quiz.genre)}
+              isBookmarked={bookmarkedIds.has(quiz.id ?? '')}
+              onBookmarkToggle={handleBookmarkToggle}
+              onPlayClick={handlePlayClick}
+            />
+          </div>
+        );
+
+        if (showAds && (index + 1) % 10 === 0) {
+          acc.push(
+            <div key={`ad-slot-${quiz.id}`} className={quizCarouselSlotClass}>
+              <AdsenseInlineAd adSlot="inline-carousel-slot" />
+            </div>
+          );
+        }
+        return acc;
+      }, [])}
     </HorizontalScrollCarousel>
   );
 }

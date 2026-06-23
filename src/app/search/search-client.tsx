@@ -16,6 +16,8 @@ import {
   type FilterChipKey,
 } from '@/components/explore/active-filter-chips';
 import { QuizCard } from '@/components/quiz/quiz-card';
+import { useAds } from '@/hooks/useAds';
+import { AdsenseInlineAd } from '@/components/ads/adsense-inline-ad';
 import { GridSkeleton } from '@/components/ui/grid-skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DEFAULT_HOME_FEED_FILTERS } from '@/lib/home-feed-filters';
@@ -37,6 +39,7 @@ export function SearchClient({
 }: SearchClientProps = {}) {
   const router = useRouter();
   const { user, firebaseUser, loading: authLoading } = useAuth();
+  const { showAds } = useAds();
 
   const {
     tab: activeTab,
@@ -48,6 +51,7 @@ export function SearchClient({
     setPlayStatus,
     clearAll,
   } = useSearchUrlState();
+
 
   const { genres, loading: genresLoading, error: genresError, refetch, genreLabelById } =
     useActiveGenres(initialGenres);
@@ -272,19 +276,31 @@ export function SearchClient({
         ) : (
           <>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
-              {displayQuizzes.map((quiz) => (
-                <QuizCard
-                  key={quiz.id}
-                  quiz={quiz}
-                  genreDisplayName={
-                    genres.find((g) => g.id === quiz.genre || g.id === quiz.canonicalGenreId)
-                      ?.displayName
-                  }
-                  isBookmarked={bookmarkedIds.has(quiz.id)}
-                  onBookmarkToggle={handleBookmarkToggle}
-                  onPlayClick={handleCardClick}
-                />
-              ))}
+              {displayQuizzes.reduce<React.ReactNode[]>((acc, quiz, index) => {
+                acc.push(
+                  <QuizCard
+                    key={quiz.id}
+                    quiz={quiz}
+                    genreDisplayName={
+                      genres.find((g) => g.id === quiz.genre || g.id === quiz.canonicalGenreId)
+                        ?.displayName
+                    }
+                    isBookmarked={bookmarkedIds.has(quiz.id)}
+                    onBookmarkToggle={handleBookmarkToggle}
+                    onPlayClick={handleCardClick}
+                  />
+                );
+
+                if (showAds && (index + 1) % 10 === 0) {
+                  acc.push(
+                    <AdsenseInlineAd
+                      key={`ad-${quiz.id}`}
+                      adSlot="inline-search-slot"
+                    />
+                  );
+                }
+                return acc;
+              }, [])}
             </div>
             {loadingMore && (
               <GridSkeleton data-testid="search-feed-load-more" />

@@ -15,6 +15,8 @@ import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
 import { ExploreSortTabs } from '@/components/explore/explore-sort-tabs';
 import { ExploreSearchSection } from '@/components/explore/explore-search-section';
 import { QuizCard } from '@/components/quiz/quiz-card';
+import { useAds } from '@/hooks/useAds';
+import { AdsenseInlineAd } from '@/components/ads/adsense-inline-ad';
 import { SkeletonCard } from '@/components/ui/skeleton-card';
 import {
   DEFAULT_HOME_FEED_FILTERS,
@@ -44,6 +46,7 @@ export function GenreExploreClient({
 }: GenreExploreClientProps) {
   const router = useRouter();
   const { user } = useAuth();
+  const { showAds } = useAds();
 
   const { genres, genreLabelById, loading: genresMetaLoading } = useActiveGenres(initialGenres);
   const {
@@ -203,19 +206,31 @@ export function GenreExploreClient({
         </div>
       ) : (
         <div className={discoveryGridClass}>
-          {displayQuizzes.map((quiz) => (
-            <QuizCard
-              key={quiz.id}
-              quiz={quiz}
-              href={`/quiz/${quiz.id}`}
-              genreDisplayName={
-                genreLabelById.get(quiz.canonicalGenreId ?? quiz.genre) ?? quiz.genre
-              }
-              isBookmarked={bookmarkedIds.has(quiz.id)}
-              onBookmarkToggle={handleBookmarkToggle}
-              onPlayClick={(id) => router.push(`/quiz/${id}`)}
-            />
-          ))}
+          {displayQuizzes.reduce<React.ReactNode[]>((acc, quiz, index) => {
+            acc.push(
+              <QuizCard
+                key={quiz.id}
+                quiz={quiz}
+                href={`/quiz/${quiz.id}`}
+                genreDisplayName={
+                  genreLabelById.get(quiz.canonicalGenreId ?? quiz.genre) ?? quiz.genre
+                }
+                isBookmarked={bookmarkedIds.has(quiz.id)}
+                onBookmarkToggle={handleBookmarkToggle}
+                onPlayClick={(id) => router.push(`/quiz/${id}`)}
+              />
+            );
+
+            if (showAds && (index + 1) % 10 === 0) {
+              acc.push(
+                <AdsenseInlineAd
+                  key={`ad-${quiz.id}`}
+                  adSlot="inline-genre-slot"
+                />
+              );
+            }
+            return acc;
+          }, [])}
         </div>
       )}
     </div>

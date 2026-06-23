@@ -16,24 +16,43 @@ import { formatReviewScorePercent } from '@/services/review-utils';
 import { FormatLabel } from '@/components/quiz/format-label';
 import { detailClasses as styles } from './detail-classes';
 
+import { getQuiz } from '@/services/quiz';
+
 interface QuizDetailClientProps {
-  quiz: Quiz;
+  quizId: string;
 }
 
-export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
+export function QuizDetailClient({ quizId }: QuizDetailClientProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { genres: activeGenres } = useActiveGenres();
   const { playedQuizIds, loading: playedStatusLoading } = usePlayedQuizIds(user?.id);
 
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [quizLoading, setQuizLoading] = useState<boolean>(true);
   const [bookmarked, setBookmarked] = useState<boolean>(false);
   const [selectedMode, setSelectedMode] = useState<'normal' | 'exam' | 'flashcard'>('normal');
   const [bookmarkLoading, setBookmarkLoading] = useState<boolean>(false);
 
+  // クライアントサイドでクイズをロード
+  useEffect(() => {
+    async function loadQuiz() {
+      try {
+        const data = await getQuiz(quizId);
+        setQuiz(data);
+      } catch (e) {
+        console.error('[QuizDetailClient] ロード失敗:', e);
+      } finally {
+        setQuizLoading(false);
+      }
+    }
+    loadQuiz();
+  }, [quizId]);
+
   // クイックプレイでのブックマーク状態の初期取得
   useEffect(() => {
     async function checkBookmark() {
-      if (user) {
+      if (user && quiz) {
         try {
           const status = await isBookmarked(user.id, quiz.id);
           setBookmarked(status);
@@ -43,9 +62,10 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
       }
     }
     checkBookmark();
-  }, [quiz.id, user]);
+  }, [quiz?.id, user]);
 
   const handleBookmarkToggle = async () => {
+    if (!quiz) return;
     if (!user) {
       router.push('/login');
       return;
@@ -62,6 +82,23 @@ export function QuizDetailClient({ quiz }: QuizDetailClientProps) {
       setBookmarkLoading(false);
     }
   };
+
+  if (quizLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '100px 0', width: '100%' }}>
+        <p style={{ color: 'var(--text-muted)' }}>読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (!quiz) {
+    return (
+      <div style={{ textAlign: 'center', padding: '60px 0', width: '100%' }}>
+        <h2 style={{ color: 'var(--text-main)', marginBottom: '16px' }}>クイズが見つかりませんでした</h2>
+        <p style={{ color: 'var(--text-muted)' }}>指定されたクイズは削除されたか、公開されていません。</p>
+      </div>
+    );
+  }
 
   const handlePlayStart = () => {
     // ウミガメスープ問題（lateral-thinking）が含まれているかを判定

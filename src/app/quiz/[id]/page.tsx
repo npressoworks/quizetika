@@ -8,6 +8,8 @@ import { LeaderboardSkeleton } from '@/components/quiz/leaderboard-skeleton';
 import { getQuiz } from '@/services/quiz';
 import { detailClasses as styles } from './detail-classes';
 
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -37,30 +39,11 @@ export default async function QuizDetailPage({ params }: PageProps) {
 }
 
 async function QuizDetailLoader({ quizId }: { quizId: string }) {
-  const quiz = await getQuiz(quizId);
-
-  if (!quiz) {
-    return (
-      <div style={{ textAlign: 'center', padding: '60px 0', width: '100%' }}>
-        <h2 style={{ color: 'var(--text-main)', marginBottom: '16px' }}>クイズが見つかりませんでした</h2>
-        <p style={{ color: 'var(--text-muted)' }}>指定されたクイズは削除されたか、公開されていません。</p>
-      </div>
-    );
-  }
-
-  const plainQuiz = JSON.parse(JSON.stringify(quiz));
-
-  return <QuizDetailClient quiz={plainQuiz} />;
+  // クライアント側でフェッチを行わせる
+  return <QuizDetailClient quizId={quizId} />;
 }
 
 async function QuizLeaderboardLoader({ quizId }: { quizId: string }) {
-  const quiz = await getQuiz(quizId);
-
-  if (!quiz) {
-    return null;
-  }
-
-  const plainQuiz = JSON.parse(JSON.stringify(quiz));
-
-  return <QuizDualLeaderboard quiz={plainQuiz} />;
+  // クライアント側でフェッチを行わせる
+  return <QuizDualLeaderboard quizId={quizId} />;
 }

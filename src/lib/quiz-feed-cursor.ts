@@ -27,27 +27,31 @@ interface SearchOffsetCursorPayload {
 
 function encodePayload(payload: unknown): string {
   const json = JSON.stringify(payload);
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(json, 'utf8').toString('base64url');
+  // ブラウザ環境ではbtoaを使用（BufferのBase64URLは未対応の場合があるため）
+  if (typeof window !== 'undefined') {
+    const bytes = new TextEncoder().encode(json);
+    let binary = '';
+    bytes.forEach((b) => {
+      binary += String.fromCharCode(b);
+    });
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
-  const bytes = new TextEncoder().encode(json);
-  let binary = '';
-  bytes.forEach((b) => {
-    binary += String.fromCharCode(b);
-  });
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  // Node.js環境ではBufferを使用
+  return Buffer.from(json, 'utf8').toString('base64url');
 }
 
 function decodePayload<T>(cursor: string): T {
   try {
     let json: string;
-    if (typeof Buffer !== 'undefined') {
-      json = Buffer.from(cursor, 'base64url').toString('utf8');
-    } else {
+    // ブラウザ環境ではatobを使用
+    if (typeof window !== 'undefined') {
       const padded = cursor.replace(/-/g, '+').replace(/_/g, '/');
       const binary = atob(padded);
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       json = new TextDecoder().decode(bytes);
+    } else {
+      // Node.js環境ではBufferを使用
+      json = Buffer.from(cursor, 'base64url').toString('utf8');
     }
     return JSON.parse(json) as T;
   } catch {

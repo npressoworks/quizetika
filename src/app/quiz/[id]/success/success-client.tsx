@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Quiz } from '@/types';
+import { getQuiz } from '@/services/quiz';
 import { successClasses as styles } from './success-classes';
 import { 
   CheckOutlined, 
@@ -10,28 +11,47 @@ import {
   PlayArrowOutlined, 
   DashboardOutlined, 
   AddOutlined, 
-  SmsOutlined
+  SmsOutlined,
+  WarningAmberOutlined
 } from '@mui/icons-material';
+import Link from 'next/link';
 
 interface SuccessClientProps {
-  quiz: Quiz;
+  quizId: string;
 }
 
 /**
  * クイズ投稿完了画面のクライアントコンポーネント
  * 祝祭感のあるUIと、SNS（X / LINE）でのシェア機能を提供します。
  */
-export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
+export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
   const router = useRouter();
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
 
+  // クライアントサイドでクイズをロードする
+  useEffect(() => {
+    async function loadQuiz() {
+      try {
+        const data = await getQuiz(quizId);
+        setQuiz(data);
+      } catch (err) {
+        console.error('Failed to load quiz:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadQuiz();
+  }, [quizId]);
+
   // クライアントサイドでのみ実行し、正しいorigin URLを構築する
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && quiz) {
       setShareUrl(`${window.location.origin}/quiz/${quiz.id}`);
     }
-  }, [quiz.id]);
+  }, [quiz?.id]);
 
   // URLをクリップボードにコピーする処理
   const handleCopyUrl = async () => {
@@ -49,7 +69,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
 
   // X（旧Twitter）へのシェア用テキストとURLの生成
   const getTwitterShareUrl = () => {
-    const text = `【クイズ公開！】「${quiz.title}」を公開しました！あなたは何問解ける？挑戦を待っています！\n#quizeum #クイズ\n`;
+    const text = `【クイズ公開！】「${quiz?.title || ''}」を公開しました！あなたは何問解ける？挑戦を待っています！\n#quizeum #クイズ\n`;
     return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
   };
 
@@ -70,6 +90,40 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quiz }) => {
     };
     return genres[genreName] || genreName;
   };
+
+  if (loading) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '80px auto', padding: '0 20px', textAlign: 'center' }}>
+        <p style={{ color: 'var(--text-muted)' }}>読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (!quiz) {
+    return (
+      <div style={{ maxWidth: '600px', margin: '80px auto', padding: '0 20px', textAlign: 'center' }}>
+        <div style={{
+          background: 'var(--glass-bg)',
+          backdropFilter: 'var(--glass-blur)',
+          border: 'var(--glass-border)',
+          boxShadow: 'var(--glass-shadow)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '40px',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', color: 'var(--color-danger)' }}>
+            <WarningAmberOutlined sx={{ fontSize: 48 }} />
+          </div>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '12px' }}>クイズが見つかりません</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '30px' }}>
+            指定されたIDのクイズ情報が取得できないか、削除された可能性があります。
+          </p>
+          <Link href="/creator/dashboard" className="btn btn-primary" style={{ width: '100%' }}>
+            ダッシュボードに戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
