@@ -39,6 +39,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 type ProfileContentTab = 'quizzes' | 'history';
@@ -91,6 +92,37 @@ export function ProfileClient() {
   const [submittingFollow, setSubmittingFollow] = useState(false);
   const [isDeletedPending, setIsDeletedPending] = useState(false);
   const [snsLogoUrls, setSnsLogoUrls] = useState<Record<string, string>>({});
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const ITEMS_PER_PAGE = 9;
+
+  const filteredQuizzes = quizzes.filter(quiz => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    return (
+      quiz.title.toLowerCase().includes(q) ||
+      (quiz.description || '').toLowerCase().includes(q) ||
+      quiz.genre.toLowerCase().includes(q) ||
+      quiz.tags.some(tag => tag.toLowerCase().includes(q))
+    );
+  });
+
+  const totalPages = Math.ceil(filteredQuizzes.length / ITEMS_PER_PAGE);
+
+  const paginatedQuizzes = filteredQuizzes.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    const element = document.getElementById('profile-quizzes-container');
+    if (element && typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   const isMyProfile = currentUser?.id === uid;
 
@@ -387,33 +419,96 @@ export function ProfileClient() {
                   作成したクイズはまだありません。
                 </div>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {quizzes.map((quiz) => (
-                    <Link key={quiz.id} href={`/quiz/${quiz.id}`}>
-                      <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
-                        {quiz.thumbnailUrl && (
-                          <div className="aspect-video overflow-hidden bg-muted">
-                            <img src={quiz.thumbnailUrl} alt={quiz.title} className="h-full w-full object-cover" />
-                          </div>
-                        )}
-                        <CardContent className="flex flex-col gap-2 p-4">
-                          <div className="flex gap-2 text-xs text-muted-foreground">
-                            <span>{quiz.genre}</span>
-                            <span>難易度 {quiz.difficulty}/10</span>
-                          </div>
-                          <h3 className="line-clamp-2 font-semibold">{quiz.title}</h3>
-                          <p className="line-clamp-2 text-sm text-muted-foreground">{quiz.description}</p>
-                          <div className="flex flex-wrap gap-1">
-                            {quiz.tags.slice(0, 3).map((tag, idx) => (
-                              <UiBadge key={idx} variant="secondary" className="text-xs">
-                                #{tag}
-                              </UiBadge>
+                <div id="profile-quizzes-container" className="flex flex-col gap-6">
+                  {/* 検索入力欄 */}
+                  <div className="max-w-md">
+                    <Input
+                      type="text"
+                      placeholder="クイズを検索（タイトル、説明、ジャンル、タグ）"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      data-testid="profile-quiz-search-input"
+                      className="w-full"
+                    />
+                  </div>
+
+                  {filteredQuizzes.length === 0 ? (
+                    <div className="py-12 text-center text-muted-foreground">
+                      該当するクイズが見つかりませんでした。
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {paginatedQuizzes.map((quiz) => (
+                          <Link key={quiz.id} href={`/quiz/${quiz.id}`} data-testid="profile-quiz-card">
+                            <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
+                              {quiz.thumbnailUrl && (
+                                <div className="aspect-video overflow-hidden bg-muted">
+                                  <img src={quiz.thumbnailUrl} alt={quiz.title} className="h-full w-full object-cover" />
+                                </div>
+                              )}
+                              <CardContent className="flex flex-col gap-2 p-4">
+                                <div className="flex gap-2 text-xs text-muted-foreground">
+                                  <span>{quiz.genre}</span>
+                                  <span>難易度 {quiz.difficulty}/10</span>
+                                </div>
+                                <h3 className="line-clamp-2 font-semibold">{quiz.title}</h3>
+                                <p className="line-clamp-2 text-sm text-muted-foreground">{quiz.description}</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {quiz.tags.slice(0, 3).map((tag, idx) => (
+                                    <UiBadge key={idx} variant="secondary" className="text-xs">
+                                      #{tag}
+                                    </UiBadge>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </Link>
+                        ))}
+                      </div>
+
+                      {/* ページングUI (フィルタ後の件数が1ページの上限を超える場合のみ表示) */}
+                      {filteredQuizzes.length > ITEMS_PER_PAGE && (
+                        <div
+                          data-testid="profile-quiz-pagination"
+                          className="flex items-center justify-center gap-2 mt-4"
+                        >
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                          >
+                            前へ
+                          </Button>
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                              <Button
+                                key={page}
+                                variant={currentPage === page ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => handlePageChange(page)}
+                                className="size-8 p-0"
+                              >
+                                {page}
+                              </Button>
                             ))}
                           </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                          >
+                            次へ
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </TabsContent>

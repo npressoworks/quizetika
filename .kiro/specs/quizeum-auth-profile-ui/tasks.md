@@ -249,3 +249,32 @@
 - 要件 8（Phase 8）は **廃止**。履歴参照のみ。
 - 実装順: `quizeum-core` 23.6 → play-flow 28.5（部分実装可）→ 本スペック 11.1/11.2 → 11.3。
 
+### 12. Phase 27 拡張 — 作成したクイズのページングと検索機能（2026-06-23）
+
+- [x] 12.1 (P) 作成したクイズの検索・フィルタリングロジックの実装
+  - `src/app/profile/[uid]/profile-client.tsx` に検索キーワード用の状態変数 `searchQuery` と、リアルタイムでクイズを絞り込む `filteredQuizzes` ロジックを実装する。
+  - タイトル、説明、ジャンル、タグのいずれかにマッチすること。キーワード変更時にページ番号 `currentPage` を1にリセットすること。
+  - _Requirements: 12.2, 12.3_
+  - _Boundary: ProfileClient_
+- [x] 12.2 (P) クイズ一覧のページングロジックとUIの実装
+  - `src/app/profile/[uid]/profile-client.tsx` に現在のページ番号用状態変数 `currentPage` を追加し、1ページあたり9件で分割表示するスライスロジックとページングUI（ページ番号、前へ・次へボタン）を実装する。
+  - 1ページ目で「前へ」ボタン無効、最終ページで「次へ」ボタン無効に制御する。全体の件数が9件以下の場合はページングUIを非表示にする。
+  - _Requirements: 12.4, 12.6, 12.7_
+  - _Boundary: ProfileClient_
+- [x] 12.3 ページ切替時のスムーズスクロール統合
+  - `ProfileClient` のページ変更ハンドラにおいて、ページ変更と同時にクイズタブコンテンツの開始位置（`#profile-quizzes-container` など）へスムーズスクロールさせるロジックを統合する。
+  - _Requirements: 12.5_
+  - _Depends: 12.2_
+  - _Boundary: ProfileClient_
+- [x] 12.4 data-testid 契約の適用とマークアップ更新
+  - `profile-client.tsx` の検索入力欄に `data-testid="profile-quiz-search-input"`、ページングUIコンテナに `data-testid="profile-quiz-pagination"`、およびクイズカードに `data-testid="profile-quiz-card"` を付与する。
+  - _Requirements: 12.1, 12.8_
+  - _Depends: 12.1, 12.2_
+  - _Boundary: ProfileClient_
+- [x] 12.5 Phase 27 統合検証とE2Eテストの作成/更新
+  - `npm test` および `npm run build` がグリーンであることを確認し、 Playwright E2Eテストにおいて検索ワード入力による絞り込みや、ページ遷移によるクイズ表示の変化、および testid が正しく機能することを検証するテストを追加・実行する。
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8_
+  - _Depends: 12.4_
+  - _Boundary: Testing_
+
+
