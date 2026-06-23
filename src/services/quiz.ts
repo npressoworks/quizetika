@@ -863,6 +863,54 @@ export async function getQuizzesByAuthor(authorId: string, includeUnpublished: b
   return rows;
 }
 
+interface AuthorQuizPageOptions {
+  limit?: number;
+  cursor?: string | null;
+  includeUnpublished?: boolean;
+}
+
+/**
+ * 特定の作成者のクイズ一覧をカーソルベースで段階取得
+ */
+export async function getQuizzesByAuthorPage(
+  authorId: string,
+  options: AuthorQuizPageOptions = {}
+): Promise<PaginatedQuizResult> {
+  const pageSize = options.limit ?? HOME_FEED_PAGE_SIZE;
+  const includeUnpublished = options.includeUnpublished ?? false;
+
+  const baseConstraints = includeUnpublished
+    ? [
+        where('authorId', '==', authorId),
+        orderBy('createdAt', 'desc'),
+      ]
+    : [
+        where('authorId', '==', authorId),
+        where('status', '==', 'published'),
+        where('visibility', '==', 'public'),
+        orderBy('createdAt', 'desc'),
+      ];
+
+  let q;
+  if (options.cursor) {
+    const decoded = decodeQuizFeedCursor(options.cursor, 'author');
+    const cursorSnap = await getDoc(doc(quizzesRef, decoded.quizId));
+    if (!cursorSnap.exists()) {
+      throw new QuizFeedCursorError('Invalid cursor');
+    }
+    q = query(quizzesRef, ...baseConstraints, startAfter(cursorSnap), limit(pageSize + 1));
+  } else {
+    q = query(quizzesRef, ...baseConstraints, limit(pageSize + 1));
+  }
+
+  const snap = await getDocs(q);
+  const rows = snap.docs.map((d) => d.data());
+  const filteredRows = includeUnpublished ? rows : filterDiscoveryQuizzes(rows);
+
+  return paginateQuizRows(filteredRows, pageSize, 'author');
+}
+
+
 /**
  * 特定ジャンルのクイズ一覧を取得（C2: canonical 優先 + genre in フォールバック）
  */

@@ -3,8 +3,9 @@ import {
   getLatestQuizzesPage,
   searchQuizzesPaginated,
   QuizFeedCursorError,
+  getQuizzesByAuthorPage,
 } from '../../src/services/quiz';
-import { getDoc, getDocs } from 'firebase/firestore';
+import { getDoc, getDocs, query } from 'firebase/firestore';
 import type { Quiz } from '../../src/types';
 import {
   buildSearchFingerprint,
@@ -146,5 +147,62 @@ describe('quiz feed pagination', () => {
     await expect(
       searchQuizzesPaginated('', { genreId: 'science' }, { cursor: staleCursor })
     ).rejects.toThrow(QuizFeedCursorError);
+  });
+
+  describe('getQuizzesByAuthorPage', () => {
+    it('作成者IDで絞り込まれたクイズ一覧を createdAt 降順でロードできる', async () => {
+      const page1 = [makeQuiz('q-author-1', 3000), makeQuiz('q-author-2', 2000)];
+      (getDocs as jest.Mock).mockResolvedValue({
+        docs: page1.map((q) => ({ data: () => q })),
+      });
+
+      const result = await getQuizzesByAuthorPage('author-1', { limit: 1 });
+      expect(result.items.map((q) => q.id)).toEqual(['q-author-1']);
+      expect(result.nextCursor).toBeTruthy();
+    });
+
+    it('下書きを含める場合と含めない場合でクエリの制約が切り替わる', async () => {
+      const page = [makeQuiz('q-author-1', 3000), makeQuiz('q-author-2', 2000)];
+      (getDocs as jest.Mock).mockResolvedValue({
+        docs: page.map((q) => ({ data: () => q })),
+      });
+
+      // includeUnpublished === true の場合 (status=published や visibility=public の where 条件がない)
+      await getQuizzesByAuthorPage('author-1', { includeUnpublished: true });
+      const lastQueryCall = (jest.mocked(query).mock.calls);
+      const callForDrafts = lastQueryCall[lastQueryCall.length - 1];
+      const clausesDraft = callForDrafts.slice(1);
+      expect(clausesDraft.some((c: any) => c.field === 'status')).toBe(false);
+      expect(clausesDraft.some((c: any) => c.field === 'visibility')).toBe(false);
+
+      // includeUnpublished === false の場合
+      await getQuizzesByAuthorPage('author-1', { includeUnpublished: false });
+      const lastQueryCall2 = (jest.mocked(query).mock.calls);
+      const callForPublic = lastQueryCall2[lastQueryCall2.length - 1];
+      const clausesPublic = callForPublic.slice(1);
+      expect(clausesPublic.some((c: any) => c.field === 'status' && c.value === 'published')).toBe(true);
+      expect(clausesPublic.some((c: any) => c.field === 'visibility' && c.value === 'public')).toBe(true);
+    });
+
+    it('カーソルを指定したとき startAfter が正しく設定される', async () => {
+      const page = [makeQuiz('q-author-1', 3000), makeQuiz('q-author-2', 2000)];
+      (getDocs as jest.Mock).mockResolvedValue({
+        docs: page.map((q) => ({ data: () => q })),
+      });
+      (getDoc as jest.Mock).mockResolvedValue({
+        exists: () => true,
+        data: () => page[0],
+      });
+
+      const first = await getQuizzesByAuthorPage('author-1', { limit: 1 });
+      expect(first.nextCursor).toBeTruthy();
+
+      await getQuizzesByAuthorPage('author-1', { limit: 1, cursor: first.nextCursor });
+      
+      const lastQueryCall = (jest.mocked(query).mock.calls);
+      const callWithCursor = lastQueryCall[lastQueryCall.length - 1];
+      const clauses = callWithCursor.slice(1);
+      expect(clauses.some((c: any) => c.hasOwnProperty('startAfter'))).toBe(true);
+    });
   });
 });
