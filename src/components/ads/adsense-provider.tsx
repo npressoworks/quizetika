@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import Script from 'next/script';
+import React, { useEffect } from 'react';
 import { useAds } from '@/hooks/useAds';
 
 interface AdsenseProviderProps {
@@ -12,16 +11,21 @@ export function AdsenseProvider({ children }: AdsenseProviderProps): React.JSX.E
   const { showAds } = useAds();
   const clientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
-  return (
-    <>
-      {showAds && clientId && (
-        <Script
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`}
-          strategy="afterInteractive"
-          crossOrigin="anonymous"
-        />
-      )}
-      {children}
-    </>
-  );
+  useEffect(() => {
+    if (!showAds || !clientId) return;
+
+    // 重複読み込み防止
+    const existingScript = document.querySelector(
+      'script[src*="pagead2.googlesyndication.com"]'
+    );
+    if (existingScript) return;
+
+    const script = document.createElement('script');
+    script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`;
+    script.crossOrigin = 'anonymous';
+    script.async = true;
+    document.head.appendChild(script);
+  }, [showAds, clientId]);
+
+  return <>{children}</>;
 }
