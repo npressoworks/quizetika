@@ -419,6 +419,10 @@ export async function enrichBookmarkedQuestions(
         bm.createdAt instanceof Date
           ? bm.createdAt
           : new Date(bookmarkCreatedAtMs(bm.createdAt)),
+      genreId: quiz.canonicalGenreId ?? quiz.genre ?? 'general',
+      difficulty: quiz.difficulty ?? 3,
+      tags: quiz.tags ?? [],
+      format: question.type,
     });
   }
   return entries;

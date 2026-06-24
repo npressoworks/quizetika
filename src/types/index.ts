@@ -297,6 +297,10 @@ export interface BookmarkedQuestionEntry {
   parentQuizId: string;
   parentQuizTitle: string;
   bookmarkedAt: Date;
+  genreId?: string;
+  difficulty?: number;
+  tags?: string[];
+  format?: string;
 }
 
 /** 分類ブックマーク一覧（クイズ・問題） */

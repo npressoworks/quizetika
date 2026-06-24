@@ -16,17 +16,28 @@ function excerpt(text: string, maxLen = 80): string {
 interface BookmarkQuestionListProps {
   questions: BookmarkedQuestionEntry[];
   onRemove: (questionId: string) => void;
+  filtered?: boolean;
 }
 
-export function BookmarkQuestionList({ questions, onRemove }: BookmarkQuestionListProps) {
+export function BookmarkQuestionList({
+  questions,
+  onRemove,
+  filtered = false,
+}: BookmarkQuestionListProps) {
   const router = useRouter();
 
   if (questions.length === 0) {
     return (
       <Card className="py-16 text-center" data-testid="bookmarks-empty-question">
         <CardContent>
-          <h2 className="mb-2 text-lg font-semibold">ブックマークした問題がありません</h2>
-          <p className="text-muted-foreground">プレイ中や結果画面から問題をブックマークできます。</p>
+          <h2 className="mb-2 text-lg font-semibold">
+            {filtered ? '条件に一致する問題がありません' : 'ブックマークした問題がありません'}
+          </h2>
+          <p className="text-muted-foreground">
+            {filtered
+              ? 'フィルター条件を変更してお試しください。'
+              : 'プレイ中や結果画面から問題をブックマークできます。'}
+          </p>
         </CardContent>
       </Card>
     );
