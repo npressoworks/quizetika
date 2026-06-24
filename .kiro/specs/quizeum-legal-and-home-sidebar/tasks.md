@@ -13,7 +13,7 @@
   - _Requirements: 3.2_
 
 ## 2. Core: 主要機能実装
-- [ ] 2.1 (P) 右カラム用サイドバーコンポーネント `HomeSidebar` の実装
+- [x] 2.1 (P) 右カラム用サイドバーコンポーネント `HomeSidebar` の実装
   - `src/components/explore/home-sidebar.tsx` を新規作成する
   - shadcn/ui の `Card` と `Button` を使用して、ネオンカラーや透過背景（Glassmorphism調）を持つプレミアムなカードUIを構築する
   - 「利用規約」「プライバシーポリシー」への内部リンク（Link）、および「お問い合わせ」への外部リンクを配置する
