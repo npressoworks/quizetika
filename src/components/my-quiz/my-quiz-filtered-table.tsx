@@ -25,11 +25,7 @@ const SOURCE_LABELS: Record<MyQuizSource, string> = {
   'bookmarked-question': 'BM問題',
 };
 
-function excerpt(text: string, maxLen = 72): string {
-  const trimmed = text.trim().replace(/\s+/g, ' ');
-  if (trimmed.length <= maxLen) return trimmed;
-  return `${trimmed.slice(0, maxLen)}…`;
-}
+// CSSのline-clampによる表現に変更したため、JavaScriptでのexcerpt関数は廃止しました。
 
 function formatLabel(format: MyQuizQuestionCandidate['format']): string {
   return EXPLORE_FORMAT_OPTIONS.find((o) => o.id === format)?.label ?? format;
@@ -105,12 +101,12 @@ export function MyQuizFilteredTable({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12 text-center">#</TableHead>
-                <TableHead>問題文</TableHead>
-                <TableHead>親クイズ</TableHead>
-                <TableHead>取得元</TableHead>
-                <TableHead>ジャンル</TableHead>
-                <TableHead>形式</TableHead>
-                <TableHead className="text-center">難易度</TableHead>
+                <TableHead className="min-w-[280px]">問題文</TableHead>
+                <TableHead className="min-w-[180px]">親クイズ</TableHead>
+                <TableHead className="w-24">取得元</TableHead>
+                <TableHead className="w-32">ジャンル</TableHead>
+                <TableHead className="w-28">形式</TableHead>
+                <TableHead className="w-20 text-center">難易度</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -132,24 +128,24 @@ export function MyQuizFilteredTable({
                     key={row.questionId}
                     data-testid={`my-quiz-filtered-row-${row.questionId}`}
                   >
-                    <TableCell className="text-center text-muted-foreground">
+                    <TableCell className="w-12 text-center text-muted-foreground">
                       {(safePage - 1) * MY_QUIZ_TABLE_PAGE_SIZE + index + 1}
                     </TableCell>
-                    <TableCell className="max-w-[280px] whitespace-normal" title={row.questionText}>
-                      {excerpt(row.questionText)}
+                    <TableCell className="min-w-[280px] max-w-[400px] whitespace-normal break-words" title={row.questionText}>
+                      <span className="line-clamp-3 block text-sm leading-relaxed">{row.questionText}</span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-[180px] max-w-[240px] break-words" title={row.parentQuizTitle}>
                       <Link
                         href={`/quiz/${row.parentQuizId}`}
-                        className="font-semibold text-primary hover:underline"
+                        className="line-clamp-2 block font-semibold text-primary hover:underline leading-relaxed"
                       >
                         {row.parentQuizTitle}
                       </Link>
                     </TableCell>
-                    <TableCell>{SOURCE_LABELS[row.source]}</TableCell>
-                    <TableCell>{genreLabelById.get(row.genreId) ?? row.genreId}</TableCell>
-                    <TableCell>{formatLabel(row.format)}</TableCell>
-                    <TableCell className="text-center">Lv.{row.difficulty}</TableCell>
+                    <TableCell className="w-24">{SOURCE_LABELS[row.source]}</TableCell>
+                    <TableCell className="w-32">{genreLabelById.get(row.genreId) ?? row.genreId}</TableCell>
+                    <TableCell className="w-28">{formatLabel(row.format)}</TableCell>
+                    <TableCell className="w-20 text-center">Lv.{row.difficulty}</TableCell>
                   </TableRow>
                 ))
               )}
