@@ -15,6 +15,7 @@ Next.js（App Router）によるフルスタックフロントエンドと、Fir
 - **AI**: Gemini API (`@google/generative-ai` 0.24.1)
 - **Payments**: Stripe (`stripe` ^22 / `@stripe/stripe-js` ^9) — サーバー側 Webhook + クライアント側 Checkout
 - **Analytics**: PostHog (`posthog-js` ^1) — プロダクト分析・イベントトラッキング
+- **Ads**: Google AdSense (`NEXT_PUBLIC_ADSENSE_CLIENT_ID`) + 自前動画広告モーダル
 
 ## 主要ライブラリ (Key Libraries)
 
@@ -71,8 +72,10 @@ npm run deploy:rules
 - **二重検証（Defense-in-Depth）**: フロントエンド（Cookie等）での権限チェックはUX向上のためだけに使用し、実際のデータ更新や操作はFirestoreセキュリティルール（`firestore.rules`）およびサーバーサイドでのトークン検証で厳格に認可します。
 - **画像のSVGアップロード禁止**: XSS（スクリプト埋め込み）攻撃を防ぐため、Firebase Storageへの画像アップロード（アイコン含む）は `PNG`, `JPEG`, `GIF` に限定し、セキュリティルールで容量・MIMEタイプを厳格にチェックします。
 - **Stripe課金フロー**: Stripe Checkout Session（サーバー生成）+ Webhook（`/api/webhooks/stripe`）でサブスクリプション状態を Firestore に同期。`src/lib/stripe/server.ts` にサーバー側クライアントを集約し、クライアントバンドルへの秘密鍵漏洩を防止する。
+- **広告の動的ロードと制御（Quizeum Ads）**: 有料プラン（Pro/Premium）のアクティブな状態で広告スクリプト（Google AdSense）のロードを動的にスキップし、パフォーマンスおよび不要なネットワークリクエストを排除する。一時的広告非表示フラグ環境変数 `NEXT_PUBLIC_DISABLE_ADS` が `'true'` の場合、すべての広告コンポーネントおよびフックで非表示処理にフォールバックする。
+- **ハイブリッド無限スクロール設計**: クイズ一覧等におけるページング体験向上のため、初期状態は「もっと見る」ボタンで開始し、クリック後はスクロール交差監視による自動追加ロード（無限スクロール）に移行するハイブリッド方式を採用。データフェッチには Firestore のカーソルベース `startAfter` を用いたページング処理（`getQuizzesByAuthorPage` やクイズフィードのカーソル仕様拡張）を適用し、不要な全件フェッチによる読み取りコストを削減する。
 
 ---
-_updated_at: 2026-06-09 — Phase 24: Tailwind CSS + shadcn/ui 基盤を反映_
+_updated_at: 2026-06-24 — 広告表示・制御機能およびハイブリッド無限スクロール機能を反映_
 
 _Document standards and patterns, not every dependency_

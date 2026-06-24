@@ -12,6 +12,7 @@
   - テスト用の認証ロジックを有効にするフラグは、必ず静的解析によるデッドコード排除（Tree Shaking）が機能する形で記述してください。
   - 例: `const isMockAuthEnabled = process.env.NODE_ENV !== 'production' && process.env.NEXT_PUBLIC_ENV === 'test';` を定義し、このフラグで囲まれたブロック内でモック処理を記述します。
   - 本番ビルド（`next build`）時には `isMockAuthEnabled` が静的に `false` と判定され、コンパイラ（SWC/Terser）によってビルド後の成果物からコード自体が完全に削除されます。
+  - 認証バイパス以外のUI/UXテスト用モック（例: 広告表示状態の切り替えや有料プランのモック判定 `e2e-mock-pro-user`, `e2e-mock-ads-disabled`）については、テスト環境のみで機能するようにブラウザの `window` オブジェクト存在チェックや LocalStorage チェックを組み合わせた条件判定に限定し、本番環境で誤動作を引き起こさないようにカプセル化（`useAds` フック等に集約）して実装してください。
 
 ---
 
@@ -19,8 +20,8 @@
 
 ### 2.1 プレフィックスによる露出制御
 - **NEXT_PUBLIC_ の使用制限:** `NEXT_PUBLIC_` プレフィックスを付与した環境変数は、すべてビルド時にブラウザ用JavaScriptにインライン化されます。
-  - **公開して良い情報:** Firebaseのクライアント用初期化オブジェクト（`apiKey`, `authDomain` 等）、一般公開されているAPIエンドポイントのベースURL。
-  - **公開してはならない機密情報:** Firebaseの管理者用サービスアカウントキー（JSON）、サードパーティ製APIの秘密鍵（Secret Key）、署名用シークレット。これらには絶対に `NEXT_PUBLIC_` を付与せず、サーバーサイド（Next.js API Routes, Server Actions, Server Components）でのみ参照されるように設計してください。
+  - **公開して良い情報:** Firebaseのクライアント用初期化オブジェクト（`apiKey`, `authDomain` 等）、一般公開されているAPIエンドポイントのベースURL、および公開しても問題のない動的動作フラグやパブリックID（例: `NEXT_PUBLIC_ADSENSE_CLIENT_ID` や `NEXT_PUBLIC_DISABLE_ADS`）。
+  - **公開してはならない機密情報:** Firebaseの管理者用サービスアカウントキー（JSON）、サードパーティ製APIの秘密鍵（Secret Key）、Stripeの秘密鍵やWebhookの署名シークレット（Stripe Webhook Secret）。これらには絶対に `NEXT_PUBLIC_` を付与せず、サーバーサイド（Next.js API Routes, Server Actions, Server Components）でのみ参照されるように設計してください。
 
 ### 2.2 ソースコード管理（Git）からの除外
 - シークレット情報を含むすべての `.env`、`.env.local`、`.env.development.local` 等のファイルは、必ず `.gitignore` に登録し、誤ってGitリポジトリにコミットされないように保護してください。
@@ -68,4 +69,13 @@
 ### 7.1 容量および拡張子・MIMEタイプの強制
 - クライアント側での画像バリデーション（2MB以下、SVG画像の除外）に加え、データベースの入り口である `storage.rules` で容量およびMIMEタイプの完全な一致を強制してください。
 - 危険なスクリプト埋め込み（SVG等を通じたXSS）を防ぐため、画像アップロード機能では `PNG`, `JPEG`, `GIF` などの非実行可能かつ安全な画像フォーマットのみを許可するようにルール設計を義務付けます。
+
+---
+
+## 8. 広告配信とユーザープライバシー（AdSense）の制御
+
+### 8.1 有料会員状態に基づく動的なスクリプト読み込み排除
+- **パフォーマンスとプライバシー:** 有料プラン（Pro/Premium）のアクティブなユーザーに対しては、Google AdSense の広告スクリプト（`next/script`）自体のロードを動的にスキップし、不要な広告トラッキング・ネットワーク帯域の消費を完全に防いでください。
+- **実装要件:** クライアント側で認証されたユーザー状態（`useAuth` 等）を監視し、アクティブな有料サブスクリプションを検出した場合はスクリプトのロード自体を実行しない構造を保証してください。
+
 
