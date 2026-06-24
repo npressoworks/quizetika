@@ -22,7 +22,7 @@
   - _Requirements: 1.3, 2.1, 2.2, 3.1, 3.2, 3.3_
   - _Boundary: HomeSidebar_
 
-- [ ] 2.2 (P) 利用規約およびプライバシーポリシー表示ページの作成
+- [x] 2.2 (P) 利用規約およびプライバシーポリシー表示ページの作成
   - `src/app/terms/page.tsx` および `src/app/privacy/page.tsx` を Server Component として新規作成する
   - サーバーサイドで対応するMarkdownソースファイルを `fs.promises.readFile` で非同期ロードし、`marked` でHTMLに変換、`isomorphic-dompurify` でサニタイズした上でレンダリングする
   - 文書表示領域に Tailwind Typography風の適切な文字修飾用CSSスタイルをあてる
