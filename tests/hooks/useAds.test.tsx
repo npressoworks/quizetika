@@ -194,4 +194,59 @@ describe('useAds Hook', () => {
 
     Math.random = originalRandom;
   });
+
+  describe('環境変数 NEXT_PUBLIC_DISABLE_ADS による制御', () => {
+    let originalEnvValue: string | undefined;
+
+    beforeEach(() => {
+      originalEnvValue = process.env.NEXT_PUBLIC_DISABLE_ADS;
+    });
+
+    afterEach(() => {
+      if (originalEnvValue === undefined) {
+        delete process.env.NEXT_PUBLIC_DISABLE_ADS;
+      } else {
+        process.env.NEXT_PUBLIC_DISABLE_ADS = originalEnvValue;
+      }
+    });
+
+    it('NEXT_PUBLIC_DISABLE_ADS が "true" のとき、無料会員でも showAds は false になる', () => {
+      process.env.NEXT_PUBLIC_DISABLE_ADS = 'true';
+      mockUseAuth.mockReturnValue({
+        user: {
+          id: 'user-free',
+          subscriptionTier: 'free',
+          subscriptionStatus: null,
+        },
+        loading: false,
+      });
+
+      const onProbe = jest.fn();
+      render(<Probe onProbe={onProbe} />);
+
+      expect(screen.getByTestId('show-ads')).toHaveTextContent('false');
+    });
+
+    it('NEXT_PUBLIC_DISABLE_ADS が "true" のとき、shouldShowVideoAd は常に false を返す', () => {
+      process.env.NEXT_PUBLIC_DISABLE_ADS = 'true';
+      mockUseAuth.mockReturnValue({
+        user: {
+          id: 'user-free',
+          subscriptionTier: 'free',
+          subscriptionStatus: null,
+        },
+        loading: false,
+      });
+
+      // E2E強制動画広告フラグがオンであっても環境変数が優先され false になることを確認
+      localStorageStore['e2e-mock-force-video-ad'] = 'true';
+
+      const onProbe = jest.fn();
+      render(<Probe onProbe={onProbe} />);
+
+      const adsResult = onProbe.mock.calls[onProbe.mock.calls.length - 1][0];
+      expect(adsResult.shouldShowVideoAd()).toBe(false);
+    });
+  });
 });
+

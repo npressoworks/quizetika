@@ -55,6 +55,15 @@ export function useAds(): UseAdsResult {
     setMounted(true);
   }, []);
 
+  // 環境変数による広告の一時的非表示切り替え
+  const isAdsDisabled = process.env.NEXT_PUBLIC_DISABLE_ADS === 'true';
+  if (isAdsDisabled) {
+    return {
+      showAds: false,
+      shouldShowVideoAd: () => false,
+    };
+  }
+
   // ハイドレーションエラー防止のため、マウント完了前は広告を表示しない (false)
   if (!mounted) {
     return {
