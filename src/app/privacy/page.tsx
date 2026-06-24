@@ -5,29 +5,14 @@ import path from 'path';
 import { marked } from 'marked';
 import DOMPurify from 'isomorphic-dompurify';
 import { Card, CardContent } from '@/components/ui/card';
+import { ErrorOutlined } from '@mui/icons-material';
 
 export const metadata: Metadata = {
   title: 'プライバシーポリシー - quizeum',
   description: 'quizeum（クイズ投稿・管理SNS）のプライバシーポリシーです。ユーザーの個人情報の取扱方針について記載しています。',
 };
 
-const WarningIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    strokeWidth={1.5}
-    stroke="currentColor"
-    className="h-12 w-12 text-destructive animate-pulse"
-    {...props}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-    />
-  </svg>
-);
+
 
 async function getPrivacyContent(): Promise<string> {
   const filePath = path.join(process.cwd(), 'src', 'data', 'privacy.md');
@@ -57,7 +42,7 @@ export default async function PrivacyPage() {
         <CardContent className="pt-8 px-8 pb-10 max-md:pt-6 max-md:px-4 max-md:pb-6">
           {loadError ? (
             <div className="flex flex-col items-center gap-4 text-center py-10" data-testid="privacy-load-error">
-              <WarningIcon className="h-12 w-12 text-destructive animate-pulse" />
+              <ErrorOutlined className="h-12 w-12 text-destructive animate-pulse" />
               <h1 className="text-xl font-bold text-foreground">エラーが発生しました</h1>
               <p className="text-sm text-muted-foreground">
                 ただいまプライバシーポリシードキュメントを読み込むことができません。
