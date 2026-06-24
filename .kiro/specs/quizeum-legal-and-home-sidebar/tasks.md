@@ -33,7 +33,7 @@
   - _Boundary: TermsPage, PrivacyPage_
 
 ## 3. Integration: 結合
-- [ ] 3.1 トップページへの右カラム組み込みとレスポンシブ調整
+- [x] 3.1 トップページへの右カラム組み込みとレスポンシブ調整
   - `src/app/home-discovery-client.tsx` に `HomeSidebar` をインポートして配置する
   - 外枠に CSS Grid または Flexbox レイアウト（`flex flex-col lg:grid lg:grid-cols-[1fr_300px] lg:gap-8` 等）を適用する
   - PCサイズ（`lg`以上）では右側に `HomeSidebar` が300px固定でメインのクイズカルーセルと並列に表示されるようにする
