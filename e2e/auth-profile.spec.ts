@@ -245,15 +245,27 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     const genreSelect = page.getByTestId('profile-genre-select');
     await expect(genreSelect).toBeVisible();
 
-    // ジャンル一覧がロードされるのを待つ (実データ '学問・教養' が表示されるまで)
-    const academicBtn = genreSelect.locator('button', { hasText: '学問・教養' });
-    await expect(academicBtn).toBeVisible({ timeout: 10000 });
-
-    // 「学問・教養」を選択（未選択の場合のみクリック）
-    const isSelected = await academicBtn.evaluate(el => el.classList.contains('bg-primary'));
-    if (!isSelected) {
-      await academicBtn.click();
+    // 既に「学問・教養」のチップがある場合は、一度削除して綺麗な状態からテストを行う
+    const academicRemoveBtn = page.getByTestId('profile-genre-remove-academic');
+    if (await academicRemoveBtn.isVisible()) {
+      await academicRemoveBtn.click();
     }
+
+    // 検索インプット（data-testid="profile-genre-search-input"）を取得
+    const searchInput = page.getByTestId('profile-genre-search-input');
+    await expect(searchInput).toBeVisible();
+
+    // 「学問」と入力してサジェストをトリガー
+    await searchInput.fill('学問');
+
+    // サジェストの「学問・教養」が表示されるのを待ってクリック
+    const suggestItem = page.getByTestId('profile-genre-suggest-academic');
+    await expect(suggestItem).toBeVisible({ timeout: 10000 });
+    await suggestItem.click();
+
+    // チップが追加されたことを確認
+    const addedChip = page.getByTestId('profile-genre-chip-academic');
+    await expect(addedChip).toBeVisible();
 
     // 「保存」ボタンをクリック
     const saveBtn = page.locator('text=保存');

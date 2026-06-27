@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { filterGenreSuggestions } from '@/lib/filter-genre-suggestions';
 import { useAuth } from '@/context/auth-context';
 import {
   getUser,
@@ -36,20 +37,49 @@ export function ProfileEditClient() {
   const [instagram, setInstagram] = useState('');
   const [tiktok, setTiktok] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlight, setHighlight] = useState(0);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<ProfileValidationError[]>([]);
   const [submitError, setSubmitError] = useState('');
 
+  const wrapRef = useRef<HTMLDivElement>(null);
+
   const { genres, loading: genresLoading } = useActiveGenres();
 
-  const handleGenreToggle = (genreId: string) => {
-    setSelectedGenres(prev =>
-      prev.includes(genreId)
-        ? prev.filter(id => id !== genreId)
-        : [...prev, genreId]
-    );
+  const handleGenreAdd = (genreId: string) => {
+    if (selectedGenres.length >= 3) return;
+    if (!selectedGenres.includes(genreId)) {
+      setSelectedGenres(prev => [...prev, genreId]);
+    }
+    setSearchQuery('');
+    setShowSuggestions(false);
   };
+
+  const handleGenreRemove = (genreId: string) => {
+    setSelectedGenres(prev => prev.filter(id => id !== genreId));
+  };
+
+  // 外側クリックでサジェストを閉じる
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // サジェストの絞り込み (すでに選択されているものは除く)
+  const filteredSuggestions = React.useMemo(() => {
+    const unselected = genres.filter(g => !selectedGenres.includes(g.id));
+    return filterGenreSuggestions(unselected, searchQuery, 8);
+  }, [genres, selectedGenres, searchQuery]);
 
   useEffect(() => {
     async function loadUserData() {
@@ -196,34 +226,116 @@ export function ProfileEditClient() {
             </div>
 
             {/* 好きなジャンル選択 */}
-            <div className="flex flex-col gap-2" data-testid="profile-genre-select">
-              <Label>好きなジャンル</Label>
+            <div className="flex flex-col gap-2" data-testid="profile-genre-select" ref={wrapRef}>
+              <Label htmlFor="genre-search">好きなジャンル（最大3つ）</Label>
+              
+              {/* 選択済みのジャンルチップ */}
+              <div className="flex flex-wrap gap-2 mb-1" data-testid="profile-selected-genres">
+                {selectedGenres.map(genreId => {
+                  const genre = genres.find(g => g.id === genreId);
+                  if (!genre) return null;
+                  return (
+                    <div
+                      key={genre.id}
+                      data-testid={`profile-genre-chip-${genre.id}`}
+                      className="flex items-center gap-1.5 rounded-full bg-secondary text-secondary-foreground border border-input px-3 py-1.5 text-sm"
+                    >
+                      {genre.iconImageUrl && (
+                        <img src={genre.iconImageUrl} alt="" className="size-4 object-contain" />
+                      )}
+                      <span>{genre.displayName}</span>
+                      <button
+                        type="button"
+                        data-testid={`profile-genre-remove-${genre.id}`}
+                        onClick={() => handleGenreRemove(genre.id)}
+                        className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20 cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground"
+                        aria-label={`${genre.displayName}を削除`}
+                        disabled={submitting}
+                      >
+                        <span className="text-xs font-bold leading-none">&times;</span>
+                      </button>
+                    </div>
+                  );
+                })}
+                {selectedGenres.length === 0 && (
+                  <span className="text-sm text-muted-foreground py-1">ジャンルが選択されていません</span>
+                )}
+              </div>
+
               {genresLoading ? (
                 <span className="text-sm text-muted-foreground">ジャンル一覧を読み込み中...</span>
               ) : (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {genres.map(genre => {
-                    const isSelected = selectedGenres.includes(genre.id);
-                    return (
-                      <button
-                        key={genre.id}
-                        type="button"
-                        onClick={() => handleGenreToggle(genre.id)}
-                        className={cn(
-                          "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors cursor-pointer",
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-card text-muted-foreground hover:bg-accent border-input"
-                        )}
-                        disabled={submitting}
-                      >
-                        {genre.iconImageUrl && (
-                          <img src={genre.iconImageUrl} alt="" className="size-4 object-contain" />
-                        )}
-                        <span>{genre.displayName}</span>
-                      </button>
-                    );
-                  })}
+                <div className="relative w-full">
+                  <Input
+                    id="genre-search"
+                    data-testid="profile-genre-search-input"
+                    type="text"
+                    placeholder={
+                      selectedGenres.length >= 3
+                        ? "ジャンルは最大3つまで登録できます"
+                        : "ジャンル名で検索して追加..."
+                    }
+                    value={searchQuery}
+                    disabled={submitting || selectedGenres.length >= 3}
+                    autoComplete="off"
+                    onFocus={() => setShowSuggestions(true)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setHighlight(0);
+                      setShowSuggestions(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (!showSuggestions || filteredSuggestions.length === 0) return;
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setHighlight(h => Math.min(h + 1, filteredSuggestions.length - 1));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setHighlight(h => Math.max(h - 1, 0));
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleGenreAdd(filteredSuggestions[highlight].id);
+                      } else if (e.key === 'Escape') {
+                        setShowSuggestions(false);
+                      }
+                    }}
+                  />
+
+                  {/* サジェストリスト */}
+                  {showSuggestions && searchQuery.trim().length > 0 && (
+                    <div 
+                      className="absolute z-20 top-[calc(100%+4px)] left-0 right-0 max-h-[200px] overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md"
+                      role="listbox"
+                    >
+                      {filteredSuggestions.length > 0 ? (
+                        <ul className="m-0 list-none p-0">
+                          {filteredSuggestions.map((g, i) => (
+                            <li
+                              key={g.id}
+                              role="option"
+                              aria-selected={i === highlight}
+                              data-testid={`profile-genre-suggest-${g.id}`}
+                              className={cn(
+                                "cursor-pointer px-3 py-2 text-sm rounded hover:bg-muted flex items-center gap-2",
+                                i === highlight && "bg-muted"
+                              )}
+                              onMouseDown={(e) => {
+                                e.preventDefault(); // Inputのblurを防ぐ
+                                handleGenreAdd(g.id);
+                              }}
+                            >
+                              {g.iconImageUrl && (
+                                <img src={g.iconImageUrl} alt="" className="size-4 object-contain" />
+                              )}
+                              <span>{g.displayName}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">一致するジャンルが見つかりません</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
