@@ -4,7 +4,7 @@
 
 **Purpose**: ログインユーザーが3ソース（自作・ブックマーククイズ・ブックマーク問題）から問題プールを合成し、フィルタ・出題数・シャッフルを指定してアドホック連続プレイを開始できる `/my-quiz` 画面を提供する。（Phase 26 でブックマークリストソースを除去）
 
-**Users**: 学習者（プレイヤー）が、分散したブックマーク・自作問題を「マイクイズ」として横断的に復習・挑戦する。
+**Users**: 学習者（プレイヤー）が、分散したブックマーク・自作問題を「カスタムクイズ」として横断的に復習・挑戦する。
 
 **Impact**: 現状ソースごとに分断されていた問題探索（リストエディタ attach search、ブックマーク画面）を統合し、既存 `question-list` プレイエンジンを `mode=my-quiz` + アドホックセッションで再利用する。
 
@@ -21,7 +21,7 @@
 - フィルタプリセット保存、URL 共有、Sidebar ナビ追加（他スペック）
 - `buildMyQuizQuestionPool` 実装本体（`quizeum-core`）
 - リスト探索 UI、クイズ編集、弱点克服統合
-- 通常モード即時フィードバック（Phase 15）のマイクイズへの適用
+- 通常モード即時フィードバック（Phase 15）のカスタムクイズへの適用
 
 ---
 
@@ -41,22 +41,22 @@
 ### Out of Boundary
 
 - **`quizeum-core`**: `buildMyQuizQuestionPool`、`my-quiz-session.ts` lib、`Attempt.mode: 'my-quiz'` 永続化、`saveAttempt` スキーマ
-- **`quizeum-sidebar-layout`**: Sidebar / BottomNav「マイクイズ」項目
+- **`quizeum-sidebar-layout`**: Sidebar / BottomNav「カスタムクイズ」項目
 - **`quizeum-play-flow-ui`**: 通常プレイ・結果画面のコア UX。**本フェーズでは `quizeum-play-flow-ui` スペックは変更しない**。`quiz-play-client.tsx` / `quiz-result-client.tsx` への `mode=my-quiz` 最小分岐は **quizeum-my-quiz-ui** が所有（タスク 6–7）。play-flow との関係は coordination のみ
 - **`quizeum-creator-dash-ui`**: `useQuestionAttachSearch` / リスト attach パネル（重複回避のため共有 lib 化は core が担当）
 
 ### Allowed Dependencies
 
-| 依存 | 用途 | 必須度 |
-|------|------|--------|
-| `quizeum-core` — `buildMyQuizQuestionPool` | 3ソース統合取得 | P0 |
-| `quizeum-core` — `my-quiz-session` | sessionStorage CRUD + URL 生成 | P0 |
-| `quizeum-core` — `saveAttempt` (`mode: 'my-quiz'`) | 各問 attempt 記録 | P0 |
-| `useAuth` | ログインガード | P0 |
-| `listActiveGenres` / `listActiveTags` | フィルタ候補 | P1 |
-| `question-attach-search` | dedupe / keyword フィルタ再利用 | P1 |
-| `home-feed-filters` 型・`ActiveFilterChips` パターン | フィルタ UI 整合 | P1 |
-| `ExploreSearchSection` 内 `UnifiedSearchField` | タグチップ入力 | P2（部分再利用） |
+| 依存                                                 | 用途                            | 必須度           |
+| ---------------------------------------------------- | ------------------------------- | ---------------- |
+| `quizeum-core` — `buildMyQuizQuestionPool`           | 3ソース統合取得                 | P0               |
+| `quizeum-core` — `my-quiz-session`                   | sessionStorage CRUD + URL 生成  | P0               |
+| `quizeum-core` — `saveAttempt` (`mode: 'my-quiz'`)   | 各問 attempt 記録               | P0               |
+| `useAuth`                                            | ログインガード                  | P0               |
+| `listActiveGenres` / `listActiveTags`                | フィルタ候補                    | P1               |
+| `question-attach-search`                             | dedupe / keyword フィルタ再利用 | P1               |
+| `home-feed-filters` 型・`ActiveFilterChips` パターン | フィルタ UI 整合                | P1               |
+| `ExploreSearchSection` 内 `UnifiedSearchField`       | タグチップ入力                  | P2（部分再利用） |
 
 ### Revalidation Triggers
 
@@ -71,7 +71,7 @@
 
 ### Existing Architecture Analysis
 
-- **Attach search（現状）**: `useQuestionAttachSearch` はタブ単位で own-published / bookmarked / public-explore の3ソース。マイクイズは4ソース統合 + public-explore 除外。
+- **Attach search（現状）**: `useQuestionAttachSearch` はタブ単位で own-published / bookmarked / public-explore の3ソース。カスタムクイズは4ソース統合 + public-explore 除外。
 - **問題リストプレイ（現状）**: `question-list-session.ts` が `listId` + `entries[]` + `currentIndex` を `sessionStorage` に保持。URL は `mode=question-list&listId=&questionId=&qIndex=`。
 - **プレイクライアント（現状）**: `questionListMode` 時は `questionIdParam` で1問のみ `playQuestions` に載せ、完了後 `quiz-result-client` が `advanceQuestionListSession` で次 URL へ。
 
@@ -114,12 +114,12 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice | Role in Feature | Notes |
-|-------|--------|-----------------|-------|
-| Frontend | Next.js 16 App Router, React 19 | `/my-quiz` RSC + client | ログインガードは client `useAuth` + middleware 補助可 |
-| Styling | Vanilla CSS Modules | ページ・フィルタ・設定 | 探索 UI トークン再利用 |
-| State | React hooks + sessionStorage | プール・フィルタ・セッション | Firestore 書込なし |
-| Data | Firebase via services | ブックマーク・自作クイズ読取 | core lib がラップ |
+| Layer    | Choice                          | Role in Feature              | Notes                                                 |
+| -------- | ------------------------------- | ---------------------------- | ----------------------------------------------------- |
+| Frontend | Next.js 16 App Router, React 19 | `/my-quiz` RSC + client      | ログインガードは client `useAuth` + middleware 補助可 |
+| Styling  | Vanilla CSS Modules             | ページ・フィルタ・設定       | 探索 UI トークン再利用                                |
+| State    | React hooks + sessionStorage    | プール・フィルタ・セッション | Firestore 書込なし                                    |
+| Data     | Firebase via services           | ブックマーク・自作クイズ読取 | core lib がラップ                                     |
 
 ---
 
@@ -161,10 +161,10 @@ e2e/
 
 本スペックが変更するファイルと、他スペック所有ファイルの境界を明示する。
 
-| ファイル | 所有者 | 変更内容 | 備考 |
-|--------|--------|----------|------|
-| `src/app/quiz/[id]/play/quiz-play-client.tsx` | **quizeum-my-quiz-ui** | `myQuizMode` 分岐、`readMyQuizSession`、`playQuestions` 1問抽出、attempt `mode: 'my-quiz'` | play-flow coordination のみ。play-flow-ui スペック非変更 |
-| `src/app/quiz/[id]/result/quiz-result-client.tsx` | **quizeum-my-quiz-ui** | `my-quiz` 次問題 URL、`buildMyQuizPlayUrl`、最終問完了 UI | 同上（タスク 7） |
+| ファイル                                          | 所有者                 | 変更内容                                                                                   | 備考                                                     |
+| ------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx`     | **quizeum-my-quiz-ui** | `myQuizMode` 分岐、`readMyQuizSession`、`playQuestions` 1問抽出、attempt `mode: 'my-quiz'` | play-flow coordination のみ。play-flow-ui スペック非変更 |
+| `src/app/quiz/[id]/result/quiz-result-client.tsx` | **quizeum-my-quiz-ui** | `my-quiz` 次問題 URL、`buildMyQuizPlayUrl`、最終問完了 UI                                  | 同上（タスク 7）                                         |
 
 ### Core-Provided Files（本スペック外・前提）
 
@@ -175,7 +175,7 @@ e2e/
 
 ## System Flows
 
-### マイクイズ開始〜連続プレイ
+### カスタムクイズ開始〜連続プレイ
 
 ```mermaid
 sequenceDiagram
@@ -213,39 +213,39 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1–1.5 | 認証・ルーティング | `my-quiz-client`, `page.tsx` | `useAuth` | — |
-| 2.1–2.7 | 4ソースプール | `my-quiz-source-panel`, `useMyQuizPool` | `buildMyQuizQuestionPool` | pool fetch |
-| 3.1–3.12 | フィルタ | `my-quiz-filters`, `my-quiz-filter.ts` | `listActiveGenres`, `listActiveTags` | client filter |
-| 4.1–4.8 | 出題設定 | `my-quiz-play-settings`, `useMyQuizPool` | — | shuffle/slice |
-| 5.1–5.6 | プレビュー・開始 | `my-quiz-preview-bar` | `initMyQuizSession` | start flow |
-| 6.1–6.7 | プレイ連携 | `quiz-play-client`, `quiz-result-client` | `my-quiz-session`, `saveAttempt` | play sequence |
-| 7.1–7.5 | E2E・UX | skeleton, `e2e/my-quiz.spec.ts` | — | — |
+| Requirement | Summary            | Components                               | Interfaces                           | Flows         |
+| ----------- | ------------------ | ---------------------------------------- | ------------------------------------ | ------------- |
+| 1.1–1.5     | 認証・ルーティング | `my-quiz-client`, `page.tsx`             | `useAuth`                            | —             |
+| 2.1–2.7     | 4ソースプール      | `my-quiz-source-panel`, `useMyQuizPool`  | `buildMyQuizQuestionPool`            | pool fetch    |
+| 3.1–3.12    | フィルタ           | `my-quiz-filters`, `my-quiz-filter.ts`   | `listActiveGenres`, `listActiveTags` | client filter |
+| 4.1–4.8     | 出題設定           | `my-quiz-play-settings`, `useMyQuizPool` | —                                    | shuffle/slice |
+| 5.1–5.6     | プレビュー・開始   | `my-quiz-preview-bar`                    | `initMyQuizSession`                  | start flow    |
+| 6.1–6.7     | プレイ連携         | `quiz-play-client`, `quiz-result-client` | `my-quiz-session`, `saveAttempt`     | play sequence |
+| 7.1–7.5     | E2E・UX            | skeleton, `e2e/my-quiz.spec.ts`          | —                                    | —             |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Layer | Intent | Req | Key Dependencies |
-|-----------|-------|--------|-----|------------------|
-| MyQuizPage | UI | `/my-quiz` シェル | 1 | `useAuth` |
-| MyQuizSourcePanel | UI | 4ソーストグル | 2 | `useMyQuizPool` |
-| MyQuizFilters | UI | 探索型フィルタ簡略版 | 3 | `UnifiedSearchField`, genres/tags |
-| MyQuizPlaySettings | UI | 出題数・シャッフル | 4 | — |
-| MyQuizPreviewBar | UI | 件数表示・開始 | 5 | `useMyQuizPool` |
-| useMyQuizPool | Hook | プール取得・フィルタ・確定 | 2–5 | core pool lib |
-| my-quiz-filter | Lib | クライアント AND フィルタ | 3 | `question-attach-search` keyword |
-| MyQuizPlayIntegration | Play | mode=my-quiz 分岐 | 6 | `my-quiz-session` |
+| Component             | Layer | Intent                     | Req | Key Dependencies                  |
+| --------------------- | ----- | -------------------------- | --- | --------------------------------- |
+| MyQuizPage            | UI    | `/my-quiz` シェル          | 1   | `useAuth`                         |
+| MyQuizSourcePanel     | UI    | 4ソーストグル              | 2   | `useMyQuizPool`                   |
+| MyQuizFilters         | UI    | 探索型フィルタ簡略版       | 3   | `UnifiedSearchField`, genres/tags |
+| MyQuizPlaySettings    | UI    | 出題数・シャッフル         | 4   | —                                 |
+| MyQuizPreviewBar      | UI    | 件数表示・開始             | 5   | `useMyQuizPool`                   |
+| useMyQuizPool         | Hook  | プール取得・フィルタ・確定 | 2–5 | core pool lib                     |
+| my-quiz-filter        | Lib   | クライアント AND フィルタ  | 3   | `question-attach-search` keyword  |
+| MyQuizPlayIntegration | Play  | mode=my-quiz 分岐          | 6   | `my-quiz-session`                 |
 
 ### Hook Layer
 
 #### useMyQuizPool
 
-| Field | Detail |
-|-------|--------|
-| Intent | ソースフラグ・フィルタ状態・出題設定を保持し、core からプール取得→フィルタ→出題リスト確定 |
-| Requirements | 2, 3, 4, 5 |
+| Field        | Detail                                                                                    |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| Intent       | ソースフラグ・フィルタ状態・出題設定を保持し、core からプール取得→フィルタ→出題リスト確定 |
+| Requirements | 2, 3, 4, 5                                                                                |
 
 **State model**:
 ```typescript
@@ -359,10 +359,10 @@ Postconditions: `readMyQuizSession()?.sessionId === sessionId` かつ URL `qInde
 
 #### MyQuizFilters
 
-| Field | Detail |
-|-------|--------|
-| Intent | 探索フィルタの簡略版。`ExploreSearchSection` から難易度スライダー・形式カルーセル相当を抽出 |
-| Requirements | 3.1–3.12 |
+| Field        | Detail                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------- |
+| Intent       | 探索フィルタの簡略版。`ExploreSearchSection` から難易度スライダー・形式カルーセル相当を抽出 |
+| Requirements | 3.1–3.12                                                                                    |
 
 **Reuse strategy**:
 - タグ: `UnifiedSearchField`（タグチップのみ、ジャンルサジェスト統合は無効化可）
@@ -383,10 +383,10 @@ Postconditions: `readMyQuizSession()?.sessionId === sessionId` かつ URL `qInde
 
 #### quiz-play-client 変更点
 
-| Field | Detail |
-|-------|--------|
-| Intent | `mode=my-quiz` 時に `readMyQuizSession` で1問プレイ |
-| Requirements | 6.1, 6.4–6.6 |
+| Field        | Detail                                              |
+| ------------ | --------------------------------------------------- |
+| Intent       | `mode=my-quiz` 時に `readMyQuizSession` で1問プレイ |
+| Requirements | 6.1, 6.4–6.6                                        |
 
 ```typescript
 const myQuizMode = rawMode === 'my-quiz';
@@ -397,13 +397,13 @@ const myQuizMode = rawMode === 'my-quiz';
 
 #### quiz-result-client 変更点
 
-| Field | Detail |
-|-------|--------|
-| Intent | 結果完了後 `peekNextMyQuizEntry` → `buildMyQuizPlayUrl` または完了 UI |
-| Requirements | 6.2, 6.3, 6.5 |
+| Field        | Detail                                                                |
+| ------------ | --------------------------------------------------------------------- |
+| Intent       | 結果完了後 `peekNextMyQuizEntry` → `buildMyQuizPlayUrl` または完了 UI |
+| Requirements | 6.2, 6.3, 6.5                                                         |
 
 - 既存 `question-list-next` ボタンパターンを `my-quiz-next` として並行追加
-- 最終問: 「マイクイズを完了」+ `Link href="/my-quiz"`
+- 最終問: 「カスタムクイズを完了」+ `Link href="/my-quiz"`
 
 ---
 
@@ -429,14 +429,14 @@ MyQuizSessionEntry[] ──initMyQuizSession──> MyQuizSession (sessionStorag
 
 ## Error Handling
 
-| Category | Response |
-|----------|----------|
-| 未ログイン | `/login?redirect=/my-quiz` |
-| プール取得失敗 | インラインエラー + 再試行ボタン |
-| ソース未選択 | 空状態案内、開始ボタン disabled |
-| フィルタ後0件 | 空状態 + フィルタ緩和案内 |
+| Category                   | Response                                    |
+| -------------------------- | ------------------------------------------- |
+| 未ログイン                 | `/login?redirect=/my-quiz`                  |
+| プール取得失敗             | インラインエラー + 再試行ボタン             |
+| ソース未選択               | 空状態案内、開始ボタン disabled             |
+| フィルタ後0件              | 空状態 + フィルタ緩和案内                   |
 | セッション欠落（プレイ中） | プレイ/結果画面でエラー + `/my-quiz` リンク |
-| 親クイズ非公開（edge） | core pool 構築時に除外（UI では表示しない） |
+| 親クイズ非公開（edge）     | core pool 構築時に除外（UI では表示しない） |
 
 ---
 
@@ -483,14 +483,14 @@ MyQuizSessionEntry[] ──initMyQuizSession──> MyQuizSession (sessionStorag
 
 ### 1. Overview
 
-マイクイズの問題取得元を **4ソース → 3ソース** に縮小する。「ブックマークリスト」トグルと `bookmarkedLists` / `bookmarked-list` ラベルを除去し、`quizeum-core` の `buildMyQuizQuestionPool`（3フラグ）と整合させる。`my-quiz` プレイ体験は維持する。
+カスタムクイズの問題取得元を **4ソース → 3ソース** に縮小する。「ブックマークリスト」トグルと `bookmarkedLists` / `bookmarked-list` ラベルを除去し、`quizeum-core` の `buildMyQuizQuestionPool`（3フラグ）と整合させる。`my-quiz` プレイ体験は維持する。
 
 ### 2. Boundary Commitments（Phase 26）
 
-| Owns | Out |
-|------|-----|
+| Owns                             | Out                                    |
+| -------------------------------- | -------------------------------------- |
 | `my-quiz-source-panel` 3トグル化 | `buildMyQuizQuestionPool` 実装（core） |
-| フィルタ表の取得元ラベル更新 | リスト機能全般 |
+| フィルタ表の取得元ラベル更新     | リスト機能全般                         |
 
 ### 3. Data Model
 
@@ -507,14 +507,14 @@ export type MyQuizSourceKey =
 
 ### 4. File Structure Plan（Phase 26）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/components/my-quiz/my-quiz-source-panel.tsx` | **Modify** | 3トグル |
-| `src/components/my-quiz/my-quiz-filtered-table.tsx` | **Modify** | `bookmarked-list` ラベル削除 |
-| `src/hooks/useMyQuizPool.ts` | **Modify** | flags 型縮小 |
-| `tests/lib/my-quiz-pool.test.ts` | **Modify** | core 側と連携 |
-| `tests/components/my-quiz/*.test.tsx` | **Modify** | 3ソース |
-| `e2e/my-quiz.spec.ts` | **Modify** | `bookmarked-list` シナリオ削除 |
+| ファイル                                            | 操作       | 責務                           |
+| --------------------------------------------------- | ---------- | ------------------------------ |
+| `src/components/my-quiz/my-quiz-source-panel.tsx`   | **Modify** | 3トグル                        |
+| `src/components/my-quiz/my-quiz-filtered-table.tsx` | **Modify** | `bookmarked-list` ラベル削除   |
+| `src/hooks/useMyQuizPool.ts`                        | **Modify** | flags 型縮小                   |
+| `tests/lib/my-quiz-pool.test.ts`                    | **Modify** | core 側と連携                  |
+| `tests/components/my-quiz/*.test.tsx`               | **Modify** | 3ソース                        |
+| `e2e/my-quiz.spec.ts`                               | **Modify** | `bookmarked-list` シナリオ削除 |
 
 ### 5. UI Behavior
 
@@ -524,22 +524,22 @@ export type MyQuizSourceKey =
 
 ### 6. Requirements Traceability（Phase 26）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 8.1 | リストトグル削除 | `my-quiz-source-panel` |
-| 8.2 | デフォルトソース | 同上 + hook |
-| 8.3 | pool flags | `useMyQuizPool` |
-| 8.4 | テーブルラベル | `my-quiz-filtered-table` |
-| 8.5 | API 呼び出し禁止 | import 掃除 |
-| 8.8 | テスト更新 | tests / e2e |
+| Req | Summary          | Component                |
+| --- | ---------------- | ------------------------ |
+| 8.1 | リストトグル削除 | `my-quiz-source-panel`   |
+| 8.2 | デフォルトソース | 同上 + hook              |
+| 8.3 | pool flags       | `useMyQuizPool`          |
+| 8.4 | テーブルラベル   | `my-quiz-filtered-table` |
+| 8.5 | API 呼び出し禁止 | import 掃除              |
+| 8.8 | テスト更新       | tests / e2e              |
 
 ### 7. Testing Strategy（Phase 26）
 
-| 種別 | 検証 |
-|------|------|
-| **Component** | ソースパネル — 3 `data-testid` のみ |
-| **Unit** | `useMyQuizPool` — `bookmarkedLists` 未送信 |
-| **E2E** | マイクイズ起動フロー（3ソースで回帰） |
+| 種別          | 検証                                       |
+| ------------- | ------------------------------------------ |
+| **Component** | ソースパネル — 3 `data-testid` のみ        |
+| **Unit**      | `useMyQuizPool` — `bookmarkedLists` 未送信 |
+| **E2E**       | カスタムクイズ起動フロー（3ソースで回帰）  |
 
 **Effort**: **S**（0.5〜1日、Core 完了後）
 

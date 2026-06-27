@@ -114,12 +114,12 @@
 
 ---
 
-## 6. Phase 23: リスト・マイクイズ・設定ナビ拡張（2026-06-09）
+## 6. Phase 23: リスト・カスタムクイズ・設定ナビ拡張（2026-06-09）
 
-- [x] 6.1 サイドバーへのリスト・マイクイズ導線と active 判定
-  - ログイン時のみ、ホーム・検索の直後（通知・ブックマークの前）に「リスト」（`/lists`）と「マイクイズ」（`/my-quiz`）を追加する（`List` / `ClipboardList` アイコン）
+- [x] 6.1 サイドバーへのリスト・カスタムクイズ導線と active 判定
+  - ログイン時のみ、ホーム・検索の直後（通知・ブックマークの前）に「リスト」（`/lists`）と「カスタムクイズ」（`/my-quiz`）を追加する（`List` / `ClipboardList` アイコン）
   - 未ログイン時は両項目を非表示とし、既存のログインボタン導線を維持する
-  - `isNavItemActive` を拡張し、`/lists` および `/lists/` 配下（例: `/lists/create`）で「リスト」のみ active、`/my-quiz` および `/my-quiz/` 配下で「マイクイズ」のみ active とする
+  - `isNavItemActive` を拡張し、`/lists` および `/lists/` 配下（例: `/lists/create`）で「リスト」のみ active、`/my-quiz` および `/my-quiz/` 配下で「カスタムクイズ」のみ active とする
   - `data-testid="nav-lists"` と `data-testid="nav-my-quiz"` を付与する
   - **完了状態**: デスクトップ幅でログイン時に Sidebar から `/lists`・`/my-quiz` へ遷移でき、各パスで正しい項目のみ active になること
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7_
@@ -136,10 +136,10 @@
 
 - [x] 6.3 (P) モバイル Header プロフィールポップアップ
   - 767px 以下かつログイン時、Header アバターの `<Link>` 直行を廃止し、Sidebar と同型のポップアップシート入口（`data-testid="header-profile-btn"`）に変更する
-  - ポップアップ（`data-testid="header-profile-popup"`）にリスト・マイクイズ・マイページ・設定・ログアウトを表示し、到達先は Sidebar と同一ルート（`/lists`・`/my-quiz`・`/settings`・`/profile/${user.id}`）とする
+  - ポップアップ（`data-testid="header-profile-popup"`）にリスト・カスタムクイズ・マイページ・設定・ログアウトを表示し、到達先は Sidebar と同一ルート（`/lists`・`/my-quiz`・`/settings`・`/profile/${user.id}`）とする
   - `data-testid="header-nav-lists"`、`header-nav-my-quiz`、`header-settings-link` を付与する
   - BottomNav は 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、プロフィールタップは引き続きマイページ直行とする
-  - **完了状態**: 375px 幅で Header アバタータップ → ポップアップから「リスト」「マイクイズ」「設定」へ遷移できること
+  - **完了状態**: 375px 幅で Header アバタータップ → ポップアップから「リスト」「カスタムクイズ」「設定」へ遷移できること
   - _Requirements: 6.12, 6.13_
   - _Boundary: Header_
 
@@ -153,7 +153,7 @@
 
 - [x] 6.5 Phase 23 ナビ E2E 検証
   - Desktop: Sidebar「リスト」→ `/lists`、Sidebar ポップアップ「設定」→ `/settings` 遷移を Playwright で検証する
-  - Mobile 375px: Header アバター → ポップアップ → 「マイクイズ」→ `/my-quiz` 遷移を検証する
+  - Mobile 375px: Header アバター → ポップアップ → 「カスタムクイズ」→ `/my-quiz` 遷移を検証する
   - BottomNav 5 項目維持・プロフィール直行の回帰を確認する
   - **完了状態**: 既存レイアウト E2E に Phase 23 アサーションが追加され、ローカルでパスすること
   - _Requirements: 6.3, 6.4, 6.9, 6.12, 6.13_
@@ -170,9 +170,9 @@
 ## Implementation Notes (Phase 23)
 
 - **実装順**: 6.1 と 6.3 は並行可。6.2 は 6.1 完了後。6.4 は 6.1–6.3 完了後。6.5 は 6.1–6.3 完了後（6.4 と並行可）。6.5* は任意。
-- **BottomNav**: Phase 23 では変更なし。モバイルのリスト・マイクイズ・設定到達は Header ポップアップ（案 A）が担う。
+- **BottomNav**: Phase 23 では変更なし。モバイルのリスト・カスタムクイズ・設定到達は Header ポップアップ（案 A）が担う。
 - **layout.tsx**: `ThemeProvider` 統合は `quizeum-user-settings-ui` が担当。本フェーズでは `layout.tsx` を変更しない。
-- **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizeum-lists-discovery-ui`）、6.15 マイクイズ UI（`quizeum-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizeum-user-settings-ui`）、6.17 マイページリアクション履歴削除（`quizeum-auth-profile-ui`）。
+- **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizeum-lists-discovery-ui`）、6.15 カスタムクイズ UI（`quizeum-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizeum-user-settings-ui`）、6.17 マイページリアクション履歴削除（`quizeum-auth-profile-ui`）。
 - **要件カバレッジ**: 6.1–6.13 を 6.1–6.5 にマッピング。6.14–6.17 は Out of scope として Implementation Notes に記録。
 
 ---
@@ -182,15 +182,15 @@
 - [x] 7.1 Sidebar および Header からリストナビを除去
   - `sidebar.tsx`: ログイン時 `menuItems` から「リスト」（`/lists`）を削除し、`List` アイコン import および `data-testid="nav-lists"` を除去する
   - `header.tsx`: プロフィールポップアップから「リスト」リンクおよび `data-testid="header-nav-lists"` を削除する
-  - マイクイズ（`nav-my-quiz` / `header-nav-my-quiz`）・設定（`sidebar-settings-link` / `header-settings-link`）・マイページ・ログアウト導線は維持する
-  - **完了状態**: ログイン状態で Sidebar／Header にリスト項目が表示されず、マイクイズ・設定へは従来どおり遷移できること
+  - カスタムクイズ（`nav-my-quiz` / `header-nav-my-quiz`）・設定（`sidebar-settings-link` / `header-settings-link`）・マイページ・ログアウト導線は維持する
+  - **完了状態**: ログイン状態で Sidebar／Header にリスト項目が表示されず、カスタムクイズ・設定へは従来どおり遷移できること
   - _Requirements: 7.1, 7.2, 7.3, 7.5, 7.6, 7.7_
   - _Boundary: Sidebar, Header_
 
 - [x] 7.2 nav-active およびコンポーネントテストの更新
   - `nav-active.ts` に `/lists` 分岐が残存する場合は除去する
-  - `sidebar.test.tsx`: `nav-lists` 存在・`/lists` active 検証を削除し、マイクイズ表示・active 検証を維持する
-  - `header-profile-popup.test.tsx`: `header-nav-lists` 検証を削除し、マイクイズ・設定導線検証を維持する
+  - `sidebar.test.tsx`: `nav-lists` 存在・`/lists` active 検証を削除し、カスタムクイズ表示・active 検証を維持する
+  - `header-profile-popup.test.tsx`: `header-nav-lists` 検証を削除し、カスタムクイズ・設定導線検証を維持する
   - `shell-smoke.test.tsx`: `nav-lists` 存在検証を削除する
   - `nav-active.test.ts`: `/lists` 関連ケースがあれば削除する
   - **完了状態**: 関連 Jest テストがグリーンであり、リストナビに関するアサーションが残っていないこと
@@ -208,8 +208,8 @@
   - _Boundary: Testing_
 
 - [x] 7.4 統合検証
-  - デスクトップ（1200px）: ログイン後 Sidebar にリスト項目がなく、マイクイズ・設定ポップアップが機能することを手動または E2E で確認する
-  - モバイル（375px）: Header ポップアップにリストがなく、マイクイズへ遷移できることを確認する
+  - デスクトップ（1200px）: ログイン後 Sidebar にリスト項目がなく、カスタムクイズ・設定ポップアップが機能することを手動または E2E で確認する
+  - モバイル（375px）: Header ポップアップにリストがなく、カスタムクイズへ遷移できることを確認する
   - `/lists` 直接アクセスが 404 であること（他スペック Phase 26 と整合）を確認する
   - BottomNav 5 項目・プロフィール直行の回帰がないことを確認する
   - **完了状態**: Phase 26 ナビ除去が他スペックのリスト廃止と整合し、デッドリンクが存在しないこと
@@ -221,7 +221,7 @@
 
 - **実装順**: 7.1 完了後に 7.2・7.3 を並行可。7.4 は 7.1–7.3 完了後。
 - **隣接スペック**: `/lists` ルート・ブックマークリストタブ・プロフィールリストタブは他スペックが除去済み。本フェーズはナビシェルのみ。
-- **回帰注意**: Phase 23 のマイクイズ・設定 E2E（`header-nav-my-quiz`、 `sidebar-settings-link`）は維持する。
+- **回帰注意**: Phase 23 のカスタムクイズ・設定 E2E（`header-nav-my-quiz`、 `sidebar-settings-link`）は維持する。
 
 ---
 
@@ -238,7 +238,7 @@
 
 - [x] 8.2 (P) Sidebar アカウントポップアップおよび Header プロフィールポップアップへの管理者メニューリンク追加
   - `sidebar.tsx` のアカウントドロップダウンメニューの先頭（マイページの上）に「管理者メニュー」リンク（遷移先: `/admin`）を追加する（`data-testid="sidebar-admin-link"`）。
-  - `header.tsx` のプロフィールドロップダウンメニューの先頭（マイクイズの上）に「管理者メニュー」リンク（遷移先: `/admin`）を追加する（`data-testid="header-admin-link"`）。
+  - `header.tsx` のプロフィールドロップダウンメニューの先頭（カスタムクイズの上）に「管理者メニュー」リンク（遷移先: `/admin`）を追加する（`data-testid="header-admin-link"`）。
   - どちらも `isAdminUser(user)` 判定に基づいて表示を制御する。
   - *検証結果*: 管理者ユーザーでログインした際、PC用 Sidebar のアバターポップアップおよびモバイル用 Header のアバターポップアップの先頭に「管理者メニュー」リンクが表示され、クリックで `/admin` に遷移すること。非管理者ユーザーや未ログイン時には表示されないこと。
   - _Requirements: 8.2, 8.3, 8.6, 8.7, 8.8, 8.9_
@@ -289,7 +289,7 @@
   - _Boundary: Sidebar_
 
 - [x] 9.3 (P) ミニサイドバー表示時のホバーツールチップの実装
-  - サイドバー内の各メニューリンク（ホーム、検索、マイクイズ、通知、ブックマーク、ダッシュボード、管理者メニュー、作問）およびプロフィールアバターに対して、ホバー時に絶対配置で該当するテキスト（プロフィールはユーザー名）を表示するCSSツールチップを実装する。
+  - サイドバー内の各メニューリンク（ホーム、検索、カスタムクイズ、通知、ブックマーク、ダッシュボード、管理者メニュー、作問）およびプロフィールアバターに対して、ホバー時に絶対配置で該当するテキスト（プロフィールはユーザー名）を表示するCSSツールチップを実装する。
   - ツールチップは、サイドバーがミニ表示（手動折りたたみ時および768px〜1023pxのタブレット表示時）にのみホバーで表示され、通常表示（275px）のときは表示されないようにスタイルを制御する。
   - **完了状態**: ミニサイドバーの状態で各アイコンにホバーした際、その右側にメニュー名/ユーザー名がツールチップで浮かび上がり、通常表示時はホバーしてもツールチップが出ないこと。
   - _Requirements: 9.4, 9.5_

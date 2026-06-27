@@ -96,7 +96,7 @@
 
 ---
 
-## 7. Core: マイクイズ画面
+## 7. Core: カスタムクイズ画面
 - [x] 7.1 MyQuizSourcePanel と MyQuizSearchSection を shadcn 化する
   - 取得元 4 トグルを ToggleGroup に移行し、全 source testid（`my-quiz-source-own` 等）を維持する
   - 検索・絞り込み UI を Input/Select/Tabs 等で再構成し、`my-quiz-filters` 関連 testid を維持する
@@ -115,7 +115,7 @@
 - [x] 7.3 MyQuiz ページシェルと client を統合する
   - `my-quiz.module.css`（app + components）を削除し、MyQuizClient / page.tsx を Tailwind 化する
   - 未ログインリダイレクト、`my-quiz-page`, `my-quiz-content`, `my-quiz-pool-error` testid を維持する
-  - ログイン後にマイクイズ全セクションが縦積み表示されることを確認する
+  - ログイン後にカスタムクイズ全セクションが縦積み表示されることを確認する
   - _Requirements: 7.1, 7.2, 7.9, 1.1_
   - _Boundary: MyQuizClient_
   - _Depends: 7.1, 7.2_
@@ -166,5 +166,5 @@
 
 ## Implementation Notes
 - 本プロジェクトの `Button` / `Badge` は `asChild` 非対応（base-ui）。Link ボタンは `buttonVariants()` + `Link` で構成する。
-- マイクイズ取得元は複数選択のため `ToggleGroup` ではなく個別 `Toggle`（`pressed` / `onPressedChange`）を使用。
+- カスタムクイズ取得元は複数選択のため `ToggleGroup` ではなく個別 `Toggle`（`pressed` / `onPressedChange`）を使用。
 - `npm run build` は compile + TypeScript チェックは通過するが、並行ビルドによる `.next` 破損で page data 収集が ENOENT で失敗する場合あり。単独実行で再試行推奨。

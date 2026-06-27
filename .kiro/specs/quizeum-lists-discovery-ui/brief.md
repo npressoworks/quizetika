@@ -29,7 +29,7 @@
 ## Out of Boundary
 - リスト編集・並び替え（`quizeum-creator-dash-ui`）
 - ブックマーク一覧（既存 `/bookmarks`）
-- マイクイズ（`quizeum-my-quiz-ui`）
+- カスタムクイズ（`quizeum-my-quiz-ui`）
 
 ## Upstream / Downstream
 - **Upstream**: `quizeum-core`（`searchLists`）、`useAuth`、既存 `QuizList` 型

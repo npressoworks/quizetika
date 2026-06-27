@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('マイクイズ', () => {
+test.describe('カスタムクイズ', () => {
   test('未ログイン時はログインへリダイレクトされる', async ({ browser }) => {
     const context = await browser.newContext({ storageState: undefined });
     const page = await context.newPage();
@@ -9,7 +9,7 @@ test.describe('マイクイズ', () => {
     await context.close();
   });
 
-  test('ログイン後にマイクイズページが表示される', async ({ page }) => {
+  test('ログイン後にカスタムクイズページが表示される', async ({ page }) => {
     await page.goto('/');
     const loginBtn = page.locator('#e2e-test-login-btn');
     if (!(await loginBtn.isVisible())) {

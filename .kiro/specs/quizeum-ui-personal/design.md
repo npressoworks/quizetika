@@ -2,16 +2,16 @@
 
 ## Overview
 
-本機能は Phase 24 UI 刷新の**第 4 スペック**であり、Quizeum の個人ハブ（プロフィール、ブックマーク、通知、設定、マイクイズ、ログイン、料金）を `quizeum-ui-foundation` の shadcn 標準テーマと `quizeum-ui-layout-shell` のシェル内で Tailwind + shadcn プリミティブ上に再構築する。既存のルーティング、認証ガード、データフロー（hooks/services）、`data-testid` は変更しない。
+本機能は Phase 24 UI 刷新の**第 4 スペック**であり、Quizeum の個人ハブ（プロフィール、ブックマーク、通知、設定、カスタムクイズ、ログイン、料金）を `quizeum-ui-foundation` の shadcn 標準テーマと `quizeum-ui-layout-shell` のシェル内で Tailwind + shadcn プリミティブ上に再構築する。既存のルーティング、認証ガード、データフロー（hooks/services）、`data-testid` は変更しない。
 
-**Users**: 全エンドユーザーが個人向け機能（プロフィール閲覧、ブックマーク管理、通知、テーマ設定、マイクイズ、ログイン、料金確認）を利用する。開発者は本移行後に downstream spec（auth-profile-ui, my-quiz-ui 等）の UI 記述を shadcn 正に更新する。
+**Users**: 全エンドユーザーが個人向け機能（プロフィール閲覧、ブックマーク管理、通知、テーマ設定、カスタムクイズ、ログイン、料金確認）を利用する。開発者は本移行後に downstream spec（auth-profile-ui, my-quiz-ui 等）の UI 記述を shadcn 正に更新する。
 
 **Impact**: 個人ハブ境界内の約 15 CSS Modules を削除し、旧 glass/neon/`btn` グローバルクラス依存を解消。フォーム・タブ・グリッド・テーブル UI を shadcn パターンに統一する。
 
 ### Goals
 - 7 ルート群の shadcn + Tailwind 再実装（shadcn 標準寄せ）
 - settings `ThemeToggle` を foundation テーマ bridge と統合
-- マイクイズ 4 ソース・出題設定・プレイ開始・非公開問題契約の維持
+- カスタムクイズ 4 ソース・出題設定・プレイ開始・非公開問題契約の維持
 - ブックマーク/プロフィール/通知のタブ・グリッド UI 統一
 - 個人ハブ `.module.css` 完全削除
 - 関連 E2E（user-settings, my-quiz, auth-profile）グリーン
@@ -55,7 +55,7 @@
 - **foundation Primitive Wave 2**（P0）: Form, Label, Textarea, Select, Switch, Table, Alert, ToggleGroup（存在確認のみ）
 
 ### Revalidation Triggers
-- マイクイズ `data-testid` のリネーム・削除
+- カスタムクイズ `data-testid` のリネーム・削除
 - 非公開クイズ問題の取得元ルール変更
 - `quizeum-theme` キーまたは Theme API 変更（foundation）
 - 保護ルートのリダイレクト URL 変更
@@ -68,7 +68,7 @@
 ### Existing Architecture Analysis
 - **配置**: 各ルートは App Router page.tsx + `*-client.tsx` Client Component。CSS Modules で page/client/components 双方にスタイル
 - **認証**: 保護ページは `useEffect` で未ログイン → `/login?redirect=...`。my-quiz は `router.replace`
-- **マイクイズ**: `MyQuizClient` が `useMyQuizPool` を orchestrate。子コンポーネント 5 つ + 共有 `my-quiz.module.css`
+- **カスタムクイズ**: `MyQuizClient` が `useMyQuizPool` を orchestrate。子コンポーネント 5 つ + 共有 `my-quiz.module.css`
 - **テーマ**: `ThemeToggle` が CSS Modules ボタン群。settings は section レイアウト + グローバル `btn` クラス
 - **テスト**: E2E が testid 中心（my-quiz, bookmarks, settings）。auth-profile は text + role locator
 
@@ -131,15 +131,15 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16, React 19 | App Router Client Components | 既存維持 |
-| Styling | Tailwind CSS v4 | レイアウト・spacing | foundation 経由 |
-| UI | shadcn/ui | Form, Table, ToggleGroup, Card, Tabs, Switch | foundation + 本 spec add |
-| Auth | Firebase Auth | login ソーシャル/E2E | 既存 |
-| State | React hooks | useMyQuizPool 等 | Out of Boundary |
-| Icons | @mui/icons-material | 通知・プロフィール・pricing | 既存 |
-| Testing | Jest, Playwright | 回帰 | 既存 spec |
+| Layer    | Choice / Version     | Role in Feature                              | Notes                    |
+| -------- | -------------------- | -------------------------------------------- | ------------------------ |
+| Frontend | Next.js 16, React 19 | App Router Client Components                 | 既存維持                 |
+| Styling  | Tailwind CSS v4      | レイアウト・spacing                          | foundation 経由          |
+| UI       | shadcn/ui            | Form, Table, ToggleGroup, Card, Tabs, Switch | foundation + 本 spec add |
+| Auth     | Firebase Auth        | login ソーシャル/E2E                         | 既存                     |
+| State    | React hooks          | useMyQuizPool 等                             | Out of Boundary          |
+| Icons    | @mui/icons-material  | 通知・プロフィール・pricing                  | 既存                     |
+| Testing  | Jest, Playwright     | 回帰                                         | 既存 spec                |
 
 ---
 
@@ -252,7 +252,7 @@ flowchart TD
     LoggedIn -->|Yes| Render[Render page content]
 ```
 
-### マイクイズプレイ開始
+### カスタムクイズプレイ開始
 
 ```mermaid
 flowchart TD
@@ -283,49 +283,49 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1–1.5 | shadcn 標準ビジュアル | 全 Personal コンポーネント | Tailwind + shadcn | — |
-| 2.1–2.6 | 設定・テーマ | SettingsClient, ThemeToggle | useTheme | テーマ切替 |
-| 3.1–3.6 | ログイン | login/page.tsx | Firebase auth, getSafeRedirectPath | 保護ルート |
-| 4.1–4.8 | プロフィール群 | ProfileClient, ProfileEdit, Likes, Connections | user/quiz services | — |
-| 5.1–5.6 | ブックマーク | BookmarksClient, BookmarksTabs, grids | useBookmarkFeed | 保護ルート |
-| 6.1–6.5 | 通知 | NotificationsClient | notification service | 保護ルート |
-| 7.1–7.9 | マイクイズ | MyQuizClient, 5 sub-panels | useMyQuizPool | プレイ開始 |
-| 8.1–8.6 | 料金 | PricingPage, plan cards | resolvePricingUiState | checkout query |
-| 9.1–9.4 | レガシー削除 | 全 boundary CSS | — | — |
-| 10.1–10.5 | 回帰 | — | npm scripts | E2E |
+| Requirement | Summary               | Components                                     | Interfaces                         | Flows          |
+| ----------- | --------------------- | ---------------------------------------------- | ---------------------------------- | -------------- |
+| 1.1–1.5     | shadcn 標準ビジュアル | 全 Personal コンポーネント                     | Tailwind + shadcn                  | —              |
+| 2.1–2.6     | 設定・テーマ          | SettingsClient, ThemeToggle                    | useTheme                           | テーマ切替     |
+| 3.1–3.6     | ログイン              | login/page.tsx                                 | Firebase auth, getSafeRedirectPath | 保護ルート     |
+| 4.1–4.8     | プロフィール群        | ProfileClient, ProfileEdit, Likes, Connections | user/quiz services                 | —              |
+| 5.1–5.6     | ブックマーク          | BookmarksClient, BookmarksTabs, grids          | useBookmarkFeed                    | 保護ルート     |
+| 6.1–6.5     | 通知                  | NotificationsClient                            | notification service               | 保護ルート     |
+| 7.1–7.9     | カスタムクイズ        | MyQuizClient, 5 sub-panels                     | useMyQuizPool                      | プレイ開始     |
+| 8.1–8.6     | 料金                  | PricingPage, plan cards                        | resolvePricingUiState              | checkout query |
+| 9.1–9.4     | レガシー削除          | 全 boundary CSS                                | —                                  | —              |
+| 10.1–10.5   | 回帰                  | —                                              | npm scripts                        | E2E            |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| PersonalPrimitives | UI foundation | Form/Table/ToggleGroup 等追加 | 1, 4, 7 | foundation cn() (P0) | — |
-| ThemeToggle | settings | テーマ 2 択 UI | 2 | useTheme (P0) | State |
-| SettingsClient | settings | 設定ページレイアウト | 2 | ThemeToggle, useAuth (P0) | — |
-| LoginPage | login | 認証 UI | 3 | Firebase auth (P0) | — |
-| ProfileClient | profile | プロフィール詳細 | 4 | user/quiz services (P0) | — |
-| ProfileEditClient | profile | プロフィール編集 Form | 4 | Form primitives (P0) | — |
-| BookmarksClient | bookmark | ブックマークハブ | 5 | useBookmarkFeed (P0) | — |
-| BookmarksTabs | bookmark | 3 タブ切替 | 5 | shadcn Tabs (P0) | — |
-| NotificationsClient | notifications | 通知一覧 | 6 | notification service (P0) | — |
-| MyQuizClient | my-quiz | マイクイズ orchestrator | 7 | useMyQuizPool (P0) | — |
-| MyQuizSourcePanel | my-quiz | 4 取得元 ToggleGroup | 7, 7.7, 7.8 | pool flags (P0) | State |
-| MyQuizFilteredTable | my-quiz | 候補 Table + pagination | 7 | Table (P0) | — |
-| MyQuizPlaySettings | my-quiz | 出題数・シャッフル | 7 | Switch/ToggleGroup (P0) | State |
-| MyQuizPreviewBar | my-quiz | プレイ開始 CTA | 7 | buildEntries (P0) | — |
-| PricingPageContent | pricing | 料金比較 | 8 | resolvePricingUiState (P1) | — |
+| Component           | Domain/Layer  | Intent                        | Req Coverage | Key Dependencies (P0/P1)   | Contracts |
+| ------------------- | ------------- | ----------------------------- | ------------ | -------------------------- | --------- |
+| PersonalPrimitives  | UI foundation | Form/Table/ToggleGroup 等追加 | 1, 4, 7      | foundation cn() (P0)       | —         |
+| ThemeToggle         | settings      | テーマ 2 択 UI                | 2            | useTheme (P0)              | State     |
+| SettingsClient      | settings      | 設定ページレイアウト          | 2            | ThemeToggle, useAuth (P0)  | —         |
+| LoginPage           | login         | 認証 UI                       | 3            | Firebase auth (P0)         | —         |
+| ProfileClient       | profile       | プロフィール詳細              | 4            | user/quiz services (P0)    | —         |
+| ProfileEditClient   | profile       | プロフィール編集 Form         | 4            | Form primitives (P0)       | —         |
+| BookmarksClient     | bookmark      | ブックマークハブ              | 5            | useBookmarkFeed (P0)       | —         |
+| BookmarksTabs       | bookmark      | 3 タブ切替                    | 5            | shadcn Tabs (P0)           | —         |
+| NotificationsClient | notifications | 通知一覧                      | 6            | notification service (P0)  | —         |
+| MyQuizClient        | my-quiz       | カスタムクイズ orchestrator   | 7            | useMyQuizPool (P0)         | —         |
+| MyQuizSourcePanel   | my-quiz       | 4 取得元 ToggleGroup          | 7, 7.7, 7.8  | pool flags (P0)            | State     |
+| MyQuizFilteredTable | my-quiz       | 候補 Table + pagination       | 7            | Table (P0)                 | —         |
+| MyQuizPlaySettings  | my-quiz       | 出題数・シャッフル            | 7            | Switch/ToggleGroup (P0)    | State     |
+| MyQuizPreviewBar    | my-quiz       | プレイ開始 CTA                | 7            | buildEntries (P0)          | —         |
+| PricingPageContent  | pricing       | 料金比較                      | 8            | resolvePricingUiState (P1) | —         |
 
 ### settings
 
 #### ThemeToggle
 
-| Field | Detail |
-|-------|--------|
-| Intent | ダーク/ライト 2 択。foundation dual bridge 経由で DOM 更新 |
-| Requirements | 2.2, 2.3, 2.4 |
+| Field        | Detail                                                     |
+| ------------ | ---------------------------------------------------------- |
+| Intent       | ダーク/ライト 2 択。foundation dual bridge 経由で DOM 更新 |
+| Requirements | 2.2, 2.3, 2.4                                              |
 
 **Responsibilities & Constraints**
 - `useTheme().setTheme` のみ呼び出し。`lib/theme.ts` 直接操作禁止
@@ -348,10 +348,10 @@ sequenceDiagram
 
 #### SettingsClient
 
-| Field | Detail |
-|-------|--------|
-| Intent | テーマセクション + 条件付きアカウントセクション |
-| Requirements | 2.1, 2.5, 2.6 |
+| Field        | Detail                                          |
+| ------------ | ----------------------------------------------- |
+| Intent       | テーマセクション + 条件付きアカウントセクション |
+| Requirements | 2.1, 2.5, 2.6                                   |
 
 **Implementation Notes**
 - shadcn `Card` + `CardHeader` + `CardContent` で section 再構成
@@ -362,10 +362,10 @@ sequenceDiagram
 
 #### LoginPageContent
 
-| Field | Detail |
-|-------|--------|
-| Intent | ソーシャルログイン + E2E ボタン + エラー表示 |
-| Requirements | 3.1–3.6 |
+| Field        | Detail                                       |
+| ------------ | -------------------------------------------- |
+| Intent       | ソーシャルログイン + E2E ボタン + エラー表示 |
+| Requirements | 3.1–3.6                                      |
 
 **Implementation Notes**
 - `glass-card` → shadcn `Card`
@@ -378,10 +378,10 @@ sequenceDiagram
 
 #### ProfileClient
 
-| Field | Detail |
-|-------|--------|
-| Intent | プロフィールヘッダー、バッジ、フォロー、コンテンツ Tabs |
-| Requirements | 4.1–4.4, 4.8 |
+| Field        | Detail                                                  |
+| ------------ | ------------------------------------------------------- |
+| Intent       | プロフィールヘッダー、バッジ、フォロー、コンテンツ Tabs |
+| Requirements | 4.1–4.4, 4.8                                            |
 
 **Implementation Notes**
 - コンテンツ切替を shadcn `Tabs` に統一（quizzes/lists/history）
@@ -390,10 +390,10 @@ sequenceDiagram
 
 #### ProfileEditClient
 
-| Field | Detail |
-|-------|--------|
-| Intent | 表示名・bio 編集 Form |
-| Requirements | 4.5 |
+| Field        | Detail                |
+| ------------ | --------------------- |
+| Intent       | 表示名・bio 編集 Form |
+| Requirements | 4.5                   |
 
 **Implementation Notes**
 - shadcn Form + Label + Input + Textarea
@@ -403,10 +403,10 @@ sequenceDiagram
 
 #### BookmarksTabs
 
-| Field | Detail |
-|-------|--------|
-| Intent | クイズ/リスト/問題 3 タブ |
-| Requirements | 5.3, 5.4 |
+| Field        | Detail                    |
+| ------------ | ------------------------- |
+| Intent       | クイズ/リスト/問題 3 タブ |
+| Requirements | 5.3, 5.4                  |
 
 **Implementation Notes**
 - shadcn `Tabs` — `data-testid="bookmarks-tabs"` を TabsList ラッパーに
@@ -416,9 +416,9 @@ sequenceDiagram
 
 #### MyQuizSourcePanel
 
-| Field | Detail |
-|-------|--------|
-| Intent | 4 取得元トグル |
+| Field        | Detail             |
+| ------------ | ------------------ |
+| Intent       | 4 取得元トグル     |
 | Requirements | 7.3, 7.4, 7.7, 7.8 |
 
 **Implementation Notes**
@@ -427,10 +427,10 @@ sequenceDiagram
 
 #### MyQuizFilteredTable
 
-| Field | Detail |
-|-------|--------|
-| Intent | フィルタ済み候補 Table + ページネーション |
-| Requirements | 7.4 |
+| Field        | Detail                                    |
+| ------------ | ----------------------------------------- |
+| Intent       | フィルタ済み候補 Table + ページネーション |
+| Requirements | 7.4                                       |
 
 **Implementation Notes**
 - shadcn Table, TableHeader, TableBody, TableRow, TableCell
@@ -438,10 +438,10 @@ sequenceDiagram
 
 #### MyQuizPlaySettings
 
-| Field | Detail |
-|-------|--------|
-| Intent | 出題数プリセット、カスタム input、シャッフル |
-| Requirements | 7.5 |
+| Field        | Detail                                       |
+| ------------ | -------------------------------------------- |
+| Intent       | 出題数プリセット、カスタム input、シャッフル |
+| Requirements | 7.5                                          |
 
 **Implementation Notes**
 - プリセット: ToggleGroup
@@ -452,10 +452,10 @@ sequenceDiagram
 
 #### PricingPageContent + Plan Cards
 
-| Field | Detail |
-|-------|--------|
-| Intent | Free/Pro 比較、checkout feedback、Pro badge |
-| Requirements | 8.1–8.6 |
+| Field        | Detail                                      |
+| ------------ | ------------------------------------------- |
+| Intent       | Free/Pro 比較、checkout feedback、Pro badge |
+| Requirements | 8.1–8.6                                     |
 
 **Implementation Notes**
 - grid: `grid gap-6 md:grid-cols-2`
@@ -472,7 +472,7 @@ sequenceDiagram
 - shadcn `Alert` で視覚統一。新規エラーパス追加禁止
 
 ### Error Categories and Responses
-**User Errors**: ログイン失敗 → Alert destructive。マイクイズ pool 空 → 既存 disabled/start 制御
+**User Errors**: ログイン失敗 → Alert destructive。カスタムクイズ pool 空 → 既存 disabled/start 制御
 **System Errors**: pool fetch 失敗 → `my-quiz-pool-error` + 再試行 Button
 
 ---

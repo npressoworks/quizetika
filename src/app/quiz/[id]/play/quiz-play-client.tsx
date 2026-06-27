@@ -205,10 +205,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     const targetPhase = feedbackPending
       ? 'feedback'
       : !isReadingStarted
-      ? 'pre_reading'
-      : isQuickPressed
-      ? 'post_reading'
-      : 'reading';
+        ? 'pre_reading'
+        : isQuickPressed
+          ? 'post_reading'
+          : 'reading';
 
     setElapsedPolicy((prev) => {
       if (prev.kind === 'quick-press' && prev.phase === targetPhase) {
@@ -701,10 +701,10 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     return (
       <div className={styles.container} style={{ textAlign: 'center', padding: '48px 20px' }}>
         <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
-          マイクイズのセッションが見つかりません。再度マイクイズから開始してください。
+          カスタムクイズのセッションが見つかりません。再度カスタムクイズから開始してください。
         </p>
         <Link href="/my-quiz" className="btn btn-primary">
-          マイクイズへ戻る
+          カスタムクイズへ戻る
         </Link>
       </div>
     );
@@ -1076,7 +1076,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
             explanation={currentQuestion.explanation}
             correctAnswerDisplay={
               !lastAnswerResult.isCorrect &&
-              currentQuestion.type !== 'quick-press'
+                currentQuestion.type !== 'quick-press'
                 ? formatCorrectAnswer(currentQuestion) || undefined
                 : undefined
             }
@@ -1091,210 +1091,210 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
           />
         ) : (
           <>
-        {/* 1. 選択肢表示 (単一正解=ラジオ / 複数正解=チェックボックス → 確定ボタン) */}
-        {currentQuestion?.type === 'true-false' && (
-          <TrueFalseAnswerPanel
-            question={currentQuestion}
-            onConfirm={submitAnswer}
-            onChoiceClick={(choiceId) => trackChoiceClick(currentQuestion.id, choiceId)}
-            onChoicesOrderResolved={(order) => registerChoicesOrder(currentQuestion.id, order)}
-            disabled={
-              isNormalFeedbackFlow
-                ? feedbackPending
-                : effectivePlayMode !== 'exam' && answeredIds.includes(currentQuestion.id)
-            }
-          />
-        )}
-
-        {currentQuestion?.type === 'multiple-choice' && (
-          <ChoiceAnswerPanel
-            question={currentQuestion}
-            onConfirm={submitAnswer}
-            initialAnswer={questionAnswers[currentQuestion.id]}
-            onChoiceClick={(choiceId) => trackChoiceClick(currentQuestion.id, choiceId)}
-            onChoicesOrderResolved={(order) => registerChoicesOrder(currentQuestion.id, order)}
-            disabled={
-              isNormalFeedbackFlow
-                ? feedbackPending
-                : effectivePlayMode !== 'exam' && answeredIds.includes(currentQuestion.id)
-            }
-          />
-        )}
-
-        {/* 2. 記述式の入力 */}
-        {currentQuestion?.type === 'text-input' && (() => {
-          const inputProps = getTextInputFieldProps(currentQuestion);
-          return (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const input = (e.currentTarget.elements.namedItem('textAnswer') as HTMLInputElement).value;
-                submitAnswer(input);
-                e.currentTarget.reset();
-              }}
-              className={styles.inputForm}
-            >
-              <input
-                type={inputProps.type}
-                name="textAnswer"
-                className={styles.textInput}
-                placeholder={inputProps.placeholder}
-                inputMode={inputProps.inputMode}
-                maxLength={inputProps.maxLength}
-                minLength={inputProps.minLength}
-                required
-                autoComplete="off"
+            {/* 1. 選択肢表示 (単一正解=ラジオ / 複数正解=チェックボックス → 確定ボタン) */}
+            {currentQuestion?.type === 'true-false' && (
+              <TrueFalseAnswerPanel
+                question={currentQuestion}
+                onConfirm={submitAnswer}
+                onChoiceClick={(choiceId) => trackChoiceClick(currentQuestion.id, choiceId)}
+                onChoicesOrderResolved={(order) => registerChoicesOrder(currentQuestion.id, order)}
+                disabled={
+                  isNormalFeedbackFlow
+                    ? feedbackPending
+                    : effectivePlayMode !== 'exam' && answeredIds.includes(currentQuestion.id)
+                }
               />
-              <button type="submit" className="btn btn-primary" data-analytics="quiz-answer-text-submit">送信</button>
-            </form>
-          );
-        })()}
-
-        {/* 4. 並び替えクイズのUI */}
-        {currentQuestion?.type === 'sorting' && (
-          <div className={styles.sortingArea}>
-            <p className={styles.sortingHint}>ドラッグハンドルで要素を正しい順序に並べ替えてください。</p>
-            <SortableSortingList
-              items={sortingItems}
-              listClassName={styles.sortingList}
-              onReorder={(items) =>
-                setSortingItems(
-                  items.map((item, idx) => ({
-                    id: item.id,
-                    text: item.text,
-                    correctOrder: item.correctOrder ?? idx,
-                  }))
-                )
-              }
-              renderItemContent={(item) => (
-                <span className={styles.sortingItemText}>{item.text}</span>
-              )}
-            />
-            <button
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '20px' }}
-              data-analytics="quiz-answer-sorting-submit"
-              onClick={() => {
-                const sortedIds = sortingItems.map((item) => item.id).join(',');
-                submitAnswer(sortedIds);
-              }}
-            >
-              並び替えを確定して解答する
-            </button>
-          </div>
-        )}
-
-        {/* 5. 連想クイズのUI */}
-        {currentQuestion?.type === 'association' && (
-          <div className={styles.associationArea}>
-            <div className={styles.associationHintsList}>
-              {currentQuestion.associationHints
-                ?.slice(0, activeHintIdx + 1)
-                .map((hint, idx) => (
-                  <div key={idx} className={styles.associationHintItem}>
-                    <span className={styles.associationHintLabel}>ヒント {idx + 1}:</span>
-                    <span className={styles.associationHintText}>{hint}</span>
-                  </div>
-                ))}
-            </div>
-
-            {currentQuestion.associationHints && activeHintIdx < currentQuestion.associationHints.length - 1 && (
-              <button
-                className="btn btn-secondary"
-                style={{ width: '100%', marginBottom: '20px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)' }}
-                onClick={() => {
-                  incrementHintsUsed(currentQuestion.id);
-                  setActiveHintIdx((prev) => {
-                    const next = prev + 1;
-                    setAssociationHintIndices((prevIndices) => ({
-                      ...prevIndices,
-                      [currentQuestion.id]: next
-                    }));
-                    return next;
-                  });
-                }}
-              >
-                次のヒントを表示する (残り {currentQuestion.associationHints.length - 1 - activeHintIdx} 件)
-              </button>
             )}
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const input = (e.currentTarget.elements.namedItem('associationAnswer') as HTMLInputElement).value;
-                submitAnswer(input);
-                e.currentTarget.reset();
-              }}
-              className={styles.inputForm}
-            >
-              <input
-                type="text"
-                name="associationAnswer"
-                className={styles.textInput}
-                placeholder="連想される答えを入力してください..."
-                required
-                autoComplete="off"
+            {currentQuestion?.type === 'multiple-choice' && (
+              <ChoiceAnswerPanel
+                question={currentQuestion}
+                onConfirm={submitAnswer}
+                initialAnswer={questionAnswers[currentQuestion.id]}
+                onChoiceClick={(choiceId) => trackChoiceClick(currentQuestion.id, choiceId)}
+                onChoicesOrderResolved={(order) => registerChoicesOrder(currentQuestion.id, order)}
+                disabled={
+                  isNormalFeedbackFlow
+                    ? feedbackPending
+                    : effectivePlayMode !== 'exam' && answeredIds.includes(currentQuestion.id)
+                }
               />
-              <button type="submit" className="btn btn-accent" data-analytics="quiz-answer-association-submit">解答を送信</button>
-            </form>
-          </div>
-        )}
+            )}
 
-        {/* 3. フラッシュカードのフリップ動作 */}
-        {effectivePlayMode === 'flashcard' && currentQuestion && (
-          <div className={styles.flashcardArea}>
-            {!showAnswer ? (
-              <button className="btn btn-accent" onClick={() => setShowAnswer(true)} data-analytics="quiz-flashcard-reveal">
-                答えを見る
-              </button>
-            ) : (
-              <div className={styles.cardBack}>
-                <div className={styles.correctAnswer}>
-                  正解: {formatCorrectAnswer(currentQuestion) || currentQuestion.correctTextAnswerList?.[0] || '正解'}
-                </div>
-                <div className={`${styles.explanation} prose max-w-none dark:prose-invert`} dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.explanation) }} />
+            {/* 2. 記述式の入力 */}
+            {currentQuestion?.type === 'text-input' && (() => {
+              const inputProps = getTextInputFieldProps(currentQuestion);
+              return (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = (e.currentTarget.elements.namedItem('textAnswer') as HTMLInputElement).value;
+                    submitAnswer(input);
+                    e.currentTarget.reset();
+                  }}
+                  className={styles.inputForm}
+                >
+                  <input
+                    type={inputProps.type}
+                    name="textAnswer"
+                    className={styles.textInput}
+                    placeholder={inputProps.placeholder}
+                    inputMode={inputProps.inputMode}
+                    maxLength={inputProps.maxLength}
+                    minLength={inputProps.minLength}
+                    required
+                    autoComplete="off"
+                  />
+                  <button type="submit" className="btn btn-primary" data-analytics="quiz-answer-text-submit">送信</button>
+                </form>
+              );
+            })()}
 
-                <div className={styles.flashcardActionGrid} style={{ marginTop: '20px' }}>
-                  <button
-                    className="btn btn-primary"
-                    style={{ flex: 1, background: 'var(--color-accent)', color: 'var(--text-inverse)' }}
-                    data-analytics="quiz-flashcard-correct"
-                    onClick={() => {
-                      // 自己申告: 分かった (正解)
-                      handleAnswerSubmit('correct');
-                    }}
-                  >
-                    <CheckOutlined sx={{ fontSize: 18 }} /> 分かった (正解)
-                  </button>
-                  <button
-                    className="btn btn-outline"
-                    style={{ flex: 1, borderColor: '#ff007f', color: '#ff007f' }}
-                    data-analytics="quiz-flashcard-incorrect"
-                    onClick={() => {
-                      // 自己申告: 分からなかった (不正解)
-                      handleAnswerSubmit('incorrect');
-                    }}
-                  >
-                    <CloseOutlined sx={{ fontSize: 18 }} /> 分からなかった (不正解)
-                  </button>
-                </div>
+            {/* 4. 並び替えクイズのUI */}
+            {currentQuestion?.type === 'sorting' && (
+              <div className={styles.sortingArea}>
+                <p className={styles.sortingHint}>ドラッグハンドルで要素を正しい順序に並べ替えてください。</p>
+                <SortableSortingList
+                  items={sortingItems}
+                  listClassName={styles.sortingList}
+                  onReorder={(items) =>
+                    setSortingItems(
+                      items.map((item, idx) => ({
+                        id: item.id,
+                        text: item.text,
+                        correctOrder: item.correctOrder ?? idx,
+                      }))
+                    )
+                  }
+                  renderItemContent={(item) => (
+                    <span className={styles.sortingItemText}>{item.text}</span>
+                  )}
+                />
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%', marginTop: '20px' }}
+                  data-analytics="quiz-answer-sorting-submit"
+                  onClick={() => {
+                    const sortedIds = sortingItems.map((item) => item.id).join(',');
+                    submitAnswer(sortedIds);
+                  }}
+                >
+                  並び替えを確定して解答する
+                </button>
               </div>
             )}
-          </div>
-        )}
 
-        {showSkipInCard && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            data-testid="play-skip-question"
-            data-analytics="quiz-play-skip"
-            style={{ width: '100%', marginTop: '16px' }}
-            onClick={handleSkipQuestion}
-          >
-            わからない（スキップ）
-          </button>
-        )}
+            {/* 5. 連想クイズのUI */}
+            {currentQuestion?.type === 'association' && (
+              <div className={styles.associationArea}>
+                <div className={styles.associationHintsList}>
+                  {currentQuestion.associationHints
+                    ?.slice(0, activeHintIdx + 1)
+                    .map((hint, idx) => (
+                      <div key={idx} className={styles.associationHintItem}>
+                        <span className={styles.associationHintLabel}>ヒント {idx + 1}:</span>
+                        <span className={styles.associationHintText}>{hint}</span>
+                      </div>
+                    ))}
+                </div>
+
+                {currentQuestion.associationHints && activeHintIdx < currentQuestion.associationHints.length - 1 && (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginBottom: '20px', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)' }}
+                    onClick={() => {
+                      incrementHintsUsed(currentQuestion.id);
+                      setActiveHintIdx((prev) => {
+                        const next = prev + 1;
+                        setAssociationHintIndices((prevIndices) => ({
+                          ...prevIndices,
+                          [currentQuestion.id]: next
+                        }));
+                        return next;
+                      });
+                    }}
+                  >
+                    次のヒントを表示する (残り {currentQuestion.associationHints.length - 1 - activeHintIdx} 件)
+                  </button>
+                )}
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = (e.currentTarget.elements.namedItem('associationAnswer') as HTMLInputElement).value;
+                    submitAnswer(input);
+                    e.currentTarget.reset();
+                  }}
+                  className={styles.inputForm}
+                >
+                  <input
+                    type="text"
+                    name="associationAnswer"
+                    className={styles.textInput}
+                    placeholder="連想される答えを入力してください..."
+                    required
+                    autoComplete="off"
+                  />
+                  <button type="submit" className="btn btn-accent" data-analytics="quiz-answer-association-submit">解答を送信</button>
+                </form>
+              </div>
+            )}
+
+            {/* 3. フラッシュカードのフリップ動作 */}
+            {effectivePlayMode === 'flashcard' && currentQuestion && (
+              <div className={styles.flashcardArea}>
+                {!showAnswer ? (
+                  <button className="btn btn-accent" onClick={() => setShowAnswer(true)} data-analytics="quiz-flashcard-reveal">
+                    答えを見る
+                  </button>
+                ) : (
+                  <div className={styles.cardBack}>
+                    <div className={styles.correctAnswer}>
+                      正解: {formatCorrectAnswer(currentQuestion) || currentQuestion.correctTextAnswerList?.[0] || '正解'}
+                    </div>
+                    <div className={`${styles.explanation} prose max-w-none dark:prose-invert`} dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.explanation) }} />
+
+                    <div className={styles.flashcardActionGrid} style={{ marginTop: '20px' }}>
+                      <button
+                        className="btn btn-primary"
+                        style={{ flex: 1, background: 'var(--color-accent)', color: 'var(--text-inverse)' }}
+                        data-analytics="quiz-flashcard-correct"
+                        onClick={() => {
+                          // 自己申告: 分かった (正解)
+                          handleAnswerSubmit('correct');
+                        }}
+                      >
+                        <CheckOutlined sx={{ fontSize: 18 }} /> 分かった (正解)
+                      </button>
+                      <button
+                        className="btn btn-outline"
+                        style={{ flex: 1, borderColor: '#ff007f', color: '#ff007f' }}
+                        data-analytics="quiz-flashcard-incorrect"
+                        onClick={() => {
+                          // 自己申告: 分からなかった (不正解)
+                          handleAnswerSubmit('incorrect');
+                        }}
+                      >
+                        <CloseOutlined sx={{ fontSize: 18 }} /> 分からなかった (不正解)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {showSkipInCard && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                data-testid="play-skip-question"
+                data-analytics="quiz-play-skip"
+                style={{ width: '100%', marginTop: '16px' }}
+                onClick={handleSkipQuestion}
+              >
+                わからない（スキップ）
+              </button>
+            )}
           </>
         )}
       </div>

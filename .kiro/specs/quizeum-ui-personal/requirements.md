@@ -2,9 +2,9 @@
 
 ## Project Description (Input)
 
-Quizeum のエンドユーザーは、プロフィール・ブックマーク・通知・設定・マイクイズ・ログイン・料金など個人向け画面を利用している。現状、これらは CSS Modules と旧 Quizeum ビジュアル（glass-card、ネオン色、`btn` グローバルクラス）で分散実装されており、フォーム・タブ・グリッド等の UI パターンが shadcn プリミティブに統一されていない。Phase 23 でマイクイズ・設定・テーマ切替は機能実装済みだが、Phase 24 の shadcn 標準寄せ方針と整合しない。
+Quizeum のエンドユーザーは、プロフィール・ブックマーク・通知・設定・カスタムクイズ・ログイン・料金など個人向け画面を利用している。現状、これらは CSS Modules と旧 Quizeum ビジュアル（glass-card、ネオン色、`btn` グローバルクラス）で分散実装されており、フォーム・タブ・グリッド等の UI パターンが shadcn プリミティブに統一されていない。Phase 23 でカスタムクイズ・設定・テーマ切替は機能実装済みだが、Phase 24 の shadcn 標準寄せ方針と整合しない。
 
-本スペック（`quizeum-ui-personal`）は、`quizeum-ui-foundation` と `quizeum-ui-layout-shell` が提供する shadcn 標準テーマ・共通プリミティブ・シェル上に、個人ハブ全画面を Tailwind + shadcn で再構築する。テーマ切替（ライト/ダーク）の settings 連携、マイクイズの 4 ソースフィルタ・出題設定・プレイ開始、ブックマーク/プロフィール/通知のタブ・グリッド UI の機能契約は維持する。Firestore データ取得ロジック、認可、プレイ画面起動後の UI、シェルコンポーネントは範囲外とする。
+本スペック（`quizeum-ui-personal`）は、`quizeum-ui-foundation` と `quizeum-ui-layout-shell` が提供する shadcn 標準テーマ・共通プリミティブ・シェル上に、個人ハブ全画面を Tailwind + shadcn で再構築する。テーマ切替（ライト/ダーク）の settings 連携、カスタムクイズの 4 ソースフィルタ・出題設定・プレイ開始、ブックマーク/プロフィール/通知のタブ・グリッド UI の機能契約は維持する。Firestore データ取得ロジック、認可、プレイ画面起動後の UI、シェルコンポーネントは範囲外とする。
 
 ## Introduction
 
@@ -17,7 +17,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 - **In scope**:
   - `/profile/*`, `/bookmarks`, `/notifications`, `/settings`, `/my-quiz`, `/login`, `/pricing` 関連ページとコンポーネントの shadcn + Tailwind 再実装
   - `ThemeToggle` を foundation テーマ bridge（`dark` クラス + `data-theme` dual）と統合した settings UI
-  - マイクイズ: 4 取得元フィルタ、検索/絞り込み、出題設定、プレイ開始、非公開クイズ問題は自作ソースのみの契約維持
+  - カスタムクイズ: 4 取得元フィルタ、検索/絞り込み、出題設定、プレイ開始、非公開クイズ問題は自作ソースのみの契約維持
   - ブックマーク/プロフィール/通知のタブ・グリッド/リスト UI の視覚統一（shadcn Tabs, Card, Table 等）
   - `bookmarks-skeleton.tsx`, `notifications-skeleton.tsx` の Tailwind 移行と `.module.css` 削除
   - 個人ハブ関連 `.module.css` の削除
@@ -106,7 +106,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 4. When 通知タイプに応じた遷移先が定義されているとき, the Notifications Page shall クリック後に適切なルート（プロフィール、クイズ等）へ遷移する。
 5. While 通知読み込み中である, the Notifications Page shall スケルトン表示を提供する。
 
-### Requirement 7: マイクイズ画面
+### Requirement 7: カスタムクイズ画面
 **Objective:** As a ログインユーザー, I want 複数ソースから問題を選び、出題設定を調整してプレイを開始できること, so that カスタム復習セッションを実行できる。
 
 #### Acceptance Criteria

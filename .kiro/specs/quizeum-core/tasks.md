@@ -1055,7 +1055,7 @@
 
 ---
 
-### 22. Phase 23: リスト探索・マイクイズ Core API（2026-06-09）
+### 22. Phase 23: リスト探索・カスタムクイズ Core API（2026-06-09）
 
 > 要件 23–25・設計 Phase 23 に対応。`searchLists`、`buildMyQuizQuestionPool`、`my-quiz-session`、`Attempt.mode: 'my-quiz'` 試行記録、`saveAttempt` 1問契約。UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が担当。
 
@@ -1085,7 +1085,7 @@
   - _Requirements: 23.1, 23.2, 23.7_
   - _Boundary: firestore.indexes.json_
 
-- [x] 22.4 マイクイズ用4ソース問題プール合成の実装
+- [x] 22.4 カスタムクイズ用4ソース問題プール合成の実装
   - 有効化された取得元のみを統合し、問題候補配列を返す `buildMyQuizQuestionPool` を実装する
   - 4ソース（自作クイズ・ブックマーククイズ・ブックマークリスト内クイズ・ブックマーク問題）の収集規則を設計どおり適用する（問題リスト直接メンバーはブックマークリスト経路から除外）
   - 全取得元フラグ false 時は空配列を返す
@@ -1096,7 +1096,7 @@
   - _Requirements: 24.1, 24.2, 24.3, 24.4, 24.5, 24.6, 24.7, 24.8, 24.9_
   - _Boundary: my-quiz-pool_
 
-- [x] 22.5 (P) マイクイズ問題プールの単体テスト
+- [x] 22.5 (P) カスタムクイズ問題プールの単体テスト
   - 全 flags false → 空配列、同一 questionId 重複時の先勝ち（own 優先）、ブックマーク経路での非公開親除外を検証する
   - 候補メタデータ（format・difficulty・source 等）が期待どおり付与されることを検証する
   - **完了状態**: `tests/lib/my-quiz-pool.test.ts` がグリーンであること
@@ -1104,7 +1104,7 @@
   - _Depends: 22.4_
   - _Boundary: Testing_
 
-- [x] 22.6 マイクイズアドホックセッション管理の実装
+- [x] 22.6 カスタムクイズアドホックセッション管理の実装
   - sessionStorage 上でセッション ID・出題順序付き問題エントリ・現在インデックスを保持する CRUD を実装する（既存問題リストセッションとキー分離）
   - セッション読み取り、インデックス同期、次問題への進行、次エントリ参照のみ（非進行）、セッションクリア、プレイ画面 URL 生成を提供する
   - プレイ URL に `mode=my-quiz`・`sessionId`・`questionId`・`qIndex` を含める
@@ -1113,7 +1113,7 @@
   - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5_
   - _Boundary: my-quiz-session_
 
-- [x] 22.7 (P) マイクイズセッションの単体テスト
+- [x] 22.7 (P) カスタムクイズセッションの単体テスト
   - sessionStorage round-trip、URL に `mode=my-quiz` が含まれること、`MY_QUIZ_SESSION_KEY` ≠ 問題リストセッションキーを検証する
   - `syncMyQuizSessionIndex` による URL `qIndex` と `currentIndex` の同期を検証する
   - **完了状態**: `tests/lib/my-quiz-session.test.ts` がグリーンであること
@@ -1123,7 +1123,7 @@
 
 - [x] 22.8 `my-quiz` プレイモードの試行型契約拡張
   - 解答履歴のプレイモードに `my-quiz` を追加し、任意の `sessionId` フィールドを定義する
-  - マイクイズ attempt 契約（`mode: 'my-quiz'`・親クイズ ID 必須・`totalQuestions: 1`）を満たすか判定するヘルパを型層に追加する
+  - カスタムクイズ attempt 契約（`mode: 'my-quiz'`・親クイズ ID 必須・`totalQuestions: 1`）を満たすか判定するヘルパを型層に追加する
   - `listId` は不要（省略または null）であることを型コメントで明示する
   - **完了状態**: 型チェックが通り、`satisfiesMyQuizAttemptContract` が契約どおり true/false を返すこと
   - _Requirements: 25.6, 25.7, 25.10, 25.11_
@@ -1161,7 +1161,7 @@
 - 実装順: 22.1/22.3/22.4/22.6/22.8（並行可）→ 22.2/22.5/22.7/22.10（各実装直後）→ 22.9（22.8 後）→ 22.11。lists-discovery-ui Phase 1 は 22.1 完了後、my-quiz-ui Phase 1 は 22.4 完了後に着手可能。
 - 正本: リスト探索は `quiz-list.ts` の `searchLists`、問題プールは `my-quiz-pool.ts`、セッションは `my-quiz-session.ts`（キー `quizeum_my_quiz_session`）。dedupe は `question-attach-search.ts` を再利用。
 - `saveAttempt` 1問契約は `question-list` 回帰を含む。LB eligibility 本体は変更不要（`my-quiz` は `question-list` と同方針で登録対象）。
-- サーバー側セッション永続化・マイクイズ URL 共有可能化・フィルタプリセット保存は対象外（要件 25.14、24.11）。
+- サーバー側セッション永続化・カスタムクイズ URL 共有可能化・フィルタプリセット保存は対象外（要件 25.14、24.11）。
 - Phase 23 実装完了（2026-06-09）: Jest 158 suites / 805 tests グリーン。隣接 UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が import 可能。
 
 ---
@@ -1192,7 +1192,7 @@
   - _Depends: 23.1_
   - _Boundary: AttemptService_
 
-- [x] 23.4 マイクイズ問題プールの3ソース化
+- [x] 23.4 カスタムクイズ問題プールの3ソース化
   - プール合成フラグからブックマークリスト分岐を除去し、自作・ブックマーククイズ・ブックマーク問題の3ソースのみ統合する
   - dedupe 優先順（own → bookmarkedQuizzes → bookmarkedQuestions）を維持する
   - **完了状態**: `bookmarkedLists` フラグなしでプールが構築でき、リスト由来問題が候補に含まれないこと
@@ -1314,10 +1314,10 @@
   - _Depends: 24.2_
   - _Boundary: AttemptService, quick-press-stream_
 
-- [x] 24.7 ブックマーク・マイクイズプール連携
+- [x] 24.7 ブックマーク・カスタムクイズプール連携
   - ブックマーク検証に閲覧規則を適用し、閲覧不可クイズのブックマーク登録を拒否する
-  - マイクイズのブックマークソース収集時、親クイズが閲覧不可なら候補から除外する（自作ソースは従来どおり）
-  - **完了状態**: 非公開クイズのブックマークが reject され、マイクイズプールに他人 private が混入しないこと
+  - カスタムクイズのブックマークソース収集時、親クイズが閲覧不可なら候補から除外する（自作ソースは従来どおり）
+  - **完了状態**: 非公開クイズのブックマークが reject され、カスタムクイズプールに他人 private が混入しないこと
   - _Requirements: 27.20, 27.21, 27.22_
   - _Depends: 24.2_
   - _Boundary: bookmark, my-quiz-pool_

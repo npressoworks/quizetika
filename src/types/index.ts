@@ -242,18 +242,18 @@ export interface Attempt {
   /**
    * プレイモード。
    * `question-list`: 問題リスト連続プレイ（問題ごとに1 attempt、`listId` + 親 `quizId`、`totalQuestions: 1`）
-   * `my-quiz`: マイクイズ連続プレイ（問題ごとに1 attempt、親 `quizId`、`totalQuestions: 1`。`listId` は不要）
+   * `my-quiz`: カスタムクイズ連続プレイ（問題ごとに1 attempt、親 `quizId`、`totalQuestions: 1`。`listId` は不要）
    */
   mode:
-    | 'normal'
-    | 'exam'
-    | 'flashcard'
-    | 'review'
-    | 'list'
-    | 'question-list'
-    | 'my-quiz'
-    | 'test-play';
-  /** マイクイズセッション ID（`my-quiz` モード時のみ任意付与） */
+  | 'normal'
+  | 'exam'
+  | 'flashcard'
+  | 'review'
+  | 'list'
+  | 'question-list'
+  | 'my-quiz'
+  | 'test-play';
+  /** カスタムクイズセッション ID（`my-quiz` モード時のみ任意付与） */
   sessionId?: string | null;
   score: number;          // 正解数
   totalQuestions: number; // 全問題数
@@ -318,7 +318,7 @@ export function assertPlayModeAllowedForSave(mode: Attempt['mode']): void {
   }
 }
 
-/** マイクイズプレイ attempt の契約を満たすか（`sessionId` は任意） */
+/** カスタムクイズプレイ attempt の契約を満たすか（`sessionId` は任意） */
 export function satisfiesMyQuizAttemptContract(
   attempt: Pick<Attempt, 'mode' | 'quizId' | 'totalQuestions'>
 ): boolean {

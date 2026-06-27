@@ -4,10 +4,10 @@
 
 ## Tasks
 
-### 1. マイクイズページのルーティングと認証ガード
+### 1. カスタムクイズページのルーティングと認証ガード
 
 - [x] 1.1 `/my-quiz` RSC シェルとクライアントページ骨格の実装 (P)
-  - `src/app/my-quiz/page.tsx` にメタデータ（title: マイクイズ）と Suspense 境界を配置する。
+  - `src/app/my-quiz/page.tsx` にメタデータ（title: カスタムクイズ）と Suspense 境界を配置する。
   - `my-quiz-client.tsx` にページ見出し・説明文・`data-testid="my-quiz-page"` を実装する。
   - 完了時、認証済みユーザーが `/my-quiz` を開くと静的フレームが即時表示されること。
   - _Requirements: 1.1, 1.4, 1.5, 7.2_
@@ -99,17 +99,17 @@
   - `syncMyQuizSessionIndex` を `qIndex` 変更時に呼び出す（`question-list` と同型）。
   - `buildAttemptData` で `mode: 'my-quiz'`、`totalQuestions: 1`、`sessionId` を設定する。
   - セッション欠落時はエラー UI + `/my-quiz` リンクを表示する。
-  - 完了時、マイクイズ URL で1問プレイが開始され、通常モード即時フィードバックが適用されないこと。
+  - 完了時、カスタムクイズ URL で1問プレイが開始され、通常モード即時フィードバックが適用されないこと。
   - _Requirements: 6.1, 6.4, 6.5, 6.6, 6.7_
   - _Depends: quizeum-core（my-quiz-session, saveAttempt）, 5.2_
   - _Boundary: my-quiz-ui minimal extension; play-flow coordination（quiz-play-client）_
 
 ### 7. プレイエンジン連携（quiz-result-client）
 
-- [x] 7.1 マイクイズ次問題遷移と完了導線の実装
+- [x] 7.1 カスタムクイズ次問題遷移と完了導線の実装
   - `quiz-result-client.tsx` に `attemptMode === 'my-quiz'` 分岐を追加する。
   - 次問題あり: `peekNextMyQuizEntry` → `buildMyQuizPlayUrl`（`data-testid="my-quiz-next"`）。
-  - 最終問: 「マイクイズを完了しました」+ `/my-quiz` 戻りリンク。`clearMyQuizSession` は完了時のみ。
+  - 最終問: 「カスタムクイズを完了しました」+ `/my-quiz` 戻りリンク。`clearMyQuizSession` は完了時のみ。
   - 完了時、2問以上のセッションで1問目完了後に2問目プレイ URL へ遷移できること。
   - _Requirements: 6.2, 6.3_
   - _Depends: 6.1_
@@ -117,7 +117,7 @@
 
 ### 8. ページ統合とスタイル
 
-- [x] 8.1 マイクイズ画面のコンポーネント統合と CSS Modules
+- [x] 8.1 カスタムクイズ画面のコンポーネント統合と CSS Modules
   - `my-quiz-client.tsx` に SourcePanel / Filters / PlaySettings / PreviewBar を縦積みレイアウトで合成する。
   - `my-quiz.module.css` で Vanilla CSS トークン（`var(--*)`）を用い、モバイル幅でもフィルタが操作可能にする。
   - 完了時、認証済みユーザーが一画面でソース→フィルタ→出題→開始まで操作できること。
@@ -127,7 +127,7 @@
 
 ### 9. E2E テスト
 
-- [x] 9.1 マイクイズスモーク E2E の実装
+- [x] 9.1 カスタムクイズスモーク E2E の実装
   - `e2e/my-quiz.spec.ts` にログイン → `/my-quiz` 表示 → 開始ボタン → `mode=my-quiz` URL 確認 → 1問解答（または結果表示）までのテストを追加する。
   - シードデータでプール0件の場合は `test.skip` 条件を設ける。
   - 完了時、`npm run test:e2e -- my-quiz` が pass または skip されること。
@@ -145,15 +145,15 @@
 
 ## 要件カバレッジサマリ
 
-| 要件 | タスク |
-|------|--------|
-| 1 | 1.1, 1.2, 8.1 |
-| 2 | 2.1, 2.2 |
-| 3 | 3.1, 3.2, 3.3 |
-| 4 | 4.1 |
-| 5 | 4.1, 5.1, 5.2 |
-| 6 | 6.1, 7.1 |
-| 7 | 1.1, 1.2, 8.1, 9.1, 9.2* |
+| 要件 | タスク                   |
+| ---- | ------------------------ |
+| 1    | 1.1, 1.2, 8.1            |
+| 2    | 2.1, 2.2                 |
+| 3    | 3.1, 3.2, 3.3            |
+| 4    | 4.1                      |
+| 5    | 4.1, 5.1, 5.2            |
+| 6    | 6.1, 7.1                 |
+| 7    | 1.1, 1.2, 8.1, 9.1, 9.2* |
 
 ## 並列実行可能タスク `(P)`
 
@@ -162,10 +162,10 @@
 
 ## 外部ブロッカー
 
-| 依存 | 内容 |
-|------|------|
-| `quizeum-core` | `buildMyQuizQuestionPool`, `my-quiz-session.ts`, `Attempt.mode: 'my-quiz'` |
-| `quizeum-sidebar-layout` | Sidebar「マイクイズ」導線（本スペック外、E2E は直接 URL アクセス可） |
+| 依存                     | 内容                                                                       |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `quizeum-core`           | `buildMyQuizQuestionPool`, `my-quiz-session.ts`, `Attempt.mode: 'my-quiz'` |
+| `quizeum-sidebar-layout` | Sidebar「カスタムクイズ」導線（本スペック外、E2E は直接 URL アクセス可）   |
 
 ---
 
@@ -191,7 +191,7 @@
   - フィルタ結果テーブルから `bookmarked-list` 取得元ラベルを除去する
   - ページ説明文の「4ソース」表記を「3ソース」に更新する
   - リスト取得 API の import をコードベースから除去する
-  - **完了状態**: マイクイズ画面にリスト由来ラベル・文言・import が残らないこと
+  - **完了状態**: カスタムクイズ画面にリスト由来ラベル・文言・import が残らないこと
   - _Requirements: 8.4, 8.5_
   - _Depends: 10.2_
   - _Boundary: my-quiz-filtered-table, MyQuizPage_
@@ -205,7 +205,7 @@
 
 - [x] 10.5 Phase 26 統合検証
   - 3ソースでプール取得→フィルタ→`mode=my-quiz` プレイ開始までの一連フローが維持されることを確認する
-  - **完了状態**: マイクイズ関連ビルド・テストがグリーンであること
+  - **完了状態**: カスタムクイズ関連ビルド・テストがグリーンであること
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8_
   - _Depends: 10.4_
   - _Boundary: Integration_

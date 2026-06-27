@@ -5,7 +5,7 @@
 - **Discovery Scope**: Extension（既存 CSS Modules UI の shadcn + Tailwind 置換）
 - **Key Findings**:
   - 個人ハブは 7 ルート群・約 25 コンポーネント・15+ CSS Modules で構成。ビジネスロジックは hooks/services に分離済みで UI 層のみ移行可能
-  - マイクイズは `data-testid` が 20 件超と E2E 契約が最も厳密。非公開クイズ除外は `buildMyQuizQuestionPool` が bookmarked 系で `published` のみ収集することで既に実装
+  - カスタムクイズは `data-testid` が 20 件超と E2E 契約が最も厳密。非公開クイズ除外は `buildMyQuizQuestionPool` が bookmarked 系で `published` のみ収集することで既に実装
   - テーマ切替 E2E は `data-theme` と `localStorage` を検証。foundation dual bridge 下では `ThemeToggle` を shadcn ToggleGroup/Switch に置換しつつ `setTheme` API は維持
 
 ## Research Log
@@ -25,11 +25,11 @@
 - **Context**: brief が Tabs, Form, Select, Switch, Table を指定
 - **Sources Consulted**: shadcn/ui 公式コンポーネント一覧、quizeum-ui-foundation design
 - **Findings**:
-  - マイクイズ取得元 4 トグル → `ToggleGroup` + `ToggleGroupItem`（`aria-pressed` 維持）
+  - カスタムクイズ取得元 4 トグル → `ToggleGroup` + `ToggleGroupItem`（`aria-pressed` 維持）
   - 出題数プリセット → `ToggleGroup` role=radiogroup 相当または shadcn Tabs variant
   - テーマ切替 → `ToggleGroup`（2 択ボタン）が現行 UX に近く E2E `getByRole('button', { name: 'ライト' })` と互換
   - プロフィール編集 → `Form` + `Label` + `Input` + `Textarea`
-  - マイクイズテーブル → shadcn `Table`（ページネーションは Button 維持）
+  - カスタムクイズテーブル → shadcn `Table`（ページネーションは Button 維持）
   - 通知リスト → `Card` 行または `ScrollArea` + カスタム list item
 - **Implications**: foundation に追加するプリミティブは本 spec の Task 1 で CLI add
 
@@ -53,11 +53,11 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
+| Option                      | Description                                            | Strengths        | Risks / Limitations                 | Notes               |
+| --------------------------- | ------------------------------------------------------ | ---------------- | ----------------------------------- | ------------------- |
 | Strangler（スタイル層のみ） | コンポーネント責務・props 維持、CSS Modules → Tailwind | 低リスク、段階的 | 一時的に旧グローバル class 参照残存 | layout-shell と同一 |
-| ページ単位 Big Bang | 7 ルートを一括書き換え | 短期完了 | レビュー不能、E2E 同時破綻 | 却下 |
-| 共通 PersonalLayout 抽象 | 個人ハブ専用 layout コンポーネント新設 | DRY | スコープ拡大、既存 page 構造変更 | 却下 |
+| ページ単位 Big Bang         | 7 ルートを一括書き換え                                 | 短期完了         | レビュー不能、E2E 同時破綻          | 却下                |
+| 共通 PersonalLayout 抽象    | 個人ハブ専用 layout コンポーネント新設                 | DRY              | スコープ拡大、既存 page 構造変更    | 却下                |
 
 ## Design Decisions
 
@@ -77,7 +77,7 @@
 - **Rationale**: インポートパス・テスト・downstream spec への影響最小
 - **Trade-offs**: 横断パターン（PersonalPageHeader 等）の共通化は見送り
 
-### Decision: マイクイズ Table + ToggleGroup
+### Decision: カスタムクイズ Table + ToggleGroup
 - **Context**: フィルタテーブルと 4 ソースチップの UI 要件
 - **Selected Approach**: shadcn Table + ToggleGroup。ページネーションは既存 Button + testid 維持
 - **Rationale**: brief 指定と testid 互換

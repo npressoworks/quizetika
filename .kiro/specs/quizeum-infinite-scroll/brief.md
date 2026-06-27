@@ -28,7 +28,7 @@
   - プロフィール画面 (`profile-client.tsx`) への `getQuizzesByAuthorPage` 統合と広告（10件ごと）挿入。
   - E2E テストおよびユニットテストの追加・更新。
 - **Out**:
-  - トップ画面（カルーセルのみ）およびマイクイズ画面（`/my-quiz` での問題一覧）の無限スクロール化。
+  - トップ画面（カルーセルのみ）およびカスタムクイズ画面（`/my-quiz` での問題一覧）の無限スクロール化。
 
 ## Boundary Candidates
 - ハイブリッド無限スクロール UI / 状態管理 (`InfiniteScrollLoader`)

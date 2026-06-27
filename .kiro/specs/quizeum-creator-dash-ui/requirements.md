@@ -240,7 +240,7 @@
 9. The [Creator Dashboard UI] shall [クイズエディタおよび作家ダッシュボード向け Phase 12 の Suspense 最適化を維持すること]。
 
 **境界・隣接**
-10. The [Creator Dashboard UI] shall [ブックマーク画面・マイクイズ・問題参照リンク作問のコア契約変更を本要件の範囲に含めない]。
+10. The [Creator Dashboard UI] shall [ブックマーク画面・カスタムクイズ・問題参照リンク作問のコア契約変更を本要件の範囲に含めない]。
 11. The [Creator Dashboard UI] shall [リストデータの Firestore 削除を本要件の範囲に含めない（`quizeum-core` マイグレーションが担当）]。
 
 **アクセシビリティ・テスト支援**

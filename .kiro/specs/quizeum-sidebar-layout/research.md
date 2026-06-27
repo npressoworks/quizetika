@@ -20,12 +20,12 @@
 
 要件と必要な資産、およびギャップの分類は以下の通りです。
 
-| 要件ID | 要件の概要 | 必要なアセット (コード) | 状態 | ギャップの分類・詳細 |
-| :--- | :--- | :--- | :--- | :--- |
-| **Requirement 1** | 左サイドバーによるPC版グローバルナビゲーション | `src/components/layout/sidebar.tsx`<br>`src/components/layout/sidebar.module.css` | **[Missing]** | 完全新規作成。<br>既存の `header.tsx` からナビゲーション項目、アバター表示、ログアウト等のロジックを移植する。 |
-| **Requirement 2** | ボトムナビゲーションによるモバイル版グローバルナビゲーション | `src/components/layout/bottom-nav.tsx`<br>`src/components/layout/bottom-nav.module.css` | **[Missing]** | 完全新規作成。<br>モバイル（767px以下）専用のボトムメニュー。 |
-| **Requirement 3** | モバイル版軽量ヘッダー | `src/components/layout/header.tsx`<br>`src/components/layout/header.module.css` | **[Constraint]** | 既存ヘッダーの修正。<br>PC版表示を完全に非表示化し、モバイル（767px以下）でロゴ、作問ボタン、ユーザーアバター（またはログインボタン）のみを表示するミニヘッダーへと軽量化する。 |
-| **Requirement 4** | グローバルレイアウトの余白とスクロール制御 | `src/app/layout.tsx`<br>`src/app/layout.module.css`<br>`src/app/globals.css` | **[Constraint]** | 既存レイアウトの修正。<br>サイドバーとボトムナビの表示・非表示および幅に応じて、メインコンテンツ（`{children}`）エリアの左マージン/パディングおよび下マージン/パディングをレスポンシブに制御する。`/play` パスでの全画面表示（余白0）を考慮する必要がある。 |
+| 要件ID            | 要件の概要                                                   | 必要なアセット (コード)                                                                 | 状態             | ギャップの分類・詳細                                                                                                                                                                                                                                        |
+| :---------------- | :----------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Requirement 1** | 左サイドバーによるPC版グローバルナビゲーション               | `src/components/layout/sidebar.tsx`<br>`src/components/layout/sidebar.module.css`       | **[Missing]**    | 完全新規作成。<br>既存の `header.tsx` からナビゲーション項目、アバター表示、ログアウト等のロジックを移植する。                                                                                                                                              |
+| **Requirement 2** | ボトムナビゲーションによるモバイル版グローバルナビゲーション | `src/components/layout/bottom-nav.tsx`<br>`src/components/layout/bottom-nav.module.css` | **[Missing]**    | 完全新規作成。<br>モバイル（767px以下）専用のボトムメニュー。                                                                                                                                                                                               |
+| **Requirement 3** | モバイル版軽量ヘッダー                                       | `src/components/layout/header.tsx`<br>`src/components/layout/header.module.css`         | **[Constraint]** | 既存ヘッダーの修正。<br>PC版表示を完全に非表示化し、モバイル（767px以下）でロゴ、作問ボタン、ユーザーアバター（またはログインボタン）のみを表示するミニヘッダーへと軽量化する。                                                                             |
+| **Requirement 4** | グローバルレイアウトの余白とスクロール制御                   | `src/app/layout.tsx`<br>`src/app/layout.module.css`<br>`src/app/globals.css`            | **[Constraint]** | 既存レイアウトの修正。<br>サイドバーとボトムナビの表示・非表示および幅に応じて、メインコンテンツ（`{children}`）エリアの左マージン/パディングおよび下マージン/パディングをレスポンシブに制御する。`/play` パスでの全画面表示（余白0）を考慮する必要がある。 |
 
 ---
 
@@ -90,10 +90,10 @@ Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時
 
 ---
 
-## Phase 23: リスト・マイクイズ・設定ナビ拡張（2026-06-09）
+## Phase 23: リスト・カスタムクイズ・設定ナビ拡張（2026-06-09）
 
 ### Summary
-ログイン時 Sidebar に `/lists`・`/my-quiz` を追加。アカウントポップアップに `/settings` をマイページと区切り線の間に配置。モバイルは BottomNav 5 項目維持のため、Header アバターのプロフィールポップアップでリスト・マイクイズ・設定への代替到達を提供。`layout.tsx` / ThemeProvider は `quizeum-user-settings-ui` が所有。
+ログイン時 Sidebar に `/lists`・`/my-quiz` を追加。アカウントポップアップに `/settings` をマイページと区切り線の間に配置。モバイルは BottomNav 5 項目維持のため、Header アバターのプロフィールポップアップでリスト・カスタムクイズ・設定への代替到達を提供。`layout.tsx` / ThemeProvider は `quizeum-user-settings-ui` が所有。
 
 ### Discovery Type
 **Light（拡張）** — 既存 Sidebar / Header / BottomNav パターンの延長。新規ルート（`/lists`, `/my-quiz`, `/settings`）は隣接スペックが提供予定。
@@ -105,10 +105,10 @@ Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時
 4. **user-settings 協調**: Req 6.1 で ThemeProvider は `layout.tsx` 配下。sidebar-layout はナビリンクのみ追加し Provider を触らない。
 
 ### Design Decisions
-1. **Icons** — リスト: `List`、マイクイズ: `ClipboardList`（`BookMarked` は代替候補）。
+1. **Icons** — リスト: `List`、カスタムクイズ: `ClipboardList`（`BookMarked` は代替候補）。
 2. **Active** — `pathname.startsWith('/lists')` / `startsWith('/my-quiz')`。設定は主要ナビ外のため active 任意。
 3. **Popup 設定** — `sidebar-settings-link`、`href="/settings"`、マイページ直下・`<hr>` 上。
-4. **Mobile（推奨 A）** — Header アバター → ポップアップ（リスト・マイクイズ・設定・マイページ・ログアウト）。BottomNav プロフィールは直行維持。
+4. **Mobile（推奨 A）** — Header アバター → ポップアップ（リスト・カスタムクイズ・設定・マイページ・ログアウト）。BottomNav プロフィールは直行維持。
 5. **Mobile 代替** — B: BottomNav 長押し、C: 6–7 項目、D: ハンバーガー復活 — いずれも非推奨と記録。
 6. **Out of scope** — 各ページ UI、ThemeProvider、`layout.tsx` 変更。
 

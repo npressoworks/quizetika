@@ -24,7 +24,7 @@ const MODE_LABELS: Record<Attempt['mode'], string> = {
   review: '弱点克服',
   list: 'レガシープレイ',
   'question-list': 'レガシープレイ',
-  'my-quiz': 'マイクイズ',
+  'my-quiz': 'カスタムクイズ',
   'test-play': 'テストプレイ',
 };
 

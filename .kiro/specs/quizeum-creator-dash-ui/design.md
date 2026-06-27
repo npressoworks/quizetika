@@ -772,24 +772,24 @@ export function consumeTestPlayDraftForEditor(
 
 ### 3. Requirements Traceability
 
-| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
-| :--- | :--- | :--- | :--- | :--- |
-| 10.1 | 作家ダッシュボードの静的先行表示 | `src/app/creator/dashboard/page.tsx` | Server Component としてヘッダー等の枠組みを即時レンダリング。 | ユーザーアクセス時に即時描画・配信 |
-| 10.2 | 累計統計データのスケルトン表示 | `src/components/charts/stats-skeleton.tsx` | 統計データのロード中、カード用のスケルトンを表示する。 | `data-testid="stats-skeleton"` を付与 |
-| 10.3 | 累計統計データのコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | データロード完了後、統計カードを実データに差し替える。 | `<Suspense>` による非同期制御 |
-| 10.4 | 作成クイズ一覧のスケルトン表示 | `src/components/quiz/quiz-list-skeleton.tsx` | 自作クイズ一覧の取得中、リスト用のスケルトンを表示する。 | `data-testid="quiz-list-skeleton"` を付与 |
-| 10.5 | 作成クイズ一覧のコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | ロード完了後、スケルトンから実際のクイズ行に差し替える。 | `<Suspense>` による非同期制御 |
-| 10.6 | 指摘キューのスケルトン表示 | `src/components/quiz/feedback-skeleton.tsx` | 指摘フィードバックデータのロード中、スケルトンを表示する。 | `data-testid="feedback-list-skeleton"` を付与 |
-| 10.7 | 指摘キューのコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | ロード完了後、指摘フィードバックキューに差し替える。 | `<Suspense>` による非同期制御 |
-| 10.8 | アナリティクスグラフのスケルトン表示 | `src/components/charts/charts-skeleton.tsx` | チャート用データのロード中、グラフ用スケルトンを表示する。 | `data-testid="charts-skeleton"` を付与 |
-| 10.9 | アナリティクスグラフのコンテンツ置換 | `src/app/creator/dashboard/page.tsx` | ロード完了後、実際のグラフ（CSSベース）に差し替える。 | `<Suspense>` による非同期制御 |
-| 10.10 | ダッシュボード用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="stats-skeleton"`, `quiz-list-skeleton` 等 |
-| 10.11 | 指摘・グラフ用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="feedback-list-skeleton"`, `charts-skeleton` |
-| 10.12 | クイズ作成・編集画面の静的先行表示 | `src/app/quiz/create/page.tsx`, `src/app/quiz/[id]/edit/page.tsx` | Server Component として戻るボタンやフォーム枠を即時描画。 | ユーザーアクセス時に即時描画・配信 |
-| 10.13 | クイズエディタデータのスケルトン表示 | `src/components/quiz/editor-skeleton.tsx` | クイズデータやマスタロード中、フォーム内にスケルトンを表示。 | `data-testid="quiz-editor-skeleton"` を付与 |
-| 10.14 | クイズエディタデータのコンテンツ置換 | `src/app/quiz/[id]/edit/page.tsx` | データロード完了後、実際のフォーム入力要素に差し替える。 | `<Suspense>` による非同期制御 |
-| 10.15 | リスト詳細・編集画面の静的先行表示 | 各リストページ `page.tsx` | Server Component として戻るボタンやコンテナ枠を即時描画。 | ユーザーアクセス時に即時描画・配信 |
-| 10.16 | リストデータのスケルトン表示 | `src/components/quiz-list/list-skeleton.tsx` | リストデータやアタッチ対象のロード中、スケルトンを表示。 | `data-testid="list-editor-skeleton"` を付与 |
+| 要件 ID | 要件サマリー                             | 該当コンポーネント                                                | インターフェース / 責務                                       | フロー / 挙動                                             |
+| :------ | :--------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ | :-------------------------------------------------------- |
+| 10.1    | 作家ダッシュボードの静的先行表示         | `src/app/creator/dashboard/page.tsx`                              | Server Component としてヘッダー等の枠組みを即時レンダリング。 | ユーザーアクセス時に即時描画・配信                        |
+| 10.2    | 累計統計データのスケルトン表示           | `src/components/charts/stats-skeleton.tsx`                        | 統計データのロード中、カード用のスケルトンを表示する。        | `data-testid="stats-skeleton"` を付与                     |
+| 10.3    | 累計統計データのコンテンツ置換           | `src/app/creator/dashboard/page.tsx`                              | データロード完了後、統計カードを実データに差し替える。        | `<Suspense>` による非同期制御                             |
+| 10.4    | 作成クイズ一覧のスケルトン表示           | `src/components/quiz/quiz-list-skeleton.tsx`                      | 自作クイズ一覧の取得中、リスト用のスケルトンを表示する。      | `data-testid="quiz-list-skeleton"` を付与                 |
+| 10.5    | 作成クイズ一覧のコンテンツ置換           | `src/app/creator/dashboard/page.tsx`                              | ロード完了後、スケルトンから実際のクイズ行に差し替える。      | `<Suspense>` による非同期制御                             |
+| 10.6    | 指摘キューのスケルトン表示               | `src/components/quiz/feedback-skeleton.tsx`                       | 指摘フィードバックデータのロード中、スケルトンを表示する。    | `data-testid="feedback-list-skeleton"` を付与             |
+| 10.7    | 指摘キューのコンテンツ置換               | `src/app/creator/dashboard/page.tsx`                              | ロード完了後、指摘フィードバックキューに差し替える。          | `<Suspense>` による非同期制御                             |
+| 10.8    | アナリティクスグラフのスケルトン表示     | `src/components/charts/charts-skeleton.tsx`                       | チャート用データのロード中、グラフ用スケルトンを表示する。    | `data-testid="charts-skeleton"` を付与                    |
+| 10.9    | アナリティクスグラフのコンテンツ置換     | `src/app/creator/dashboard/page.tsx`                              | ロード完了後、実際のグラフ（CSSベース）に差し替える。         | `<Suspense>` による非同期制御                             |
+| 10.10   | ダッシュボード用スケルトンの testid 付与 | 各スケルトンコンポーネント                                        | テスト自動化用の testid 付与を保証。                          | `data-testid="stats-skeleton"`, `quiz-list-skeleton` 等   |
+| 10.11   | 指摘・グラフ用スケルトンの testid 付与   | 各スケルトンコンポーネント                                        | テスト自動化用の testid 付与を保証。                          | `data-testid="feedback-list-skeleton"`, `charts-skeleton` |
+| 10.12   | クイズ作成・編集画面の静的先行表示       | `src/app/quiz/create/page.tsx`, `src/app/quiz/[id]/edit/page.tsx` | Server Component として戻るボタンやフォーム枠を即時描画。     | ユーザーアクセス時に即時描画・配信                        |
+| 10.13   | クイズエディタデータのスケルトン表示     | `src/components/quiz/editor-skeleton.tsx`                         | クイズデータやマスタロード中、フォーム内にスケルトンを表示。  | `data-testid="quiz-editor-skeleton"` を付与               |
+| 10.14   | クイズエディタデータのコンテンツ置換     | `src/app/quiz/[id]/edit/page.tsx`                                 | データロード完了後、実際のフォーム入力要素に差し替える。      | `<Suspense>` による非同期制御                             |
+| 10.15   | リスト詳細・編集画面の静的先行表示       | 各リストページ `page.tsx`                                         | Server Component として戻るボタンやコンテナ枠を即時描画。     | ユーザーアクセス時に即時描画・配信                        |
+| 10.16   | リストデータのスケルトン表示             | `src/components/quiz-list/list-skeleton.tsx`                      | リストデータやアタッチ対象のロード中、スケルトンを表示。      | `data-testid="list-editor-skeleton"` を付与               |
 
 ---
 
@@ -797,12 +797,12 @@ export function consumeTestPlayDraftForEditor(
 
 ### 1. Boundary Commitments
 
-| Owns | Out of Boundary |
-|------|-----------------|
-| 出題形式カード「〇×式」 | 選択肢永続化正規化（core） |
-| 複合形式トグル「〇×」 | プレイ回答パネル（play-flow） |
-| `TrueFalseCorrectToggle` | 公開検証ロジック（core） |
-| `handleFormatChange` / `handleToggleQuestionType` 拡張 | |
+| Owns                                                   | Out of Boundary               |
+| ------------------------------------------------------ | ----------------------------- |
+| 出題形式カード「〇×式」                                | 選択肢永続化正規化（core）    |
+| 複合形式トグル「〇×」                                  | プレイ回答パネル（play-flow） |
+| `TrueFalseCorrectToggle`                               | 公開検証ロジック（core）      |
+| `handleFormatChange` / `handleToggleQuestionType` 拡張 |                               |
 
 ### 2. UI Design
 
@@ -833,30 +833,30 @@ export function consumeTestPlayDraftForEditor(
 
 ### 3. File Structure Plan（Phase 20）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/components/quiz/true-false-correct-toggle.tsx` | **New** | 正解トグル UI |
-| `src/components/quiz/true-false-correct-toggle.module.css` | **New** | トグルスタイル |
-| `src/components/quiz/quiz-editor.tsx` | **Modify** | 形式カード・トグル・`addDefaultQuestion`・形式変換 |
-| `src/components/quiz/quiz-editor.module.css` | **Modify** | 〇×式カード（既存グリッド流用可） |
-| `e2e/quiz-creation.spec.ts` | **Modify** | 〇×形式作問→保存 |
+| ファイル                                                   | 操作       | 責務                                               |
+| ---------------------------------------------------------- | ---------- | -------------------------------------------------- |
+| `src/components/quiz/true-false-correct-toggle.tsx`        | **New**    | 正解トグル UI                                      |
+| `src/components/quiz/true-false-correct-toggle.module.css` | **New**    | トグルスタイル                                     |
+| `src/components/quiz/quiz-editor.tsx`                      | **Modify** | 形式カード・トグル・`addDefaultQuestion`・形式変換 |
+| `src/components/quiz/quiz-editor.module.css`               | **Modify** | 〇×式カード（既存グリッド流用可）                  |
+| `e2e/quiz-creation.spec.ts`                                | **Modify** | 〇×形式作問→保存                                   |
 
 ### 4. Requirements Traceability（Phase 20）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 11.1–11.3 | 全体形式「〇×式」 | `QuizEditor` format grid |
-| 11.4–11.5 | 複合トグル | `typeToggle` |
-| 11.6–11.9 | 正解トグル・保存 | `TrueFalseCorrectToggle` |
-| 11.10–11.11 | 参照・複合変換 | `QuizEditor` |
-| 11.14 | testid | 上記 |
+| Req         | Summary           | Component                |
+| ----------- | ----------------- | ------------------------ |
+| 11.1–11.3   | 全体形式「〇×式」 | `QuizEditor` format grid |
+| 11.4–11.5   | 複合トグル        | `typeToggle`             |
+| 11.6–11.9   | 正解トグル・保存  | `TrueFalseCorrectToggle` |
+| 11.10–11.11 | 参照・複合変換    | `QuizEditor`             |
+| 11.14       | testid            | 上記                     |
 
 ### 5. Testing Strategy（Phase 20）
 
-| 種別 | 検証 |
-|------|------|
+| 種別          | 検証                                  |
+| ------------- | ------------------------------------- |
 | **Component** | トグル変更で `choices` が2件・正解1件 |
-| **E2E** | 〇×形式選択 → 正解トグル → 下書き保存 |
+| **E2E**       | 〇×形式選択 → 正解トグル → 下書き保存 |
 
 **Effort**: **S**（1日）
 
@@ -872,45 +872,45 @@ export function consumeTestPlayDraftForEditor(
 
 ### 2. Boundary Commitments（Phase 26）
 
-| Owns | Out |
-|------|-----|
-| `/list/*` ルート・リストエディタ削除 | Core API 削除 |
-| ダッシュボード CTA 除去 | ブックマーク UI（play-flow） |
-| クイズエディタ維持 | マイクイズ（my-quiz-ui） |
+| Owns                                 | Out                          |
+| ------------------------------------ | ---------------------------- |
+| `/list/*` ルート・リストエディタ削除 | Core API 削除                |
+| ダッシュボード CTA 除去              | ブックマーク UI（play-flow） |
+| クイズエディタ維持                   | カスタムクイズ（my-quiz-ui） |
 
 ### 3. File Structure Plan（Phase 26）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/app/list/` | **Delete** | 全リストルート |
-| `src/components/quiz-list/` | **Delete** | エディタ・アタッチパネル |
-| `src/app/creator/dashboard/dashboard-actions.tsx` | **Modify** | リスト作成 CTA 削除 |
-| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | リスト導線参照削除 |
-| `tests/components/list-type-selector.test.tsx` | **Delete** | — |
-| `tests/components/question-list-attach-panel.test.tsx` | **Delete** | — |
+| ファイル                                                | 操作       | 責務                      |
+| ------------------------------------------------------- | ---------- | ------------------------- |
+| `src/app/list/`                                         | **Delete** | 全リストルート            |
+| `src/components/quiz-list/`                             | **Delete** | エディタ・アタッチパネル  |
+| `src/app/creator/dashboard/dashboard-actions.tsx`       | **Modify** | リスト作成 CTA 削除       |
+| `src/app/creator/dashboard/dashboard-client.tsx`        | **Modify** | リスト導線参照削除        |
+| `tests/components/list-type-selector.test.tsx`          | **Delete** | —                         |
+| `tests/components/question-list-attach-panel.test.tsx`  | **Delete** | —                         |
 | `tests/components/creator-skeleton-components.test.tsx` | **Modify** | `ListEditorSkeleton` 削除 |
-| `e2e/creator-streaming-skeleton.spec.ts` | **Modify** | リスト編集シナリオ削除 |
-| `e2e/phase8.spec.ts` | **Modify** | リスト作成削除 |
+| `e2e/creator-streaming-skeleton.spec.ts`                | **Modify** | リスト編集シナリオ削除    |
+| `e2e/phase8.spec.ts`                                    | **Modify** | リスト作成削除            |
 
 **維持**: `src/app/quiz/create`, `src/app/quiz/[id]/edit`, `dashboard-sections.tsx`（`creator-quiz-list` testId はクイズ一覧用）。
 
 ### 4. Requirements Traceability（Phase 26）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 26.1–26.2 | ルート・コンポーネント削除 | 上記 Delete |
-| 26.3–26.5 | ダッシュボード | `dashboard-actions.tsx` |
-| 26.6–26.7 | クイズエディタ維持 | 変更なし |
-| 26.8–26.9 | Suspense | リストスケルトン削除 |
-| 26.12 | E2E | 上記 |
+| Req       | Summary                    | Component               |
+| --------- | -------------------------- | ----------------------- |
+| 26.1–26.2 | ルート・コンポーネント削除 | 上記 Delete             |
+| 26.3–26.5 | ダッシュボード             | `dashboard-actions.tsx` |
+| 26.6–26.7 | クイズエディタ維持         | 変更なし                |
+| 26.8–26.9 | Suspense                   | リストスケルトン削除    |
+| 26.12     | E2E                        | 上記                    |
 
 ### 5. Testing Strategy（Phase 26）
 
-| 種別 | 検証 |
-|------|------|
-| **E2E** | ダッシュボードに「リスト作成」ボタンなし |
-| **Regression** | クイズ新規作成・編集・エクスポート |
-| **Regression** | 〇×作問 UI（Phase 20） |
+| 種別           | 検証                                     |
+| -------------- | ---------------------------------------- |
+| **E2E**        | ダッシュボードに「リスト作成」ボタンなし |
+| **Regression** | クイズ新規作成・編集・エクスポート       |
+| **Regression** | 〇×作問 UI（Phase 20）                   |
 
 **Effort**: **S**（1日）
 

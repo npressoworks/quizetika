@@ -113,7 +113,7 @@ export const Header: React.FC = () => {
                     }
                   >
                     <AssignmentOutlined sx={{ fontSize: 18 }} />
-                    <span>マイクイズ</span>
+                    <span>カスタムクイズ</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     render={

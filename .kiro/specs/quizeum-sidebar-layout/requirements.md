@@ -6,9 +6,9 @@
 
 **Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）と検索画面（`/search`）の IA 分離に伴い、Sidebar および BottomNav に「検索」導線を追加し、ホーム（`/`）と検索（`/search`）のアクティブ状態を区別して表示します（各画面のコンテンツは `quizeum-play-flow-ui` が担当）。
 
-**Phase 23（2026-06-09）**: リスト探索（`/lists`）・マイクイズ（`/my-quiz`）・設定（`/settings`）へのナビ導線を追加します。Sidebar に「リスト」「マイクイズ」を追加し、アカウントポップアップに「設定」を追加します。各画面のコンテンツは隣接スペックが担当します。モバイル BottomNav への項目追加は過密のため、本フェーズでは Sidebar 優先とし、モバイル向け到達手段は設計で確定します。
+**Phase 23（2026-06-09）**: リスト探索（`/lists`）・カスタムクイズ（`/my-quiz`）・設定（`/settings`）へのナビ導線を追加します。Sidebar に「リスト」「カスタムクイズ」を追加し、アカウントポップアップに「設定」を追加します。各画面のコンテンツは隣接スペックが担当します。モバイル BottomNav への項目追加は過密のため、本フェーズでは Sidebar 優先とし、モバイル向け到達手段は設計で確定します。
 
-**Phase 26（2026-06-10）**: クイズリスト機能の完全廃止に伴い、Phase 23 で追加した「リスト」（`/lists`）ナビ導線を Sidebar および Header プロフィールポップアップから除去します。マイクイズ（`/my-quiz`）および設定（`/settings`）への導線は維持します（`quizeum-core`・`quizeum-play-flow-ui`・`quizeum-creator-dash-ui`・`quizeum-my-quiz-ui` が Phase 26 でリスト機能を除去済み）。
+**Phase 26（2026-06-10）**: クイズリスト機能の完全廃止に伴い、Phase 23 で追加した「リスト」（`/lists`）ナビ導線を Sidebar および Header プロフィールポップアップから除去します。カスタムクイズ（`/my-quiz`）および設定（`/settings`）への導線は維持します（`quizeum-core`・`quizeum-play-flow-ui`・`quizeum-creator-dash-ui`・`quizeum-my-quiz-ui` が Phase 26 でリスト機能を除去済み）。
 
 **Phase 27（2026-06-21）**: システム管理者（Super Admin）ロールを持つユーザーに対して、PC用 Sidebar およびモバイル用 Header のプロフィールポップアップから管理者ポータル画面（`/admin`）へ遷移できるナビゲーション項目を追加します。
 
@@ -23,7 +23,7 @@
   - レスポンシブに応じたメインコンテンツの余白（パディング/マージン）の自動調整。
   - ログイン状態に応じたメニュー項目・ユーザー情報の動的切り替え。
   - **Phase 22**: Sidebar および BottomNav への「検索」（`/search`）導線追加、ホーム（`/`）と検索（`/search`）のアクティブハイライト区別。
-  - **Phase 23（マイクイズ・設定は維持）**: Sidebar への「マイクイズ」（`/my-quiz`）導線追加（ログイン時のみ）。アカウントポップアップへの「設定」（`/settings`）導線追加。`/my-quiz`・`/settings` のアクティブハイライト。モバイル向けマイクイズ到達手段（BottomNav 以外のパターンを含む）。
+  - **Phase 23（カスタムクイズ・設定は維持）**: Sidebar への「カスタムクイズ」（`/my-quiz`）導線追加（ログイン時のみ）。アカウントポップアップへの「設定」（`/settings`）導線追加。`/my-quiz`・`/settings` のアクティブハイライト。モバイル向けカスタムクイズ到達手段（BottomNav 以外のパターンを含む）。
   - **Phase 26**: Sidebar および Header プロフィールポップアップから「リスト」（`/lists`）ナビ項目の除去。`nav-lists`・`header-nav-lists` の `data-testid` 削除。`/lists` 向け active 判定・関連テスト／E2E の更新。
   - **Phase 27**: `isAdminUser(user)` 判定に基づき、システム管理者である場合に Sidebar の主要ナビゲーションに「管理者メニュー」項目を追加。システム管理者である場合に、PC用 Sidebar およびモバイル用 Header のプロフィールポップアップに「管理者メニュー」へのリンクを追加。主要ナビゲーション項目への `data-testid`追加（`nav-admin`）、およびドロップダウン項目への `data-testid` 追加（`sidebar-admin-link` / `header-admin-link`）。
   - **Phase 28**:
@@ -37,7 +37,7 @@
   - ログイン状態やユーザーアバター画像、メールアドレスなどの基本情報は、既存の認証状態（`useAuth` フック）から提供されること。
   - サイドバー等のリンクから遷移する各画面（ホーム、通知、ブックマーク等）のメインコンテンツ自体は、本スペックの管轄外（既存の各UIスペックが所有）であること。
   - **Phase 22**: ディスカバリーホームおよび検索画面のカルーセル・フィルタ UI は `quizeum-play-flow-ui` が提供すること。検索 URL クエリ契約は `quizeum-core` が提供すること。
-  - **Phase 23**: マイクイズページ（`/my-quiz`）は `quizeum-my-quiz-ui`、設定ページおよびテーマ切替は `quizeum-user-settings-ui` が提供すること。`layout.tsx` への ThemeProvider 統合は `quizeum-user-settings-ui` が担当し、本スペックはシェル構造の整合に協調すること。
+  - **Phase 23**: カスタムクイズページ（`/my-quiz`）は `quizeum-my-quiz-ui`、設定ページおよびテーマ切替は `quizeum-user-settings-ui` が提供すること。`layout.tsx` への ThemeProvider 統合は `quizeum-user-settings-ui` が担当し、本スペックはシェル構造の整合に協調すること。
   - **Phase 26**: `/lists` ルートは廃止済み（404）。リスト探索・作成・編集 UI の除去は `quizeum-play-flow-ui`・`quizeum-creator-dash-ui` が担当済み。プロフィール「作成したリスト」タブ除去は `quizeum-auth-profile-ui` が担当。
   - **Phase 27**: 管理者ユーザーの権限判定（`isAdminUser`）は `quizeum-core` の判定メソッド (`src/lib/middleware-auth-cookies.ts`) および `User` 型定義 (`src/types/index.ts`) を再利用すること。管理者ポータル画面（`/admin`）自体の実装や認可制御は `quizeum-admin-users-ui` 等が担当すること。
 
@@ -96,19 +96,19 @@
 5. The Bottom Navigation Component shall 検索リンクに `data-testid="bottom-nav-search"`、ホームリンクに `data-testid="bottom-nav-home"` を付与すること（既存 `bottom-nav-home` がある場合は `/` 向けとして維持）。
 6. The Sidebar Component shall [ディスカバリーホームのカルーセル内容・検索画面のフィルタ UI を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当）]。
 
-### Requirement 6: リスト・マイクイズ・設定へのナビ拡張（Phase 23）
-**Objective:** As a ログインユーザー, I want リスト探索・マイクイズ・設定へナビからアクセスできること, so that 個人向け学習機能と表示設定に素早く到達できる。
+### Requirement 6: リスト・カスタムクイズ・設定へのナビ拡張（Phase 23）
+**Objective:** As a ログインユーザー, I want リスト探索・カスタムクイズ・設定へナビからアクセスできること, so that 個人向け学習機能と表示設定に素早く到達できる。
 
 #### Acceptance Criteria
 
 **Sidebar 主要ナビ（ログイン時）**
-1. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「リスト」（`/lists`）および「マイクイズ」（`/my-quiz`）のメニュー項目を主要ナビゲーションに含めること。
-2. When ユーザーが未ログイン状態であるとき, the Sidebar Component shall 「リスト」および「マイクイズ」のメニュー項目を非表示にすること。
+1. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「リスト」（`/lists`）および「カスタムクイズ」（`/my-quiz`）のメニュー項目を主要ナビゲーションに含めること。
+2. When ユーザーが未ログイン状態であるとき, the Sidebar Component shall 「リスト」および「カスタムクイズ」のメニュー項目を非表示にすること。
 3. When ユーザーが Sidebar の「リスト」項目をクリックしたとき, the Sidebar Component shall リスト探索画面（`/lists`）へ遷移すること。
-4. When ユーザーが Sidebar の「マイクイズ」項目をクリックしたとき, the Sidebar Component shall マイクイズ画面（`/my-quiz`）へ遷移すること。
+4. When ユーザーが Sidebar の「カスタムクイズ」項目をクリックしたとき, the Sidebar Component shall カスタムクイズ画面（`/my-quiz`）へ遷移すること。
 5. While 現在のパスが `/lists` または `/lists/` で始まるとき, the Sidebar Component shall 「リスト」項目をアクティブ状態としてハイライト表示すること。
-6. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「マイクイズ」項目をアクティブ状態としてハイライト表示すること。
-7. The Sidebar Component shall 「リスト」項目に `data-testid="nav-lists"`、「マイクイズ」項目に `data-testid="nav-my-quiz"` を付与すること。
+6. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「カスタムクイズ」項目をアクティブ状態としてハイライト表示すること。
+7. The Sidebar Component shall 「リスト」項目に `data-testid="nav-lists"`、「カスタムクイズ」項目に `data-testid="nav-my-quiz"` を付与すること。
 
 **アカウントポップアップ（設定導線）**
 8. When ログインユーザーが Sidebar フッターのアカウントボタンを操作しポップアップを開いたとき, the Sidebar Component shall 「マイページ」リンクの下、区切り線の上に「設定」リンク（`/settings`）を表示すること。
@@ -117,12 +117,12 @@
 11. While 現在のパスが `/settings` または `/settings/` で始まるとき, the Sidebar Component shall ポップアップを開いた状態の視覚的強調は不要とし、主要ナビのアクティブ表示は設計で任意とする（設定はポップアップ経由のため、主要ナビ項目のアクティブ化は必須としない）。
 
 **モバイル到達手段**
-12. While 画面幅が767px以下かつユーザーがログイン状態であるとき, the Navigation Layout shall リスト探索画面（`/lists`）およびマイクイズ画面（`/my-quiz`）へ到達できる導線を少なくとも1つ提供すること（初版は BottomNav への直接追加を必須としない。プロフィールポップアップ、ヘッダーメニュー、または同等の代替導線を設計で選択してよい）。
-13. When モバイル向けに BottomNav へ「リスト」「マイクイズ」を追加しない設計を採用した場合, the Navigation Layout shall 代替導線の到達先が Sidebar と同一ルート（`/lists`・`/my-quiz`）であること。
+12. While 画面幅が767px以下かつユーザーがログイン状態であるとき, the Navigation Layout shall リスト探索画面（`/lists`）およびカスタムクイズ画面（`/my-quiz`）へ到達できる導線を少なくとも1つ提供すること（初版は BottomNav への直接追加を必須としない。プロフィールポップアップ、ヘッダーメニュー、または同等の代替導線を設計で選択してよい）。
+13. When モバイル向けに BottomNav へ「リスト」「カスタムクイズ」を追加しない設計を採用した場合, the Navigation Layout shall 代替導線の到達先が Sidebar と同一ルート（`/lists`・`/my-quiz`）であること。
 
 **境界・隣接**
 14. The Sidebar Component shall [リスト探索ページの検索・公開/非公開タブ UI を本要件の範囲に含めない（`quizeum-lists-discovery-ui` が担当）]。
-15. The Sidebar Component shall [マイクイズのフィルタ・出題数・プレイ開始 UI を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
+15. The Sidebar Component shall [カスタムクイズのフィルタ・出題数・プレイ開始 UI を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
 16. The Sidebar Component shall [設定ページのテーマ切替 UI および ThemeProvider 実装を本要件の範囲に含めない（`quizeum-user-settings-ui` が担当）]。
 17. The Sidebar Component shall [マイページからのリアクション履歴導線削除を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
 
@@ -134,13 +134,13 @@
 **Sidebar 主要ナビ**
 1. The Sidebar Component shall 「リスト」（`/lists`）メニュー項目を主要ナビゲーションに含めてはならない。
 2. The Sidebar Component shall `data-testid="nav-lists"` を付与してはならない。
-3. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「マイクイズ」（`/my-quiz`）メニュー項目を引き続き主要ナビゲーションに含めること（Phase 23 維持）。
-4. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「マイクイズ」項目をアクティブ状態としてハイライト表示すること（Phase 23 維持）。
+3. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「カスタムクイズ」（`/my-quiz`）メニュー項目を引き続き主要ナビゲーションに含めること（Phase 23 維持）。
+4. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「カスタムクイズ」項目をアクティブ状態としてハイライト表示すること（Phase 23 維持）。
 
 **Header プロフィールポップアップ（モバイル）**
 5. The Header Component shall プロフィールポップアップ内の「リスト」（`/lists`）リンクを表示してはならない。
 6. The Header Component shall `data-testid="header-nav-lists"` を付与してはならない。
-7. When ログインユーザーが Header プロフィールポップアップを開いたとき, the Header Component shall 「マイクイズ」「マイページ」「設定」「ログアウト」への導線を引き続き提供すること。
+7. When ログインユーザーが Header プロフィールポップアップを開いたとき, the Header Component shall 「カスタムクイズ」「マイページ」「設定」「ログアウト」への導線を引き続き提供すること。
 
 **アクティブ判定・ユーティリティ**
 8. The Navigation Layout shall `/lists` および `/lists/` 配下パス向けの active 判定ロジック（`isListsActive` 等）を実装してはならない。
@@ -148,14 +148,14 @@
 
 **テスト・E2E**
 10. The Sidebar Component Tests shall ログイン時に `nav-lists` が存在しないこと、および `/lists` での active 検証を削除または更新すること。
-11. The Header Component Tests shall `header-nav-lists` の存在検証を削除し、マイクイズ・設定導線の検証を維持すること。
+11. The Header Component Tests shall `header-nav-lists` の存在検証を削除し、カスタムクイズ・設定導線の検証を維持すること。
 12. The Layout E2E Tests shall Sidebar／Header から `/lists` へ遷移するシナリオを削除し、廃止ルート `/lists` が 404 を返す検証（`e2e/layout.spec.ts`）を維持すること。
 
 **境界・隣接**
 13. The Sidebar Component shall [廃止済み `/lists` ページ UI の除去を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当済み）]。
 14. The Sidebar Component shall [プロフィール画面の「作成したリスト」タブ除去を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
 15. The Sidebar Component shall [ブックマーク画面の「リスト」タブ除去を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当済み）]。
-16. The Sidebar Component shall [マイクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当済み）]。
+16. The Sidebar Component shall [カスタムクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当済み）]。
 
 ### Requirement 8: 管理者メニューへのナビ導線追加（Phase 27）
 **Objective:** As a システム管理者, I want 各メニューから管理者ページ（`/admin`）へ1タップで遷移できること, so that ユーザー管理やモデレーション作業を迅速に開始できる。
@@ -178,7 +178,7 @@
 1. While 画面幅が1024px以上であるとき, the Sidebar Component shall 通常表示（275px）とミニ表示（70px）を動的に切り替えるためのトグルボタンを表示すること。
 2. While 画面幅が1024px以上であるとき, when ユーザーがトグルボタンをクリックしたとき, the Layout Module shall サイドバーの表示幅（通常表示275px / ミニ表示70px）およびメインコンテンツの左側余白（275px / 70px）を連動して切り替えること。
 3. The Layout Module shall サイドバーの切り替え状態を永続化せず、初期表示時およびリロード時はデフォルトで通常表示（275px）とすること。
-4. While サイドバーがミニ表示（手動切り替え時および768px〜1023pxのタブレット表示時）であるとき, when ユーザーがナビゲーション項目（ホーム、検索、マイクイズ、通知、ブックマーク、ダッシュボード、管理者メニュー、作問）のアイコンにホバーしたとき, the Sidebar Component shall 該当する項目のテキストラベルをツールチップで表示すること。
+4. While サイドバーがミニ表示（手動切り替え時および768px〜1023pxのタブレット表示時）であるとき, when ユーザーがナビゲーション項目（ホーム、検索、カスタムクイズ、通知、ブックマーク、ダッシュボード、管理者メニュー、作問）のアイコンにホバーしたとき, the Sidebar Component shall 該当する項目のテキストラベルをツールチップで表示すること。
 5. While ユーザーがログイン状態かつサイドバーがミニ表示であるとき, when ユーザーがプロフィールアイコンにホバーしたとき, the Sidebar Component shall ログイン中ユーザーの表示名（`displayName`）をツールチップで表示すること。
 6. When ログインユーザーがプロフィールアイコンをクリックしたとき, the Navigation Layout shall ログイン中ユーザーのプロフィールページ（`/profile/[userId]`）へ直接遷移すること（アバタークリック時のポップアップメニューは廃止する）。
 7. The Sidebar Component shall トグルボタンに `data-testid="sidebar-toggle-btn"` を付与すること。

@@ -17,7 +17,7 @@ Quizeum ユーザーは、クイズリスト・問題リストをブックマー
 - **Out of scope**:
   - リストの新規作成・編集・並び替えフロー（`quizeum-creator-dash-ui` / 既存 `/list/create`・`/list/[id]/edit`）
   - ブックマーク一覧（既存 `/bookmarks`）
-  - マイクイズ（`quizeum-my-quiz-ui`）
+  - カスタムクイズ（`quizeum-my-quiz-ui`）
   - ソート・ページングの高度化（初版は固定件数 limit）
   - 他人の非公開リスト閲覧
   - Sidebar / BottomNav への「リスト」メニュー項目追加（`quizeum-sidebar-layout` が担当）

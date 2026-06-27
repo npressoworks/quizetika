@@ -45,10 +45,10 @@ describe('Sidebar Component', () => {
   it('未ログイン時はログインボタンを表示し、主要メニューを非表示にする', () => {
     mockUser = null;
     render(<Sidebar />);
-    
+
     // ログインボタンがあること
     expect(screen.getByRole('link', { name: 'ログイン' })).toBeInTheDocument();
-    
+
     // ホーム・Proプランはあるが、通知やブックマーク、作問、ダッシュボードはないこと
     expect(screen.getAllByText('ホーム')[0]).toBeInTheDocument();
     expect(screen.getAllByText('検索')[0]).toBeInTheDocument();
@@ -59,10 +59,10 @@ describe('Sidebar Component', () => {
     expect(screen.queryByText('ダッシュボード')).not.toBeInTheDocument();
   });
 
-  it('ログイン時は主要メニュー（マイクイズ、通知、ブックマーク、作問、ダッシュボード）を表示する', () => {
+  it('ログイン時は主要メニュー（カスタムクイズ、通知、ブックマーク、作問、ダッシュボード）を表示する', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
-    
+
     expect(screen.getAllByText('ホーム')[0]).toBeInTheDocument();
     expect(screen.queryByTestId('nav-lists')).not.toBeInTheDocument();
     expect(screen.getByTestId('nav-my-quiz')).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('Sidebar Component', () => {
     expect(screen.getAllByText('プロフィール')[0]).toBeInTheDocument();
     expect(screen.getAllByText('作問する')[0]).toBeInTheDocument();
     expect(screen.getAllByText('ダッシュボード')[0]).toBeInTheDocument();
-    
+
     // ログインユーザーのアバター・表示名が表示されること
     expect(screen.getAllByText('ななみ')[0]).toBeInTheDocument();
     expect(screen.getByTestId('sidebar-profile-btn')).toBeInTheDocument();
@@ -98,9 +98,9 @@ describe('Sidebar Component', () => {
   it('現在のパスと一致するメニューがアクティブ表示になる', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     mockPathname = '/bookmarks';
-    
+
     render(<Sidebar />);
-    
+
     // ブックマークリンクに active クラス（またはそれに類するスタイル）が付与されること
     // CSS modules をモックしてない場合はクラス名そのままでテストするか、テスト属性をチェック
     const bookmarkLink = screen.getAllByText('ブックマーク')[0].closest('a');
@@ -124,7 +124,7 @@ describe('Sidebar Component', () => {
     expect(screen.queryByTestId('nav-my-quiz')).not.toBeInTheDocument();
   });
 
-  it('/my-quiz でマイクイズのみ active', () => {
+  it('/my-quiz でカスタムクイズのみ active', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     mockPathname = '/my-quiz';
     render(<Sidebar />);
@@ -135,17 +135,17 @@ describe('Sidebar Component', () => {
   it('プロフィール領域はクリック時にドロップダウンメニュー（ポップアップ）を展開し、設定やログアウトが表示される', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     render(<Sidebar />);
-    
+
     const profileBtn = screen.getByTestId('sidebar-profile-btn');
     expect(profileBtn).toBeInTheDocument();
-    
+
     // 初期状態ではポップアップアイテムは非表示
     expect(screen.queryByTestId('sidebar-settings-link')).not.toBeInTheDocument();
     expect(screen.queryByText('ログアウト')).not.toBeInTheDocument();
-    
+
     // クリックして開く
     fireEvent.click(profileBtn);
-    
+
     // ポップアップアイテムが表示されること
     expect(screen.getByTestId('sidebar-settings-link')).toBeInTheDocument();
     expect(screen.getByText('ログアウト')).toBeInTheDocument();
@@ -154,7 +154,7 @@ describe('Sidebar Component', () => {
   it('管理者ユーザーログイン時は「管理者メニュー」を主要メニューに表示し、/admin パスでアクティブ表示になる', () => {
     mockUser = { id: 'admin-123', displayName: '管理者', avatarUrl: 'avatar.png', role: 'admin' };
     render(<Sidebar />);
-    
+
     expect(screen.getByTestId('nav-admin')).toBeInTheDocument();
     expect(screen.getAllByText('管理者メニュー')[0]).toBeInTheDocument();
   });
@@ -163,7 +163,7 @@ describe('Sidebar Component', () => {
     mockUser = { id: 'admin-123', displayName: '管理者', avatarUrl: 'avatar.png', role: 'admin' };
     mockPathname = '/admin';
     render(<Sidebar />);
-    
+
     expect(screen.getByTestId('nav-admin')).toHaveClass('active');
     expect(screen.getByTestId('nav-home')).not.toHaveClass('active');
   });
@@ -171,7 +171,7 @@ describe('Sidebar Component', () => {
   it('一般ユーザー（非管理者）ログイン時は「管理者メニュー」を主要メニューに表示しない', () => {
     mockUser = { id: 'user-123', displayName: '一般ユーザー', avatarUrl: 'avatar.png', role: 'user' };
     render(<Sidebar />);
-    
+
     expect(screen.queryByTestId('nav-admin')).not.toBeInTheDocument();
     expect(screen.queryByText('管理者メニュー')).not.toBeInTheDocument();
   });
@@ -179,7 +179,7 @@ describe('Sidebar Component', () => {
   it('isCollapsed が true のときはミニ幅になり、ラベルを非表示にする', () => {
     mockUser = null;
     const { container } = render(<Sidebar isCollapsed={true} onToggle={jest.fn()} />);
-    
+
     const aside = container.querySelector('aside');
     expect(aside).toHaveClass('lg:w-[70px]');
     expect(aside).not.toHaveClass('lg:w-[275px]');
@@ -198,7 +198,7 @@ describe('Sidebar Component', () => {
   it('isCollapsed が false のときは通常幅になり、ラベルを表示する', () => {
     mockUser = null;
     const { container } = render(<Sidebar isCollapsed={false} onToggle={jest.fn()} />);
-    
+
     const aside = container.querySelector('aside');
     expect(aside).toHaveClass('lg:w-[275px]');
     expect(aside).not.toHaveClass('lg:w-[70px]');
@@ -215,10 +215,10 @@ describe('Sidebar Component', () => {
   it('トグルボタンが表示され、クリック時に onToggle が呼ばれる', () => {
     const mockToggle = jest.fn();
     render(<Sidebar isCollapsed={false} onToggle={mockToggle} />);
-    
+
     const toggleBtn = screen.getByTestId('sidebar-toggle-btn');
     expect(toggleBtn).toBeInTheDocument();
-    
+
     fireEvent.click(toggleBtn);
     expect(mockToggle).toHaveBeenCalledTimes(1);
   });
@@ -230,13 +230,13 @@ describe('Sidebar Component', () => {
     // ホーム・検索・アバター・プロフィールに対するツールチップ要素の検証
     const homeTooltip = screen.getAllByText('ホーム').find((el) => el.classList.contains('absolute'));
     expect(homeTooltip).toBeInTheDocument();
- 
+
     const searchTooltip = screen.getAllByText('検索').find((el) => el.classList.contains('absolute'));
     expect(searchTooltip).toBeInTheDocument();
 
     const profileTooltip = screen.getAllByText('プロフィール').find((el) => el.classList.contains('absolute'));
     expect(profileTooltip).toBeInTheDocument();
- 
+
     const avatarTooltip = screen.getAllByText('ななみ').find((el) => el.classList.contains('absolute'));
     expect(avatarTooltip).toBeInTheDocument();
   });

@@ -52,12 +52,12 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 22–23 で
 
 #### Acceptance Criteria
 1. The Sidebar Component shall ロゴ、ホーム（`/`）、検索（`/search`）、Proプラン（`/pricing`）を主要ナビに含める。
-2. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「リスト」（`/lists`）、「マイクイズ」（`/my-quiz`）、通知、ブックマーク、ダッシュボード、作問ボタンを表示する。
+2. When ユーザーがログイン状態であるとき, the Sidebar Component shall 「リスト」（`/lists`）、「カスタムクイズ」（`/my-quiz`）、通知、ブックマーク、ダッシュボード、作問ボタンを表示する。
 3. When ユーザーが未ログイン状態であるとき, the Sidebar Component shall ログイン専用ユーザー項目を非表示にし、ログインボタンを表示する。
 4. When ログインユーザーがフッターのアカウントボタンを操作したとき, the Sidebar Component shall マイページ・設定・ログアウトを含むポップアップメニューを表示する。
 5. While 現在のパスが各メニュー項目の対象ルートと一致するとき, the Sidebar Component shall 該当項目をアクティブ状態としてハイライト表示する（`/` と `/search` の相互排他を含む）。
 6. While 現在のパスが `/lists` または `/list/` で始まるとき, the Sidebar Component shall 「リスト」項目をアクティブ表示する。
-7. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「マイクイズ」項目をアクティブ表示する。
+7. While 現在のパスが `/my-quiz` または `/my-quiz/` で始まるとき, the Sidebar Component shall 「カスタムクイズ」項目をアクティブ表示する。
 8. The Sidebar Component shall 主要ナビ項目に既存の `data-testid`（`nav-home`, `nav-search`, `nav-lists`, `nav-my-quiz`）を維持する。
 9. The Sidebar Component shall ポップアップ内設定リンクに `data-testid="sidebar-settings-link"`、アカウントボタンに `data-testid="sidebar-profile-btn"` を維持する。
 
@@ -66,7 +66,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 22–23 で
 
 #### Acceptance Criteria
 1. While 画面幅が 767px 以下であるとき, the Header Component shall ロゴ、作問ボタン（ログイン時）、ユーザーアバターまたはログインリンクを上部に表示する。
-2. When ログインユーザーが Header のプロフィールボタンを操作したとき, the Header Component shall リスト・マイクイズ・マイページ・設定・ログアウトを含むポップアップを表示する。
+2. When ログインユーザーが Header のプロフィールボタンを操作したとき, the Header Component shall リスト・カスタムクイズ・マイページ・設定・ログアウトを含むポップアップを表示する。
 3. The Header Component shall ポップアップに既存の `data-testid`（`header-profile-btn`, `header-profile-popup`, `header-nav-lists`, `header-nav-my-quiz`, `header-settings-link`）を維持する。
 4. The Header Component shall 作問ボタンに `data-testid="mobile-header-create-btn"` を維持する。
 5. While 画面幅が 767px 以下かつユーザーがログイン状態であるとき, the Bottom Navigation Component shall ホーム、検索、通知、ブックマーク、プロフィールを下部固定表示する。

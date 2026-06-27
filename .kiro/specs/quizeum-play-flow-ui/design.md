@@ -1442,27 +1442,27 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
 
 ### 5. Requirements Traceability
 
-| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
-| :--- | :--- | :--- | :--- | :--- |
-| 15.1 | 詳細画面の静的フレーム先行表示 | `src/app/quiz/[id]/page.tsx` | Server Component として戻るボタンや外枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
-| 15.2 | 詳細データのスケルトン表示 | `src/components/quiz/detail-skeleton.tsx` | 詳細メタデータのロード中、専用プレースホルダーを表示する。 | `data-testid="quiz-detail-skeleton"` を付与 |
-| 15.3 | 詳細データのコンテンツ置換 | `src/app/quiz/[id]/page.tsx` | データロード完了後、スケルトンからコンテンツに差し替える。 | Suspense によるロード完了検知 |
-| 15.4 | リーダーボードの非同期スケルトン表示 | `src/components/quiz/leaderboard-skeleton.tsx` | リーダーボードデータのフェッチ中にスケルトンを表示する。 | `data-testid="leaderboard-skeleton"` を付与 |
-| 15.5 | リーダーボードのコンテンツ置換 | `src/app/quiz/[id]/page.tsx` | リーダーボードデータロード完了後、実際の表に差し替える。 | `<Suspense>` による非同期制御 |
-| 15.6 | 結果画面の静的フレーム先行表示 | `src/app/quiz/[id]/result/page.tsx` | Server Component としてヘッダー等の外枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
-| 15.7 | 結果データのスケルトン表示 | `src/components/quiz/result-skeleton.tsx` | 結果データのロード中、専用プレースホルダーを表示する。 | `data-testid="quiz-result-skeleton"` を付与 |
-| 15.8 | 結果データのコンテンツ置換 | `src/app/quiz/[id]/result/page.tsx` | データロード完了後、スケルトンから結果コンテンツに差し替える。 | `<Suspense>` による非同期制御 |
-| 15.9 | おすすめクイズのスケルトン表示 | `src/components/ui/skeleton-card.tsx` | おすすめクイズのフェッチ中、カード用のスケルトンを表示する。 | `data-testid="recommend-skeleton"` を付与 |
-| 15.10 | おすすめクイズのコンテンツ置換 | `src/app/quiz/[id]/result/page.tsx` | おすすめクイズロード完了後、実際のクイズカードに差し替える。 | `<Suspense>` による非同期制御 |
-| 15.11 | 詳細・LB用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="quiz-detail-skeleton"`, `data-testid="leaderboard-skeleton"` |
-| 15.12 | 結果・おすすめ用スケルトンの testid 付与 | 各スケルトンコンポーネント | テスト自動化用の testid 付与を保証。 | `data-testid="quiz-result-skeleton"`, `data-testid="recommend-skeleton"` |
-| 15.13 | ホーム画面の静的フレーム先行表示 | `src/app/page.tsx` | Server Component としてヘッダーやサイドバー、検索バー枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信 |
-| 15.14 | ホームフィード・カルーセルのスケルトン表示 | `src/components/explore/carousel-skeleton.tsx`, `GridSkeleton` | データロード中、クイズグリッドやカルーセルにスケルトンを表示する。 | `data-testid="home-feed-skeleton"` を付与 |
-| 15.15 | ホームコンテンツの置換 | `src/app/page.tsx` | データロード完了後、スケルトンからフィードやカルーセルに差し替える。 | `<Suspense>` による非同期制御 |
-| 15.16 | ジャンル・タグページの静的フレーム先行表示 | `src/app/genres/[genreName]/page.tsx`, `src/app/tags/[tagName]/page.tsx` | Server Component として戻るボタンや検索バー等を即時描画する。 | ユーザーアクセス時に即時描画・配信 |
-| 15.17 | ジャンル・タグフィードのスケルトン表示 | `GridSkeleton` | クイズ一覧のロード中、カード用のスケルトンを表示する。 | `data-testid="explore-list-skeleton"` を付与 |
-| 15.18 | 弱点克服・総合LBの静的フレーム先行表示 | `src/app/quiz/review/page.tsx`, `src/app/leaderboard/page.tsx` | Server Component としてヘッダー等の枠組みを即時描画する。 | ユーザーアクセス時に即時描画・配信 |
-| 15.19 | 弱点克服・総合LBデータのスケルトン表示 | `ReviewSkeleton`, `GlobalLeaderboardSkeleton` | データロード中、各専用スケルトンを表示する。 | `data-testid="review-skeleton"`, `data-testid="leaderboard-global-skeleton"` を付与 |
+| 要件 ID | 要件サマリー                               | 該当コンポーネント                                                       | インターフェース / 責務                                                           | フロー / 挙動                                                                       |
+| :------ | :----------------------------------------- | :----------------------------------------------------------------------- | :-------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
+| 15.1    | 詳細画面の静的フレーム先行表示             | `src/app/quiz/[id]/page.tsx`                                             | Server Component として戻るボタンや外枠を即座にレンダリングする。                 | ユーザーアクセス時に即時描画・配信                                                  |
+| 15.2    | 詳細データのスケルトン表示                 | `src/components/quiz/detail-skeleton.tsx`                                | 詳細メタデータのロード中、専用プレースホルダーを表示する。                        | `data-testid="quiz-detail-skeleton"` を付与                                         |
+| 15.3    | 詳細データのコンテンツ置換                 | `src/app/quiz/[id]/page.tsx`                                             | データロード完了後、スケルトンからコンテンツに差し替える。                        | Suspense によるロード完了検知                                                       |
+| 15.4    | リーダーボードの非同期スケルトン表示       | `src/components/quiz/leaderboard-skeleton.tsx`                           | リーダーボードデータのフェッチ中にスケルトンを表示する。                          | `data-testid="leaderboard-skeleton"` を付与                                         |
+| 15.5    | リーダーボードのコンテンツ置換             | `src/app/quiz/[id]/page.tsx`                                             | リーダーボードデータロード完了後、実際の表に差し替える。                          | `<Suspense>` による非同期制御                                                       |
+| 15.6    | 結果画面の静的フレーム先行表示             | `src/app/quiz/[id]/result/page.tsx`                                      | Server Component としてヘッダー等の外枠を即座にレンダリングする。                 | ユーザーアクセス時に即時描画・配信                                                  |
+| 15.7    | 結果データのスケルトン表示                 | `src/components/quiz/result-skeleton.tsx`                                | 結果データのロード中、専用プレースホルダーを表示する。                            | `data-testid="quiz-result-skeleton"` を付与                                         |
+| 15.8    | 結果データのコンテンツ置換                 | `src/app/quiz/[id]/result/page.tsx`                                      | データロード完了後、スケルトンから結果コンテンツに差し替える。                    | `<Suspense>` による非同期制御                                                       |
+| 15.9    | おすすめクイズのスケルトン表示             | `src/components/ui/skeleton-card.tsx`                                    | おすすめクイズのフェッチ中、カード用のスケルトンを表示する。                      | `data-testid="recommend-skeleton"` を付与                                           |
+| 15.10   | おすすめクイズのコンテンツ置換             | `src/app/quiz/[id]/result/page.tsx`                                      | おすすめクイズロード完了後、実際のクイズカードに差し替える。                      | `<Suspense>` による非同期制御                                                       |
+| 15.11   | 詳細・LB用スケルトンの testid 付与         | 各スケルトンコンポーネント                                               | テスト自動化用の testid 付与を保証。                                              | `data-testid="quiz-detail-skeleton"`, `data-testid="leaderboard-skeleton"`          |
+| 15.12   | 結果・おすすめ用スケルトンの testid 付与   | 各スケルトンコンポーネント                                               | テスト自動化用の testid 付与を保証。                                              | `data-testid="quiz-result-skeleton"`, `data-testid="recommend-skeleton"`            |
+| 15.13   | ホーム画面の静的フレーム先行表示           | `src/app/page.tsx`                                                       | Server Component としてヘッダーやサイドバー、検索バー枠を即座にレンダリングする。 | ユーザーアクセス時に即時描画・配信                                                  |
+| 15.14   | ホームフィード・カルーセルのスケルトン表示 | `src/components/explore/carousel-skeleton.tsx`, `GridSkeleton`           | データロード中、クイズグリッドやカルーセルにスケルトンを表示する。                | `data-testid="home-feed-skeleton"` を付与                                           |
+| 15.15   | ホームコンテンツの置換                     | `src/app/page.tsx`                                                       | データロード完了後、スケルトンからフィードやカルーセルに差し替える。              | `<Suspense>` による非同期制御                                                       |
+| 15.16   | ジャンル・タグページの静的フレーム先行表示 | `src/app/genres/[genreName]/page.tsx`, `src/app/tags/[tagName]/page.tsx` | Server Component として戻るボタンや検索バー等を即時描画する。                     | ユーザーアクセス時に即時描画・配信                                                  |
+| 15.17   | ジャンル・タグフィードのスケルトン表示     | `GridSkeleton`                                                           | クイズ一覧のロード中、カード用のスケルトンを表示する。                            | `data-testid="explore-list-skeleton"` を付与                                        |
+| 15.18   | 弱点克服・総合LBの静的フレーム先行表示     | `src/app/quiz/review/page.tsx`, `src/app/leaderboard/page.tsx`           | Server Component としてヘッダー等の枠組みを即時描画する。                         | ユーザーアクセス時に即時描画・配信                                                  |
+| 15.19   | 弱点克服・総合LBデータのスケルトン表示     | `ReviewSkeleton`, `GlobalLeaderboardSkeleton`                            | データロード中、各専用スケルトンを表示する。                                      | `data-testid="review-skeleton"`, `data-testid="leaderboard-global-skeleton"` を付与 |
 
 ---
 
@@ -1540,15 +1540,15 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
 
 ### Boundary Commitments
 
-| 境界 | 所有者 | 責務 |
-|------|--------|------|
-| `page.tsx`（Server） | Play-flow UI | 静的フレーム即時 HTML ストリーミング |
-| `QuizPlayLoader`（async Server） | Play-flow UI | `getQuiz`、quick-press 難読化、シリアライズ |
-| `QuizPlayClient`（Client） | Play-flow UI | 全プレイモードのインタラクション |
-| `TestPlayPage`（Server シェル） | Play-flow UI | 静的フレーム + Suspense ラップ |
-| `TestPlayClient`（Client） | Play-flow UI | sessionStorage payload 解決、テストプレイ UI |
-| `PlaySkeleton` | Play-flow UI | 本番・test-play 共有ロード UI |
-| `obfuscateQuickPressQuestions`（lib） | Play-flow UI | quick-press 難読化の共通化 |
+| 境界                                  | 所有者       | 責務                                         |
+| ------------------------------------- | ------------ | -------------------------------------------- |
+| `page.tsx`（Server）                  | Play-flow UI | 静的フレーム即時 HTML ストリーミング         |
+| `QuizPlayLoader`（async Server）      | Play-flow UI | `getQuiz`、quick-press 難読化、シリアライズ  |
+| `QuizPlayClient`（Client）            | Play-flow UI | 全プレイモードのインタラクション             |
+| `TestPlayPage`（Server シェル）       | Play-flow UI | 静的フレーム + Suspense ラップ               |
+| `TestPlayClient`（Client）            | Play-flow UI | sessionStorage payload 解決、テストプレイ UI |
+| `PlaySkeleton`                        | Play-flow UI | 本番・test-play 共有ロード UI                |
+| `obfuscateQuickPressQuestions`（lib） | Play-flow UI | quick-press 難読化の共通化                   |
 
 **Out of boundary**: `getQuiz` API 変更（Core）、Stripe tier UI（Phase 13）、`/quiz/test-play/result`
 
@@ -1642,12 +1642,12 @@ export default function TestPlayPage() {
 
 `ResultSkeleton` / `DetailSkeleton` と同様の pulsing アニメーション（`.skeletonPulse` または既存 CSS 変数）を使用。
 
-| 要素 | 説明 |
-|------|------|
-| ヘッダー行 | 戻るボタン + タイマー枠 |
-| プログレスバー | 全幅バーの pulse |
-| 問題文 | 2〜3 行のテキストプレースホルダー |
-| 選択肢 | 4 行のボタン型プレースホルダー（通常モード想定。ウミガメは Client マウント後に 2 カラムへ切替） |
+| 要素           | 説明                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| ヘッダー行     | 戻るボタン + タイマー枠                                                                         |
+| プログレスバー | 全幅バーの pulse                                                                                |
+| 問題文         | 2〜3 行のテキストプレースホルダー                                                               |
+| 選択肢         | 4 行のボタン型プレースホルダー（通常モード想定。ウミガメは Client マウント後に 2 カラムへ切替） |
 
 - `data-testid="quiz-play-skeleton"`（デフォルト）
 - 本番・test-play で同一コンポーネントを import
@@ -1696,20 +1696,20 @@ sequenceDiagram
 
 ### 7. テスト計画
 
-| testid | 検証 |
-|--------|------|
-| `quiz-play-skeleton` | ロード中 visible → データ到着後 hidden |
-| 本番プレイ E2E | 詳細からプレイ開始 → スケルトン → 問題 UI 表示 |
-| test-play E2E | エディタからテストプレイ → スケルトン → 問題 UI 表示 |
+| testid               | 検証                                                 |
+| -------------------- | ---------------------------------------------------- |
+| `quiz-play-skeleton` | ロード中 visible → データ到着後 hidden               |
+| 本番プレイ E2E       | 詳細からプレイ開始 → スケルトン → 問題 UI 表示       |
+| test-play E2E        | エディタからテストプレイ → スケルトン → 問題 UI 表示 |
 
 ### 8. トレーサビリティ
 
-| Req | 設計要素 |
-|-----|----------|
-| 15.22 | `page.tsx` 静的フレーム |
-| 15.23–15.24 | `QuizPlayLoader` + `PlaySkeleton` |
-| 15.25 | `QuizPlayClient`（既存 hooks 維持） |
-| 15.26–15.29 | `TestPlayPage` + `TestPlayClient` |
+| Req         | 設計要素                              |
+| ----------- | ------------------------------------- |
+| 15.22       | `page.tsx` 静的フレーム               |
+| 15.23–15.24 | `QuizPlayLoader` + `PlaySkeleton`     |
+| 15.25       | `QuizPlayClient`（既存 hooks 維持）   |
+| 15.26–15.29 | `TestPlayPage` + `TestPlayClient`     |
 | 15.30–15.32 | `PlaySkeleton` testid、レイアウト除外 |
 
 ---
@@ -1720,10 +1720,10 @@ sequenceDiagram
 
 本番結果画面（`QuizResultClient`）およびテストプレイ結果画面（`test-play/result/page.tsx`）の UX を改善する。**Presentation-only** の変更であり、Core API・`Attempt` スキーマ・`handleDifficultyVote` の永続化契約は変更しない。
 
-| 変更 | 現状 | 目標 |
-|------|------|------|
-| 問題詳細 | 回答・解説が常時展開 | 回答サマリー・解説・ヒント履歴をアコーディオン内に配置、**初期 closed** |
-| 難易度投票 | `difficultyBar` + 数値 `diffCell`（1〜5） | クリック可能な ★5個（`DifficultyVoteStars`） |
+| 変更       | 現状                                      | 目標                                                                    |
+| ---------- | ----------------------------------------- | ----------------------------------------------------------------------- |
+| 問題詳細   | 回答・解説が常時展開                      | 回答サマリー・解説・ヒント履歴をアコーディオン内に配置、**初期 closed** |
+| 難易度投票 | `difficultyBar` + 数値 `diffCell`（1〜5） | クリック可能な ★5個（`DifficultyVoteStars`）                            |
 
 ### 2. Boundary Commitments（Phase 14）
 
@@ -1793,12 +1793,12 @@ src/
     └── page.tsx                                # 変更: ResultQuestionDetailsAccordion 適用
 ```
 
-| ファイル | 責務 |
-|----------|------|
-| `result-question-details-accordion.tsx` | 折りたたみトリガー、パネル表示、`aria-expanded`、`data-testid` |
-| `difficulty-vote-stars.tsx` | ★1〜5 のクリック、`disabled`（オフライン）、選択状態の塗りつぶし表示 |
-| `quiz-result-client.tsx` | 問題 map 内で `answerSummary` / `explanationBox` / `hintHistoryBox` を Accordion に移管；`difficultyBar` を `DifficultyVoteStars` に置換 |
-| `test-play/result/page.tsx` | 本番と同型のアコーディオン構造を適用（難易度投票はテストプレイに無い場合は対象外） |
+| ファイル                                | 責務                                                                                                                                     |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `result-question-details-accordion.tsx` | 折りたたみトリガー、パネル表示、`aria-expanded`、`data-testid`                                                                           |
+| `difficulty-vote-stars.tsx`             | ★1〜5 のクリック、`disabled`（オフライン）、選択状態の塗りつぶし表示                                                                     |
+| `quiz-result-client.tsx`                | 問題 map 内で `answerSummary` / `explanationBox` / `hintHistoryBox` を Accordion に移管；`difficultyBar` を `DifficultyVoteStars` に置換 |
+| `test-play/result/page.tsx`             | 本番と同型のアコーディオン構造を適用（難易度投票はテストプレイに無い場合は対象外）                                                       |
 
 ### 5. Component Contracts
 
@@ -1815,11 +1815,11 @@ export interface ResultQuestionDetailsAccordionProps {
 
 **表示構造（各 `questionItem` 内）**
 
-| 常時表示 | アコーディオン内（初期 closed） |
-|----------|--------------------------------|
+| 常時表示                                | アコーディオン内（初期 closed）        |
+| --------------------------------------- | -------------------------------------- |
 | `itemHeader`（第N問・正誤・早押し時間） | `answerSummary`（あなたの回答 / 正解） |
-| `questionText`（MarkdownContent） | `explanationBox`（解説がある場合） |
-| ブックマーク・指摘ボタン | `hintHistoryBox`（連想クイズ時） |
+| `questionText`（MarkdownContent）       | `explanationBox`（解説がある場合）     |
+| ブックマーク・指摘ボタン                | `hintHistoryBox`（連想クイズ時）       |
 
 **State**: 親またはコンポーネント内 `useState<boolean>`。問題ごとに独立（要件 16.4）。親で `Record<string, boolean>` を保持しても可。
 
@@ -1870,35 +1870,35 @@ sequenceDiagram
 
 ### 7. Requirements Traceability（要件 16）
 
-| Req | 設計要素 |
-|-----|----------|
-| 16.1 | `itemHeader` + `questionText` 常時表示、`ResultQuestionDetailsAccordion` はその下 |
-| 16.2 | `defaultOpen={false}` |
-| 16.3 | Accordion `onToggle` |
-| 16.4 | 問題ごと独立 state |
-| 16.5 | `hintHistoryBox` を Accordion `children` に含める |
-| 16.6 | `test-play/result/page.tsx` へ同一コンポーネント |
-| 16.7–16.11 | `DifficultyVoteStars` |
-| 16.12 | Out of boundary（設計 §2） |
-| 16.13–16.14 | ARIA + testid |
+| Req         | 設計要素                                                                          |
+| ----------- | --------------------------------------------------------------------------------- |
+| 16.1        | `itemHeader` + `questionText` 常時表示、`ResultQuestionDetailsAccordion` はその下 |
+| 16.2        | `defaultOpen={false}`                                                             |
+| 16.3        | Accordion `onToggle`                                                              |
+| 16.4        | 問題ごと独立 state                                                                |
+| 16.5        | `hintHistoryBox` を Accordion `children` に含める                                 |
+| 16.6        | `test-play/result/page.tsx` へ同一コンポーネント                                  |
+| 16.7–16.11  | `DifficultyVoteStars`                                                             |
+| 16.12       | Out of boundary（設計 §2）                                                        |
+| 16.13–16.14 | ARIA + testid                                                                     |
 
 ### 8. Testing Strategy
 
-| 種別 | 検証項目 |
-|------|----------|
+| 種別     | 検証項目                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------ |
 | **Unit** | `DifficultyVoteStars`: クリックで `onVote(N)`、オフライン `disabled`、投票済み `value=3` で ★3+☆2 表示 |
-| **Unit** | `ResultQuestionDetailsAccordion`: 初期 closed、トグルで children 表示、`aria-expanded` 切替 |
-| **E2E** | 本番結果画面: 各問題の回答・解説が初期非表示 → 見出しクリックで表示 |
-| **E2E** | 本番結果画面: ★4 クリック → 投票表示更新（既存 difficulty vote フロー維持） |
-| **E2E** | テストプレイ結果: アコーディオン挙動が本番と一致 |
+| **Unit** | `ResultQuestionDetailsAccordion`: 初期 closed、トグルで children 表示、`aria-expanded` 切替            |
+| **E2E**  | 本番結果画面: 各問題の回答・解説が初期非表示 → 見出しクリックで表示                                    |
+| **E2E**  | 本番結果画面: ★4 クリック → 投票表示更新（既存 difficulty vote フロー維持）                            |
+| **E2E**  | テストプレイ結果: アコーディオン挙動が本番と一致                                                       |
 
 ### 9. Error Handling & Risks
 
-| リスク | 緩和 |
-|--------|------|
-| 解説なし・回答のみの問題で空アコーディオン | 見出しは常に表示。中身が空でも開閉可能（回答サマリーは常に存在） |
-| 長いクイズで state 肥大化 | `Record<string, boolean>` は展開した問題のみ true — 問題数上限は既存クイズ制約に従う |
-| 既存 E2E が数値ボタンを参照 | `difficulty-vote-star-{N}` testid へセレクタ更新 |
+| リスク                                     | 緩和                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| 解説なし・回答のみの問題で空アコーディオン | 見出しは常に表示。中身が空でも開閉可能（回答サマリーは常に存在）                     |
+| 長いクイズで state 肥大化                  | `Record<string, boolean>` は展開した問題のみ true — 問題数上限は既存クイズ制約に従う |
+| 既存 E2E が数値ボタンを参照                | `difficulty-vote-star-{N}` testid へセレクタ更新                                     |
 
 **Effort**: S（1〜2 日）— 新規 2 コンポーネント + 2 画面差し替え + 軽量テスト
 
@@ -1914,15 +1914,15 @@ sequenceDiagram
 
 ### 2. Boundary Commitments
 
-| 境界 | 所有者 | 責務 |
-|------|--------|------|
-| `usePlayState` | Play-flow UI | 回答記録（`recordAnswer`）と進行（`advanceToNext`）の分離。通常モードのみ自動 `currentIdx` 進行を停止 |
-| `PostAnswerFeedback` | Play-flow UI | 正誤バッジ、解説、正解表示、次へ／結果を見る CTA |
-| `QuizPlayClient` | Play-flow UI | 通常モードの問題形式別 UI をフィードバックフローに統合、スキップボタン配置 |
-| `handlePlayComplete` | Play-flow UI | 楽観的データ保存 → 即遷移 → バックグラウンド `saveAttempt` |
-| `optimistic-attempt.ts`（lib） | Play-flow UI | sessionStorage への完了 attempt 一時保存・読取・削除 |
-| `QuizResultClient` | Play-flow UI | `localId` / optimistic データ優先表示、Firestore 到着後に置換 |
-| `saveAttempt` | quizeum-core | 既存 API をそのまま呼び出し（変更なし） |
+| 境界                           | 所有者       | 責務                                                                                                  |
+| ------------------------------ | ------------ | ----------------------------------------------------------------------------------------------------- |
+| `usePlayState`                 | Play-flow UI | 回答記録（`recordAnswer`）と進行（`advanceToNext`）の分離。通常モードのみ自動 `currentIdx` 進行を停止 |
+| `PostAnswerFeedback`           | Play-flow UI | 正誤バッジ、解説、正解表示、次へ／結果を見る CTA                                                      |
+| `QuizPlayClient`               | Play-flow UI | 通常モードの問題形式別 UI をフィードバックフローに統合、スキップボタン配置                            |
+| `handlePlayComplete`           | Play-flow UI | 楽観的データ保存 → 即遷移 → バックグラウンド `saveAttempt`                                            |
+| `optimistic-attempt.ts`（lib） | Play-flow UI | sessionStorage への完了 attempt 一時保存・読取・削除                                                  |
+| `QuizResultClient`             | Play-flow UI | `localId` / optimistic データ優先表示、Firestore 到着後に置換                                         |
+| `saveAttempt`                  | quizeum-core | 既存 API をそのまま呼び出し（変更なし）                                                               |
 
 **Out of boundary**: Core API 変更、exam/flashcard/lateral のフロー、test-play
 
@@ -2046,16 +2046,16 @@ sequenceDiagram
 
 ### 9. Requirements Traceability（要件 17）
 
-| Req | 設計要素 |
-|-----|----------|
-| 17.1–17.3 | モード分岐（`effectivePlayMode === 'normal'` かつ `playMode === 'normal'`） |
-| 17.4–17.8 | `recordAnswer` + `PostAnswerFeedback`、全問題形式統合 |
-| 17.9–17.11 | `play-skip-question` → `skipQuestion` |
-| 17.12–17.15 | `advanceToNext` / `handlePlayComplete` |
-| 17.16–17.19 | 楽観的遷移、`optimistic-attempt.ts`、送信中 UI 削除 |
-| 17.20 | 詳細画面トグル無効化 |
-| 17.21–17.22 | Out of boundary |
-| 17.23 | testid |
+| Req         | 設計要素                                                                    |
+| ----------- | --------------------------------------------------------------------------- |
+| 17.1–17.3   | モード分岐（`effectivePlayMode === 'normal'` かつ `playMode === 'normal'`） |
+| 17.4–17.8   | `recordAnswer` + `PostAnswerFeedback`、全問題形式統合                       |
+| 17.9–17.11  | `play-skip-question` → `skipQuestion`                                       |
+| 17.12–17.15 | `advanceToNext` / `handlePlayComplete`                                      |
+| 17.16–17.19 | 楽観的遷移、`optimistic-attempt.ts`、送信中 UI 削除                         |
+| 17.20       | 詳細画面トグル無効化                                                        |
+| 17.21–17.22 | Out of boundary                                                             |
+| 17.23       | testid                                                                      |
 
 **改定する既存要件**:
 - 要件 3.6 → 3.6 / 3.6a（モード別）
@@ -2064,15 +2064,15 @@ sequenceDiagram
 
 ### 10. Testing Strategy
 
-| 種別 | 検証項目 |
-|------|----------|
-| **Unit** | `usePlayState`: 通常モードで `recordAnswer` 後に `currentIdx` 不変、`advanceToNext` で進行 |
-| **Unit** | `optimistic-attempt`: 保存・読取・削除 |
-| **Unit** | `PostAnswerFeedback`: 正解/不正解表示、最終問 CTA ラベル |
-| **Integration** | 通常プレイ: 回答 → フィードバック → 次へ × N → 結果を見る → 結果 skeleton → サマリー |
-| **Integration** | スキップ → 不正解フィードバック → failedIds に含まれる |
-| **Regression** | exam / flashcard / lateral の自動遷移維持 |
-| **E2E** | `play-answer-feedback`, `play-view-results`, 送信中テキスト非表示 |
+| 種別            | 検証項目                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| **Unit**        | `usePlayState`: 通常モードで `recordAnswer` 後に `currentIdx` 不変、`advanceToNext` で進行 |
+| **Unit**        | `optimistic-attempt`: 保存・読取・削除                                                     |
+| **Unit**        | `PostAnswerFeedback`: 正解/不正解表示、最終問 CTA ラベル                                   |
+| **Integration** | 通常プレイ: 回答 → フィードバック → 次へ × N → 結果を見る → 結果 skeleton → サマリー       |
+| **Integration** | スキップ → 不正解フィードバック → failedIds に含まれる                                     |
+| **Regression**  | exam / flashcard / lateral の自動遷移維持                                                  |
+| **E2E**         | `play-answer-feedback`, `play-view-results`, 送信中テキスト非表示                          |
 
 **Effort**: M（2〜3 日）— hook 分離 + コンポーネント + 楽観的遷移 + 結果 Client 統合
 
@@ -2088,15 +2088,15 @@ sequenceDiagram
 
 ### 2. Boundary Commitments
 
-| 境界 | 所有者 | 責務 |
-|------|--------|------|
-| `play-elapsed.ts`（lib） | Play-flow UI | 区間累計の純関数（確定秒数 + 進行中区間の算出） |
-| `usePlayState` | Play-flow UI | 区間累計タイマーの tick 制御、`limitTime` の遅延開始 API、セッション永続化への `elapsedSeconds` 反映 |
-| `useQuickPressStream` | Play-flow UI | 問読み修了イベントの親への通知（`onReadingComplete`） |
-| `QuizPlayClient` | Play-flow UI | 早押しフェーズ遷移のオーケストレーション、レイアウトクラス付与、`PostAnswerFeedback` への正解非表示 |
-| `PostAnswerFeedback` | Play-flow UI | 呼び出し側が `correctAnswerDisplay` を渡さない場合の既存挙動維持（変更最小） |
-| `play.module.css` | Play-flow UI | 早押しプレイ時のコンテナ／カード横幅拡大 |
-| `saveAttempt` / リーダーボード | quizeum-core | 既存 `elapsedSeconds` フィールドを読み取り（値の意味が区間累計になるのみ） |
+| 境界                           | 所有者       | 責務                                                                                                 |
+| ------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------- |
+| `play-elapsed.ts`（lib）       | Play-flow UI | 区間累計の純関数（確定秒数 + 進行中区間の算出）                                                      |
+| `usePlayState`                 | Play-flow UI | 区間累計タイマーの tick 制御、`limitTime` の遅延開始 API、セッション永続化への `elapsedSeconds` 反映 |
+| `useQuickPressStream`          | Play-flow UI | 問読み修了イベントの親への通知（`onReadingComplete`）                                                |
+| `QuizPlayClient`               | Play-flow UI | 早押しフェーズ遷移のオーケストレーション、レイアウトクラス付与、`PostAnswerFeedback` への正解非表示  |
+| `PostAnswerFeedback`           | Play-flow UI | 呼び出し側が `correctAnswerDisplay` を渡さない場合の既存挙動維持（変更最小）                         |
+| `play.module.css`              | Play-flow UI | 早押しプレイ時のコンテナ／カード横幅拡大                                                             |
+| `saveAttempt` / リーダーボード | quizeum-core | 既存 `elapsedSeconds` フィールドを読み取り（値の意味が区間累計になるのみ）                           |
 
 **Out of boundary**: `quizeum-core` API 変更、早押しタイム計測、テストプレイ、復習画面、結果画面の正誤一覧（結果画面は従来どおり正解表示可）
 
@@ -2165,12 +2165,12 @@ tests/
 
 #### Component Summary
 
-| Component | Layer | Intent | Req Coverage | Key Dependencies |
-|-----------|-------|--------|--------------|------------------|
-| `play-elapsed.ts` | lib | 区間の開始・確定・表示秒算出 | 18.4, 18.5, 18.13, 18.15 | なし |
-| `usePlayState` | hook | 累計 `elapsedSeconds`、ゲート付き tick、`timeLeft` 遅延 | 18.4–18.16, 3.1a | `play-elapsed`, `LocalAttemptSession` |
-| `useQuickPressStream` | hook | 問読み修了通知 | 18.10, 18.11 | 既存 stream config |
-| `QuizPlayClient` | UI | フェーズ遷移、レイアウト、feedback 制御 | 18.7–18.20, 17.6 | `usePlayState`, `useQuickPressStream`, `PostAnswerFeedback` |
+| Component             | Layer | Intent                                                  | Req Coverage             | Key Dependencies                                            |
+| --------------------- | ----- | ------------------------------------------------------- | ------------------------ | ----------------------------------------------------------- |
+| `play-elapsed.ts`     | lib   | 区間の開始・確定・表示秒算出                            | 18.4, 18.5, 18.13, 18.15 | なし                                                        |
+| `usePlayState`        | hook  | 累計 `elapsedSeconds`、ゲート付き tick、`timeLeft` 遅延 | 18.4–18.16, 3.1a         | `play-elapsed`, `LocalAttemptSession`                       |
+| `useQuickPressStream` | hook  | 問読み修了通知                                          | 18.10, 18.11             | 既存 stream config                                          |
+| `QuizPlayClient`      | UI    | フェーズ遷移、レイアウト、feedback 制御                 | 18.7–18.20, 17.6         | `usePlayState`, `useQuickPressStream`, `PostAnswerFeedback` |
 
 #### `play-elapsed.ts`
 
@@ -2243,14 +2243,14 @@ beginLimitCountdown: () => void;
 
 **`segmentTicking` 導出規則**:
 
-| Policy | Phase | Ticking |
-|--------|-------|---------|
-| `standard` | 未回答 | true |
-| `standard` | `feedbackPending` | false |
-| `quick-press` | `pre_reading` | false |
-| `quick-press` | `reading` | true |
-| `quick-press` | `post_reading` | true |
-| `quick-press` | `feedback` | false |
+| Policy        | Phase             | Ticking |
+| ------------- | ----------------- | ------- |
+| `standard`    | 未回答            | true    |
+| `standard`    | `feedbackPending` | false   |
+| `quick-press` | `pre_reading`     | false   |
+| `quick-press` | `reading`         | true    |
+| `quick-press` | `post_reading`    | true    |
+| `quick-press` | `feedback`        | false   |
 
 #### `useQuickPressStream` 拡張
 
@@ -2270,14 +2270,14 @@ type UseQuickPressStreamOptions = {
 
 **早押しフェーズ遷移**:
 
-| イベント | 次フェーズ | 副作用 |
-|----------|-----------|--------|
-| 問題表示 / `currentIdx` 変化 | `pre_reading` | `isReadingStarted=false`、tick 停止 |
-| 「問読みを開始する」 | `reading` | `setIsReadingStarted(true)`、`startElapsedSegment` |
-| `onReadingComplete` | `post_reading` | `beginLimitCountdown()`（`limitTime` あり時） |
+| イベント                                     | 次フェーズ     | 副作用                                                     |
+| -------------------------------------------- | -------------- | ---------------------------------------------------------- |
+| 問題表示 / `currentIdx` 変化                 | `pre_reading`  | `isReadingStarted=false`、tick 停止                        |
+| 「問読みを開始する」                         | `reading`      | `setIsReadingStarted(true)`、`startElapsedSegment`         |
+| `onReadingComplete`                          | `post_reading` | `beginLimitCountdown()`（`limitTime` あり時）              |
 | 「押して回答する！」（ストリーム未完了含む） | `post_reading` | `cancelStream()`。未修了でも回答フェーズへ移行し tick 継続 |
-| `recordAnswer`（正誤問わず） | `feedback` | `finalizeElapsedSegment`、tick 停止 |
-| `advanceToNext` | 次問の policy | QP なら `pre_reading` へ |
+| `recordAnswer`（正誤問わず）                 | `feedback`     | `finalizeElapsedSegment`、tick 停止                        |
+| `advanceToNext`                              | 次問の policy  | QP なら `pre_reading` へ                                   |
 
 **`PostAnswerFeedback` 呼び出し**（不正解・早押し）:
 
@@ -2331,18 +2331,18 @@ sequenceDiagram
 
 ### 7. Requirements Traceability（要件 18）
 
-| Req | 設計要素 |
-|-----|----------|
-| 18.1–18.3 | スコープ表、早押しタイム Out of boundary |
-| 18.4–18.5 | `play-elapsed.ts` + `usePlayState` 区間累計、`buildAttemptData` |
-| 18.6 | `QuestionElapsedPolicy.standard` 分岐 |
-| 18.7–18.9 | `pre_reading` / `reading` フェーズ、`segmentTicking` |
+| Req         | 設計要素                                                                  |
+| ----------- | ------------------------------------------------------------------------- |
+| 18.1–18.3   | スコープ表、早押しタイム Out of boundary                                  |
+| 18.4–18.5   | `play-elapsed.ts` + `usePlayState` 区間累計、`buildAttemptData`           |
+| 18.6        | `QuestionElapsedPolicy.standard` 分岐                                     |
+| 18.7–18.9   | `pre_reading` / `reading` フェーズ、`segmentTicking`                      |
 | 18.10–18.12 | `onReadingComplete` + `beginLimitCountdown`、timeout → `recordAnswer('')` |
-| 18.13–18.16 | `finalizeSegment` on answer、`feedback` no tick、`advanceToNext` |
-| 18.17–18.18 | `QuizPlayClient` が `correctAnswerDisplay` を省略 |
-| 18.19–18.20 | `containerQuickPress`、ストリーム演出維持 |
-| 18.21–18.23 | Out of boundary 表 |
-| 18.24 | `data-testid="play-elapsed-seconds"` |
+| 18.13–18.16 | `finalizeSegment` on answer、`feedback` no tick、`advanceToNext`          |
+| 18.17–18.18 | `QuizPlayClient` が `correctAnswerDisplay` を省略                         |
+| 18.19–18.20 | `containerQuickPress`、ストリーム演出維持                                 |
+| 18.21–18.23 | Out of boundary 表                                                        |
+| 18.24       | `data-testid="play-elapsed-seconds"`                                      |
 
 **改定する既存設計要素**:
 - 要件 3.1 / 3.1a → `usePlayState` の `timeLeft` 初期化分岐
@@ -2350,33 +2350,33 @@ sequenceDiagram
 
 ### 8. Error Handling
 
-| ケース | 応答 |
-|--------|------|
-| ストリームエラー | `onReadingComplete` 不発火。`pre_reading` または `reading` のまま。ユーザーは再試行または中断 |
-| `limitTime` 未設定 | `post_reading` で tick のみ継続、カウントダウン UI 非表示 |
-| セッション復元 | `elapsedSeconds` は保存済み累計を `finalizedSeconds` として復元。進行中区間は 0 から再開（リロード時の微小誤差は許容） |
+| ケース             | 応答                                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| ストリームエラー   | `onReadingComplete` 不発火。`pre_reading` または `reading` のまま。ユーザーは再試行または中断                          |
+| `limitTime` 未設定 | `post_reading` で tick のみ継続、カウントダウン UI 非表示                                                              |
+| セッション復元     | `elapsedSeconds` は保存済み累計を `finalizedSeconds` として復元。進行中区間は 0 から再開（リロード時の微小誤差は許容） |
 
 ### 9. Testing Strategy
 
-| 種別 | 検証項目 |
-|------|----------|
-| **Unit** | `play-elapsed`: start / finalize / display 算出、連続 finalize の idempotency |
-| **Unit** | `usePlayState` + `elapsedPolicy`: `pre_reading` で tick なし、`reading` で加算、`feedback` で停止 |
-| **Unit** | `usePlayState`: quick-press 問題で `currentIdx` 変化時に `timeLeft` 即セットされない |
-| **Unit** | `useQuickPressStream`: 正常完了で `onReadingComplete` 1 回、abort で未呼び出し |
-| **Component** | `QuizPlayClient`: 早押し不正解で `PostAnswerFeedback` に正解行なし |
-| **Regression** | 非早押し通常モードの経過時間・limitTime 挙動維持 |
-| **Regression** | 早押しタイム表示・記録（正解時のみ）が Phase 16 変更後も維持 |
+| 種別           | 検証項目                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| **Unit**       | `play-elapsed`: start / finalize / display 算出、連続 finalize の idempotency                     |
+| **Unit**       | `usePlayState` + `elapsedPolicy`: `pre_reading` で tick なし、`reading` で加算、`feedback` で停止 |
+| **Unit**       | `usePlayState`: quick-press 問題で `currentIdx` 変化時に `timeLeft` 即セットされない              |
+| **Unit**       | `useQuickPressStream`: 正常完了で `onReadingComplete` 1 回、abort で未呼び出し                    |
+| **Component**  | `QuizPlayClient`: 早押し不正解で `PostAnswerFeedback` に正解行なし                                |
+| **Regression** | 非早押し通常モードの経過時間・limitTime 挙動維持                                                  |
+| **Regression** | 早押しタイム表示・記録（正解時のみ）が Phase 16 変更後も維持                                      |
 
 **Effort**: S（1〜2 日）— lib 純関数 + hook 拡張 + Client フェーズ配線 + CSS
 
 ### 10. Design Synthesis Notes
 
-| レンズ | 決定 |
-|--------|------|
-| **Generalization** | `QuestionElapsedPolicy` で早押し／標準を統一インターフェース化。実装は 2 分岐のみ |
+| レンズ             | 決定                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| **Generalization** | `QuestionElapsedPolicy` で早押し／標準を統一インターフェース化。実装は 2 分岐のみ    |
 | **Build vs Adopt** | 新規 npm 依存なし。`play-elapsed.ts` は既存 `useElapsedSeconds` パターンの純関数抽出 |
-| **Simplification** | `PostAnswerFeedback` は変更せず呼び出し側で正解非表示。専用フラグ prop は追加しない |
+| **Simplification** | `PostAnswerFeedback` は変更せず呼び出し側で正解非表示。専用フラグ prop は追加しない  |
 
 ---
 
@@ -2384,12 +2384,12 @@ sequenceDiagram
 
 ### 1. Boundary Commitments
 
-| Owns | Out of Boundary |
-|------|-----------------|
-| クイズ詳細プレイパネル内の警告文表示 | LB 登録ロジック（`quizeum-core` Phase 18） |
-| 警告の表示条件（3モード UI 表示時のみ） | プレイ中・結果画面での再警告 |
-| `page.module.css` の警告スタイル | docs 同期（任意） |
-| E2E / component testid | |
+| Owns                                    | Out of Boundary                            |
+| --------------------------------------- | ------------------------------------------ |
+| クイズ詳細プレイパネル内の警告文表示    | LB 登録ロジック（`quizeum-core` Phase 18） |
+| 警告の表示条件（3モード UI 表示時のみ） | プレイ中・結果画面での再警告               |
+| `page.module.css` の警告スタイル        | docs 同期（任意）                          |
+| E2E / component testid                  |                                            |
 
 ### 2. UI Design
 
@@ -2419,27 +2419,27 @@ const showLeaderboardWarning =
 
 ### 3. File Structure Plan（Phase 19）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/app/quiz/[id]/quiz-detail-client.tsx` | **Modify** | 警告ブロック条件付きレンダリング |
-| `src/app/quiz/[id]/page.module.css` | **Modify** | `.modeLeaderboardWarning` |
-| `e2e/learning-support.spec.ts` または `e2e/quiz-play.spec.ts` | **Modify** | 警告 testid 存在確認 |
+| ファイル                                                      | 操作       | 責務                             |
+| ------------------------------------------------------------- | ---------- | -------------------------------- |
+| `src/app/quiz/[id]/quiz-detail-client.tsx`                    | **Modify** | 警告ブロック条件付きレンダリング |
+| `src/app/quiz/[id]/page.module.css`                           | **Modify** | `.modeLeaderboardWarning`        |
+| `e2e/learning-support.spec.ts` または `e2e/quiz-play.spec.ts` | **Modify** | 警告 testid 存在確認             |
 
 ### 4. Requirements Traceability（Phase 19）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 19.1–19.2 | 表示条件 | `QuizDetailClient` |
-| 19.4–19.5 | 文案・配置 | 同上 |
-| 19.9 | testid | `play-mode-leaderboard-warning` |
-| 2.3a | 要件 2 追記 | 同上 |
+| Req       | Summary     | Component                       |
+| --------- | ----------- | ------------------------------- |
+| 19.1–19.2 | 表示条件    | `QuizDetailClient`              |
+| 19.4–19.5 | 文案・配置  | 同上                            |
+| 19.9      | testid      | `play-mode-leaderboard-warning` |
+| 2.3a      | 要件 2 追記 | 同上                            |
 
 ### 5. Testing Strategy（Phase 19）
 
-| 種別 | 検証 |
-|------|------|
-| **Component** | 通常クイズで警告表示、ウミガメ・早押しで非表示 |
-| **E2E** | `[data-testid="play-mode-leaderboard-warning"]` visible |
+| 種別          | 検証                                                    |
+| ------------- | ------------------------------------------------------- |
+| **Component** | 通常クイズで警告表示、ウミガメ・早押しで非表示          |
+| **E2E**       | `[data-testid="play-mode-leaderboard-warning"]` visible |
 
 **Effort**: **XS**（半日）
 
@@ -2451,12 +2451,12 @@ const showLeaderboardWarning =
 
 ### 1. Boundary Commitments
 
-| Owns | Out of Boundary |
-|------|-----------------|
-| `TrueFalseAnswerPanel`（〇／× 即送信） | 選択肢正規化・`Quiz.format`（core） |
-| 本番・test-play・review への組み込み | 作問正解トグル（creator-dash） |
-| 形式ラベル「〇×式」・探索カルーセル | 採点ロジック変更（既存 `isChoiceAnswerCorrect`） |
-| 通常モード要件 17 フィードバック統合 | |
+| Owns                                   | Out of Boundary                                  |
+| -------------------------------------- | ------------------------------------------------ |
+| `TrueFalseAnswerPanel`（〇／× 即送信） | 選択肢正規化・`Quiz.format`（core）              |
+| 本番・test-play・review への組み込み   | 作問正解トグル（creator-dash）                   |
+| 形式ラベル「〇×式」・探索カルーセル    | 採点ロジック変更（既存 `isChoiceAnswerCorrect`） |
+| 通常モード要件 17 フィードバック統合   |                                                  |
 
 ### 2. Component Design: `TrueFalseAnswerPanel`
 
@@ -2485,13 +2485,13 @@ type TrueFalseAnswerPanelProps = {
 
 ### 3. Integration Points
 
-| 画面 | 変更 |
-|------|------|
-| `quiz-play-client.tsx` | `currentQuestion.type === 'true-false'` → `TrueFalseAnswerPanel`（`ChoiceAnswerPanel` 分岐から除外） |
-| `test-play-client.tsx` | 同上 |
-| `review-client.tsx` | 同上 |
-| `quiz-format-labels.ts` | `true-false` ケース（core と共有 lib、play-flow は表示のみ利用） |
-| `explore-formats.ts` | `FORMAT_IDS` に `'true-false'` 追加 |
+| 画面                    | 変更                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- |
+| `quiz-play-client.tsx`  | `currentQuestion.type === 'true-false'` → `TrueFalseAnswerPanel`（`ChoiceAnswerPanel` 分岐から除外） |
+| `test-play-client.tsx`  | 同上                                                                                                 |
+| `review-client.tsx`     | 同上                                                                                                 |
+| `quiz-format-labels.ts` | `true-false` ケース（core と共有 lib、play-flow は表示のみ利用）                                     |
+| `explore-formats.ts`    | `FORMAT_IDS` に `'true-false'` 追加                                                                  |
 
 **通常モード**: 送信後は既存 `PostAnswerFeedback` / 要件 17 フロー。追加 prop 不要。
 
@@ -2499,33 +2499,33 @@ type TrueFalseAnswerPanelProps = {
 
 ### 4. File Structure Plan（Phase 20）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/components/quiz/true-false-answer-panel.tsx` | **New** | 〇／× 1タップ回答 |
-| `src/components/quiz/true-false-answer-panel.module.css` | **New** | パネルスタイル |
-| `src/app/quiz/[id]/play/quiz-play-client.tsx` | **Modify** | 分岐置換 |
-| `src/app/quiz/test-play/play/test-play-client.tsx` | **Modify** | 同上 |
-| `src/app/quiz/review/review-client.tsx` | **Modify** | 同上 |
-| `src/lib/explore-formats.ts` | **Modify** | カルーセル形式追加 |
-| `e2e/quiz-play.spec.ts` | **Modify** | 〇× 1タップ回答 E2E |
+| ファイル                                                 | 操作       | 責務                |
+| -------------------------------------------------------- | ---------- | ------------------- |
+| `src/components/quiz/true-false-answer-panel.tsx`        | **New**    | 〇／× 1タップ回答   |
+| `src/components/quiz/true-false-answer-panel.module.css` | **New**    | パネルスタイル      |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx`            | **Modify** | 分岐置換            |
+| `src/app/quiz/test-play/play/test-play-client.tsx`       | **Modify** | 同上                |
+| `src/app/quiz/review/review-client.tsx`                  | **Modify** | 同上                |
+| `src/lib/explore-formats.ts`                             | **Modify** | カルーセル形式追加  |
+| `e2e/quiz-play.spec.ts`                                  | **Modify** | 〇× 1タップ回答 E2E |
 
 ### 5. Requirements Traceability（Phase 20）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 20.1–20.4 | 専用 UI・即送信・二重防止 | `TrueFalseAnswerPanel` |
-| 20.5–20.7 | 3画面適用 | play / test-play / review clients |
-| 20.8–20.9 | normal / exam | 既存フロー分岐維持 |
-| 20.10–20.12 | ラベル・カルーセル | `quiz-format-labels`, `explore-formats` |
-| 20.16 | testid | 上記 |
+| Req         | Summary                   | Component                               |
+| ----------- | ------------------------- | --------------------------------------- |
+| 20.1–20.4   | 専用 UI・即送信・二重防止 | `TrueFalseAnswerPanel`                  |
+| 20.5–20.7   | 3画面適用                 | play / test-play / review clients       |
+| 20.8–20.9   | normal / exam             | 既存フロー分岐維持                      |
+| 20.10–20.12 | ラベル・カルーセル        | `quiz-format-labels`, `explore-formats` |
+| 20.16       | testid                    | 上記                                    |
 
 ### 6. Testing Strategy（Phase 20）
 
-| 種別 | 検証 |
-|------|------|
-| **Component** | 〇クリックで `onConfirm` が正解 choiceId を1回だけ受信 |
-| **Unit** | `resolveTrueFalseChoiceId` が legacy ラベルでも ID 解決 |
-| **E2E** | `true-false` クイズで `[data-testid="true-false-answer-true"]` クリック → フィードバック表示 |
+| 種別          | 検証                                                                                         |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| **Component** | 〇クリックで `onConfirm` が正解 choiceId を1回だけ受信                                       |
+| **Unit**      | `resolveTrueFalseChoiceId` が legacy ラベルでも ID 解決                                      |
+| **E2E**       | `true-false` クイズで `[data-testid="true-false-answer-true"]` クリック → フィードバック表示 |
 
 **Effort**: **S**（1日）
 
@@ -2541,13 +2541,13 @@ type TrueFalseAnswerPanelProps = {
 
 ### 2. Boundary Commitments（Phase 21）
 
-| Owns | Out |
-|------|-----|
-| `ExploreSearchSection` カルーセル統合 | カーソル生成・Firestore クエリ |
-| `useExploreQuizFeed` 無限スクロール | ジャンル／タグ一覧の infinite scroll |
-| `useIntersectionLoadMore`（新規 hook） | URL クエリフィルタ共有 |
-| sticky 検索バー CSS | `searchQuizzes` 合成ロジック |
-| プレイ状況後段フィルタ + 追読み込み | |
+| Owns                                   | Out                                  |
+| -------------------------------------- | ------------------------------------ |
+| `ExploreSearchSection` カルーセル統合  | カーソル生成・Firestore クエリ       |
+| `useExploreQuizFeed` 無限スクロール    | ジャンル／タグ一覧の infinite scroll |
+| `useIntersectionLoadMore`（新規 hook） | URL クエリフィルタ共有               |
+| sticky 検索バー CSS                    | `searchQuizzes` 合成ロジック         |
+| プレイ状況後段フィルタ + 追読み込み    |                                      |
 
 ### 3. UI レイアウト（ホーム）
 
@@ -2636,13 +2636,13 @@ interface UseExploreQuizFeedResult {
 3. 並行 `loadMore` 防止: `loadingMore || !hasMore || loading` 時は no-op
 
 **API 分岐**（home mode）:
-| 条件 | 呼び出し |
-|------|----------|
-| `hasActiveExploreFilters(filters)` | `searchQuizzesPaginated` |
-| `activeTab === 'latest'` | `getLatestQuizzesPage` |
-| `activeTab === 'popular'` | `getPopularQuizzesPage` |
-| `activeTab === 'trending'` | `getTrendingQuizzesPage` |
-| `activeTab === 'timeline'` | `getFollowedTimelinePage` |
+| 条件                               | 呼び出し                  |
+| ---------------------------------- | ------------------------- |
+| `hasActiveExploreFilters(filters)` | `searchQuizzesPaginated`  |
+| `activeTab === 'latest'`           | `getLatestQuizzesPage`    |
+| `activeTab === 'popular'`          | `getPopularQuizzesPage`   |
+| `activeTab === 'trending'`         | `getTrendingQuizzesPage`  |
+| `activeTab === 'timeline'`         | `getFollowedTimelinePage` |
 
 scoped mode（ジャンルページ）は本フェーズ変更なし（一括取得維持）。
 
@@ -2687,38 +2687,38 @@ function useIntersectionLoadMore(options: {
 
 > **正本**: リポジトリ全体の Directory Structure は本文先頭の [File Structure Plan → Directory Structure](#directory-structure) を参照。
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/components/explore/explore-search-section.tsx` | **Modify** | カルーセル常時表示、sticky searchBar |
-| `src/app/page.module.css` | **Modify** | `.searchBarSticky`, `.exploreCarouselBlock` |
-| `src/app/home-client.tsx` | **Modify** | `ExploreAccordionsPanel` 削除、Feed hook 拡張利用 |
-| `src/hooks/useExploreQuizFeed.ts` | **Modify** | ページング・loadMore・hasMore |
-| `src/hooks/useIntersectionLoadMore.ts` | **New** | スクロール末端検知 |
-| `src/lib/feed-visible-threshold.ts` | **New** | `MIN_VISIBLE_AFTER_PLAY_FILTER` |
-| `tests/hooks/useExploreQuizFeed.pagination.test.ts` | **New** | リセット・append・hasMore |
-| `e2e/home-feed.spec.ts` | **New** | スクロール追加読み込み・sticky |
+| ファイル                                            | 操作       | 責務                                              |
+| --------------------------------------------------- | ---------- | ------------------------------------------------- |
+| `src/components/explore/explore-search-section.tsx` | **Modify** | カルーセル常時表示、sticky searchBar              |
+| `src/app/page.module.css`                           | **Modify** | `.searchBarSticky`, `.exploreCarouselBlock`       |
+| `src/app/home-client.tsx`                           | **Modify** | `ExploreAccordionsPanel` 削除、Feed hook 拡張利用 |
+| `src/hooks/useExploreQuizFeed.ts`                   | **Modify** | ページング・loadMore・hasMore                     |
+| `src/hooks/useIntersectionLoadMore.ts`              | **New**    | スクロール末端検知                                |
+| `src/lib/feed-visible-threshold.ts`                 | **New**    | `MIN_VISIBLE_AFTER_PLAY_FILTER`                   |
+| `tests/hooks/useExploreQuizFeed.pagination.test.ts` | **New**    | リセット・append・hasMore                         |
+| `e2e/home-feed.spec.ts`                             | **New**    | スクロール追加読み込み・sticky                    |
 
 **変更なし（参照のみ）**: `GenreCarousel`, `FormatCarousel`, `GenreSearchField`, `explore-accordions-panel.tsx`（ホームから未参照化）
 
 ### 8. Requirements Traceability（Phase 21）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 21.1–21.5 | 初回・追加読み込み | `useExploreQuizFeed`, sentinel |
-| 21.6–21.9 | タブ／フィルタリセット | hook deps, debounce |
-| 21.10–21.12 | sticky | `page.module.css`, `ExploreSearchSection` |
-| 21.13–21.14 | カルーセル再編 | `ExploreSearchSection`, `home-client` |
-| 13.1–13.4 | 常時表示カルーセル | 同上（要件 13 改定と整合） |
-| 21.18 | testid | `home-feed-load-more`, `home-search-bar-sticky` |
+| Req         | Summary                | Component                                       |
+| ----------- | ---------------------- | ----------------------------------------------- |
+| 21.1–21.5   | 初回・追加読み込み     | `useExploreQuizFeed`, sentinel                  |
+| 21.6–21.9   | タブ／フィルタリセット | hook deps, debounce                             |
+| 21.10–21.12 | sticky                 | `page.module.css`, `ExploreSearchSection`       |
+| 21.13–21.14 | カルーセル再編         | `ExploreSearchSection`, `home-client`           |
+| 13.1–13.4   | 常時表示カルーセル     | 同上（要件 13 改定と整合）                      |
+| 21.18       | testid                 | `home-feed-load-more`, `home-search-bar-sticky` |
 
 ### 9. Testing Strategy（Phase 21）
 
-| 種別 | 検証 |
-|------|------|
-| **Hook** | フィルタ変更で quizzes リセット、2回目 `loadMore` で append |
-| **Hook** | `hasMore=false` 時 `loadMore` no-op |
+| 種別          | 検証                                                                             |
+| ------------- | -------------------------------------------------------------------------------- |
+| **Hook**      | フィルタ変更で quizzes リセット、2回目 `loadMore` で append                      |
+| **Hook**      | `hasMore=false` 時 `loadMore` no-op                                              |
 | **Component** | ホームに `genre-carousel` / `format-carousel` 常時存在、アコーディオン見出し不在 |
-| **E2E** | スクロール後カード件数増加、`home-search-bar-sticky` が viewport 上端付近に残存 |
+| **E2E**       | スクロール後カード件数増加、`home-search-bar-sticky` が viewport 上端付近に残存  |
 
 **Effort**: **M**（2〜3日、core Phase 21 完了後）
 
@@ -2734,13 +2734,13 @@ function useIntersectionLoadMore(options: {
 
 ### 2. Boundary Commitments（Phase 22）
 
-| Owns | Out |
-|------|-----|
-| `HomeDiscoveryClient`（`/`） | URL parse/serialize 正本 |
-| `SearchClient`（`/search`、旧 `HomeClient`） | Sidebar / BottomNav 項目 |
-| `QuizCarousel`, `DiscoverySection` | 新 ranking API |
-| `ActiveFilterChips` | ジャンル／タグ一覧 URL 共通化 |
-| `useSearchUrlState` hook（lib ラッパー） | |
+| Owns                                         | Out                           |
+| -------------------------------------------- | ----------------------------- |
+| `HomeDiscoveryClient`（`/`）                 | URL parse/serialize 正本      |
+| `SearchClient`（`/search`、旧 `HomeClient`） | Sidebar / BottomNav 項目      |
+| `QuizCarousel`, `DiscoverySection`           | 新 ranking API                |
+| `ActiveFilterChips`                          | ジャンル／タグ一覧 URL 共通化 |
+| `useSearchUrlState` hook（lib ラッパー）     |                               |
 
 ### 3. Route & Layout
 
@@ -2880,51 +2880,51 @@ function useSearchUrlState(): {
 
 ### 6. Deep Link Matrix
 
-| 導線 | URL |
-|------|-----|
-| トレンド「もっと見る」 | `/search?tab=trending` |
-| 新着「もっと見る」 | `/search?tab=latest` |
-| ジャンルカード | `/search?genreId={id}` |
+| 導線                   | URL                     |
+| ---------------------- | ----------------------- |
+| トレンド「もっと見る」 | `/search?tab=trending`  |
+| 新着「もっと見る」     | `/search?tab=latest`    |
+| ジャンルカード         | `/search?genreId={id}`  |
 | ジャンル「もっと見る」 | `/search?openFilters=1` |
 
 ### 7. File Structure Plan（Phase 22）
 
 > **正本**: リポジトリ全体の Directory Structure は本文先頭の [File Structure Plan → Directory Structure](#directory-structure) を参照。以下は Phase 22 差分の要約。
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/app/page.tsx` | **Modify** | `HomeDiscoveryClient` を描画 |
-| `src/app/home-discovery-client.tsx` | **New** | 3カルーセル + もっと見る |
-| `src/app/home-discovery.module.css` | **New** | セクション見出し・カルーセル余白 |
-| `src/app/search/page.tsx` | **New** | RSC シェル |
-| `src/app/search/search-client.tsx` | **New** | 旧 `HomeClient` 本体 |
-| `src/app/home-client.tsx` | **Delete** or re-export | 移設後削除 |
-| `src/components/explore/quiz-carousel.tsx` | **New** | クイズ横スクロール |
-| `src/components/explore/active-filter-chips.tsx` | **New** | 常時フィルタチップ |
-| `src/components/explore/explore-search-section.tsx` | **Modify** | チップ行、`initialOpenFilters` |
-| `src/components/explore/genre-carousel.tsx` | **Modify** | `mode: navigate` |
-| `src/hooks/useSearchUrlState.ts` | **New** | URL 同期 |
-| `e2e/home-discovery.spec.ts` | **New** | 深いリンク・カルーセル |
-| `e2e/quiz-search.spec.ts` | **Modify** | `/search` パス、チップ表示 |
+| ファイル                                            | 操作                    | 責務                             |
+| --------------------------------------------------- | ----------------------- | -------------------------------- |
+| `src/app/page.tsx`                                  | **Modify**              | `HomeDiscoveryClient` を描画     |
+| `src/app/home-discovery-client.tsx`                 | **New**                 | 3カルーセル + もっと見る         |
+| `src/app/home-discovery.module.css`                 | **New**                 | セクション見出し・カルーセル余白 |
+| `src/app/search/page.tsx`                           | **New**                 | RSC シェル                       |
+| `src/app/search/search-client.tsx`                  | **New**                 | 旧 `HomeClient` 本体             |
+| `src/app/home-client.tsx`                           | **Delete** or re-export | 移設後削除                       |
+| `src/components/explore/quiz-carousel.tsx`          | **New**                 | クイズ横スクロール               |
+| `src/components/explore/active-filter-chips.tsx`    | **New**                 | 常時フィルタチップ               |
+| `src/components/explore/explore-search-section.tsx` | **Modify**              | チップ行、`initialOpenFilters`   |
+| `src/components/explore/genre-carousel.tsx`         | **Modify**              | `mode: navigate`                 |
+| `src/hooks/useSearchUrlState.ts`                    | **New**                 | URL 同期                         |
+| `e2e/home-discovery.spec.ts`                        | **New**                 | 深いリンク・カルーセル           |
+| `e2e/quiz-search.spec.ts`                           | **Modify**              | `/search` パス、チップ表示       |
 
 ### 8. Requirements Traceability（Phase 22）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 22.1–22.10 | ディスカバリーホーム | `HomeDiscoveryClient`, `QuizCarousel` |
-| 22.11–22.14 | 検索移設・URL | `SearchClient`, `useSearchUrlState` |
-| 22.15–22.19 | 常時チップ | `ActiveFilterChips` |
-| 22.24–22.26 | testid | 各コンポーネント |
+| Req         | Summary              | Component                             |
+| ----------- | -------------------- | ------------------------------------- |
+| 22.1–22.10  | ディスカバリーホーム | `HomeDiscoveryClient`, `QuizCarousel` |
+| 22.11–22.14 | 検索移設・URL        | `SearchClient`, `useSearchUrlState`   |
+| 22.15–22.19 | 常時チップ           | `ActiveFilterChips`                   |
+| 22.24–22.26 | testid               | 各コンポーネント                      |
 
 ### 9. Testing Strategy（Phase 22）
 
-| 種別 | 検証 |
-|------|------|
-| **Component** | `/` に search bar / tabBar 不在 |
-| **Component** | フィルタ適用 + パネル閉 → `search-active-filters` 表示 |
-| **Hook** | フィルタ変更 → URL 更新 → 再 mount で復元 |
-| **E2E** | トレンド「もっと見る」→ `/search?tab=trending` + トレンドタブ active |
-| **E2E** | ジャンルクリック → `/search?genreId=*` + チップ表示 |
+| 種別          | 検証                                                                 |
+| ------------- | -------------------------------------------------------------------- |
+| **Component** | `/` に search bar / tabBar 不在                                      |
+| **Component** | フィルタ適用 + パネル閉 → `search-active-filters` 表示               |
+| **Hook**      | フィルタ変更 → URL 更新 → 再 mount で復元                            |
+| **E2E**       | トレンド「もっと見る」→ `/search?tab=trending` + トレンドタブ active |
+| **E2E**       | ジャンルクリック → `/search?genreId=*` + チップ表示                  |
 
 **Effort**: **M–L**（3–4日、core Phase 22 lib 完了後）
 
@@ -2942,12 +2942,12 @@ function useSearchUrlState(): {
 
 ### 2. Boundary Commitments（Phase 26）
 
-| Owns | Out |
-|------|-----|
-| リストルート・コンポーネント削除 | Core データ削除・マイグレーション |
-| ブックマーク2タブ化 | Sidebar「リスト」項目（sidebar-layout） |
-| プレイ/結果からリストナビ除去 | プロフィールリストタブ（auth-profile） |
-| リスト専用 E2E 削除 | マイクイズ3ソース化（my-quiz-ui） |
+| Owns                             | Out                                     |
+| -------------------------------- | --------------------------------------- |
+| リストルート・コンポーネント削除 | Core データ削除・マイグレーション       |
+| ブックマーク2タブ化              | Sidebar「リスト」項目（sidebar-layout） |
+| プレイ/結果からリストナビ除去    | プロフィールリストタブ（auth-profile）  |
+| リスト専用 E2E 削除              | カスタムクイズ3ソース化（my-quiz-ui）   |
 
 ### 3. Architecture
 
@@ -2967,32 +2967,32 @@ flowchart TB
 
 ### 4. File Structure Plan（Phase 26）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/app/lists/` | **Delete** | リスト探索 |
-| `src/app/list/` | **Delete** | 作成・詳細・編集 |
-| `src/components/lists/` | **Delete** | 探索 UI |
-| `src/components/quiz-list/` | **Delete** | リストエディタ |
-| `src/components/bookmark/bookmark-list-grid.tsx` | **Delete** | リスト BM 一覧 |
-| `src/components/profile/profile-list-card.tsx` | **Delete** | プロフィール用（lists タブは auth-profile が削除） |
-| `src/components/profile/profile-lists-panel.tsx` | **Delete** | 同上 |
-| `src/hooks/useListsSearch.ts` | **Delete** | リスト検索 |
-| `src/app/bookmarks/bookmarks-client.tsx` | **Modify** | 2タブ、lists 分岐削除 |
-| `src/components/bookmark/bookmarks-tabs.tsx` | **Modify** | `BookmarkTab` から `'list'` 除去 |
-| `src/hooks/useBookmarkFeed.ts` | **Modify** | lists タブ除去 |
-| `src/app/quiz/[id]/play/quiz-play-client.tsx` | **Modify** | `list` / `question-list` / session 除去 |
-| `src/app/quiz/[id]/result/quiz-result-client.tsx` | **Modify** | リスト内次へナビ除去 |
-| `src/app/profile/[uid]/profile-client.tsx` | **Modify** | 「作成したリスト」タブ除去（軽微・play-flow 境界） |
-| `src/components/layout/nav-active.ts` | **Modify** | `/lists`, `/list/*` active 除去 |
-| `e2e/lists-discovery.spec.ts` | **Delete** | — |
-| `e2e/quiz-list.spec.ts` | **Delete** | — |
-| `e2e/phase8.spec.ts` | **Modify** | リストシナリオ削除 |
-| `e2e/layout.spec.ts` | **Modify** | `/lists` リンク期待削除 |
-| `tests/components/lists/` | **Delete** | — |
-| `tests/components/profile-list-card.test.tsx` | **Delete** | — |
-| `tests/hooks/useListsSearch.test.ts` | **Delete** | — |
-| `tests/hooks/use-bookmark-feed.test.tsx` | **Modify** | 2タブ |
-| `tests/components/sidebar.test.tsx` | **Modify** | リストナビは sidebar-layout と整合 |
+| ファイル                                          | 操作       | 責務                                               |
+| ------------------------------------------------- | ---------- | -------------------------------------------------- |
+| `src/app/lists/`                                  | **Delete** | リスト探索                                         |
+| `src/app/list/`                                   | **Delete** | 作成・詳細・編集                                   |
+| `src/components/lists/`                           | **Delete** | 探索 UI                                            |
+| `src/components/quiz-list/`                       | **Delete** | リストエディタ                                     |
+| `src/components/bookmark/bookmark-list-grid.tsx`  | **Delete** | リスト BM 一覧                                     |
+| `src/components/profile/profile-list-card.tsx`    | **Delete** | プロフィール用（lists タブは auth-profile が削除） |
+| `src/components/profile/profile-lists-panel.tsx`  | **Delete** | 同上                                               |
+| `src/hooks/useListsSearch.ts`                     | **Delete** | リスト検索                                         |
+| `src/app/bookmarks/bookmarks-client.tsx`          | **Modify** | 2タブ、lists 分岐削除                              |
+| `src/components/bookmark/bookmarks-tabs.tsx`      | **Modify** | `BookmarkTab` から `'list'` 除去                   |
+| `src/hooks/useBookmarkFeed.ts`                    | **Modify** | lists タブ除去                                     |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx`     | **Modify** | `list` / `question-list` / session 除去            |
+| `src/app/quiz/[id]/result/quiz-result-client.tsx` | **Modify** | リスト内次へナビ除去                               |
+| `src/app/profile/[uid]/profile-client.tsx`        | **Modify** | 「作成したリスト」タブ除去（軽微・play-flow 境界） |
+| `src/components/layout/nav-active.ts`             | **Modify** | `/lists`, `/list/*` active 除去                    |
+| `e2e/lists-discovery.spec.ts`                     | **Delete** | —                                                  |
+| `e2e/quiz-list.spec.ts`                           | **Delete** | —                                                  |
+| `e2e/phase8.spec.ts`                              | **Modify** | リストシナリオ削除                                 |
+| `e2e/layout.spec.ts`                              | **Modify** | `/lists` リンク期待削除                            |
+| `tests/components/lists/`                         | **Delete** | —                                                  |
+| `tests/components/profile-list-card.test.tsx`     | **Delete** | —                                                  |
+| `tests/hooks/useListsSearch.test.ts`              | **Delete** | —                                                  |
+| `tests/hooks/use-bookmark-feed.test.tsx`          | **Modify** | 2タブ                                              |
+| `tests/components/sidebar.test.tsx`               | **Modify** | リストナビは sidebar-layout と整合                 |
 
 **維持（削除禁止）**: `src/components/quiz/quiz-list-skeleton.tsx`（ダッシュボード用）、`recommend-list-client.tsx`。
 
@@ -3022,23 +3022,23 @@ export type BookmarkTab = 'quiz' | 'question'; // 'list' 削除
 
 ### 6. Requirements Traceability（Phase 26）
 
-| Req | Summary | Component |
-|-----|---------|-----------|
-| 26.1–26.2 | ルート削除・404 | `app/lists`, `app/list` 削除 |
-| 26.3–26.6 | ブックマーク2タブ | `bookmarks-client`, `bookmarks-tabs` |
-| 26.7–26.10 | プレイ/結果 | `quiz-play-client`, `quiz-result-client` |
-| 26.11–26.12 | 要件整合 | コメント・テスト更新 |
-| 26.13–26.15 | 境界 Out | 他スペック |
-| 26.17–26.18 | testid / E2E | 上記 |
+| Req         | Summary           | Component                                |
+| ----------- | ----------------- | ---------------------------------------- |
+| 26.1–26.2   | ルート削除・404   | `app/lists`, `app/list` 削除             |
+| 26.3–26.6   | ブックマーク2タブ | `bookmarks-client`, `bookmarks-tabs`     |
+| 26.7–26.10  | プレイ/結果       | `quiz-play-client`, `quiz-result-client` |
+| 26.11–26.12 | 要件整合          | コメント・テスト更新                     |
+| 26.13–26.15 | 境界 Out          | 他スペック                               |
+| 26.17–26.18 | testid / E2E      | 上記                                     |
 
 ### 7. Testing Strategy（Phase 26）
 
-| 種別 | 検証 |
-|------|------|
-| **Component** | `bookmarks-tabs` — 2タブのみレンダリング |
-| **E2E** | `/bookmarks` — リストタブ不存在 |
-| **E2E** | `/lists` → 404 |
-| **Regression** | 問題ブックマークタブ・クイズブックマークタブ操作 |
+| 種別           | 検証                                                  |
+| -------------- | ----------------------------------------------------- |
+| **Component**  | `bookmarks-tabs` — 2タブのみレンダリング              |
+| **E2E**        | `/bookmarks` — リストタブ不存在                       |
+| **E2E**        | `/lists` → 404                                        |
+| **Regression** | 問題ブックマークタブ・クイズブックマークタブ操作      |
 | **Regression** | 通常クイズプレイ・`mode=my-quiz`（my-quiz-ui と連携） |
 
 **Effort**: **M**（2日、Core 完了後）

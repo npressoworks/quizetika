@@ -519,11 +519,11 @@ Overall: L / Medium
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks | Selected |
-|--------|-------------|-----------|-------|----------|
-| A. Full vertical slice | Checkout + Webhook + Portal + tier | E2E 価値完結 | Webhook 運用コスト | Yes |
-| B. Checkout only | 表示 + Checkout、Webhook 後回し | 早い | 購入後即時反映不可 | No |
-| C. Pricing Table embed | Stripe ホスト UI | 実装最小 | デザイン不整合、tier 拡張弱い | No |
+| Option                 | Description                        | Strengths    | Risks                         | Selected |
+| ---------------------- | ---------------------------------- | ------------ | ----------------------------- | -------- |
+| A. Full vertical slice | Checkout + Webhook + Portal + tier | E2E 価値完結 | Webhook 運用コスト            | Yes      |
+| B. Checkout only       | 表示 + Checkout、Webhook 後回し    | 早い         | 購入後即時反映不可            | No       |
+| C. Pricing Table embed | Stripe ホスト UI                   | 実装最小     | デザイン不整合、tier 拡張弱い | No       |
 
 ## Design Decisions
 
@@ -571,15 +571,15 @@ Overall: L / Medium
 
 ### 1.1 再利用可能な資産
 
-| 資産 | パス | 再利用方法 |
-|------|------|------------|
-| Bearer 認証パターン | `src/lib/firebase/auth-verify.ts` | Checkout / Portal API で同一 |
-| Admin Firestore | `src/lib/firebase/admin.ts` (`getAdminFirestore`) | Webhook・エンタイトルメント書き込み |
-| BAN API ルート構造 | `src/app/api/admin/users/ban/route.ts` | billing API の骨格 |
-| AI 制限純関数 | `src/services/ask-ai-utils.ts` (`isAiTurnLimitExceeded`) | `EntitlementService` から呼び出し継続可 |
-| ask-ai サーバー検証 | `src/app/api/attempt/ask-ai/route.ts` L92–103 | `EntitlementService` へ置換対象 |
-| Stripe パッケージ | `package.json` (`stripe` ^22.2.0) | 未 import — 導入のみ残 |
-| 環境変数（部分） | `.env.local` | `STRIPE_SECRET_KEY`, `WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` あり。**`STRIPE_PRICE_PRO_*` なし** |
+| 資産                | パス                                                     | 再利用方法                                                                                                      |
+| ------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Bearer 認証パターン | `src/lib/firebase/auth-verify.ts`                        | Checkout / Portal API で同一                                                                                    |
+| Admin Firestore     | `src/lib/firebase/admin.ts` (`getAdminFirestore`)        | Webhook・エンタイトルメント書き込み                                                                             |
+| BAN API ルート構造  | `src/app/api/admin/users/ban/route.ts`                   | billing API の骨格                                                                                              |
+| AI 制限純関数       | `src/services/ask-ai-utils.ts` (`isAiTurnLimitExceeded`) | `EntitlementService` から呼び出し継続可                                                                         |
+| ask-ai サーバー検証 | `src/app/api/attempt/ask-ai/route.ts` L92–103            | `EntitlementService` へ置換対象                                                                                 |
+| Stripe パッケージ   | `package.json` (`stripe` ^22.2.0)                        | 未 import — 導入のみ残                                                                                          |
+| 環境変数（部分）    | `.env.local`                                             | `STRIPE_SECRET_KEY`, `WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` あり。**`STRIPE_PRICE_PRO_*` なし** |
 
 ### 1.2 命名・レイヤー規約
 
@@ -597,20 +597,20 @@ Overall: L / Medium
 
 ## 2. Requirement-to-Asset Map（Phase 13）
 
-| Requirement | 必要アセット | 現状 | ギャップ |
-|-------------|-------------|------|----------|
-| 19.1 | デフォルト `free` tier | 暗黙（フィールドなし） | **Missing** — 型・読み取りデフォルト未定義 |
-| 19.2–19.3 | `subscriptionTier` enum + 拡張点 | なし | **Missing** |
-| 19.4 | 契約状態の一貫解釈 | なし | **Missing** — `EntitlementService` |
-| 19.5–19.8 | Checkout Session API | なし | **Missing** |
-| 19.9–19.12 | Webhook + 冪等 | なし | **Missing** |
-| 19.13–19.14 | Portal Session API | なし | **Missing** |
-| 19.15–19.17 | tier ベース AI 無制限 | `isPremium` 直読のみ | **Partial** — tier / status 未考慮 |
-| 19.18 | Rules 課金フィールド保護 | `moderationTier` のみ保護 | **Missing（Critical）** |
-| 19.19 | サーバー正本参照 | ask-ai は DB 直読（良） | **Partial** — クライアント `isPremium` 送信は無視済み |
-| 4.2 | 無料 20回制限 | 実装済み | **Constraint** — tier ではなく boolean |
-| 4.3 | Pro 無制限 | `isPremium===true` のみ | **Partial** — `subscriptionTier` 未連動 |
-| 4.4 | サーバー契約参照 | ask-ai で実装 | **Partial** — `EntitlementService` 未集約 |
+| Requirement | 必要アセット                     | 現状                      | ギャップ                                              |
+| ----------- | -------------------------------- | ------------------------- | ----------------------------------------------------- |
+| 19.1        | デフォルト `free` tier           | 暗黙（フィールドなし）    | **Missing** — 型・読み取りデフォルト未定義            |
+| 19.2–19.3   | `subscriptionTier` enum + 拡張点 | なし                      | **Missing**                                           |
+| 19.4        | 契約状態の一貫解釈               | なし                      | **Missing** — `EntitlementService`                    |
+| 19.5–19.8   | Checkout Session API             | なし                      | **Missing**                                           |
+| 19.9–19.12  | Webhook + 冪等                   | なし                      | **Missing**                                           |
+| 19.13–19.14 | Portal Session API               | なし                      | **Missing**                                           |
+| 19.15–19.17 | tier ベース AI 無制限            | `isPremium` 直読のみ      | **Partial** — tier / status 未考慮                    |
+| 19.18       | Rules 課金フィールド保護         | `moderationTier` のみ保護 | **Missing（Critical）**                               |
+| 19.19       | サーバー正本参照                 | ask-ai は DB 直読（良）   | **Partial** — クライアント `isPremium` 送信は無視済み |
+| 4.2         | 無料 20回制限                    | 実装済み                  | **Constraint** — tier ではなく boolean                |
+| 4.3         | Pro 無制限                       | `isPremium===true` のみ   | **Partial** — `subscriptionTier` 未連動               |
+| 4.4         | サーバー契約参照                 | ask-ai で実装             | **Partial** — `EntitlementService` 未集約             |
 
 ### 2.1 存在しないファイル（設計 vs 実装）
 
@@ -627,20 +627,20 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### 2.2 改修が必要な既存ファイル
 
-| ファイル | 変更内容 |
-|----------|----------|
-| `src/types/index.ts` | `User` に課金フィールド追加 |
-| `src/app/api/attempt/ask-ai/route.ts` | `EntitlementService` 利用 |
-| `firestore.rules` | 課金フィールド不変 + `stripe_processed_events` deny |
-| `src/context/auth-context.tsx` | 読み取り時 `subscriptionTier` デフォルト（任意・UI 連携用） |
-| `docs/db_design.md`, `docs/api_specification.md` | 同期（direct impl） |
+| ファイル                                         | 変更内容                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| `src/types/index.ts`                             | `User` に課金フィールド追加                                 |
+| `src/app/api/attempt/ask-ai/route.ts`            | `EntitlementService` 利用                                   |
+| `firestore.rules`                                | 課金フィールド不変 + `stripe_processed_events` deny         |
+| `src/context/auth-context.tsx`                   | 読み取り時 `subscriptionTier` デフォルト（任意・UI 連携用） |
+| `docs/db_design.md`, `docs/api_specification.md` | 同期（direct impl）                                         |
 
 ### 2.3 隣接スペック（コア外だが E2E に必須）
 
-| 領域 | スペック | ギャップ |
-|------|--------|----------|
-| `/pricing` UI | `quizeum-billing-subscription-ui` | 未着手（spec 未 init） |
-| プレイ画面 tier 表示 | `quizeum-play-flow-ui` | `isPremium: false` 固定 |
+| 領域                 | スペック                          | ギャップ                |
+| -------------------- | --------------------------------- | ----------------------- |
+| `/pricing` UI        | `quizeum-billing-subscription-ui` | 未着手（spec 未 init）  |
+| プレイ画面 tier 表示 | `quizeum-play-flow-ui`            | `isPremium: false` 固定 |
 
 ## 3. Implementation Approach Options
 
@@ -668,29 +668,29 @@ src/app/api/webhooks/stripe/           — Missing
 
 ## 4. Effort & Risk
 
-| 項目 | 評価 | 根拠 |
-|------|------|------|
-| **Effort** | **M（3–7日）** | 新規 7 ファイル + Rules + ask-ai 改修 + 結合テスト。UI は別スペック |
-| **Risk** | **Medium** | Webhook 署名・冪等・Stripe テストモード運用は既知パターン。未知技術なし |
-| **Blocker** | Rules 未更新 | 実装前に `deploy:rules` で課金フィールド保護必須 |
+| 項目        | 評価           | 根拠                                                                    |
+| ----------- | -------------- | ----------------------------------------------------------------------- |
+| **Effort**  | **M（3–7日）** | 新規 7 ファイル + Rules + ask-ai 改修 + 結合テスト。UI は別スペック     |
+| **Risk**    | **Medium**     | Webhook 署名・冪等・Stripe テストモード運用は既知パターン。未知技術なし |
+| **Blocker** | Rules 未更新   | 実装前に `deploy:rules` で課金フィールド保護必須                        |
 
 ## 5. Research Needed（設計フェーズへ引き継ぎ済み／残確認）
 
-| 項目 | 状態 |
-|------|------|
-| Stripe Checkout Sessions + subscription mode | design.md で決定済み |
-| Webhook raw body + Node runtime | design.md で決定済み |
-| **Stripe Dashboard Pro Product/Price 作成** | 運用タスク — `STRIPE_PRICE_PRO_MONTHLY/YEARLY` を `.env` に設定 |
-| Customer Portal 有効化（Dashboard） | 運用タスク |
-| ローカル Webhook 転送（`stripe listen`） | 開発時 Research Needed（手順のみ） |
+| 項目                                         | 状態                                                            |
+| -------------------------------------------- | --------------------------------------------------------------- |
+| Stripe Checkout Sessions + subscription mode | design.md で決定済み                                            |
+| Webhook raw body + Node runtime              | design.md で決定済み                                            |
+| **Stripe Dashboard Pro Product/Price 作成**  | 運用タスク — `STRIPE_PRICE_PRO_MONTHLY/YEARLY` を `.env` に設定 |
+| Customer Portal 有効化（Dashboard）          | 運用タスク                                                      |
+| ローカル Webhook 転送（`stripe listen`）     | 開発時 Research Needed（手順のみ）                              |
 
 ## 6. Spec / ドキュメント整合ギャップ
 
-| ドキュメント | 問題 |
-|-------------|------|
-| `tasks.md` §13 | 「難易度5段階化」完了済み — **要件 19 Stripe タスク未生成** |
-| `requirements.md` / `design.md` | Phase 13 = Stripe（整合） |
-| `User` 型 vs `ask-ai` 実行時 | `isPremium` が型にないが Firestore では参照（型ギャップ） |
+| ドキュメント                    | 問題                                                        |
+| ------------------------------- | ----------------------------------------------------------- |
+| `tasks.md` §13                  | 「難易度5段階化」完了済み — **要件 19 Stripe タスク未生成** |
+| `requirements.md` / `design.md` | Phase 13 = Stripe（整合）                                   |
+| `User` 型 vs `ask-ai` 実行時    | `isPremium` が型にないが Firestore では参照（型ギャップ）   |
 
 ## 7. Recommendations for Implementation
 
@@ -719,20 +719,20 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### 1. 現行実装
 
-| 箇所 | 挙動 |
-|------|------|
-| `route.ts` L112–135 | `verifyKeywords` 全一致 → 即 `isCorrect=true`、else AI |
+| 箇所                     | 挙動                                                        |
+| ------------------------ | ----------------------------------------------------------- |
+| `route.ts` L112–135      | `verifyKeywords` 全一致 → 即 `isCorrect=true`、else AI      |
 | `buildVerifyTruthPrompt` | `aiContextDetails` + `playerTruth` のみ（キーワード未渡し） |
-| `test-play.ts` | `checkTruthKeywordsLocally` — 独立実装、本番 API 非使用 |
+| `test-play.ts`           | `checkTruthKeywordsLocally` — 独立実装、本番 API 非使用     |
 
 ### 2. 要件とのギャップ
 
-| 要件 | 現行 | 必要な変更 |
-|------|------|------------|
-| 4.7 | キーワード検証が先 | AI に3要素を渡す |
-| 4.8 | 全一致で即合格 | バイパス削除 |
-| 4.9 | キーワードは AI 非参照 | プロンプトにエッセンス追加 |
-| 4.10 | キーワード全一致なら AI 不要 | AI 失敗時 503 のみ |
+| 要件 | 現行                         | 必要な変更                 |
+| ---- | ---------------------------- | -------------------------- |
+| 4.7  | キーワード検証が先           | AI に3要素を渡す           |
+| 4.8  | 全一致で即合格               | バイパス削除               |
+| 4.9  | キーワードは AI 非参照       | プロンプトにエッセンス追加 |
+| 4.10 | キーワード全一致なら AI 不要 | AI 失敗時 503 のみ         |
 
 ### 3. 設計判断
 
@@ -770,39 +770,39 @@ src/app/api/webhooks/stripe/           — Missing
 
 ## 1. 要件 → 資産マッピング（Phase 17）
 
-| 要件 ID | 期待動作 | 現行資産 | 状態 | ギャップ詳細 |
-|--------|----------|----------|------|-------------|
-| 4.1 | 未登録時ボタン「会員登録してプレイする」 | `quiz-detail-client.tsx` L330–336 | ✅ 実装済 | play-flow-ui 境界。テスト未整備 |
-| 4.2 | 未登録のウミガメ開始→ログイン誘導 | `quiz-detail-client.tsx` L72–74、`quiz-play-client.tsx` L86–88 | ⚠️ 部分 | 詳細は `redirect` 付き。プレイ直アクセスは `/login` のみ（戻り先なし） |
-| 4.3 | 他モードはゲスト可 | 通常プレイ `user?.id \|\| 'guest'` | ✅ 実装済 | 横断確認のみ |
-| 4.4 | 認証済みで lateral attempt 作成 | `createLateralAttemptSession` (`attempt.ts`) | ✅ 実装済 | `listId` は常に `null`（4.23 と関連） |
-| 4.5 | AI 質問（履歴20件） | `ask-ai/route.ts` + Gemini | ✅ 実装済 | — |
-| 4.6 | 無料：同一クイズ 30回/日 | `FREE_TIER_DAILY_TURN_LIMIT = 20`、`ask-ai/route.ts` | ❌ 未実装 | 定数・API・`attempt.aiTurnLimit: 20`・UI 表示すべて 20 |
-| 4.7 | 無料：横断 150回/日 | なし | ❌ 未実装 | `dailyAiTurnCounts` は `{quizId}` のみ。グローバル doc 未設計 |
-| 4.8 | Pro 無制限 | `entitlement.ts` `hasUnlimitedAiQuestions` | ✅ 実装済 | 上限値変更後もロジックは流用可 |
-| 4.9 | サーバー側 tier 判定 | `ask-ai/route.ts` `resolveUserEntitlements` | ✅ 実装済 | — |
-| 4.10 | 正規化一致で全カウンタ非消費 | クライアント: `useAiPlayState` 正規化 / サーバー: `findCachedAnswer` 完全一致 | ⚠️ 部分 | 表記ゆれで API 呼び出し＆カウント発生。クライアント重複時は履歴に毎回追加（表示上の重複） |
-| 4.11 | 上限到達→質問拒否・真相可・Pro 誘導 | API: `limit-exceeded` + Pro 文言 / UI: 汎用エラー | ⚠️ 部分 | 上限値誤り。`/pricing` リンクなし。`turnsRemaining` はクイズ別のみ |
-| 4.12–4.20 | レイアウト・真相判定・経過時間 | `quiz-play-client.tsx`、`verify-truth/route.ts` | ✅ 実装済 | ルール説明に「最大20回」表記が残存（L731） |
-| 4.21 | 諦め→真相非表示 | `give-up-lateral/route.ts` → `revealText`、UI 右パネル表示 | ❌ 未実装 | Phase 16 仕様のまま。テストも `revealText` 期待 |
-| 4.22 | チャット内「結果画面へ」 | 右パネル内ボタン（真相表示後） | ❌ 未実装 | チャット内 CTA なし |
-| 4.23 | リスト文脈で「次の問題へ」 | なし | ❌ 未実装 | lateral は `listId` 未伝播。結果画面の list ナビは別実装 |
-| 4.24–4.27 | 入力ロック・完了保存・API 認証 | 既存 give-up / verify-truth | ✅ 実装済 | 4.21–4.23 と組み合わせて UI 改修が必要 |
-| 19.11, 19.15, 19.17–18 | tier と 30/150 制限整合 | `requirements` 更新済 / コードは 20 | ❌ 未実装 | 要件と実装の乖離 |
+| 要件 ID                | 期待動作                                 | 現行資産                                                                      | 状態     | ギャップ詳細                                                                              |
+| ---------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| 4.1                    | 未登録時ボタン「会員登録してプレイする」 | `quiz-detail-client.tsx` L330–336                                             | ✅ 実装済 | play-flow-ui 境界。テスト未整備                                                           |
+| 4.2                    | 未登録のウミガメ開始→ログイン誘導        | `quiz-detail-client.tsx` L72–74、`quiz-play-client.tsx` L86–88                | ⚠️ 部分   | 詳細は `redirect` 付き。プレイ直アクセスは `/login` のみ（戻り先なし）                    |
+| 4.3                    | 他モードはゲスト可                       | 通常プレイ `user?.id \|\| 'guest'`                                            | ✅ 実装済 | 横断確認のみ                                                                              |
+| 4.4                    | 認証済みで lateral attempt 作成          | `createLateralAttemptSession` (`attempt.ts`)                                  | ✅ 実装済 | `listId` は常に `null`（4.23 と関連）                                                     |
+| 4.5                    | AI 質問（履歴20件）                      | `ask-ai/route.ts` + Gemini                                                    | ✅ 実装済 | —                                                                                         |
+| 4.6                    | 無料：同一クイズ 30回/日                 | `FREE_TIER_DAILY_TURN_LIMIT = 20`、`ask-ai/route.ts`                          | ❌ 未実装 | 定数・API・`attempt.aiTurnLimit: 20`・UI 表示すべて 20                                    |
+| 4.7                    | 無料：横断 150回/日                      | なし                                                                          | ❌ 未実装 | `dailyAiTurnCounts` は `{quizId}` のみ。グローバル doc 未設計                             |
+| 4.8                    | Pro 無制限                               | `entitlement.ts` `hasUnlimitedAiQuestions`                                    | ✅ 実装済 | 上限値変更後もロジックは流用可                                                            |
+| 4.9                    | サーバー側 tier 判定                     | `ask-ai/route.ts` `resolveUserEntitlements`                                   | ✅ 実装済 | —                                                                                         |
+| 4.10                   | 正規化一致で全カウンタ非消費             | クライアント: `useAiPlayState` 正規化 / サーバー: `findCachedAnswer` 完全一致 | ⚠️ 部分   | 表記ゆれで API 呼び出し＆カウント発生。クライアント重複時は履歴に毎回追加（表示上の重複） |
+| 4.11                   | 上限到達→質問拒否・真相可・Pro 誘導      | API: `limit-exceeded` + Pro 文言 / UI: 汎用エラー                             | ⚠️ 部分   | 上限値誤り。`/pricing` リンクなし。`turnsRemaining` はクイズ別のみ                        |
+| 4.12–4.20              | レイアウト・真相判定・経過時間           | `quiz-play-client.tsx`、`verify-truth/route.ts`                               | ✅ 実装済 | ルール説明に「最大20回」表記が残存（L731）                                                |
+| 4.21                   | 諦め→真相非表示                          | `give-up-lateral/route.ts` → `revealText`、UI 右パネル表示                    | ❌ 未実装 | Phase 16 仕様のまま。テストも `revealText` 期待                                           |
+| 4.22                   | チャット内「結果画面へ」                 | 右パネル内ボタン（真相表示後）                                                | ❌ 未実装 | チャット内 CTA なし                                                                       |
+| 4.23                   | リスト文脈で「次の問題へ」               | なし                                                                          | ❌ 未実装 | lateral は `listId` 未伝播。結果画面の list ナビは別実装                                  |
+| 4.24–4.27              | 入力ロック・完了保存・API 認証           | 既存 give-up / verify-truth                                                   | ✅ 実装済 | 4.21–4.23 と組み合わせて UI 改修が必要                                                    |
+| 19.11, 19.15, 19.17–18 | tier と 30/150 制限整合                  | `requirements` 更新済 / コードは 20                                           | ❌ 未実装 | 要件と実装の乖離                                                                          |
 
 ## 2. 現行アーキテクチャ（関連モジュール）
 
-| モジュール | 役割 | Phase 17 への影響 |
-|-----------|------|------------------|
-| `src/services/ask-ai-utils.ts` | キャッシュ検索・制限判定定数 | **拡張先**: 正規化関数、30/150 定数、二重制限判定、エラーコード |
-| `src/app/api/attempt/ask-ai/route.ts` | AI 質問 API | 横断カウンタ読み書き、制限種別付き 429、正規化キャッシュ |
-| `src/hooks/useAiPlayState.ts` | クライアント質問状態 | 正規化の共通化、サーバー `turnsRemaining` 同期、Pro メッセージ |
-| `src/app/quiz/[id]/play/quiz-play-client.tsx` | ウミガメ UI | 諦め UI、チャット CTA、`isPremium` ハードコード除去、制限表示 |
-| `src/app/api/attempt/give-up-lateral/route.ts` | 諦め API | `revealText` 返却廃止、完了のみ |
-| `src/services/attempt.ts` | lateral session 作成 | `aiTurnLimit: 30`、`listId` 引き継ぎ検討 |
-| `src/lib/pricing-display.ts` | 料金表示文言 | 「20回」→「30回/クイズ・150回/日」 |
-| `src/services/entitlement.ts` | tier 解決 | 変更不要（上限ロジックは ask-ai 側） |
-| `docs/*.md` | 正本ドキュメント | 20回制限・諦め解説開示の記述が旧仕様 |
+| モジュール                                     | 役割                         | Phase 17 への影響                                               |
+| ---------------------------------------------- | ---------------------------- | --------------------------------------------------------------- |
+| `src/services/ask-ai-utils.ts`                 | キャッシュ検索・制限判定定数 | **拡張先**: 正規化関数、30/150 定数、二重制限判定、エラーコード |
+| `src/app/api/attempt/ask-ai/route.ts`          | AI 質問 API                  | 横断カウンタ読み書き、制限種別付き 429、正規化キャッシュ        |
+| `src/hooks/useAiPlayState.ts`                  | クライアント質問状態         | 正規化の共通化、サーバー `turnsRemaining` 同期、Pro メッセージ  |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx`  | ウミガメ UI                  | 諦め UI、チャット CTA、`isPremium` ハードコード除去、制限表示   |
+| `src/app/api/attempt/give-up-lateral/route.ts` | 諦め API                     | `revealText` 返却廃止、完了のみ                                 |
+| `src/services/attempt.ts`                      | lateral session 作成         | `aiTurnLimit: 30`、`listId` 引き継ぎ検討                        |
+| `src/lib/pricing-display.ts`                   | 料金表示文言                 | 「20回」→「30回/クイズ・150回/日」                              |
+| `src/services/entitlement.ts`                  | tier 解決                    | 変更不要（上限ロジックは ask-ai 側）                            |
+| `docs/*.md`                                    | 正本ドキュメント             | 20回制限・諦め解説開示の記述が旧仕様                            |
 
 ## 3. 実装アプローチ Options
 
@@ -831,31 +831,31 @@ src/app/api/webhooks/stripe/           — Missing
 
 ## 4. Research Needed（設計フェーズへ持ち越し）
 
-| 項目 | 内容 |
-|------|------|
-| 横断カウンタの doc ID | `dailyAiTurnCounts/_global` vs 別コレクション。Firestore Rules 影響 |
-| 二重制限のトランザクション | クイズ別 + 横断を1トランザクションで increment する際の読み取り順序 |
-| `limit-exceeded` のサブタイプ | `per-quiz` / `global-daily` を `error` フィールドで区別（要件 19.18） |
-| lateral + リスト連続プレイ | `createLateralAttemptSession` が `listId` を受け取るか。問題リストの lateral 親クイズの遷移 URL |
-| 諦め後の結果画面 | 真相を結果画面でも出さないか（要件はプレイ画面のみ明示。結果画面は別確認可） |
-| `turnsRemaining` レスポンス | クイズ別・横断の2値を返すか、表示優先ルール |
+| 項目                          | 内容                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| 横断カウンタの doc ID         | `dailyAiTurnCounts/_global` vs 別コレクション。Firestore Rules 影響                             |
+| 二重制限のトランザクション    | クイズ別 + 横断を1トランザクションで increment する際の読み取り順序                             |
+| `limit-exceeded` のサブタイプ | `per-quiz` / `global-daily` を `error` フィールドで区別（要件 19.18）                           |
+| lateral + リスト連続プレイ    | `createLateralAttemptSession` が `listId` を受け取るか。問題リストの lateral 親クイズの遷移 URL |
+| 諦め後の結果画面              | 真相を結果画面でも出さないか（要件はプレイ画面のみ明示。結果画面は別確認可）                    |
+| `turnsRemaining` レスポンス   | クイズ別・横断の2値を返すか、表示優先ルール                                                     |
 
 ## 5. テストギャップ
 
-| テスト | 現状 | 必要な更新 |
-|--------|------|-----------|
-| `tests/services/ask-ai-utils.test.ts` | 20回制限・厳格キャッシュ | 30/150、正規化キャッシュ、二重制限 |
-| `tests/api/give-up-lateral.test.ts` | `revealText` 期待 | 非返却・完了のみ |
-| `tests/api/ask-ai*.test.ts` | **なし**（統合除外コメント） | 新規 API 統合テスト推奨（制限・キャッシュ） |
-| `tests/lib/pricing-display.test.ts` | 文言 id のみ検証 | 30/150 文言アサーション |
-| `tests/services/useAiPlayState.test.ts` | モック正規化のみ | フック本体または統合テスト不足 |
+| テスト                                  | 現状                         | 必要な更新                                  |
+| --------------------------------------- | ---------------------------- | ------------------------------------------- |
+| `tests/services/ask-ai-utils.test.ts`   | 20回制限・厳格キャッシュ     | 30/150、正規化キャッシュ、二重制限          |
+| `tests/api/give-up-lateral.test.ts`     | `revealText` 期待            | 非返却・完了のみ                            |
+| `tests/api/ask-ai*.test.ts`             | **なし**（統合除外コメント） | 新規 API 統合テスト推奨（制限・キャッシュ） |
+| `tests/lib/pricing-display.test.ts`     | 文言 id のみ検証             | 30/150 文言アサーション                     |
+| `tests/services/useAiPlayState.test.ts` | モック正規化のみ             | フック本体または統合テスト不足              |
 
 ## 6. Effort & Risk
 
-| ラベル | 評価 | 根拠 |
-|--------|------|------|
-| **Effort** | **M** | 6–10 ファイル + docs + 隣接 UI 2 スペック。新規インフラ不要 |
-| **Risk** | **Low–Medium** | 既存 Stripe/entitlement パターン流用。横断カウンタ原子性と list 連続プレイのみ設計要確認 |
+| ラベル     | 評価           | 根拠                                                                                     |
+| ---------- | -------------- | ---------------------------------------------------------------------------------------- |
+| **Effort** | **M**          | 6–10 ファイル + docs + 隣接 UI 2 スペック。新規インフラ不要                              |
+| **Risk**   | **Low–Medium** | 既存 Stripe/entitlement パターン流用。横断カウンタ原子性と list 連続プレイのみ設計要確認 |
 
 ## 7. 設計フェーズへの推奨事項
 
@@ -867,14 +867,14 @@ src/app/api/webhooks/stripe/           — Missing
 
 ## 8. 設計フェーズ確定事項（2026-06-08）
 
-| 持ち越し項目 | 設計決定 |
-|-------------|---------|
-| 横断カウンタ doc ID | `users/{uid}/dailyAiTurnCounts/_global`（reserved ID） |
-| 二重制限トランザクション | attempt + per-quiz + global を単一 Transaction で increment |
-| `limit-exceeded` サブタイプ | `limitType: 'per-quiz' \| 'global-daily'` |
-| lateral + リスト連続プレイ | `createLateralAttemptSession` が `listId` を受け取り attempt に保存 |
-| 諦め後の結果画面 | プレイ画面のみ真相非表示を要件化。結果画面は現行どおり真相を出さない |
-| `turnsRemaining` | `{ perQuiz, globalDaily }` の2値を成功応答に含める |
+| 持ち越し項目                | 設計決定                                                             |
+| --------------------------- | -------------------------------------------------------------------- |
+| 横断カウンタ doc ID         | `users/{uid}/dailyAiTurnCounts/_global`（reserved ID）               |
+| 二重制限トランザクション    | attempt + per-quiz + global を単一 Transaction で increment          |
+| `limit-exceeded` サブタイプ | `limitType: 'per-quiz' \| 'global-daily'`                            |
+| lateral + リスト連続プレイ  | `createLateralAttemptSession` が `listId` を受け取り attempt に保存  |
+| 諦め後の結果画面            | プレイ画面のみ真相非表示を要件化。結果画面は現行どおり真相を出さない |
+| `turnsRemaining`            | `{ perQuiz, globalDaily }` の2値を成功応答に含める                   |
 
 **Synthesis**: Option C（Hybrid）採用。`ask-ai-utils.ts` を正本化し、諦め API は応答のみ変更、UI は play-flow / billing 境界に委譲。
 
@@ -889,11 +889,11 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### Research Log
 
-| Topic | Findings | Implications |
-|-------|----------|--------------|
-| 現行 eligibility | guest / test-play のみ除外 | exam / flashcard を同関数に追加 |
-| prior count | LB 対象試行保存時のみ query、フィルタは completedAt のみ | 変更不要。exam 後 normal で prior >= 1 |
-| verify-truth | トランザクション前に全モード prior 集計済 | `buildLeaderboardUpdatesForQuiz` 経由で自動除外 |
+| Topic            | Findings                                                 | Implications                                    |
+| ---------------- | -------------------------------------------------------- | ----------------------------------------------- |
+| 現行 eligibility | guest / test-play のみ除外                               | exam / flashcard を同関数に追加                 |
+| prior count      | LB 対象試行保存時のみ query、フィルタは completedAt のみ | 変更不要。exam 後 normal で prior >= 1          |
+| verify-truth     | トランザクション前に全モード prior 集計済                | `buildLeaderboardUpdatesForQuiz` 経由で自動除外 |
 
 ### Design Decisions
 1. **Option A 採用** — 単一関数拡張。別カウンタやユーザーフラグは不要。
@@ -910,12 +910,12 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### Research Log
 
-| Topic | Findings | Implications |
-|-------|----------|--------------|
-| データモデル | `Question.type: 'true-false'`、validation 2択 | `Quiz.format` 拡張のみ |
-| 形式解決 | `only === 'true-false'` → `mixed` | `SINGLE_FORMAT_TYPES` へ追加 |
-| 採点 | `usePlayState` + `isChoiceAnswerCorrect` | API 変更不要 |
-| 作問方針 | 正解トグルのみ（ユーザー確定） | 保存時正規化でラベル固定 |
+| Topic        | Findings                                      | Implications                 |
+| ------------ | --------------------------------------------- | ---------------------------- |
+| データモデル | `Question.type: 'true-false'`、validation 2択 | `Quiz.format` 拡張のみ       |
+| 形式解決     | `only === 'true-false'` → `mixed`             | `SINGLE_FORMAT_TYPES` へ追加 |
+| 採点         | `usePlayState` + `isChoiceAnswerCorrect`      | API 変更不要                 |
+| 作問方針     | 正解トグルのみ（ユーザー確定）                | 保存時正規化でラベル固定     |
 
 ### Design Decisions
 1. **Build** — `true-false-defaults.ts` 新設。`correctTextAnswerList` 移行は却下。
@@ -932,12 +932,12 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### Research Log
 
-| Topic | Findings | Implications |
-|-------|----------|--------------|
-| タブ API | 単一 orderBy クエリ | ネイティブカーソル適用可 |
+| Topic         | Findings                        | Implications                                   |
+| ------------- | ------------------------------- | ---------------------------------------------- |
+| タブ API      | 単一 orderBy クエリ             | ネイティブカーソル適用可                       |
 | searchQuizzes | マルチクエリ + クライアント合成 | 全面 cursor 化は高コスト。offset + fingerprint |
-| 既存利用者 | ジャンル scoped は一括維持 | `searchQuizzes` 非ページング版を残す |
-| ページサイズ | play history 20件 | `HOME_FEED_PAGE_SIZE=20` で統一 |
+| 既存利用者    | ジャンル scoped は一括維持      | `searchQuizzes` 非ページング版を残す           |
+| ページサイズ  | play history 20件               | `HOME_FEED_PAGE_SIZE=20` で統一                |
 
 ### Design Decisions
 1. **ハイブリッド** — タブは Firestore、検索は offset（roadmap 採用案）。
@@ -962,11 +962,11 @@ src/app/api/webhooks/stripe/           — Missing
 
 ---
 
-## Phase 23: リスト探索・マイクイズ Core API（2026-06-09）
+## Phase 23: リスト探索・カスタムクイズ Core API（2026-06-09）
 
 ### Summary
 
-`quiz-list.ts` に `searchLists`（公開/本人非公開 + in-memory keyword、`DEFAULT_LIST_SEARCH_LIMIT=50`）を追加。マイクイズは `my-quiz-pool.ts` で4ソース合成、`my-quiz-session.ts` で `question-list-session` 同型の sessionStorage 契約、`Attempt.mode: 'my-quiz'` + 任意 `sessionId` を追加。`saveAttempt` は `question-list` / `my-quiz` の1問試行で親クイズ全問数検証をバイパス（`totalQuestions=1` 固定検証）。LB は `question-list` と同方針（eligible）。Firestore に `quizLists` の `isPublished+createdAt` / `authorId+isPublished+createdAt` 複合 index を追加。
+`quiz-list.ts` に `searchLists`（公開/本人非公開 + in-memory keyword、`DEFAULT_LIST_SEARCH_LIMIT=50`）を追加。カスタムクイズは `my-quiz-pool.ts` で4ソース合成、`my-quiz-session.ts` で `question-list-session` 同型の sessionStorage 契約、`Attempt.mode: 'my-quiz'` + 任意 `sessionId` を追加。`saveAttempt` は `question-list` / `my-quiz` の1問試行で親クイズ全問数検証をバイパス（`totalQuestions=1` 固定検証）。LB は `question-list` と同方針（eligible）。Firestore に `quizLists` の `isPublished+createdAt` / `authorId+isPublished+createdAt` 複合 index を追加。
 
 ### Discovery Type
 
@@ -974,24 +974,24 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### Research Log
 
-| Topic | Findings | Implications |
-|-------|----------|--------------|
-| リスト一覧 | `getLatestQuizLists` が `isPublished+orderBy createdAt` を既使用。`searchLists` 未実装 | public クエリは既存パターン流用 + keyword 後段 filter |
-| 非公開探索 | `getQuizListsByAuthor(uid, true)` は公開/非公開混在。探索は `isPublished===false` 限定が必要 | 専用 composite query + `authorId` 必須バリデーション |
-| インデックス | `firestore.indexes.json` に `isPublished+createdAt` および `authorId+isPublished+createdAt`（listType なし）が未登録 | Phase 23 で2件追加 |
-| 問題プール | `useQuestionAttachSearch` が own/bookmarked 収集済。ブックマークリスト経路は `getQuizzesInList` | `buildMyQuizQuestionPool` に集約。問題リスト型 bookmark list は除外 |
-| Dedupe | `dedupeQuestionCandidates` が questionId 先勝ち | ソース priority 順 flat 化後に reuse |
-| セッション | `question-list-session.ts` が CRUD + URL 生成の正本 | `my-quiz-session` は `sessionId` + `mode=my-quiz` URL。別 sessionStorage キー |
-| saveAttempt | L92–95 が常に `quiz.questions.length` と照合 | `question-list` も現状バグ潜在。1問モード分岐で両方修正 |
-| LB | `isLeaderboardEligibleAttempt` は exam/flashcard/test-play/guest のみ除外 | `my-quiz` は追加除外不要（`question-list` と同 eligible） |
+| Topic        | Findings                                                                                                             | Implications                                                                  |
+| ------------ | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| リスト一覧   | `getLatestQuizLists` が `isPublished+orderBy createdAt` を既使用。`searchLists` 未実装                               | public クエリは既存パターン流用 + keyword 後段 filter                         |
+| 非公開探索   | `getQuizListsByAuthor(uid, true)` は公開/非公開混在。探索は `isPublished===false` 限定が必要                         | 専用 composite query + `authorId` 必須バリデーション                          |
+| インデックス | `firestore.indexes.json` に `isPublished+createdAt` および `authorId+isPublished+createdAt`（listType なし）が未登録 | Phase 23 で2件追加                                                            |
+| 問題プール   | `useQuestionAttachSearch` が own/bookmarked 収集済。ブックマークリスト経路は `getQuizzesInList`                      | `buildMyQuizQuestionPool` に集約。問題リスト型 bookmark list は除外           |
+| Dedupe       | `dedupeQuestionCandidates` が questionId 先勝ち                                                                      | ソース priority 順 flat 化後に reuse                                          |
+| セッション   | `question-list-session.ts` が CRUD + URL 生成の正本                                                                  | `my-quiz-session` は `sessionId` + `mode=my-quiz` URL。別 sessionStorage キー |
+| saveAttempt  | L92–95 が常に `quiz.questions.length` と照合                                                                         | `question-list` も現状バグ潜在。1問モード分岐で両方修正                       |
+| LB           | `isLeaderboardEligibleAttempt` は exam/flashcard/test-play/guest のみ除外                                            | `my-quiz` は追加除外不要（`question-list` と同 eligible）                     |
 
 ### Architecture Pattern Evaluation
 
-| Option | searchLists keyword | my-quiz session | Verdict |
-|--------|---------------------|-----------------|---------|
-| A. Firestore prefix 検索 | composite + 全文近似 | サーバー session doc | 過剰 |
-| B. 取得後 in-memory filter + sessionStorage（採用） | 既存 normalize-search-text | question-list 同型 | **採用** |
-| C. クライアントのみ（Core なし） | UI が全件 fetch | — | 要件 23/24/25 違反 |
+| Option                                              | searchLists keyword        | my-quiz session      | Verdict            |
+| --------------------------------------------------- | -------------------------- | -------------------- | ------------------ |
+| A. Firestore prefix 検索                            | composite + 全文近似       | サーバー session doc | 過剰               |
+| B. 取得後 in-memory filter + sessionStorage（採用） | 既存 normalize-search-text | question-list 同型   | **採用**           |
+| C. クライアントのみ（Core なし）                    | UI が全件 fetch            | —                    | 要件 23/24/25 違反 |
 
 ### Design Decisions
 
@@ -1003,11 +1003,11 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### Risks
 
-| Risk | Mitigation |
-|------|------------|
-| 4ソース N+1 クエリ | 初版は既存 attach search と同程度。将来バッチ化は follow-up |
-| private `authorId` 漏洩 | サーバー側 query + 未指定 throw。Rules は既存 author 制約 |
-| saveAttempt 分岐漏れ | 専用テスト + `question-list` 回帰 |
+| Risk                    | Mitigation                                                  |
+| ----------------------- | ----------------------------------------------------------- |
+| 4ソース N+1 クエリ      | 初版は既存 attach search と同程度。将来バッチ化は follow-up |
+| private `authorId` 漏洩 | サーバー側 query + 未指定 throw。Rules は既存 author 制約   |
+| saveAttempt 分岐漏れ    | 専用テスト + `question-list` 回帰                           |
 
 **Synthesis**: Build — 新規 lib 2本 + service 拡張 + types/attempt 最小変更。Adopt — dedupe/session/bookmark 既存パターン。
 

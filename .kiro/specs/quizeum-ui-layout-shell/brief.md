@@ -7,7 +7,7 @@
 - `layout-wrapper.tsx`: PC Sidebar + モバile Header/BottomNav、`/play` ではシェル非表示
 - `sidebar.module.css` (~289 行), `header.module.css`, `bottom-nav.module.css`
 - アカウントポップアップに設定・ログアウト等
-- Phase 23 で「リスト」「マイクイズ」ナビ追加済み
+- Phase 23 で「リスト」「カスタムクイズ」ナビ追加済み
 
 ## Desired Outcome
 - シェルコンポーネントが shadcn + Tailwind で再実装され、レスポンシブ挙動（275px/70px Sidebar、BottomNav 固定）が維持される

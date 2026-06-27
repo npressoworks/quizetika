@@ -103,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
   if (user) {
     menuItems.splice(2, 0, {
       href: '/my-quiz',
-      label: 'マイクイズ',
+      label: 'カスタムクイズ',
       icon: <AssignmentOutlined sx={{ fontSize: 22 }} />,
       activeIcon: <Assignment sx={{ fontSize: 22 }} />,
       testId: 'nav-my-quiz',

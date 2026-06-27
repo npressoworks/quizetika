@@ -148,35 +148,35 @@ export function QuizResultClient({
                 setDifficultyVote(att.difficultyVote ?? null);
               }
             } else {
-            const { getPendingSyncAttempts } = await import('@/services/attempt-session');
-            const pendingAttempts = getPendingSyncAttempts();
-            const found = pendingAttempts.find((a) => a.localId === localId);
-            if (found) {
-              const att = {
-                ...found,
-                id: found.localId,
-                completedAt: new Date(found.completedAt)
-              } as Attempt;
-              setAttempt(att);
-              if (att.difficultyVote !== undefined) {
-                setDifficultyVote(att.difficultyVote ?? null);
+              const { getPendingSyncAttempts } = await import('@/services/attempt-session');
+              const pendingAttempts = getPendingSyncAttempts();
+              const found = pendingAttempts.find((a) => a.localId === localId);
+              if (found) {
+                const att = {
+                  ...found,
+                  id: found.localId,
+                  completedAt: new Date(found.completedAt)
+                } as Attempt;
+                setAttempt(att);
+                if (att.difficultyVote !== undefined) {
+                  setDifficultyVote(att.difficultyVote ?? null);
+                }
+              } else {
+                setAttempt({
+                  id: localId,
+                  userId: '',
+                  quizId: quiz.id,
+                  mode: 'normal',
+                  score: 0,
+                  totalQuestions: quiz.questionCount || 0,
+                  elapsedSeconds: 0,
+                  failedQuestionIds: [],
+                  questionAnswers: [],
+                  aiTurnCount: 0,
+                  aiTurnLimit: 0,
+                  completedAt: new Date(),
+                });
               }
-            } else {
-              setAttempt({
-                id: localId,
-                userId: '',
-                quizId: quiz.id,
-                mode: 'normal',
-                score: 0,
-                totalQuestions: quiz.questionCount || 0,
-                elapsedSeconds: 0,
-                failedQuestionIds: [],
-                questionAnswers: [],
-                aiTurnCount: 0,
-                aiTurnLimit: 0,
-                completedAt: new Date(),
-              });
-            }
             }
           } else {
             setAttemptError('結果データが見つかりません');
@@ -394,7 +394,7 @@ export function QuizResultClient({
 
   const myQuizSessionId = searchParams.get('sessionId');
 
-  // マイクイズ連続プレイ判定
+  // カスタムクイズ連続プレイ判定
   const attemptMode = attempt?.mode;
   useEffect(() => {
     if (attemptMode !== 'my-quiz') return;
@@ -772,21 +772,8 @@ export function QuizResultClient({
 
         {/* 難易度投票 (1 - 5) */}
         <div className={styles.difficultyVoteSection}>
-          <span className={styles.voteLabel}>あなたが感じた体感難易度を投票してください (1: 簡単 〜 5: 激難)</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', fontFamily: 'monospace' }}>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>あなたの投票: </span>
-            {difficultyVote !== null ? (
-              <span>
-                <span className={styles.difficultyStars}>
-                  <span style={{ color: getDifficultyColor(difficultyVote) }}>{'★'.repeat(difficultyVote)}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - difficultyVote))}</span>
-                </span>
-                <span style={{ marginLeft: '8px', fontWeight: 'bold', color: 'var(--text-main)' }}>({difficultyVote})</span>
-              </span>
-            ) : (
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>未投票</span>
-            )}
-          </div>
+          <span className={styles.voteLabel}>体感の難易度を評価してください (1: 簡単 〜 5: 激難)</span>
+
           <DifficultyVoteStars
             value={difficultyVote}
             onVote={handleDifficultyVote}
@@ -819,14 +806,14 @@ export function QuizResultClient({
           </button>
         </div>
 
-        {/* マイクイズ連続プレイ */}
+        {/* カスタムクイズ連続プレイ */}
         {isMyQuizFlow && (
           <div className={styles.listNavigation}>
             {myQuizSessionMissing ? (
               <div style={{ textAlign: 'center', padding: '16px', marginTop: '16px', color: 'var(--text-muted)', background: 'var(--glass-bg)', borderRadius: 'var(--radius-md)' }}>
-                <p>マイクイズの続きを再生できません。</p>
+                <p>カスタムクイズの続きを再生できません。</p>
                 <Link href="/my-quiz" className="btn btn-secondary" style={{ marginTop: '12px', display: 'inline-flex' }}>
-                  マイクイズへ戻る
+                  カスタムクイズへ戻る
                 </Link>
               </div>
             ) : nextMyQuizUrl ? (
@@ -842,10 +829,10 @@ export function QuizResultClient({
             ) : isLastInMyQuiz ? (
               <div className={styles.listClearMessage} style={{ background: 'rgba(0, 245, 212, 0.05)', border: '1px solid rgba(0, 245, 212, 0.2)', padding: '20px', borderRadius: 'var(--radius-md)', textAlign: 'center', marginTop: '16px' }}>
                 <p style={{ color: 'var(--color-accent)', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '12px' }}>
-                  マイクイズを完了しました！
+                  カスタムクイズを完了しました！
                 </p>
                 <Link href="/my-quiz" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                  マイクイズへ戻る
+                  カスタムクイズへ戻る
                 </Link>
               </div>
             ) : null}

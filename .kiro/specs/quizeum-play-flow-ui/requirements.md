@@ -717,7 +717,7 @@
 **境界・隣接**
 13. The [Play Flow UI] shall [Sidebar／Header の「リスト」ナビ項目除去を本要件の範囲に含めない（`quizeum-sidebar-layout` が担当）]。
 14. The [Play Flow UI] shall [プロフィール「作成したリスト」タブ除去を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
-15. The [Play Flow UI] shall [マイクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
+15. The [Play Flow UI] shall [カスタムクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
 16. The [Play Flow UI] shall [問題ブックマーク（`targetType: 'question'`）およびクイズブックマークを維持すること]。
 
 **アクセシビリティ・テスト支援**
