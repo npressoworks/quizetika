@@ -53,7 +53,7 @@ describe('QuizCard', () => {
     jest.clearAllMocks();
   });
 
-  it('難易度を 5段階の星ゲージ形式で表示しプログレスバーを持たない', () => {
+  it('難易度を Lv表記形式で表示しプログレスバーを持たない', () => {
     const { container } = render(
       <QuizCard
         quiz={makeQuiz()}
@@ -63,7 +63,7 @@ describe('QuizCard', () => {
       />
     );
 
-    expect(screen.getByTestId('quiz-card-difficulty')).toHaveTextContent('★★★★☆');
+    expect(screen.getByTestId('quiz-card-difficulty')).toHaveTextContent('Lv.4');
     expect(container.querySelector('.progressBarBg')).toBeNull();
     expect(container.querySelector('.progressBar')).toBeNull();
   });
@@ -124,5 +124,34 @@ describe('QuizCard', () => {
 
     fireEvent.click(screen.getByTestId('quiz-card-bookmark-btn'));
     expect(mockBookmarkToggle).toHaveBeenCalledWith('quiz-1');
+  });
+
+  it('ブックマーク済みの場合は塗りつぶしアイコンが表示され、未登録時は中抜きアイコンが表示される', () => {
+    const { rerender } = render(
+      <QuizCard
+        quiz={makeQuiz()}
+        isBookmarked={false}
+        onBookmarkToggle={mockBookmarkToggle}
+        onPlayClick={mockPlayClick}
+      />
+    );
+
+    // 未登録時は中抜きアイコンが存在し、塗りつぶしアイコンは存在しないこと
+    expect(screen.getByTestId('bookmark-icon-outlined')).toBeInTheDocument();
+    expect(screen.queryByTestId('bookmark-icon-filled')).toBeNull();
+
+    // 登録済みに更新
+    rerender(
+      <QuizCard
+        quiz={makeQuiz()}
+        isBookmarked={true}
+        onBookmarkToggle={mockBookmarkToggle}
+        onPlayClick={mockPlayClick}
+      />
+    );
+
+    // 登録時は塗りつぶしアイコンが存在し、中抜きアイコンは存在しないこと
+    expect(screen.getByTestId('bookmark-icon-filled')).toBeInTheDocument();
+    expect(screen.queryByTestId('bookmark-icon-outlined')).toBeNull();
   });
 });

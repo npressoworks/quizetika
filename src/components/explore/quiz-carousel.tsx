@@ -7,7 +7,7 @@ import { QuizCard } from '@/components/quiz/quiz-card';
 import { useAuth } from '@/context/auth-context';
 import { useAds } from '@/hooks/useAds';
 import { AdsenseInlineAd } from '@/components/ads/adsense-inline-ad';
-import { toggleBookmark } from '@/services/bookmark';
+import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -35,9 +35,27 @@ export function QuizCarousel({
   genreLabelById,
 }: QuizCarouselProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, firebaseUser, loading: authLoading } = useAuth();
   const { showAds } = useAds();
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
+
+  React.useEffect(() => {
+    async function loadBookmarks() {
+      if (authLoading) return;
+      const uid = firebaseUser?.uid;
+      if (uid && user) {
+        try {
+          const ids = await getBookmarkedQuizIds(uid);
+          setBookmarkedIds(new Set(ids));
+        } catch (err) {
+          console.error('[QuizCarousel] bookmark load failed:', err);
+        }
+      } else {
+        setBookmarkedIds(new Set());
+      }
+    }
+    loadBookmarks();
+  }, [user, firebaseUser, authLoading]);
 
   const handleBookmarkToggle = useCallback(
     async (quizId: string) => {

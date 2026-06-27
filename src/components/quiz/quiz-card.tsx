@@ -64,20 +64,24 @@ export function QuizCard({
           />
         </div>
         <button
-          className={cn(
-            'absolute top-2 right-2 z-10 rounded-full border border-border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted',
-            isBookmarked && 'text-emerald-500'
-          )}
+          className="absolute top-2 right-2 z-10 rounded-full border border-border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted"
           onClick={handleBookmarkClick}
           data-testid="quiz-card-bookmark-btn"
           data-analytics="quiz-bookmark-toggle"
           aria-label="ブックマーク"
           type="button"
         >
-          <Bookmark
-            sx={{ fontSize: 18 }}
-            style={{ color: isBookmarked ? '#00ff66' : 'currentColor' }}
-          />
+          {isBookmarked ? (
+            <Bookmark
+              sx={{ fontSize: 18, color: '#00ff66' }}
+              data-testid="bookmark-icon-filled"
+            />
+          ) : (
+            <BookmarkBorderOutlined
+              sx={{ fontSize: 18, color: 'currentColor' }}
+              data-testid="bookmark-icon-outlined"
+            />
+          )}
         </button>
         {quiz.reviewScore != null && (
           <span
@@ -103,9 +107,12 @@ export function QuizCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span data-testid="quiz-card-difficulty" style={{ fontFamily: 'monospace' }}>
-            <span style={{ color: getDifficultyColor(quiz.difficulty) }}>{'★'.repeat(quiz.difficulty)}</span>
-            <span className="text-muted-foreground">{'☆'.repeat(Math.max(0, 5 - quiz.difficulty))}</span>
+          <span
+            data-testid="quiz-card-difficulty"
+            className="font-semibold"
+            style={{ color: getDifficultyColor(quiz.difficulty) }}
+          >
+            Lv.{quiz.difficulty}
           </span>
           <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground" data-testid="quiz-card-genre">
             {genreLabel}

@@ -22,6 +22,7 @@ jest.mock('@/context/auth-context', () => ({
 jest.mock('@/services/bookmark', () => ({
   isBookmarked: jest.fn().mockResolvedValue(false),
   toggleBookmark: jest.fn().mockResolvedValue(undefined),
+  getBookmarkedQuizIds: jest.fn().mockResolvedValue(['quiz-1']),
 }));
 
 const mockQuizzes = [
@@ -133,5 +134,22 @@ describe('QuizCarousel', () => {
     );
 
     expect(screen.getByText('表示できるクイズがありません。')).toBeInTheDocument();
+  });
+
+  it('初期ロード時にブックマーク済みクイズのアイコンが登録済み（塗りつぶし）で表示される', async () => {
+    render(
+      <QuizCarousel
+        quizzes={mockQuizzes}
+        loading={false}
+        error={null}
+      />
+    );
+
+    // 非同期ロードされる getBookmarkedQuizIds ('quiz-1'を返す) の結果が適用されるのを待つ
+    const filledIcon = await screen.findByTestId('bookmark-icon-filled');
+    expect(filledIcon).toBeInTheDocument();
+
+    const outlinedIcon = screen.getByTestId('bookmark-icon-outlined');
+    expect(outlinedIcon).toBeInTheDocument();
   });
 });
