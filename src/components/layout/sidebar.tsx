@@ -155,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
       <div className="mb-8 px-2 md:max-lg:px-0">
         <Link href="/" className="flex items-center text-2xl font-extrabold tracking-tight lg:text-3xl">
           <span>Quiz</span>
-          <span className={cn("lg:inline md:max-lg:hidden", isCollapsed && "lg:hidden")}>eum</span>
+          <span className={cn("lg:inline md:max-lg:hidden", isCollapsed && "lg:hidden")}>etika</span>
         </Link>
       </div>
 
