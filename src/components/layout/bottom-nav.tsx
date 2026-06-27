@@ -9,7 +9,7 @@ import {
   Home,
   SearchOutlined,
   NotificationsOutlined,
-  BookmarkOutlined,
+  BookmarkBorderOutlined,
   Bookmark,
   PersonOutlined,
 } from '@mui/icons-material';

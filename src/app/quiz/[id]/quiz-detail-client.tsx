@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BookmarkOutlined, BookmarkRounded, PlayArrowOutlined, EmojiEventsOutlined, TimerOutlined, LayersOutlined, HelpOutlineOutlined, EditOutlined, WarningAmberOutlined, CheckCircleOutlined } from '@mui/icons-material';
+import { BookmarkBorderOutlined, BookmarkRounded, PlayArrowOutlined, EmojiEventsOutlined, TimerOutlined, LayersOutlined, HelpOutlineOutlined, EditOutlined, WarningAmberOutlined, CheckCircleOutlined } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
 import { getDifficultyColor } from '@/lib/difficulty-color';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
@@ -163,7 +163,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
           >
             {bookmarked
               ? <BookmarkRounded sx={{ fontSize: 20, color: '#00ff66' }} className="fill-current" />
-              : <BookmarkOutlined sx={{ fontSize: 20 }} />}
+              : <BookmarkBorderOutlined sx={{ fontSize: 20 }} />}
           </button>
         </div>
 

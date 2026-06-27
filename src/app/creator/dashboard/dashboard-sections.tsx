@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   PlayArrowOutlined as PlayIcon,
-  BookmarkOutlined as BookmarkIcon,
+  BookmarkBorderOutlined as BookmarkIcon,
   StarOutlined as StarIcon,
   ThumbUpOutlined as ThumbsUpIcon,
   DescriptionOutlined as FileTextIcon,

@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowBackOutlined as ArrowBackIcon, BookmarkOutlined as BookmarkIcon } from '@mui/icons-material';
+import { ArrowBackOutlined as ArrowBackIcon, BookmarkBorderOutlined as BookmarkIcon } from '@mui/icons-material';
 import { BookmarksClient } from './bookmarks-client';
 import { BookmarksSkeleton } from '@/components/ui/bookmarks-skeleton';
 

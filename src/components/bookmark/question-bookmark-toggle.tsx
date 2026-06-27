@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookmarkOutlined, BookmarkRounded } from '@mui/icons-material';
+import { BookmarkBorderOutlined, BookmarkRounded } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
 import { toggleBookmark } from '@/services/bookmark';
 import { Button } from '@/components/ui/button';
@@ -68,7 +68,7 @@ export function QuestionBookmarkToggle({
       >
         {bookmarked
           ? <BookmarkRounded sx={{ fontSize: 18 }} className="fill-primary text-primary" />
-          : <BookmarkOutlined sx={{ fontSize: 18 }} />}
+          : <BookmarkBorderOutlined sx={{ fontSize: 18 }} />}
       </Button>
       {error && (
         <span className="max-w-[120px] text-center text-[0.7rem] text-destructive">

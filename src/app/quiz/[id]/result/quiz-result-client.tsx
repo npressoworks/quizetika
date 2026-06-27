@@ -15,7 +15,7 @@ import {
   ArrowBackOutlined,
   CheckCircleOutlined,
   ChevronRightOutlined,
-  BookmarkOutlined,
+  BookmarkBorderOutlined,
   BookmarkRounded,
   PersonAddOutlined,
   HowToRegOutlined
@@ -626,7 +626,7 @@ export function QuizResultClient({
             {bookmarkedQuizIds.has(quiz.id) ? (
               <BookmarkRounded sx={{ fontSize: 24, color: '#00ff66' }} />
             ) : (
-              <BookmarkOutlined sx={{ fontSize: 24 }} />
+              <BookmarkBorderOutlined sx={{ fontSize: 24 }} />
             )}
           </button>
         </div>

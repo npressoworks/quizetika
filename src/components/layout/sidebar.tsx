@@ -18,7 +18,7 @@ import {
   Notifications,
   NotificationsOutlined,
   Bookmark,
-  BookmarkOutlined,
+  BookmarkBorderOutlined,
   Person,
   PersonOutlined,
   Dashboard,
@@ -118,7 +118,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
       {
         href: '/bookmarks',
         label: 'ブックマーク',
-        icon: <BookmarkOutlined sx={{ fontSize: 22 }} />,
+        icon: <BookmarkBorderOutlined sx={{ fontSize: 22 }} />,
         activeIcon: <Bookmark sx={{ fontSize: 22 }} />
       },
       {
