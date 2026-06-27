@@ -4,7 +4,7 @@ import { EditorFormSkeleton } from '@/components/quiz/editor-skeleton';
 import { QuizEditorLoader } from './quiz-editor-loader';
 
 export const metadata: Metadata = {
-  title: 'クイズ編集 | quizeum',
+  title: 'クイズ編集 | quizetika',
   description: '作成したクイズを編集して、再度公開・下書き保存することができます。',
 };
 

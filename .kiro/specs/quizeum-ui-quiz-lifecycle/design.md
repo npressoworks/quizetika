@@ -1,8 +1,8 @@
-# Design Document: quizeum-ui-quiz-lifecycle
+# Design Document: quizetika-ui-quiz-lifecycle
 
 ## Overview
 
-本機能は Phase 24 UI 刷新の**クイズライフサイクル垂直スライス**である。クイズ詳細・プレイ・結果・投稿完了・復習・リーダーボードおよび関連コンポーネント（回答パネル、通報モーダル、スケルトン）を `quizeum-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。既存のルーティング・プレイ契約・attempt データフロー・`data-testid` は変更しない。
+本機能は Phase 24 UI 刷新の**クイズライフサイクル垂直スライス**である。クイズ詳細・プレイ・結果・投稿完了・復習・リーダーボードおよび関連コンポーネント（回答パネル、通報モーダル、スケルトン）を `quizetika-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。既存のルーティング・プレイ契約・attempt データフロー・`data-testid` は変更しない。
 
 **Users**: プレイヤーは没入型プレイ、回答フィードバック、結果確認、復習、ランキング閲覧を利用する。開発者は後続スペック（editor 等）と分離されたライフサイクル境界で Tailwind 移行を完了する。
 
@@ -18,10 +18,10 @@
 - 当該 `.module.css` 完全削除と関連 E2E グリーン
 
 ### Non-Goals
-- クイズエディタ UI（`quizeum-ui-editor`）
+- クイズエディタ UI（`quizetika-ui-editor`）
 - プレイエンジン hooks / attempt services の変更
 - 新ルート・新機能・API/認可変更
-- 旧 Quizeum ビジュアル（ネオン/Glassmorphism）の再現
+- 旧 Quizetika ビジュアル（ネオン/Glassmorphism）の再現
 - `variables.css` 削除
 
 ---
@@ -43,16 +43,16 @@
 - **Phase 27**: プレイ画面（通常・ウミガメスープ・並び替え等）でのタイマー測定・ヒント表示・選択肢アクション等のトラッキング UI/フック設計、および完了ペイロードへの `questionAnswerDetails` 統合。
 
 ### Out of Boundary
-- `src/app/quiz/create/`, `src/app/quiz/[id]/edit/` — エディタ（`quizeum-ui-editor`）
-- `quiz-editor.tsx`, `genre-editor-select`, `author-quiz-reference-panel`, `editor-skeleton`, `quiz-list-skeleton`, `feedback-skeleton`（`quizeum-ui-admin-creator` が所有）
+- `src/app/quiz/create/`, `src/app/quiz/[id]/edit/` — エディタ（`quizetika-ui-editor`）
+- `quiz-editor.tsx`, `genre-editor-select`, `author-quiz-reference-panel`, `editor-skeleton`, `quiz-list-skeleton`, `feedback-skeleton`（`quizetika-ui-admin-creator` が所有）
 - `create.module.css`, `editor-skeleton.module.css`
-- `LayoutWrapper` / シェル（`quizeum-ui-layout-shell`）
+- `LayoutWrapper` / シェル（`quizetika-ui-layout-shell`）
 - `usePlayState`, `useAiPlayState`, `services/attempt`, `hooks/useQuickPressStream`
 - `variables.css` 削除
 
 ### Allowed Dependencies
-- **`quizeum-ui-foundation`**: Tailwind, `globals.css`, `cn()`, Button, Dialog, Card, Skeleton, Badge, Input（P0）
-- **`quizeum-ui-layout-shell`**: `/play` シェル非表示（P0、読み取りのみ・変更しない）
+- **`quizetika-ui-foundation`**: Tailwind, `globals.css`, `cn()`, Button, Dialog, Card, Skeleton, Badge, Input（P0）
+- **`quizetika-ui-layout-shell`**: `/play` シェル非表示（P0、読み取りのみ・変更しない）
 - **`useAuth`**: ログイン状態表示（P0）
 - **既存 hooks/services**: `usePlayState`, `usePlayedQuizIds`, `services/bookmark`, `services/attempt` 等（P0、契約維持）
 - **foundation Primitive Wave 2**: RadioGroup, Progress, Accordion, Tabs, Label（P0、存在確認のみ）
@@ -63,7 +63,7 @@
 - 回答パネル props 契約（`onConfirm`, `disabled`, `initialAnswer`）の変更
 - `/play` シェル非表示条件の変更（layout-shell 連動）
 - shadcn プリミティブ API の破壊的変更
-- attempt / スコア表示ロジックの変更（quizeum-core 連動）
+- attempt / スコア表示ロジックの変更（quizetika-core 連動）
 
 ---
 
@@ -82,13 +82,13 @@
 
 ```mermaid
 graph TD
-    subgraph Foundation [quizeum-ui-foundation]
+    subgraph Foundation [quizetika-ui-foundation]
         Globals[globals.css]
         CN[cn utility]
         BaseUI[Button Dialog Card Skeleton]
     end
 
-    subgraph LifecyclePrimitives [quizeum-ui-quiz-lifecycle]
+    subgraph LifecyclePrimitives [quizetika-ui-quiz-lifecycle]
         AnswerPanels[ChoiceAnswerPanel TrueFalseAnswerPanel PostAnswerFeedback]
         SharedUI[ReportModal Skeletons FormatLabel QuizCard]
     end
@@ -129,15 +129,15 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16, React 19 | App Router, Client Components | 既存維持 |
-| Styling | Tailwind CSS v4 | ユーティリティクラス | foundation 経由 |
-| UI | shadcn/ui | Button, RadioGroup, Progress, Accordion, Dialog, Tabs, Card, Skeleton | foundation Wave 1+2 |
-| Icons | @mui/icons-material | プレイ/結果アイコン | 既存 |
-| State | usePlayState 等 | プレイ状態 | 変更しない |
-| Data | Firebase / services | attempt, bookmark | 変更しない |
-| Testing | Jest, Playwright | 単体・E2E 回帰 | 既存 spec 更新 |
+| Layer    | Choice / Version     | Role in Feature                                                       | Notes               |
+| -------- | -------------------- | --------------------------------------------------------------------- | ------------------- |
+| Frontend | Next.js 16, React 19 | App Router, Client Components                                         | 既存維持            |
+| Styling  | Tailwind CSS v4      | ユーティリティクラス                                                  | foundation 経由     |
+| UI       | shadcn/ui            | Button, RadioGroup, Progress, Accordion, Dialog, Tabs, Card, Skeleton | foundation Wave 1+2 |
+| Icons    | @mui/icons-material  | プレイ/結果アイコン                                                   | 既存                |
+| State    | usePlayState 等      | プレイ状態                                                            | 変更しない          |
+| Data     | Firebase / services  | attempt, bookmark                                                     | 変更しない          |
+| Testing  | Jest, Playwright     | 単体・E2E 回帰                                                        | 既存 spec 更新      |
 
 ---
 
@@ -246,50 +246,50 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1–1.7 | クイズ詳細 | QuizDetailClient, FormatLabel, QuizDualLeaderboard | Quiz props | Detail page |
-| 2.1–2.7 | 結果・成功 | QuizResultClient, Accordion, DualLeaderboard, SuccessClient | Attempt display | Result flow |
-| 3.1–3.4 | 復習 | ReviewClient | Genre filter | Review page |
-| 4.1–4.4 | グローバル LB | LeaderboardClient | Tabs | Leaderboard |
-| 5.1–5.5 | 回答 UI | ChoiceAnswerPanel, TrueFalseAnswerPanel, PostAnswerFeedback | onConfirm props | Play |
-| 6.1–6.7 | プレイ没入 | QuizPlayClient, TestPlayClient, PlaySkeleton | usePlayState | Play |
-| 6.8–6.9 | 詳細トラッキングと統合 | usePlayState, QuizPlayClient | props 統合 | Play flow |
-| 7.1–7.4 | 通報・スケルトン | ReportModal, Skeletons | Dialog | Modal |
-| 8.1–8.5 | shadcn ビジュアル | 全コンポーネント | Tailwind tokens | Theme |
-| 9.1–9.4 | CSS 削除 | 全対象ファイル | — | Migration |
-| 10.1–10.5 | 回帰テスト | E2E, Jest | Playwright | Validation |
+| Requirement | Summary                | Components                                                  | Interfaces      | Flows       |
+| ----------- | ---------------------- | ----------------------------------------------------------- | --------------- | ----------- |
+| 1.1–1.7     | クイズ詳細             | QuizDetailClient, FormatLabel, QuizDualLeaderboard          | Quiz props      | Detail page |
+| 2.1–2.7     | 結果・成功             | QuizResultClient, Accordion, DualLeaderboard, SuccessClient | Attempt display | Result flow |
+| 3.1–3.4     | 復習                   | ReviewClient                                                | Genre filter    | Review page |
+| 4.1–4.4     | グローバル LB          | LeaderboardClient                                           | Tabs            | Leaderboard |
+| 5.1–5.5     | 回答 UI                | ChoiceAnswerPanel, TrueFalseAnswerPanel, PostAnswerFeedback | onConfirm props | Play        |
+| 6.1–6.7     | プレイ没入             | QuizPlayClient, TestPlayClient, PlaySkeleton                | usePlayState    | Play        |
+| 6.8–6.9     | 詳細トラッキングと統合 | usePlayState, QuizPlayClient                                | props 統合      | Play flow   |
+| 7.1–7.4     | 通報・スケルトン       | ReportModal, Skeletons                                      | Dialog          | Modal       |
+| 8.1–8.5     | shadcn ビジュアル      | 全コンポーネント                                            | Tailwind tokens | Theme       |
+| 9.1–9.4     | CSS 削除               | 全対象ファイル                                              | —               | Migration   |
+| 10.1–10.5   | 回帰テスト             | E2E, Jest                                                   | Playwright      | Validation  |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| LifecyclePrimitives | UI | RadioGroup/Progress/Accordion/Label add | 5.5, 7.4 | foundation cn() (P0) | State |
-| ChoiceAnswerPanel | UI | 選択式回答 | 5.1, 5.4, 5.5 | RadioGroup, Button (P0) | Props |
-| TrueFalseAnswerPanel | UI | 正誤回答 | 5.2, 5.4, 5.5 | Button (P0) | Props |
-| PostAnswerFeedback | UI | 回答後フィードバック | 5.3 | Button (P0) | Props |
-| ReportModal | UI | 通報 Dialog | 7.1–7.3 | Dialog (P0) | Props |
-| ResultQuestionDetailsAccordion | UI | 結果問題詳細 | 2.2 | Accordion (P0) | Props |
-| QuizDualLeaderboard | UI | クイズ内 LB | 2.5, 1.6 | Tabs, Card (P0) | Props |
-| LifecycleSkeletons | UI | ローディング | 3.3, 6.4, 7.4 | Skeleton (P0) | Props |
-| QuizDetailClient | Page | 詳細画面 | 1.1–1.7 | useAuth, usePlayedQuizIds (P0) | — |
-| QuizResultClient | Page | 結果画面 | 2.1–2.5 | attempt display (P0) | — |
-| SuccessClient | Page | 投稿完了 | 2.6 | Quiz (P0) | — |
-| ReviewClient | Page | 復習 | 3.1–3.4 | genre services (P0) | — |
-| LeaderboardClient | Page | グローバル LB | 4.1–4.4 | Firestore (P0) | — |
-| QuizPlayClient | Page | 本番プレイ | 6.1–6.7 | usePlayState (P0) | — |
-| TestPlayClient | Page | テストプレイ | 6.5 | usePlayState (P0) | — |
+| Component                      | Domain/Layer | Intent                                  | Req Coverage  | Key Dependencies (P0/P1)       | Contracts |
+| ------------------------------ | ------------ | --------------------------------------- | ------------- | ------------------------------ | --------- |
+| LifecyclePrimitives            | UI           | RadioGroup/Progress/Accordion/Label add | 5.5, 7.4      | foundation cn() (P0)           | State     |
+| ChoiceAnswerPanel              | UI           | 選択式回答                              | 5.1, 5.4, 5.5 | RadioGroup, Button (P0)        | Props     |
+| TrueFalseAnswerPanel           | UI           | 正誤回答                                | 5.2, 5.4, 5.5 | Button (P0)                    | Props     |
+| PostAnswerFeedback             | UI           | 回答後フィードバック                    | 5.3           | Button (P0)                    | Props     |
+| ReportModal                    | UI           | 通報 Dialog                             | 7.1–7.3       | Dialog (P0)                    | Props     |
+| ResultQuestionDetailsAccordion | UI           | 結果問題詳細                            | 2.2           | Accordion (P0)                 | Props     |
+| QuizDualLeaderboard            | UI           | クイズ内 LB                             | 2.5, 1.6      | Tabs, Card (P0)                | Props     |
+| LifecycleSkeletons             | UI           | ローディング                            | 3.3, 6.4, 7.4 | Skeleton (P0)                  | Props     |
+| QuizDetailClient               | Page         | 詳細画面                                | 1.1–1.7       | useAuth, usePlayedQuizIds (P0) | —         |
+| QuizResultClient               | Page         | 結果画面                                | 2.1–2.5       | attempt display (P0)           | —         |
+| SuccessClient                  | Page         | 投稿完了                                | 2.6           | Quiz (P0)                      | —         |
+| ReviewClient                   | Page         | 復習                                    | 3.1–3.4       | genre services (P0)            | —         |
+| LeaderboardClient              | Page         | グローバル LB                           | 4.1–4.4       | Firestore (P0)                 | —         |
+| QuizPlayClient                 | Page         | 本番プレイ                              | 6.1–6.7       | usePlayState (P0)              | —         |
+| TestPlayClient                 | Page         | テストプレイ                            | 6.5           | usePlayState (P0)              | —         |
 
 ### UI Layer
 
 #### ChoiceAnswerPanel
 
-| Field | Detail |
-|-------|--------|
-| Intent | 単一/複数選択式問題の回答 UI |
-| Requirements | 5.1, 5.4, 5.5 |
+| Field        | Detail                       |
+| ------------ | ---------------------------- |
+| Intent       | 単一/複数選択式問題の回答 UI |
+| Requirements | 5.1, 5.4, 5.5                |
 
 **Responsibilities & Constraints**
 - `question`, `onConfirm`, `initialAnswer`, `disabled` props を維持
@@ -319,10 +319,10 @@ type ChoiceAnswerPanelProps = {
 
 #### QuizPlayClient
 
-| Field | Detail |
-|-------|--------|
-| Intent | 没入型プレイ画面の編成（最大変更ファイル） |
-| Requirements | 6.1–6.7 |
+| Field        | Detail                                     |
+| ------------ | ------------------------------------------ |
+| Intent       | 没入型プレイ画面の編成（最大変更ファイル） |
+| Requirements | 6.1–6.7                                    |
 
 **Responsibilities & Constraints**
 - `usePlayState` / `useAiPlayState` 呼び出しは不変
@@ -343,10 +343,10 @@ type ChoiceAnswerPanelProps = {
 
 #### ReportModal
 
-| Field | Detail |
-|-------|--------|
-| Intent | クイズ/問題通報 Dialog |
-| Requirements | 7.1–7.3 |
+| Field        | Detail                 |
+| ------------ | ---------------------- |
+| Intent       | クイズ/問題通報 Dialog |
+| Requirements | 7.1–7.3                |
 
 **Responsibilities & Constraints**
 - foundation Dialog（DialogContent, DialogHeader, DialogFooter）を使用

@@ -2,7 +2,7 @@ import React, { Suspense } from 'react';
 import { MyQuizClient } from './my-quiz-client';
 
 export const metadata = {
-  title: 'カスタムクイズ | quizeum',
+  title: 'カスタムクイズ | quizetika',
 };
 
 export default function MyQuizPage() {

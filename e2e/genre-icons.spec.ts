@@ -53,18 +53,18 @@ test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', (
     const voteTab = page.locator('#tab-vote');
     if (await voteTab.isVisible()) {
       await voteTab.click();
-      
+
       // 申請したジャンルが表示されていることを確認
       await expect(page.locator(`text=${genreId}`)).toBeVisible({ timeout: 5000 });
-      
+
       // ジャンルID (genreId) が含まれる code 要素から、親のカード要素を特定し、その中にある「賛成」ボタンを取得する
       const codeTag = page.locator('code', { hasText: genreId });
       const requestCard = page.locator('div').filter({ has: codeTag }).first();
       const approveBtn = requestCard.locator('button:has-text("賛成")');
-      
+
       if (await approveBtn.isVisible()) {
         await approveBtn.click();
-        
+
         // 投票完了のメッセージを確認
         await expect(page.locator('text=賛成票を投じました').or(page.locator('text=可決され、ジャンルが追加されました'))).toBeVisible({ timeout: 10000 });
       }
@@ -78,7 +78,7 @@ test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', (
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: 'https://storage.googleapis.com/quizeum-77bc6.appspot.com/genres/temp/e2e-ai-temp.png',
+          iconImageUrl: 'https://storage.googleapis.com/quizetika-77bc6.appspot.com/genres/temp/e2e-ai-temp.png',
           usage: { limit: null, usedToday: 0, remainingToday: null }
         })
       });

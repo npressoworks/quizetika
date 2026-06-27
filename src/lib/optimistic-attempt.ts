@@ -1,6 +1,6 @@
 import { PendingSyncAttempt } from '@/services/attempt-session';
 
-const KEY_PREFIX = 'quizeum_optimistic_attempt_';
+const KEY_PREFIX = 'quizetika_optimistic_attempt_';
 
 function getSessionStorage(): Storage | null {
   if (typeof globalThis === 'undefined') return null;

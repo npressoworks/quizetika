@@ -1,7 +1,7 @@
-# Research & Design Decisions: quizeum-ui-discovery
+# Research & Design Decisions: quizetika-ui-discovery
 
 ## Summary
-- **Feature**: `quizeum-ui-discovery`
+- **Feature**: `quizetika-ui-discovery`
 - **Discovery Scope**: Extension（既存探索 UI のスタイル層 strangler 移行）
 - **Key Findings**:
   - `explore` 14 コンポーネント + `lists` 4 コンポーネントが CSS Modules 依存。7 つの `.module.css` が `explore/` に存在し、`explore-carousel.module.css` は 6 コンポーネントで共有
@@ -39,7 +39,7 @@
   - 探索専用クラス: `searchSection`, `searchBarSticky`, `tabBar`, `exploreCarouselBlock`, `quickSearch` 等
   - 他ドメイン依存: `grid`, `card`, `backBtn`（bookmarks, lists, settings）、`grid-skeleton` が `cardGrid` 使用
   - `QuizCard` は独自スタイル（`quiz-card` コンポーネント内）— 本スペックでは外観微調整のみ
-- **Implications**: 探索コンポーネントから `page.module.css` import を除去。ファイルは未移行ドメインのため残存。探索専用クラスは参照ゼロ化を目標（クラス定義の物理削除は `quizeum-ui-personal` 等完了後の cleanup 候補）
+- **Implications**: 探索コンポーネントから `page.module.css` import を除去。ファイルは未移行ドメインのため残存。探索専用クラスは参照ゼロ化を目標（クラス定義の物理削除は `quizetika-ui-personal` 等完了後の cleanup 候補）
 
 ### URL 状態契約
 - **Context**: Phase 22 契約維持が hard constraint
@@ -60,12 +60,12 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| Strangler（採用） | コンポーネント単位で CSS Modules → Tailwind 置換 | リスク分散、E2E 段階確認 | 短期混在 | layout-shell と同一パターン |
-| 一括 page.module.css 削除 | 探索完了時にファイル全削除 | シンプル | bookmarks/settings 破綻 | **却下** |
-| shadcn Carousel | Embla ベース | 公式パターン | 新依存、DOM 変更 | brief 方針で **却下** |
-| scroll-snap + Tailwind（採用） | 軽量横スクロール | 零追加依存、既存 UX 近似 | 矢印ナビなし（現行同等） | 既存に矢印なし |
+| Option                         | Description                                      | Strengths                | Risks / Limitations      | Notes                       |
+| ------------------------------ | ------------------------------------------------ | ------------------------ | ------------------------ | --------------------------- |
+| Strangler（採用）              | コンポーネント単位で CSS Modules → Tailwind 置換 | リスク分散、E2E 段階確認 | 短期混在                 | layout-shell と同一パターン |
+| 一括 page.module.css 削除      | 探索完了時にファイル全削除                       | シンプル                 | bookmarks/settings 破綻  | **却下**                    |
+| shadcn Carousel                | Embla ベース                                     | 公式パターン             | 新依存、DOM 変更         | brief 方針で **却下**       |
+| scroll-snap + Tailwind（採用） | 軽量横スクロール                                 | 零追加依存、既存 UX 近似 | 矢印ナビなし（現行同等） | 既存に矢印なし              |
 
 ## Design Decisions
 
@@ -102,7 +102,7 @@
 - **QuizCard 外観** — 旧 glass スタイル残存。探索画面内で親ラッパーのみ shadcn 化し、QuizCard 全面移行は quiz-lifecycle へ委譲
 
 ## References
-- `.kiro/specs/quizeum-ui-foundation/design.md` — 基盤プリミティブ、テーマ bridge
-- `.kiro/specs/quizeum-ui-layout-shell/design.md` — シェル境界、レスポンシブ余白
+- `.kiro/specs/quizetika-ui-foundation/design.md` — 基盤プリミティブ、テーマ bridge
+- `.kiro/specs/quizetika-ui-layout-shell/design.md` — シェル境界、レスポンシブ余白
 - `.kiro/steering/roadmap.md` Phase 24 — shadcn 標準寄せ、strangler 方針
 - `e2e/home-discovery.spec.ts`, `e2e/quiz-search.spec.ts`, `e2e/lists-discovery.spec.ts` — 回帰契約

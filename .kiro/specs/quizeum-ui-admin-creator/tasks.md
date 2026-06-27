@@ -2,7 +2,7 @@
 
 ## 1. Foundation: 管理/クリエイター用プリミティブの確認
 - [x] 1.1 foundation Primitive Wave 2 の存在を確認する
-  - `src/components/ui/` に Table, Select, Textarea, Label, AlertDialog, Chart が存在することを確認する（`quizeum-ui-foundation` で追加済み）
+  - `src/components/ui/` に Table, Select, Textarea, Label, AlertDialog, Chart が存在することを確認する（`quizetika-ui-foundation` で追加済み）
   - `recharts` 依存が package.json に存在することを確認する
   - 各コンポーネントが `cn()` を利用し TypeScript 型付きでエクスポートされることを確認する
   - `npm run build` が成功することを確認する

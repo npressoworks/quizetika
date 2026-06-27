@@ -5,12 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Quiz } from '@/types';
 import { getQuiz } from '@/services/quiz';
 import { successClasses as styles } from './success-classes';
-import { 
-  CheckOutlined, 
-  ContentCopyOutlined, 
-  PlayArrowOutlined, 
-  DashboardOutlined, 
-  AddOutlined, 
+import {
+  CheckOutlined,
+  ContentCopyOutlined,
+  PlayArrowOutlined,
+  DashboardOutlined,
+  AddOutlined,
   SmsOutlined,
   WarningAmberOutlined
 } from '@mui/icons-material';
@@ -69,7 +69,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
 
   // X（旧Twitter）へのシェア用テキストとURLの生成
   const getTwitterShareUrl = () => {
-    const text = `【クイズ公開！】「${quiz?.title || ''}」を公開しました！あなたは何問解ける？挑戦を待っています！\n#quizeum #クイズ\n`;
+    const text = `【クイズ公開！】「${quiz?.title || ''}」を公開しました！あなたは何問解ける？挑戦を待っています！\n#quizetika #クイズ\n`;
     return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
   };
 
@@ -166,23 +166,23 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
             <h2 className={styles.shareTitle}>このクイズをシェアする</h2>
             <div className={styles.shareButtons}>
               {/* X（Twitter）ボタン */}
-              <a 
-                href={getTwitterShareUrl()} 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href={getTwitterShareUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={`${styles.btnShare} ${styles.btnX}`}
               >
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                 </svg>
                 Xでシェア
               </a>
 
               {/* LINEボタン */}
-              <a 
-                href={getLineShareUrl()} 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href={getLineShareUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
                 className={`${styles.btnShare} ${styles.btnLine}`}
               >
                 <SmsOutlined sx={{ fontSize: 18 }} />
@@ -190,8 +190,8 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
               </a>
 
               {/* URLコピーボタン */}
-              <button 
-                onClick={handleCopyUrl} 
+              <button
+                onClick={handleCopyUrl}
                 className={`${styles.btnShare} ${styles.btnCopy}`}
               >
                 <ContentCopyOutlined sx={{ fontSize: 18 }} />
@@ -205,9 +205,9 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
           <div className={styles.actionSection}>
             <div className={styles.actionRow}>
               {/* 自分で遊んでみるボタン */}
-              <button 
-                onClick={() => router.push(`/quiz/${quiz.id}`)} 
-                className="btn btn-primary" 
+              <button
+                onClick={() => router.push(`/quiz/${quiz.id}`)}
+                className="btn btn-primary"
                 style={{ flex: 1 }}
               >
                 <PlayArrowOutlined sx={{ fontSize: 18 }} />
@@ -215,9 +215,9 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
               </button>
 
               {/* 作家ダッシュボードボタン */}
-              <button 
-                onClick={() => router.push('/creator/dashboard')} 
-                className="btn btn-secondary" 
+              <button
+                onClick={() => router.push('/creator/dashboard')}
+                className="btn btn-secondary"
                 style={{ flex: 1 }}
               >
                 <DashboardOutlined sx={{ fontSize: 18 }} />
@@ -226,9 +226,9 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
             </div>
 
             {/* 新しいクイズを作るボタン */}
-            <button 
-              onClick={() => router.push('/quiz/create')} 
-              className="btn btn-outline" 
+            <button
+              onClick={() => router.push('/quiz/create')}
+              className="btn btn-outline"
               style={{ width: '100%' }}
             >
               <AddOutlined sx={{ fontSize: 18 }} />

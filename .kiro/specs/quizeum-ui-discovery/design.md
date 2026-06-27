@@ -1,8 +1,8 @@
-# Design Document: quizeum-ui-discovery
+# Design Document: quizetika-ui-discovery
 
 ## Overview
 
-本機能は Phase 24 UI 刷新の**第 3 スペック**であり、Quizeum の探索・リスト画面（ホーム、検索、ジャンル/タグ探索、リスト探索）を `quizeum-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。既存のデータフロー、URL 状態契約（Phase 22）、ルーティング、`data-testid` は変更しない。
+本機能は Phase 24 UI 刷新の**第 3 スペック**であり、Quizetika の探索・リスト画面（ホーム、検索、ジャンル/タグ探索、リスト探索）を `quizetika-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。既存のデータフロー、URL 状態契約（Phase 22）、ルーティング、`data-testid` は変更しない。
 
 **Users**: 全エンドユーザーがコンテンツ発見に本画面群を利用する。開発者は `src/components/explore/` と `src/components/lists/` の共有部品を後続スペックからも参照可能な状態にする。
 
@@ -16,9 +16,9 @@
 - 探索専用 `.module.css` 完全削除
 
 ### Non-Goals
-- シェル再構築（`quizeum-ui-layout-shell`）
+- シェル再構築（`quizetika-ui-layout-shell`）
 - `search-url-state` / `useSearchUrlState` ロジック変更
-- `QuizCard` 全面再設計（`quizeum-ui-quiz-lifecycle`）
+- `QuizCard` 全面再設計（`quizetika-ui-quiz-lifecycle`）
 - `page.module.css` ファイル全体の削除
 - `variables.css` 削除
 - 新機能・IA 変更
@@ -42,18 +42,18 @@
 - 探索関連 E2E / Jest 回帰確認
 
 ### Out of Boundary
-- `src/components/layout/*`（`quizeum-ui-layout-shell`）
+- `src/components/layout/*`（`quizetika-ui-layout-shell`）
 - `src/lib/search-url-state.ts`, `src/hooks/useSearchUrlState.ts` — ロジック不変
 - `src/hooks/useExploreQuizFeed.ts`, `useListsSearch.ts`, `useActiveGenres.ts` 等 — フック契約不変
 - `src/components/quiz/quiz-card.tsx` — 全面移行は quiz-lifecycle。本 spec では import 継続
-- `src/app/list/[id]/edit/` — リストエディタ（`quizeum-ui-editor`）
+- `src/app/list/[id]/edit/` — リストエディタ（`quizetika-ui-editor`）
 - `src/app/page.module.css` ファイル削除（bookmarks / settings / my-quiz が参照）
 - Core API / Firestore / 認可
-- `quizeum-play-flow-ui` / `quizeum-lists-discovery-ui` spec 文書更新（roadmap 既存 spec update）
+- `quizetika-play-flow-ui` / `quizetika-lists-discovery-ui` spec 文書更新（roadmap 既存 spec update）
 
 ### Allowed Dependencies
-- **`quizeum-ui-foundation`**: Tailwind, `globals.css` CSS 変数, `cn()`, Button, Input, Tabs, Badge, Card, Skeleton（P0）
-- **`quizeum-ui-layout-shell`**: シェル内 `main` レンダリング、余白契約（P0）
+- **`quizetika-ui-foundation`**: Tailwind, `globals.css` CSS 変数, `cn()`, Button, Input, Tabs, Badge, Card, Skeleton（P0）
+- **`quizetika-ui-layout-shell`**: シェル内 `main` レンダリング、余白契約（P0）
 - **`useSearchUrlState`**: URL 状態読み書き（P0、読み取り/コールバックのみ）
 - **`buildSearchUrlQuery` / `parseSearchUrlState`**: ホーム導線 URL 生成（P0）
 - **`useAuth`**: ブックマーク・リスト非公開タブ（P0）
@@ -86,17 +86,17 @@
 
 ```mermaid
 graph TD
-    subgraph Foundation [quizeum-ui-foundation]
+    subgraph Foundation [quizetika-ui-foundation]
         Globals[globals.css CSS vars]
         CN[cn utility]
         Primitives[Button Input Tabs Badge Card Skeleton]
     end
 
-    subgraph Shell [quizeum-ui-layout-shell]
+    subgraph Shell [quizetika-ui-layout-shell]
         Main[main content area]
     end
 
-    subgraph Discovery [quizeum-ui-discovery]
+    subgraph Discovery [quizetika-ui-discovery]
         HSC[HorizontalScrollCarousel]
         ExploreShared[explore components]
         ListsUI[lists components]
@@ -132,15 +132,15 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16, React 19 | RSC + Client Components | 既存維持 |
-| Styling | Tailwind CSS v4 | レイアウト・カルーセル・フィルタ UI | foundation 経由 |
-| UI | shadcn/ui | Input, Tabs, Badge, Card, Accordion, Popover | foundation Wave 1+2 |
-| Scroll | CSS scroll-snap | 横スクロールカルーセル | embla 不採用 |
-| State | useSearchUrlState | URL 同期 | ロジック不変 |
-| Data | useExploreQuizFeed, useListsSearch | フィード取得 | 不変 |
-| Testing | Jest, Playwright | 単体・E2E | 既存 spec 回帰 |
+| Layer    | Choice / Version                   | Role in Feature                              | Notes               |
+| -------- | ---------------------------------- | -------------------------------------------- | ------------------- |
+| Frontend | Next.js 16, React 19               | RSC + Client Components                      | 既存維持            |
+| Styling  | Tailwind CSS v4                    | レイアウト・カルーセル・フィルタ UI          | foundation 経由     |
+| UI       | shadcn/ui                          | Input, Tabs, Badge, Card, Accordion, Popover | foundation Wave 1+2 |
+| Scroll   | CSS scroll-snap                    | 横スクロールカルーセル                       | embla 不採用        |
+| State    | useSearchUrlState                  | URL 同期                                     | ロジック不変        |
+| Data     | useExploreQuizFeed, useListsSearch | フィード取得                                 | 不変                |
+| Testing  | Jest, Playwright                   | 単体・E2E                                    | 既存 spec 回帰      |
 
 ---
 
@@ -252,51 +252,51 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1–1.6 | ホーム 3 セクション | HomeDiscoveryClient, QuizCarousel, GenreCarousel | SSR props | ホーム→検索 |
-| 2.1–2.7 | 検索フィード | SearchClient, ExploreSearchSection, ActiveFilterChips | useSearchUrlState, useExploreQuizFeed | URL 同期 |
-| 3.1–3.4 | URL 契約維持 | useSearchUrlState（参照のみ） | search-url-state | ホーム→検索 |
-| 4.1–4.4 | ジャンル/タグ | GenreExploreClient, TagExploreClient | lockedGenreId props | — |
-| 5.1–5.6 | リスト探索 | ListsClient, ListsGrid, ListDiscoveryCard | useListsSearch | — |
-| 6.1–6.4 | カルーセル UX | HorizontalScrollCarousel, *Carousel | — | — |
-| 7.1–7.5 | shadcn ビジュアル | 全探索コンポーネント | foundation primitives | — |
-| 8.1–8.4 | CSS 削除 | 全探索 routes/components | — | — |
-| 9.1–9.5 | 回帰テスト | E2E + Jest | — | — |
+| Requirement | Summary             | Components                                            | Interfaces                            | Flows       |
+| ----------- | ------------------- | ----------------------------------------------------- | ------------------------------------- | ----------- |
+| 1.1–1.6     | ホーム 3 セクション | HomeDiscoveryClient, QuizCarousel, GenreCarousel      | SSR props                             | ホーム→検索 |
+| 2.1–2.7     | 検索フィード        | SearchClient, ExploreSearchSection, ActiveFilterChips | useSearchUrlState, useExploreQuizFeed | URL 同期    |
+| 3.1–3.4     | URL 契約維持        | useSearchUrlState（参照のみ）                         | search-url-state                      | ホーム→検索 |
+| 4.1–4.4     | ジャンル/タグ       | GenreExploreClient, TagExploreClient                  | lockedGenreId props                   | —           |
+| 5.1–5.6     | リスト探索          | ListsClient, ListsGrid, ListDiscoveryCard             | useListsSearch                        | —           |
+| 6.1–6.4     | カルーセル UX       | HorizontalScrollCarousel, *Carousel                   | —                                     | —           |
+| 7.1–7.5     | shadcn ビジュアル   | 全探索コンポーネント                                  | foundation primitives                 | —           |
+| 8.1–8.4     | CSS 削除            | 全探索 routes/components                              | —                                     | —           |
+| 9.1–9.5     | 回帰テスト          | E2E + Jest                                            | —                                     | —           |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| HorizontalScrollCarousel | explore | scroll-snap 横スクロール容器 | 6 | cn (P0) | Props |
-| QuizCarousel | explore | クイズ横スクロール | 1, 6 | QuizCard, useAuth (P0) | QuizCarouselProps |
-| GenreCarousel | explore | ジャンル横スクロール | 1, 6 | search-url-state (P0) | GenreCarouselProps |
-| FormatCarousel | explore | フォーマット選択 | 2, 6 | — | FormatCarouselProps |
-| UnifiedSearchField | explore | 統合検索入力+サジェスト | 2, 7 | Input, Popover (P1) | controlled filters |
-| GenreSearchField | explore | ジャンル検索入力 | 4, 7 | Input, Popover (P1) | genre suggestions |
-| ActiveFilterChips | explore | フィルタチップ行 | 2, 7 | Badge (P0) | FilterChipKey |
-| ExploreSearchSection | explore | 検索+フィルタ統合セクション | 2, 3, 7 | Accordion, Tabs (P0/P1) | ExploreSearchSectionProps |
-| ExploreSortTabs | explore | ソートタブ | 2, 4, 7 | Tabs (P0) | tab ids |
-| ExploreAccordion | explore | フィルタ折りたたみ | 2, 7 | Accordion (P1) | — |
-| HomeDiscoveryClient | app | ホーム 3 セクション | 1, 3 | buildSearchUrlQuery (P0) | HomeDiscoveryClientProps |
-| SearchClient | app | 検索ページ編成 | 2, 3 | useSearchUrlState (P0) | SearchClientProps |
-| GenreExploreClient | app | ジャンル探索 | 4 | ExploreSearchSection (P0) | genreId lock |
-| TagExploreClient | app | タグ探索 | 4 | ExploreSearchSection (P0) | tag lock |
-| ListsClient | app | リスト探索編成 | 5 | useListsSearch (P0) | — |
-| ListsVisibilityTabs | lists | 公開/非公開タブ | 5 | Tabs (P0) | ListsVisibility |
-| ListsSearchBar | lists | キーワード検索 | 5 | Input (P0) | controlled keyword |
-| ListsGrid | lists | リスト一覧 | 5 | ListDiscoveryCard (P0) | — |
-| ListDiscoveryCard | lists | リストカード | 5, 7 | Card, Badge (P0) | ListSearchResult |
-| GridSkeleton | ui | フィードスケルトン | 2 | Skeleton (P0) | — |
+| Component                | Domain/Layer | Intent                       | Req Coverage | Key Dependencies (P0/P1)  | Contracts                 |
+| ------------------------ | ------------ | ---------------------------- | ------------ | ------------------------- | ------------------------- |
+| HorizontalScrollCarousel | explore      | scroll-snap 横スクロール容器 | 6            | cn (P0)                   | Props                     |
+| QuizCarousel             | explore      | クイズ横スクロール           | 1, 6         | QuizCard, useAuth (P0)    | QuizCarouselProps         |
+| GenreCarousel            | explore      | ジャンル横スクロール         | 1, 6         | search-url-state (P0)     | GenreCarouselProps        |
+| FormatCarousel           | explore      | フォーマット選択             | 2, 6         | —                         | FormatCarouselProps       |
+| UnifiedSearchField       | explore      | 統合検索入力+サジェスト      | 2, 7         | Input, Popover (P1)       | controlled filters        |
+| GenreSearchField         | explore      | ジャンル検索入力             | 4, 7         | Input, Popover (P1)       | genre suggestions         |
+| ActiveFilterChips        | explore      | フィルタチップ行             | 2, 7         | Badge (P0)                | FilterChipKey             |
+| ExploreSearchSection     | explore      | 検索+フィルタ統合セクション  | 2, 3, 7      | Accordion, Tabs (P0/P1)   | ExploreSearchSectionProps |
+| ExploreSortTabs          | explore      | ソートタブ                   | 2, 4, 7      | Tabs (P0)                 | tab ids                   |
+| ExploreAccordion         | explore      | フィルタ折りたたみ           | 2, 7         | Accordion (P1)            | —                         |
+| HomeDiscoveryClient      | app          | ホーム 3 セクション          | 1, 3         | buildSearchUrlQuery (P0)  | HomeDiscoveryClientProps  |
+| SearchClient             | app          | 検索ページ編成               | 2, 3         | useSearchUrlState (P0)    | SearchClientProps         |
+| GenreExploreClient       | app          | ジャンル探索                 | 4            | ExploreSearchSection (P0) | genreId lock              |
+| TagExploreClient         | app          | タグ探索                     | 4            | ExploreSearchSection (P0) | tag lock                  |
+| ListsClient              | app          | リスト探索編成               | 5            | useListsSearch (P0)       | —                         |
+| ListsVisibilityTabs      | lists        | 公開/非公開タブ              | 5            | Tabs (P0)                 | ListsVisibility           |
+| ListsSearchBar           | lists        | キーワード検索               | 5            | Input (P0)                | controlled keyword        |
+| ListsGrid                | lists        | リスト一覧                   | 5            | ListDiscoveryCard (P0)    | —                         |
+| ListDiscoveryCard        | lists        | リストカード                 | 5, 7         | Card, Badge (P0)          | ListSearchResult          |
+| GridSkeleton             | ui           | フィードスケルトン           | 2            | Skeleton (P0)             | —                         |
 
 ### explore / HorizontalScrollCarousel
 
-| Field | Detail |
-|-------|--------|
-| Intent | 横スクロール + scroll-snap の共有容器 |
-| Requirements | 6.1, 6.2 |
+| Field        | Detail                                |
+| ------------ | ------------------------------------- |
+| Intent       | 横スクロール + scroll-snap の共有容器 |
+| Requirements | 6.1, 6.2                              |
 
 **Responsibilities & Constraints**
 - `overflow-x-auto`, `snap-x`, `snap-mandatory`, `flex`, `gap-*` を Tailwind で適用
@@ -315,10 +315,10 @@ interface HorizontalScrollCarouselProps {
 
 ### explore / ExploreSearchSection
 
-| Field | Detail |
-|-------|--------|
-| Intent | 検索・フィルタ・クイックサーチ・カルーセルブロックの統合 |
-| Requirements | 2.1–2.7, 3.2, 7.1–7.5 |
+| Field        | Detail                                                   |
+| ------------ | -------------------------------------------------------- |
+| Intent       | 検索・フィルタ・クイックサーチ・カルーセルブロックの統合 |
+| Requirements | 2.1–2.7, 3.2, 7.1–7.5                                    |
 
 **Responsibilities & Constraints**
 - `ExploreSearchSectionProps` 既存 interface を維持（破壊的変更禁止）
@@ -333,10 +333,10 @@ interface HorizontalScrollCarouselProps {
 
 ### app / SearchClient
 
-| Field | Detail |
-|-------|--------|
-| Intent | 検索ページの状態管理とフィード描画 |
-| Requirements | 2, 3 |
+| Field        | Detail                             |
+| ------------ | ---------------------------------- |
+| Intent       | 検索ページの状態管理とフィード描画 |
+| Requirements | 2, 3                               |
 
 **State Management**
 - `useSearchUrlState` から tab, filters, playStatus, openFilters を取得（変更なし）
@@ -416,8 +416,8 @@ flowchart LR
 
 ## Supporting References
 - `research.md` — カルーセル方式・page.module.css 共有の調査詳細
-- `.kiro/specs/quizeum-ui-foundation/design.md` — プリミティブ一覧
-- `.kiro/specs/quizeum-ui-layout-shell/design.md` — main 余白・z-index 文脈
+- `.kiro/specs/quizetika-ui-foundation/design.md` — プリミティブ一覧
+- `.kiro/specs/quizetika-ui-layout-shell/design.md` — main 余白・z-index 文脈
 
 ---
 
@@ -425,32 +425,32 @@ flowchart LR
 
 ### 1. Overview
 
-Phase 24 実装完了時点では `/lists`・`/list/[id]` および `src/components/lists/*` が本スペックの移行対象に含まれていた。Phase 26 でリスト機能が完全廃止されたため、これらは **本スペックの所有境界から除外** し、物理削除は `quizeum-play-flow-ui` Phase 26 が担当する。`src/components/explore/*`（ホーム・検索・ジャンル/タグ探索）の shadcn 移行成果は維持する。
+Phase 24 実装完了時点では `/lists`・`/list/[id]` および `src/components/lists/*` が本スペックの移行対象に含まれていた。Phase 26 でリスト機能が完全廃止されたため、これらは **本スペックの所有境界から除外** し、物理削除は `quizetika-play-flow-ui` Phase 26 が担当する。`src/components/explore/*`（ホーム・検索・ジャンル/タグ探索）の shadcn 移行成果は維持する。
 
-**前提**: `quizeum-core` Phase 26 完了後、リスト関連 API・ルートは存在しない。`quizeum-lists-discovery-ui` は **obsolete**。
+**前提**: `quizetika-core` Phase 26 完了後、リスト関連 API・ルートは存在しない。`quizetika-lists-discovery-ui` は **obsolete**。
 
 ### 2. Boundary Commitments（Phase 26）
 
-| 除外（obsolete） | 維持（本 spec 所有） |
-|------------------|------------------------|
-| `/lists` ルート | `/` ディスカバリーホーム |
-| `/list/[id]` 詳細（edit 除く） | `/search` 検索画面 |
-| `src/components/lists/*` | `/genres/*`, `/tags/*` |
-| `useListsSearch` 参照 | `src/components/explore/*` |
-| `e2e/lists-discovery.spec.ts` | `e2e/home-discovery.spec.ts`, `e2e/quiz-search.spec.ts` |
-| 要件 5・6（リスト探索・詳細） | 要件 1–4, 7–10（探索系） |
+| 除外（obsolete）               | 維持（本 spec 所有）                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| `/lists` ルート                | `/` ディスカバリーホーム                                |
+| `/list/[id]` 詳細（edit 除く） | `/search` 検索画面                                      |
+| `src/components/lists/*`       | `/genres/*`, `/tags/*`                                  |
+| `useListsSearch` 参照          | `src/components/explore/*`                              |
+| `e2e/lists-discovery.spec.ts`  | `e2e/home-discovery.spec.ts`, `e2e/quiz-search.spec.ts` |
+| 要件 5・6（リスト探索・詳細）  | 要件 1–4, 7–10（探索系）                                |
 
-| Out of Boundary（Phase 26） |
-|------------------------------|
-| リストルート・コンポーネントの物理削除（`quizeum-play-flow-ui`） |
-| Core データ削除・マイグレーション（`quizeum-core`） |
-| Sidebar「リスト」ナビ除去（`quizeum-sidebar-layout`） |
+| Out of Boundary（Phase 26）                                        |
+| ------------------------------------------------------------------ |
+| リストルート・コンポーネントの物理削除（`quizetika-play-flow-ui`） |
+| Core データ削除・マイグレーション（`quizetika-core`）              |
+| Sidebar「リスト」ナビ除去（`quizetika-sidebar-layout`）            |
 
 ### 3. Architecture
 
 ```mermaid
 flowchart LR
-  subgraph Keep["quizeum-ui-discovery 維持"]
+  subgraph Keep["quizetika-ui-discovery 維持"]
     Home["/"]
     Search["/search"]
     Genre["/genres/*"]
@@ -467,23 +467,23 @@ flowchart LR
 
 ### 4. File Structure Plan（Phase 26）
 
-| パス | Phase 24 状態 | Phase 26 |
-|------|---------------|----------|
-| `src/app/lists/` | MODIFY → 移行済 | **Out of scope / Delete（play-flow-ui）** |
-| `src/app/list/[id]/` | MODIFY → 移行済 | **Out of scope / Delete（play-flow-ui）** |
-| `src/components/lists/*` | MODIFY → 移行済 | **obsolete / Delete（play-flow-ui）** |
-| `src/components/explore/*` | MODIFY → 移行済 | **維持** |
-| `e2e/lists-discovery.spec.ts` | VERIFY | **除外 / Delete（play-flow-ui）** |
+| パス                          | Phase 24 状態   | Phase 26                                  |
+| ----------------------------- | --------------- | ----------------------------------------- |
+| `src/app/lists/`              | MODIFY → 移行済 | **Out of scope / Delete（play-flow-ui）** |
+| `src/app/list/[id]/`          | MODIFY → 移行済 | **Out of scope / Delete（play-flow-ui）** |
+| `src/components/lists/*`      | MODIFY → 移行済 | **obsolete / Delete（play-flow-ui）**     |
+| `src/components/explore/*`    | MODIFY → 移行済 | **維持**                                  |
+| `e2e/lists-discovery.spec.ts` | VERIFY          | **除外 / Delete（play-flow-ui）**         |
 
 ### 5. Requirements Traceability（Phase 26）
 
-| Requirement | Phase 26 扱い |
-|-------------|---------------|
-| 5（リスト探索） | **廃止** |
-| 6（リスト詳細） | **廃止** |
+| Requirement           | Phase 26 扱い              |
+| --------------------- | -------------------------- |
+| 5（リスト探索）       | **廃止**                   |
+| 6（リスト詳細）       | **廃止**                   |
 | 9.2（lists CSS 削除） | **廃止**（ルート自体削除） |
-| 10.3（lists E2E） | **廃止** |
-| 11（本節） | スコープ除外の正本 |
+| 10.3（lists E2E）     | **廃止**                   |
+| 11（本節）            | スコープ除外の正本         |
 
 ### 6. Testing Strategy（Phase 26）
 

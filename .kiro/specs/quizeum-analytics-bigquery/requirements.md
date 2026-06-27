@@ -16,8 +16,8 @@
   - BigQuery テーブルの直接読み取りを行う Next.js アプリケーション画面の実装（アプリ画面上では引き続き Firestore を参照）。
   - クイズ解答詳細の他ユーザーへの公開（非公開の統計・履歴データとして扱う）。
 - **Adjacent expectations**:
-  - `quizeum-core` は、拡張された `Attempt` 型の Firestore への永続化、セキュリティルール、および保存トランザクションを正常に処理できることを期待します。
-  - `quizeum-ui-quiz-lifecycle` は、クイズプレイ画面において各問題の表示タイミング、決定アクション、ヒント表示アクションをフックし、`QuestionAnswerDetail` オブジェクトを構築できることを期待します。
+  - `quizetika-core` は、拡張された `Attempt` 型の Firestore への永続化、セキュリティルール、および保存トランザクションを正常に処理できることを期待します。
+  - `quizetika-ui-quiz-lifecycle` は、クイズプレイ画面において各問題の表示タイミング、決定アクション、ヒント表示アクションをフックし、`QuestionAnswerDetail` オブジェクトを構築できることを期待します。
   - Firebase Extension (`firestore-bigquery-export`) は、Firestore の書き込みイベントを検知し、指定された BigQuery データセットへ自動的にデータをストリーミングすることを期待します。
 
 ## Requirements

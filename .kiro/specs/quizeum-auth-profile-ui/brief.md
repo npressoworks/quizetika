@@ -1,7 +1,7 @@
-# Brief: quizeum-auth-profile-ui
+# Brief: quizetika-auth-profile-ui
 
 ## Problem
-ユーザーがquizeumにアクセスした際、セキュアにログインし、自分や他人のプロフィール、つながり（フォロー関係）、獲得したバッジ、通知、および過去のリアクション履歴を確認できる基盤となるUIが必要です。
+ユーザーがquizetikaにアクセスした際、セキュアにログインし、自分や他人のプロフィール、つながり（フォロー関係）、獲得したバッジ、通知、および過去のリアクション履歴を確認できる基盤となるUIが必要です。
 
 ## Current State
 `src/app/login/page.tsx` などの初期テンプレートは存在しますが、完全なUI統合や、プロフィール・ソーシャル関係・通知一覧などの他の画面は存在しません。
@@ -23,7 +23,7 @@ Next.js App Router と CSS Modules を用いた、シンプルでカジュアル
   - **Phase 5**: 本人プロフィールのプレイ履歴（`GET /api/user/play-history`、ページング、クイズ詳細へのリンク）。
 - **Out**:
   - クイズのプレイや作成などの別スコープの画面。
-  - 他ユーザーのプレイ履歴閲覧、履歴API・永続化（`quizeum-core`）。
+  - 他ユーザーのプレイ履歴閲覧、履歴API・永続化（`quizetika-core`）。
 
 ## Boundary Candidates
 - `src/app/login/page.tsx`
@@ -34,15 +34,15 @@ Next.js App Router と CSS Modules を用いた、シンプルでカジュアル
 - `src/app/profile/[uid]/likes/page.tsx`
 
 ## Out of Boundary
-- Firestore セキュリティルールやバックエンドのバッジ付与処理（`quizeum-core` が担当）。
+- Firestore セキュリティルールやバックエンドのバッジ付与処理（`quizetika-core` が担当）。
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core` (Firestoreスキーマ、`UserService`)
-- **Downstream**: `quizeum-play-flow-ui`
+- **Upstream**: `quizetika-core` (Firestoreスキーマ、`UserService`)
+- **Downstream**: `quizetika-play-flow-ui`
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core` の `UserService` をUIから結合します。
-- **Adjacent**: `quizeum-play-flow-ui` (プロフィール画面から弱点克服プレイへの動線等)
+- **Extends**: `quizetika-core` の `UserService` をUIから結合します。
+- **Adjacent**: `quizetika-play-flow-ui` (プロフィール画面から弱点克服プレイへの動線等)
 
 ## Constraints
 - **Design style**: 洗練されつつも親しみやすいカジュアルモダンなUI（角丸、暖かい色調）。

@@ -1,7 +1,7 @@
-# Research & Design Decisions: quizeum-admin-users-ui
+# Research & Design Decisions: quizetika-admin-users-ui
 
 ## Summary
-- **Feature**: quizeum-admin-users-ui
+- **Feature**: quizetika-admin-users-ui
 - **Discovery Scope**: Extension & Complex Integration
 - **Key Findings**:
   - 管理者専用の `/admin/users` 画面から、特定のUIDを指定してユーザーの信頼スコアとティアーを手動でリセット、およびアカウントの停止（BAN/UNBAN）を行う仕組み。
@@ -33,15 +33,15 @@
 - **Sources Consulted**: Firebase Security Rules Client Checking, Next.js Middleware Cookie Synchronization
 - **Findings**:
   - **Firestoreセキュリティルールによるデータ保護**: ほぼすべての書き込みルールに `get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBanned != true` のチェックを導入することで、トークンが有効であってもFirestoreへの新規書き込み・更新を即座にブロックできる。
-  - **フロントエンドとミドルウェアの連携**: `AuthContext` における `onAuthStateChanged` や `refreshUser` で取得したユーザー情報で `isBanned === true` を検知した際、直ちに `auth.signOut()` を実行し、クッキーの `quizeum_banned` を `true` に同期する。`middleware.ts` では `quizeum_banned === 'true'` の場合にアクセスを `/banned` に強制リダイレクトする。
+  - **フロントエンドとミドルウェアの連携**: `AuthContext` における `onAuthStateChanged` や `refreshUser` で取得したユーザー情報で `isBanned === true` を検知した際、直ちに `auth.signOut()` を実行し、クッキーの `quizetika_banned` を `true` に同期する。`middleware.ts` では `quizetika_banned === 'true'` の場合にアクセスを `/banned` に強制リダイレクトする。
 - **Implications**:
   - `firestore.rules` の共通ヘルパー関数 `isNotBanned()` を追加し、各リソースルールに適用。
   - `auth-context.tsx` および `middleware-auth-cookies.ts` のCookie同期ロジックに `isBanned` 対応を追加。
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
+| Option                   | Description                                                                                | Strengths                                                                      | Risks / Limitations                     | Notes                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | --------------------------------------- | ----------------------------------------- |
 | API Route + Core Service | UIがNext.js API Routeを呼び出し、内部で `ReputationService` のトランザクションをキックする | セキュリティがサーバー境界で完全に保護され、フロントエンドとの疎結合が保たれる | API Routeのボイラープレートコードが必要 | プロジェクトの既存のAPI/Service構成と一致 |
 
 ## Design Decisions
@@ -54,7 +54,7 @@
 
 ### Decision: BAN検知時の即時ログアウトと /banned 画面へのリダイレクト
 - **Context**: BANされたユーザーにアカウント停止状態であることを明確に伝え、それ以上の操作を不可能にする。
-- **Selected Approach**: `AuthContext` 内で `dbUser.isBanned === true` を検知した際、直ちに `signOut` を行い、セッションCookie `quizeum_banned: "true"` をセットした上で `/banned` 画面へルーティングする。
+- **Selected Approach**: `AuthContext` 内で `dbUser.isBanned === true` を検知した際、直ちに `signOut` を行い、セッションCookie `quizetika_banned: "true"` をセットした上で `/banned` 画面へルーティングする。
 - **Rationale**: クライアント側で安全にログアウトさせ、ミドルウェアが検知して保護することで、他のいかなる画面への遷移も遮断するため。
 - **Trade-offs**: `/banned` 画面自体は未認証状態でも閲覧可能にする必要があるため、ミドルウェアの matcher から `/banned` を除外し、非BANユーザーが直接アクセスした場合は `/` へリダイレクトするガードを `/banned/page.tsx` 内に実装する。
 

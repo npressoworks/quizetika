@@ -1,4 +1,4 @@
-# Brief: quizeum-my-quiz-ui
+# Brief: quizetika-my-quiz-ui
 
 ## Problem
 学習者は、自分が関心を持つ問題（自作・ブックマーク・リスト経由）を**横断的に**絞り込み、条件に合う問題だけをまとめてプレイしたい。現状はリストエディタの問題添付検索やブックマーク画面がソースごとに分断されており、「カスタムクイズ」として一括検索→フィルタ→出題数指定→プレイ開始する体験がない。
@@ -30,20 +30,20 @@ Core に問題プール合成 lib（`buildMyQuizQuestionPool` 仮）を新設し
 ## Boundary Candidates
 - 問題プール合成（Core lib）
 - フィルタ UI とプレイ設定 UI（本スペック）
-- プレイエンジン連携（`quizeum-play-flow-ui` の `quiz-play-client` 最小拡張は design で境界明記）
+- プレイエンジン連携（`quizetika-play-flow-ui` の `quiz-play-client` 最小拡張は design で境界明記）
 
 ## Out of Boundary
-- リスト探索（`quizeum-lists-discovery-ui`）
+- リスト探索（`quizetika-lists-discovery-ui`）
 - クイズ新規作成・編集
 - 弱点克服復習 (`/quiz/review`)
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core`（プール合成・セッション）、`bookmark.ts`, `quiz-list.ts`, `author-quiz-search.ts`, `useAuth`
+- **Upstream**: `quizetika-core`（プール合成・セッション）、`bookmark.ts`, `quiz-list.ts`, `author-quiz-search.ts`, `useAuth`
 - **Downstream**: プレイ結果・attempt 記録（既存 attempt フロー）
 
 ## Existing Spec Touchpoints
 - **Extends**: なし（新規スペック）。`quiz-play-client` の question-list モードは**最小限の読み取り拡張**のみ（tasks で play-flow タスクに分離するか design で決定）
-- **Adjacent**: `quizeum-play-flow-ui`, `quizeum-creator-dash-ui`（attach search 重複回避）
+- **Adjacent**: `quizetika-play-flow-ui`, `quizetika-creator-dash-ui`（attach search 重複回避）
 
 ## Constraints
 - ログイン必須。未ログインは `/login` へ

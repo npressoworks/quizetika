@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-auth-profile-ui
+# Implementation Plan: quizetika-auth-profile-ui
 
 ## Tasks
 
@@ -101,7 +101,7 @@
 
 ### 8. Phase 8 拡張 — 作成リストの listType 別表示（2026-06）
 
-> **前提**: `quizeum-core` Phase 8 完了（`getQuizListsByAuthor` + `listType` フィルタ、`resolveListType`）。`quizeum-creator-dash-ui` / `quizeum-play-flow-ui` Phase 8 でリスト作成・詳細表示は実装済み。
+> **前提**: `quizetika-core` Phase 8 完了（`getQuizListsByAuthor` + `listType` フィルタ、`resolveListType`）。`quizetika-creator-dash-ui` / `quizetika-play-flow-ui` Phase 8 でリスト作成・詳細表示は実装済み。
 
 - [x] 8.1 (P) `profile-list-display` 純関数ライブラリ
   - `getProfileListTypeLabel` と `getProfileListItemCount` を実装する。内部は必ず `resolveListType(list)` を使用し、`list.listType` 直参照は行わない。
@@ -217,14 +217,14 @@
 
 ### 11. Phase 26: プロフィールリストタブの除去（2026-06-10）
 
-> **前提**: `quizeum-core` Phase 26 完了後。`profile-client.tsx` は play-flow-ui 28.5 によりリストタブ除去済みの可能性あり — 本スペックは auth-profile 境界として残存参照・テスト掃除と検証を行う。
+> **前提**: `quizetika-core` Phase 26 完了後。`profile-client.tsx` は play-flow-ui 28.5 によりリストタブ除去済みの可能性あり — 本スペックは auth-profile 境界として残存参照・テスト掃除と検証を行う。
 
 - [x] 11.1 `ProfileClient` からリストタブ・取得ロジックの除去
   - `src/app/profile/[uid]/profile-client.tsx` から「作成したリスト」タブ・`TabsContent`・`getQuizListsByAuthor` 呼び出し・`quizLists` state を除去する（未除去の場合）。
   - `ProfileContentTab` を `quizzes` | `history` のみとし、本人のみ「プレイ履歴」第2タブを維持する。
   - **完了状態**: プロフィール DOM に「作成したリスト」タブが存在せず、作成クイズ・プレイ履歴（本人）タブが回帰なく動作すること。
   - _Requirements: 2.2, 11.1, 11.2, 11.3, 11.6, 11.7_
-  - _Depends: quizeum-core 23.6_
+  - _Depends: quizetika-core 23.6_
   - _Boundary: ProfileClient_
 
 - [x] 11.2 リスト専用コンポーネント・テストの除去
@@ -245,9 +245,9 @@
 
 ## Implementation Notes (Phase 26)
 
-- リストルート・ブックマークリストタブ削除の正本は `quizeum-play-flow-ui` 28.x。本スペックはプロフィール「作成したリスト」タブと profile 専用コンポーネント。
+- リストルート・ブックマークリストタブ削除の正本は `quizetika-play-flow-ui` 28.x。本スペックはプロフィール「作成したリスト」タブと profile 専用コンポーネント。
 - 要件 8（Phase 8）は **廃止**。履歴参照のみ。
-- 実装順: `quizeum-core` 23.6 → play-flow 28.5（部分実装可）→ 本スペック 11.1/11.2 → 11.3。
+- 実装順: `quizetika-core` 23.6 → play-flow 28.5（部分実装可）→ 本スペック 11.1/11.2 → 11.3。
 
 ### 12. Phase 27 拡張 — 作成したクイズのページングと検索機能（2026-06-23）
 

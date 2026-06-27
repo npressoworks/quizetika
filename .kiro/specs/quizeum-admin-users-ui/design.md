@@ -1,4 +1,4 @@
-# Design Document: quizeum-admin-users-ui
+# Design Document: quizetika-admin-users-ui
 
 ## Overview
 本機能は、システムの健全性を緊急時に維持するために、システム管理者（Super Admin）が特定の不適切なユーザーの評判スコア（`reputationScore`）と権限ティアー（`moderationTier`）を手動で強制リセットし、さらにアカウントの停止（BAN/UNBAN）処理を実行できる管理ツールを提供します。専用画面 `/admin/users` を新設し、実行履歴は `adminLogs` コレクションに監査ログとして永続化されます。また、BANされたユーザーを強制ログアウトの上、専用のアカウント停止メッセージ画面（`/banned`）へ強制リダイレクトしてアクセスを遮断する多重防衛システムを実装します。
@@ -26,11 +26,11 @@
 - `middleware.ts` および `auth-context.tsx` における `isBanned` フラグを監視した強制ログアウト・Cookie管理・`/banned` リダイレクトの連携ガードロジック。
 
 ### Out of Boundary
-- ユーザー自身が実行するプロフィール編集（`quizeum-auth-profile-ui` が所有）。
-- クイズ、リスト、プロフィールの通報モデレーション審査（`quizeum-moderation-governance-ui` が所有）。
+- ユーザー自身が実行するプロフィール編集（`quizetika-auth-profile-ui` が所有）。
+- クイズ、リスト、プロフィールの通報モデレーション審査（`quizetika-moderation-governance-ui` が所有）。
 
 ### Allowed Dependencies
-- `quizeum-core` の Firebase/Firestore 設定および基本型定義。
+- `quizetika-core` の Firebase/Firestore 設定および基本型定義。
 - Firebase Admin SDK（IDトークンの署名検証および特権Firestore操作用）。
 
 ### Revalidation Triggers
@@ -53,7 +53,7 @@ graph TD
     BannedUser[Banned User Browser] -->|Access/Reload| AuthContext[AuthContext]
     AuthContext -->|Detect isBanned === true| SignOut[Firebase Auth: signOut]
     SignOut -->|Clear Cookies| Middleware[Next.js Middleware]
-    Middleware -->|Redirect quizeum_banned === true| BannedPage[Page: /banned]
+    Middleware -->|Redirect quizetika_banned === true| BannedPage[Page: /banned]
 ```
 
 **Architecture Integration**:
@@ -63,12 +63,12 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | React 19 / Next.js 16 | 管理者専用 UI 画面、`/banned` 画面 | Vanilla CSS Styling |
-| Backend | Next.js API Routes | `/api/admin/users/*` エンドポイント | JWT検証、特権認可チェック |
-| Data / Storage | Firestore | `/users` および `/adminLogs` | アトミックトランザクション更新 |
-| Infrastructure | Firebase Admin SDK | サーバーサイド特権操作 | IDトークン署名検証 |
+| Layer          | Choice / Version      | Role in Feature                     | Notes                          |
+| -------------- | --------------------- | ----------------------------------- | ------------------------------ |
+| Frontend       | React 19 / Next.js 16 | 管理者専用 UI 画面、`/banned` 画面  | Vanilla CSS Styling            |
+| Backend        | Next.js API Routes    | `/api/admin/users/*` エンドポイント | JWT検証、特権認可チェック      |
+| Data / Storage | Firestore             | `/users` および `/adminLogs`        | アトミックトランザクション更新 |
+| Infrastructure | Firebase Admin SDK    | サーバーサイド特権操作              | IDトークン署名検証             |
 
 ## File Structure Plan
 
@@ -97,39 +97,39 @@ src/
 ├── types/
 │   └── index.ts                       # [Modified] AdminLog, User 型定義の追加・更新
 ├── lib/
-│   └── middleware-auth-cookies.ts     # [Modified] quizeum_banned Cookieの同期対応を追加
+│   └── middleware-auth-cookies.ts     # [Modified] quizetika_banned Cookieの同期対応を追加
 ```
 
 ### Modified Files
 - `src/services/reputation.ts` — `resetUserReputation`, `banUser`, `unbanUser` 関数を追加し、アトミックなトランザクション処理を実装する。
 - `src/types/index.ts` — `AdminLog` インターフェースを追加定義し、`User` インターフェースに `isBanned`、`bannedReason`、`bannedAt` などの型情報を追加。
-- `src/lib/middleware-auth-cookies.ts` — 認証 Cookie の同期処理に `quizeum_banned` を追加し、BAN状態が変更された際にクッキーを即時破棄・同期できるようにする。
-- `src/middleware.ts` — `quizeum_banned` Cookieが検出された場合に、`/banned` 以外のページへのアクセスを `/banned` に強制リダイレクトするロジックを追加。
+- `src/lib/middleware-auth-cookies.ts` — 認証 Cookie の同期処理に `quizetika_banned` を追加し、BAN状態が変更された際にクッキーを即時破棄・同期できるようにする。
+- `src/middleware.ts` — `quizetika_banned` Cookieが検出された場合に、`/banned` 以外のページへのアクセスを `/banned` に強制リダイレクトするロジックを追加。
 - `firestore.rules` — `adminLogs` コレクションに対するセキュリティルールを定義（クライアント直接書込は false）。また、`isBanned` が `true` の場合に書き込み/読み込みを拒否する `isNotBanned()` セキュリティヘルパーを実装。
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | ログイン未済または非管理者アクセス時のリダイレクト・404ガード | Next.js Middleware / AdminUsersPage | Routeガード | Client -> API |
-| 1.2 | 管理者ログイン時の画面表示 | AdminUsersPage | UI表示 | Client |
-| 2.1 | UIDによる検索・情報取得・表示 | AdminUsersPage | ユーザー情報API/直接参照 | Client -> Firestore |
-| 2.2 | 存在しないUID時のエラー表示 | AdminUsersPage | UI表示 | Client |
-| 3.1 | リセット理由（10文字以上）のバリデーション | AdminUsersPage | UI表示 | Client |
-| 3.2 | 強制リセット実行、`adminLogs` 保存 | ReputationService / API | `resetUserReputation` / `POST /api/admin/users/reset` | Client -> API -> Firestore |
-| 3.3 | 処理中のボタン非活性化・ローディング | AdminUsersPage | UI表示 | Client |
-| 3.4 | 処理成功時のメッセージ表示、情報再取得 | AdminUsersPage | UI表示 | Client |
-| 4.1 | `/admin/moderation` からの遷移リンク | AdminModerationPage | UI表示 | Client |
-| 4.2 | `/admin/users` から `/admin/moderation` へのリンク | AdminUsersPage | UI表示 | Client |
-| 5.1 | BAN理由（10文字以上）のバリデーション | AdminUsersPage | UI表示 | Client |
-| 5.2 | BAN実行、`isBanned: true` 更新、`adminLogs` 保存 | ReputationService / API | `banUser` / `POST /api/admin/users/ban` | Client -> API -> Firestore |
-| 5.3 | BAN処理中のUI保護（ボタン非活性・ローディング） | AdminUsersPage | UI表示 | Client |
-| 5.4 | BAN完了時の成功表示、UNBAN切り替え制御 | AdminUsersPage | UI表示 | Client |
-| 5.5 | UNBAN実行、`isBanned: false` 更新、`adminLogs` 保存 | ReputationService / API | `unbanUser` / `POST /api/admin/users/unban` | Client -> API -> Firestore |
-| 5.6 | BAN中のユーザーの機能アクセス完全遮断 | Firestore Rules / AuthContext | `isNotBanned()` / `auth.signOut()` | Backend / Client |
-| 6.1 | BAN検知時のログアウトと `/banned` への強制遷移 | AuthContext / Middleware | Cookie同期 / Redirect | Client |
-| 6.2 | 非BANユーザー等の `/banned` 直接アクセス時リダイレクト | BannedPage | `/` へのリダイレクト | Client |
-| 6.3 | BANユーザーのアカウント機能アクセス遮断 | AuthContext / Middleware | Cookieガード | Client |
+| Requirement | Summary                                                       | Components                          | Interfaces                                            | Flows                      |
+| ----------- | ------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------- | -------------------------- |
+| 1.1         | ログイン未済または非管理者アクセス時のリダイレクト・404ガード | Next.js Middleware / AdminUsersPage | Routeガード                                           | Client -> API              |
+| 1.2         | 管理者ログイン時の画面表示                                    | AdminUsersPage                      | UI表示                                                | Client                     |
+| 2.1         | UIDによる検索・情報取得・表示                                 | AdminUsersPage                      | ユーザー情報API/直接参照                              | Client -> Firestore        |
+| 2.2         | 存在しないUID時のエラー表示                                   | AdminUsersPage                      | UI表示                                                | Client                     |
+| 3.1         | リセット理由（10文字以上）のバリデーション                    | AdminUsersPage                      | UI表示                                                | Client                     |
+| 3.2         | 強制リセット実行、`adminLogs` 保存                            | ReputationService / API             | `resetUserReputation` / `POST /api/admin/users/reset` | Client -> API -> Firestore |
+| 3.3         | 処理中のボタン非活性化・ローディング                          | AdminUsersPage                      | UI表示                                                | Client                     |
+| 3.4         | 処理成功時のメッセージ表示、情報再取得                        | AdminUsersPage                      | UI表示                                                | Client                     |
+| 4.1         | `/admin/moderation` からの遷移リンク                          | AdminModerationPage                 | UI表示                                                | Client                     |
+| 4.2         | `/admin/users` から `/admin/moderation` へのリンク            | AdminUsersPage                      | UI表示                                                | Client                     |
+| 5.1         | BAN理由（10文字以上）のバリデーション                         | AdminUsersPage                      | UI表示                                                | Client                     |
+| 5.2         | BAN実行、`isBanned: true` 更新、`adminLogs` 保存              | ReputationService / API             | `banUser` / `POST /api/admin/users/ban`               | Client -> API -> Firestore |
+| 5.3         | BAN処理中のUI保護（ボタン非活性・ローディング）               | AdminUsersPage                      | UI表示                                                | Client                     |
+| 5.4         | BAN完了時の成功表示、UNBAN切り替え制御                        | AdminUsersPage                      | UI表示                                                | Client                     |
+| 5.5         | UNBAN実行、`isBanned: false` 更新、`adminLogs` 保存           | ReputationService / API             | `unbanUser` / `POST /api/admin/users/unban`           | Client -> API -> Firestore |
+| 5.6         | BAN中のユーザーの機能アクセス完全遮断                         | Firestore Rules / AuthContext       | `isNotBanned()` / `auth.signOut()`                    | Backend / Client           |
+| 6.1         | BAN検知時のログアウトと `/banned` への強制遷移                | AuthContext / Middleware            | Cookie同期 / Redirect                                 | Client                     |
+| 6.2         | 非BANユーザー等の `/banned` 直接アクセス時リダイレクト        | BannedPage                          | `/` へのリダイレクト                                  | Client                     |
+| 6.3         | BANユーザーのアカウント機能アクセス遮断                       | AuthContext / Middleware            | Cookieガード                                          | Client                     |
 
 ## Components and Interfaces
 
@@ -137,10 +137,10 @@ src/
 
 #### AdminUsersPage (Page: `/admin/users`)
 
-| Field | Detail |
-|-------|--------|
-| Intent | 管理者が特定のUIDを指定して検索、ステータス表示、手動リセット処理およびBAN/UNBAN処理を実行する画面 |
-| Requirements | 1.1, 1.2, 2.1, 2.2, 3.1, 3.3, 3.4, 4.2, 5.1, 5.3, 5.4 |
+| Field        | Detail                                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| Intent       | 管理者が特定のUIDを指定して検索、ステータス表示、手動リセット処理およびBAN/UNBAN処理を実行する画面 |
+| Requirements | 1.1, 1.2, 2.1, 2.2, 3.1, 3.3, 3.4, 4.2, 5.1, 5.3, 5.4                                              |
 
 - **Responsibilities & Constraints**:
   - `useAuth` から取得した `user` を用い、クライアント側でも `role === 'admin'` の認可チェックを実行する (1.1, 1.2)。
@@ -151,10 +151,10 @@ src/
 
 #### BannedPage (Page: `/banned`)
 
-| Field | Detail |
-|-------|--------|
-| Intent | アカウントが停止されたユーザーに対して、その旨を伝える専用メッセージ表示画面 |
-| Requirements | 6.1, 6.2 |
+| Field        | Detail                                                                       |
+| ------------ | ---------------------------------------------------------------------------- |
+| Intent       | アカウントが停止されたユーザーに対して、その旨を伝える専用メッセージ表示画面 |
+| Requirements | 6.1, 6.2                                                                     |
 
 - **Responsibilities & Constraints**:
   - ログイン中のユーザーが非BAN（`isBanned != true`）である場合、または未ログイン（認証情報なし）の場合は即座にホーム画面（`/`）へリダイレクトする (6.2)。
@@ -164,10 +164,10 @@ src/
 
 #### ReputationService
 
-| Field | Detail |
-|-------|--------|
-| Intent | 信頼スコア、モデレータティアー、およびBAN状態の更新・管理ロジックを提供 |
-| Requirements | 3.2, 5.2, 5.5 |
+| Field        | Detail                                                                  |
+| ------------ | ----------------------------------------------------------------------- |
+| Intent       | 信頼スコア、モデレータティアー、およびBAN状態の更新・管理ロジックを提供 |
+| Requirements | 3.2, 5.2, 5.5                                                           |
 
 - **Responsibilities & Constraints**:
   - 各更新処理において、対象ユーザーのドキュメント更新と `adminLogs` の書き込みをアトミックに実行する。
@@ -213,11 +213,11 @@ export async function unbanUser(
 
 #### Admin Users API Endpoints
 
-| Method | Endpoint | Request | Response | Errors | Requirements |
-|--------|----------|---------|----------|--------|--------------|
-| POST | `/api/admin/users/reset` | `{ targetUid: string, reason: string }` | `{ success: boolean }` | 400 (Invalid), 401/403 (Auth), 404 (Not Found), 500 (Error) | 3.2 |
-| POST | `/api/admin/users/ban` | `{ targetUid: string, reason: string }` | `{ success: boolean }` | 400 (Invalid), 401/403 (Auth), 404 (Not Found), 500 (Error) | 5.2 |
-| POST | `/api/admin/users/unban` | `{ targetUid: string }` | `{ success: boolean }` | 401/403 (Auth), 404 (Not Found), 500 (Error) | 5.5 |
+| Method | Endpoint                 | Request                                 | Response               | Errors                                                      | Requirements |
+| ------ | ------------------------ | --------------------------------------- | ---------------------- | ----------------------------------------------------------- | ------------ |
+| POST   | `/api/admin/users/reset` | `{ targetUid: string, reason: string }` | `{ success: boolean }` | 400 (Invalid), 401/403 (Auth), 404 (Not Found), 500 (Error) | 3.2          |
+| POST   | `/api/admin/users/ban`   | `{ targetUid: string, reason: string }` | `{ success: boolean }` | 400 (Invalid), 401/403 (Auth), 404 (Not Found), 500 (Error) | 5.2          |
+| POST   | `/api/admin/users/unban` | `{ targetUid: string }`                 | `{ success: boolean }` | 401/403 (Auth), 404 (Not Found), 500 (Error)                | 5.5          |
 
 ## Data Models
 
@@ -254,5 +254,5 @@ export async function unbanUser(
 ### Integration/E2E/UI Tests
 - 管理者ユーザーでログイン後、`/admin/users` にアクセスし、モックユーザーのUIDで検索後、手動リセットおよびBAN/UNBANがエラーなく完了すること。
 - 一般ユーザーまたはモデレータで `/admin/users` に直接遷移した際、アクセス拒否（リダイレクトまたは404フォールバック）されること。
-- ログイン中のユーザーがBANされた（`isBanned: true`）際、画面操作を行ったタイミングまたは自動リフェッチ時に強制的にログアウトされ、Cookie `quizeum_banned === 'true'` の状態で `/banned` に強制遷移すること。
+- ログイン中のユーザーがBANされた（`isBanned: true`）際、画面操作を行ったタイミングまたは自動リフェッチ時に強制的にログアウトされ、Cookie `quizetika_banned === 'true'` の状態で `/banned` に強制遷移すること。
 - 非BANユーザーまたは未ログインで `/banned` ページにアクセスした際、即座に `/` にリダイレクトされること。

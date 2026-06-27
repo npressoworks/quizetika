@@ -5,7 +5,7 @@
 ---
 
 ## Summary
-- **Feature**: `quizeum-ui-editor`
+- **Feature**: `quizetika-ui-editor`
 - **Discovery Scope**: Extension（既存エディタ UI のスタイル層 Strangler 移行）
 - **Key Findings**:
   - `quiz-editor.tsx` は約 2,028 LOC で最大ファイル。段階的サブコンポーネント化が実装リスク低減に必須
@@ -37,14 +37,14 @@
 - **Context**: 移行完了条件の特定
 - **Sources Consulted**: grep on `*.module.css` imports in editor scope
 - **Findings**:
-  | File | ~LOC | Consumer |
-  |------|------|----------|
-  | `src/app/quiz/create/create.module.css` | 550 | quiz-editor |
-  | `src/app/list/create/edit.module.css` | 344 | quiz-list-editor, question-list-attach-panel |
-  | `sortable-sorting-list.module.css` | 60 | sortable-sorting-list |
-  | `markdown.module.css` | 33 | markdown-* |
-  | `editor-skeleton.module.css` | 53 | editor-skeleton |
-  | `list-skeleton.module.css` | 56 | list-skeleton |
+  | File                                    | ~LOC | Consumer                                     |
+  | --------------------------------------- | ---- | -------------------------------------------- |
+  | `src/app/quiz/create/create.module.css` | 550  | quiz-editor                                  |
+  | `src/app/list/create/edit.module.css`   | 344  | quiz-list-editor, question-list-attach-panel |
+  | `sortable-sorting-list.module.css`      | 60   | sortable-sorting-list                        |
+  | `markdown.module.css`                   | 33   | markdown-*                                   |
+  | `editor-skeleton.module.css`            | 53   | editor-skeleton                              |
+  | `list-skeleton.module.css`              | 56   | list-skeleton                                |
 - **Implications**: quiz-list-editor と question-list-attach-panel は同一 CSS を共有 — 同タスク群で移行
 
 ### E2E と data-testid 契約
@@ -58,7 +58,7 @@
 
 ### shadcn プリミティブ不足
 - **Context**: foundation 提供分の確認
-- **Sources Consulted**: `quizeum-ui-foundation/design.md`, `src/components/ui/`
+- **Sources Consulted**: `quizetika-ui-foundation/design.md`, `src/components/ui/`
 - **Findings**:
   - foundation 初期 7 種: Button, Input, Dialog, Tabs, Skeleton, Badge, Card
   - layout-shell 追加: Avatar, DropdownMenu, Separator
@@ -76,11 +76,11 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| A: 一括スタイル置換 | quiz-editor.tsx を分割せず CSS Modules のみ削除 | 最小 diff | 2,028 LOC レビュー不能、並列実装不可 | 却下 |
-| B: Strangler + 段階分割 | スタイル層置換 + サブコンポーネント抽出 | レビュー可能、並列化可 | 一時的ファイル数増 | **採用** |
-| C: @dnd-kit 統一 | リスト DnD も @dnd-kit 化 | DnD 実装統一 | 機能変更、E2E 退行リスク | brief Out of scope |
+| Option                  | Description                                     | Strengths              | Risks / Limitations                  | Notes              |
+| ----------------------- | ----------------------------------------------- | ---------------------- | ------------------------------------ | ------------------ |
+| A: 一括スタイル置換     | quiz-editor.tsx を分割せず CSS Modules のみ削除 | 最小 diff              | 2,028 LOC レビュー不能、並列実装不可 | 却下               |
+| B: Strangler + 段階分割 | スタイル層置換 + サブコンポーネント抽出         | レビュー可能、並列化可 | 一時的ファイル数増                   | **採用**           |
+| C: @dnd-kit 統一        | リスト DnD も @dnd-kit 化                       | DnD 実装統一           | 機能変更、E2E 退行リスク             | brief Out of scope |
 
 ## Design Decisions
 
@@ -134,8 +134,8 @@
 ## References
 - [shadcn/ui Form](https://ui.shadcn.com/docs/components/form) — Label/Message パターン
 - [@dnd-kit Sortable](https://docs.dndkit.com/presets/sortable) — 既存 SortableSortingList 実装準拠
-- `quizeum-ui-foundation/design.md` — テーマ bridge、プリミティブ共有 seam
-- `quizeum-ui-layout-shell/design.md` — シェル内ページ描画前提
+- `quizetika-ui-foundation/design.md` — テーマ bridge、プリミティブ共有 seam
+- `quizetika-ui-layout-shell/design.md` — シェル内ページ描画前提
 - `.kiro/steering/roadmap.md` Phase 24 — shadcn 標準寄せ Visual Direction
 
 ---
@@ -151,7 +151,7 @@
 - **Rationale**:
   - E2Eテスト (Playwright) からのテストIDによるアクセスが容易で、Radix UI の複雑なDOMを回避できる。
   - 新たなライブラリ依存を追加せず、既存の React 19 / Next.js 16 環境と 100% 互換性を保てる。
-  - `hasOrphanValue` 等の Quizeum 独自仕様（マスタ未登録ジャンルの一時表示など）をシンプルに統合できる。
+  - `hasOrphanValue` 等の Quizetika 独自仕様（マスタ未登録ジャンルの一時表示など）をシンプルに統合できる。
 - **Trade-offs**: ポップアップの表示位置などを自前で制御する必要があるが、シンプルなリスト選択で十分である。
 - **Follow-up**: ドロップダウン候補クリック時の `onBlur` 競合（先にドロップダウンが閉じてしまう問題）を `onMouseDown`（`preventDefault` 併用）で制御する。
 

@@ -8,8 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ErrorOutlined } from '@mui/icons-material';
 
 export const metadata: Metadata = {
-  title: 'プライバシーポリシー - quizeum',
-  description: 'quizeum（クイズ投稿・管理SNS）のプライバシーポリシーです。ユーザーの個人情報の取扱方針について記載しています。',
+  title: 'プライバシーポリシー - quizetika',
+  description: 'quizetika（クイズ投稿・管理SNS）のプライバシーポリシーです。ユーザーの個人情報の取扱方針について記載しています。',
 };
 
 
@@ -50,7 +50,7 @@ export default async function PrivacyPage() {
               </p>
             </div>
           ) : (
-            <article 
+            <article
               className="prose prose-neutral dark:prose-invert max-w-none text-foreground leading-relaxed
                 [&>h1]:text-2xl [&>h1]:font-bold [&>h1]:mb-6 [&>h1]:text-foreground
                 [&>h2]:text-lg [&>h2]:font-semibold [&>h2]:mt-8 [&>h2]:mb-4 [&>h2]:pb-2 [&>h2]:border-b [&>h2]:text-foreground

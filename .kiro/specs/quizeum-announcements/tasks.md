@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-announcements
+# Implementation Plan: quizetika-announcements
 
 ## 1. Foundation: データベース基盤とサービス層の構築
 

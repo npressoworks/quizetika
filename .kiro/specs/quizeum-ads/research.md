@@ -1,7 +1,7 @@
-# Research & Design Decisions: quizeum-ads
+# Research & Design Decisions: quizetika-ads
 
 ## Summary
-- **Feature**: quizeum-ads
+- **Feature**: quizetika-ads
 - **Discovery Scope**: Extension & Complex Integration
 - **Key Findings**:
   - Stripe による有料会員の判定ロジック（`pro` / `premium` 且つ active）はすでに `src/lib/pricing-entitlement.ts` に実装されている。これにモック（`e2e-mock-pro-user`）のチェックも統合されている。
@@ -30,10 +30,10 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| Client-Side Intercept (Approach 1) | クライアントUIレイヤーでの条件付きレンダリングと遷移割り込み | 既存API変更不要、実装・テストが容易、パフォーマンスに優れる | Hydration時の判定ラグにより一瞬広告がちらつくリスク | 有料判定状態のロード中は広告を非表示にするガードが必要 |
-| Server-Side Inject (Approach 2) | API レスポンスに広告スロットを混ぜる | クライアント側インデックス計算不要、中央集権管理 | 有料・無料のキャッシュ分離が困難、データと表示の密結合 | 却下 |
+| Option                             | Description                                                  | Strengths                                                   | Risks / Limitations                                    | Notes                                                  |
+| ---------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| Client-Side Intercept (Approach 1) | クライアントUIレイヤーでの条件付きレンダリングと遷移割り込み | 既存API変更不要、実装・テストが容易、パフォーマンスに優れる | Hydration時の判定ラグにより一瞬広告がちらつくリスク    | 有料判定状態のロード中は広告を非表示にするガードが必要 |
+| Server-Side Inject (Approach 2)    | API レスポンスに広告スロットを混ぜる                         | クライアント側インデックス計算不要、中央集権管理            | 有料・無料のキャッシュ分離が困難、データと表示の密結合 | 却下                                                   |
 
 ## Design Decisions
 

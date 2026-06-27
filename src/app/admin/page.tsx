@@ -108,7 +108,7 @@ export default function AdminPortalPage() {
           管理者コントロールセンター
         </h1>
         <p className="text-muted-foreground max-w-2xl text-sm md:text-base leading-relaxed">
-          Quizeumプラットフォームの健全性とガバナンスを維持するための統合管理ポータルです。
+          Quizetikaプラットフォームの健全性とガバナンスを維持するための統合管理ポータルです。
           ロールおよび権限に基づき、安全に各機能へアクセスします。
         </p>
       </header>
@@ -122,7 +122,7 @@ export default function AdminPortalPage() {
               <Card className="h-full border border-border bg-card transition-all duration-300 hover:scale-[1.02] hover:shadow-md hover:border-foreground/20 overflow-hidden relative">
                 {/* 装飾用のグラデーション背景 */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${item.color} opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none`} />
-                
+
                 <CardHeader className="relative z-10 pb-2">
                   <div className="flex items-center justify-between">
                     <div className={`flex size-12 items-center justify-center rounded-xl ${item.iconBg} ${item.color.split(' ')[2]} transition-transform duration-300 group-hover:scale-110`}>

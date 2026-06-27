@@ -2,7 +2,7 @@
 
 ## 1. Foundation: エディタ用プリミティブの確認
 - [x] 1.1 foundation Primitive Wave 2 の存在を確認する
-  - `src/components/ui/` に Form, Textarea, Select, Switch, RadioGroup, Label, Alert が存在することを確認する（`quizeum-ui-foundation` で追加済み）
+  - `src/components/ui/` に Form, Textarea, Select, Switch, RadioGroup, Label, Alert が存在することを確認する（`quizetika-ui-foundation` で追加済み）
   - 各コンポーネントが `cn()` を利用し TypeScript 型付きでエクスポートされることを確認する
   - `npm run build` が成功することを確認する
   - _Requirements: 7.5_
@@ -182,7 +182,7 @@
   - リスト専用 Jest（`list-type-selector.test.tsx`, `question-list-attach-panel.test.tsx`）が削除されていることを確認する
   - **完了状態**: リストエディタ関連ファイル・import・専用単体テストがコードベースに残らないこと
   - _Requirements: 26.1, 26.2, 26.3, 26.4_
-  - _Depends: quizeum-core 23.6, quizeum-play-flow-ui 28.1_
+  - _Depends: quizetika-core 23.6, quizetika-play-flow-ui 28.1_
   - _Boundary: quiz-list components, list routes_
 
 - [x] 11.2 エディタ関連 E2E・スケルトンテストのリスト参照除去
@@ -206,7 +206,7 @@
 
 ## Implementation Notes (Phase 26)
 
-- **前提**: `quizeum-play-flow-ui` 28.1（リストルート・`components/quiz-list` 削除）および `quizeum-core` 23.6 完了後に着手。
+- **前提**: `quizetika-play-flow-ui` 28.1（リストルート・`components/quiz-list` 削除）および `quizetika-core` 23.6 完了後に着手。
 - Phase 24 タスク 6.1・6.2（リストエディタ Tailwind 移行）は **実施済みだが機能廃止により成果物ごと削除**。本 Phase 26 はスペック境界の改定と残存参照の掃除が目的。
 - 維持: Phase 24 クイズエディタ移行（タスク 1–5, 7–8）、`quiz-editor-classes.ts`、`quiz-list-skeleton.tsx`（ダッシュボード用）。
 - 実装順: play-flow 28.1 → 11.1 → 11.2 → 11.3。

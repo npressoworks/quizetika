@@ -1,4 +1,4 @@
-# Design Document: quizeum-ads
+# Design Document: quizetika-ads
 
 ---
 **Purpose**: 無料ユーザー向けの広告統合（Google AdSense & 自前動画広告モーダル）と、有料ユーザー向けの完全広告非表示制御を実現するための、クリーンなクライアントサイドの設計仕様を提供します。
@@ -32,7 +32,7 @@
 
 ### Out of Boundary
 - ユーザーのサブスクリプションプラン判定処理自体（`src/lib/pricing-entitlement.ts` が提供する `computeHasPaidEntitlements` に委譲）。
-- Stripe による課金決済および Webhook 処理（`quizeum-billing-subscription-ui` の管轄）。
+- Stripe による課金決済および Webhook 処理（`quizetika-billing-subscription-ui` の管轄）。
 
 ### Allowed Dependencies
 - `src/context/auth-context.tsx`（`useAuth` によるユーザー情報の取得）
@@ -70,11 +70,11 @@ graph TB
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | React 19.2.4 / Next.js 16.2.6 | 広告コンポーネント、フックの構築 | `next/script` による動的ロード |
-| Styling | Vanilla CSS Modules / Tailwind v4 | PRバッジ・動画広告モーダルのレイアウト | 既存のネオンテーマと調和 |
-| Integration | Google AdSense | スポンサー広告の配信 | 環境変数でパブリッシャーIDを管理 |
+| Layer       | Choice / Version                  | Role in Feature                        | Notes                            |
+| ----------- | --------------------------------- | -------------------------------------- | -------------------------------- |
+| Frontend    | React 19.2.4 / Next.js 16.2.6     | 広告コンポーネント、フックの構築       | `next/script` による動的ロード   |
+| Styling     | Vanilla CSS Modules / Tailwind v4 | PRバッジ・動画広告モーダルのレイアウト | 既存のネオンテーマと調和         |
+| Integration | Google AdSense                    | スポンサー広告の配信                   | 環境変数でパブリッシャーIDを管理 |
 
 ## File Structure Plan
 
@@ -134,29 +134,29 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | 有料会員時の広告非表示・ロード停止 | `useAds`, `AdsenseProvider` | `useAds()`, `AdsenseProvider` | N/A |
-| 1.2 | 無料会員時の AdSense ロード・表示 | `useAds`, `AdsenseProvider` | `useAds()`, `AdsenseProvider` | N/A |
-| 1.3 | テストモックによる広告除外 | `useAds` | `useAds()` | N/A |
-| 2.1 | クイズ一覧への 10 件ごとインライン広告挿入 | `AdsenseInlineAd`, 各 Client 画面 | `AdsenseInlineAd` | N/A |
-| 2.2 | 広告カードへの「PR」チップの表示 | `AdsenseInlineAd` | `AdsenseInlineAd` | N/A |
-| 2.3 | アップグレード時の即時広告非表示 | `useAds`, `AdsenseInlineAd` | `useAds()` | N/A |
-| 3.1 | クイズ完了時の 1/3 確率動画広告表示 | `useAds`, `VideoAdModal`, `QuizPlayClient` | `shouldShowVideoAd()`, `VideoAdModal` | 動画広告割り込みフロー |
-| 3.2 | 動画広告表示中の結果遷移の一時停止・再生 | `VideoAdModal`, `QuizPlayClient` | `VideoAdModalProps` | 動画広告割り込みフロー |
-| 3.3 | 動画広告表示から5秒間のスキップ不可制御 | `VideoAdModal` | `VideoAdModalProps` | 動画広告割り込みフロー |
-| 3.4 | 5秒経過後のスキップ活性化・結果遷移実行 | `VideoAdModal`, `QuizPlayClient` | `VideoAdModalProps` | 動画広告割り込みフロー |
-| 3.5 | 有料会員時の確率判定バイパス | `useAds`, `QuizPlayClient` | `shouldShowVideoAd()` | 動画広告割り込みフロー |
+| Requirement | Summary                                    | Components                                 | Interfaces                            | Flows                  |
+| ----------- | ------------------------------------------ | ------------------------------------------ | ------------------------------------- | ---------------------- |
+| 1.1         | 有料会員時の広告非表示・ロード停止         | `useAds`, `AdsenseProvider`                | `useAds()`, `AdsenseProvider`         | N/A                    |
+| 1.2         | 無料会員時の AdSense ロード・表示          | `useAds`, `AdsenseProvider`                | `useAds()`, `AdsenseProvider`         | N/A                    |
+| 1.3         | テストモックによる広告除外                 | `useAds`                                   | `useAds()`                            | N/A                    |
+| 2.1         | クイズ一覧への 10 件ごとインライン広告挿入 | `AdsenseInlineAd`, 各 Client 画面          | `AdsenseInlineAd`                     | N/A                    |
+| 2.2         | 広告カードへの「PR」チップの表示           | `AdsenseInlineAd`                          | `AdsenseInlineAd`                     | N/A                    |
+| 2.3         | アップグレード時の即時広告非表示           | `useAds`, `AdsenseInlineAd`                | `useAds()`                            | N/A                    |
+| 3.1         | クイズ完了時の 1/3 確率動画広告表示        | `useAds`, `VideoAdModal`, `QuizPlayClient` | `shouldShowVideoAd()`, `VideoAdModal` | 動画広告割り込みフロー |
+| 3.2         | 動画広告表示中の結果遷移の一時停止・再生   | `VideoAdModal`, `QuizPlayClient`           | `VideoAdModalProps`                   | 動画広告割り込みフロー |
+| 3.3         | 動画広告表示から5秒間のスキップ不可制御    | `VideoAdModal`                             | `VideoAdModalProps`                   | 動画広告割り込みフロー |
+| 3.4         | 5秒経過後のスキップ活性化・結果遷移実行    | `VideoAdModal`, `QuizPlayClient`           | `VideoAdModalProps`                   | 動画広告割り込みフロー |
+| 3.5         | 有料会員時の確率判定バイパス               | `useAds`, `QuizPlayClient`                 | `shouldShowVideoAd()`                 | 動画広告割り込みフロー |
 
 ## Components and Interfaces
 
 ### Component Summary Table
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| `useAds` | Hook | 有料会員判定、広告ロード判断、動画広告トリガー制御 | 1.1, 1.2, 1.3, 2.3, 3.1, 3.5 | `useAuth` (P0), `computeHasPaidEntitlements` (P0) | State |
-| `AdsenseProvider` | UI Provider | AdSense スクリプトの動的読み込み | 1.1, 1.2 | `useAds` (P0), `next/script` (P1) | Service |
-| `AdsenseInlineAd` | UI Component | PRチップ付きのインライン広告表示（ダミー/本物） | 2.1, 2.2 | `useAds` (P0) | Props |
-| `VideoAdModal` | UI Component | 5秒スキップ不可の全画面ダミー動画広告モーダル | 3.2, 3.3, 3.4 | `useAds` (P0) | Props |
+| Component         | Domain/Layer | Intent                                             | Req Coverage                 | Key Dependencies (P0/P1)                          | Contracts |
+| ----------------- | ------------ | -------------------------------------------------- | ---------------------------- | ------------------------------------------------- | --------- |
+| `useAds`          | Hook         | 有料会員判定、広告ロード判断、動画広告トリガー制御 | 1.1, 1.2, 1.3, 2.3, 3.1, 3.5 | `useAuth` (P0), `computeHasPaidEntitlements` (P0) | State     |
+| `AdsenseProvider` | UI Provider  | AdSense スクリプトの動的読み込み                   | 1.1, 1.2                     | `useAds` (P0), `next/script` (P1)                 | Service   |
+| `AdsenseInlineAd` | UI Component | PRチップ付きのインライン広告表示（ダミー/本物）    | 2.1, 2.2                     | `useAds` (P0)                                     | Props     |
+| `VideoAdModal`    | UI Component | 5秒スキップ不可の全画面ダミー動画広告モーダル      | 3.2, 3.3, 3.4                | `useAds` (P0)                                     | Props     |
 
 ### Hooks
 

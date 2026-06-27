@@ -7,10 +7,10 @@ import { Quiz } from '../types';
  * @returns OGPタグおよびメタデータが挿入されたHTML文字列
  */
 export function renderOgpHtml(quiz: Quiz): string {
-  const title = `${quiz.title} | quizeum`;
-  const description = quiz.description || 'クイズ投稿SNS「quizeum」でクイズに挑戦しよう！';
-  const url = `https://quizeum.com/quiz/${quiz.id}`;
-  const imageUrl = quiz.thumbnailUrl || 'https://quizeum.com/assets/default-cover.png';
+  const title = `${quiz.title} | quizetika`;
+  const description = quiz.description || 'クイズ投稿SNS「quizetika」でクイズに挑戦しよう！';
+  const url = `https://quizetika.com/quiz/${quiz.id}`;
+  const imageUrl = quiz.thumbnailUrl || 'https://quizetika.com/assets/default-cover.png';
 
   return `
 <!DOCTYPE html>

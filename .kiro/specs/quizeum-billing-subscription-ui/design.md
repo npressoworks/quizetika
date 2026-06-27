@@ -1,10 +1,10 @@
-# Technical Design Document: quizeum-billing-subscription-ui
+# Technical Design Document: quizetika-billing-subscription-ui
 
 ## Overview
 
-本ドキュメントは、クイズ投稿SNS「quizeum」における料金画面（`/pricing`）、購読開始・契約管理 CTA、Checkout フィードバック、グローバルナビ導線、および **Pro プラン価格の動的表示** のフロントエンド UI 技術設計を定義します。
+本ドキュメントは、クイズ投稿SNS「quizetika」における料金画面（`/pricing`）、購読開始・契約管理 CTA、Checkout フィードバック、グローバルナビ導線、および **Pro プラン価格の動的表示** のフロントエンド UI 技術設計を定義します。
 
-`quizeum-core` の購読開始 API・契約管理 API・**価格取得 API**・`subscriptionTier` エンタイトルメントを消費する薄い UI 層として実装します。決済処理本体・Webhook 同期・Stripe Price 取得のサーバー実装はコアが担当し、プレイ画面内の制限誘導は `quizeum-play-flow-ui` が担当します。
+`quizetika-core` の購読開始 API・契約管理 API・**価格取得 API**・`subscriptionTier` エンタイトルメントを消費する薄い UI 層として実装します。決済処理本体・Webhook 同期・Stripe Price 取得のサーバー実装はコアが担当し、プレイ画面内の制限誘導は `quizetika-play-flow-ui` が担当します。
 
 **Phase 1（2026-06）**: `/pricing`、Checkout/Portal CTA、契約状態表示、サイドバー導線 — **実装済み**。
 
@@ -17,8 +17,8 @@
 - 価格取得失敗時に代替固定金額を出さず、ユーザーに障害を明示する（Phase 2）。
 
 ### Non-Goals
-- Webhook、Firestore 課金フィールド書き込み、Rules の実装（`quizeum-core`）。
-- プレイ画面の残り質問数・制限ダイアログ（`quizeum-play-flow-ui`）。
+- Webhook、Firestore 課金フィールド書き込み、Rules の実装（`quizetika-core`）。
+- プレイ画面の残り質問数・制限ダイアログ（`quizetika-play-flow-ui`）。
 - Premium 販売 UI、Stripe Elements、アプリ内カード入力。
 - Stripe Dashboard での Product/Price 作成。
 
@@ -37,13 +37,13 @@
 
 ### Out of Boundary
 - `POST /api/billing/checkout-session`、`POST /api/billing/portal-session`、`POST /api/webhooks/stripe` の実装。
-- **`GET /api/billing/prices` のサーバー実装**、Stripe `prices.retrieve`、価格キャッシュ、`pricing-format.ts` の整形ロジック（`quizeum-core` が担当）。
+- **`GET /api/billing/prices` のサーバー実装**、Stripe `prices.retrieve`、価格キャッシュ、`pricing-format.ts` の整形ロジック（`quizetika-core` が担当）。
 - `subscription-plans.ts` の Price ID マッピング、Stripe Customer ライフサイクル。
 - `ask-ai` の tier ベース制限、プレイ中 `isPremium` 表示。
 
 ### Allowed Dependencies
-- **`quizeum-core`（P0）**: Checkout/Portal API、**Prices API**、Checkout/Portal の redirect URL 設定。
-- **`quizeum-auth-profile-ui`（P0）**: `useAuth`、`refreshUser`、`/login?redirect=`。
+- **`quizetika-core`（P0）**: Checkout/Portal API、**Prices API**、Checkout/Portal の redirect URL 設定。
+- **`quizetika-auth-profile-ui`（P0）**: `useAuth`、`refreshUser`、`/login?redirect=`。
 - **`@/types`（P0）**: `User`, `SubscriptionTier`, `PriceInterval`。
 - **`getPaidTierDefinitions()`（P1）**: core 側 Price ID 参照（UI は直接 import しない）。
 - **`@mui/icons-material`（P1）**: アイコン。
@@ -60,14 +60,14 @@
 
 ### Existing Architecture Analysis
 
-| 領域 | Phase 1 状態 | Phase 2 変更 |
-|------|-------------|-------------|
-| `/pricing` ページ | **実装済** | 変更なし（子コンポーネントが価格取得） |
-| `ProPlanCard` | **実装済**（ハードコード価格） | 価格状態機械・CTA ガード追加 |
-| `pricing-display.ts` | **実装済**（¥980 固定） | 価格フィールド削除、特典のみ |
-| `billing-client.ts` | **実装済**（POST のみ） | `fetchProPrices()` 追加 |
-| Prices API | **未存在** | core が新規提供（本 UI は消費） |
-| サイドバー導線 | **実装済** | 変更なし |
+| 領域                 | Phase 1 状態                   | Phase 2 変更                           |
+| -------------------- | ------------------------------ | -------------------------------------- |
+| `/pricing` ページ    | **実装済**                     | 変更なし（子コンポーネントが価格取得） |
+| `ProPlanCard`        | **実装済**（ハードコード価格） | 価格状態機械・CTA ガード追加           |
+| `pricing-display.ts` | **実装済**（¥980 固定）        | 価格フィールド削除、特典のみ           |
+| `billing-client.ts`  | **実装済**（POST のみ）        | `fetchProPrices()` 追加                |
+| Prices API           | **未存在**                     | core が新規提供（本 UI は消費）        |
+| サイドバー導線       | **実装済**                     | 変更なし                               |
 
 ### Architecture Pattern & Boundary Map
 
@@ -103,14 +103,14 @@ sequenceDiagram
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16.2.6 App Router | `/pricing` ルート | Client Component 主体 |
-| UI | React 19.2.4 | 価格状態・CTA | `useEffect` で価格取得 |
-| Styling | CSS Modules | カード・ローディング | Tailwind 不使用 |
-| Auth | Firebase Auth 12.x | Checkout/Portal トークン | 価格 GET は認証不要 |
-| Upstream | quizeum-core billing routes | Checkout / Portal / **Prices** | UI は消費のみ |
-| External | Stripe API via core | Price オブジェクト | `unit_amount` JPY |
+| Layer    | Choice / Version              | Role in Feature                | Notes                  |
+| -------- | ----------------------------- | ------------------------------ | ---------------------- |
+| Frontend | Next.js 16.2.6 App Router     | `/pricing` ルート              | Client Component 主体  |
+| UI       | React 19.2.4                  | 価格状態・CTA                  | `useEffect` で価格取得 |
+| Styling  | CSS Modules                   | カード・ローディング           | Tailwind 不使用        |
+| Auth     | Firebase Auth 12.x            | Checkout/Portal トークン       | 価格 GET は認証不要    |
+| Upstream | quizetika-core billing routes | Checkout / Portal / **Prices** | UI は消費のみ          |
+| External | Stripe API via core           | Price オブジェクト             | `unit_amount` JPY      |
 
 ---
 
@@ -135,7 +135,7 @@ src/
     └── pricing-entitlement.ts
 ```
 
-### Upstream Files（quizeum-core 実装 — 本スペックは契約のみ定義）
+### Upstream Files（quizetika-core 実装 — 本スペックは契約のみ定義）
 
 ```
 src/
@@ -160,7 +160,7 @@ tests/
 ├── components/pricing/
 │   └── pro-plan-card.test.tsx           # loading/error/disabled ケース
 └── api/
-    └── billing-prices.test.ts           # core 側（quizeum-core タスク境界）
+    └── billing-prices.test.ts           # core 側（quizetika-core タスク境界）
 ```
 
 ---
@@ -202,38 +202,38 @@ stateDiagram-v2
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1–1.2 | `/pricing` Pro 表示 | `PricingPage`, `ProPlanCard` | — | 基本表示 |
-| 1.3 | 動的価格（非ハードコード） | `ProPlanCard`, `billing-client` | Prices API | Price fetch |
-| 1.4–1.5 | 未ログイン閲覧・Premium 拡張余地 | `PricingPage`, `pricing-display` | — | — |
-| 2.1–2.3, 2.5–2.8 | 購読開始・認証・エラー | `ProPlanCard`, `billing-client` | Checkout API | Guest→Checkout |
-| 2.4 | 価格未取得時購読無効 | `ProPlanCard` | — | PriceError gate |
-| 3.1–3.6 | 契約管理 CTA | `ProPlanCard`, `billing-client` | Portal API | ProActive→Portal |
-| 3.7 | 価格失敗時 Portal 維持 | `ProPlanCard` | — | manage CTA |
-| 4.1–4.5 | Checkout フィードバック | `CheckoutFeedbackBanner`, `PricingPage` | — | success/canceled |
-| 5.1–5.3 | サイドバー導線 | `sidebar.tsx` | — | ナビ |
-| 6.1–6.4 | 契約状態表示 | `SubscriptionStatusBadge`, `pricing-entitlement` | Auth `User` | CTA 分岐 |
-| 7.1–7.4 | API/認証エラー・スケルトン | `ProPlanCard`, `billing-client` | API errors | — |
-| 7.5–7.6 | 価格ローディング/失敗表示 | `ProPlanCard` | Prices API | PriceLoading/Error |
-| 8.1–8.4 | デザイン・a11y | pricing CSS | — | — |
-| 9.1–9.6 | 境界・E2E | — | core APIs | E2E |
-| 10.1–10.6 | 表示形式・お得・Free 固定 | `ProPlanCard`, core `pricing-format` | Prices API | PriceReady |
+| Requirement      | Summary                          | Components                                       | Interfaces   | Flows              |
+| ---------------- | -------------------------------- | ------------------------------------------------ | ------------ | ------------------ |
+| 1.1–1.2          | `/pricing` Pro 表示              | `PricingPage`, `ProPlanCard`                     | —            | 基本表示           |
+| 1.3              | 動的価格（非ハードコード）       | `ProPlanCard`, `billing-client`                  | Prices API   | Price fetch        |
+| 1.4–1.5          | 未ログイン閲覧・Premium 拡張余地 | `PricingPage`, `pricing-display`                 | —            | —                  |
+| 2.1–2.3, 2.5–2.8 | 購読開始・認証・エラー           | `ProPlanCard`, `billing-client`                  | Checkout API | Guest→Checkout     |
+| 2.4              | 価格未取得時購読無効             | `ProPlanCard`                                    | —            | PriceError gate    |
+| 3.1–3.6          | 契約管理 CTA                     | `ProPlanCard`, `billing-client`                  | Portal API   | ProActive→Portal   |
+| 3.7              | 価格失敗時 Portal 維持           | `ProPlanCard`                                    | —            | manage CTA         |
+| 4.1–4.5          | Checkout フィードバック          | `CheckoutFeedbackBanner`, `PricingPage`          | —            | success/canceled   |
+| 5.1–5.3          | サイドバー導線                   | `sidebar.tsx`                                    | —            | ナビ               |
+| 6.1–6.4          | 契約状態表示                     | `SubscriptionStatusBadge`, `pricing-entitlement` | Auth `User`  | CTA 分岐           |
+| 7.1–7.4          | API/認証エラー・スケルトン       | `ProPlanCard`, `billing-client`                  | API errors   | —                  |
+| 7.5–7.6          | 価格ローディング/失敗表示        | `ProPlanCard`                                    | Prices API   | PriceLoading/Error |
+| 8.1–8.4          | デザイン・a11y                   | pricing CSS                                      | —            | —                  |
+| 9.1–9.6          | 境界・E2E                        | —                                                | core APIs    | E2E                |
+| 10.1–10.6        | 表示形式・お得・Free 固定        | `ProPlanCard`, core `pricing-format`             | Prices API   | PriceReady         |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
-|-----------|--------------|--------|--------------|------------------|-----------|
-| `PricingPage` | UI / Route | 料金画面オーケストレーション | 1.4, 4, 6, 7.4 | `useAuth` (P0) | State |
-| `ProPlanCard` | UI | Pro カード・価格状態・CTA | 1, 2, 3, 7.5–7.6, 10 | `billing-client` (P0) | State |
-| `FreePlanCard` | UI | Free ¥0 固定表示 | 10.4 | `pricing-display` (P0) | — |
-| `billing-client` | lib | API 呼び出し | 2, 3, 7, 10 | fetch (P0) | API |
-| `pricing-display` | lib | 名称・特典正本 | 1, 10.6 | — | State |
-| `pricing-entitlement` | lib | tier/CTA 解釈 | 3, 6 | `@/types` (P0) | State |
-| `billing-prices`（core） | service | Stripe 価格取得 | 1.3, 9.2 | Stripe (P0) | Service |
-| `pricing-format`（core） | lib | JPY ラベル整形 | 10.1–10.3 | — | Service |
+| Component                | Domain/Layer | Intent                       | Req Coverage         | Key Dependencies       | Contracts |
+| ------------------------ | ------------ | ---------------------------- | -------------------- | ---------------------- | --------- |
+| `PricingPage`            | UI / Route   | 料金画面オーケストレーション | 1.4, 4, 6, 7.4       | `useAuth` (P0)         | State     |
+| `ProPlanCard`            | UI           | Pro カード・価格状態・CTA    | 1, 2, 3, 7.5–7.6, 10 | `billing-client` (P0)  | State     |
+| `FreePlanCard`           | UI           | Free ¥0 固定表示             | 10.4                 | `pricing-display` (P0) | —         |
+| `billing-client`         | lib          | API 呼び出し                 | 2, 3, 7, 10          | fetch (P0)             | API       |
+| `pricing-display`        | lib          | 名称・特典正本               | 1, 10.6              | —                      | State     |
+| `pricing-entitlement`    | lib          | tier/CTA 解釈                | 3, 6                 | `@/types` (P0)         | State     |
+| `billing-prices`（core） | service      | Stripe 価格取得              | 1.3, 9.2             | Stripe (P0)            | Service   |
+| `pricing-format`（core） | lib          | JPY ラベル整形               | 10.1–10.3            | —                      | Service   |
 
 ### Lib Layer — billing-client（Phase 2 拡張）
 
@@ -262,9 +262,9 @@ export async function fetchProPrices(): Promise<ProPricesResult>;
 
 ##### API Contract（消費 — Prices）
 
-| Method | Endpoint | Request | Response | Errors |
-|--------|----------|---------|----------|--------|
-| GET | `/api/billing/prices` | なし | `ProPricesResult` | 500 |
+| Method | Endpoint              | Request | Response          | Errors |
+| ------ | --------------------- | ------- | ----------------- | ------ |
+| GET    | `/api/billing/prices` | なし    | `ProPricesResult` | 500    |
 
 **Upstream 実装メモ（core）**:
 - `getPaidTierDefinitions()` の Pro `priceIds` を使用し `stripe.prices.retrieve` を並列実行。
@@ -287,9 +287,9 @@ export interface PricingPlanDisplay {
 
 ### UI Layer — ProPlanCard（Phase 2 改修）
 
-| Field | Detail |
-|-------|--------|
-| Intent | Pro プラン表示、動的価格、CTA |
+| Field        | Detail                            |
+| ------------ | --------------------------------- |
+| Intent       | Pro プラン表示、動的価格、CTA     |
 | Requirements | 1.3, 2.4, 3.7, 7.5–7.6, 10.1–10.6 |
 
 **State Management**
@@ -333,11 +333,11 @@ type ProPriceUiState =
 
 ## Error Handling
 
-| 区分 | UI 応答 | 回復 |
-|------|---------|------|
+| 区分                     | UI 応答                                  | 回復             |
+| ------------------------ | ---------------------------------------- | ---------------- |
 | Prices API 500 / network | 価格欄「価格を読み込めません」、購読無効 | ページ再読み込み |
-| Checkout 401/409 等 | Phase 1 どおり | 既存ハンドラ |
-| Portal 404 等 | Phase 1 どおり | 既存ハンドラ |
+| Checkout 401/409 等      | Phase 1 どおり                           | 既存ハンドラ     |
+| Portal 404 等            | Phase 1 どおり                           | 既存ハンドラ     |
 
 ---
 
@@ -379,5 +379,5 @@ type ProPriceUiState =
 
 ## Supporting References
 
-- ギャップ分析: `.kiro/specs/quizeum-billing-subscription-ui/research.md` Phase 2 節
-- Upstream billing: `.kiro/specs/quizeum-core/design.md` Phase 13 節
+- ギャップ分析: `.kiro/specs/quizetika-billing-subscription-ui/research.md` Phase 2 節
+- Upstream billing: `.kiro/specs/quizetika-core/design.md` Phase 13 節

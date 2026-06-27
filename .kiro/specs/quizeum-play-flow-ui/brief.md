@@ -1,4 +1,4 @@
-# Brief: quizeum-play-flow-ui — Phase 15 通常モードプレイフィードバックフロー（2026-06-08）
+# Brief: quizetika-play-flow-ui — Phase 15 通常モードプレイフィードバックフロー（2026-06-08）
 
 ## Problem
 通常モードのプレイ中、回答後すぐ次問へ自動遷移するため正誤・解説を確認できない。わからない問題をスキップする手段がない。全問完了後は「解答データを送信中...」の白紙待機が発生し、結果画面の Suspense シェルが活かされない。
@@ -32,7 +32,7 @@
 - `QuizResultClient` — optimistic / Firestore フォールバック
 
 ## Out of Boundary
-- `quizeum-core` の `saveAttempt` スキーマ・API 変更
+- `quizetika-core` の `saveAttempt` スキーマ・API 変更
 - クイズ詳細の「即時正誤表示」トグル（通常モードでは新フローを常時適用しトグルは無効化または非表示）
 
 ## Upstream / Downstream
@@ -50,7 +50,7 @@
 
 ---
 
-# Brief: quizeum-play-flow-ui — Phase 16 早押し経過時間・レイアウト（2026-06-09）
+# Brief: quizetika-play-flow-ui — Phase 16 早押し経過時間・レイアウト（2026-06-09）
 
 ## Problem
 早押しプレイで経過時間が問読み前から加算され、制限時間も問読み前に開始する。不正解時に正解が表示され、問読み前はカードが狭く見える。

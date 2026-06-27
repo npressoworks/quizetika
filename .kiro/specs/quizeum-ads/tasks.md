@@ -1,4 +1,4 @@
-# Implementation Plan - quizeum-ads
+# Implementation Plan - quizetika-ads
 
 ## 1. Foundation: 広告基盤のセットアップと共通フックの実装
 - [x] 1.1 useAds フックの作成

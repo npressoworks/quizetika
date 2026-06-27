@@ -1,13 +1,13 @@
-# ギャップ分析 (Gap Analysis) — quizeum-analytics-bigquery
+# ギャップ分析 (Gap Analysis) — quizetika-analytics-bigquery
 
 ## 1. 現状の調査 (Current State Investigation)
 
 ### ディレクトリレイアウトと主要ファイル
-- **型定義**: [src/types/index.ts](file:///d:/quizeum/src/types/index.ts) に `Attempt` および `QuestionAnswerRecord` が定義されています。
-- **データ保存サービス**: [src/services/attempt.ts](file:///d:/quizeum/src/services/attempt.ts) に `saveAttempt` トランザクション処理があり、スコア検証やチート防止のための二重検証が行われています。
-- **セッションとオフライン同期**: [src/services/attempt-session.ts](file:///d:/quizeum/src/services/attempt-session.ts) にプレイ中進捗 `PlayProgressData` およびオフライン退避データ `PendingSyncAttempt` の定義があり、`localStorage` と連動しています。
-- **状態管理フック**: [src/hooks/usePlayState.ts](file:///d:/quizeum/src/hooks/usePlayState.ts) がクイズプレイ画面の進行、解答決定、合計経過時間の計測ステートを管理しています。
-- **ウミガメスープAPI**: [src/app/api/attempt/verify-truth/route.ts](file:///d:/quizeum/src/app/api/attempt/verify-truth/route.ts) および `give-up-lateral/route.ts` が AI 判定と結果の Firestore 保存を処理しています。
+- **型定義**: [src/types/index.ts](file:///d:/quizetika/src/types/index.ts) に `Attempt` および `QuestionAnswerRecord` が定義されています。
+- **データ保存サービス**: [src/services/attempt.ts](file:///d:/quizetika/src/services/attempt.ts) に `saveAttempt` トランザクション処理があり、スコア検証やチート防止のための二重検証が行われています。
+- **セッションとオフライン同期**: [src/services/attempt-session.ts](file:///d:/quizetika/src/services/attempt-session.ts) にプレイ中進捗 `PlayProgressData` およびオフライン退避データ `PendingSyncAttempt` の定義があり、`localStorage` と連動しています。
+- **状態管理フック**: [src/hooks/usePlayState.ts](file:///d:/quizetika/src/hooks/usePlayState.ts) がクイズプレイ画面の進行、解答決定、合計経過時間の計測ステートを管理しています。
+- **ウミガメスープAPI**: [src/app/api/attempt/verify-truth/route.ts](file:///d:/quizetika/src/app/api/attempt/verify-truth/route.ts) および `give-up-lateral/route.ts` が AI 判定と結果の Firestore 保存を処理しています。
 
 ### 技術パターンとセキュリティルール
 - `firestore.rules` の `attempts` コレクションルールは、送信された `userId` が認証ユーザー本人であることのみをチェックしており、スキーマに対する厳密なフィールド制限は設定されていないため、セキュリティルール側の変更なしで新フィールドの追加が可能です。
@@ -17,12 +17,12 @@
 
 ## 2. 要件と既存コードのギャップマップ (Requirement-to-Asset Map)
 
-| 要件番号と要件名 | 関連する既存コード・資産 | ギャップ状態 (Missing / Unknown / Constraint) |
-| :--- | :--- | :--- |
-| **Requirement 1**: 問題解答詳細データのトラッキングと蓄積 | [usePlayState.ts](file:///d:/quizeum/src/hooks/usePlayState.ts)<br>[attempt.ts](file:///d:/quizeum/src/services/attempt.ts)<br>[types/index.ts](file:///d:/quizeum/src/types/index.ts) | **Missing**: 設問ごとの解答開始・終了時間の測定、ヒント表示、回答変更有無の判定。<br>**Constraint**: `saveAttempt` 内での `questionAnswerDetails` の検証とアトミックな保存。 |
-| **Requirement 2**: すべての問題形式に対する詳細情報の収集 | [usePlayState.ts](file:///d:/quizeum/src/hooks/usePlayState.ts)<br>[verify-truth/route.ts](file:///d:/quizeum/src/app/api/attempt/verify-truth/route.ts)<br>[give-up-lateral/route.ts](file:///d:/quizeum/src/app/api/attempt/give-up-lateral/route.ts) | **Missing**: 各設問形式（シャッフル、並べ替え、早押し、ウミガメ）特有の操作ログ取得ロジック。<br>**Missing**: ウミガメスープAPI側での `questionAnswerDetails` 生成・保存処理。 |
-| **Requirement 3**: オフラインプレイ時のデータ永続化とオンライン同期 | [attempt-session.ts](file:///d:/quizeum/src/services/attempt-session.ts)<br>[quiz-play-client.tsx](file:///d:/quizeum/src/app/quiz/\[id\]/play/quiz-play-client.tsx) | **Missing**: `PlayProgressData` および `PendingSyncAttempt` インターフェースの型拡張とシリアライズ。<br>**Constraint**: オフライン時のローカルストレージ容量制限（設問数×詳細データでも数KB程度のため問題なし）。 |
-| **Requirement 4**: BigQuery への自動データ同期と分析スキーマ | *新規作成* | **Missing**: Firebase Extension の構成設定、BigQuery ビュー SQL、および既存データ移行手順書の整備。 |
+| 要件番号と要件名                                                    | 関連する既存コード・資産                                                                                                                                                                                                                                      | ギャップ状態 (Missing / Unknown / Constraint)                                                                                                                                                                     |
+| :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Requirement 1**: 問題解答詳細データのトラッキングと蓄積           | [usePlayState.ts](file:///d:/quizetika/src/hooks/usePlayState.ts)<br>[attempt.ts](file:///d:/quizetika/src/services/attempt.ts)<br>[types/index.ts](file:///d:/quizetika/src/types/index.ts)                                                                  | **Missing**: 設問ごとの解答開始・終了時間の測定、ヒント表示、回答変更有無の判定。<br>**Constraint**: `saveAttempt` 内での `questionAnswerDetails` の検証とアトミックな保存。                                      |
+| **Requirement 2**: すべての問題形式に対する詳細情報の収集           | [usePlayState.ts](file:///d:/quizetika/src/hooks/usePlayState.ts)<br>[verify-truth/route.ts](file:///d:/quizetika/src/app/api/attempt/verify-truth/route.ts)<br>[give-up-lateral/route.ts](file:///d:/quizetika/src/app/api/attempt/give-up-lateral/route.ts) | **Missing**: 各設問形式（シャッフル、並べ替え、早押し、ウミガメ）特有の操作ログ取得ロジック。<br>**Missing**: ウミガメスープAPI側での `questionAnswerDetails` 生成・保存処理。                                    |
+| **Requirement 3**: オフラインプレイ時のデータ永続化とオンライン同期 | [attempt-session.ts](file:///d:/quizetika/src/services/attempt-session.ts)<br>[quiz-play-client.tsx](file:///d:/quizetika/src/app/quiz/\[id\]/play/quiz-play-client.tsx)                                                                                      | **Missing**: `PlayProgressData` および `PendingSyncAttempt` インターフェースの型拡張とシリアライズ。<br>**Constraint**: オフライン時のローカルストレージ容量制限（設問数×詳細データでも数KB程度のため問題なし）。 |
+| **Requirement 4**: BigQuery への自動データ同期と分析スキーマ        | *新規作成*                                                                                                                                                                                                                                                    | **Missing**: Firebase Extension の構成設定、BigQuery ビュー SQL、および既存データ移行手順書の整備。                                                                                                               |
 
 ---
 

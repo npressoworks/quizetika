@@ -1,8 +1,8 @@
-# Research & Design Decisions: quizeum-play-flow-ui
+# Research & Design Decisions: quizetika-play-flow-ui
 
 ## Summary
-- **Feature**: quizeum-play-flow-ui（Phase 5 差分: クイズ単位リーダーボードUI）
-- **Discovery Scope**: Extension（`quizeum-core` 実装済み、UI仕上げ）
+- **Feature**: quizetika-play-flow-ui（Phase 5 差分: クイズ単位リーダーボードUI）
+- **Discovery Scope**: Extension（`quizetika-core` 実装済み、UI仕上げ）
 - **Key Findings**:
   - `src/app/quiz/[id]/page.tsx` に暫定の二表縦並び実装あり（`sortLb` インライン、リプレイ行に `leaderboard-entry` 未付与）。
   - 読み取りヘルパー `getLeaderboardFirstPlay` / `getLeaderboardReplay` は `@/lib/leaderboard-ranking` に既存。
@@ -40,7 +40,7 @@
 - **Alternatives Considered**:
   1. ページ内 `compareLeaderboardRecords` で防御的ソート
   2. サーバー保存順を信頼し slice(0,5) のみ
-- **Selected Approach**: 2 — `quizeum-core` が書き込み時に順位付け済み。
+- **Selected Approach**: 2 — `quizetika-core` が書き込み時に順位付け済み。
 - **Rationale**: 責務分離。レガシー `leaderboard` の順序不整合はコア移行で解消。
 - **Trade-offs**: 極稀にレガシーデータの表示順がずれる可能性。
 - **Follow-up**: 移行後に legacy フィールド参照を廃止する際、本コンポーネントのフォールバック分岐を削除。
@@ -57,18 +57,18 @@
 - **legacy leaderboard 表示** — `getLeaderboardFirstPlay` に委譲しコアと同一ルール。
 
 ## References
-- `.kiro/specs/quizeum-core/design.md` — LB永続化・`LeaderboardRecord`
+- `.kiro/specs/quizetika-core/design.md` — LB永続化・`LeaderboardRecord`
 - `docs/detailed_design.md` — 画面F-801/F-802（表示側）
 - `src/types/index.ts` — `LeaderboardRecord`
 
 ---
 
-# Gap Analysis: quizeum-play-flow-ui（Phase 6 差分 — 2026-06-03）
+# Gap Analysis: quizetika-play-flow-ui（Phase 6 差分 — 2026-06-03）
 
 ## Analysis Summary
 
 - **スコープ**: 要件 1–9 はおおむね実装済み。Phase 6（要件 10）が未着手で、ホーム・ジャンル／タグ一覧・復習のジャンル周りが `docs/` / コア API と乖離している。
-- **上流依存**: `quizeum-core` の `listActiveGenres` / C2 `getQuizzesByGenre` / `getQuizzesByTag` / `searchQuizzes` は **実装済み** — UI 接続のみで足りる。
+- **上流依存**: `quizetika-core` の `listActiveGenres` / C2 `getQuizzesByGenre` / `getQuizzesByTag` / `searchQuizzes` は **実装済み** — UI 接続のみで足りる。
 - **最大ギャップ**: ハードコード `GENRES` / `REVIEW_GENRES`、ホームのクライアント側のみ絞り込み、`searchQuizzes` 未使用、探索ページのソートタブ欠如。
 - **副次ギャップ**: 要件 1.3 の「プレイ状況」フィルタ UI はあるが `filteredQuizzes` に未接続（スタブ状態）。
 - **推奨**: **Option C（ハイブリッド）** — `useActiveGenres` + `GenreNav` 新設、既存 `page.tsx` / 探索ページを段階的に差し替え。共有 `ExploreSortTabs` の抽出は任意。
@@ -166,11 +166,11 @@
 
 ## 5. Upstream / Downstream
 
-| 依存                      | 状態                                                                                     |
-| ------------------------- | ---------------------------------------------------------------------------------------- |
-| `quizeum-core` Phase 6    | ✅ API 利用可能（要: Rules/Indexes 本番デプロイは運用）                                   |
-| `quizeum-creator-dash-ui` | 未確認 — エディタの動的セレクトは別スペック（ジャンル表示の一貫性は E2E で横断確認推奨） |
-| `quizeum-auth-profile-ui` | プロフィールのフォロージャンル UI は別（`followedGenres` は表示名文字列のままの可能性）  |
+| 依存                        | 状態                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------- |
+| `quizetika-core` Phase 6    | ✅ API 利用可能（要: Rules/Indexes 本番デプロイは運用）                                   |
+| `quizetika-creator-dash-ui` | 未確認 — エディタの動的セレクトは別スペック（ジャンル表示の一貫性は E2E で横断確認推奨） |
+| `quizetika-auth-profile-ui` | プロフィールのフォロージャンル UI は別（`followedGenres` は表示名文字列のままの可能性）  |
 
 ## 6. Effort & Risk Summary
 
@@ -190,7 +190,7 @@
 
 ## Document Status
 
-- 分析手法: コードベース Grep/Read + 要件 10 トレース + `quizeum-core` API 存在確認
+- 分析手法: コードベース Grep/Read + 要件 10 トレース + `quizetika-core` API 存在確認
 - 出力先: 本ファイル（`research.md`）に追記
 - 外部 Web 調査: 不要（社内スタック確定済み）
 
@@ -200,7 +200,7 @@
 
 ## Summary
 
-`quizeum-core` Phase 8 は実装済み（`getBookmarkFeed`, `getQuestionsInList`, `toggleBookmark` 問題対応, `saveAttempt` の `question-list` モード）。`quizeum-play-flow-ui` は `/bookmarks` がクイズのみ、`list/[id]` がクイズリスト専用、プレイ／結果に問題 BM なし、問題リスト連続プレイ未配線。本フェーズは **Extension（軽量 discovery）** で既存ページ拡張 + 小コンポーネント抽出が最適。
+`quizetika-core` Phase 8 は実装済み（`getBookmarkFeed`, `getQuestionsInList`, `toggleBookmark` 問題対応, `saveAttempt` の `question-list` モード）。`quizetika-play-flow-ui` は `/bookmarks` がクイズのみ、`list/[id]` がクイズリスト専用、プレイ／結果に問題 BM なし、問題リスト連続プレイ未配線。本フェーズは **Extension（軽量 discovery）** で既存ページ拡張 + 小コンポーネント抽出が最適。
 
 ## 1. Current State vs Requirements 11
 
@@ -259,11 +259,11 @@
 
 ## 6. Upstream / Downstream
 
-| 依存                      | 状態                                                       |
-| ------------------------- | ---------------------------------------------------------- |
-| `quizeum-core` Phase 8    | ✅ 実装・テスト済                                           |
-| `quizeum-creator-dash-ui` | 問題リスト作成 UI は別スペック（プレイ導線のみ本スペック） |
-| `quizeum-auth-profile-ui` | プロフィール BM 表示は別（任意連携）                       |
+| 依存                        | 状態                                                       |
+| --------------------------- | ---------------------------------------------------------- |
+| `quizetika-core` Phase 8    | ✅ 実装・テスト済                                           |
+| `quizetika-creator-dash-ui` | 問題リスト作成 UI は別スペック（プレイ導線のみ本スペック） |
+| `quizetika-auth-profile-ui` | プロフィール BM 表示は別（任意連携）                       |
 
 ## Document Status（Phase 8）
 
@@ -273,14 +273,14 @@
 
 ---
 
-# Research & Design Decisions: quizeum-play-flow-ui（Phase 10 差分 — 2026-06-05）
+# Research & Design Decisions: quizetika-play-flow-ui（Phase 10 差分 — 2026-06-05）
 
 ## Summary
 - **Feature**: ホーム統合検索のタグチップ化・タグ／ジャンルサジェスト、クイズカードの★N難易度・ジャンル・出題形式、探索一覧の `QuizCard` 統一
 - **Discovery Scope**: Extension（`GenreSearchField` / `filter-genre-suggestions` / `QuizCard` 既存パターンの拡張）
 - **Key Findings**:
   - ホーム検索はプレーン `<input>` + `searchQuery` のみ。タグチップ・タグサジェスト未実装。
-  - `searchQuizzes` は単一 `queryText` のみ。複数タグ AND は `SearchFilters.tags` 拡張が必要（`quizeum-core` Phase 10）。
+  - `searchQuizzes` は単一 `queryText` のみ。複数タグ AND は `SearchFilters.tags` 拡張が必要（`quizetika-core` Phase 10）。
   - `listActiveTags` は未実装。`TagMetadata` 型と `metadata-resolution` は存在。
   - ジャンル／タグ一覧はインライン `Link` カードで `QuizCard` と表示不整合（難易度バー、ジャンル／形式なし）。
   - `getFormatLabel` は `quiz-editor.tsx` 内ローカル関数。共有 lib へ抽出が妥当。
@@ -328,7 +328,7 @@
 - **Rationale**: 表示項目の単一正本。
 
 ## Risks & Mitigations
-- **コア未実装ブロック** — `listActiveTags` / `searchQuizzes.tags` は `quizeum-core` Phase 10 を先に実装。UI はモックまたは feature flag なしで直列依存。
+- **コア未実装ブロック** — `listActiveTags` / `searchQuizzes.tags` は `quizetika-core` Phase 10 を先に実装。UI はモックまたは feature flag なしで直列依存。
 - **genreId 二重管理** — `UnifiedSearchField` と `GenreSearchField` で `filterGenreId` を HomePage が単一 state として保持。
 - **旧クイズ format 欠落** — `resolveQuizFormat` で推定しラベル表示。テストで `format` 無しフィクスチャを検証。
 
@@ -344,7 +344,7 @@
 
 ---
 
-# Gap Analysis: quizeum-play-flow-ui（Phase 10 実装後 & Phase 11 — 2026-06-05）
+# Gap Analysis: quizetika-play-flow-ui（Phase 10 実装後 & Phase 11 — 2026-06-05）
 
 ## Analysis Summary
 
@@ -359,7 +359,7 @@
 - **入力**: `requirements.md` 要件 12–13、roadmap Phase 10–11、`page.tsx`, `genre-nav.tsx`, `genres/[genreName]/page.tsx`, `unified-search-field.tsx`, `home-feed-filters.ts`, `useHomeQuizFeed.ts`
 - **手法**: gap-analysis.md フレームワーク、Grep/Read
 - **分析日**: 2026-06-05
-- **上流**: `quizeum-core` Phase 11（`SearchFilters.format`）が UI の形式カルーセルより先
+- **上流**: `quizetika-core` Phase 11（`SearchFilters.format`）が UI の形式カルーセルより先
 
 ## 1. Requirement-to-Asset Map
 
@@ -461,7 +461,7 @@ Phase 11 目標:
 | scoped 検索時のソート | `searchQuizzes` は `latest` 固定取得が多い — ジャンルページで「人気」タブ + 検索同時指定時の UX |
 | カルーセル UX         | scroll-snap のみ vs 左右矢印ボタン（要件未指定 — design で任意）                                |
 | E2E                   | 既存ホーム E2E が `GenreNav` / ジャンル遷移を前提にしていないか確認                             |
-| core 依存             | Phase 11 UI は `quizeum-core` の `format` フィルタ merge 後に結合                               |
+| core 依存             | Phase 11 UI は `quizetika-core` の `format` フィルタ merge 後に結合                             |
 
 ## 6. Effort & Risk Summary
 
@@ -519,7 +519,7 @@ Phase 11 目標:
 
 ### 決定: クライアント履歴の localStorage 完結
 - **Context**: ユーザーが検索した履歴をドロップダウンに表示する。
-- **Selected Approach**: `localStorage` を使用し、キー `quizeum_recent_search_genres` および `quizeum_recent_search_words` で管理。
+- **Selected Approach**: `localStorage` を使用し、キー `quizetika_recent_search_genres` および `quizetika_recent_search_words` で管理。
 - **Rationale**: ユーザー個別の直近履歴をサーバーに送信・永続化するコストとプライバシーへの懸念を排除し、ミリ秒以下の即時応答を可能にするため。
 
 ### 決定: API への30分キャッシュ適用
@@ -538,12 +538,12 @@ Phase 11 目標:
 
 ---
 
-# Gap Analysis: quizeum-play-flow-ui (結果画面および難易度UI改善差分 — 2026-06-06)
+# Gap Analysis: quizetika-play-flow-ui (結果画面および難易度UI改善差分 — 2026-06-06)
 
 ## Analysis Summary
 - **スコープ**: クイズプレイ画面から結果画面への自動遷移、難易度（★）の等幅ゲージのグラデーションカラー表示、結果画面でのヒント・質問回数表示、作者情報とお気に入り、指摘/通報機能の制限と追加。
 - **上流依存**:
-  - `quizeum-core`: 既存の `getQuizzesByAuthor`（作者別クイズ取得）や `flagContent`（コンテンツ通報）を活用可能。
+  - `quizetika-core`: 既存の `getQuizzesByAuthor`（作者別クイズ取得）や `flagContent`（コンテンツ通報）を活用可能。
   - `Attempt` スキーマ拡張なしで連想クイズのヒント数をやり取りするため、解答中の一時状態を `localStorage` 等で結果画面へ引き渡す設計。
 - **最大ギャップ**:
   - 結果画面（`result/page.tsx`）の難易度投票・難易度表示に★のグラデーションUIが未配置。
@@ -607,7 +607,7 @@ Phase 11 目標:
 ### 決定: `UserService` を直接インポートしてフォロー状態を制御
 - **Context**: 結果画面における作家のフォロー状態判定およびトグル。
 - **選択アプローチ**: `src/services/user.ts` の `isFollowing` で初期状態を取得し、ボタンクリックで `followUser` または `unfollowUser` を実行。
-- **理由**: すでに `quizeum-auth-profile-ui` 等で実績のある API であり、追加の API 設計が不要で安全に統合できるため。
+- **理由**: すでに `quizetika-auth-profile-ui` 等で実績のある API であり、追加の API 設計が不要で安全に統合できるため。
 
 ### 決定: 自分自身のクイズにおけるフォローボタンの非表示
 - **Context**: ユーザーが自分自身をフォローできない制約。
@@ -666,25 +666,25 @@ Phase 11 目標:
 
 ### 2.1 関連ファイル
 
-| ファイル | 行数規模 | 現状 |
-|----------|----------|------|
-| `src/app/quiz/[id]/play/page.tsx` | ~1130 | 全面 Client。`useEffect` + `getQuiz`、quick-press 難読化 inline、`React.Suspense` は `use(params)` のみ |
-| `src/app/quiz/test-play/play/page.tsx` | ~703 | 全面 Client。`loadTestPlayPayload`（sessionStorage）、テキスト fallback Suspense |
-| `src/components/quiz/play-skeleton.tsx` | — | **不存在** |
-| `src/lib/quick-press-obfuscate.ts` | — | **不存在** |
-| `src/app/quiz/[id]/play/quiz-play-client.tsx` | — | **不存在** |
+| ファイル                                      | 行数規模 | 現状                                                                                                    |
+| --------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `src/app/quiz/[id]/play/page.tsx`             | ~1130    | 全面 Client。`useEffect` + `getQuiz`、quick-press 難読化 inline、`React.Suspense` は `use(params)` のみ |
+| `src/app/quiz/test-play/play/page.tsx`        | ~703     | 全面 Client。`loadTestPlayPayload`（sessionStorage）、テキスト fallback Suspense                        |
+| `src/components/quiz/play-skeleton.tsx`       | —        | **不存在**                                                                                              |
+| `src/lib/quick-press-obfuscate.ts`            | —        | **不存在**                                                                                              |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | —        | **不存在**                                                                                              |
 
 ### 2.2 再利用可能な既存資産
 
-| 資産 | 用途 |
-|------|------|
-| `getQuiz()` (`src/services/quiz.ts`) | 本番 Loader。結果・詳細 RSC で Server 側利用実績あり（Client Firebase SDK） |
-| `QuizResultClient` パターン | Server で fetch → `JSON.parse(JSON.stringify(quiz))` → Client props 渡し |
-| `DetailSkeleton` / `ResultSkeleton` | pulsing CSS・glassmorphism パターンの参照（`*.module.css` の `.pulse`） |
-| `usePlayState` / `useAiPlayState` | プレイ進行・localStorage セッション（変更不要、Client に残す） |
-| `lib/test-play.ts` | `loadTestPlayPayload`, `prepareQuizForTestPlay`, TTL エラー処理（test-play Client で継続利用） |
-| `play.module.css` | プレイ UI スタイル（Client 移管後も共有） |
-| `tests/components/skeleton-components.test.tsx` | Skeleton testid テストの追加先 |
+| 資産                                            | 用途                                                                                           |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `getQuiz()` (`src/services/quiz.ts`)            | 本番 Loader。結果・詳細 RSC で Server 側利用実績あり（Client Firebase SDK）                    |
+| `QuizResultClient` パターン                     | Server で fetch → `JSON.parse(JSON.stringify(quiz))` → Client props 渡し                       |
+| `DetailSkeleton` / `ResultSkeleton`             | pulsing CSS・glassmorphism パターンの参照（`*.module.css` の `.pulse`）                        |
+| `usePlayState` / `useAiPlayState`               | プレイ進行・localStorage セッション（変更不要、Client に残す）                                 |
+| `lib/test-play.ts`                              | `loadTestPlayPayload`, `prepareQuizForTestPlay`, TTL エラー処理（test-play Client で継続利用） |
+| `play.module.css`                               | プレイ UI スタイル（Client 移管後も共有）                                                      |
+| `tests/components/skeleton-components.test.tsx` | Skeleton testid テストの追加先                                                                 |
 
 ### 2.3 命名・パターン
 
@@ -694,19 +694,19 @@ Phase 11 目標:
 
 ## 3. 要件–資産マップ
 
-| 要件 ID | 必要能力 | 既存資産 | ギャップ |
-|---------|----------|----------|----------|
-| 15.22 | 本番プレイ静的フレーム SSR | 結果画面 RSC パターン | **Missing** — play `page.tsx` が Client |
-| 15.23 | 本番プレイ Skeleton | DetailSkeleton パターン | **Missing** — `PlaySkeleton` 未作成 |
-| 15.24 | クイズロード後 UI 差し替え | `QuizPlayPageContent` ロジック | **Partial** — ロジックは存在、Loader 分割未実施 |
-| 15.25 | セッション復元・進行維持 | `usePlayState`, `useAiPlayState` | **Exists** — Client 移管時の mount タイミングに注意 |
-| 15.26 | test-play 静的フレーム | なし | **Missing** |
-| 15.27 | test-play Skeleton | なし | **Missing** |
-| 15.28 | test-play UI 差し替え | `TestPlayPageContent` | **Partial** |
-| 15.29 | draft 欠落エラー UI | test-play 既存 `loadError` | **Exists** — Skeleton 非表示への組み込み要 |
-| 15.30 | `quiz-play-skeleton` testid | 他 Skeleton testid 実績 | **Missing** |
-| 15.31 | テキストのみロード禁止 | 現行 2 画面が違反 | **Constraint** — 要置換 |
-| 15.32 | `/play` レイアウト非表示 | layout コンポーネント群 | **Exists** — 変更不要 |
+| 要件 ID | 必要能力                    | 既存資産                         | ギャップ                                            |
+| ------- | --------------------------- | -------------------------------- | --------------------------------------------------- |
+| 15.22   | 本番プレイ静的フレーム SSR  | 結果画面 RSC パターン            | **Missing** — play `page.tsx` が Client             |
+| 15.23   | 本番プレイ Skeleton         | DetailSkeleton パターン          | **Missing** — `PlaySkeleton` 未作成                 |
+| 15.24   | クイズロード後 UI 差し替え  | `QuizPlayPageContent` ロジック   | **Partial** — ロジックは存在、Loader 分割未実施     |
+| 15.25   | セッション復元・進行維持    | `usePlayState`, `useAiPlayState` | **Exists** — Client 移管時の mount タイミングに注意 |
+| 15.26   | test-play 静的フレーム      | なし                             | **Missing**                                         |
+| 15.27   | test-play Skeleton          | なし                             | **Missing**                                         |
+| 15.28   | test-play UI 差し替え       | `TestPlayPageContent`            | **Partial**                                         |
+| 15.29   | draft 欠落エラー UI         | test-play 既存 `loadError`       | **Exists** — Skeleton 非表示への組み込み要          |
+| 15.30   | `quiz-play-skeleton` testid | 他 Skeleton testid 実績          | **Missing**                                         |
+| 15.31   | テキストのみロード禁止      | 現行 2 画面が違反                | **Constraint** — 要置換                             |
+| 15.32   | `/play` レイアウト非表示    | layout コンポーネント群          | **Exists** — 変更不要                               |
 
 ## 4. 技術的ギャップ詳細
 
@@ -757,10 +757,10 @@ Phase 11 目標:
 - 既存 `page.tsx` を Client のまま、`loading` 時の return を `PlaySkeleton` に変更
 - test-play も同様
 
-| Pros | Cons |
-|------|------|
+| Pros                  | Cons                                                              |
+| --------------------- | ----------------------------------------------------------------- |
 | diff 小、退行リスク低 | 要件 15.22 / 15.26（SSR 静的フレーム・Streaming）を**満たせない** |
-| 即日実装可能 | Phase 12 他画面との UX 一貫性不足 |
+| 即日実装可能          | Phase 12 他画面との UX 一貫性不足                                 |
 
 **判定**: 要件未達のため非推奨
 
@@ -770,11 +770,11 @@ Phase 11 目標:
 - test-play: Server shell + `TestPlayClient`（sessionStorage）
 - 共有: `PlaySkeleton`, `quick-press-obfuscate`
 
-| Pros | Cons |
-|------|------|
-| 結果画面と同型、要件 22–32 を網羅 | 1130 行移管で Effort M |
-| Streaming による体感速度向上 | 静的フレーム重複の設計判断が必要 |
-| quick-press 難読化の DRY 化 | E2E 更新コスト |
+| Pros                              | Cons                             |
+| --------------------------------- | -------------------------------- |
+| 結果画面と同型、要件 22–32 を網羅 | 1130 行移管で Effort M           |
+| Streaming による体感速度向上      | 静的フレーム重複の設計判断が必要 |
+| quick-press 難読化の DRY 化       | E2E 更新コスト                   |
 
 **判定**: design.md / tasks 20.x と一致。**推奨**
 
@@ -783,19 +783,19 @@ Phase 11 目標:
 - Phase 1: `PlaySkeleton` + lib 抽出 + Client 内 Skeleton 化（15.23, 15.27, 15.30, 15.31）
 - Phase 2: RSC 分割（15.22, 15.26）
 
-| Pros | Cons |
-|------|------|
-| 中間リリース可能 | 2 回の touch で play/page.tsx を二度編集 |
-| Phase 1 だけでも 15.31 改善 | Phase 1 単独では Streaming 未達 |
+| Pros                        | Cons                                     |
+| --------------------------- | ---------------------------------------- |
+| 中間リリース可能            | 2 回の touch で play/page.tsx を二度編集 |
+| Phase 1 だけでも 15.31 改善 | Phase 1 単独では Streaming 未達          |
 
 **判定**: 急ぎで Skeleton だけ先に出す場合の代替。spec tasks は Option B 一括想定
 
 ## 6. Effort & Risk
 
-| 項目 | 評価 | 根拠 |
-|------|------|------|
-| **Effort** | **M**（3–7 日） | 2 画面 + 新規 3–4 ファイル + 1130 行移管 + 結合検証。新規 API / Core 変更なし |
-| **Risk** | **Medium** | セッション復元・自動結果遷移・lateral AI・question-list クエリ等、退行ポイントが多い。参照パターンは codebase 内に存在 |
+| 項目       | 評価            | 根拠                                                                                                                   |
+| ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Effort** | **M**（3–7 日） | 2 画面 + 新規 3–4 ファイル + 1130 行移管 + 結合検証。新規 API / Core 変更なし                                          |
+| **Risk**   | **Medium**      | セッション復元・自動結果遷移・lateral AI・question-list クエリ等、退行ポイントが多い。参照パターンは codebase 内に存在 |
 
 ## 7. Design フェーズへ引き継ぐ Research Items
 
@@ -815,7 +815,7 @@ Phase 11 目標:
 
 ---
 
-# Gap Analysis: quizeum-play-flow-ui (結果画面アコーディオン & ★投票 — Phase 14 / 2026-06-08)
+# Gap Analysis: quizetika-play-flow-ui (結果画面アコーディオン & ★投票 — Phase 14 / 2026-06-08)
 
 ## Summary
 
@@ -827,12 +827,12 @@ Phase 11 目標:
 
 ### R14.1 現状実装
 
-| 領域 | 現状 | ギャップ |
-|------|------|----------|
-| 問題詳細 | `quiz-result-client.tsx` L967–1016: `answerSummary`・`explanationBox`・`hintHistoryBox` が常時表示 | アコーディオン化・初期 closed |
-| 難易度投票 | L775–792: `difficultyBar` + 数値 `diffCell` 1〜5 | ★ クリック UI（要件 5.2a / 16.7 は未充足） |
-| テストプレイ結果 | `test-play/result/page.tsx` L182–187: 解説常時表示 | 本番と同型アコーディオン |
-| 色計算 | `getDifficultyColor`（1〜5、30°ステップ）| 再利用可、変更不要 |
+| 領域             | 現状                                                                                               | ギャップ                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 問題詳細         | `quiz-result-client.tsx` L967–1016: `answerSummary`・`explanationBox`・`hintHistoryBox` が常時表示 | アコーディオン化・初期 closed              |
+| 難易度投票       | L775–792: `difficultyBar` + 数値 `diffCell` 1〜5                                                   | ★ クリック UI（要件 5.2a / 16.7 は未充足） |
+| テストプレイ結果 | `test-play/result/page.tsx` L182–187: 解説常時表示                                                 | 本番と同型アコーディオン                   |
+| 色計算           | `getDifficultyColor`（1〜5、30°ステップ）                                                          | 再利用可、変更不要                         |
 
 ### R14.2 既存アコーディオンパターン
 
@@ -841,19 +841,19 @@ Phase 11 目標:
 
 ### R14.3 Build vs. Adopt
 
-| 選択肢 | 判定 |
-|--------|------|
-| `ExploreAccordion` 直接 import | 却下（探索専用スタイル・testId 契約が異なる） |
-| 汎用 `CollapsiblePanel` を shared に新設 | 却下（現時点で利用箇所は結果画面のみ — 過剰抽象化） |
-| `ResultQuestionDetailsAccordion` + `DifficultyVoteStars` を `components/quiz/` に新設 | **採用** |
+| 選択肢                                                                                | 判定                                                |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `ExploreAccordion` 直接 import                                                        | 却下（探索専用スタイル・testId 契約が異なる）       |
+| 汎用 `CollapsiblePanel` を shared に新設                                              | 却下（現時点で利用箇所は結果画面のみ — 過剰抽象化） |
+| `ResultQuestionDetailsAccordion` + `DifficultyVoteStars` を `components/quiz/` に新設 | **採用**                                            |
 
 ### R14.4 統合リスク
 
-| リスク | 緩和 |
-|--------|------|
-| 既存 E2E が `diffCell` を参照 | `difficulty-vote-star-{N}` へ更新 |
-| オフライン非活性 | 既存 `online` state を `DifficultyVoteStars.disabled` に渡す |
-| `handleDifficultyVote` 変更不要 | `onVote(level)` のシグネチャ維持 |
+| リスク                          | 緩和                                                         |
+| ------------------------------- | ------------------------------------------------------------ |
+| 既存 E2E が `diffCell` を参照   | `difficulty-vote-star-{N}` へ更新                            |
+| オフライン非活性                | 既存 `online` state を `DifficultyVoteStars.disabled` に渡す |
+| `handleDifficultyVote` 変更不要 | `onVote(level)` のシグネチャ維持                             |
 
 ## Design Decisions
 
@@ -863,10 +863,10 @@ Phase 11 目標:
 
 ## Effort & Risk
 
-| 項目 | 評価 |
-|------|------|
-| Effort | **S**（1〜2 日） |
-| Risk | **Low** — Core 変更なし、既存コールバック維持 |
+| 項目   | 評価                                          |
+| ------ | --------------------------------------------- |
+| Effort | **S**（1〜2 日）                              |
+| Risk   | **Low** — Core 変更なし、既存コールバック維持 |
 
 ---
 
@@ -874,7 +874,7 @@ Phase 11 目標:
 
 ## Summary
 
-- **Feature**: quizeum-play-flow-ui Phase 16（要件 18）
+- **Feature**: quizetika-play-flow-ui Phase 16（要件 18）
 - **Discovery Scope**: Extension（既存プレイフック・早押しストリームの挙動変更）
 - **Key Findings**:
   - `usePlayState` は `setInterval` で毎秒 `elapsedSeconds` を無条件加算し、問題切替時に即 `timeLeft` をセットしている（早押しと非互換）。
@@ -903,11 +903,11 @@ Phase 11 目標:
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks | Decision |
-|--------|-------------|-----------|-------|----------|
-| A. Client 内インライン state | `quiz-play-client` のみで経過時間管理 | 差分小 | `usePlayState` と二重管理、セッション保存ずれ | 不採用 |
-| B. `usePlayState` + policy prop | 親が `elapsedPolicy` を供給 | セッション一貫、Phase 15 構造維持 | hook API 拡張 | **採用** |
-| C. 新規 `useCumulativeElapsed` hook | 完全分離 | 責務明確 | `usePlayState` との同期コスト | 不採用 |
+| Option                              | Description                           | Strengths                         | Risks                                         | Decision |
+| ----------------------------------- | ------------------------------------- | --------------------------------- | --------------------------------------------- | -------- |
+| A. Client 内インライン state        | `quiz-play-client` のみで経過時間管理 | 差分小                            | `usePlayState` と二重管理、セッション保存ずれ | 不採用   |
+| B. `usePlayState` + policy prop     | 親が `elapsedPolicy` を供給           | セッション一貫、Phase 15 構造維持 | hook API 拡張                                 | **採用** |
+| C. 新規 `useCumulativeElapsed` hook | 完全分離                              | 責務明確                          | `usePlayState` との同期コスト                 | 不採用   |
 
 ## Design Decisions
 
@@ -918,18 +918,18 @@ Phase 11 目標:
 
 ## Risks & Mitigations
 
-| リスク | 緩和 |
-|--------|------|
-| 混合クイズで累計と旧壁時計の差 | ユニットテストで standard / quick-press 各区間を検証 |
-| ストリーム中断後の limitTime | `onReadingComplete` 未発火のまま。早押しボタンで `post_reading` へ手動遷移するフォールバックを Client に追加 |
-| リーダーボード `elapsedSeconds` 意味変化 | 要件どおり区間累計が正しい値。Core 変更なし。リグレッションは E2E 早押しプレイで確認 |
+| リスク                                   | 緩和                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 混合クイズで累計と旧壁時計の差           | ユニットテストで standard / quick-press 各区間を検証                                                         |
+| ストリーム中断後の limitTime             | `onReadingComplete` 未発火のまま。早押しボタンで `post_reading` へ手動遷移するフォールバックを Client に追加 |
+| リーダーボード `elapsedSeconds` 意味変化 | 要件どおり区間累計が正しい値。Core 変更なし。リグレッションは E2E 早押しプレイで確認                         |
 
 ## Effort & Risk
 
-| 項目 | 評価 |
-|------|------|
-| Effort | **S**（1〜2 日） |
-| Risk | **Low** — 新規依存なし、Core API 不変 |
+| 項目   | 評価                                  |
+| ------ | ------------------------------------- |
+| Effort | **S**（1〜2 日）                      |
+| Risk   | **Low** — 新規依存なし、Core API 不変 |
 
 ---
 

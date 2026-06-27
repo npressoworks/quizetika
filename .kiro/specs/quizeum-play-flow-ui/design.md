@@ -1,21 +1,21 @@
-# Technical Design Document: quizeum-play-flow-ui
+# Technical Design Document: quizetika-play-flow-ui
 
 ## Overview
-本ドキュメントは、クイズ投稿SNS「quizeum」におけるメインプレイフローおよび探索関連UIの技術設計仕様を定義します。エントランスとなるホーム画面から、クイズ詳細、インタラクティブな各種プレイモード（通常、模擬試験、フラッシュカード）、AIチャットを活用した水平思考プレイ（ウミガメのスープ）、結果表示と評価フィードバック、過去の誤答の復習プレイ、各種探索（ブックマーク、タグ別、ジャンル別）、およびリーダーボードを構築します。
+本ドキュメントは、クイズ投稿SNS「quizetika」におけるメインプレイフローおよび探索関連UIの技術設計仕様を定義します。エントランスとなるホーム画面から、クイズ詳細、インタラクティブな各種プレイモード（通常、模擬試験、フラッシュカード）、AIチャットを活用した水平思考プレイ（ウミガメのスープ）、結果表示と評価フィードバック、過去の誤答の復習プレイ、各種探索（ブックマーク、タグ別、ジャンル別）、およびリーダーボードを構築します。
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフロントエンド構成に加え、CSS Modulesによる親しみやすく遊び心のあるUIを実装し、Firestoreサービス（`AttemptService`, `BookmarkService`等）およびサーバーサイドAPI Routesと接続します。
 
-**Phase 5（2026-06）**: クイズ詳細の単位リーダーボードを初回プレイ／リプレイの二系統表示に刷新する。永続化・順位計算は `quizeum-core`（`leaderboard-ranking.ts`）が完了済みのため、本スペックは読み取り・表示・E2E契約の仕上げを担当する。
+**Phase 5（2026-06）**: クイズ詳細の単位リーダーボードを初回プレイ／リプレイの二系統表示に刷新する。永続化・順位計算は `quizetika-core`（`leaderboard-ranking.ts`）が完了済みのため、本スペックは読み取り・表示・E2E契約の仕上げを担当する。
 
 **Phase 6（2026-06）**: 探索 UI を `metadata_genres` 駆動に切り替える。`listActiveGenres` / `getQuizzesByGenre`（C2）/ `getQuizzesByTag` / `searchQuizzes` を UI から呼び出し、ハードコード `GENRES` を除去する。
 
-**Phase 8（2026-06）**: ブックマーク画面をクイズ・リスト・問題の3タブに拡張し、プレイ／結果画面からの問題ブックマーク、および問題リスト（`listType: 'question'`）の連続プレイ導線を追加する。データ取得・`attempts` 永続化は `quizeum-core`（実装済み）に依存し、本スペックは UI・セッション状態・遷移のみを担当する。
+**Phase 8（2026-06）**: ブックマーク画面をクイズ・リスト・問題の3タブに拡張し、プレイ／結果画面からの問題ブックマーク、および問題リスト（`listType: 'question'`）の連続プレイ導線を追加する。データ取得・`attempts` 永続化は `quizetika-core`（実装済み）に依存し、本スペックは UI・セッション状態・遷移のみを担当する。
 
 **Phase 9（2026-06）**: トップページレイアウトのスタイリッシュ化、統合検索バーの上部配置、ピル形式の横スクロールカテゴリー、サムネイル・プレイボタン付きのクイズカード、検索中スケルトン、ネオン調インタラクションを UI スペックの要件として追加・更新します。
 
-**Phase 10（2026-06）**: ホーム統合検索のタグチップ化（スペース確定）とタグ・ジャンル名サジェスト、クイズカードの難易度を数値併記星表記（`★ N`）へ変更しジャンル・出題形式を表示、ジャンル／タグ一覧での `QuizCard` 共通化。タグマスタ読み取りおよび `searchQuizzes` の複数タグ AND 合成は `quizeum-core` Phase 10 に依存する。
+**Phase 10（2026-06）**: ホーム統合検索のタグチップ化（スペース確定）とタグ・ジャンル名サジェスト、クイズカードの難易度を数値併記星表記（`★ N`）へ変更しジャンル・出題形式を表示、ジャンル／タグ一覧での `QuizCard` 共通化。タグマスタ読み取りおよび `searchQuizzes` の複数タグ AND 合成は `quizetika-core` Phase 10 に依存する。
 
-**Phase 11（2026-06）**: ホーム検索バー直下のアコーディオン（「ジャンルで絞り込む」「出題形式で絞り込む」）と横スクロールカードカルーセルによる**ホーム内フィルタ型**探索、`GenreNav` ピルナビの置換、ジャンル別一覧（`/genres/[genreName]`）への scoped 検索 UI 追加。出題形式フィルタは `quizeum-core` Phase 11（`SearchFilters.format`）に依存する。
+**Phase 11（2026-06）**: ホーム検索バー直下のアコーディオン（「ジャンルで絞り込む」「出題形式で絞り込む」）と横スクロールカードカルーセルによる**ホーム内フィルタ型**探索、`GenreNav` ピルナビの置換、ジャンル別一覧（`/genres/[genreName]`）への scoped 検索 UI 追加。出題形式フィルタは `quizetika-core` Phase 11（`SearchFilters.format`）に依存する。
 
 **Phase 12（2026-06-06）**: クイズプレイ画面から結果画面への自動遷移、難易度（★）の等幅ゲージのグラデーションカラー表示（詳細・結果共通）、結果画面でのヒント・質問回数表示、もう一度プレイするボタン、作者プロフィールリンク、同じ作者の他のクイズ推薦、お疲れ様でしたカード上のクイズブックマークボタン、指摘カテゴリの「別解の追加要望」のクイズ全体指摘時の除外、指摘ボタン横の通報ボタン表示と通報モーダル連携。
 
@@ -40,11 +40,11 @@
 
 **Phase 16（2026-06-09）**: 早押し形式（`quick-press`）の通常モードプレイにおける、区間累計の経過時間計測・問読み修了後の制限時間カウントダウン開始・不正解時の正解非表示・問題カードの初期レイアウト拡大を改定する。早押しタイム（押下〜回答秒数）の既存仕様は維持する。
 
-**Phase 19（2026-06-09）**: クイズ詳細のプレイモード選択パネルに、模擬試験・フラッシュカードがクイズ単位リーダーボード（初回プレイ・リプレイ）の対象外であること、および先にこれらでプレイした場合は以降の通常モードでも初回プレイランキングに掲載されない旨の警告を表示する（LB 登録ルールは `quizeum-core` Phase 18）。
+**Phase 19（2026-06-09）**: クイズ詳細のプレイモード選択パネルに、模擬試験・フラッシュカードがクイズ単位リーダーボード（初回プレイ・リプレイ）の対象外であること、および先にこれらでプレイした場合は以降の通常モードでも初回プレイランキングに掲載されない旨の警告を表示する（LB 登録ルールは `quizetika-core` Phase 18）。
 
 **Phase 20（2026-06-09）**: 〇×問題（`true-false`）に専用の `TrueFalseAnswerPanel` を導入し、〇／× ボタン1タップで即回答。本番プレイ・テストプレイ・弱点克服に適用。形式ラベル「〇×式」と探索カルーセルへの追加を含む（core / creator-dash がデータ・作問を担当）。
 
-**Phase 21（2026-06-09）**: ホームのフィルタ UI を再編する。`ExploreAccordionsPanel` を廃止し、ジャンル／出題形式カルーセルを `ExploreSearchSection` 内に常時表示。`useExploreQuizFeed` を無限スクロール対応に拡張し、検索バー行を sticky 固定する（段階的取得 API は `quizeum-core` Phase 21 に依存）。
+**Phase 21（2026-06-09）**: ホームのフィルタ UI を再編する。`ExploreAccordionsPanel` を廃止し、ジャンル／出題形式カルーセルを `ExploreSearchSection` 内に常時表示。`useExploreQuizFeed` を無限スクロール対応に拡張し、検索バー行を sticky 固定する（段階的取得 API は `quizetika-core` Phase 21 に依存）。
 
 **Phase 22（2026-06-09）**: IA を再編する。`/` はディスカバリーホーム（3カルーセル）、現行 `HomeClient` の探索 UX は `/search` へ移設。検索画面ではフィルタパネルを閉じてもアクティブ条件チップを常時表示し、URL クエリと探索状態を同期する（`search-url-state.ts` は core、ナビは sidebar-layout）。
 
@@ -58,14 +58,14 @@
 - **Phase 19**: 模擬試験・フラッシュカードのランキング非対象を、プレイ開始前のモード選択画面で明示する。
 
 ### Non-Goals
-- クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizeum-creator-dash-ui` に委ねます）。
-- 管理者モデレーション、タグ・ジャンル仮想マージなどの自治ガバナンスUI（`quizeum-moderation-governance-ui`が担当）。
-- **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizeum-core`）。マイページのプレイ履歴UI（`quizeum-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
-- **Phase 6**: `metadata-resolution`・Firestore Rules・canonical 書き込み（`quizeum-core`）。クイズエディタのジャンルセレクト（`quizeum-creator-dash-ui`）。
-- **Phase 8**: リスト作成・`listType` 選択・問題のリストへの追加 UI（`quizeum-creator-dash-ui`）。`bookmarksCount` 更新・`attempts` 書き込みロジック（`quizeum-core`）。プロフィールのリストタイプ表示（`quizeum-auth-profile-ui`）。
-- **Phase 10**: `listActiveTags`（存続タグのみ・`quizeum-core` 要件 16）・`searchQuizzes.tags` AND 合成（`quizeum-core` 要件 16）。ジャンル／タグ一覧ページへの検索バー新設。クイズ詳細・プレイ画面の難易度表示変更。タグ新設申請・マージ UI（`quizeum-moderation-governance-ui`）。
-- **Phase 11**: 出題形式専用一覧ルート（`/formats/[format]`）、URL クエリによるフィルタ共有可能化、タグ別一覧への検索バー追加、カルーセル自動スライド・外部 carousel ライブラリ導入。`searchQuizzes` の形式照合ロジック（`quizeum-core`）。
-- **Phase 12**: 指摘フィードバック・通報・ブックマークのFirestoreへの物理的な保存・カウントアップ・自動審査（`quizeum-core` が担当）。
+- クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizetika-creator-dash-ui` に委ねます）。
+- 管理者モデレーション、タグ・ジャンル仮想マージなどの自治ガバナンスUI（`quizetika-moderation-governance-ui`が担当）。
+- **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizetika-core`）。マイページのプレイ履歴UI（`quizetika-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
+- **Phase 6**: `metadata-resolution`・Firestore Rules・canonical 書き込み（`quizetika-core`）。クイズエディタのジャンルセレクト（`quizetika-creator-dash-ui`）。
+- **Phase 8**: リスト作成・`listType` 選択・問題のリストへの追加 UI（`quizetika-creator-dash-ui`）。`bookmarksCount` 更新・`attempts` 書き込みロジック（`quizetika-core`）。プロフィールのリストタイプ表示（`quizetika-auth-profile-ui`）。
+- **Phase 10**: `listActiveTags`（存続タグのみ・`quizetika-core` 要件 16）・`searchQuizzes.tags` AND 合成（`quizetika-core` 要件 16）。ジャンル／タグ一覧ページへの検索バー新設。クイズ詳細・プレイ画面の難易度表示変更。タグ新設申請・マージ UI（`quizetika-moderation-governance-ui`）。
+- **Phase 11**: 出題形式専用一覧ルート（`/formats/[format]`）、URL クエリによるフィルタ共有可能化、タグ別一覧への検索バー追加、カルーセル自動スライド・外部 carousel ライブラリ導入。`searchQuizzes` の形式照合ロジック（`quizetika-core`）。
+- **Phase 12**: 指摘フィードバック・通報・ブックマークのFirestoreへの物理的な保存・カウントアップ・自動審査（`quizetika-core` が担当）。
 - **Phase 13**: 既存の難易度 6〜10 を持つクイズの自動マイグレーションスクリプトは UI スペックの対象外とします（読み取り互換/テストデータ修正に委ねます）。
 - **Phase 14**: `difficultyVote` の永続化ロジック・API・スキーマ変更、難易度スケール変更、クイズ詳細／クイズカードの難易度表示変更、探索画面アコーディオンの変更。
 
@@ -103,13 +103,13 @@
 
 ### Out of Boundary
 - Gemini APIとの対話やプロンプト生成のバックエンドロジック本体。
-- 認証状態の監視およびユーザープロフィールそのものの編集UI（`quizeum-auth-profile-ui`が担当）。
-- Firestore へのリーダーボード書き込み、`compareLeaderboardRecords` / `mergeUserEntryAndTakeTop5` の呼び出し（`quizeum-core`）。
-- **Phase 19**: LB 登録判定・初回／リプレイ振り分けロジック（`quizeum-core` Phase 18）。プレイ画面・結果画面での追加警告。
+- 認証状態の監視およびユーザープロフィールそのものの編集UI（`quizetika-auth-profile-ui`が担当）。
+- Firestore へのリーダーボード書き込み、`compareLeaderboardRecords` / `mergeUserEntryAndTakeTop5` の呼び出し（`quizetika-core`）。
+- **Phase 19**: LB 登録判定・初回／リプレイ振り分けロジック（`quizetika-core` Phase 18）。プレイ画面・結果画面での追加警告。
 
 ### Allowed Dependencies
-- **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
-- **`quizeum-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**, **`getBookmarkFeed`, `toggleBookmark`, `getQuestionsInList`, `saveAttempt`（`mode: 'question-list'`）（Phase 8）**, **`listActiveTags`（Phase 10）**, **`searchQuizzes` の `tags?: string[]` AND フィルタ（Phase 10）**, **`searchQuizzes` の `format?: QuizFormat` フィルタ（Phase 11・実装済み）**, **`sortQuizzesForList`（scoped 検索結果のクライアントソート・Phase 11）**
+- **`quizetika-auth-profile-ui`**: `Header`, `useAuth`
+- **`quizetika-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**, **`getBookmarkFeed`, `toggleBookmark`, `getQuestionsInList`, `saveAttempt`（`mode: 'question-list'`）（Phase 8）**, **`listActiveTags`（Phase 10）**, **`searchQuizzes` の `tags?: string[]` AND フィルタ（Phase 10）**, **`searchQuizzes` の `format?: QuizFormat` フィルタ（Phase 11・実装済み）**, **`sortQuizzesForList`（scoped 検索結果のクライアントソート・Phase 11）**
 - **サーバーAPIプロキシ**: `/api/attempt/ask-ai`, `/api/attempt/verify-truth`
 
 ### Revalidation Triggers
@@ -332,13 +332,13 @@ tests/
 - `e2e/quiz-search.spec.ts` — ジャンルカルーセルが `/genres` に遷移しないこと、形式カルーセル絞り込み。
 
 ### New Files（Phase 12）
-- [difficulty-color.ts](file:///d:/quizeum/src/lib/difficulty-color.ts) — 難易度(1〜5)に応じた HSL カラーを算出する共通ヘルパー。 (2.1b-1)
-- [report-modal.tsx](file:///d:/quizeum/src/components/quiz/report-modal.tsx) / [report-modal.module.css](file:///d:/quizeum/src/components/quiz/report-modal.module.css) — 通報理由を入力・送信でき、`quizeum-core` の `flagContent`（または同等 API）を呼び出す通報モーダル。 (5.11a)
+- [difficulty-color.ts](file:///d:/quizetika/src/lib/difficulty-color.ts) — 難易度(1〜5)に応じた HSL カラーを算出する共通ヘルパー。 (2.1b-1)
+- [report-modal.tsx](file:///d:/quizetika/src/components/quiz/report-modal.tsx) / [report-modal.module.css](file:///d:/quizetika/src/components/quiz/report-modal.module.css) — 通報理由を入力・送信でき、`quizetika-core` の `flagContent`（または同等 API）を呼び出す通報モーダル。 (5.11a)
 
 ### Modified Files（Phase 12）
-- [play/page.tsx](file:///d:/quizeum/src/app/quiz/[id]/play/page.tsx) — 全問終了時の自動結果画面遷移。連想クイズ解答完了時に表示したヒント一覧を `localStorage`（例：`quizeum_attempt_hints_{attemptId}`）へ保存。 (3.6, 5.6)
-- [page.tsx](file:///d:/quizeum/src/app/quiz/[id]/page.tsx) — クイズ詳細の難易度（★）の等幅ゲージグラデーションカラー適用。 (2.1b-1)
-- [result/page.tsx](file:///d:/quizeum/src/app/quiz/[id]/result/page.tsx) / [result.module.css](file:///d:/quizeum/src/app/quiz/[id]/result/result.module.css) — 難易度表示・難易度投票のグラデーションカラー適用、連想クイズのヒント一覧・ウミガメスープ質問回数表示、もう一度プレイするボタン、作者へのリンクと他のクイズおすすめ表示、結果サマリーカード上のクイズブックマークトグル、全体指摘時の「別解の追加」カテゴリ非表示、通報ボタン表示と通報モーダル連携。 (5.2a, 5.3a, 5.6, 5.7, 5.7a, 5.8, 5.9, 5.10, 5.11)
+- [play/page.tsx](file:///d:/quizetika/src/app/quiz/[id]/play/page.tsx) — 全問終了時の自動結果画面遷移。連想クイズ解答完了時に表示したヒント一覧を `localStorage`（例：`quizetika_attempt_hints_{attemptId}`）へ保存。 (3.6, 5.6)
+- [page.tsx](file:///d:/quizetika/src/app/quiz/[id]/page.tsx) — クイズ詳細の難易度（★）の等幅ゲージグラデーションカラー適用。 (2.1b-1)
+- [result/page.tsx](file:///d:/quizetika/src/app/quiz/[id]/result/page.tsx) / [result.module.css](file:///d:/quizetika/src/app/quiz/[id]/result/result.module.css) — 難易度表示・難易度投票のグラデーションカラー適用、連想クイズのヒント一覧・ウミガメスープ質問回数表示、もう一度プレイするボタン、作者へのリンクと他のクイズおすすめ表示、結果サマリーカード上のクイズブックマークトグル、全体指摘時の「別解の追加」カテゴリ非表示、通報ボタン表示と通報モーダル連携。 (5.2a, 5.3a, 5.6, 5.7, 5.7a, 5.8, 5.9, 5.10, 5.11)
 
 ### New Files（Phase 21）
 - `src/hooks/useIntersectionLoadMore.ts` — スクロール末端 sentinel と `IntersectionObserver`（21.1–21.5）
@@ -467,7 +467,7 @@ sequenceDiagram
 
 **UX 方針（確定）**
 - 問題リストは**収録問題ごとに1 attempt**（`mode: 'question-list'`, `totalQuestions: 1`）。コア契約に準拠。
-- 連続プレイの進行状態は `sessionStorage` キー `quizeum_question_list_session` に保持（タブ閉鎖まで有効。`localStorage` の通常プレイ復元とは別キー）。
+- 連続プレイの進行状態は `sessionStorage` キー `quizetika_question_list_session` に保持（タブ閉鎖まで有効。`localStorage` の通常プレイ復元とは別キー）。
 - プレイ URL: `/quiz/{parentQuizId}/play?listId={listId}&mode=question-list&questionId={qId}&qIndex={n}`。
 - 結果 URL: 既存 `listId` クエリを維持し、結果画面がセッションから次エントリを解決して「次の問題へ」を表示。
 
@@ -613,7 +613,7 @@ sequenceDiagram
 
     Play->>Play: 解答進行（ヒント表示）
     Note over Play: 表示したヒントのインデックスを状態保持
-    Play->>Local: saveAttempt 完了時、表示ヒント履歴を保存<br/>(quizeum_attempt_hints_{attemptId})
+    Play->>Local: saveAttempt 完了時、表示ヒント履歴を保存<br/>(quizetika_attempt_hints_{attemptId})
     Play->>Result: router.push (/result?attemptId={attemptId})
     Result->>Local: getRecentRevealedHints(attemptId)
     Local-->>Result: ヒント履歴データ
@@ -725,7 +725,7 @@ sequenceDiagram
 | 13.13–13.14  | GenreNav 非表示・カルーセル遷移禁止                                                             | `HomePage`                                                                          | —                                                | —                                          |
 | 13.15–13.18  | フィルタ状態共有・AND 検索・クリア連動                                                          | `ExploreSearchSection`, `useExploreQuizFeed`, `home-feed-filters`                   | `searchQuizzes`                                  | ホーム統合検索フロー                       |
 | 13.19–13.23  | ジャンルページ scoped 検索 UI                                                                   | `GenreExplorePage`, `ExploreSearchSection`                                          | `lockedGenreId`, `hasActiveScopedExploreFilters` | ジャンルページ scoped 検索フロー           |
-| 13.24–13.25  | Out of boundary（形式専用ルート・サーバー照合なし）                                             | —                                                                                   | `quizeum-core`                                   | —                                          |
+| 13.24–13.25  | Out of boundary（形式専用ルート・サーバー照合なし）                                             | —                                                                                   | `quizetika-core`                                 | —                                          |
 | 13.26–13.27  | testid 契約                                                                                     | `ExploreAccordionsPanel`, `GenreCarousel`, `FormatCarousel`, `ExploreSearchSection` | —                                                | —                                          |
 | 2.1b-1       | 難易度に応じた星（★）の等幅ゲージグラデーションカラー表示                                       | `QuizDetailPage`                                                                    | `getDifficultyColor`                             | —                                          |
 | 3.6          | 解答完了時の自動結果画面遷移                                                                    | `QuizPlayPage`                                                                      | `handlePlayComplete`                             | —                                          |
@@ -888,7 +888,7 @@ export function hasActiveScopedExploreFilters(
   lockedGenreId: string
 ): boolean;
 
-// searchQuizzes 呼び出し契約（quizeum-core Phase 10–11）
+// searchQuizzes 呼び出し契約（quizetika-core Phase 10–11）
 export interface SearchFilters {
   genreId?: string;
   tags?: string[];
@@ -1036,7 +1036,7 @@ export const EXPLORE_FORMAT_OPTIONS: ExploreFormatOption[];
 
 **Responsibilities & Constraints**
 - `quiz: Quiz` を受け取り、初回タブ・リプレイタブでそれぞれ最大5行のテーブルを描画する。
-- 並び替え・マージ・Firestore更新は行わない（`quizeum-core` が保存時に順位付け済みの配列を信頼し `slice(0, 5)` のみ）。
+- 並び替え・マージ・Firestore更新は行わない（`quizetika-core` が保存時に順位付け済みの配列を信頼し `slice(0, 5)` のみ）。
 - 全問正解限定のラベルや空状態メッセージは使わない。
 
 **Dependencies**
@@ -1146,7 +1146,7 @@ interface QuestionListSession {
   currentIndex: number;
 }
 
-const QUESTION_LIST_SESSION_KEY = 'quizeum_question_list_session';
+const QUESTION_LIST_SESSION_KEY = 'quizetika_question_list_session';
 
 function initQuestionListSession(listId: string, entries: QuestionListSessionEntry[]): void;
 function readQuestionListSession(): QuestionListSession | null;
@@ -1393,7 +1393,7 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
 ### 1. 難易度星ゲージ（★）のグラデーションカラー
 難易度（1〜5）の値に応じて HSL カラースペースを用いて算出したカラーを `color` スタイルプロパティに適用します。
 * 算出ロジック:
-  [difficulty-color.ts](file:///d:/quizeum/src/lib/difficulty-color.ts) に `getDifficultyColor(difficulty: number): string` を定義します。
+  [difficulty-color.ts](file:///d:/quizetika/src/lib/difficulty-color.ts) に `getDifficultyColor(difficulty: number): string` を定義します。
   ```typescript
   export function getDifficultyColor(difficulty: number): string {
     // 難易度1のとき Hue=120(緑), 難易度5のとき Hue=0(赤)
@@ -1402,12 +1402,12 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
   }
   ```
 * 適用箇所:
-  * クイズ詳細画面 ([page.tsx](file:///d:/quizeum/src/app/quiz/[id]/page.tsx)) の10段階等幅星ゲージ
-  * クイズ結果画面 ([result/page.tsx](file:///d:/quizeum/src/app/quiz/[id]/result/page.tsx)) の難易度投票セクション内の星UI
-  * クイズカード ([quiz-card.tsx](file:///d:/quizeum/src/components/quiz/quiz-card.tsx)) 内の難易度星アイコン (任意で適用)
+  * クイズ詳細画面 ([page.tsx](file:///d:/quizetika/src/app/quiz/[id]/page.tsx)) の10段階等幅星ゲージ
+  * クイズ結果画面 ([result/page.tsx](file:///d:/quizetika/src/app/quiz/[id]/result/page.tsx)) の難易度投票セクション内の星UI
+  * クイズカード ([quiz-card.tsx](file:///d:/quizetika/src/components/quiz/quiz-card.tsx)) 内の難易度星アイコン (任意で適用)
 
 ### 2. クイズプレイ画面から結果への自動遷移
-通常プレイ ([play/page.tsx](file:///d:/quizeum/src/app/quiz/[id]/play/page.tsx)) において、最後の問題解答を送信したタイミングで、「全問終了しました！」といった待機用の中間画面をレンダリングせず、自動的に結果の保存処理を実行して結果画面 (`/quiz/[id]/result?attemptId={attemptId}`) へ遷移させます。
+通常プレイ ([play/page.tsx](file:///d:/quizetika/src/app/quiz/[id]/play/page.tsx)) において、最後の問題解答を送信したタイミングで、「全問終了しました！」といった待機用の中間画面をレンダリングせず、自動的に結果の保存処理を実行して結果画面 (`/quiz/[id]/result?attemptId={attemptId}`) へ遷移させます。
 * 状態管理:
   `usePlayState` の完了ハンドラ `handlePlayComplete` が発火した際、即座に保存APIのレスポンス完了（またはクライアント側完了処理）を待って `router.replace` で結果画面へリダイレクトします。
 
@@ -1415,7 +1415,7 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
 連想クイズ (association) および水平思考 (lateral-thinking) にて、プレイヤーの解答プロセス詳細を表示します。
 * **連想クイズのヒント履歴**:
   Firestore へのスキーマ追加を回避するため、プレイ中のヒント表示情報 (`activeHintIdx` または表示済みの `revealedHints`) を解答完了時に `localStorage` に保存します。
-  * キー: `quizeum_attempt_hints_{attemptId}`
+  * キー: `quizetika_attempt_hints_{attemptId}`
   * 保存データ: `revealedHintTexts: string[]`（またはインデックスの配列）
   * 結果画面ロード時、クエリパラメータの `attemptId` から対応するローカルデータを取得して表示します。
 * **ウミガメスープの質問回数**:
@@ -1438,7 +1438,7 @@ export function filterGenreSuggestions<T extends Pick<GenreMetadata, 'id' | 'dis
   間違い指摘モーダルを開く際、対象が「クイズ全体への指摘」の場合のみ、カテゴリから「別解の追加要望」を除外または非表示にします (問題個別への指摘時のみ表示)。
 * **通報ボタンと通報モーダル**:
   指摘ボタンの横に通報用のボタン (`data-testid="quiz-report-btn"`) を新設します。
-  * `ReportModal` は通報理由 (reason) テキスト入力を提供し、送信時に `quizeum-core` の `flagContent(quizId, reporterId, reason)` を呼び出します。
+  * `ReportModal` は通報理由 (reason) テキスト入力を提供し、送信時に `quizetika-core` の `flagContent(quizId, reporterId, reason)` を呼び出します。
 
 ### 5. Requirements Traceability
 
@@ -1914,15 +1914,15 @@ sequenceDiagram
 
 ### 2. Boundary Commitments
 
-| 境界                           | 所有者       | 責務                                                                                                  |
-| ------------------------------ | ------------ | ----------------------------------------------------------------------------------------------------- |
-| `usePlayState`                 | Play-flow UI | 回答記録（`recordAnswer`）と進行（`advanceToNext`）の分離。通常モードのみ自動 `currentIdx` 進行を停止 |
-| `PostAnswerFeedback`           | Play-flow UI | 正誤バッジ、解説、正解表示、次へ／結果を見る CTA                                                      |
-| `QuizPlayClient`               | Play-flow UI | 通常モードの問題形式別 UI をフィードバックフローに統合、スキップボタン配置                            |
-| `handlePlayComplete`           | Play-flow UI | 楽観的データ保存 → 即遷移 → バックグラウンド `saveAttempt`                                            |
-| `optimistic-attempt.ts`（lib） | Play-flow UI | sessionStorage への完了 attempt 一時保存・読取・削除                                                  |
-| `QuizResultClient`             | Play-flow UI | `localId` / optimistic データ優先表示、Firestore 到着後に置換                                         |
-| `saveAttempt`                  | quizeum-core | 既存 API をそのまま呼び出し（変更なし）                                                               |
+| 境界                           | 所有者         | 責務                                                                                                  |
+| ------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------- |
+| `usePlayState`                 | Play-flow UI   | 回答記録（`recordAnswer`）と進行（`advanceToNext`）の分離。通常モードのみ自動 `currentIdx` 進行を停止 |
+| `PostAnswerFeedback`           | Play-flow UI   | 正誤バッジ、解説、正解表示、次へ／結果を見る CTA                                                      |
+| `QuizPlayClient`               | Play-flow UI   | 通常モードの問題形式別 UI をフィードバックフローに統合、スキップボタン配置                            |
+| `handlePlayComplete`           | Play-flow UI   | 楽観的データ保存 → 即遷移 → バックグラウンド `saveAttempt`                                            |
+| `optimistic-attempt.ts`（lib） | Play-flow UI   | sessionStorage への完了 attempt 一時保存・読取・削除                                                  |
+| `QuizResultClient`             | Play-flow UI   | `localId` / optimistic データ優先表示、Firestore 到着後に置換                                         |
+| `saveAttempt`                  | quizetika-core | 既存 API をそのまま呼び出し（変更なし）                                                               |
 
 **Out of boundary**: Core API 変更、exam/flashcard/lateral のフロー、test-play
 
@@ -1992,7 +1992,7 @@ interface PostAnswerFeedbackProps {
 ### 6. 楽観的結果遷移フロー
 
 #### sessionStorage キー
-`quizeum_optimistic_attempt_{localId}` — シリアライズ済み `Attempt` 相当オブジェクト（`id` 未確定）
+`quizetika_optimistic_attempt_{localId}` — シリアライズ済み `Attempt` 相当オブジェクト（`id` 未確定）
 
 #### シーケンス
 
@@ -2088,17 +2088,17 @@ sequenceDiagram
 
 ### 2. Boundary Commitments
 
-| 境界                           | 所有者       | 責務                                                                                                 |
-| ------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------- |
-| `play-elapsed.ts`（lib）       | Play-flow UI | 区間累計の純関数（確定秒数 + 進行中区間の算出）                                                      |
-| `usePlayState`                 | Play-flow UI | 区間累計タイマーの tick 制御、`limitTime` の遅延開始 API、セッション永続化への `elapsedSeconds` 反映 |
-| `useQuickPressStream`          | Play-flow UI | 問読み修了イベントの親への通知（`onReadingComplete`）                                                |
-| `QuizPlayClient`               | Play-flow UI | 早押しフェーズ遷移のオーケストレーション、レイアウトクラス付与、`PostAnswerFeedback` への正解非表示  |
-| `PostAnswerFeedback`           | Play-flow UI | 呼び出し側が `correctAnswerDisplay` を渡さない場合の既存挙動維持（変更最小）                         |
-| `play.module.css`              | Play-flow UI | 早押しプレイ時のコンテナ／カード横幅拡大                                                             |
-| `saveAttempt` / リーダーボード | quizeum-core | 既存 `elapsedSeconds` フィールドを読み取り（値の意味が区間累計になるのみ）                           |
+| 境界                           | 所有者         | 責務                                                                                                 |
+| ------------------------------ | -------------- | ---------------------------------------------------------------------------------------------------- |
+| `play-elapsed.ts`（lib）       | Play-flow UI   | 区間累計の純関数（確定秒数 + 進行中区間の算出）                                                      |
+| `usePlayState`                 | Play-flow UI   | 区間累計タイマーの tick 制御、`limitTime` の遅延開始 API、セッション永続化への `elapsedSeconds` 反映 |
+| `useQuickPressStream`          | Play-flow UI   | 問読み修了イベントの親への通知（`onReadingComplete`）                                                |
+| `QuizPlayClient`               | Play-flow UI   | 早押しフェーズ遷移のオーケストレーション、レイアウトクラス付与、`PostAnswerFeedback` への正解非表示  |
+| `PostAnswerFeedback`           | Play-flow UI   | 呼び出し側が `correctAnswerDisplay` を渡さない場合の既存挙動維持（変更最小）                         |
+| `play.module.css`              | Play-flow UI   | 早押しプレイ時のコンテナ／カード横幅拡大                                                             |
+| `saveAttempt` / リーダーボード | quizetika-core | 既存 `elapsedSeconds` フィールドを読み取り（値の意味が区間累計になるのみ）                           |
 
-**Out of boundary**: `quizeum-core` API 変更、早押しタイム計測、テストプレイ、復習画面、結果画面の正誤一覧（結果画面は従来どおり正解表示可）
+**Out of boundary**: `quizetika-core` API 変更、早押しタイム計測、テストプレイ、復習画面、結果画面の正誤一覧（結果画面は従来どおり正解表示可）
 
 **Revalidation Triggers**:
 - `elapsedSeconds` のセッション復元形式変更 → `LocalAttemptSession` / `usePlayState` 復元ロジックの再検証
@@ -2384,12 +2384,12 @@ sequenceDiagram
 
 ### 1. Boundary Commitments
 
-| Owns                                    | Out of Boundary                            |
-| --------------------------------------- | ------------------------------------------ |
-| クイズ詳細プレイパネル内の警告文表示    | LB 登録ロジック（`quizeum-core` Phase 18） |
-| 警告の表示条件（3モード UI 表示時のみ） | プレイ中・結果画面での再警告               |
-| `page.module.css` の警告スタイル        | docs 同期（任意）                          |
-| E2E / component testid                  |                                            |
+| Owns                                    | Out of Boundary                              |
+| --------------------------------------- | -------------------------------------------- |
+| クイズ詳細プレイパネル内の警告文表示    | LB 登録ロジック（`quizetika-core` Phase 18） |
+| 警告の表示条件（3モード UI 表示時のみ） | プレイ中・結果画面での再警告                 |
+| `page.module.css` の警告スタイル        | docs 同期（任意）                            |
+| E2E / component testid                  |                                              |
 
 ### 2. UI Design
 
@@ -2537,7 +2537,7 @@ type TrueFalseAnswerPanelProps = {
 
 ### 1. Overview
 
-ホーム探索 UX を整理し、縦スクロール量を抑えつつ絞り込み操作を検索セクションへ集約する。ジャンル／出題形式は Phase 11 の横スクロールカルーセルを維持するが、`ExploreAccordion` による折りたたみを廃止して常時表示とする。クイズ一覧は `quizeum-core` の `PaginatedQuizResult` を消費し、スクロール末端で自動的に `loadMore` する。
+ホーム探索 UX を整理し、縦スクロール量を抑えつつ絞り込み操作を検索セクションへ集約する。ジャンル／出題形式は Phase 11 の横スクロールカルーセルを維持するが、`ExploreAccordion` による折りたたみを廃止して常時表示とする。クイズ一覧は `quizetika-core` の `PaginatedQuizResult` を消費し、スクロール末端で自動的に `loadMore` する。
 
 ### 2. Boundary Commitments（Phase 21）
 
@@ -2730,7 +2730,7 @@ function useIntersectionLoadMore(options: {
 
 ### 1. Overview
 
-`/` を軽量なディスカバリーホーム（トレンド Top 10・ジャンル・新着 Top 10 の3カルーセル）に差し替え、現行 `HomeClient` の統合検索・タブ・無限スクロールは `/search` へ移設する。検索画面では `ExploreSearchSection` 直下に `ActiveFilterChips` を追加し、フィルタパネルが閉じていてもアクティブ条件を表示する。深いリンクは `quizeum-core` の `search-url-state.ts` を正本とする。
+`/` を軽量なディスカバリーホーム（トレンド Top 10・ジャンル・新着 Top 10 の3カルーセル）に差し替え、現行 `HomeClient` の統合検索・タブ・無限スクロールは `/search` へ移設する。検索画面では `ExploreSearchSection` 直下に `ActiveFilterChips` を追加し、フィルタパネルが閉じていてもアクティブ条件を表示する。深いリンクは `quizetika-core` の `search-url-state.ts` を正本とする。
 
 ### 2. Boundary Commitments（Phase 22）
 
@@ -2938,7 +2938,7 @@ function useSearchUrlState(): {
 
 `/lists`・`/list/*` ルートとリスト関連コンポーネントを削除し、ブックマーク画面を **クイズ・問題の2タブ** に集約する。`list` / `question-list` プレイ導線・結果ナビ・`question-list-session` 参照を除去する。廃止 URL はルート削除により **Next.js 既定の 404** とする（リダイレクトは行わない）。
 
-**前提**: `quizeum-core` Phase 26 完了後（または同一 PR で Core 変更を先にマージ）に UI 削除を適用し、削除済み API への参照でビルドが破綻しないようにする。
+**前提**: `quizetika-core` Phase 26 完了後（または同一 PR で Core 変更を先にマージ）に UI 削除を適用し、削除済み API への参照でビルドが破綻しないようにする。
 
 ### 2. Boundary Commitments（Phase 26）
 

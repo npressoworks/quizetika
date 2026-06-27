@@ -1,4 +1,4 @@
-# Brief: quizeum-moderation-governance-ui
+# Brief: quizetika-moderation-governance-ui
 
 ## Problem
 不適切なコンテンツに対する管理者向けの審査キューを提供し、また表記揺れタグや新規ジャンルのマージ・申請をコミュニティ内で自律的にガバナンス（合意形成・投票）するための専用のモデレーションUIが必要です。
@@ -35,15 +35,15 @@ Next.js App Routerでの専用パス（`/admin/*`, `/community/*`）を構築し
 - `src/app/community/genres/page.tsx`
 
 ## Out of Boundary
-- コアのモデレーションルールや通知の自動トリガー処理（`quizeum-core` が担当）。
+- コアのモデレーションルールや通知の自動トリガー処理（`quizetika-core` が担当）。
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-creator-dash-ui`, `quizeum-core`
+- **Upstream**: `quizetika-creator-dash-ui`, `quizetika-core`
 - **Downstream**: なし（ロードマップの最終Wave）
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core` の `ModerationService` およびデータモデル。
-- **Adjacent**: `quizeum-auth-profile-ui` (プロフィール上の reputationScore やティアーバッジ表示)
+- **Extends**: `quizetika-core` の `ModerationService` およびデータモデル。
+- **Adjacent**: `quizetika-auth-profile-ui` (プロフィール上の reputationScore やティアーバッジ表示)
 
 ## Constraints
 - **Role Guard**: `moderationTier` などの権限ティアーに基づいて、一般ユーザーによるアクセスを厳格に制限（403または404フォールバック）する。

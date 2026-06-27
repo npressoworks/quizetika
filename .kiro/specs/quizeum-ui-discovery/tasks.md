@@ -2,7 +2,7 @@
 
 ## 1. Foundation: 探索用プリミティブとカルーセル基盤
 - [x] 1.1 foundation Primitive Wave 2 の存在を確認する
-  - `src/components/ui/` に Accordion, Popover が存在することを確認する（`quizeum-ui-foundation` で追加済み）
+  - `src/components/ui/` に Accordion, Popover が存在することを確認する（`quizetika-ui-foundation` で追加済み）
   - 各コンポーネントが `cn()` を利用し TypeScript 型付きでエクスポートされることを確認する
   - `npm run build` が成功することを確認する
   - _Requirements: 2.4, 8.5_
@@ -118,7 +118,7 @@
 
 ## 7. Core: リスト探索の並列移行
 
-> **Phase 26 注記（2026-06-10）**: 以下タスク 7.x は Phase 24 実装完了済みだが、Phase 26 リスト機能完全廃止により **本スペックの継続所有対象から除外**。物理削除は `quizeum-play-flow-ui` Phase 28 が担当。`src/components/lists/*` は **obsolete**。
+> **Phase 26 注記（2026-06-10）**: 以下タスク 7.x は Phase 24 実装完了済みだが、Phase 26 リスト機能完全廃止により **本スペックの継続所有対象から除外**。物理削除は `quizetika-play-flow-ui` Phase 28 が担当。`src/components/lists/*` は **obsolete**。
 - [x] 7.1 (P) リスト UI コンポーネントを shadcn 化する
   - `list-discovery-card.tsx`, `lists-search-bar.tsx`, `lists-visibility-tabs.tsx`, `lists-grid.tsx` から `lists.module.css` import を削除する
   - shadcn Card, Input, Tabs, Badge, Button で再構築し全 `data-testid` を維持する
@@ -193,12 +193,12 @@
 
 ### 10. Phase 26: リスト探索の移行スコープ除外（2026-06-10）
 
-> **注記**: タスク 7.x（リスト探索・詳細の shadcn 移行）は Phase 24 実装完了済みだが、Phase 26 リスト機能廃止により **本スペックの継続所有対象から除外** される。物理削除は `quizeum-play-flow-ui` Phase 28 が担当。
+> **注記**: タスク 7.x（リスト探索・詳細の shadcn 移行）は Phase 24 実装完了済みだが、Phase 26 リスト機能廃止により **本スペックの継続所有対象から除外** される。物理削除は `quizetika-play-flow-ui` Phase 28 が担当。
 
 - [x] 10.1 要件・設計のスコープ改定
   - 要件 5・6 および要件 9・10 のリスト関連を **廃止** と明記する
   - design の Boundary Commitments から `/lists`・`/list/[id]`・`components/lists/*` を除外する
-  - `quizeum-lists-discovery-ui` を obsolete と相互参照する
+  - `quizetika-lists-discovery-ui` を obsolete と相互参照する
   - **完了状態**: requirements/design に Phase 26 節が追加され、リスト画面が In scope 外であることが明文化されていること
   - _Requirements: 11.1, 11.2, 11.3, 11.7_
   - _Boundary: SpecDocs_

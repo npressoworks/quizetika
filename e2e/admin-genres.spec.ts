@@ -10,14 +10,14 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
 
     // 1. 管理者以外の状態で /admin/genres へのアクセスを試みる
     await page.goto('/admin/genres');
-    
+
     // アクセス拒否されて /not-found に遷移するか、404表示になることを確認
     await page.waitForTimeout(2000);
     const currentUrl = page.url();
-    
+
     expect(
-      currentUrl.includes('/not-found') || 
-      currentUrl.includes('/login') || 
+      currentUrl.includes('/not-found') ||
+      currentUrl.includes('/login') ||
       await page.locator('text=見つかりません').isVisible()
     ).toBeTruthy();
   });
@@ -33,13 +33,13 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
 
     // 2. ジャンル管理画面へ遷移
     await page.goto('/admin/genres');
-    
+
     // 認証判定およびリダイレクトの完了を待機
     await page.waitForTimeout(2000);
 
     // 静的 h1 ではなく、認証解決後にしか表示されない #genreId の有無で画面が表示されたかを判定
     const isPageVisible = await page.locator('#genreId').isVisible().catch(() => false);
-    
+
     if (isPageVisible) {
       // タイトル、概要、フォーム入力エリア、一覧テーブルの存在確認
       await expect(page.locator('h1')).toContainText('ジャンル直接管理');
@@ -48,11 +48,11 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
       await expect(page.locator('#displayName')).toBeVisible();
       await expect(page.locator('#description')).toBeVisible();
       await expect(page.locator('button:has-text("ジャンルを追加")')).toBeVisible();
-      
+
       // 相互ナビゲーションリンクの存在確認
       const moderationLink = page.locator('text=モデレーション審査画面へ');
       await expect(moderationLink).toBeVisible();
-      
+
       // モデレーション画面に遷移できるか
       await moderationLink.click();
       await page.waitForURL(/\/admin\/moderation/, { timeout: 5000 });
@@ -68,23 +68,23 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
 
   test('ジャンルアイコン画像検証（SVG禁止・サイズ制限）の動作確認', async ({ page }) => {
     await page.goto('/admin/genres');
-    
+
     // 認証判定およびリダイレクトの完了を待機
     await page.waitForTimeout(2000);
 
     const isPageVisible = await page.locator('#genreId').isVisible().catch(() => false);
-    
+
     if (isPageVisible) {
       const fileInput = page.locator('#iconFile');
       const submitBtn = page.locator('button:has-text("ジャンルを追加")');
-      
+
       // 1. SVGファイルをセットして検証エラーになることを確認
       await fileInput.setInputFiles({
         name: 'test.svg',
         mimeType: 'image/svg+xml',
         buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/></svg>')
       });
-      
+
       await expect(page.locator('text=PNG, JPEG, GIF ファイルのみアップロード可能です。')).toBeVisible();
       await expect(submitBtn).toBeDisabled();
 
@@ -105,12 +105,12 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
   test('非同期ローディングとスケルトン要素の確認', async ({ page }) => {
     // データロード中にスケルトンが表示されるか、その属性が存在することを確認
     await page.goto('/admin/genres');
-    
+
     // 認証判定およびリダイレクトの完了を待機
     await page.waitForTimeout(2000);
 
     const isPageVisible = await page.locator('#genreId').isVisible().catch(() => false);
-    
+
     if (isPageVisible) {
       // スケルトンプレースホルダーの data-testid 属性をアサート
       const skeleton = page.locator('[data-testid="genres-management-skeleton"]');
@@ -125,7 +125,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: 'https://storage.googleapis.com/quizeum-77bc6.appspot.com/genres/temp/admin_123.png',
+          iconImageUrl: 'https://storage.googleapis.com/quizetika-77bc6.appspot.com/genres/temp/admin_123.png',
           usage: { limit: null, usedToday: 0, remainingToday: null }
         })
       });
@@ -164,7 +164,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: 'https://storage.googleapis.com/quizeum-77bc6.appspot.com/genres/temp/user_123.png',
+          iconImageUrl: 'https://storage.googleapis.com/quizetika-77bc6.appspot.com/genres/temp/user_123.png',
           usage: { limit: 5, usedToday: 1, remainingToday: 4 }
         })
       });
@@ -176,7 +176,7 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          iconImageUrl: 'https://storage.googleapis.com/quizeum-77bc6.appspot.com/genres/test-ai-community/icon_123.png'
+          iconImageUrl: 'https://storage.googleapis.com/quizetika-77bc6.appspot.com/genres/test-ai-community/icon_123.png'
         })
       });
     });

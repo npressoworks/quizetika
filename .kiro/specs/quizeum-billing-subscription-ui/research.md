@@ -1,14 +1,14 @@
-# Research & Design Decisions: quizeum-billing-subscription-ui
+# Research & Design Decisions: quizetika-billing-subscription-ui
 
 ---
 **Purpose**: Phase 1 料金 UI のディスカバリー調査と設計判断の記録。
 ---
 
 ## Summary
-- **Feature**: `quizeum-billing-subscription-ui`
-- **Discovery Scope**: Extension（`quizeum-core` Phase 14 完了後の UI 層追加）
+- **Feature**: `quizetika-billing-subscription-ui`
+- **Discovery Scope**: Extension（`quizetika-core` Phase 14 完了後の UI 層追加）
 - **Key Findings**:
-  - 購読開始 API・契約管理 API は `quizeum-core` で実装済み。本スペックはクライアントから Bearer トークン付き `fetch` で呼び出し、返却 `sessionUrl` へ `window.location.assign` する薄い UI 層で足りる。
+  - 購読開始 API・契約管理 API は `quizetika-core` で実装済み。本スペックはクライアントから Bearer トークン付き `fetch` で呼び出し、返却 `sessionUrl` へ `window.location.assign` する薄い UI 層で足りる。
   - `src/services/entitlement.ts` は `firebase-admin` を import するためクライアントコンポーネントから直接利用不可。UI 用の client-safe な tier 解釈ヘルパーを別モジュールに置く。
   - `subscription-plans.ts` は Stripe Price ID のみ保持し表示用の円価格は含まない。UI 表示価格は `pricing-display.ts` でマーケティング正本とし、Stripe Dashboard の金額と手動同期する。
   - 既存 API 呼び出しパターンは `auth.currentUser.getIdToken()` + `Authorization: Bearer`（`admin/users/page.tsx`、`useAiPlayState.ts` と同型）。
@@ -17,7 +17,7 @@
 
 ### コア API 契約の確認
 - **Context**: UI が依存する upstream 契約を固定する必要がある。
-- **Sources Consulted**: `src/app/api/billing/checkout-session/route.ts`, `src/app/api/billing/portal-session/route.ts`, `quizeum-core` requirements 要件 19
+- **Sources Consulted**: `src/app/api/billing/checkout-session/route.ts`, `src/app/api/billing/portal-session/route.ts`, `quizetika-core` requirements 要件 19
 - **Findings**:
   - Checkout: `POST /api/billing/checkout-session` body `{ priceInterval: 'monthly' | 'yearly' }` → `{ sessionUrl }`。401/403/409/500。
   - Portal: `POST /api/billing/portal-session` body なし → `{ sessionUrl }`。401/404/500。
@@ -34,7 +34,7 @@
 
 ### 既存 UI パターン
 - **Context**: ネオンデザイン・ナビ・ページ構成の整合。
-- **Sources Consulted**: `src/components/layout/sidebar.tsx`, `src/app/leaderboard/page.tsx`, `quizeum-auth-profile-ui/design.md`
+- **Sources Consulted**: `src/components/layout/sidebar.tsx`, `src/app/leaderboard/page.tsx`, `quizetika-auth-profile-ui/design.md`
 - **Findings**:
   - サイドバーは `menuItems` 配列 + `pathname` アクティブ判定。`/play` では非表示（既存ルール）。
   - 料金ページは認証状態依存のため Client Component 主体が適切（`useAuth`）。
@@ -51,11 +51,11 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| Thin Client + Redirect | UI が core API を呼び URL へ遷移 | コア境界尊重、実装最小 | Webhook 反映遅延は UI で案内必要 | **採用** |
-| Stripe.js Embedded Checkout | アプリ内決済 | シームレス | 要件 Out of scope | 不採用 |
-| Server Action 経由 Checkout | Next.js Server Action で API プロキシ | トークン隠蔽 | 既存パターンは client fetch + Bearer | 不採用（既存に合わせる） |
+| Option                      | Description                           | Strengths              | Risks / Limitations                  | Notes                    |
+| --------------------------- | ------------------------------------- | ---------------------- | ------------------------------------ | ------------------------ |
+| Thin Client + Redirect      | UI が core API を呼び URL へ遷移      | コア境界尊重、実装最小 | Webhook 反映遅延は UI で案内必要     | **採用**                 |
+| Stripe.js Embedded Checkout | アプリ内決済                          | シームレス             | 要件 Out of scope                    | 不採用                   |
+| Server Action 経由 Checkout | Next.js Server Action で API プロキシ | トークン隠蔽           | 既存パターンは client fetch + Bearer | 不採用（既存に合わせる） |
 
 ## Design Decisions
 
@@ -86,7 +86,7 @@
 - **表示価格と Stripe 実金額の不一致** — 運用チェックリスト（docs 同期タスク）で緩和
 
 ## References
-- `quizeum-core` requirements 要件 19、`design.md` Phase 13
+- `quizetika-core` requirements 要件 19、`design.md` Phase 13
 - `src/app/api/billing/checkout-session/route.ts`
 - `src/app/api/billing/portal-session/route.ts`
 - [Stripe Checkout redirect flow](https://docs.stripe.com/checkout/quickstart) — リダイレクト型の確認
@@ -98,7 +98,7 @@
 ## Summary
 
 - **スコープ**: `/pricing` UI、Checkout/Portal CTA、契約状態表示、サイドバー導線、Checkout フィードバック、テスト。
-- **Upstream 状態**: `quizeum-core` Phase 14 は **実装済み・検証 GO**。購読 API・`User.subscriptionTier`・`refreshUser`・ログイン `redirect` は利用可能。
+- **Upstream 状態**: `quizetika-core` Phase 14 は **実装済み・検証 GO**。購読 API・`User.subscriptionTier`・`refreshUser`・ログイン `redirect` は利用可能。
 - **本スペックギャップ**: UI 層は **ほぼ全 Missing**（`/pricing` ページ、billing クライアント、pricing コンポーネント、サイドバー項目、E2E）。
 - **推奨アプローチ**: **Option B**（`design.md` File Structure Plan どおり新規モジュール）— 既存ファイルへの最小改修はサイドバーのみ。
 - **Effort**: **S（1–3日）** / **Risk**: **Low**
@@ -107,42 +107,42 @@
 
 ### 1.1 再利用可能な既存アセット
 
-| アセット | パス | 本スペックでの用途 |
-|----------|------|-------------------|
-| 購読開始 API | `src/app/api/billing/checkout-session/route.ts` | `billing-client` から POST（**Ready**） |
-| 契約管理 API | `src/app/api/billing/portal-session/route.ts` | `billing-client` から POST（**Ready**） |
-| Checkout リダイレクト URL | `src/services/subscription.ts` L98–99 | `/pricing?checkout=success\|canceled` 既設定（**Ready**） |
-| Portal return URL | `src/services/subscription.ts` L134 | `/pricing` 既設定（**Ready**） |
-| `User` 課金フィールド | `src/types/index.ts` | `subscriptionTier`, `subscriptionStatus` 等（**Ready**） |
-| tier 正規化（読み取り） | `src/services/user.ts` `normalizeUserRecord` | `subscriptionTier` 未設定→`free`（**Ready**） |
-| 認証コンテキスト | `src/context/auth-context.tsx` | `useAuth`, `refreshUser`（**Ready**） |
-| ログイン戻り先 | `src/app/login/page.tsx` + `safe-redirect-path.ts` | `/login?redirect=/pricing`（**Ready**） |
-| Bearer fetch パターン | `useAiPlayState.ts`, `admin/users/page.tsx` | `getIdToken()` + `Authorization`（**Constraint** — 踏襲） |
-| API クライアント先例 | `src/lib/play-history-client.ts` | エラークラス + auth チェック構造（**Constraint**） |
-| サイドバー / ボトムナビ | `sidebar.tsx`, `bottom-nav.tsx` | 導線追加の拡張点（**Partial** — サイドバーのみ設計対象） |
-| ネオン UI | `globals.css`, `glass-card` | スタイル基盤（**Ready**） |
-| Billing API 単体テスト | `tests/api/billing-*.test.ts` | upstream 回帰済み（**Ready**、UI テストは未作成） |
+| アセット                  | パス                                               | 本スペックでの用途                                        |
+| ------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| 購読開始 API              | `src/app/api/billing/checkout-session/route.ts`    | `billing-client` から POST（**Ready**）                   |
+| 契約管理 API              | `src/app/api/billing/portal-session/route.ts`      | `billing-client` から POST（**Ready**）                   |
+| Checkout リダイレクト URL | `src/services/subscription.ts` L98–99              | `/pricing?checkout=success\|canceled` 既設定（**Ready**） |
+| Portal return URL         | `src/services/subscription.ts` L134                | `/pricing` 既設定（**Ready**）                            |
+| `User` 課金フィールド     | `src/types/index.ts`                               | `subscriptionTier`, `subscriptionStatus` 等（**Ready**）  |
+| tier 正規化（読み取り）   | `src/services/user.ts` `normalizeUserRecord`       | `subscriptionTier` 未設定→`free`（**Ready**）             |
+| 認証コンテキスト          | `src/context/auth-context.tsx`                     | `useAuth`, `refreshUser`（**Ready**）                     |
+| ログイン戻り先            | `src/app/login/page.tsx` + `safe-redirect-path.ts` | `/login?redirect=/pricing`（**Ready**）                   |
+| Bearer fetch パターン     | `useAiPlayState.ts`, `admin/users/page.tsx`        | `getIdToken()` + `Authorization`（**Constraint** — 踏襲） |
+| API クライアント先例      | `src/lib/play-history-client.ts`                   | エラークラス + auth チェック構造（**Constraint**）        |
+| サイドバー / ボトムナビ   | `sidebar.tsx`, `bottom-nav.tsx`                    | 導線追加の拡張点（**Partial** — サイドバーのみ設計対象）  |
+| ネオン UI                 | `globals.css`, `glass-card`                        | スタイル基盤（**Ready**）                                 |
+| Billing API 単体テスト    | `tests/api/billing-*.test.ts`                      | upstream 回帰済み（**Ready**、UI テストは未作成）         |
 
 ### 1.2 存在しないファイル（design.md vs 実装）
 
-| ファイル | 状態 |
-|----------|------|
-| `src/app/pricing/page.tsx` | **Missing** |
-| `src/app/pricing/pricing.module.css` | **Missing** |
-| `src/components/pricing/*` | **Missing**（4 コンポーネント + CSS） |
-| `src/lib/billing-client.ts` | **Missing** |
-| `src/lib/pricing-display.ts` | **Missing** |
-| `src/lib/pricing-entitlement.ts` | **Missing** |
-| `tests/lib/pricing-entitlement.test.ts` | **Missing** |
-| `tests/lib/billing-client.test.ts` | **Missing** |
-| `e2e/pricing-checkout.spec.ts` | **Missing** |
+| ファイル                                | 状態                                  |
+| --------------------------------------- | ------------------------------------- |
+| `src/app/pricing/page.tsx`              | **Missing**                           |
+| `src/app/pricing/pricing.module.css`    | **Missing**                           |
+| `src/components/pricing/*`              | **Missing**（4 コンポーネント + CSS） |
+| `src/lib/billing-client.ts`             | **Missing**                           |
+| `src/lib/pricing-display.ts`            | **Missing**                           |
+| `src/lib/pricing-entitlement.ts`        | **Missing**                           |
+| `tests/lib/pricing-entitlement.test.ts` | **Missing**                           |
+| `tests/lib/billing-client.test.ts`      | **Missing**                           |
+| `e2e/pricing-checkout.spec.ts`          | **Missing**                           |
 
 ### 1.3 改修が必要な既存ファイル
 
-| ファイル | 変更内容 | 影響 |
-|----------|----------|------|
-| `src/components/layout/sidebar.tsx` | `/pricing` ナビ項目追加、アクティブ判定 | 低 — 1 エントリ追加 |
-| `src/components/layout/sidebar.module.css` | 必要時のみスタイル調整 | 低 |
+| ファイル                                   | 変更内容                                | 影響                |
+| ------------------------------------------ | --------------------------------------- | ------------------- |
+| `src/components/layout/sidebar.tsx`        | `/pricing` ナビ項目追加、アクティブ判定 | 低 — 1 エントリ追加 |
+| `src/components/layout/sidebar.module.css` | 必要時のみスタイル調整                  | 低                  |
 
 **意図的に変更しないもの**（境界外）:
 - `bottom-nav.tsx` — 要件 5 は「最小 1 か所」でサイドバーで充足可
@@ -151,25 +151,25 @@
 
 ### 1.4 隣接スペックのギャップ（本スペック外だが E2E に影響）
 
-| 領域 | 現状 | 担当 |
-|------|------|------|
-| プレイ画面 `isPremium` | `play/page.tsx` で `false` 固定 | `quizeum-play-flow-ui` |
-| AI 制限ダイアログ → `/pricing` | 未実装 | `quizeum-play-flow-ui` |
-| `docs/screen_transition.md` | `/pricing` 未記載 | `docs-sync-billing`（roadmap） |
+| 領域                           | 現状                            | 担当                           |
+| ------------------------------ | ------------------------------- | ------------------------------ |
+| プレイ画面 `isPremium`         | `play/page.tsx` で `false` 固定 | `quizetika-play-flow-ui`       |
+| AI 制限ダイアログ → `/pricing` | 未実装                          | `quizetika-play-flow-ui`       |
+| `docs/screen_transition.md`    | `/pricing` 未記載               | `docs-sync-billing`（roadmap） |
 
 ## 2. Requirement-to-Asset Map
 
-| 要件 | 必要アセット | 現状 | ギャップ |
-|------|-------------|------|----------|
-| **1** `/pricing` Pro 表示 | `PricingPage`, `ProPlanCard`, `pricing-display` | なし | **Missing** |
-| **2** 購読開始 | `billing-client`, Checkout API | API のみ存在 | **Partial** — UI クライアント未実装 |
-| **3** 契約管理 | `billing-client`, Portal API, `pricing-entitlement` | API のみ存在 | **Partial** |
-| **4** Checkout フィードバック | `CheckoutFeedbackBanner`, query 処理, `refreshUser` | `refreshUser` のみ | **Partial** |
-| **5** ナビ導線 | `sidebar.tsx` | 導線なし | **Missing**（`/play` 非表示は **Ready**） |
-| **6** 契約状態表示 | `SubscriptionStatusBadge`, `pricing-entitlement` | `User` フィールドのみ | **Missing** |
-| **7** ローディング・エラー | `billing-client` エラー型、UI 状態 | パターンは他画面に存在 | **Missing**（本画面用） |
-| **8** デザイン・a11y | CSS Modules, `data-testid` | デザインシステム **Ready** | **Missing**（画面実装） |
-| **9** 境界整合 | — | コアは実装済み、プレイは未連携 | **Constraint** — 9.1–9.2 は遵守可能 |
+| 要件                          | 必要アセット                                        | 現状                           | ギャップ                                  |
+| ----------------------------- | --------------------------------------------------- | ------------------------------ | ----------------------------------------- |
+| **1** `/pricing` Pro 表示     | `PricingPage`, `ProPlanCard`, `pricing-display`     | なし                           | **Missing**                               |
+| **2** 購読開始                | `billing-client`, Checkout API                      | API のみ存在                   | **Partial** — UI クライアント未実装       |
+| **3** 契約管理                | `billing-client`, Portal API, `pricing-entitlement` | API のみ存在                   | **Partial**                               |
+| **4** Checkout フィードバック | `CheckoutFeedbackBanner`, query 処理, `refreshUser` | `refreshUser` のみ             | **Partial**                               |
+| **5** ナビ導線                | `sidebar.tsx`                                       | 導線なし                       | **Missing**（`/play` 非表示は **Ready**） |
+| **6** 契約状態表示            | `SubscriptionStatusBadge`, `pricing-entitlement`    | `User` フィールドのみ          | **Missing**                               |
+| **7** ローディング・エラー    | `billing-client` エラー型、UI 状態                  | パターンは他画面に存在         | **Missing**（本画面用）                   |
+| **8** デザイン・a11y          | CSS Modules, `data-testid`                          | デザインシステム **Ready**     | **Missing**（画面実装）                   |
+| **9** 境界整合                | —                                                   | コアは実装済み、プレイは未連携 | **Constraint** — 9.1–9.2 は遵守可能       |
 
 ## 3. Implementation Approach Options
 
@@ -196,47 +196,47 @@
 
 ## 4. Effort & Risk
 
-| 項目 | 評価 | 根拠 |
-|------|------|------|
-| **Effort** | **S（1–3日）** | 新規 UI ~10 ファイル、upstream 完了、既存パターン踏襲 |
-| **Risk** | **Low** | 新規外部依存なし。Stripe 操作は core 委譲。主リスクは Webhook 反映遅延 UX（設計済み） |
-| **Blocker** | なし | コア API・env（Price ID）は実装済み。表示価格ラベルは `pricing-display.ts` で決定即可 |
+| 項目        | 評価           | 根拠                                                                                  |
+| ----------- | -------------- | ------------------------------------------------------------------------------------- |
+| **Effort**  | **S（1–3日）** | 新規 UI ~10 ファイル、upstream 完了、既存パターン踏襲                                 |
+| **Risk**    | **Low**        | 新規外部依存なし。Stripe 操作は core 委譲。主リスクは Webhook 反映遅延 UX（設計済み） |
+| **Blocker** | なし           | コア API・env（Price ID）は実装済み。表示価格ラベルは `pricing-display.ts` で決定即可 |
 
 ## 5. Research Needed（実装前確認）
 
-| 項目 | 状態 | 備考 |
-|------|------|------|
-| 表示用円価格の正本 | **要決定** | `pricing-display.ts` 固定値 vs `NEXT_PUBLIC_*` env。design は UI 正本を採用済み |
-| Stripe Dashboard 金額との一致 | **運用** | 手動同期チェックリスト |
-| `pricing-entitlement` と core の規則同期 | **テストで担保** | 単体テストで `computeUserEntitlements` 同一ケース比較推奨 |
-| Customer Portal Dashboard 有効化 | **運用** | Portal API は実装済み、Dashboard 設定は運用タスク |
-| E2E Stripe 遷移 | **スコープ限定** | 要件 9.5 — API 呼び出しまで。Stripe 画面は手動またはモック |
+| 項目                                     | 状態             | 備考                                                                            |
+| ---------------------------------------- | ---------------- | ------------------------------------------------------------------------------- |
+| 表示用円価格の正本                       | **要決定**       | `pricing-display.ts` 固定値 vs `NEXT_PUBLIC_*` env。design は UI 正本を採用済み |
+| Stripe Dashboard 金額との一致            | **運用**         | 手動同期チェックリスト                                                          |
+| `pricing-entitlement` と core の規則同期 | **テストで担保** | 単体テストで `computeUserEntitlements` 同一ケース比較推奨                       |
+| Customer Portal Dashboard 有効化         | **運用**         | Portal API は実装済み、Dashboard 設定は運用タスク                               |
+| E2E Stripe 遷移                          | **スコープ限定** | 要件 9.5 — API 呼び出しまで。Stripe 画面は手動またはモック                      |
 
 ## 6. Spec / ドキュメント整合
 
-| ドキュメント | 状態 |
-|-------------|------|
-| `requirements.md` | 生成済み・承認済み（`-y` design 時） |
-| `design.md` | 生成済み。File Structure Plan と gap が一致 |
-| `quizeum-core/research.md` §2 ギャップ表 | **陳腐化** — Stripe コアは実装完了。本分析が UI 側の正本 |
-| `docs/screen_transition.md` | `/pricing` 未記載 — 実装後 `docs-sync-billing` で追記推奨 |
+| ドキュメント                               | 状態                                                      |
+| ------------------------------------------ | --------------------------------------------------------- |
+| `requirements.md`                          | 生成済み・承認済み（`-y` design 時）                      |
+| `design.md`                                | 生成済み。File Structure Plan と gap が一致               |
+| `quizetika-core/research.md` §2 ギャップ表 | **陳腐化** — Stripe コアは実装完了。本分析が UI 側の正本  |
+| `docs/screen_transition.md`                | `/pricing` 未記載 — 実装後 `docs-sync-billing` で追記推奨 |
 
 ## 7. Recommendations for Task Generation
 
-1. **`/kiro-spec-tasks quizeum-billing-subscription-ui -y`** でタスク生成（design 承認後）
+1. **`/kiro-spec-tasks quizetika-billing-subscription-ui -y`** でタスク生成（design 承認後）
 2. **実装順序（推奨）**:
    - `pricing-display.ts` + `pricing-entitlement.ts`（純関数・テスト先行）
    - `billing-client.ts`（API ラッパー・テスト）
    - `components/pricing/*` + `app/pricing/page.tsx`
    - `sidebar.tsx` 導線
    - E2E `pricing-checkout.spec.ts`
-3. **並行（別スペック）**: `quizeum-play-flow-ui` でプレイ内誘導・`isPremium` 連携
-4. **依存**: `quizeum-core` Phase 14 完了を前提に着手可能（**満たされている**）
+3. **並行（別スペック）**: `quizetika-play-flow-ui` でプレイ内誘導・`isPremium` 連携
+4. **依存**: `quizetika-core` Phase 14 完了を前提に着手可能（**満たされている**）
 
 ## Document Status（Gap Analysis）
 
 - **方法**: gap-analysis.md フレームワーク + `src/` Grep/Read + upstream billing API 確認
-- **入力**: `requirements.md`（要件 1–9）、`design.md`、`quizeum-core` 実装状態
+- **入力**: `requirements.md`（要件 1–9）、`design.md`、`quizetika-core` 実装状態
 - **出力先**: 本節（`research.md` 追記）
 
 ---
@@ -248,48 +248,48 @@
 - **スコープ**: Phase 2 要件（要件 1.3, 2.4, 3.7, 7.5–7.6, 10）— Pro 月額・年額を決済サービスから動的取得、失敗時「価格を読み込めません」、購読 CTA 無効化、契約管理 CTA 維持。
 - **Phase 1 状態**: `/pricing` UI・Checkout/Portal クライアント・サイドバー導線・契約状態表示は **実装済み**。
 - **Phase 2 ギャップ**: 価格取得 API・クライアント取得・ローディング/エラー UI・動的お得表示・関連テストは **Missing**。`pricing-display.ts` のハードコード価格は **要件と矛盾（要改修）**。
-- **推奨アプローチ**: **Option C（Hybrid）** — `quizeum-core` に価格取得 API + 整形サービスを追加、UI は `ProPlanCard` / `billing-client` を拡張。
+- **推奨アプローチ**: **Option C（Hybrid）** — `quizetika-core` に価格取得 API + 整形サービスを追加、UI は `ProPlanCard` / `billing-client` を拡張。
 - **Effort**: **S（1–3日）** / **Risk**: **Low–Medium**（コア/UI 境界の設計判断と JPY 整形の確認が主リスク）
 
 ## 1. Current State Investigation
 
 ### 1.1 Phase 1 実装済みアセット（再利用可能）
 
-| アセット | パス | 状態 | Phase 2 での用途 |
-|----------|------|------|------------------|
-| 料金画面 | `src/app/pricing/page.tsx` | **Ready** | 価格取得状態の親オーケストレーション候補 |
-| Pro カード | `src/components/pricing/pro-plan-card.tsx` | **Partial** | 価格表示・CTA 無効化の改修対象 |
-| Free カード | `src/components/pricing/free-plan-card.tsx` | **Ready** | ¥0 固定表示（変更不要） |
-| Checkout クライアント | `src/lib/billing-client.ts` | **Partial** | 価格 GET ラッパー追加候補 |
-| 表示マスタ | `src/lib/pricing-display.ts` | **Stale** | 特典・名称は維持、**価格ラベルは削除または非正本化** |
-| Price ID マッピング | `src/lib/subscription-plans.ts` | **Ready** | サーバー側取得の Price ID 参照 |
-| Stripe クライアント | `src/lib/stripe/server.ts` | **Ready** | `stripe.prices.retrieve` の基盤 |
-| Checkout/Portal API | `src/app/api/billing/*` | **Ready** | 購読フローは変更不要 |
-| キャッシュ付き GET API 先例 | `src/app/api/genres/weekly-top/route.ts` | **Constraint** | `export const revalidate` パターン踏襲可 |
-| 単体テスト群 | `tests/lib/pricing-display.test.ts`, `tests/components/pricing/pro-plan-card.test.tsx` 等 | **Partial** | ハードコード価格前提のテストは更新必要 |
+| アセット                    | パス                                                                                      | 状態           | Phase 2 での用途                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------- | -------------- | ---------------------------------------------------- |
+| 料金画面                    | `src/app/pricing/page.tsx`                                                                | **Ready**      | 価格取得状態の親オーケストレーション候補             |
+| Pro カード                  | `src/components/pricing/pro-plan-card.tsx`                                                | **Partial**    | 価格表示・CTA 無効化の改修対象                       |
+| Free カード                 | `src/components/pricing/free-plan-card.tsx`                                               | **Ready**      | ¥0 固定表示（変更不要）                              |
+| Checkout クライアント       | `src/lib/billing-client.ts`                                                               | **Partial**    | 価格 GET ラッパー追加候補                            |
+| 表示マスタ                  | `src/lib/pricing-display.ts`                                                              | **Stale**      | 特典・名称は維持、**価格ラベルは削除または非正本化** |
+| Price ID マッピング         | `src/lib/subscription-plans.ts`                                                           | **Ready**      | サーバー側取得の Price ID 参照                       |
+| Stripe クライアント         | `src/lib/stripe/server.ts`                                                                | **Ready**      | `stripe.prices.retrieve` の基盤                      |
+| Checkout/Portal API         | `src/app/api/billing/*`                                                                   | **Ready**      | 購読フローは変更不要                                 |
+| キャッシュ付き GET API 先例 | `src/app/api/genres/weekly-top/route.ts`                                                  | **Constraint** | `export const revalidate` パターン踏襲可             |
+| 単体テスト群                | `tests/lib/pricing-display.test.ts`, `tests/components/pricing/pro-plan-card.test.tsx` 等 | **Partial**    | ハードコード価格前提のテストは更新必要               |
 
 ### 1.2 Phase 2 で存在しないもの
 
-| 能力 | 状態 | 備考 |
-|------|------|------|
+| 能力                                          | 状態        | 備考                                           |
+| --------------------------------------------- | ----------- | ---------------------------------------------- |
 | 価格取得 API（例: `GET /api/billing/prices`） | **Missing** | `src/app/api/billing/` に checkout/portal のみ |
-| Stripe Price 取得サービス | **Missing** | `subscription.ts` は Checkout/Portal のみ |
-| JPY 表示ラベル整形（`/月`・`/年`） | **Missing** | 現状 `pricing-display.ts` に固定文字列 |
-| 年額お得ラベル自動計算 | **Missing** | 現状固定「年額で約2ヶ月分お得」 |
-| 価格ローディング UI | **Missing** | `ProPlanCard` は同期 `getProPlanForUi()` |
-| 価格失敗 UI（「価格を読み込めません」） | **Missing** | 失敗時の代替金額表示も未実装 |
-| 価格未取得時の購読 CTA 無効化 | **Missing** | `isDisabled` は loading/ctaMode のみ |
-| 価格未取得時の interval 無効化 | **Missing** | 要件 10.5 未対応 |
-| 価格 API 単体テスト | **Missing** | — |
-| `quizeum-core` 要件への価格 API 追記 | **Missing** | 隣接期待のみ、core spec 未更新 |
+| Stripe Price 取得サービス                     | **Missing** | `subscription.ts` は Checkout/Portal のみ      |
+| JPY 表示ラベル整形（`/月`・`/年`）            | **Missing** | 現状 `pricing-display.ts` に固定文字列         |
+| 年額お得ラベル自動計算                        | **Missing** | 現状固定「年額で約2ヶ月分お得」                |
+| 価格ローディング UI                           | **Missing** | `ProPlanCard` は同期 `getProPlanForUi()`       |
+| 価格失敗 UI（「価格を読み込めません」）       | **Missing** | 失敗時の代替金額表示も未実装                   |
+| 価格未取得時の購読 CTA 無効化                 | **Missing** | `isDisabled` は loading/ctaMode のみ           |
+| 価格未取得時の interval 無効化                | **Missing** | 要件 10.5 未対応                               |
+| 価格 API 単体テスト                           | **Missing** | —                                              |
+| `quizetika-core` 要件への価格 API 追記        | **Missing** | 隣接期待のみ、core spec 未更新                 |
 
 ### 1.3 設計ドキュメントの陳腐化
 
-| ドキュメント | 問題 |
-|-------------|------|
-| `design.md` | 「`pricing-display.ts` が円価格正本」「Free 非表示」と記載 — 実装・Phase 2 要件と不一致 |
-| `research.md` §表示価格の所在 | 「Stripe 動的取得は初版スコープ過大」— Phase 2 で方針転換 |
-| `tasks.md` | Phase 1 タスクのみ。Phase 2 タスク未生成 |
+| ドキュメント                  | 問題                                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
+| `design.md`                   | 「`pricing-display.ts` が円価格正本」「Free 非表示」と記載 — 実装・Phase 2 要件と不一致 |
+| `research.md` §表示価格の所在 | 「Stripe 動的取得は初版スコープ過大」— Phase 2 で方針転換                               |
+| `tasks.md`                    | Phase 1 タスクのみ。Phase 2 タスク未生成                                                |
 
 ### 1.4 既存コードの要件矛盾点
 
@@ -309,18 +309,18 @@
 
 ### 2.1 技術ニーズ（要件 → 能力）
 
-| 要件 | 技術ニーズ | 現状 |
-|------|-----------|------|
-| 1.3, 10.1–10.2 | 決済サービス価格の取得と JPY 表示 | **Missing** |
-| 2.4 | 価格未取得時の購読 CTA 無効化 | **Missing** |
-| 3.7 | 価格失敗時も契約管理 CTA 有効 | **Ready**（`ctaMode=manage` は価格非依存だが明示テスト要） |
-| 7.5 | 価格取得中のローディング表示 | **Missing** |
-| 7.6 | 失敗時「価格を読み込めません」 | **Missing** |
-| 10.3 | 両価格取得成功時のお得表示 | **Missing**（計算ロジック要） |
-| 10.4 | Free ¥0 固定 | **Ready** |
-| 10.5 | 失敗時 interval 無効化 | **Missing** |
-| 10.6 | 特典文言は価格成否に非依存 | **Ready**（`featureBullets` は静的） |
-| 9.2 | サーバー側取得は core 担当 | **Missing**（core に API 未存在） |
+| 要件           | 技術ニーズ                        | 現状                                                       |
+| -------------- | --------------------------------- | ---------------------------------------------------------- |
+| 1.3, 10.1–10.2 | 決済サービス価格の取得と JPY 表示 | **Missing**                                                |
+| 2.4            | 価格未取得時の購読 CTA 無効化     | **Missing**                                                |
+| 3.7            | 価格失敗時も契約管理 CTA 有効     | **Ready**（`ctaMode=manage` は価格非依存だが明示テスト要） |
+| 7.5            | 価格取得中のローディング表示      | **Missing**                                                |
+| 7.6            | 失敗時「価格を読み込めません」    | **Missing**                                                |
+| 10.3           | 両価格取得成功時のお得表示        | **Missing**（計算ロジック要）                              |
+| 10.4           | Free ¥0 固定                      | **Ready**                                                  |
+| 10.5           | 失敗時 interval 無効化            | **Missing**                                                |
+| 10.6           | 特典文言は価格成否に非依存        | **Ready**（`featureBullets` は静的）                       |
+| 9.2            | サーバー側取得は core 担当        | **Missing**（core に API 未存在）                          |
 
 ### 2.2 制約・依存
 
@@ -331,27 +331,27 @@
 
 ### 2.3 Research Needed（design フェーズへ委譲）
 
-| 項目 | 内容 |
-|------|------|
-| Stripe Price フィールド | `unit_amount` / `currency` / `recurring.interval` の扱い（JPY はゼロ小数） |
-| お得ラベル計算式 | 月額×12 と年額の差分を「約 N ヶ月分」に丸める規則 |
-| キャッシュ TTL | `revalidate` 秒数（weekly-top は 1800s 先例あり） |
-| 部分失敗 | 月額のみ成功・年額失敗時の表示/CTA 方針（要件は両方失敗を主に規定、片方成功の解釈要設計） |
-| core spec 更新範囲 | 新 API を `quizeum-core` requirements/design に追記するか、billing-ui スペック design で core タスクとして明記するか |
+| 項目                    | 内容                                                                                                                   |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Stripe Price フィールド | `unit_amount` / `currency` / `recurring.interval` の扱い（JPY はゼロ小数）                                             |
+| お得ラベル計算式        | 月額×12 と年額の差分を「約 N ヶ月分」に丸める規則                                                                      |
+| キャッシュ TTL          | `revalidate` 秒数（weekly-top は 1800s 先例あり）                                                                      |
+| 部分失敗                | 月額のみ成功・年額失敗時の表示/CTA 方針（要件は両方失敗を主に規定、片方成功の解釈要設計）                              |
+| core spec 更新範囲      | 新 API を `quizetika-core` requirements/design に追記するか、billing-ui スペック design で core タスクとして明記するか |
 
 ## 3. Requirement-to-Asset Map
 
-| 要件 | 必要アセット | 現状 | ギャップ |
-|------|-------------|------|----------|
-| **1.1–1.2** | `/pricing`, Pro/Free カード | 実装済 | **Ready** |
-| **1.3** | 動的価格表示 | ハードコード | **Missing** |
-| **2.1–2.3, 2.5–2.8** | Checkout フロー | 実装済 | **Ready** |
-| **2.4** | 価格未取得時購読無効 | 未対応 | **Missing** |
-| **3.1–3.6** | Portal フロー | 実装済 | **Ready** |
-| **3.7** | 価格失敗時 Portal 維持 | 暗黙的に可能 | **Constraint**（テスト追加推奨） |
-| **4–6, 8–9** | フィードバック・ナビ・契約表示・デザイン | 実装済 | **Ready** |
-| **7.5–7.6** | 価格ローディング/エラー UI | 未対応 | **Missing** |
-| **10.1–10.6** | 表示形式・お得・interval 制御 | 固定ラベル | **Missing** |
+| 要件                 | 必要アセット                             | 現状         | ギャップ                         |
+| -------------------- | ---------------------------------------- | ------------ | -------------------------------- |
+| **1.1–1.2**          | `/pricing`, Pro/Free カード              | 実装済       | **Ready**                        |
+| **1.3**              | 動的価格表示                             | ハードコード | **Missing**                      |
+| **2.1–2.3, 2.5–2.8** | Checkout フロー                          | 実装済       | **Ready**                        |
+| **2.4**              | 価格未取得時購読無効                     | 未対応       | **Missing**                      |
+| **3.1–3.6**          | Portal フロー                            | 実装済       | **Ready**                        |
+| **3.7**              | 価格失敗時 Portal 維持                   | 暗黙的に可能 | **Constraint**（テスト追加推奨） |
+| **4–6, 8–9**         | フィードバック・ナビ・契約表示・デザイン | 実装済       | **Ready**                        |
+| **7.5–7.6**          | 価格ローディング/エラー UI               | 未対応       | **Missing**                      |
+| **10.1–10.6**        | 表示形式・お得・interval 制御            | 固定ラベル   | **Missing**                      |
 
 ## 4. Implementation Approach Options
 
@@ -387,15 +387,15 @@
 **Trade-offs**:
 - ✅ 要件 9.2 の境界を尊重
 - ✅ Phase 1 の `ProPlanCard` / `billing-client` 資産を活用
-- ❌ `quizeum-core` spec/design の軽微更新が必要
+- ❌ `quizetika-core` spec/design の軽微更新が必要
 
 ## 5. Effort & Risk
 
-| 項目 | 評価 | 根拠 |
-|------|------|------|
-| **Effort** | **S（1–3日）** | Stripe 基盤・Price ID・UI 骨格は既存。追加は API 1 本 + カード改修 + テスト |
-| **Risk** | **Low–Medium** | 技術は既知。境界（core vs UI）と JPY 整形・部分失敗の設計判断が主因 |
-| **Blocker** | なし | `STRIPE_SECRET_KEY` と Price ID env は Phase 1 で利用済み |
+| 項目        | 評価           | 根拠                                                                        |
+| ----------- | -------------- | --------------------------------------------------------------------------- |
+| **Effort**  | **S（1–3日）** | Stripe 基盤・Price ID・UI 骨格は既存。追加は API 1 本 + カード改修 + テスト |
+| **Risk**    | **Low–Medium** | 技術は既知。境界（core vs UI）と JPY 整形・部分失敗の設計判断が主因         |
+| **Blocker** | なし           | `STRIPE_SECRET_KEY` と Price ID env は Phase 1 で利用済み                   |
 
 ## 6. Recommendations for Design Phase
 
@@ -403,7 +403,7 @@
 2. **API 契約（案）**: `GET /api/billing/prices` → `{ pro: { monthly: { amount: number, label: string }, yearly: { ... }, savingsLabel?: string } }` または raw amount + UI 整形。design で確定。
 3. **UI 状態機械**: `idle → loading → ready | error`。`error` 時は価格欄「価格を読み込めません」、購読無効、interval 無効、Portal は `ctaMode=manage` で有効維持。
 4. **テスト更新**: `pricing-display.test.ts` から価格ラベル assertion を削除/変更。`pro-plan-card.test.tsx` に loading/error/disabled ケース追加。新規 `tests/api/billing-prices.test.ts`。
-5. **隣接スペック**: `quizeum-core` に価格取得 API の要件・設計追記（または billing-ui design の `_Boundary:_` で core 実装タスクを明示）。
+5. **隣接スペック**: `quizetika-core` に価格取得 API の要件・設計追記（または billing-ui design の `_Boundary:_` で core 実装タスクを明示）。
 6. **design.md / tasks.md**: Phase 2 セクション追加。Phase 1 の「手動同期」「Free 非表示」記述を改訂。
 
 ## Document Status（Phase 2 Gap Analysis）
@@ -450,7 +450,7 @@
 ## Risks & Mitigations
 - **Stripe 一時障害** — 購読不可・Portal 可。ユーザーは再読み込みで再試行。
 - **表示と Checkout 不整合** — 同一 `subscription-plans` Price ID で解消。
-- **core spec 未追記** — design の Upstream Files を `quizeum-core` tasks 生成時に同期推奨。
+- **core spec 未追記** — design の Upstream Files を `quizetika-core` tasks 生成時に同期推奨。
 
 ## Document Status（Phase 2 Design）
 - **入力**: Phase 2 gap 分析、`requirements.md`、Stripe JPY `unit_amount` 慣行

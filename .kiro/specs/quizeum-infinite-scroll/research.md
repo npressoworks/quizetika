@@ -1,4 +1,4 @@
-# Gap Analysis: quizeum-infinite-scroll
+# Gap Analysis: quizetika-infinite-scroll
 
 ## 1. 現状の codebase 調査 (Current State Investigation)
 
@@ -24,7 +24,7 @@
 1. **ハイブリッド無限スクロール UI の新設 (Missing)**:
    * 最初は「もっと見る」ボタン。クリック後に自動スクロール監視に移行するステートと表示ロジックを統合した共通 UI（フック/コンポーネント）が必要です。
 2. **作者クイズの段階取得 API (Missing)**:
-   * Firestore の `startAfter` を使った段階的取得（limit 20）を行う `getQuizzesByAuthorPage` 関数を `quizeum-core` レイヤーに新設する必要があります。
+   * Firestore の `startAfter` を使った段階的取得（limit 20）を行う `getQuizzesByAuthorPage` 関数を `quizetika-core` レイヤーに新設する必要があります。
    * カーソルの型定義 `QuizFeedTabKind` に `'author'` を追加する必要があります。
 3. **プロフィール画面の検索時ハイブリッドフェッチ (Constraint)**:
    * プロフィール内の検索語入力時は、Firestore クエリでの中間一致・複数条件検索が難しいため、一括フェッチ ＋ クライアントフィルタリングに動的に切り替えるロジックを UI 側に組み込む必要があります。

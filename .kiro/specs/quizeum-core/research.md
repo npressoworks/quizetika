@@ -1,16 +1,16 @@
-# Research & Design Decisions: quizeum-core (Phase 5)
+# Research & Design Decisions: quizetika-core (Phase 5)
 
 ## Summary
-- **Feature**: quizeum-core - dual leaderboard and play-history API
+- **Feature**: quizetika-core - dual leaderboard and play-history API
 - **References (Phase 5)**: docs F-801/F-802, api updateLeaderboard, roadmap Phase 5
 
 ---
 
-# Gap Analysis: quizeum-core - Phase 6 genre metadata alignment (2026-06-03)
+# Gap Analysis: quizetika-core - Phase 6 genre metadata alignment (2026-06-03)
 
 ## Analysis Summary
 
-- **Scope**: Phase 6 roadmap + docs canonical: genre virtual merge, write-time canonicalGenreId, canonical query optimization, Security Rules, saveQuiz pipeline (quizeum-core boundary).
+- **Scope**: Phase 6 roadmap + docs canonical: genre virtual merge, write-time canonicalGenreId, canonical query optimization, Security Rules, saveQuiz pipeline (quizetika-core boundary).
 - **Current**: tagMerge governance mostly done; quiz save/queries/rules diverge from docs/api_specification.md.
 - **Top gap**: saveQuiz does not set canonicalGenreId/canonicalTagIds; getQuizzesByGenre/Tag and getFailedQuestions use raw genre/tags only.
 - **Recommended for design**: Option C Hybrid - new src/lib/metadata-resolution.ts, extend quiz.ts saveQuiz and queries, port firestore.rules from detailed_design section 6.5.
@@ -112,7 +112,7 @@ Overall: L / Medium
 
 ### Decision: User Ban and Security Rules Access Control (12.x)
 - **Rationale**: BANされたユーザーによるシステムへの書き込みをリアルタイムで確実に遮断するため、JWT トークンの有効期限（最大1時間）に依存せず、Firestore Security Rules で `isNotBanned()` ヘルパーを適用して各コレクションへの書き込みを即座にブロックする。
-- **Auth Session**: クライアント側で `quizeum_banned` Cookie を付与し、BAN検知時に強制ログアウトおよび制限画面へのルーティングを行う。
+- **Auth Session**: クライアント側で `quizetika_banned` Cookie を付与し、BAN検知時に強制ログアウトおよび制限画面へのルーティングを行う。
 
 ## Risks
 - Missing firestore.rules blocks client tag create on save ? Phase 6 must ship rules with saveQuiz changes
@@ -121,7 +121,7 @@ Overall: L / Medium
 
 ---
 
-# Gap Analysis: quizeum-core — Phase 8 ブックマーク・リスト・問題再利用（2026-06-05）
+# Gap Analysis: quizetika-core — Phase 8 ブックマーク・リスト・問題再利用（2026-06-05）
 
 ## Analysis Summary
 
@@ -262,12 +262,12 @@ Overall: L / Medium
 4. **問題リストプレイ**: 新ヘルパー `resolveQuestionListSession(listId)` → 順序付き `Question[]`；完了時 `mode: 'question-list'`, `listId` 設定（`quizId` は先頭問題の親 or 専用センチネルは design で固定）。
 5. **検索**: `searchAuthorQuizzes(authorId, { keyword?, tag? })` — Firestore の全文検索限界のため、初版は `getQuizzesByAuthor` + クライアントフィルタ or `title` 前方一致の複合（性能は design で明記）。
 6. **テスト**: `tests/services/bookmark-question.test.ts`, `quiz-list-question-type.test.ts`, `quiz-linked-question.test.ts` を新設。
-7. **隣接スペック**: `quizeum-play-flow-ui` / `quizeum-creator-dash-ui` は core API 契約確定後に requirements 更新（roadmap 順）。
+7. **隣接スペック**: `quizetika-play-flow-ui` / `quizetika-creator-dash-ui` は core API 契約確定後に requirements 更新（roadmap 順）。
 
 ## References (Phase 8)
 
 - `.kiro/steering/roadmap.md` — Phase 8（アプローチ 1、問題リスト B）
-- `.kiro/specs/quizeum-core/requirements.md` — 要件 13–15
+- `.kiro/specs/quizetika-core/requirements.md` — 要件 13–15
 - `src/services/bookmark.ts`, `question.ts`, `quiz-list.ts`, `quiz.ts`
 - `docs/api_specification.md`, `docs/db_design.md`, `docs/detailed_design.md` §1.6
 
@@ -277,7 +277,7 @@ Overall: L / Medium
 
 ## Summary
 
-- **Feature**: quizeum-core Phase 8 — bookmarks, question lists, linked question reuse
+- **Feature**: quizetika-core Phase 8 — bookmarks, question lists, linked question reuse
 - **Discovery Scope**: Extension（light discovery + gap 分析再利用）
 - **Key Findings**:
   - 既存 `toggleBookmark` / `questionIds` 断片を Option C Hybrid で拡張
@@ -314,12 +314,12 @@ Overall: L / Medium
 
 ## References
 
-- `.kiro/specs/quizeum-core/design.md` — Phase 8 セクション
+- `.kiro/specs/quizetika-core/design.md` — Phase 8 セクション
 - Gap analysis 本ファイル Phase 8 節
 
 ---
 
-# Research & Design Decisions: quizeum-core（Phase 10 差分 — 2026-06-05）
+# Research & Design Decisions: quizetika-core（Phase 10 差分 — 2026-06-05）
 
 ## Summary
 - **Feature**: `listActiveTags` + `searchQuizzes({ tags })` 複数タグ AND
@@ -353,7 +353,7 @@ Overall: L / Medium
 
 ---
 
-# Gap Analysis: quizeum-core（Phase 10 実装後 & Phase 11 — 2026-06-05）
+# Gap Analysis: quizetika-core（Phase 10 実装後 & Phase 11 — 2026-06-05）
 
 ## Analysis Summary
 
@@ -453,7 +453,7 @@ Overall: L / Medium
 
 ---
 
-# Research & Design Decisions: quizeum-core（Phase 11 差分 — 2026-06-05）
+# Research & Design Decisions: quizetika-core（Phase 11 差分 — 2026-06-05）
 
 ## Summary
 - **Feature**: `SearchFilters.format` + `searchQuizzes` 出題形式後段フィルタ + `quiz-format-match` lib
@@ -486,10 +486,10 @@ Overall: L / Medium
 
 ---
 
-# Research: quizeum-core — Phase 13 Stripe サブスクリプション（2026-06-07）
+# Research: quizetika-core — Phase 13 Stripe サブスクリプション（2026-06-07）
 
 ## Summary
-- **Feature**: quizeum-core — Pro プラン Stripe サブスクリプション（Checkout / Webhook / Portal / Entitlements）
+- **Feature**: quizetika-core — Pro プラン Stripe サブスクリプション（Checkout / Webhook / Portal / Entitlements）
 - **Discovery Scope**: Extension（既存 `ask-ai` 制限・Admin SDK・auth-verify パターンを拡張）
 - **Key Findings**:
   - `ask-ai` は既にサーバー側 `isPremium` 参照パターンを実装。`EntitlementService` へ集約すれば tier 拡張が容易。
@@ -552,12 +552,12 @@ Overall: L / Medium
 - [Stripe Checkout Sessions](https://docs.stripe.com/api/checkout/sessions) — 購読開始
 - [Stripe Customer Portal](https://docs.stripe.com/customer-management/portal-deep-dive) — 契約管理
 - [Stripe Webhooks](https://docs.stripe.com/webhooks) — 署名検証・raw body
-- `quizeum-billing-subscription-ui/brief.md` — UI 境界
+- `quizetika-billing-subscription-ui/brief.md` — UI 境界
 - `roadmap.md` Phase 13 — 依存順序
 
 ---
 
-# Gap Analysis: quizeum-core — Phase 13 Stripe サブスクリプション（2026-06-07）
+# Gap Analysis: quizetika-core — Phase 13 Stripe サブスクリプション（2026-06-07）
 
 ## Analysis Summary
 
@@ -637,10 +637,10 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### 2.3 隣接スペック（コア外だが E2E に必須）
 
-| 領域                 | スペック                          | ギャップ                |
-| -------------------- | --------------------------------- | ----------------------- |
-| `/pricing` UI        | `quizeum-billing-subscription-ui` | 未着手（spec 未 init）  |
-| プレイ画面 tier 表示 | `quizeum-play-flow-ui`            | `isPremium: false` 固定 |
+| 領域                 | スペック                            | ギャップ                |
+| -------------------- | ----------------------------------- | ----------------------- |
+| `/pricing` UI        | `quizetika-billing-subscription-ui` | 未着手（spec 未 init）  |
+| プレイ画面 tier 表示 | `quizetika-play-flow-ui`            | `isPremium: false` 固定 |
 
 ## 3. Implementation Approach Options
 
@@ -694,9 +694,9 @@ src/app/api/webhooks/stripe/           — Missing
 
 ## 7. Recommendations for Implementation
 
-1. **`/kiro-spec-tasks quizeum-core -y`** で Phase 13 Stripe タスクを再生成（旧 §13 は完了のまま、新 §14 または Phase 13 差し替えを検討）
+1. **`/kiro-spec-tasks quizetika-core -y`** で Phase 13 Stripe タスクを再生成（旧 §13 は完了のまま、新 §14 または Phase 13 差し替えを検討）
 2. 実装順序: **Rules → 型 + EntitlementService → Webhook → Checkout/Portal → ask-ai 切替 → テスト**
-3. 並行: `/kiro-spec-init quizeum-billing-subscription-ui` で UI スペック開始
+3. 並行: `/kiro-spec-init quizetika-billing-subscription-ui` で UI スペック開始
 4. E2E は Stripe テストモード + `stripe listen --forward-to localhost:3000/api/webhooks/stripe`
 
 ## Document Status
@@ -752,11 +752,11 @@ src/app/api/webhooks/stripe/           — Missing
 
 ---
 
-# Gap Analysis: quizeum-core — Phase 17 ウミガメ認証・二層制限・諦めフロー改定（2026-06-08）
+# Gap Analysis: quizetika-core — Phase 17 ウミガメ認証・二層制限・諦めフロー改定（2026-06-08）
 
 ## Analysis Summary
 
-- **スコープ**: 要件 4（Phase 17 節）および要件 19 のエンタイトルメント整合。隣接 UI（`quizeum-play-flow-ui` / `quizeum-billing-subscription-ui`）は要件境界外だがギャップ表に参照として記載。
+- **スコープ**: 要件 4（Phase 17 節）および要件 19 のエンタイトルメント整合。隣接 UI（`quizetika-play-flow-ui` / `quizetika-billing-subscription-ui`）は要件境界外だがギャップ表に参照として記載。
 - **実装済み（部分）**: ウミガメのみログイン必須の骨格、サーバー側 `resolveUserEntitlements`、クイズ別 `dailyAiTurnCounts`、同一質問キャッシュ（サーバー完全一致）、Pro 向け `limit-exceeded` API 文言、クイズ詳細の「会員登録してプレイする」ボタン。
 - **主要ギャップ**: 制限値 20→30/150 未反映、横断日次カウンタ未実装、キャッシュ正規化のサーバー/クライアント不一致、諦め時の真相表示（API+UI）、チャット内ナビ、プレイ画面の entitlements 未連携と Pro 誘導 UI 不足。
 - **推奨（設計フェーズ）**: Option C（Hybrid）— `ask-ai-utils.ts` を制限・正規化の単一正本に拡張し、API・クライアント・表示文言を同期。諦め API は `revealText` 廃止、UI は play-flow スペックでチャット内 CTA へ移行。
@@ -863,7 +863,7 @@ src/app/api/webhooks/stripe/           — Missing
 2. **API 契約**: `limit-exceeded` に `limitType: 'per-quiz' \| 'global-daily'` を追加。キャッシュヒット時は `turnsRemaining` に両残数を含めるか設計で決定。
 3. **諦め API**: 成功応答は `{ completed: true }` のみ（`revealText` 破壊的変更 — クライアント同時デプロイ）。
 4. **タスク分割案**: (T1) utils+API 制限、(T2) キャッシュ正規化、(T3) give-up API+UI、(T4) play UI Pro 誘導・entitlements、(T5) pricing-display + docs。
-5. **隣接スペック**: `quizeum-play-flow-ui` / `quizeum-billing-subscription-ui` の requirements 追従を design で明示。
+5. **隣接スペック**: `quizetika-play-flow-ui` / `quizetika-billing-subscription-ui` の requirements 追従を design で明示。
 
 ## 8. 設計フェーズ確定事項（2026-06-08）
 
@@ -1056,9 +1056,9 @@ src/app/api/webhooks/stripe/           — Missing
 
 ### 1. 現状のコードベース調査 (Current State Investigation)
 * **関連資産と配置**:
-  * [src/types/index.ts](file:///d:/quizeum/src/types/index.ts): `User` 型定義。現在 `snsLinks` フィールドは存在しない。
-  * [src/services/user.ts](file:///d:/quizeum/src/services/user.ts): プロフィール情報更新API（`updateProfile`）および検証ロジック（`validateProfileData`）が実装されている。
-  * [src/services/storage.ts](file:///d:/quizeum/src/services/storage.ts): Firebase Storage上のファイルアップロード・削除処理が配置されている。現在、アセットロゴの取得用ヘルパーは存在しない。
+  * [src/types/index.ts](file:///d:/quizetika/src/types/index.ts): `User` 型定義。現在 `snsLinks` フィールドは存在しない。
+  * [src/services/user.ts](file:///d:/quizetika/src/services/user.ts): プロフィール情報更新API（`updateProfile`）および検証ロジック（`validateProfileData`）が実装されている。
+  * [src/services/storage.ts](file:///d:/quizetika/src/services/storage.ts): Firebase Storage上のファイルアップロード・削除処理が配置されている。現在、アセットロゴの取得用ヘルパーは存在しない。
 * **データモデルとAPI連携**:
   * Firestore `users` コレクションの各ドキュメントが `User` 型に対応している。
   * `firestore.rules` において、`isOwner(userId)` の場合は特権情報の変更（`moderationTier`, `reputationScore`, `deleteStatus`）や課金関連以外のフィールド更新は特段制限されていないため、`snsLinks` フィールドの書き込みは可能。

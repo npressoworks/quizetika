@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-admin-users-ui
+# Implementation Plan: quizetika-admin-users-ui
 
 ## Tasks
 
@@ -18,9 +18,9 @@
   - **完了条件**: Security Rules のテストまたはエミュレータ上の検証において、`isBanned == true` のモックユーザーからのデータ操作（クイズ投稿など）が `permission-denied` で拒否されること。
   - _Requirements: 5.6_
   - _Boundary: SecurityRules_
-- [x] 1.4 lib/middleware-auth-cookies.ts への quizeum_banned Cookieの同期対応追加
-  - `src/lib/middleware-auth-cookies.ts` を修正し、Cookie同期処理において `isBanned` フラグを `quizeum_banned` クッキーとして同期または破棄できるようにする。
-  - **完了条件**: `syncMiddlewareAuthCookies` 呼び出し時に `isBanned` が `true` であれば `quizeum_banned: "true"` がクッキーにセットされること。
+- [x] 1.4 lib/middleware-auth-cookies.ts への quizetika_banned Cookieの同期対応追加
+  - `src/lib/middleware-auth-cookies.ts` を修正し、Cookie同期処理において `isBanned` フラグを `quizetika_banned` クッキーとして同期または破棄できるようにする。
+  - **完了条件**: `syncMiddlewareAuthCookies` 呼び出し時に `isBanned` が `true` であれば `quizetika_banned: "true"` がクッキーにセットされること。
   - _Requirements: 6.1_
   - _Boundary: AuthCookiesLib_
 
@@ -79,8 +79,8 @@
   - _Requirements: 6.1_
   - _Boundary: AuthContext_
 - [x] 3.4 middleware.ts での /banned 画面へのリダイレクト実装
-  - `src/middleware.ts` を修正し、`quizeum_banned === 'true'` が検出された場合に、`/banned` 以外の一般ページへのアクセスを `/banned` に強制リダイレクトするガードロジックを追加する。
-  - **完了条件**: Cookie に `quizeum_banned=true` を手動セット（またはBANによる自動セット）した状態で任意のページに遷移しようとした際、`/banned` に強制リダイレクトされること。
+  - `src/middleware.ts` を修正し、`quizetika_banned === 'true'` が検出された場合に、`/banned` 以外の一般ページへのアクセスを `/banned` に強制リダイレクトするガードロジックを追加する。
+  - **完了条件**: Cookie に `quizetika_banned=true` を手動セット（またはBANによる自動セット）した状態で任意のページに遷移しようとした際、`/banned` に強制リダイレクトされること。
   - _Requirements: 6.1, 6.3_
   - _Boundary: RouteGuard_
 - [x] 3.5 アカウント停止画面（/banned）の新規作成とリダイレクト制御

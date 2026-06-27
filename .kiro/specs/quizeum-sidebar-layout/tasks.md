@@ -109,7 +109,7 @@
 ## Implementation Notes (Phase 22)
 
 - 実装順: 5.1 と 5.2 は並行可。5.3 は両方完了後。
-- ディスカバリーホーム・検索画面コンテンツは `quizeum-play-flow-ui` Phase 27 が担当。
+- ディスカバリーホーム・検索画面コンテンツは `quizetika-play-flow-ui` Phase 27 が担当。
 - ロゴリンクは引き続き `/` を正とする（要件 5.2）。
 
 ---
@@ -171,8 +171,8 @@
 
 - **実装順**: 6.1 と 6.3 は並行可。6.2 は 6.1 完了後。6.4 は 6.1–6.3 完了後。6.5 は 6.1–6.3 完了後（6.4 と並行可）。6.5* は任意。
 - **BottomNav**: Phase 23 では変更なし。モバイルのリスト・カスタムクイズ・設定到達は Header ポップアップ（案 A）が担う。
-- **layout.tsx**: `ThemeProvider` 統合は `quizeum-user-settings-ui` が担当。本フェーズでは `layout.tsx` を変更しない。
-- **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizeum-lists-discovery-ui`）、6.15 カスタムクイズ UI（`quizeum-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizeum-user-settings-ui`）、6.17 マイページリアクション履歴削除（`quizeum-auth-profile-ui`）。
+- **layout.tsx**: `ThemeProvider` 統合は `quizetika-user-settings-ui` が担当。本フェーズでは `layout.tsx` を変更しない。
+- **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizetika-lists-discovery-ui`）、6.15 カスタムクイズ UI（`quizetika-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizetika-user-settings-ui`）、6.17 マイページリアクション履歴削除（`quizetika-auth-profile-ui`）。
 - **要件カバレッジ**: 6.1–6.13 を 6.1–6.5 にマッピング。6.14–6.17 は Out of scope として Implementation Notes に記録。
 
 ---

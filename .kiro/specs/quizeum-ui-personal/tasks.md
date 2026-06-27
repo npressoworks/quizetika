@@ -2,7 +2,7 @@
 
 ## 1. Foundation: 個人ハブ用プリミティブの確認
 - [x] 1.1 foundation Primitive Wave 2 の存在を確認する
-  - `src/components/ui/` に Form, Label, Textarea, Select, Switch, Alert, Table, ToggleGroup が存在することを確認する（`quizeum-ui-foundation` で追加済み）
+  - `src/components/ui/` に Form, Label, Textarea, Select, Switch, Alert, Table, ToggleGroup が存在することを確認する（`quizetika-ui-foundation` で追加済み）
   - 各コンポーネントが `cn()` を利用し TypeScript 型付きでエクスポートされることを確認する
   - `npm run build` が成功することを確認する
   - _Requirements: 1.4, 3.4, 4.5, 7.3, 7.5, 8.4_
@@ -14,7 +14,7 @@
 - [x] 2.1 ThemeToggle を shadcn ToggleGroup で再実装する
   - `theme-toggle.module.css` の import を削除し、ToggleGroup で「ダーク」「ライト」2 択 UI を実装する
   - `useTheme().setTheme` のみ使用し、`data-testid="settings-theme-toggle"` とボタンラベルを維持する
-  - ライト選択時に `html[data-theme="light"]` と `localStorage quizeum-theme` が更新されることをブラウザで確認する
+  - ライト選択時に `html[data-theme="light"]` と `localStorage quizetika-theme` が更新されることをブラウザで確認する
   - _Requirements: 2.2, 2.3, 2.4_
   - _Boundary: ThemeToggle_
   - _Depends: 1.1_

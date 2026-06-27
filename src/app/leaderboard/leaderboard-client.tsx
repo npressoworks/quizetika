@@ -89,7 +89,7 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
       <div className={styles.titleSection}>
         <h1 className={styles.title} data-testid="leaderboard-global-title">
           <EmojiEventsOutlined sx={{ fontSize: 36 }} style={{ color: '#ffd700', verticalAlign: 'text-bottom' }} />
-          quizeum 殿堂入りリーダーボード
+          quizetika 殿堂入りリーダーボード
         </h1>
         <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
           プラットフォーム内で活躍するトップランカーたちのランキングです。
@@ -153,10 +153,10 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
                   index === 0
                     ? styles.rank1
                     : index === 1
-                    ? styles.rank2
-                    : index === 2
-                    ? styles.rank3
-                    : styles.rankNormal;
+                      ? styles.rank2
+                      : index === 2
+                        ? styles.rank3
+                        : styles.rankNormal;
                 return (
                   <tr key={player.id}>
                     <td className={styles.td}>

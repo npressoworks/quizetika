@@ -66,8 +66,8 @@ describe('my-quiz-session', () => {
     expect(url).toContain('qIndex=0');
   });
 
-  test('MY_QUIZ_SESSION_KEY は固定値 quizeum_my_quiz_session である', () => {
-    expect(MY_QUIZ_SESSION_KEY).toBe('quizeum_my_quiz_session');
+  test('MY_QUIZ_SESSION_KEY は固定値 quizetika_my_quiz_session である', () => {
+    expect(MY_QUIZ_SESSION_KEY).toBe('quizetika_my_quiz_session');
   });
 
   test('syncMyQuizSessionIndex で currentIndex を同期する', () => {

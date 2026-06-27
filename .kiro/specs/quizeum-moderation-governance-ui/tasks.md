@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-moderation-governance-ui
+# Implementation Plan: quizetika-moderation-governance-ui
 
 ## Tasks
 

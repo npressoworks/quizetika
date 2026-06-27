@@ -4,7 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import initialGenresData from '../src/data/initial_genres.json';
 import type { InitialGenreSeed } from '../src/services/tagMerge';
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6';
+const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizetika-77bc6';
 
 /**
  * E2E 実行前に Firestore Emulator へジャンルマスタを投入する。
@@ -24,7 +24,7 @@ export default async function globalSetup() {
 
   const db = getFirestore();
   const auth = getAuth();
-  
+
   // AI生成モック用のテスト画像を Firebase Storage エミュレータに配置しておく
   try {
     const { getStorage } = await import('firebase-admin/storage');

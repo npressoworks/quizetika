@@ -19,10 +19,10 @@ interface SuccessPageProps {
 export async function generateMetadata({ params }: SuccessPageProps): Promise<Metadata> {
   const { id } = await params;
   const quiz = await getQuiz(id);
-  
+
   return {
-    title: quiz ? `投稿完了: ${quiz.title} | quizeum` : 'クイズ投稿完了 | quizeum',
-    description: 'quizeumでのクイズ投稿が完了しました。SNSでシェアしましょう！',
+    title: quiz ? `投稿完了: ${quiz.title} | quizetika` : 'クイズ投稿完了 | quizetika',
+    description: 'quizetikaでのクイズ投稿が完了しました。SNSでシェアしましょう！',
   };
 }
 

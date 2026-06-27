@@ -30,7 +30,7 @@ function loadEnvFile(path) {
 }
 
 function initAdminApp() {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6';
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizetika-77bc6';
 
   if (getApps().length > 0) {
     return getApps()[0];
@@ -74,7 +74,7 @@ async function resetFirestore() {
   initAdminApp();
   const db = getFirestore();
 
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6';
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizetika-77bc6';
   const target = process.env.FIRESTORE_EMULATOR_HOST
     ? `Emulator (${process.env.FIRESTORE_EMULATOR_HOST})`
     : `Firestore (${projectId})`;

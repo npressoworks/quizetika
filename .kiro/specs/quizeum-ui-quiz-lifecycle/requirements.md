@@ -2,15 +2,15 @@
 
 ## Project Description (Input)
 
-Quizeum のエンドユーザーは、クイズ詳細・プレイ・結果・復習・リーダーボードを通じてクイズ体験のライフサイクル全体を利用している。現状、これらの画面は CSS Modules（`play.module.css` 約 773 行を含む大規模スタイル）と旧 Quizeum ビジュアルで実装されており、Phase 24 の shadcn/ui + Tailwind 刷新方針と整合しない。回答パネル（選択肢/正誤）の視覚的フィードバックとプレイ中の没入型 UX が製品価値の核である。
+Quizetika のエンドユーザーは、クイズ詳細・プレイ・結果・復習・リーダーボードを通じてクイズ体験のライフサイクル全体を利用している。現状、これらの画面は CSS Modules（`play.module.css` 約 773 行を含む大規模スタイル）と旧 Quizetika ビジュアルで実装されており、Phase 24 の shadcn/ui + Tailwind 刷新方針と整合しない。回答パネル（選択肢/正誤）の視覚的フィードバックとプレイ中の没入型 UX が製品価値の核である。
 
-本スペック（`quizeum-ui-quiz-lifecycle`）は、`quizeum-ui-foundation` と `quizeum-ui-layout-shell` が提供する shadcn 標準テーマと共通プリミティブの上に、クイズライフサイクル全画面を再構築する。プレイ中の没入感、回答フィードバック、タイマー/進捗表示、結果画面のリーダーボード・アコーディオン詳細、`/play` パスでのシェル非表示契約、既存 `data-testid` は維持する。クイズエディタ、プレイエンジン lib、スコア計算・attempt 永続化は範囲外とする。
+本スペック（`quizetika-ui-quiz-lifecycle`）は、`quizetika-ui-foundation` と `quizetika-ui-layout-shell` が提供する shadcn 標準テーマと共通プリミティブの上に、クイズライフサイクル全画面を再構築する。プレイ中の没入感、回答フィードバック、タイマー/進捗表示、結果画面のリーダーボード・アコーディオン詳細、`/play` パスでのシェル非表示契約、既存 `data-testid` は維持する。クイズエディタ、プレイエンジン lib、スコア計算・attempt 永続化は範囲外とする。
 
 ## Introduction
 
-Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では UI 刷新のドメイン垂直スライスの一つとして、クイズライフサイクル（詳細→プレイ→結果→復習→リーダーボード）を shadcn 標準寄せのビジュアルに移行し、関連 CSS Modules を削除する。本スペックは UI 最重要かつ CSS 量最大級の領域であり、プレイ UX 退行は許容しない。
+Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では UI 刷新のドメイン垂直スライスの一つとして、クイズライフサイクル（詳細→プレイ→結果→復習→リーダーボード）を shadcn 標準寄せのビジュアルに移行し、関連 CSS Modules を削除する。本スペックは UI 最重要かつ CSS 量最大級の領域であり、プレイ UX 退行は許容しない。
 
-移行順序はリスク低減のため詳細→結果→復習→プレイ（最後）とする。`quizeum-ui-layout-shell` に依存し、`/play` および `/quiz/test-play/*` では LayoutWrapper のシェル非表示契約を維持する。移行完了時に関連 Playwright E2E および Jest テストがグリーンであることを要求する。
+移行順序はリスク低減のため詳細→結果→復習→プレイ（最後）とする。`quizetika-ui-layout-shell` に依存し、`/play` および `/quiz/test-play/*` では LayoutWrapper のシェル非表示契約を維持する。移行完了時に関連 Playwright E2E および Jest テストがグリーンであることを要求する。
 
 **Phase 27（2026-06）**: クイズプレイ統計の BigQuery 連携基盤として、すべての問題形式（真偽値、多肢選択、記述、早押し、並べ替え、連想、水平思考）に対応した詳細な回答データ（解答時間、正誤、ヒント使用履歴、選択順、回答変更有無、記述回答内容など）をトラッキングし、完了ペイロードの `questionAnswerDetails` に含めて保存する要件を追加します。
 
@@ -31,16 +31,16 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
   - **Phase 27**: クイズプレイ画面（通常・ウミガメスープ・並び替え等）でのタイマー測定・ヒント閲覧・選択肢アクションのトラッキング UI/フック実装、および完了ペイロードへの解答詳細（`QuestionAnswerDetail[]`）の統合。
 - **Out of scope**:
   - クイズエディタ（`/quiz/create`, `/quiz/[id]/edit`）、`quiz-editor.tsx`, `quiz-list-editor`, `genre-editor-select`, `author-quiz-reference-panel`, `editor-skeleton`
-  - `feedback-skeleton`（`quizeum-ui-admin-creator` が所有）
-  - シェルコンポーネント（`quizeum-ui-layout-shell`）
+  - `feedback-skeleton`（`quizetika-ui-admin-creator` が所有）
+  - シェルコンポーネント（`quizetika-ui-layout-shell`）
   - プレイエンジン（`usePlayState`, `useAiPlayState`, `useQuickPressStream` 等の hooks）
   - スコア計算・attempt 永続化 lib（`services/attempt` 等）
   - 新機能追加、ルート変更、API/認可ロジック変更
   - `variables.css` の完全削除（`css-modules-cleanup` 候補）
 - **Adjacent expectations**:
-  - `quizeum-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Dialog, Card, Skeleton 等）を提供済みであること
-  - `quizeum-ui-layout-shell` は `/play` パスで Sidebar/Header/BottomNav を非表示にする契約を維持すること
-  - `quizeum-core` の attempt 契約および `quizeum-play-flow-ui` のプレイ/結果フローは本移行後も同一であること
+  - `quizetika-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Dialog, Card, Skeleton 等）を提供済みであること
+  - `quizetika-ui-layout-shell` は `/play` パスで Sidebar/Header/BottomNav を非表示にする契約を維持すること
+  - `quizetika-core` の attempt 契約および `quizetika-play-flow-ui` のプレイ/結果フローは本移行後も同一であること
   - 下流で `e2e/quiz-play.spec.ts` 等の selector 更新が必要な場合は本スペック完了時に実施すること
 
 ## Requirements
@@ -55,7 +55,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 4. While ユーザーが当該クイズをプレイ済みであるとき, the Quiz Lifecycle UI shall プレイ済みステータスを表示する。
 5. Where クイズにリーダーボード対象プレイモードが含まれる, the Quiz Lifecycle UI shall リーダーボード参加に関する注意表示（`play-mode-leaderboard-warning`）を維持する。
 6. The Quiz Lifecycle UI shall クイズ詳細画面の既存 `data-testid`（`quiz-detail-skeleton`, `quiz-detail-play-status`, `play-mode-leaderboard-warning`, `quiz-leaderboard` 等）を維持する。
-7. The Quiz Lifecycle UI shall クイズ詳細画面で旧 Quizeum ビジュアル（glass-card、ネオン色クラス）を使用しない。
+7. The Quiz Lifecycle UI shall クイズ詳細画面で旧 Quizetika ビジュアル（glass-card、ネオン色クラス）を使用しない。
 
 ### Requirement 2: クイズ結果・投稿完了画面
 **Objective:** As a プレイヤー, I want プレイ後の結果と投稿完了画面を shadcn 標準で閲覧・操作できること, so that スコア確認・復習・共有・評価フローを維持できる。
@@ -67,7 +67,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 4. When ユーザーが結果画面でリプレイ・ブックマーク・通報・作者フォロー等の操作を行ったとき, the Quiz Lifecycle UI shall 既存と同一の導線と `data-testid`（`quiz-replay-btn`, `quiz-result-bookmark-btn`, `quiz-report-btn`, `author-follow-btn` 等）を維持する。
 5. Where クイズにリーダーボードデータが存在する, the Quiz Lifecycle UI shall 初回/リプレイタブ付きデュアルリーダーボード（`quiz-leaderboard`, `quiz-leaderboard-tab-first`, `quiz-leaderboard-tab-replay`）を表示する。
 6. When ユーザーが投稿完了画面（`/quiz/[id]/success`）にアクセスしたとき, the Quiz Lifecycle UI shall 公開完了メッセージ・共有リンク・次のアクション導線を表示する。
-7. The Quiz Lifecycle UI shall 結果・投稿完了画面で旧 Quizeum ビジュアルを使用しない。
+7. The Quiz Lifecycle UI shall 結果・投稿完了画面で旧 Quizetika ビジュアルを使用しない。
 
 ### Requirement 3: 弱点克服（復習）画面
 **Objective:** As a プレイヤー, I want 復習画面でジャンル別の弱点克服クイズを shadcn 標準 UI で探索できること, so that 復習習慣を維持できる。
@@ -85,7 +85,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 1. When ユーザーが `/leaderboard` にアクセスしたとき, the Quiz Lifecycle UI shall スコア・プレイ数・クリエイター等のタブ切替可能なランキング一覧を表示する。
 2. When ユーザーがタブを切り替えたとき, the Quiz Lifecycle UI shall 対応するランキングデータを読み込み表示する。
 3. The Quiz Lifecycle UI shall ランキング各行にユーザー表示名・アバター・スコアを表示する。
-4. The Quiz Lifecycle UI shall グローバルリーダーボード画面で旧 Quizeum ビジュアルを使用しない。
+4. The Quiz Lifecycle UI shall グローバルリーダーボード画面で旧 Quizetika ビジュアルを使用しない。
 
 ### Requirement 5: 回答パネルとフィードバック UI
 **Objective:** As a プレイヤー, I want 選択肢・正誤・回答後フィードバックが shadcn 標準で明確に表示されること, so that 解答中および解答後の学習体験が維持される。
@@ -107,7 +107,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 4. While プレイデータの読み込みまたは完了処理中であるとき, the Quiz Lifecycle UI shall プレイ用スケルトン（`quiz-play-skeleton`, `quiz-play-completing`）を表示する。
 5. When ユーザーがテストプレイ結果画面に遷移したとき, the Quiz Lifecycle UI shall 本番結果画面と同等の結果 UI 契約を維持する。
 6. The Quiz Lifecycle UI shall プレイ画面の DOM 契約および `data-testid` を E2E 互換の範囲で維持する。
-7. The Quiz Lifecycle UI shall プレイ画面で旧 Quizeum ビジュアルを使用せず、没入型レイアウト（全画面コンテンツ、十分なタップ領域）を維持する。
+7. The Quiz Lifecycle UI shall プレイ画面で旧 Quizetika ビジュアルを使用せず、没入型レイアウト（全画面コンテンツ、十分なタップ領域）を維持する。
 8. When [プレイヤーがクイズ（通常・ウミガメスープ・並び替え等の全形式）をプレイしているとき], the Quiz Lifecycle UI shall [解答時間、ヒント閲覧アクション、および選択肢変更アクション（最初のクリックから別の選択肢への変更等）をフックしトラッキングする]。
 9. When [クイズプレイが完了したとき], the Quiz Lifecycle UI shall [トラッキングされた `QuestionAnswerDetail[]` 配列を構築し、完了ペイロードとして `attempts` 保存処理に統合する]。
 
@@ -125,7 +125,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 **Objective:** As a ユーザー, I want クイズライフサイクル全画面が shadcn 標準のクリーンな見た目でライト/ダーク両方で視認できること, so that Phase 24 UI 刷新の一貫性を体感できる。
 
 #### Acceptance Criteria
-1. The Quiz Lifecycle UI shall 旧 Quizeum ビジュアル（glass-card、ネオン色クラス、body gradient 依存）をライフサイクル画面で使用しない。
+1. The Quiz Lifecycle UI shall 旧 Quizetika ビジュアル（glass-card、ネオン色クラス、body gradient 依存）をライフサイクル画面で使用しない。
 2. When ライトモードが適用されているとき, the Quiz Lifecycle UI shall shadcn 標準ライトパレットで全ライフサイクル画面を表示する。
 3. When ダークモードが適用されているとき, the Quiz Lifecycle UI shall shadcn 標準ダークパレットで全ライフサイクル画面を表示する。
 4. Where 正誤・進捗・選択状態が表示される, the Quiz Lifecycle UI shall ライト/ダークいずれでも十分なコントラストで状態を識別できる。

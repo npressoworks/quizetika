@@ -55,7 +55,7 @@ export function VideoAdModal({ isOpen, onComplete }: VideoAdModalProps): React.J
               <span className="text-3xl">🎯</span>
             </div>
             <h4 className="text-lg font-bold text-neutral-100 tracking-wide">
-              Quizeum Pro プラン
+              Quizetika Pro プラン
             </h4>
             <p className="text-xs text-neutral-400 max-w-xs">
               月額わずか数百円で、広告が完全に非表示になり、AI質問が使い放題になります。

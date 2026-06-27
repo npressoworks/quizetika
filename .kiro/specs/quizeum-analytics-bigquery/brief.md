@@ -1,4 +1,4 @@
-# Brief: quizeum-analytics-bigquery
+# Brief: quizetika-analytics-bigquery
 
 ## Problem
 将来的に企業やAI向けにクイズ統計、ユーザーの解答データ、およびユーザーの統計データを提供したいが、現状のデータモデルでは問題ごとの解答詳細や解答時間などが細かく保持されておらず、また統計データを分析しやすい形で BigQuery 等のデータウェアハウスに連携・同期する仕組みが存在しない。
@@ -15,7 +15,7 @@
 
 ## Approach
 - Firestore の `attempts` の中に `questionAnswerDetails` 配列を追加し、1つの attempt ドキュメントにすべての詳細情報を内包する「ARRAY/STRUCT 包含スキーマ設計」を採用。
-- `QuestionAnswerDetail` のデータ構造は、Quizeum に存在するすべての問題形式（真偽値、多肢選択、記述、早押し、並べ替え、連想、水平思考）に対応する以下の汎用設計とします：
+- `QuestionAnswerDetail` のデータ構造は、Quizetika に存在するすべての問題形式（真偽値、多肢選択、記述、早押し、並べ替え、連想、水平思考）に対応する以下の汎用設計とします：
   ```typescript
   export interface QuestionAnswerDetail {
     questionId: string;
@@ -48,7 +48,7 @@
 
 ## Scope
 - **In**:
-  - `quizeum-analytics-bigquery` スペック内の要件定義、および BigQuery 側のスキーマ設計（スキーマ定義ファイルの作成）
+  - `quizetika-analytics-bigquery` スペック内の要件定義、および BigQuery 側のスキーマ設計（スキーマ定義ファイルの作成）
   - Firebase Extension の初期設定ガイド、パラメータ設定の定義
   - BigQuery に同期された raw データを分析用にフラット化するためのビュー（View）作成用 SQL スクリプトの作成
   - 既存 Firestore データの一括エクスポート/インポート手順マニュアルとスクリプトガイド
@@ -64,11 +64,11 @@
 - PostHog を用いたユーザーのプロダクト行動イベントの BigQuery 連携
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core` (Firestore スキーマ定義・保存トランザクション)
+- **Upstream**: `quizetika-core` (Firestore スキーマ定義・保存トランザクション)
 - **Downstream**: 将来的な企業向けデータエクスポート API、 Looker Studio ダッシュボード
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core`
+- **Extends**: `quizetika-core`
 - **Adjacent**: なし
 
 ## Constraints

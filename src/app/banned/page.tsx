@@ -24,8 +24,8 @@ export default function BannedPage() {
     if (loading) return;
 
     // クッキー内の banned フラグも確認
-    const isCookieBanned = typeof document !== 'undefined' && 
-      document.cookie.split('; ').some(row => row.startsWith('quizeum_banned=true'));
+    const isCookieBanned = typeof document !== 'undefined' &&
+      document.cookie.split('; ').some(row => row.startsWith('quizetika_banned=true'));
 
     const isBanned = (user && user.isBanned === true) || isCookieBanned;
 
@@ -52,7 +52,7 @@ export default function BannedPage() {
         <div className={styles.iconContainer}>🚨</div>
         <h1 className={styles.title}>アカウントが停止されています</h1>
         <p className={styles.message}>
-          利用規約への違反、または不適切な行為が確認されたため、お使いの quizeum アカウントは現在一時的または恒久的に停止（BAN）されています。
+          利用規約への違反、または不適切な行為が確認されたため、お使いの quizetika アカウントは現在一時的または恒久的に停止（BAN）されています。
         </p>
         {user?.bannedReason && (
           <div className={styles.reasonBox}>
@@ -64,7 +64,7 @@ export default function BannedPage() {
           <p>
             本件に関する不服申し立てやお問い合わせは、サポート窓口までご連絡ください。
           </p>
-          <p className={styles.contactEmail}>support@quizeum.example.com</p>
+          <p className={styles.contactEmail}>support@quizetika.example.com</p>
         </div>
       </div>
     </div>

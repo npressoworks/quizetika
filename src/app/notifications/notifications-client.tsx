@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { 
-  getNotifications, 
-  markAsRead, 
-  getUnreadNotificationsCount, 
-  markAllNotificationsAsRead, 
-  Notification 
+import {
+  getNotifications,
+  markAsRead,
+  getUnreadNotificationsCount,
+  markAllNotificationsAsRead,
+  Notification
 } from '@/services/notification';
 import { getUnreadAnnouncementsCount } from '@/services/announcement';
 import {
@@ -49,7 +49,7 @@ export function NotificationsClient() {
     if (authLoading) return;
 
     // お知らせ未読数の初期化
-    const storedLastRead = localStorage.getItem('quizeum_announcements_last_read_at');
+    const storedLastRead = localStorage.getItem('quizetika_announcements_last_read_at');
     let parsedLastRead: Date | null = null;
     if (storedLastRead) {
       parsedLastRead = new Date(storedLastRead);
@@ -57,13 +57,13 @@ export function NotificationsClient() {
     } else {
       // 初回アクセス時は過去の時刻（Unixエポック）を設定し、既存のお知らせを未読とする
       const epoch = new Date(0);
-      localStorage.setItem('quizeum_announcements_last_read_at', epoch.toISOString());
+      localStorage.setItem('quizetika_announcements_last_read_at', epoch.toISOString());
       parsedLastRead = epoch;
       setLastReadAnnAt(epoch);
     }
 
     // 既読お知らせIDリストの初期化
-    const storedReadIds = localStorage.getItem('quizeum_read_announcement_ids');
+    const storedReadIds = localStorage.getItem('quizetika_read_announcement_ids');
     let parsedReadIds: string[] = [];
     if (storedReadIds) {
       try {
@@ -154,8 +154,8 @@ export function NotificationsClient() {
 
   const handleAllAnnRead = () => {
     const now = new Date();
-    localStorage.setItem('quizeum_announcements_last_read_at', now.toISOString());
-    localStorage.setItem('quizeum_read_announcement_ids', JSON.stringify([]));
+    localStorage.setItem('quizetika_announcements_last_read_at', now.toISOString());
+    localStorage.setItem('quizetika_read_announcement_ids', JSON.stringify([]));
     setLastReadAnnAt(now);
     setReadAnnouncementIds([]);
     setUnreadAnnCount(0);
@@ -164,7 +164,7 @@ export function NotificationsClient() {
   const handleAnnRead = (id: string) => {
     if (readAnnouncementIds.includes(id)) return;
     const updatedIds = [...readAnnouncementIds, id];
-    localStorage.setItem('quizeum_read_announcement_ids', JSON.stringify(updatedIds));
+    localStorage.setItem('quizetika_read_announcement_ids', JSON.stringify(updatedIds));
     setReadAnnouncementIds(updatedIds);
     setUnreadAnnCount(prev => Math.max(0, prev - 1));
   };
@@ -237,7 +237,7 @@ export function NotificationsClient() {
                 <p className="text-sm text-muted-foreground mb-6 max-w-sm">
                   ログインすると、あなたのクイズへのブックマーク、フォロー、間違い指摘の解決などの通知を受け取ることができます。
                 </p>
-                <Button 
+                <Button
                   onClick={() => router.push('/login?redirect=/notifications')}
                   data-testid="login-redirect-btn"
                 >
@@ -308,9 +308,9 @@ export function NotificationsClient() {
 
                   {hasMore && (
                     <div className="mt-4 flex justify-center">
-                      <Button 
-                        variant="outline" 
-                        onClick={loadMoreNotifications} 
+                      <Button
+                        variant="outline"
+                        onClick={loadMoreNotifications}
                         disabled={loadingMore}
                         data-testid="load-more-notifications-btn"
                       >
@@ -325,10 +325,10 @@ export function NotificationsClient() {
         </TabsContent>
 
         <TabsContent value="announcements">
-          <AnnouncementsTab 
-            lastReadAt={lastReadAnnAt} 
-            onMarkAllRead={handleAllAnnRead} 
-            unreadCount={unreadAnnCount} 
+          <AnnouncementsTab
+            lastReadAt={lastReadAnnAt}
+            onMarkAllRead={handleAllAnnRead}
+            unreadCount={unreadAnnCount}
             readAnnouncementIds={readAnnouncementIds}
             onMarkAsRead={handleAnnRead}
           />

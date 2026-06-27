@@ -8,8 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ErrorOutlined } from '@mui/icons-material';
 
 export const metadata: Metadata = {
-  title: '利用規約 - quizeum',
-  description: 'quizeum（クイズ投稿・管理SNS）の利用規約です。本サービスをご利用になる際の合意事項について記載しています。',
+  title: '利用規約 - quizetika',
+  description: 'quizetika（クイズ投稿・管理SNS）の利用規約です。本サービスをご利用になる際の合意事項について記載しています。',
 };
 
 
@@ -50,7 +50,7 @@ export default async function TermsPage() {
               </p>
             </div>
           ) : (
-            <article 
+            <article
               className="prose prose-neutral dark:prose-invert max-w-none text-foreground leading-relaxed
                 [&>h1]:text-2xl [&>h1]:font-bold [&>h1]:mb-6 [&>h1]:text-foreground
                 [&>h2]:text-lg [&>h2]:font-semibold [&>h2]:mt-8 [&>h2]:mb-4 [&>h2]:pb-2 [&>h2]:border-b [&>h2]:text-foreground

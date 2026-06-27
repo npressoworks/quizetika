@@ -1,4 +1,4 @@
-# Design Document: quizeum-infinite-scroll
+# Design Document: quizetika-infinite-scroll
 
 ## Overview
 本機能は、クイズの一覧表示（検索画面、プロフィール画面の作成したクイズ）において、ページング処理による無駄なデータストア読み取りを削減しつつ、優れたスクロール体験を提供します。初期表示では「もっと見る」ボタンのみを表示し、クリックされてから自動的に追加クイズが読み込まれる無限スクロールモードにシームレスに切り替わる「ハイブリッド無限スクロール」方式を導入します。また、無料会員（`showAds === true`）に対しては、一覧に追加取得された後もクイズ10件ごとに Google AdSense 広告が必ず1件インライン挿入され続ける挙動を保証します。
@@ -20,7 +20,7 @@
 ### This Spec Owns
 - 共通 UI/UX 制御コンポーネント `InfiniteScrollLoader` のインターフェースおよびライフサイクルステート管理。
 - プロフィール画面の「作成したクイズ」用段階的データ取得コンポーネント `ProfileQuizzesPanel` の定義。
-- データストアから作者のクイズをカーソルで段階取得する `getQuizzesByAuthorPage` 関数（`quizeum-core`）。
+- データストアから作者のクイズをカーソルで段階取得する `getQuizzesByAuthorPage` 関数（`quizetika-core`）。
 - カーソルエンコード・デコード層 (`src/lib/quiz-feed-cursor.ts`) での `'author'` カーソル種類の解釈。
 - 追加フェッチ時の、クイズ10件ごとの広告自動インライン挿入の順序計算。
 
@@ -50,11 +50,11 @@
 ### Technology Stack
 本機能が影響を与えるレイヤーは以下です。
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend / CLI | React 19 / Next.js 16 | ハイブリッド無限スクロール UI / プロフィール一覧コンポーネント | TailwindCSS ユーティリティ、CSS Modules 共用 |
-| Backend / Services | Next.js API Routes | - | 既存の API 設計に従う |
-| Data / Storage | Firestore SDK | `getQuizzesByAuthorPage` でのカーソルクエリ | `startAfter`, `limit`, `orderBy` 使用 |
+| Layer              | Choice / Version      | Role in Feature                                                | Notes                                        |
+| ------------------ | --------------------- | -------------------------------------------------------------- | -------------------------------------------- |
+| Frontend / CLI     | React 19 / Next.js 16 | ハイブリッド無限スクロール UI / プロフィール一覧コンポーネント | TailwindCSS ユーティリティ、CSS Modules 共用 |
+| Backend / Services | Next.js API Routes    | -                                                              | 既存の API 設計に従う                        |
+| Data / Storage     | Firestore SDK         | `getQuizzesByAuthorPage` でのカーソルクエリ                    | `startAfter`, `limit`, `orderBy` 使用        |
 
 ---
 
@@ -119,21 +119,21 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | 初期表示20件 ＋ もっと見るボタン表示 | `SearchClient`, `InfiniteScrollLoader` | `InfiniteScrollLoaderProps` | - |
-| 1.2 | もっと見るクリックで自動ロード開始 | `SearchClient`, `InfiniteScrollLoader` | `InfiniteScrollLoaderProps` | ロード遷移ステップ 5-8 |
-| 1.3 | 有効化後のスクロールでの自動ロード | `SearchClient`, `InfiniteScrollLoader` | `InfiniteScrollLoaderProps` | ロード遷移ステップ 9-12 |
-| 1.4 | 全件読み込み完了時のボタン非表示化 | `InfiniteScrollLoader` | `InfiniteScrollLoaderProps` | - |
-| 1.5 | ロード中のプレースホルダー表示 | `InfiniteScrollLoader`, `GridSkeleton` | - | - |
-| 2.1 | プロフィール初期20件表示 ＋ もっと見る | `ProfileQuizzesPanel`, `InfiniteScrollLoader` | `ProfileQuizzesPanelProps` | - |
-| 2.2 | プロフィールもっと見るクリック時のロード | `ProfileQuizzesPanel`, `getQuizzesByAuthorPage` | `getQuizzesByAuthorPage` | - |
-| 2.3 | プロフィール有効化後の自動追加ロード | `ProfileQuizzesPanel`, `getQuizzesByAuthorPage` | `getQuizzesByAuthorPage` | - |
-| 2.4 | プロフィール検索語入力時の一括切り替え | `ProfileQuizzesPanel` | - | - |
-| 2.5 | プロフィール本人の際の下書き・非公開ロード | `ProfileQuizzesPanel`, `getQuizzesByAuthorPage` | `getQuizzesByAuthorPage` | - |
-| 3.1 | 無料会員向け10件ごとの広告自動挿入 | `QuizCard` グリッドレンダリング (Search, Profile) | - | - |
-| 3.2 | 有料会員向け広告非表示 | `useAds`, `QuizCard` グリッドレンダリング | - | - |
-| 3.3 | 追加ロード後の広告再計算 | `QuizCard` グリッドレンダリング (Search, Profile) | - | - |
+| Requirement | Summary                                    | Components                                        | Interfaces                  | Flows                   |
+| ----------- | ------------------------------------------ | ------------------------------------------------- | --------------------------- | ----------------------- |
+| 1.1         | 初期表示20件 ＋ もっと見るボタン表示       | `SearchClient`, `InfiniteScrollLoader`            | `InfiniteScrollLoaderProps` | -                       |
+| 1.2         | もっと見るクリックで自動ロード開始         | `SearchClient`, `InfiniteScrollLoader`            | `InfiniteScrollLoaderProps` | ロード遷移ステップ 5-8  |
+| 1.3         | 有効化後のスクロールでの自動ロード         | `SearchClient`, `InfiniteScrollLoader`            | `InfiniteScrollLoaderProps` | ロード遷移ステップ 9-12 |
+| 1.4         | 全件読み込み完了時のボタン非表示化         | `InfiniteScrollLoader`                            | `InfiniteScrollLoaderProps` | -                       |
+| 1.5         | ロード中のプレースホルダー表示             | `InfiniteScrollLoader`, `GridSkeleton`            | -                           | -                       |
+| 2.1         | プロフィール初期20件表示 ＋ もっと見る     | `ProfileQuizzesPanel`, `InfiniteScrollLoader`     | `ProfileQuizzesPanelProps`  | -                       |
+| 2.2         | プロフィールもっと見るクリック時のロード   | `ProfileQuizzesPanel`, `getQuizzesByAuthorPage`   | `getQuizzesByAuthorPage`    | -                       |
+| 2.3         | プロフィール有効化後の自動追加ロード       | `ProfileQuizzesPanel`, `getQuizzesByAuthorPage`   | `getQuizzesByAuthorPage`    | -                       |
+| 2.4         | プロフィール検索語入力時の一括切り替え     | `ProfileQuizzesPanel`                             | -                           | -                       |
+| 2.5         | プロフィール本人の際の下書き・非公開ロード | `ProfileQuizzesPanel`, `getQuizzesByAuthorPage`   | `getQuizzesByAuthorPage`    | -                       |
+| 3.1         | 無料会員向け10件ごとの広告自動挿入         | `QuizCard` グリッドレンダリング (Search, Profile) | -                           | -                       |
+| 3.2         | 有料会員向け広告非表示                     | `useAds`, `QuizCard` グリッドレンダリング         | -                           | -                       |
+| 3.3         | 追加ロード後の広告再計算                   | `QuizCard` グリッドレンダリング (Search, Profile) | -                           | -                       |
 
 ---
 
@@ -142,12 +142,12 @@ sequenceDiagram
 ### UI / Component Layer
 
 #### InfiniteScrollLoader
-| Field | Detail |
-|-------|--------|
-| Intent | 最初は「もっと見る」ボタンを表示し、クリックされたら自動無限スクロールモードに切り替えスクロール監視を行う共通 UI |
-| Requirements | 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3 |
-| Dependencies | `useIntersectionLoadMore` (Criticality: P0), `Button` (Criticality: P1), `GridSkeleton` (Criticality: P1) |
-| Contracts | State |
+| Field        | Detail                                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Intent       | 最初は「もっと見る」ボタンを表示し、クリックされたら自動無限スクロールモードに切り替えスクロール監視を行う共通 UI |
+| Requirements | 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3                                                                            |
+| Dependencies | `useIntersectionLoadMore` (Criticality: P0), `Button` (Criticality: P1), `GridSkeleton` (Criticality: P1)         |
+| Contracts    | State                                                                                                             |
 
 ##### State Management
 - `isInfinite`: boolean — 「もっと見る」ボタンがクリックされ、自動無限スクロールモードが有効になったかを保持します。
@@ -164,12 +164,12 @@ interface InfiniteScrollLoaderProps {
 ```
 
 #### ProfileQuizzesPanel
-| Field | Detail |
-|-------|--------|
-| Intent | プロフィール画面におけるクイズ一覧表示と、検索入力有無に応じた段階フェッチ/一括ロード切り替え、広告挿入を管理するパネル |
-| Requirements | 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3 |
-| Dependencies | `getQuizzesByAuthorPage` (P0), `getQuizzesByAuthor` (P0), `InfiniteScrollLoader` (P0), `QuizCard` (P0), `useAds` (P0) |
-| Contracts | State, Service |
+| Field        | Detail                                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Intent       | プロフィール画面におけるクイズ一覧表示と、検索入力有無に応じた段階フェッチ/一括ロード切り替え、広告挿入を管理するパネル |
+| Requirements | 2.1, 2.2, 2.3, 2.4, 2.5, 3.1, 3.2, 3.3                                                                                  |
+| Dependencies | `getQuizzesByAuthorPage` (P0), `getQuizzesByAuthor` (P0), `InfiniteScrollLoader` (P0), `QuizCard` (P0), `useAds` (P0)   |
+| Contracts    | State, Service                                                                                                          |
 
 ##### State Management
 - `quizzes`: Quiz[] — 表示対象のクイズ配列。
@@ -202,12 +202,12 @@ interface ProfileQuizzesPanelProps {
 ### Data / Services Layer
 
 #### getQuizzesByAuthorPage
-| Field | Detail |
-|-------|--------|
-| Intent | 作者IDを指定し、Firestoreから段階的（limit 20）にクイズ一覧を取得するサービス関数 |
-| Requirements | 2.1, 2.2, 2.3, 2.5 |
-| Dependencies | Firebase Firestore SDK (Criticality: P0) |
-| Contracts | Service |
+| Field        | Detail                                                                            |
+| ------------ | --------------------------------------------------------------------------------- |
+| Intent       | 作者IDを指定し、Firestoreから段階的（limit 20）にクイズ一覧を取得するサービス関数 |
+| Requirements | 2.1, 2.2, 2.3, 2.5                                                                |
+| Dependencies | Firebase Firestore SDK (Criticality: P0)                                          |
+| Contracts    | Service                                                                           |
 
 ##### Service Interface
 ```typescript

@@ -44,9 +44,9 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Cookie からユーザー認証情報を取得
-  const uid = request.cookies.get('quizeum_uid')?.value;
-  const moderationTier = request.cookies.get('quizeum_tier')?.value;
-  const isBanned = request.cookies.get('quizeum_banned')?.value === 'true';
+  const uid = request.cookies.get('quizetika_uid')?.value;
+  const moderationTier = request.cookies.get('quizetika_tier')?.value;
+  const isBanned = request.cookies.get('quizetika_banned')?.value === 'true';
 
   // -------------------------------------------------------------------
   // BAN ユーザーの強制リダイレクト
@@ -62,7 +62,7 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith('/admin/moderation')) {
     const isAdminOrSenior =
       moderationTier === 'senior_moderator' ||
-      request.cookies.get('quizeum_role')?.value === 'admin';
+      request.cookies.get('quizetika_role')?.value === 'admin';
 
     if (!uid || !isAdminOrSenior) {
       // 未認証または権限不足の場合は /not-found にリダイレクト（404相当）
@@ -73,7 +73,7 @@ export function middleware(request: NextRequest) {
 
   // /admin, /admin/users, /admin/genres: 管理者のみ (Req 1.1, 7.1, 8.1)
   if (pathname === '/admin' || pathname.startsWith('/admin/users') || pathname.startsWith('/admin/genres')) {
-    const isAdmin = request.cookies.get('quizeum_role')?.value === 'admin';
+    const isAdmin = request.cookies.get('quizetika_role')?.value === 'admin';
     if (!uid || !isAdmin) {
       const notFound = new URL('/not-found', request.url);
       return NextResponse.redirect(notFound);

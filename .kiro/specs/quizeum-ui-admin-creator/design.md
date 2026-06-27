@@ -1,8 +1,8 @@
-# Design Document: quizeum-ui-admin-creator
+# Design Document: quizetika-ui-admin-creator
 
 ## Overview
 
-本機能は Phase 24 UI 刷新の**第 7 スペック**であり、管理画面（ユーザー管理・モデレーション）、クリエイターダッシュボード、コミュニティツール（ジャンル管理・マージ投票）、および関連チャート・スケルトンを `quizeum-ui-foundation` の shadcn 標準テーマ上に再構築する。既存のデータ取得・認可・サービス呼び出しは維持し、スタイル層（CSS Modules → Tailwind + shadcn）のみを strangler パターンで置換する。
+本機能は Phase 24 UI 刷新の**第 7 スペック**であり、管理画面（ユーザー管理・モデレーション）、クリエイターダッシュボード、コミュニティツール（ジャンル管理・マージ投票）、および関連チャート・スケルトンを `quizetika-ui-foundation` の shadcn 標準テーマ上に再構築する。既存のデータ取得・認可・サービス呼び出しは維持し、スタイル層（CSS Modules → Tailwind + shadcn）のみを strangler パターンで置換する。
 
 **Users**: 管理者・モデレーターは dense テーブル/フォームで運用業務を行う。クリエイターはダッシュボードで統計・クイズ・フィードバックを閲覧する。コミュニティ参加者はジャンル/マージ提案と投票を行う。
 
@@ -45,8 +45,8 @@
 - `variables.css` 削除（`css-modules-cleanup`）
 
 ### Allowed Dependencies
-- **`quizeum-ui-foundation`**: Tailwind, `cn()`, Button, Input, Dialog, Tabs, Skeleton, Badge, Card（P0）
-- **`quizeum-ui-layout-shell`**: LayoutWrapper 内 `main` 描画（P0）
+- **`quizetika-ui-foundation`**: Tailwind, `cn()`, Button, Input, Dialog, Tabs, Skeleton, Badge, Card（P0）
+- **`quizetika-ui-layout-shell`**: LayoutWrapper 内 `main` 描画（P0）
 - **`useAuth` / `AuthProvider`**: 権限ガード・ユーザー情報（P0、読み取りのみ）
 - **`isAdminUser` from `@/lib/middleware-auth-cookies`**: 管理者判定（P0）
 - **既存サービス**: `resolveFlag`, `getQuizzesByAuthor`, `getReportsForCreator`, `tagMerge` 等（P0、呼び出し維持）
@@ -80,13 +80,13 @@
 
 ```mermaid
 graph TD
-    subgraph Foundation [quizeum-ui-foundation]
+    subgraph Foundation [quizetika-ui-foundation]
         Globals[globals.css CSS vars]
         CN[cn utility]
         BaseUI[Button Card Tabs Badge Skeleton Dialog Input]
     end
 
-    subgraph AdminCreator [quizeum-ui-admin-creator]
+    subgraph AdminCreator [quizetika-ui-admin-creator]
         AddUI[Table AlertDialog Select Textarea Label Chart]
         ConfirmDlg[ConfirmActionDialog]
         AdminUsers[Admin Users Page]
@@ -143,16 +143,16 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16, React 19 | Client Components (`'use client'`) | 既存維持 |
-| Styling | Tailwind CSS v4 | ユーティリティクラス | foundation 経由 |
-| UI | shadcn/ui | Table, AlertDialog, Chart 等 | foundation + 本 spec add |
-| Charts | recharts (via shadcn Chart) | トレンド・円グラフ | CLI add chart |
-| Icons | @mui/icons-material | ダッシュボード・管理 UI | 既存 |
-| Data | Firestore, REST API | 既存 fetch 維持 | 変更なし |
-| Auth | useAuth, middleware cookies | ガード維持 | 読み取りのみ |
-| Testing | Jest, Playwright | 単体・E2E 回帰 | 既存 spec 更新 |
+| Layer    | Choice / Version            | Role in Feature                    | Notes                    |
+| -------- | --------------------------- | ---------------------------------- | ------------------------ |
+| Frontend | Next.js 16, React 19        | Client Components (`'use client'`) | 既存維持                 |
+| Styling  | Tailwind CSS v4             | ユーティリティクラス               | foundation 経由          |
+| UI       | shadcn/ui                   | Table, AlertDialog, Chart 等       | foundation + 本 spec add |
+| Charts   | recharts (via shadcn Chart) | トレンド・円グラフ                 | CLI add chart            |
+| Icons    | @mui/icons-material         | ダッシュボード・管理 UI            | 既存                     |
+| Data     | Firestore, REST API         | 既存 fetch 維持                    | 変更なし                 |
+| Auth     | useAuth, middleware cookies | ガード維持                         | 読み取りのみ             |
+| Testing  | Jest, Playwright            | 単体・E2E 回帰                     | 既存 spec 更新           |
 
 ---
 
@@ -273,66 +273,66 @@ flowchart TD
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | UID 検索・操作 | AdminUsersPage | /api/admin/users/* | — |
-| 1.2 | テーブル表示 | AdminUsersPage, Table | — | — |
-| 1.3 | 理由 10 文字 | AdminUsersPage, Textarea | — | — |
-| 1.4 | moderation 導線 | AdminUsersPage | Link | — |
-| 1.5 | 操作 id 維持 | AdminUsersPage | button id | — |
-| 1.6 | shadcn 標準 | AdminUsersPage | Tailwind | — |
-| 2.1 | 審査キュー | AdminModerationPage | resolveFlag | — |
-| 2.2 | admin_review 遷移 | AdminModerationPage | Link | — |
-| 2.3 | seed UI | AdminModerationPage | seed API | — |
-| 2.4 | 操作 id | AdminModerationPage | button id | Confirm flow |
-| 2.5 | users 導線 | AdminModerationPage | Link | — |
-| 2.6 | shadcn 標準 | AdminModerationPage | Tailwind | — |
-| 3.1 | ダッシュボード機能 | CreatorDashboard | quiz/review services | Loading flow |
-| 3.2 | スケルトン表示 | Skeletons | data-testid | Loading flow |
-| 3.3 | スケルトン置換 | dashboard-client | — | Loading flow |
-| 3.4 | testid 維持 | dashboard-sections | data-testid | — |
-| 3.5 | 導線維持 | dashboard-sections | router/link | — |
-| 3.6 | shadcn Card | dashboard-sections | Card, Badge | — |
-| 4.1–4.5 | ジャンル UI | CommunityGenresPage | tagMerge | — |
-| 5.1–5.5 | マージ UI | CommunityMergePage | tagMerge | — |
-| 6.1 | 棒グラフ | AnalyticsChart | Chart props | — |
-| 6.2 | 円グラフ | SelectionPie | data[] | — |
-| 6.3 | テーマ配色 | AnalyticsChart, Chart | CSS vars | — |
-| 6.4 | フォールバック | SelectionPie | — | — |
-| 6.5 | skeleton testid | ChartSkeletons | data-testid | — |
-| 7.1–7.5 | 認可維持 | 全 page.tsx | useAuth, middleware | — |
-| 8.1–8.5 | 確認ダイアログ | ConfirmActionDialog | AlertDialog | Confirm flow |
-| 9.1 | E2E グリーン | — | Playwright | — |
-| 9.2 | Jest グリーン | — | Jest | — |
-| 9.3 | テーマ視認性 | 全コンポーネント | dark class | — |
-| 9.4 | CSS 削除 | — | file delete | — |
-| 9.5 | 契約不変 | — | services | — |
+| Requirement | Summary            | Components               | Interfaces           | Flows        |
+| ----------- | ------------------ | ------------------------ | -------------------- | ------------ |
+| 1.1         | UID 検索・操作     | AdminUsersPage           | /api/admin/users/*   | —            |
+| 1.2         | テーブル表示       | AdminUsersPage, Table    | —                    | —            |
+| 1.3         | 理由 10 文字       | AdminUsersPage, Textarea | —                    | —            |
+| 1.4         | moderation 導線    | AdminUsersPage           | Link                 | —            |
+| 1.5         | 操作 id 維持       | AdminUsersPage           | button id            | —            |
+| 1.6         | shadcn 標準        | AdminUsersPage           | Tailwind             | —            |
+| 2.1         | 審査キュー         | AdminModerationPage      | resolveFlag          | —            |
+| 2.2         | admin_review 遷移  | AdminModerationPage      | Link                 | —            |
+| 2.3         | seed UI            | AdminModerationPage      | seed API             | —            |
+| 2.4         | 操作 id            | AdminModerationPage      | button id            | Confirm flow |
+| 2.5         | users 導線         | AdminModerationPage      | Link                 | —            |
+| 2.6         | shadcn 標準        | AdminModerationPage      | Tailwind             | —            |
+| 3.1         | ダッシュボード機能 | CreatorDashboard         | quiz/review services | Loading flow |
+| 3.2         | スケルトン表示     | Skeletons                | data-testid          | Loading flow |
+| 3.3         | スケルトン置換     | dashboard-client         | —                    | Loading flow |
+| 3.4         | testid 維持        | dashboard-sections       | data-testid          | —            |
+| 3.5         | 導線維持           | dashboard-sections       | router/link          | —            |
+| 3.6         | shadcn Card        | dashboard-sections       | Card, Badge          | —            |
+| 4.1–4.5     | ジャンル UI        | CommunityGenresPage      | tagMerge             | —            |
+| 5.1–5.5     | マージ UI          | CommunityMergePage       | tagMerge             | —            |
+| 6.1         | 棒グラフ           | AnalyticsChart           | Chart props          | —            |
+| 6.2         | 円グラフ           | SelectionPie             | data[]               | —            |
+| 6.3         | テーマ配色         | AnalyticsChart, Chart    | CSS vars             | —            |
+| 6.4         | フォールバック     | SelectionPie             | —                    | —            |
+| 6.5         | skeleton testid    | ChartSkeletons           | data-testid          | —            |
+| 7.1–7.5     | 認可維持           | 全 page.tsx              | useAuth, middleware  | —            |
+| 8.1–8.5     | 確認ダイアログ     | ConfirmActionDialog      | AlertDialog          | Confirm flow |
+| 9.1         | E2E グリーン       | —                        | Playwright           | —            |
+| 9.2         | Jest グリーン      | —                        | Jest                 | —            |
+| 9.3         | テーマ視認性       | 全コンポーネント         | dark class           | —            |
+| 9.4         | CSS 削除           | —                        | file delete          | —            |
+| 9.5         | 契約不変           | —                        | services             | —            |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| AdminPrimitives | UI | Table/AlertDialog 等追加 | 1, 2, 4, 5, 8 | foundation (P0), shadcn CLI (P1) | State |
-| ConfirmActionDialog | UI | 破壊的操作確認 | 8.1–8.5 | AlertDialog (P0) | State |
-| AdminUsersPage | Page | ユーザー管理 UI | 1, 7, 8 | useAuth, AdminAPI (P0) | API |
-| AdminModerationPage | Page | モデレーション UI | 2, 7, 8 | resolveFlag, Firestore (P0) | Service |
-| CreatorDashboard | Page | ダッシュボード UI | 3, 7 | quiz/review services (P0) | Service |
-| CommunityGenresPage | Page | ジャンル管理 UI | 4, 7 | tagMerge (P0) | Service |
-| CommunityMergePage | Page | マージ投票 UI | 5, 7 | tagMerge (P0) | Service |
-| AnalyticsChart | Chart | トレンド棒グラフ | 6.1, 6.3 | Chart/recharts (P1) | State |
-| SelectionPie | Chart | 選択分布円グラフ | 6.2, 6.4 | Chart (P1) | State |
-| ChartSkeletons | UI | 読み込みプレースホルダ | 3.2, 6.5 | Skeleton (P0) | State |
+| Component           | Domain/Layer | Intent                   | Req Coverage  | Key Dependencies (P0/P1)         | Contracts |
+| ------------------- | ------------ | ------------------------ | ------------- | -------------------------------- | --------- |
+| AdminPrimitives     | UI           | Table/AlertDialog 等追加 | 1, 2, 4, 5, 8 | foundation (P0), shadcn CLI (P1) | State     |
+| ConfirmActionDialog | UI           | 破壊的操作確認           | 8.1–8.5       | AlertDialog (P0)                 | State     |
+| AdminUsersPage      | Page         | ユーザー管理 UI          | 1, 7, 8       | useAuth, AdminAPI (P0)           | API       |
+| AdminModerationPage | Page         | モデレーション UI        | 2, 7, 8       | resolveFlag, Firestore (P0)      | Service   |
+| CreatorDashboard    | Page         | ダッシュボード UI        | 3, 7          | quiz/review services (P0)        | Service   |
+| CommunityGenresPage | Page         | ジャンル管理 UI          | 4, 7          | tagMerge (P0)                    | Service   |
+| CommunityMergePage  | Page         | マージ投票 UI            | 5, 7          | tagMerge (P0)                    | Service   |
+| AnalyticsChart      | Chart        | トレンド棒グラフ         | 6.1, 6.3      | Chart/recharts (P1)              | State     |
+| SelectionPie        | Chart        | 選択分布円グラフ         | 6.2, 6.4      | Chart (P1)                       | State     |
+| ChartSkeletons      | UI           | 読み込みプレースホルダ   | 3.2, 6.5      | Skeleton (P0)                    | State     |
 
 ### UI Layer
 
 #### ConfirmActionDialog
 
-| Field | Detail |
-|-------|--------|
-| Intent | 破壊的操作前の確認ダイアログを統一提供 |
-| Requirements | 8.1, 8.2, 8.3, 8.4, 8.5 |
+| Field        | Detail                                 |
+| ------------ | -------------------------------------- |
+| Intent       | 破壊的操作前の確認ダイアログを統一提供 |
+| Requirements | 8.1, 8.2, 8.3, 8.4, 8.5                |
 
 **Responsibilities & Constraints**
 - shadcn AlertDialog をラップし、title/description/confirmLabel/cancelLabel を props で受け取る
@@ -366,10 +366,10 @@ interface ConfirmActionDialogProps {
 
 #### AnalyticsChart
 
-| Field | Detail |
-|-------|--------|
-| Intent | 7 日間トレンドの棒グラフ表示 |
-| Requirements | 6.1, 6.3 |
+| Field        | Detail                       |
+| ------------ | ---------------------------- |
+| Intent       | 7 日間トレンドの棒グラフ表示 |
+| Requirements | 6.1, 6.3                     |
 
 **Responsibilities & Constraints**
 - 既存 props を維持: `{ data: {label, value}[], title, unit, color? }`
@@ -388,9 +388,9 @@ interface ConfirmActionDialogProps {
 
 #### AdminUsersPage（実装ノート）
 
-| Field | Detail |
-|-------|--------|
-| Intent | UID 検索・BAN/UNBAN/リセット UI |
+| Field        | Detail                                     |
+| ------------ | ------------------------------------------ |
+| Intent       | UID 検索・BAN/UNBAN/リセット UI            |
 | Requirements | 1.1–1.6, 7.1, 7.2, 7.4, 7.5, 8.3, 8.4, 8.5 |
 
 **Implementation Notes**

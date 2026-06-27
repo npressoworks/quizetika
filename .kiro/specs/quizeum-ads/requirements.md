@@ -14,7 +14,7 @@
   - クイズプレイ中の解答画面内での広告表示。
   - 5秒未満でのスキップ不可能な動画広告。
 - **Adjacent expectations**:
-  - `quizeum-billing-subscription-ui` / `quizeum-core` が提供するユーザーのサブスクリプション状態（有料会員かどうか）の判定ロジック（`computeHasPaidEntitlements`）に依存。
+  - `quizetika-billing-subscription-ui` / `quizetika-core` が提供するユーザーのサブスクリプション状態（有料会員かどうか）の判定ロジック（`computeHasPaidEntitlements`）に依存。
 
 ## Requirements
 

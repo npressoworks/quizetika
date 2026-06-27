@@ -1,10 +1,10 @@
 import type { User } from '@/types';
 
 export const MIDDLEWARE_AUTH_COOKIE_NAMES = [
-  'quizeum_uid',
-  'quizeum_tier',
-  'quizeum_role',
-  'quizeum_banned',
+  'quizetika_uid',
+  'quizetika_tier',
+  'quizetika_role',
+  'quizetika_banned',
 ] as const;
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -40,34 +40,34 @@ export function syncMiddlewareAuthCookies(
   }
 
   const attrs = cookieAttributes();
-  document.cookie = `quizeum_uid=${encodeURIComponent(uid)}${attrs}`;
+  document.cookie = `quizetika_uid=${encodeURIComponent(uid)}${attrs}`;
 
   if (!user) {
-    expireCookie('quizeum_tier');
-    expireCookie('quizeum_role');
-    expireCookie('quizeum_banned');
+    expireCookie('quizetika_tier');
+    expireCookie('quizetika_role');
+    expireCookie('quizetika_banned');
     return;
   }
 
-  document.cookie = `quizeum_tier=${encodeURIComponent(user.moderationTier)}${attrs}`;
+  document.cookie = `quizetika_tier=${encodeURIComponent(user.moderationTier)}${attrs}`;
 
   if (isAdminUser(user)) {
-    document.cookie = `quizeum_role=admin${attrs}`;
+    document.cookie = `quizetika_role=admin${attrs}`;
   } else {
-    expireCookie('quizeum_role');
+    expireCookie('quizetika_role');
   }
 
   if (user.isBanned === true) {
-    document.cookie = `quizeum_banned=true${attrs}`;
+    document.cookie = `quizetika_banned=true${attrs}`;
   } else {
-    expireCookie('quizeum_banned');
+    expireCookie('quizetika_banned');
   }
 }
 
 export function clearMiddlewareAuthCookies(): void {
   if (typeof document === 'undefined') return;
   for (const name of MIDDLEWARE_AUTH_COOKIE_NAMES) {
-    if (name === 'quizeum_banned') continue;
+    if (name === 'quizetika_banned') continue;
     expireCookie(name);
   }
 }

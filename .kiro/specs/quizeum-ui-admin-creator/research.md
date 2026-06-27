@@ -1,7 +1,7 @@
 # Research & Design Decisions
 
 ## Summary
-- **Feature**: `quizeum-ui-admin-creator`
+- **Feature**: `quizetika-ui-admin-creator`
 - **Discovery Scope**: Extension（既存 admin/creator/community UI のスタイル層置換）
 - **Key Findings**:
   - 5 ページ + 4 チャート/スケルトン CSS Modules（計 9 `.module.css`）が移行対象。`analytics-chart` と `selection-pie` はインラインスタイルのみ
@@ -45,7 +45,7 @@
 
 ### shadcn コンポーネント選定
 - **Context**: dense テーブル/フォーム/チャート向けプリミティブ
-- **Sources Consulted**: shadcn/ui docs, `quizeum-ui-foundation/design.md`, brief.md
+- **Sources Consulted**: shadcn/ui docs, `quizetika-ui-foundation/design.md`, brief.md
 - **Findings**:
   - Table: admin キュー・ユーザー情報・コミュニティリストに適合
   - AlertDialog: 破壊的操作確認（Radix ベース、アクセシブル）
@@ -65,12 +65,12 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| Strangler（ページ単位） | CSS Modules → Tailwind 置換、ロジック維持 | 低リスク、E2E 段階確認 | 一時的に旧インラインスタイル残存 | layout-shell と同一パターン |
-| コンポーネント抽出（DataTable） | 共通 DataTable フック化 | 再利用性 | 3 ページで過剰抽象化 | 初版はページ内 Table で十分 |
-| recharts 直接 | shadcn Chart なし | 軽量 | テーマ統一が手動 | shadcn Chart 推奨 |
-| 既存 confirm() 維持 | ネイティブダイアログ | 変更最小 | a11y/UX 不統一、brief 未充足 | 却下 |
+| Option                          | Description                               | Strengths              | Risks / Limitations              | Notes                       |
+| ------------------------------- | ----------------------------------------- | ---------------------- | -------------------------------- | --------------------------- |
+| Strangler（ページ単位）         | CSS Modules → Tailwind 置換、ロジック維持 | 低リスク、E2E 段階確認 | 一時的に旧インラインスタイル残存 | layout-shell と同一パターン |
+| コンポーネント抽出（DataTable） | 共通 DataTable フック化                   | 再利用性               | 3 ページで過剰抽象化             | 初版はページ内 Table で十分 |
+| recharts 直接                   | shadcn Chart なし                         | 軽量                   | テーマ統一が手動                 | shadcn Chart 推奨           |
+| 既存 confirm() 維持             | ネイティブダイアログ                      | 変更最小               | a11y/UX 不統一、brief 未充足     | 却下                        |
 
 ## Design Decisions
 
@@ -114,5 +114,5 @@
 - [shadcn/ui Table](https://ui.shadcn.com/docs/components/table) — dense リスト表示
 - [shadcn/ui Alert Dialog](https://ui.shadcn.com/docs/components/alert-dialog) — 破壊的操作確認
 - [shadcn/ui Chart](https://ui.shadcn.com/docs/components/chart) — recharts ラップ
-- `quizeum-ui-foundation/design.md` — 基盤プリミティブ・テーマ bridge
-- `quizeum-ui-layout-shell/design.md` — シェル内 main 描画前提
+- `quizetika-ui-foundation/design.md` — 基盤プリミティブ・テーマ bridge
+- `quizetika-ui-layout-shell/design.md` — シェル内 main 描画前提

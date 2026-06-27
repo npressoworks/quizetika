@@ -1,4 +1,4 @@
-# Research & Design Decisions — quizeum-my-quiz-ui
+# Research & Design Decisions — quizetika-my-quiz-ui
 
 ---
 **Purpose**: カスタムクイズ UI のディスカバリーと設計判断の記録。
@@ -6,7 +6,7 @@
 ---
 
 ## Summary
-- **Feature**: `quizeum-my-quiz-ui`
+- **Feature**: `quizetika-my-quiz-ui`
 - **Discovery Scope**: Extension（Phase 26: 4→3ソース縮小）
 - **Key Findings**:
   - `my-quiz-source-panel.tsx` の4チェックボックスのうち「ブックマークリスト」1件を除去すれば UI 縮小は完了。

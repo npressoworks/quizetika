@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-creator-dash-ui
+# Implementation Plan: quizetika-creator-dash-ui
 
 ## Tasks
 
@@ -60,7 +60,7 @@
 
 ### 5. Phase 6 拡張 — クイズエディタのジャンルマスタ連携（2026-06）
 
-> **前提**: `quizeum-core` Phase 6 完了（`listActiveGenres`）。`useActiveGenres` は `quizeum-play-flow-ui` 実装済みフックを再利用可。
+> **前提**: `quizetika-core` Phase 6 完了（`listActiveGenres`）。`useActiveGenres` は `quizetika-play-flow-ui` 実装済みフックを再利用可。
 
 - [x] 5.1 (P) `GenreEditorSelect` コンポーネント
   - `useActiveGenres` で取得した `displayName` / `id` を `<select>` に描画する。
@@ -70,7 +70,7 @@
   - **完了状態**: マスタ由来の option のみが正本であること。
   - _Requirements: 5.1, 5.2, 5.5, 5.6_
   - _Boundary: GenreEditorSelect_
-  - _Depends: quizeum-core Phase 6_
+  - _Depends: quizetika-core Phase 6_
 
 - [x] 5.2 `QuizEditor` への統合と承認後リフレッシュ
   - `quiz-editor.tsx` の固定 6 件 option を `GenreEditorSelect` に置換する。
@@ -96,7 +96,7 @@
 
 ### 6. Phase 8 拡張 — 問題リスト編集と参照リンク作問 UI（2026-06）
 
-> **前提**: `quizeum-core` Phase 8 完了（`createQuizList` + `listType`, `addQuestionToList`, `exportQuestionList`, `searchAuthorQuizzes`, 参照リンク `saveQuiz`）。`quizeum-play-flow-ui` Phase 8 でリスト詳細の `listType` 表示・問題リストプレイは実装済み。
+> **前提**: `quizetika-core` Phase 8 完了（`createQuizList` + `listType`, `addQuestionToList`, `exportQuestionList`, `searchAuthorQuizzes`, 参照リンク `saveQuiz`）。`quizetika-play-flow-ui` Phase 8 でリスト詳細の `listType` 表示・問題リストプレイは実装済み。
 
 - [x] 6.1 (P) `question-attach-search` 純関数ライブラリ
   - 3ソース由来の `QuestionAttachCandidate` をマージし、`questionId` 重複を除去する。
@@ -105,7 +105,7 @@
   - **完了状態**: 単体テストがグリーンであり、フックから import 可能であること。
   - _Requirements: 6.4_
   - _Boundary: question-attach-search_
-  - _Depends: quizeum-core Phase 8_
+  - _Depends: quizetika-core Phase 8_
 
 - [x] 6.2 (P) `useQuestionAttachSearch` フック
   - タブ `own-published` / `bookmarked` / `public-explore` ごとに候補を非同期取得する。
@@ -160,7 +160,7 @@
   - `AuthorQuizReferencePanel`（折りたたみ）でクイズ展開 → 問題選択 → `onLinkQuestion` を発火（自作のみ、7.5）。
   - **完了状態**: パネルから問題をリンク選択するとコールバックが `linkKind: 'reference'` 付き問題を返すこと。
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
-  - _Depends: quizeum-core Phase 8_
+  - _Depends: quizetika-core Phase 8_
   - _Boundary: AuthorQuizReferencePanel, ReferenceQuestionBadge, useAuthorQuizReferenceSearch_
 
 - [x] 6.8 `QuizEditor` 参照リンク統合と CoW 状態機械
@@ -314,7 +314,7 @@
   - トグル変更時にコア lib の固定選択肢生成関数を呼び出し、内部 `choices` を2件・正解1件に更新する
   - **完了状態**: トグル操作で `choices` が「〇」「✕」2件かつ正解が1件に更新されること
   - _Requirements: 11.6, 11.7, 11.8, 11.14_
-  - _Depends: quizeum-core 19.1_
+  - _Depends: quizetika-core 19.1_
   - _Boundary: TrueFalseCorrectToggle_
 
 - [x] 10.2 出題形式カードと複合形式トグルの拡張
@@ -322,7 +322,7 @@
   - 複合形式の問題タイプトグルに「〇×」を追加し、`data-testid="question-type-true-false"` を付与する
   - **完了状態**: 〇×式形式選択と複合トグルから `true-false` 問題を作成・切り替えできること
   - _Requirements: 11.1, 11.2, 11.4, 11.5, 11.14_
-  - _Depends: 10.1, quizeum-core 19.2_
+  - _Depends: 10.1, quizetika-core 19.2_
   - _Boundary: QuizEditor_
 
 - [x] 10.3 形式変換とデフォルト問題追加の整合
@@ -347,13 +347,13 @@
   - 参照リンク問題表示時の読み取り専用／切り離しポリシーが既存 Phase 8 ルールと整合することを確認する
   - **完了状態**: エディタ関連テスト・ビルドがグリーンで、プレイ専用 UI は play-flow-ui に委譲されていること
   - _Requirements: 11.9, 11.10, 11.12, 11.13_
-  - _Depends: 10.4, quizeum-core 19.3_
+  - _Depends: 10.4, quizetika-core 19.3_
   - _Boundary: Integration_
 
 ## Implementation Notes (Phase 20)
 
-- 選択肢正規化・`Quiz.format` 永続化は `quizeum-core` Phase 19 に依存。本スペックは UI とエディタ state のみ。
-- 実装順: `quizeum-core` 19.1 → 本スペック 10.1 以降。
+- 選択肢正規化・`Quiz.format` 永続化は `quizetika-core` Phase 19 に依存。本スペックは UI とエディタ state のみ。
+- 実装順: `quizetika-core` 19.1 → 本スペック 10.1 以降。
 
 ---
 
@@ -364,7 +364,7 @@
   - クイズ一括 JSON エクスポート CTA は維持する
   - **完了状態**: `/creator/dashboard` にリスト作成ボタンが存在せず、クイズ新規作成・エクスポート導線は維持されること
   - _Requirements: 12.3, 12.4, 12.5_
-  - _Depends: quizeum-core 23.6_
+  - _Depends: quizetika-core 23.6_
   - _Boundary: dashboard-actions_
 
 - [x] 11.2 リストエディタ関連テスト・スケルトン・E2E の除去
@@ -372,7 +372,7 @@
   - スケルトンテストから `ListEditorSkeleton` 期待を除去し、リスト作成シナリオを `phase8`・`creator-streaming-skeleton` から削除する
   - **完了状態**: リスト専用 creator テストが除去され、関連 Jest / E2E がグリーンであること
   - _Requirements: 12.1, 12.2, 12.8, 12.12_
-  - _Depends: quizeum-play-flow-ui 28.1_
+  - _Depends: quizetika-play-flow-ui 28.1_
   - _Boundary: Testing_
 
 - [x] 11.3 Phase 26 統合検証
@@ -385,7 +385,7 @@
 
 ## Implementation Notes (Phase 26)
 
-- リストルート・`components/quiz-list` 削除の正本は `quizeum-play-flow-ui` 28.1。本スペックはダッシュボード CTA と creator 専用テスト。
+- リストルート・`components/quiz-list` 削除の正本は `quizetika-play-flow-ui` 28.1。本スペックはダッシュボード CTA と creator 専用テスト。
 - 維持: `/quiz/create`・`/quiz/[id]/edit`、過去自作検索・参照リンク、〇×作問、`QuizListSkeleton`（クイズ一覧用 testId）。
-- 実装順: `quizeum-core` 23.6 → play-flow 28.1 → 本スペック 11.1/11.2（並行可）→ 11.3。
+- 実装順: `quizetika-core` 23.6 → play-flow 28.1 → 本スペック 11.1/11.2（並行可）→ 11.3。
 

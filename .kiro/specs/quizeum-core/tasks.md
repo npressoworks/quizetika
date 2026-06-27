@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-core
+# Implementation Plan: quizetika-core
 
 ## Tasks
 
@@ -285,7 +285,7 @@
   - _Boundary: firestore.rules_
 
 - [x] 7.4 (P) 認証セッション無効化と Cookie 連携による即時ログアウト
-  - 認証ミドルウェアおよび `AuthContext` において、`isBanned: true` を検知した際にセッションを無効化（ログアウト）し、`quizeum_banned` Cookie を設定してBAN制限画面（`/banned`）へ強制遷移するクライアント・サーバー連携ロジックを実装する。
+  - 認証ミドルウェアおよび `AuthContext` において、`isBanned: true` を検知した際にセッションを無効化（ログアウト）し、`quizetika_banned` Cookie を設定してBAN制限画面（`/banned`）へ強制遷移するクライアント・サーバー連携ロジックを実装する。
   - **完了状態**: BANされたユーザーが次回アクセス時、または即座に強制ログアウトされ、BAN画面に誘導されること。
   - _Requirements: 12.3_
   - _Boundary: AuthService, API Layer_
@@ -399,14 +399,14 @@
 ## Implementation Notes
 
 - LB 順位ロジックは `src/lib/leaderboard-ranking.ts`（純関数）と `src/lib/leaderboard-update.ts`（Firebase 非依存ヘルパー）に分離。`countPriorCompletedAttempts` は `attempt.ts` 内に保持。
-- プレイ履歴は `GET /api/user/play-history`（Bearer トークンの uid のみ）。UI は `quizeum-auth-profile-ui` が未実装。
-- クイズ詳細の二系統 LB 表示は暫定で `quiz/[id]/page.tsx` を更新（本番 UI 仕上げは `quizeum-play-flow-ui`）。
-- **Phase 6**: canonical 解決は `src/lib/metadata-resolution.ts` に集約。読み取りは C2（canonical クエリ + `genre in` フォールバック + dedupe）。ホーム/エディタ UI は `quizeum-play-flow-ui` / `quizeum-creator-dash-ui` が `listActiveGenres` に依存。
-- **Phase 7 (BAN機能)**: 管理者権限によるAPI呼び出しの検証（Authorization ヘッダーでの `idToken` 解析）と、Firestore Rulesでの `isNotBanned()` チェック。Cookie `quizeum_banned` による即時遮断はミドルウェアおよび `AuthContext` と連携。
-- **Phase 8**: 検証は `question-list-validation`、参照リンクは `linked-question`、自作検索フィルタは `lib/author-quiz-search.ts` に集約。`getBookmarkFeed` / `exportQuestionList` / `searchAuthorQuizzes` をサービス層に追加。問題リストプレイは `mode: 'question-list'`（`satisfiesQuestionListAttemptContract`）。リスト作成 UI は暫定 `listType: 'quiz'`（`quizeum-creator-dash-ui` で問題リスト選択を実装予定）。
-- **Phase 10**: タグ照合は `quiz-tag-match`、存続タグ一覧は `listActiveTags`（`canonicalId == null`）、複数タグ AND は `searchQuizzes` の `filters.tags`。UI サジェストは `quizeum-play-flow-ui` が `listActiveTags` に依存（core 10.x 完了後に play-flow 実装）。
+- プレイ履歴は `GET /api/user/play-history`（Bearer トークンの uid のみ）。UI は `quizetika-auth-profile-ui` が未実装。
+- クイズ詳細の二系統 LB 表示は暫定で `quiz/[id]/page.tsx` を更新（本番 UI 仕上げは `quizetika-play-flow-ui`）。
+- **Phase 6**: canonical 解決は `src/lib/metadata-resolution.ts` に集約。読み取りは C2（canonical クエリ + `genre in` フォールバック + dedupe）。ホーム/エディタ UI は `quizetika-play-flow-ui` / `quizetika-creator-dash-ui` が `listActiveGenres` に依存。
+- **Phase 7 (BAN機能)**: 管理者権限によるAPI呼び出しの検証（Authorization ヘッダーでの `idToken` 解析）と、Firestore Rulesでの `isNotBanned()` チェック。Cookie `quizetika_banned` による即時遮断はミドルウェアおよび `AuthContext` と連携。
+- **Phase 8**: 検証は `question-list-validation`、参照リンクは `linked-question`、自作検索フィルタは `lib/author-quiz-search.ts` に集約。`getBookmarkFeed` / `exportQuestionList` / `searchAuthorQuizzes` をサービス層に追加。問題リストプレイは `mode: 'question-list'`（`satisfiesQuestionListAttemptContract`）。リスト作成 UI は暫定 `listType: 'quiz'`（`quizetika-creator-dash-ui` で問題リスト選択を実装予定）。
+- **Phase 10**: タグ照合は `quiz-tag-match`、存続タグ一覧は `listActiveTags`（`canonicalId == null`）、複数タグ AND は `searchQuizzes` の `filters.tags`。UI サジェストは `quizetika-play-flow-ui` が `listActiveTags` に依存（core 10.x 完了後に play-flow 実装）。
 - Phase 10 実装（2026-06-06）: `quiz-tag-match`, `listActiveTags`, `searchQuizzes` tags AND。Jest 415 件 PASS。
-- **Phase 11**: 形式照合は `quiz-format-match`（`resolveQuizFormat` 使用）。`SearchFilters.format` + `searchQuizzes` 後段形式フィルタ（ジャンル直後）。探索 UI（アコーディオン・カルーセル・ジャンルページ検索）は `quizeum-play-flow-ui` が core 11.x 完了後に実装。
+- **Phase 11**: 形式照合は `quiz-format-match`（`resolveQuizFormat` 使用）。`SearchFilters.format` + `searchQuizzes` 後段形式フィルタ（ジャンル直後）。探索 UI（アコーディオン・カルーセル・ジャンルページ検索）は `quizetika-play-flow-ui` が core 11.x 完了後に実装。
 - Phase 11 実装（2026-06-05）: `quiz-format-match`, `SearchFilters.format`, `searchQuizzes` format 後段フィルタ。Jest 421 件 PASS（format 関連 + 既存検索回帰）。
 
 ---
@@ -489,7 +489,7 @@
 
 ### 11. Phase 11 拡張 — 出題形式フィルタ付き複合検索（2026-06）
 
-> 設計: 形式照合は `quiz-format-match` に集約。判定は `resolveQuizFormat` 経由（UI カード表示と同一規則）。Firestore インデックス新設なし。探索 UI は `quizeum-play-flow-ui` が `searchQuizzes` 拡張に依存。
+> 設計: 形式照合は `quiz-format-match` に集約。判定は `resolveQuizFormat` 経由（UI カード表示と同一規則）。Firestore インデックス新設なし。探索 UI は `quizetika-play-flow-ui` が `searchQuizzes` 拡張に依存。
 
 - [x] 11.1 (P) クイズ×出題形式照合の純関数
   - 単一クイズが指定出題形式を満たすかを `resolveQuizFormat` で判定する純関数を実装する（`quiz.format` 直読み禁止）
@@ -887,7 +887,7 @@
 
 - 判定ロジックの正本は `leaderboard-update` モジュールに集約する。prior 件数カウントはモード不問の既存実装を維持する。
 - 既存 LB エントリの物理削除やマイグレーションは本フェーズ対象外（新規更新のみ制御）。
-- クイズ詳細の警告 UI は `quizeum-play-flow-ui` Phase 19 タスクで実装する。
+- クイズ詳細の警告 UI は `quizetika-play-flow-ui` Phase 19 タスクで実装する。
 
 ---
 
@@ -992,7 +992,7 @@
 - [x] 20.6 Phase 21 統合検証
   - コアテストスイート全体がグリーンであることを確認する
   - タブ別・検索別のページング契約が `PaginatedQuizResult` で統一されていることを確認する
-  - **完了状態**: `quizeum-play-flow-ui` Phase 26 が消費可能な API 契約が揃っていること
+  - **完了状態**: `quizetika-play-flow-ui` Phase 26 が消費可能な API 契約が揃っていること
   - _Requirements: 21.1, 21.2, 21.3, 21.4, 21.5_
   - _Depends: 20.5_
   - _Boundary: Integration_
@@ -1042,14 +1042,14 @@
 - [x] 21.5 Phase 22 統合検証
   - コアテストスイートがグリーンであることを確認する
   - 検索画面段階的取得 API（要件 21）と URL 契約が矛盾しないことを確認する
-  - **完了状態**: `quizeum-play-flow-ui` Phase 27 が import 可能な lib が揃っていること
+  - **完了状態**: `quizetika-play-flow-ui` Phase 27 が import 可能な lib が揃っていること
   - _Requirements: 22.14, 22.15, 22.16_
   - _Depends: 21.4_
   - _Boundary: Integration_
 
 ## Implementation Notes (Phase 22)
 
-- 実装順: 21.1 → 21.2 → 21.3 → 21.4 → 21.5。`quizeum-play-flow-ui` Phase 27.5 は 21.3 完了後に着手。
+- 実装順: 21.1 → 21.2 → 21.3 → 21.4 → 21.5。`quizetika-play-flow-ui` Phase 27.5 は 21.3 完了後に着手。
 - URL 変換 lib の適用対象は `/search` ルートのみ（要件 22.17）。
 - 新 ranking エンジン・ジャンル／タグ一覧 URL 共通化は対象外。
 
@@ -1057,7 +1057,7 @@
 
 ### 22. Phase 23: リスト探索・カスタムクイズ Core API（2026-06-09）
 
-> 要件 23–25・設計 Phase 23 に対応。`searchLists`、`buildMyQuizQuestionPool`、`my-quiz-session`、`Attempt.mode: 'my-quiz'` 試行記録、`saveAttempt` 1問契約。UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が担当。
+> 要件 23–25・設計 Phase 23 に対応。`searchLists`、`buildMyQuizQuestionPool`、`my-quiz-session`、`Attempt.mode: 'my-quiz'` 試行記録、`saveAttempt` 1問契約。UI は `quizetika-lists-discovery-ui` / `quizetika-my-quiz-ui` が担当。
 
 - [x] 22.1 リスト探索用一覧取得 API の実装
   - 公開リスト（`isPublished === true`）と本人非公開リスト（作者一致かつ非公開）を区分して Firestore から取得する `searchLists` を実装する
@@ -1151,7 +1151,7 @@
   - `searchLists`、`buildMyQuizQuestionPool`、セッション lib、`saveAttempt` 1問契約が設計どおり連携することを統合テストで検証する
   - コアテストスイート全体がグリーンであることを確認する
   - 要件 23.11–23.13、24.10–24.12、25.12–25.14（UI 境界）は隣接スペックタスクに委譲されていることを確認する
-  - **完了状態**: Phase 23 関連 Jest がすべてグリーンであり、`quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が import 可能な API 契約が揃っていること
+  - **完了状態**: Phase 23 関連 Jest がすべてグリーンであり、`quizetika-lists-discovery-ui` / `quizetika-my-quiz-ui` が import 可能な API 契約が揃っていること
   - _Depends: 22.2, 22.3, 22.5, 22.7, 22.10_
   - _Requirements: 23.1, 23.2, 23.3, 23.4, 23.5, 23.6, 23.7, 23.8, 23.9, 23.10, 24.1, 24.2, 24.3, 24.4, 24.5, 24.6, 24.7, 24.8, 24.9, 25.1, 25.2, 25.3, 25.4, 25.5, 25.6, 25.7, 25.8, 25.9, 25.10, 25.11_
   - _Boundary: Integration_
@@ -1159,10 +1159,10 @@
 ## Implementation Notes (Phase 23)
 
 - 実装順: 22.1/22.3/22.4/22.6/22.8（並行可）→ 22.2/22.5/22.7/22.10（各実装直後）→ 22.9（22.8 後）→ 22.11。lists-discovery-ui Phase 1 は 22.1 完了後、my-quiz-ui Phase 1 は 22.4 完了後に着手可能。
-- 正本: リスト探索は `quiz-list.ts` の `searchLists`、問題プールは `my-quiz-pool.ts`、セッションは `my-quiz-session.ts`（キー `quizeum_my_quiz_session`）。dedupe は `question-attach-search.ts` を再利用。
+- 正本: リスト探索は `quiz-list.ts` の `searchLists`、問題プールは `my-quiz-pool.ts`、セッションは `my-quiz-session.ts`（キー `quizetika_my_quiz_session`）。dedupe は `question-attach-search.ts` を再利用。
 - `saveAttempt` 1問契約は `question-list` 回帰を含む。LB eligibility 本体は変更不要（`my-quiz` は `question-list` と同方針で登録対象）。
 - サーバー側セッション永続化・カスタムクイズ URL 共有可能化・フィルタプリセット保存は対象外（要件 25.14、24.11）。
-- Phase 23 実装完了（2026-06-09）: Jest 158 suites / 805 tests グリーン。隣接 UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が import 可能。
+- Phase 23 実装完了（2026-06-09）: Jest 158 suites / 805 tests グリーン。隣接 UI は `quizetika-lists-discovery-ui` / `quizetika-my-quiz-ui` が import 可能。
 
 ---
 
@@ -1405,7 +1405,7 @@
 ## Implementation Notes (Phase 28)
 
 - 実装順: 25.1 → 25.2 → 25.3 → 25.4 → 25.5。
-- UI プレイ画面（`quizeum-ui-quiz-lifecycle`）側でのフックトラッキング実装が先行または同時に完了している必要があります。
+- UI プレイ画面（`quizetika-ui-quiz-lifecycle`）側でのフックトラッキング実装が先行または同時に完了している必要があります。
 
 ---
 

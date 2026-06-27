@@ -1,8 +1,8 @@
-# Design Document: quizeum-ui-personal
+# Design Document: quizetika-ui-personal
 
 ## Overview
 
-本機能は Phase 24 UI 刷新の**第 4 スペック**であり、Quizeum の個人ハブ（プロフィール、ブックマーク、通知、設定、カスタムクイズ、ログイン、料金）を `quizeum-ui-foundation` の shadcn 標準テーマと `quizeum-ui-layout-shell` のシェル内で Tailwind + shadcn プリミティブ上に再構築する。既存のルーティング、認証ガード、データフロー（hooks/services）、`data-testid` は変更しない。
+本機能は Phase 24 UI 刷新の**第 4 スペック**であり、Quizetika の個人ハブ（プロフィール、ブックマーク、通知、設定、カスタムクイズ、ログイン、料金）を `quizetika-ui-foundation` の shadcn 標準テーマと `quizetika-ui-layout-shell` のシェル内で Tailwind + shadcn プリミティブ上に再構築する。既存のルーティング、認証ガード、データフロー（hooks/services）、`data-testid` は変更しない。
 
 **Users**: 全エンドユーザーが個人向け機能（プロフィール閲覧、ブックマーク管理、通知、テーマ設定、カスタムクイズ、ログイン、料金確認）を利用する。開発者は本移行後に downstream spec（auth-profile-ui, my-quiz-ui 等）の UI 記述を shadcn 正に更新する。
 
@@ -45,8 +45,8 @@
 - Stripe webhook / Checkout サーバー処理
 
 ### Allowed Dependencies
-- **`quizeum-ui-foundation`**（P0）: Tailwind, `globals.css`, `cn()`, Button, Input, Dialog, Tabs, Skeleton, Badge, Card
-- **`quizeum-ui-layout-shell`**（P0）: LayoutWrapper 内 `main` レンダリング前提
+- **`quizetika-ui-foundation`**（P0）: Tailwind, `globals.css`, `cn()`, Button, Input, Dialog, Tabs, Skeleton, Badge, Card
+- **`quizetika-ui-layout-shell`**（P0）: LayoutWrapper 内 `main` レンダリング前提
 - **`useAuth` / `AuthProvider`**（P0）: 読み取り・リダイレクト
 - **`useTheme` / `ThemeProvider`**（P0）: ThemeToggle のみ利用、API 変更禁止
 - **`useMyQuizPool`, `useBookmarkFeed`, `useActiveGenres`, `useActiveTags`**（P0）: 読み取りのみ
@@ -57,7 +57,7 @@
 ### Revalidation Triggers
 - カスタムクイズ `data-testid` のリネーム・削除
 - 非公開クイズ問題の取得元ルール変更
-- `quizeum-theme` キーまたは Theme API 変更（foundation）
+- `quizetika-theme` キーまたは Theme API 変更（foundation）
 - 保護ルートのリダイレクト URL 変更
 - shadcn プリミティブ API の破壊的変更
 
@@ -78,17 +78,17 @@
 
 ```mermaid
 graph TD
-    subgraph Foundation [quizeum-ui-foundation]
+    subgraph Foundation [quizetika-ui-foundation]
         Globals[globals.css + cn]
         Primitives[Button Card Tabs Input ...]
         ThemeBridge[ThemeProvider + dark class]
     end
 
-    subgraph Shell [quizeum-ui-layout-shell]
+    subgraph Shell [quizetika-ui-layout-shell]
         Main[main content area]
     end
 
-    subgraph Personal [quizeum-ui-personal]
+    subgraph Personal [quizetika-ui-personal]
         Settings[Settings + ThemeToggle]
         Login[Login Page]
         Profile[Profile cluster]
@@ -276,7 +276,7 @@ sequenceDiagram
     User->>ThemeToggle: Select ライト/ダーク
     ThemeToggle->>ThemeProvider: setTheme(value)
     ThemeProvider->>DOM: applyThemeToDocument (dark class + data-theme)
-    ThemeProvider->>LS: write quizeum-theme
+    ThemeProvider->>LS: write quizetika-theme
 ```
 
 ---
@@ -340,7 +340,7 @@ sequenceDiagram
 
 ##### State Management
 - State model: `theme: 'dark' | 'light'` from context
-- Persistence: ThemeProvider → localStorage `quizeum-theme`
+- Persistence: ThemeProvider → localStorage `quizetika-theme`
 
 **Implementation Notes**
 - shadcn `ToggleGroup` type="single" で 2 ボタン
@@ -500,5 +500,5 @@ sequenceDiagram
 
 ## Supporting References
 - `research.md` — codebase 分析、testid リスク、プリミティブ選定
-- `.kiro/specs/quizeum-ui-foundation/design.md` — Theme bridge 詳細
-- `.kiro/specs/quizeum-ui-layout-shell/design.md` — シェル境界
+- `.kiro/specs/quizetika-ui-foundation/design.md` — Theme bridge 詳細
+- `.kiro/specs/quizetika-ui-layout-shell/design.md` — シェル境界

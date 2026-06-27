@@ -1,4 +1,4 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizeum-test-bucket';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
 
 import { getAdminStorage } from '../../src/lib/firebase/admin';
 
@@ -8,7 +8,7 @@ const mockFile = {
 };
 
 const mockBucket = {
-  name: 'quizeum-test-bucket',
+  name: 'quizetika-test-bucket',
   file: jest.fn(() => mockFile),
 };
 
@@ -32,15 +32,15 @@ describe('uploadTemporaryGenreIconBuffer', () => {
 
     const dummyBuffer = Buffer.from('dummy-image-data');
     const uid = 'user-123';
-    
+
     const url = await uploadTemporaryGenreIconBuffer(dummyBuffer, uid);
-    
+
     expect(mockBucket.file).toHaveBeenCalledWith(expect.stringMatching(/^genres\/temp\/user-123_\d+\.png$/));
     expect(mockFile.save).toHaveBeenCalledWith(dummyBuffer, {
       metadata: { contentType: 'image/png' },
       resumable: false,
     });
     expect(mockFile.makePublic).toHaveBeenCalledTimes(1);
-    expect(url).toContain('https://storage.googleapis.com/quizeum-test-bucket/genres/temp/user-123_');
+    expect(url).toContain('https://storage.googleapis.com/quizetika-test-bucket/genres/temp/user-123_');
   });
 });

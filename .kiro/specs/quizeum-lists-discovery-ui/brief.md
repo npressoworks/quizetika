@@ -1,4 +1,4 @@
-# Brief: quizeum-lists-discovery-ui
+# Brief: quizetika-lists-discovery-ui
 
 ## Problem
 ユーザーはクイズリスト・問題リストをブックマークやプロフィール以外からも発見・管理したいが、現状は `/list/[id]` の個別詳細とプロフィール内タブのみで、**グローバルなリスト探索画面がない**。また自分の非公開リストを一覧で確認する導線も弱い。
@@ -27,17 +27,17 @@
 - Core `searchLists` API との契約（引数: `visibility`, `keyword`, `authorId?`, `limit`）
 
 ## Out of Boundary
-- リスト編集・並び替え（`quizeum-creator-dash-ui`）
+- リスト編集・並び替え（`quizetika-creator-dash-ui`）
 - ブックマーク一覧（既存 `/bookmarks`）
-- カスタムクイズ（`quizeum-my-quiz-ui`）
+- カスタムクイズ（`quizetika-my-quiz-ui`）
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core`（`searchLists`）、`useAuth`、既存 `QuizList` 型
-- **Downstream**: `quizeum-sidebar-layout`（ナビリンク）、`docs/screen_transition.md`
+- **Upstream**: `quizetika-core`（`searchLists`）、`useAuth`、既存 `QuizList` 型
+- **Downstream**: `quizetika-sidebar-layout`（ナビリンク）、`docs/screen_transition.md`
 
 ## Existing Spec Touchpoints
 - **Extends**: なし（新規スペック）
-- **Adjacent**: `quizeum-creator-dash-ui`（リスト作成）、`quizeum-play-flow-ui`（リストプレイ詳細）、`quizeum-sidebar-layout`（ナビ）
+- **Adjacent**: `quizetika-creator-dash-ui`（リスト作成）、`quizetika-play-flow-ui`（リストプレイ詳細）、`quizetika-sidebar-layout`（ナビ）
 
 ## Constraints
 - 非公開タブは未ログイン時はログイン誘導または非表示

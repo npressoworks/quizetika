@@ -1,14 +1,14 @@
-# Gap Analysis: quizeum-legal-and-home-sidebar
+# Gap Analysis: quizetika-legal-and-home-sidebar
 
 ## 1. Current State Investigation (現状調査)
 
 ### 既存のレイアウト構造
-- [layout-wrapper.tsx](file:///d:/quizeum/src/components/layout/layout-wrapper.tsx) がアプリケーション全体の共通レイアウトを制御しています。
+- [layout-wrapper.tsx](file:///d:/quizetika/src/components/layout/layout-wrapper.tsx) がアプリケーション全体の共通レイアウトを制御しています。
 - PC表示時は左側に `Sidebar`（幅 275px または 70px）、モバイル表示時は `BottomNav` および軽量化された `Header` が表示されます。
 - メインコンテンツは `LayoutWrapper` 内で `max-w-[1200px]` の幅に制限されています。
 
 ### トップページ（ホーム画面）の構造
-- [page.tsx](file:///d:/quizeum/src/app/page.tsx) がサーバーコンポーネントとして動作し、非同期データ（おすすめクイズ、新着クイズ、おすすめジャンル）をフェッチして [home-discovery-client.tsx](file:///d:/quizeum/src/app/home-discovery-client.tsx) に流し込みます。
+- [page.tsx](file:///d:/quizetika/src/app/page.tsx) がサーバーコンポーネントとして動作し、非同期データ（おすすめクイズ、新着クイズ、おすすめジャンル）をフェッチして [home-discovery-client.tsx](file:///d:/quizetika/src/app/home-discovery-client.tsx) に流し込みます。
 - `HomeDiscoveryClient` は現在、全幅（`flex flex-col gap-10`）のカルーセル表示となっており、右カラムは存在しません。
 
 ### 利用可能な依存パッケージ・UIコンポーネント

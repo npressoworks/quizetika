@@ -1,12 +1,12 @@
-# Research & Design Decisions: quizeum-auth-profile-ui
+# Research & Design Decisions: quizetika-auth-profile-ui
 
 ## Summary
-- **Feature**: quizeum-auth-profile-ui（Phase 5: 本人プレイ履歴 / Phase 8: 作成リスト listType 表示 / **Phase 23: リアクション履歴導線削除**）
+- **Feature**: quizetika-auth-profile-ui（Phase 5: 本人プレイ履歴 / Phase 8: 作成リスト listType 表示 / **Phase 23: リアクション履歴導線削除**）
 - **Discovery Scope**: Extension（Light）
 - **Key Findings**:
   - Phase 5（プレイ履歴）は `ProfilePlayHistoryPanel` + `play-history-client` で実装済み。
   - Phase 8 ギャップ: プロフィールリストタブが `quizIds.length` 固定表示。`bookmark-list-grid.tsx` に種別ラベル分岐の先行実装あり。
-  - `getQuizListsByAuthor` は `listType` フィルタオプション対応済み（`quizeum-core` Phase 8）。プロフィールは初回ロードで全件取得済みのため、任意フィルタはクライアント絞り込みで十分。
+  - `getQuizListsByAuthor` は `listType` フィルタオプション対応済み（`quizetika-core` Phase 8）。プロフィールは初回ロードで全件取得済みのため、任意フィルタはクライアント絞り込みで十分。
 
 ## Research Log
 
@@ -46,8 +46,8 @@
 - **フィルタとタブ件数表示** — タブラベル `(N)` は全件数固定とし、フィルタは一覧のみに適用（UX 混乱防止）。
 
 ## References
-- `.kiro/specs/quizeum-core/design.md` — `getQuizListsByAuthor`, `resolveListType`
-- `.kiro/specs/quizeum-creator-dash-ui/design.md` — listType 作成フロー
+- `.kiro/specs/quizetika-core/design.md` — `getQuizListsByAuthor`, `resolveListType`
+- `.kiro/specs/quizetika-creator-dash-ui/design.md` — listType 作成フロー
 - `src/components/bookmark/bookmark-list-grid.tsx` — 種別ラベル先行パターン
 - `src/app/profile/[uid]/page.tsx` — 現行リストタブ（ギャップ箇所）
 

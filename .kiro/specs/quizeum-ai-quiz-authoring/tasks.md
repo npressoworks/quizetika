@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-ai-quiz-authoring
+# Implementation Plan: quizetika-ai-quiz-authoring
 
 ## 1. Foundation: 環境設定および認証・カウンタ基盤の構築
 

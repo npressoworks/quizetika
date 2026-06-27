@@ -34,14 +34,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     if (firebaseUser) {
       const dbUser = await getUser(firebaseUser.uid);
-      
+
       if (dbUser && dbUser.isBanned === true) {
         await signOut(auth);
         setUser(null);
         setFirebaseUser(null);
         if (typeof document !== 'undefined') {
           const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-          document.cookie = `quizeum_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
+          document.cookie = `quizetika_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
           clearMiddlewareAuthCookies();
         }
         return;
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setFirebaseUser(null);
             if (typeof document !== 'undefined') {
               const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-              document.cookie = `quizeum_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
+              document.cookie = `quizetika_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
               clearMiddlewareAuthCookies();
             }
             setLoading(false);

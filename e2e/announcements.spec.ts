@@ -7,7 +7,7 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
 
   test.beforeAll(async () => {
     // E2Eテスト用のエミュレータホストの設定
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6';
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizetika-77bc6';
     process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
     process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
 
@@ -127,14 +127,14 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
 
     // 3. 新規お知らせ作成
     await page.locator('[data-testid="open-create-announcement-btn"]').click();
-    
+
     // ダイアログの表示を待つ
     await expect(page.getByRole('heading', { name: '新規お知らせ作成' })).toBeVisible();
 
     // フォームへの入力
     const testTitle = 'E2Eテストお知らせタイトル-' + Date.now();
     await page.locator('input[placeholder="お知らせのタイトルを入力"]').fill(testTitle);
-    
+
     // カテゴリとステータスの選択
     await page.locator('select').first().selectOption('update'); // カテゴリ: update
     await page.locator('select').nth(1).selectOption('published'); // ステータス: published
@@ -146,7 +146,7 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     // プレビューの動作確認
     await page.locator('button:has-text("プレビューを表示")').click();
     await expect(page.locator('strong:has-text("E2Eテスト")')).toBeVisible();
-    
+
     // エディタに戻す
     await page.locator('button:has-text("エディタを表示")').click();
 
@@ -165,7 +165,7 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     // 編集ダイアログでタイトルを変更
     const updatedTitle = testTitle + '-編集済';
     await page.locator('input[placeholder="お知らせのタイトルを入力"]').fill(updatedTitle);
-    
+
     // 保存
     await page.locator('[data-testid="submit-announcement-btn"]').click();
     await page.waitForTimeout(2000);
@@ -176,7 +176,7 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
     // 5. 一般ユーザー向け表示の確認 (公開中のお知らせが反映されているか)
     await page.goto('/notifications');
     await page.waitForTimeout(2000);
-    
+
     // 「運営からのお知らせ」タブを選択
     const announcementTabTrigger = page.locator('[data-testid="announcements-tab-trigger"]');
     await announcementTabTrigger.click();
@@ -184,7 +184,7 @@ test.describe('運営からのお知らせ機能 E2Eテスト', () => {
 
     // 作成・編集したお知らせが一般ユーザー画面で見えることを確認
     await expect(page.locator(`text=${updatedTitle}`)).toBeVisible();
-    
+
     // 初期状態は省略表示のため、お知らせカードをクリックして展開する
     const announcementCard = page.locator('[data-testid="announcement-card"]', { hasText: updatedTitle });
     await announcementCard.click();

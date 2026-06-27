@@ -1,17 +1,17 @@
-# Gap Analysis: quizeum-sidebar-layout
+# Gap Analysis: quizetika-sidebar-layout
 
 ## 1. Current State Investigation
 
 現在のアプリケーションのレイアウトとナビゲーション構造は以下の通りです：
 
-* **[layout.tsx](file:///d:/quizeum/src/app/layout.tsx)**:
+* **[layout.tsx](file:///d:/quizetika/src/app/layout.tsx)**:
   * アプリケーション全体のルートレイアウト。`AuthProvider` と `<Header />` を読み込み、その直下に `{children}`（メインコンテンツ）を配置する極めてシンプルな構造。
   * メインコンテンツを囲むコンテナ要素や、レイアウト用のレスポンシブな余白制御クラスは存在しない。
-* **[header.tsx](file:///d:/quizeum/src/components/layout/header.tsx)** (既存の唯一のナビゲーション):
+* **[header.tsx](file:///d:/quizetika/src/components/layout/header.tsx)** (既存の唯一のナビゲーション):
   * PC表示用のヘッダーロゴ、ナビゲーションリンク、ユーザーメニュー（作問ボタンとアバタードロップダウン）を所有。
   * モバイル表示（768px以下）では、ハンバーガーメニューによるモーダル/ドロワーナビゲーションを展開。
   * パスに `/play` が含まれるクイズプレイ画面では、ヘッダー自体を非表示（`return null`）にする制御ロジックを内包。
-* **[globals.css](file:///d:/quizeum/src/app/globals.css)** / **[variables.css](file:///d:/quizeum/src/styles/variables.css)**:
+* **[globals.css](file:///d:/quizetika/src/app/globals.css)** / **[variables.css](file:///d:/quizetika/src/styles/variables.css)**:
   * グローバルテーマ（ネオンカラー、Glassmorphismカードなど）を定義しているが、画面全体の枠組み（サイドバー用の2カラム構成など）のためのスタイル定義はない。
 
 ---
@@ -93,7 +93,7 @@ Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時
 ## Phase 23: リスト・カスタムクイズ・設定ナビ拡張（2026-06-09）
 
 ### Summary
-ログイン時 Sidebar に `/lists`・`/my-quiz` を追加。アカウントポップアップに `/settings` をマイページと区切り線の間に配置。モバイルは BottomNav 5 項目維持のため、Header アバターのプロフィールポップアップでリスト・カスタムクイズ・設定への代替到達を提供。`layout.tsx` / ThemeProvider は `quizeum-user-settings-ui` が所有。
+ログイン時 Sidebar に `/lists`・`/my-quiz` を追加。アカウントポップアップに `/settings` をマイページと区切り線の間に配置。モバイルは BottomNav 5 項目維持のため、Header アバターのプロフィールポップアップでリスト・カスタムクイズ・設定への代替到達を提供。`layout.tsx` / ThemeProvider は `quizetika-user-settings-ui` が所有。
 
 ### Discovery Type
 **Light（拡張）** — 既存 Sidebar / Header / BottomNav パターンの延長。新規ルート（`/lists`, `/my-quiz`, `/settings`）は隣接スペックが提供予定。
@@ -147,7 +147,7 @@ Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時
 PC表示時（1024px以上）における、サイドバーの通常表示（275px）とミニ表示（70px）のトグル切り替え機能（状態は永続化しない）を実装し、メインコンテンツの余白も連動させます。ミニ表示時には、ホバーによるツールチップ形式のメニュー名（プロフィールはユーザー名）を表示します。また、アバタークリック時はドロップダウンを廃止し、直接プロフィールページ（`/profile/[userId]`）へ遷移するように変更します。
 
 ### Discovery Type
-**Light（既存レイアウトの拡張）** — 新規パッケージ導入なし、既存コンポーネント（[sidebar.tsx](file:///d:/quizeum/src/components/layout/sidebar.tsx), [layout-wrapper.tsx](file:///d:/quizeum/src/components/layout/layout-wrapper.tsx)）の拡張による実現。
+**Light（既存レイアウトの拡張）** — 新規パッケージ導入なし、既存コンポーネント（[sidebar.tsx](file:///d:/quizetika/src/components/layout/sidebar.tsx), [layout-wrapper.tsx](file:///d:/quizetika/src/components/layout/layout-wrapper.tsx)）の拡張による実現。
 
 ### Key Findings
 1. **ツールチップの実現方法**:
@@ -155,7 +155,7 @@ PC表示時（1024px以上）における、サイドバーの通常表示（275
 2. **サイドバーのステート共有**:
    `LayoutWrapper`（メインコンテンツの pl 調整）と `Sidebar`（開閉状態の検知および幅の変更）の両方が `isCollapsed` 状態を参照する必要があります。この状態は `LayoutWrapper` で `useState` として管理し、`Sidebar` に Props として渡すのが最も単純かつ安全です。
 3. **アバターのポップアップ廃止と直接遷移**:
-   現在 [sidebar.tsx](file:///d:/quizeum/src/components/layout/sidebar.tsx) の最下部にあるアバター部分は `DropdownMenu` で囲まれていますが、今回の要件ではポップアップを廃止し、単なる `Link` としてアバターを表示し、クリック時に直接 `/profile/${user.id}` へ遷移させます。これにより、複雑なドロップダウン管理が不要になり、他のナビゲーションアイテムと同じリンクモデルに統一されます。
+   現在 [sidebar.tsx](file:///d:/quizetika/src/components/layout/sidebar.tsx) の最下部にあるアバター部分は `DropdownMenu` で囲まれていますが、今回の要件ではポップアップを廃止し、単なる `Link` としてアバターを表示し、クリック時に直接 `/profile/${user.id}` へ遷移させます。これにより、複雑なドロップダウン管理が不要になり、他のナビゲーションアイテムと同じリンクモデルに統一されます。
 
 ### Design Decisions
 1. **切り替えトグル**:
@@ -171,7 +171,7 @@ PC表示時（1024px以上）における、サイドバーの通常表示（275
 
 ### Risks
 * アカウントドロップダウンが廃止され、直接プロフィールへ遷移するようになるため、これまでドロップダウンから遷移できていた「設定（`/settings`）」および「ログアウト」への導線がPCサイドバーから無くなります。
-  * 設定については、[sidebar.tsx](file:///d:/quizeum/src/components/layout/sidebar.tsx) 内の主要ナビゲーション、あるいは別の手段でアクセス可能か確認する必要があります。
+  * 設定については、[sidebar.tsx](file:///d:/quizetika/src/components/layout/sidebar.tsx) 内の主要ナビゲーション、あるいは別の手段でアクセス可能か確認する必要があります。
   * 必要に応じて、設定およびログアウトをサイドバーの主要ナビゲーション項目に追加するか、プロフィールページなど他の箇所に確保されているか確認が必要です（※現時点では要件通りドロップダウンを廃止し直接遷移とします）。
 
 ### Effort & Risk Estimate

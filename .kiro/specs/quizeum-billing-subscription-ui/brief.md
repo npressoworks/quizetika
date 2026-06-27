@@ -1,4 +1,4 @@
-# Brief: quizeum-billing-subscription-ui
+# Brief: quizetika-billing-subscription-ui
 
 ## Problem
 ウミガメのスープ（AI対話プレイ）では無料ユーザーに1日20回の質問制限があり、上限到達時にプレミアムプランへの誘導メッセージは表示されるが、実際に購入・契約管理できる画面や導線が存在しない。Stripe パッケージは導入済みだが未配線のため、有料化の価値提供が完結していない。
@@ -53,12 +53,12 @@
 - 返金・チャージバックの個別オペレーション UI
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core`（Stripe 連携 API、Webhook、エンタイトルメント型・Rules）、`quizeum-auth-profile-ui`（ログイン状態・`refreshUser`）、Firebase Auth ID Token 検証パターン
+- **Upstream**: `quizetika-core`（Stripe 連携 API、Webhook、エンタイトルメント型・Rules）、`quizetika-auth-profile-ui`（ログイン状態・`refreshUser`）、Firebase Auth ID Token 検証パターン
 - **Downstream**: 将来 Premium 追加、他機能の tier ゲート（弱点克服無制限等）、PostHog 等でのコンバージョン計測
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core`（サブスク型、Stripe サービス、Webhook、Firestore Rules で billing フィールドのクライアント書き込み禁止）、`quizeum-play-flow-ui`（AI 制限 UI・`isPremium` 連携・誘導 CTA）
-- **Adjacent**: `quizeum-auth-profile-ui`（プロフィールからの Portal 導線・契約バッジは任意）、`quizeum-sidebar-layout`（ナビ項目追加）
+- **Extends**: `quizetika-core`（サブスク型、Stripe サービス、Webhook、Firestore Rules で billing フィールドのクライアント書き込み禁止）、`quizetika-play-flow-ui`（AI 制限 UI・`isPremium` 連携・誘導 CTA）
+- **Adjacent**: `quizetika-auth-profile-ui`（プロフィールからの Portal 導線・契約バッジは任意）、`quizetika-sidebar-layout`（ナビ項目追加）
 
 ## Constraints
 - **Stripe**: Checkout（リダイレクト）+ Customer Portal + Webhook 署名検証（raw body、Node runtime）

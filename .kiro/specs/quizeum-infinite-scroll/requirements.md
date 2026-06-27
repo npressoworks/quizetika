@@ -13,7 +13,7 @@
   - トップ画面（カルーセル表示）の無限スクロール化。
   - カスタムクイズ画面（`/my-quiz`）の問題一覧テーブルの無限スクロール化。
 - **Adjacent expectations**:
-  - `quizeum-ads` (広告機能スペック) から提供される、ユーザーの有料プラン購読ステート（`showAds`）および `AdsenseInlineAd` 広告コンポーネントが正常に利用できること。
+  - `quizetika-ads` (広告機能スペック) から提供される、ユーザーの有料プラン購読ステート（`showAds`）および `AdsenseInlineAd` 広告コンポーネントが正常に利用できること。
   - クイズのコレクションが適切に `createdAt` でソートされ、インデックスが機能していること。
 
 ## Requirements

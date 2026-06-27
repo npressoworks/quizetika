@@ -11,7 +11,7 @@ test.describe('ユーザー設定', () => {
     await page.goto('/settings');
     await page.getByRole('button', { name: 'ライト' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-    const stored = await page.evaluate(() => localStorage.getItem('quizeum-theme'));
+    const stored = await page.evaluate(() => localStorage.getItem('quizetika-theme'));
     expect(stored).toBe('light');
   });
 

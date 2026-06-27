@@ -1,13 +1,13 @@
-# Research & Design Decisions: quizeum-lists-discovery-ui
+# Research & Design Decisions: quizetika-lists-discovery-ui
 
 ## Summary
-- **Feature**: quizeum-lists-discovery-ui
+- **Feature**: quizetika-lists-discovery-ui
 - **Discovery Scope**: Extension（既存リスト CRUD・ブックマーク UI パターンの再利用）
 - **Key Findings**:
-  - `src/services/quiz-list.ts` には `getLatestQuizLists` / `getQuizListsByAuthor` があるが、`searchLists` は未実装（Phase 23 で `quizeum-core` が追加予定）
+  - `src/services/quiz-list.ts` には `getLatestQuizLists` / `getQuizListsByAuthor` があるが、`searchLists` は未実装（Phase 23 で `quizetika-core` が追加予定）
   - ブックマークページ（`bookmarks-client.tsx` + `BookmarksTabs`）がタブ切り替え UI の参照実装
   - リストカード表示は `ProfileListCard` / `BookmarkListGrid` と `profile-list-display.ts` の種別ラベル・件数ヘルパーを再利用可能
-  - Sidebar には現時点で `/lists` 導線なし（`quizeum-sidebar-layout` Phase 23 更新が担当）
+  - Sidebar には現時点で `/lists` 導線なし（`quizetika-sidebar-layout` Phase 23 更新が担当）
 
 ## Research Log
 
@@ -37,11 +37,11 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| A. 専用 hook + Client Page | `useListsSearch` が `searchLists` を呼ぶ | ブックマーク/検索画面と同型、テスト容易 | Core 未実装時はモック必要 | **採用** |
-| B. Server Component 直接 fetch | RSC で Firestore 取得 | 初回表示高速 | タブ/検索のインタラクションが Client 必須 | 不採用 |
-| C. ProfileListCard 直再利用 | プロフィール用カード流用 | 実装最小 | プロフィール CSS 依存が強い | 部分採用（ヘルパーのみ） |
+| Option                         | Description                              | Strengths                               | Risks / Limitations                       | Notes                    |
+| ------------------------------ | ---------------------------------------- | --------------------------------------- | ----------------------------------------- | ------------------------ |
+| A. 専用 hook + Client Page     | `useListsSearch` が `searchLists` を呼ぶ | ブックマーク/検索画面と同型、テスト容易 | Core 未実装時はモック必要                 | **採用**                 |
+| B. Server Component 直接 fetch | RSC で Firestore 取得                    | 初回表示高速                            | タブ/検索のインタラクションが Client 必須 | 不採用                   |
+| C. ProfileListCard 直再利用    | プロフィール用カード流用                 | 実装最小                                | プロフィール CSS 依存が強い               | 部分採用（ヘルパーのみ） |
 
 ## Design Decisions
 
@@ -53,7 +53,7 @@
 - **Selected Approach**: `searchLists({ visibility, keyword?, authorId?, limit })` を Core に定義し UI は単一入口
 - **Rationale**: roadmap Phase 23 の Core 更新と整合。将来の Firestore インデックス最適化を Core に集約
 - **Trade-offs**: Core 実装が先行または並行必要
-- **Follow-up**: `quizeum-core` tasks に `searchLists` 追加タスクが必要（本スペック外）
+- **Follow-up**: `quizetika-core` tasks に `searchLists` 追加タスクが必要（本スペック外）
 
 ### Decision: キーワードフィルタの初版実装位置
 - **Context**: Firestore 前方一致クエリは title/description 複合が複雑
@@ -72,7 +72,7 @@
 - **Sidebar 導線未追加** — E2E は直接 `/lists` アクセスで検証。ナビ E2E は sidebar-layout 側
 
 ## References
-- `.kiro/specs/quizeum-lists-discovery-ui/brief.md`
+- `.kiro/specs/quizetika-lists-discovery-ui/brief.md`
 - `.kiro/steering/roadmap.md` Phase 23
 - `src/app/bookmarks/bookmarks-client.tsx`
 - `src/services/quiz-list.ts`

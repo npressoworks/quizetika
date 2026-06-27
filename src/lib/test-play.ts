@@ -1,7 +1,7 @@
 import { Question, QuestionAnswerRecord, Quiz } from '@/types';
 
-export const TEST_PLAY_PAYLOAD_KEY = 'quizeum_test_play_payload';
-export const TEST_PLAY_RESULT_KEY = 'quizeum_test_play_result';
+export const TEST_PLAY_PAYLOAD_KEY = 'quizetika_test_play_payload';
+export const TEST_PLAY_RESULT_KEY = 'quizetika_test_play_result';
 export const TEST_PLAY_QUIZ_ID = 'test-play';
 export const TEST_PLAY_TTL_MS = 24 * 60 * 60 * 1000;
 /** テストプレイから編集画面へ復帰するときのクエリ（誤復元防止） */

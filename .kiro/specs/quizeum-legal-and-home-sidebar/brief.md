@@ -1,4 +1,4 @@
-# Brief: quizeum-legal-and-home-sidebar
+# Brief: quizetika-legal-and-home-sidebar
 
 ## Problem
 ユーザーが利用規約やプライバシーポリシー、お問い合わせ窓口に簡単にアクセスできるよう、トップページにそれらのリンクを配置する必要がある。また、モバイル端末でもこれらの法的ドキュメントや問い合わせへの動線を確保する必要がある。
@@ -38,11 +38,11 @@
 - 左サイドバー（`Sidebar`）やボトムナビ（`BottomNav`）そのもののUI変更（ただし、必要に応じて遷移先としての動作保証は含む）。
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-sidebar-layout` (共通レイアウトの適用)
+- **Upstream**: `quizetika-sidebar-layout` (共通レイアウトの適用)
 - **Downstream**: なし
 
 ## Existing Spec Touchpoints
-- **Adjacent**: `quizeum-sidebar-layout` にて左サイドバーおよびボトムナビが動作しているため、これらと競合しないようパディングや余白を維持する。
+- **Adjacent**: `quizetika-sidebar-layout` にて左サイドバーおよびボトムナビが動作しているため、これらと競合しないようパディングや余白を維持する。
 
 ## Constraints
 - **Styling**: Tailwind CSS v4 を使用してスタイリングし、既存のデザインシステムと調和させる。

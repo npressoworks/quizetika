@@ -1,8 +1,8 @@
-# Design Document: quizeum-ui-foundation
+# Design Document: quizetika-ui-foundation
 
 ## Overview
 
-本機能は Quizeum の Phase 24 UI 刷新における**基盤スペック**である。Tailwind CSS と shadcn/ui を Next.js 16 + React 19 ビルドパイプラインに統合し、shadcn 標準テーマ（neutral/zinc デフォルト）を正としたスタイル基盤、`cn()` ユーティリティ、および初期共通プリミティブ（Button, Input, Dialog, Tabs, Skeleton, Badge, Card）を `src/components/ui/` に提供する。
+本機能は Quizetika の Phase 24 UI 刷新における**基盤スペック**である。Tailwind CSS と shadcn/ui を Next.js 16 + React 19 ビルドパイプラインに統合し、shadcn 標準テーマ（neutral/zinc デフォルト）を正としたスタイル基盤、`cn()` ユーティリティ、および初期共通プリミティブ（Button, Input, Dialog, Tabs, Skeleton, Badge, Card）を `src/components/ui/` に提供する。
 
 **Users**: 開発者は後続 6 スペック（layout-shell, discovery, personal, quiz-lifecycle, editor, admin-creator）で本基盤のプリミティブと Tailwind ユーティリティを利用する。エンドユーザーは既存のテーマ切替（ダーク/ライト）と永続化体験を維持しつつ、段階的に shadcn 標準の見た目へ移行する。
 
@@ -11,14 +11,14 @@
 ### Goals
 - Tailwind CSS v4 + PostCSS + shadcn/ui のビルドパイプライン統合（CI グリーン）
 - shadcn 標準 CSS 変数によるライト/ダークテーマ（`dark` クラス）
-- 既存 `ThemeProvider` / `quizeum-theme` / FOUC 防止の互換移行（dual bridge）
+- 既存 `ThemeProvider` / `quizetika-theme` / FOUC 防止の互換移行（dual bridge）
 - `cn()` と shadcn プリミティブ Wave 1（7 種）+ Wave 2（17 種）の提供
 - steering（`tech.md`, `structure.md`）のスタイリング方針改定
 
 ### Non-Goals
 - 個別ページ・ドメインコンポーネントの Tailwind 移行
 - Sidebar / Header / BottomNav / LayoutWrapper の再構築
-- 旧 Quizeum ビジュアル（ネオン/Glassmorphism/body gradient）の再現
+- 旧 Quizetika ビジュアル（ネオン/Glassmorphism/body gradient）の再現
 - `variables.css` の完全削除（`css-modules-cleanup` 候補へ委譲）
 - Framer Motion 導入、API/認可変更
 
@@ -40,8 +40,8 @@
 - foundation 単体 Jest テスト、ビルド/E2E 回帰確認
 
 ### Out of Boundary
-- 設定画面テーマ切替 UI の見た目更新（`quizeum-user-settings-ui` — ただし `dark` クラス追随は隣接期待）
-- シェルコンポーネント（`quizeum-ui-layout-shell`）
+- 設定画面テーマ切替 UI の見た目更新（`quizetika-user-settings-ui` — ただし `dark` クラス追随は隣接期待）
+- シェルコンポーネント（`quizetika-ui-layout-shell`）
 - 既存 `src/components/ui/` 独自プリミティブ（skeleton-card, number-stepper 等）の削除・置換
 - 各ドメイン `.module.css` の削除
 - `variables.css` の削除
@@ -55,7 +55,7 @@
 - **Next.js 16 App Router / React 19**: フレームワーク基盤（P0）
 
 ### Revalidation Triggers
-- `quizeum-theme` キー名または許可値の変更
+- `quizetika-theme` キー名または許可値の変更
 - `dark` クラス適用ロジックの変更（全 shadcn コンポーネント影響）
 - `data-theme` dual bridge の削除タイミング（未移行 CSS Modules 破綻リスク）
 - `components.json` の `style` / `baseColor` 変更
@@ -90,7 +90,7 @@ graph TD
         ApplyDom[applyThemeToDom]
         DarkClass[html.dark class]
         DataTheme[html data-theme]
-        LS[(localStorage quizeum-theme)]
+        LS[(localStorage quizetika-theme)]
     end
 
     subgraph Primitives [Shared Primitives]
@@ -127,24 +127,24 @@ graph TD
 **Architecture Integration**:
 - Selected pattern: Strangler Fig + Dual Theme Bridge
 - Domain boundaries: foundation はスタイル基盤とプリミティブのみ。ページ/シェルは後続スペック
-- Existing patterns preserved: `ThemeProvider` Context API、`quizeum-theme` キー、FOUC inline script 配置
+- Existing patterns preserved: `ThemeProvider` Context API、`quizetika-theme` キー、FOUC inline script 配置
 - New components rationale: Tailwind/shadcn は Phase 24 全スライスの前提条件
 - Steering compliance: `tech.md` を Tailwind + shadcn 正に改定
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16.2.6, React 19.2.4 | App Router, RSC + Client | 既存バージョン維持 |
-| Styling | Tailwind CSS v4, `@tailwindcss/postcss` | ユーティリティクラス基盤 | PostCSS 経由 |
-| UI Library | shadcn/ui (CLI latest) | Radix ベースプリミティブ | `components.json` で init |
-| Class Utils | `clsx`, `tailwind-merge`, `cva` | `cn()` 実装 | shadcn 標準 |
-| Radix | `@radix-ui/react-dialog`, `react-tabs` 等 | アクセシブルプリミティブ | CLI add で追加 |
-| Fonts | Geist Sans/Mono (`next/font`) | shadcn 推奨タイポグラフィ | Outfit 依存撤廃 |
-| Theme | `dark` class + `data-theme` dual | 移行期ブリッジ | 完了後 data-theme 削除可 |
-| Persistence | `localStorage` (`quizeum-theme`) | テーマ永続化 | 既存キー維持 |
-| Icons | `@mui/icons-material` | プリミティブ内アイコン | 既存導入済み |
-| Testing | Jest 30, Playwright 1.60 | 単体・E2E 回帰 | 既存スイート |
+| Layer       | Choice / Version                          | Role in Feature           | Notes                     |
+| ----------- | ----------------------------------------- | ------------------------- | ------------------------- |
+| Frontend    | Next.js 16.2.6, React 19.2.4              | App Router, RSC + Client  | 既存バージョン維持        |
+| Styling     | Tailwind CSS v4, `@tailwindcss/postcss`   | ユーティリティクラス基盤  | PostCSS 経由              |
+| UI Library  | shadcn/ui (CLI latest)                    | Radix ベースプリミティブ  | `components.json` で init |
+| Class Utils | `clsx`, `tailwind-merge`, `cva`           | `cn()` 実装               | shadcn 標準               |
+| Radix       | `@radix-ui/react-dialog`, `react-tabs` 等 | アクセシブルプリミティブ  | CLI add で追加            |
+| Fonts       | Geist Sans/Mono (`next/font`)             | shadcn 推奨タイポグラフィ | Outfit 依存撤廃           |
+| Theme       | `dark` class + `data-theme` dual          | 移行期ブリッジ            | 完了後 data-theme 削除可  |
+| Persistence | `localStorage` (`quizetika-theme`)        | テーマ永続化              | 既存キー維持              |
+| Icons       | `@mui/icons-material`                     | プリミティブ内アイコン    | 既存導入済み              |
+| Testing     | Jest 30, Playwright 1.60                  | 単体・E2E 回帰            | 既存スイート              |
 
 ---
 
@@ -231,7 +231,7 @@ sequenceDiagram
     participant TP as ThemeProvider
 
     Browser->>InlineScript: parse HTML head
-    InlineScript->>LS: getItem quizeum-theme
+    InlineScript->>LS: getItem quizetika-theme
     LS-->>InlineScript: dark or light
     InlineScript->>HTML: toggle dark class
     InlineScript->>HTML: set data-theme attribute
@@ -256,58 +256,58 @@ graph LR
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | 本番ビルド成功 | PostCSS, Tailwind, globals.css | package.json scripts | — |
-| 1.2 | dev サーバー起動 | Next.js dev | — | — |
-| 1.3 | lint エラーなし | ESLint config 互換 | — | — |
-| 1.4 | TS strict 互換 | 全新規ファイル strict | — | — |
-| 2.1 | ライト shadcn 表示 | globals.css CSS vars | — | Theme init |
-| 2.2 | ダーク shadcn 表示 | globals.css + dark class | applyThemeToDom | Theme init |
-| 2.3 | 旧ビジュアル非再現 | globals.css（gradient 削除） | — | — |
-| 2.4 | Card border/shadow | card.tsx | Card props | — |
-| 2.5 | Geist/Inter フォント | layout.tsx, globals.css | next/font | — |
-| 3.1 | テーマ保存 | theme.ts, ThemeProvider | writeStoredTheme | — |
-| 3.2 | テーマ復元 | theme.ts, ThemeProvider | readStoredTheme | Theme init |
-| 3.3 | 同期初期化 | getThemeInitScript | inline script | Theme init |
-| 3.4 | ハイドレーション一致 | ThemeProvider | useTheme | Theme init |
-| 3.5 | デフォルト dark | theme.ts | DEFAULT_THEME | — |
-| 3.6 | 不正値フォールバック | theme.ts | parseTheme | — |
-| 4.1 | プリミティブ 7 種 | components/ui/* | shadcn exports | — |
-| 4.2 | cn() 提供 | lib/utils.ts | cn() | — |
-| 4.3 | 型付き API | 全プリミティブ | TypeScript props | — |
-| 4.4 | shadcn デフォルトスタイル | CLI default theme | — | — |
-| 5.1 | variables 共存 | globals.css import | — | — |
-| 5.2 | gradient/glass 非正 | globals.css 整理 | — | — |
-| 5.3 | DOM/testid 不変 | 本スペックはページ未変更 | — | — |
-| 6.1 | E2E グリーン | 回帰確認タスク | Playwright | — |
-| 6.2 | Jest グリーン | theme/utils tests | Jest | — |
-| 6.3 | 機能契約不変 | ルート/認可未変更 | — | — |
-| 7.1 | tech.md 更新 | steering | — | — |
-| 7.2 | structure.md 更新 | steering | — | — |
-| 7.3 | Tailwind 禁止撤廃可能 | steering 方針転換 | — | — |
+| Requirement | Summary                   | Components                     | Interfaces           | Flows      |
+| ----------- | ------------------------- | ------------------------------ | -------------------- | ---------- |
+| 1.1         | 本番ビルド成功            | PostCSS, Tailwind, globals.css | package.json scripts | —          |
+| 1.2         | dev サーバー起動          | Next.js dev                    | —                    | —          |
+| 1.3         | lint エラーなし           | ESLint config 互換             | —                    | —          |
+| 1.4         | TS strict 互換            | 全新規ファイル strict          | —                    | —          |
+| 2.1         | ライト shadcn 表示        | globals.css CSS vars           | —                    | Theme init |
+| 2.2         | ダーク shadcn 表示        | globals.css + dark class       | applyThemeToDom      | Theme init |
+| 2.3         | 旧ビジュアル非再現        | globals.css（gradient 削除）   | —                    | —          |
+| 2.4         | Card border/shadow        | card.tsx                       | Card props           | —          |
+| 2.5         | Geist/Inter フォント      | layout.tsx, globals.css        | next/font            | —          |
+| 3.1         | テーマ保存                | theme.ts, ThemeProvider        | writeStoredTheme     | —          |
+| 3.2         | テーマ復元                | theme.ts, ThemeProvider        | readStoredTheme      | Theme init |
+| 3.3         | 同期初期化                | getThemeInitScript             | inline script        | Theme init |
+| 3.4         | ハイドレーション一致      | ThemeProvider                  | useTheme             | Theme init |
+| 3.5         | デフォルト dark           | theme.ts                       | DEFAULT_THEME        | —          |
+| 3.6         | 不正値フォールバック      | theme.ts                       | parseTheme           | —          |
+| 4.1         | プリミティブ 7 種         | components/ui/*                | shadcn exports       | —          |
+| 4.2         | cn() 提供                 | lib/utils.ts                   | cn()                 | —          |
+| 4.3         | 型付き API                | 全プリミティブ                 | TypeScript props     | —          |
+| 4.4         | shadcn デフォルトスタイル | CLI default theme              | —                    | —          |
+| 5.1         | variables 共存            | globals.css import             | —                    | —          |
+| 5.2         | gradient/glass 非正       | globals.css 整理               | —                    | —          |
+| 5.3         | DOM/testid 不変           | 本スペックはページ未変更       | —                    | —          |
+| 6.1         | E2E グリーン              | 回帰確認タスク                 | Playwright           | —          |
+| 6.2         | Jest グリーン             | theme/utils tests              | Jest                 | —          |
+| 6.3         | 機能契約不変              | ルート/認可未変更              | —                    | —          |
+| 7.1         | tech.md 更新              | steering                       | —                    | —          |
+| 7.2         | structure.md 更新         | steering                       | —                    | —          |
+| 7.3         | Tailwind 禁止撤廃可能     | steering 方針転換              | —                    | —          |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| BuildPipeline | Infra | Tailwind/PostCSS 統合 | 1.1, 1.2, 1.3 | Next.js (P0) | — |
-| GlobalsStyles | Styling | shadcn CSS 変数 + base | 2.1–2.5, 5.1, 5.2 | variables.css (P1) | State |
-| ThemeBridge | Theme | dark + data-theme dual | 3.1–3.6 | lib/theme.ts (P0) | State |
-| CnUtility | Utility | クラス名結合 | 4.2 | clsx, tailwind-merge (P0) | Service |
-| ShadcnPrimitives | UI | 共通プリミティブ | 4.1, 4.3, 4.4 | Radix, cva (P0) | State |
-| SteeringDocs | Docs | 方針改定 | 7.1–7.3 | — | — |
+| Component        | Domain/Layer | Intent                 | Req Coverage      | Key Dependencies (P0/P1)  | Contracts |
+| ---------------- | ------------ | ---------------------- | ----------------- | ------------------------- | --------- |
+| BuildPipeline    | Infra        | Tailwind/PostCSS 統合  | 1.1, 1.2, 1.3     | Next.js (P0)              | —         |
+| GlobalsStyles    | Styling      | shadcn CSS 変数 + base | 2.1–2.5, 5.1, 5.2 | variables.css (P1)        | State     |
+| ThemeBridge      | Theme        | dark + data-theme dual | 3.1–3.6           | lib/theme.ts (P0)         | State     |
+| CnUtility        | Utility      | クラス名結合           | 4.2               | clsx, tailwind-merge (P0) | Service   |
+| ShadcnPrimitives | UI           | 共通プリミティブ       | 4.1, 4.3, 4.4     | Radix, cva (P0)           | State     |
+| SteeringDocs     | Docs         | 方針改定               | 7.1–7.3           | —                         | —         |
 
 ### Styling Layer
 
 #### GlobalsStyles
 
-| Field | Detail |
-|-------|--------|
-| Intent | shadcn 標準 CSS 変数と Tailwind base をアプリ全体に適用 |
-| Requirements | 2.1, 2.2, 2.3, 2.4, 2.5, 5.1, 5.2 |
+| Field        | Detail                                                  |
+| ------------ | ------------------------------------------------------- |
+| Intent       | shadcn 標準 CSS 変数と Tailwind base をアプリ全体に適用 |
+| Requirements | 2.1, 2.2, 2.3, 2.4, 2.5, 5.1, 5.2                       |
 
 **Responsibilities & Constraints**
 - `@import "tailwindcss"` と shadcn テンプレート CSS 変数（`:root` / `.dark`）を定義
@@ -332,10 +332,10 @@ graph LR
 
 #### ThemeBridge
 
-| Field | Detail |
-|-------|--------|
-| Intent | テーマ永続化・DOM 適用・FOUC 防止の一元管理 |
-| Requirements | 3.1, 3.2, 3.3, 3.4, 3.5, 3.6 |
+| Field        | Detail                                      |
+| ------------ | ------------------------------------------- |
+| Intent       | テーマ永続化・DOM 適用・FOUC 防止の一元管理 |
+| Requirements | 3.1, 3.2, 3.3, 3.4, 3.5, 3.6                |
 
 **Responsibilities & Constraints**
 - `applyThemeToDocument(theme: Theme)` を `lib/theme.ts` に集約
@@ -347,7 +347,7 @@ graph LR
 **Dependencies**
 - Inbound: layout.tsx — inline script（P0）
 - Inbound: theme-context.tsx — client 更新（P0）
-- Outbound: localStorage — `quizeum-theme`（P0）
+- Outbound: localStorage — `quizetika-theme`（P0）
 
 **Contracts**: State [x]
 
@@ -365,7 +365,7 @@ export function getThemeInitScript(): string;
 
 - Preconditions: `theme` は `'dark' | 'light'` のみ
 - Postconditions: DOM の `dark` クラスと `data-theme` が `theme` と一致
-- Invariants: `THEME_STORAGE_KEY` は `'quizeum-theme'` 固定
+- Invariants: `THEME_STORAGE_KEY` は `'quizetika-theme'` 固定
 
 **Implementation Notes**
 - Integration: `theme-context.tsx` の `applyThemeToDom` を `applyThemeToDocument` の thin wrapper に
@@ -376,10 +376,10 @@ export function getThemeInitScript(): string;
 
 #### CnUtility
 
-| Field | Detail |
-|-------|--------|
-| Intent | Tailwind クラス名の条件付き結合と競合解決 |
-| Requirements | 4.2 |
+| Field        | Detail                                    |
+| ------------ | ----------------------------------------- |
+| Intent       | Tailwind クラス名の条件付き結合と競合解決 |
+| Requirements | 4.2                                       |
 
 **Contracts**: Service [x]
 
@@ -398,10 +398,10 @@ export function cn(...inputs: ClassValue[]): string;
 
 #### ShadcnPrimitives
 
-| Field | Detail |
-|-------|--------|
-| Intent | 後続スペック共有の Radix ベース UI プリミティブ |
-| Requirements | 4.1, 4.3, 4.4 |
+| Field        | Detail                                          |
+| ------------ | ----------------------------------------------- |
+| Intent       | 後続スペック共有の Radix ベース UI プリミティブ |
+| Requirements | 4.1, 4.3, 4.4                                   |
 
 **Responsibilities & Constraints**
 - shadcn CLI `add` で生成されたコンポーネントをそのまま配置（初版カスタム最小）
@@ -423,10 +423,10 @@ export function cn(...inputs: ClassValue[]): string;
 
 #### ShadcnPrimitives Wave 2
 
-| Field | Detail |
-|-------|--------|
-| Intent | 後続 6 ドメインスペック（layout-shell, discovery, personal, quiz-lifecycle, editor, admin-creator）が共有する拡張プリミティブ |
-| Requirements | 4.1, 4.3, 4.4, 4.5 |
+| Field        | Detail                                                                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Intent       | 後続 6 ドメインスペック（layout-shell, discovery, personal, quiz-lifecycle, editor, admin-creator）が共有する拡張プリミティブ |
+| Requirements | 4.1, 4.3, 4.4, 4.5                                                                                                            |
 
 **Responsibilities & Constraints**
 - Wave 2 は Wave 1 完了後に CLI `add` で一括生成する（下流スペックでの重複 `npx shadcn add` は禁止）
@@ -462,7 +462,7 @@ export function cn(...inputs: ClassValue[]): string;
 2. `applyThemeToDocument` — `dark` 時に `classList.contains('dark')` かつ `dataset.theme === 'dark'`
 3. `applyThemeToDocument` — `light` 時に `dark` クラスなしかつ `dataset.theme === 'light'`
 4. `cn()` — 条件付きクラス結合と tailwind-merge 競合解決
-5. `getThemeInitScript` — 生成文字列が `quizeum-theme` キーを参照すること
+5. `getThemeInitScript` — 生成文字列が `quizetika-theme` キーを参照すること
 
 ### Integration Tests
 1. `ThemeProvider` — `setTheme('light')` 後に DOM がライト状態になること
@@ -470,7 +470,7 @@ export function cn(...inputs: ClassValue[]): string;
 
 ### E2E/UI Tests
 1. 既存 Playwright スイート全体がグリーン（回帰）
-2. 設定画面テーマ切替 E2E（`quizeum-user-settings-ui` 既存 spec）が dual bridge 下で通過
+2. 設定画面テーマ切替 E2E（`quizetika-user-settings-ui` 既存 spec）が dual bridge 下で通過
 3. ホーム画面（`/`）がエラーなく描画されること
 
 ### Build/Lint Validation

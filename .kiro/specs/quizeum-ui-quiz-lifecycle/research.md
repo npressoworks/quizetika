@@ -1,7 +1,7 @@
-# Research & Design Decisions: quizeum-ui-quiz-lifecycle
+# Research & Design Decisions: quizetika-ui-quiz-lifecycle
 
 ## Summary
-- **Feature**: `quizeum-ui-quiz-lifecycle`
+- **Feature**: `quizetika-ui-quiz-lifecycle`
 - **Discovery Scope**: Extension（既存クイズライフサイクル UI のスタイル層置換）
 - **Key Findings**:
   - `play.module.css`（約 773 行）が最大リスク。プレイ画面は `quiz-play-client.tsx`（約 1,450 行）と `test-play-client.tsx` が共有スタイルに依存
@@ -53,11 +53,11 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| 一括置換 | 全ライフサイクル画面を同時 PR | 短期間で CSS Modules 完全削除 | レビュー不能・プレイ退行リスク最大 | 却下 |
-| 水平（コンポーネント先行） | 回答パネル等を先に全画面適用 | 再利用確立 | ページとコンポーネントの中途半端混在期間が長い | 部分採用（共有コンポーネント先行は可） |
-| 垂直（画面順） | 詳細→結果→復習→プレイの画面単位 | 各段階で E2E 確認可能・リスク段階低減 | 期間中 CSS Modules 共存 | **採用** |
+| Option                     | Description                     | Strengths                             | Risks / Limitations                            | Notes                                  |
+| -------------------------- | ------------------------------- | ------------------------------------- | ---------------------------------------------- | -------------------------------------- |
+| 一括置換                   | 全ライフサイクル画面を同時 PR   | 短期間で CSS Modules 完全削除         | レビュー不能・プレイ退行リスク最大             | 却下                                   |
+| 水平（コンポーネント先行） | 回答パネル等を先に全画面適用    | 再利用確立                            | ページとコンポーネントの中途半端混在期間が長い | 部分採用（共有コンポーネント先行は可） |
+| 垂直（画面順）             | 詳細→結果→復習→プレイの画面単位 | 各段階で E2E 確認可能・リスク段階低減 | 期間中 CSS Modules 共存                        | **採用**                               |
 
 ## Design Decisions
 
@@ -97,5 +97,5 @@
 - [shadcn/ui Radio Group](https://ui.shadcn.com/docs/components/radio-group) — 選択式回答
 - [shadcn/ui Progress](https://ui.shadcn.com/docs/components/progress) — プレイ進捗
 - [shadcn/ui Accordion](https://ui.shadcn.com/docs/components/accordion) — 結果詳細
-- `.kiro/specs/quizeum-ui-foundation/design.md` — 基盤プリミティブ・テーマ bridge
-- `.kiro/specs/quizeum-ui-layout-shell/design.md` — `/play` シェル非表示契約
+- `.kiro/specs/quizetika-ui-foundation/design.md` — 基盤プリミティブ・テーマ bridge
+- `.kiro/specs/quizetika-ui-layout-shell/design.md` — `/play` シェル非表示契約

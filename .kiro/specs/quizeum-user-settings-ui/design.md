@@ -1,20 +1,20 @@
-# Design Document: quizeum-user-settings-ui
+# Design Document: quizetika-user-settings-ui
 
 ## Overview
-本機能は Quizeum に **ユーザー設定ページ**（`/settings`）と **アプリ横断のテーマシステム**（ダーク / ライト）を導入する。`ThemeProvider` と `<html data-theme>` による CSS 変数切替、`localStorage` キー `quizeum-theme` による永続化、初回描画時のフラッシュ防止を実装し、設定画面からテーマ切替とプロフィール編集（`/profile/edit`）への導線を提供する。
+本機能は Quizetika に **ユーザー設定ページ**（`/settings`）と **アプリ横断のテーマシステム**（ダーク / ライト）を導入する。`ThemeProvider` と `<html data-theme>` による CSS 変数切替、`localStorage` キー `quizetika-theme` による永続化、初回描画時のフラッシュ防止を実装し、設定画面からテーマ切替とプロフィール編集（`/profile/edit`）への導線を提供する。
 
-**Phase 23（2026-06-09）**: 設定は Sidebar アカウントポップアップからの到達を想定するが、ポップアップへの「設定」項目追加は `quizeum-sidebar-layout` が `/settings` ルート確定後に実装する。本スペックはページ本体とテーマ基盤を所有する。
+**Phase 23（2026-06-09）**: 設定は Sidebar アカウントポップアップからの到達を想定するが、ポップアップへの「設定」項目追加は `quizetika-sidebar-layout` が `/settings` ルート確定後に実装する。本スペックはページ本体とテーマ基盤を所有する。
 
 ### Goals
 - `ThemeProvider` / `useTheme` によるクライアントテーマ状態管理
 - `<html data-theme="dark|light">` と `variables.css` トークン二系統によるテーマ切替
-- `localStorage`（`quizeum-theme`）永続化と inline script によるフラッシュ防止
+- `localStorage`（`quizetika-theme`）永続化と inline script によるフラッシュ防止
 - `/settings` ページ（テーマトグル + プロフィール編集リンク）
 - ライトテーマ用トークン整備と `globals.css` のテーマ依存スタイル調整
 
 ### Non-Goals
-- Sidebar / BottomNav ポップアップへの「設定」リンク（`quizeum-sidebar-layout`）
-- プロフィール編集フォーム（`quizeum-auth-profile-ui`）
+- Sidebar / BottomNav ポップアップへの「設定」リンク（`quizetika-sidebar-layout`）
+- プロフィール編集フォーム（`quizetika-auth-profile-ui`）
 - サーバー側設定永続化、`prefers-color-scheme` 追従
 - 通知・言語・アクセシビリティ設定
 
@@ -32,8 +32,8 @@
 - Jest（theme lib / ThemeToggle）、Playwright E2E（テーマ切替・永続化）
 
 ### Out of Boundary
-- Sidebar フッターアカウントポップアップの「設定」`popupItem`（`quizeum-sidebar-layout`）
-- `/profile/edit` のフォーム・保存ロジック（`quizeum-auth-profile-ui`）
+- Sidebar フッターアカウントポップアップの「設定」`popupItem`（`quizetika-sidebar-layout`）
+- `/profile/edit` のフォーム・保存ロジック（`quizetika-auth-profile-ui`）
 - `docs/screen_transition.md` 更新（Phase 23 直接実装候補）
 
 ### Allowed Dependencies
@@ -44,7 +44,7 @@
 - **既存 CSS ユーティリティ**（`glass-card`, `btn` 等）: 設定ページスタイル（P1）
 
 ### Revalidation Triggers
-- `quizeum-theme` キー名または許可値（`dark` | `light`）の変更
+- `quizetika-theme` キー名または許可値（`dark` | `light`）の変更
 - `data-theme` 属性名・トークン変数名の変更（全画面 CSS 影響）
 - `/settings` ルートパス変更（sidebar-layout の href 同期が必要）
 - `layout.tsx` Provider ツリー構造の変更
@@ -66,7 +66,7 @@
 graph TD
     subgraph Init [First Paint]
         InlineScript[Inline theme init script]
-        localStorage[(localStorage quizeum-theme)]
+        localStorage[(localStorage quizetika-theme)]
         HTML[html data-theme]
     end
 
@@ -95,13 +95,13 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-| :--- | :--- | :--- | :--- |
-| Frontend | Next.js 16.2.6 (App Router) | `/settings` ルート、`layout.tsx` 統合 | RSC + Client 分離 |
-| State | React Context | `ThemeProvider` / `useTheme` | `auth-context` と同型 |
-| Persistence | `localStorage` | テーマ永続化 | キー `quizeum-theme` |
-| UI/Styling | Vanilla CSS (CSS Modules + variables) | テーマトークン、設定ページ | Tailwind 不使用 |
-| Icons | Material Icons | 太陽 / 月アイコン等 | |
+| Layer       | Choice / Version                      | Role in Feature                       | Notes                  |
+| :---------- | :------------------------------------ | :------------------------------------ | :--------------------- |
+| Frontend    | Next.js 16.2.6 (App Router)           | `/settings` ルート、`layout.tsx` 統合 | RSC + Client 分離      |
+| State       | React Context                         | `ThemeProvider` / `useTheme`          | `auth-context` と同型  |
+| Persistence | `localStorage`                        | テーマ永続化                          | キー `quizetika-theme` |
+| UI/Styling  | Vanilla CSS (CSS Modules + variables) | テーマトークン、設定ページ            | Tailwind 不使用        |
+| Icons       | Material Icons                        | 太陽 / 月アイコン等                   |                        |
 
 ---
 
@@ -140,16 +140,16 @@ e2e/
 ```
 
 ### Modified Files（本スペック実装範囲外だが依存・連携）
-- `src/components/layout/sidebar.tsx` — **`quizeum-sidebar-layout`** が「設定」`popupItem`（`/settings`）をマイページとログアウトの間に追加
+- `src/components/layout/sidebar.tsx` — **`quizetika-sidebar-layout`** が「設定」`popupItem`（`/settings`）をマイページとログアウトの間に追加
 
 ### Coordination: layout.tsx 所有境界
 
-| 関心 | 所有者 | 内容 |
-|------|--------|------|
-| アプリシェル構造（Sidebar / Header / BottomNav / `LayoutWrapper` 骨格） | **quizeum-sidebar-layout** | ナビ・レスポンシブシェル。本スペックは変更しない |
-| Provider ツリー・テーマ基盤 | **quizeum-user-settings-ui** | `PostHogProvider` → `AuthProvider` → `ThemeProvider` → `LayoutWrapper` の順序で children を包む |
-| 初回描画フラッシュ防止 | **quizeum-user-settings-ui** | `<head>` 内 inline theme init script、`suppressHydrationWarning` |
-| `globals.css` 変更範囲 | **quizeum-user-settings-ui** | **theme-only scope** — body 背景グラデーション・フォーム focus 等、テーマ切替に必要なスタイルのみ |
+| 関心                                                                    | 所有者                         | 内容                                                                                              |
+| ----------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| アプリシェル構造（Sidebar / Header / BottomNav / `LayoutWrapper` 骨格） | **quizetika-sidebar-layout**   | ナビ・レスポンシブシェル。本スペックは変更しない                                                  |
+| Provider ツリー・テーマ基盤                                             | **quizetika-user-settings-ui** | `PostHogProvider` → `AuthProvider` → `ThemeProvider` → `LayoutWrapper` の順序で children を包む   |
+| 初回描画フラッシュ防止                                                  | **quizetika-user-settings-ui** | `<head>` 内 inline theme init script、`suppressHydrationWarning`                                  |
+| `globals.css` 変更範囲                                                  | **quizetika-user-settings-ui** | **theme-only scope** — body 背景グラデーション・フォーム focus 等、テーマ切替に必要なスタイルのみ |
 
 `layout.tsx` への `ThemeProvider` / script 追加は本スペックが実施するが、シェル DOM 構造の正本は sidebar-layout に留まる。両スペックは Provider 順序と `<html>` 属性について coordination する。
 
@@ -169,7 +169,7 @@ sequenceDiagram
     participant User
 
     Browser->>InlineScript: HTML 解析（React 前）
-    InlineScript->>localStorage: getItem('quizeum-theme')
+    InlineScript->>localStorage: getItem('quizetika-theme')
     alt 有効値 dark/light
         InlineScript->>HTML: dataset.theme = value
     else 無効/未設定
@@ -180,7 +180,7 @@ sequenceDiagram
     ThemeProvider->>HTML: data-theme 整合確認
     User->>ThemeProvider: setTheme('light')
     ThemeProvider->>HTML: data-theme='light'
-    ThemeProvider->>localStorage: setItem('quizeum-theme','light')
+    ThemeProvider->>localStorage: setItem('quizetika-theme','light')
 ```
 
 ### 設定ページでのテーマ切替
@@ -198,34 +198,34 @@ stateDiagram-v2
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-| :--- | :--- | :--- | :--- | :--- |
-| **1.1–1.4** | 設定ページ基本表示 | `SettingsPage`, `SettingsClient` | page shell | - |
-| **2.1–2.7** | テーマ切替 UI・CSS 変数 | `ThemeToggle`, `ThemeProvider`, `variables.css` | `Theme`, `setTheme` | テーマ切替 |
-| **3.1–3.4** | localStorage 永続化 | `theme.ts`, `ThemeProvider` | `THEME_STORAGE_KEY` | 初回描画 |
-| **4.1–4.3** | フラッシュ防止 | inline script, `layout.tsx` | sync init | 初回描画 |
-| **5.1–5.5** | プロフィール編集導線 | `SettingsClient` | `useAuth`, `/profile/edit` | - |
-| **6.1–6.3** | グローバル Provider | `ThemeProvider`, `useTheme` | `ThemeContext` | テーマ切替 |
+| Requirement | Summary                 | Components                                      | Interfaces                 | Flows      |
+| :---------- | :---------------------- | :---------------------------------------------- | :------------------------- | :--------- |
+| **1.1–1.4** | 設定ページ基本表示      | `SettingsPage`, `SettingsClient`                | page shell                 | -          |
+| **2.1–2.7** | テーマ切替 UI・CSS 変数 | `ThemeToggle`, `ThemeProvider`, `variables.css` | `Theme`, `setTheme`        | テーマ切替 |
+| **3.1–3.4** | localStorage 永続化     | `theme.ts`, `ThemeProvider`                     | `THEME_STORAGE_KEY`        | 初回描画   |
+| **4.1–4.3** | フラッシュ防止          | inline script, `layout.tsx`                     | sync init                  | 初回描画   |
+| **5.1–5.5** | プロフィール編集導線    | `SettingsClient`                                | `useAuth`, `/profile/edit` | -          |
+| **6.1–6.3** | グローバル Provider     | `ThemeProvider`, `useTheme`                     | `ThemeContext`             | テーマ切替 |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `theme.ts` | Lib | 定数・検証・storage ヘルパー | 3, 4 | - | Pure functions |
-| `ThemeProvider` | Context | テーマ状態と DOM/localStorage 同期 | 2, 3, 4, 6 | `theme.ts` | State |
-| `useTheme` | Hook | テーマ読み書き API | 6 | `ThemeProvider` | State |
-| inline script | Layout | 初回同期 `data-theme` | 4 | `theme.ts` 定数と同一キー | - |
-| `ThemeToggle` | UI | ダーク/ライト選択 UI | 2 | `useTheme` | State |
-| `SettingsClient` | UI | 設定ページ本体 | 1, 5 | `useAuth`, `ThemeToggle` | - |
+| Component        | Domain/Layer | Intent                             | Req Coverage | Key Dependencies          | Contracts      |
+| :--------------- | :----------- | :--------------------------------- | :----------- | :------------------------ | :------------- |
+| `theme.ts`       | Lib          | 定数・検証・storage ヘルパー       | 3, 4         | -                         | Pure functions |
+| `ThemeProvider`  | Context      | テーマ状態と DOM/localStorage 同期 | 2, 3, 4, 6   | `theme.ts`                | State          |
+| `useTheme`       | Hook         | テーマ読み書き API                 | 6            | `ThemeProvider`           | State          |
+| inline script    | Layout       | 初回同期 `data-theme`              | 4            | `theme.ts` 定数と同一キー | -              |
+| `ThemeToggle`    | UI           | ダーク/ライト選択 UI               | 2            | `useTheme`                | State          |
+| `SettingsClient` | UI           | 設定ページ本体                     | 1, 5         | `useAuth`, `ThemeToggle`  | -              |
 
 ### Lib: theme.ts
 
 ```typescript
 export type Theme = 'dark' | 'light';
 
-export const THEME_STORAGE_KEY = 'quizeum-theme';
+export const THEME_STORAGE_KEY = 'quizetika-theme';
 export const DEFAULT_THEME: Theme = 'dark';
 
 export function parseTheme(value: string | null): Theme;
@@ -260,7 +260,7 @@ export function useTheme(): ThemeContextValue;
 ```javascript
 (function () {
   try {
-    var k = 'quizeum-theme';
+    var k = 'quizetika-theme';
     var v = localStorage.getItem(k);
     var t = v === 'light' ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
@@ -295,16 +295,16 @@ export function useTheme(): ThemeContextValue;
 
 ### Client-Only Theme Preference
 
-| Field | Type | Storage | Notes |
-| :--- | :--- | :--- | :--- |
-| `quizeum-theme` | `'dark' \| 'light'` | `localStorage` | サーバー同期なし |
+| Field             | Type                | Storage        | Notes            |
+| :---------------- | :------------------ | :------------- | :--------------- |
+| `quizetika-theme` | `'dark' \| 'light'` | `localStorage` | サーバー同期なし |
 
 ### CSS Token Strategy
 
-| Selector | Role |
-| :--- | :--- |
-| `:root`, `[data-theme='dark']` | ダークトークン（既存 neon dark） |
-| `[data-theme='light']` | ライトトークン（紫アクセント維持） |
+| Selector                       | Role                               |
+| :----------------------------- | :--------------------------------- |
+| `:root`, `[data-theme='dark']` | ダークトークン（既存 neon dark）   |
+| `[data-theme='light']`         | ライトトークン（紫アクセント維持） |
 
 `variables.css` の既存 `[data-theme='light']` をベースに、`--text-inverse`、`--border-glow` 等の不足トークンをライト向けに補完する。
 
@@ -332,17 +332,17 @@ export function useTheme(): ThemeContextValue;
 ### E2E（`e2e/user-settings.spec.ts`）
 - `/settings` 直接アクセスで `settings-page-container` 表示
 - ライト選択 → `html[data-theme="light"]`、主要背景色の変化（computed style またはスクリーンショット代替の class 検証）
-- リロード後も `localStorage.getItem('quizeum-theme') === 'light'` かつ `data-theme` 維持
+- リロード後も `localStorage.getItem('quizetika-theme') === 'light'` かつ `data-theme` 維持
 - ログインユーザーで `settings-profile-edit-link` → `/profile/edit` 遷移（Emulator シード使用）
 
 ### ナビ導線 E2E
-- Sidebar ポップアップ「設定」→ `/settings` は **`quizeum-sidebar-layout` の E2E** で検証。本スペック E2E は URL 直接アクセスを正とする。
+- Sidebar ポップアップ「設定」→ `/settings` は **`quizetika-sidebar-layout` の E2E** で検証。本スペック E2E は URL 直接アクセスを正とする。
 
 ---
 
 ## Supporting References
 
-### Sidebar ポップアップ連携（quizeum-sidebar-layout）
+### Sidebar ポップアップ連携（quizetika-sidebar-layout）
 
 `sidebar.tsx` の既存パターン:
 

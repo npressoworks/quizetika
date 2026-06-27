@@ -273,7 +273,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     if (!quiz) return;
 
     if (Object.keys(quickPressTimes).length > 0) {
-      localStorage.setItem(`quizeum_qp_times_${storageId}`, JSON.stringify(quickPressTimes));
+      localStorage.setItem(`quizetika_qp_times_${storageId}`, JSON.stringify(quickPressTimes));
     }
 
     const revealedHintsData = (quiz.questions ?? [])
@@ -292,22 +292,22 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       .filter(Boolean);
 
     if (revealedHintsData.length > 0) {
-      localStorage.setItem(`quizeum_attempt_hints_${storageId}`, JSON.stringify(revealedHintsData));
+      localStorage.setItem(`quizetika_attempt_hints_${storageId}`, JSON.stringify(revealedHintsData));
     }
   };
 
   const migrateAuxiliaryAttemptData = (fromId: string, toId: string) => {
-    const qpKey = `quizeum_qp_times_${fromId}`;
+    const qpKey = `quizetika_qp_times_${fromId}`;
     const qpValue = localStorage.getItem(qpKey);
     if (qpValue) {
-      localStorage.setItem(`quizeum_qp_times_${toId}`, qpValue);
+      localStorage.setItem(`quizetika_qp_times_${toId}`, qpValue);
       localStorage.removeItem(qpKey);
     }
 
-    const hintsKey = `quizeum_attempt_hints_${fromId}`;
+    const hintsKey = `quizetika_attempt_hints_${fromId}`;
     const hintsValue = localStorage.getItem(hintsKey);
     if (hintsValue) {
-      localStorage.setItem(`quizeum_attempt_hints_${toId}`, hintsValue);
+      localStorage.setItem(`quizetika_attempt_hints_${toId}`, hintsValue);
       localStorage.removeItem(hintsKey);
     }
   };

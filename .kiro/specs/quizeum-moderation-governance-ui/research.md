@@ -1,4 +1,4 @@
-# Gap & Discovery Analysis: quizeum-moderation-governance-ui
+# Gap & Discovery Analysis: quizetika-moderation-governance-ui
 
 ## Analysis Summary
 
@@ -114,5 +114,5 @@
 ---
 
 ## 4. References
-- [src/lib/genre-icon-upload.ts](file:///d:/quizeum/src/lib/genre-icon-upload.ts) — ジャンルアイコン用共通バリデーションロジック
-- [src/services/storage.ts](file:///d:/quizeum/src/services/storage.ts) — 旧ジャンルアイコン保存先パス決定ロジック
+- [src/lib/genre-icon-upload.ts](file:///d:/quizetika/src/lib/genre-icon-upload.ts) — ジャンルアイコン用共通バリデーションロジック
+- [src/services/storage.ts](file:///d:/quizetika/src/services/storage.ts) — 旧ジャンルアイコン保存先パス決定ロジック

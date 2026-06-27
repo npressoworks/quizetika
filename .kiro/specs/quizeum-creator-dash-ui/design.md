@@ -1,13 +1,13 @@
-# Technical Design Document: quizeum-creator-dash-ui
+# Technical Design Document: quizetika-creator-dash-ui
 
 ## Overview
-本ドキュメントは、クイズ投稿SNS「quizeum」におけるクリエイター（作家）向けUIの技術設計仕様を定義します。クイズの作成・下書き・編集機能、ドラッグ＆ドロップによるリストの作成・並べ替え、作家ダッシュボードにおけるアナリティクス可視化、間違い指摘フィードバックの管理、および自作クイズデータの一括パッケージエクスポートを構築します。
+本ドキュメントは、クイズ投稿SNS「quizetika」におけるクリエイター（作家）向けUIの技術設計仕様を定義します。クイズの作成・下書き・編集機能、ドラッグ＆ドロップによるリストの作成・並べ替え、作家ダッシュボードにおけるアナリティクス可視化、間違い指摘フィードバックの管理、および自作クイズデータの一括パッケージエクスポートを構築します。
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフロントエンド構成に加え、CSS Modulesによる親しみやすく機能的なデザインシステムを実装し、Firestoreサービス（`QuizService`, `QuizListService`, `ReviewService`等）およびフロントエンド側Zodスキーマと接続します。
 
-**Phase 6（2026-06）**: `QuizEditor` のジャンル `<select>` を `useActiveGenres` + `GenreEditorSelect` に置換。`quizeum-play-flow-ui` と同一の `listActiveGenres` フックを再利用する。
+**Phase 6（2026-06）**: `QuizEditor` のジャンル `<select>` を `useActiveGenres` + `GenreEditorSelect` に置換。`quizetika-play-flow-ui` と同一の `listActiveGenres` フックを再利用する。
 
-**Phase 8（2026-06）**: リスト作成時の `listType` 選択、問題リスト編集（3ソース問題検索・アタッチ・DnD・エクスポート）、クイズエディタの過去自作クイズ検索パネルと参照リンク追加 UI を追加する。永続化・検証・Copy-on-Write は `quizeum-core`（実装済み）に依存する。
+**Phase 8（2026-06）**: リスト作成時の `listType` 選択、問題リスト編集（3ソース問題検索・アタッチ・DnD・エクスポート）、クイズエディタの過去自作クイズ検索パネルと参照リンク追加 UI を追加する。永続化・検証・Copy-on-Write は `quizetika-core`（実装済み）に依存する。
 
 **Phase 12（2026-06）**: 作問エディタの説明文・問題文・真相・解説文テキストエリアの自動伸長、過去自作クイズ検索の問題文・正解テキスト照合拡張、参照リンク成功フィードバック、問題文ヒット時のアコーディオン自動展開、リンク済み問題のリンク解除、テストプレイ後の編集画面ドラフト復元（問題重複防止）を追加する。問題照合の純関数と `searchAuthorQuizzes` パイプライン拡張は lib/service 層が担当し、UI は表示・フィードバックのみ。
 
@@ -23,12 +23,12 @@
 - **Phase 12**: 作問エディタ主要テキストエリアの自動伸長、過去自作クイズ検索の問題文・正解テキスト対応、参照リンク成功メッセージ、問題文ヒット時の自動展開、リンク解除、テストプレイ復帰時の問題数保持。
 - **Phase 13**: 作問エディタの難易度スライダー入力の 1〜5 制限と表示の更新。
 
-**Phase 20（2026-06-09）**: 〇×問題（`true-false`）を出題形式として選択可能にし、正解トグル（「〇が正解」「×が正解」）のみの作問 UI を追加する。選択肢テキストの自由編集は行わない（永続化・正規化は `quizeum-core` の `true-false-defaults.ts` が担当）。
+**Phase 20（2026-06-09）**: 〇×問題（`true-false`）を出題形式として選択可能にし、正解トグル（「〇が正解」「×が正解」）のみの作問 UI を追加する。選択肢テキストの自由編集は行わない（永続化・正規化は `quizetika-core` の `true-false-defaults.ts` が担当）。
 
 ### Non-Goals
 - クイズデータのJSONインポート機能（仕様変更により機能が完全に廃止されたため、インポートに関連するUIエリアは一切設置しません）。
-- 管理者モデレーション画面および自治ガバナンスUI（`quizeum-moderation-governance-ui`が担当）。
-- **Phase 8**: ブックマーク3タブ・問題リスト連続プレイ遷移（`quizeum-play-flow-ui`）。プロフィールのリストタイプ別タブ（`quizeum-auth-profile-ui`）。
+- 管理者モデレーション画面および自治ガバナンスUI（`quizetika-moderation-governance-ui`が担当）。
+- **Phase 8**: ブックマーク3タブ・問題リスト連続プレイ遷移（`quizetika-play-flow-ui`）。プロフィールのリストタイプ別タブ（`quizetika-auth-profile-ui`）。
 - **Phase 12**: 作問エディタ以外の画面へのテキストエリア自動伸長一括適用。Firestore 全文検索インデックス新設。
 
 ---
@@ -51,18 +51,18 @@
 
 ### Out of Boundary
 - クイズリストやクイズのJSONインポート用ファイルのアップロード処理（インポート機能は廃止されたため、本UIは一切のインポート機能を包含しません）。
-- **Phase 8**: リスト詳細の読み取り表示・連続プレイ開始（`quizeum-play-flow-ui` が実装済み。本スペックは編集導線と `listType` 作成時選択のみ）。
-- **Phase 8**: `listType` 永続化検証、参照リンクの Firestore 書き込み、問題 doc の CoW 実行（`quizeum-core`）。
+- **Phase 8**: リスト詳細の読み取り表示・連続プレイ開始（`quizetika-play-flow-ui` が実装済み。本スペックは編集導線と `listType` 作成時選択のみ）。
+- **Phase 8**: `listType` 永続化検証、参照リンクの Firestore 書き込み、問題 doc の CoW 実行（`quizetika-core`）。
 - **Phase 12**: 問題文・正解テキスト照合の純関数実装と `searchAuthorQuizzes` 内の問題バッチ取得（`src/lib/` + `src/services/author-quiz-search.ts`）。本スペックの UI コンポーネントから Firestore 直接クエリしてはならない。
-- **Phase 20**: 選択肢ラベルの正規化・`Quiz.format` 永続化・公開検証（`quizeum-core`）。プレイ時 〇／× 1タップ UI（`quizeum-play-flow-ui`）。
+- **Phase 20**: 選択肢ラベルの正規化・`Quiz.format` 永続化・公開検証（`quizetika-core`）。プレイ時 〇／× 1タップ UI（`quizetika-play-flow-ui`）。
 
 ### Allowed Dependencies
-- **`quizeum-auth-profile-ui`**: `Header`, `useAuth`
-- **`quizeum-play-flow-ui`**: `/quiz/[id]` プレイ遷移
-- **`quizeum-core`**: `QuizService`, `QuizListService`, `ReviewService`, **`listActiveGenres`（Phase 6）**, **`createQuizList`（`listType`）, `addQuestionToList`, `removeQuestionFromList`, `reorderQuestionList`, `exportQuestionList`, `getQuestionsInList`, `searchAuthorQuizzes`（Phase 12: 問題文・正解テキスト照合拡張）, `getQuestionsByQuiz`, `getBookmarkedQuestions`, `saveQuiz` 参照パス（Phase 8）**
-- **`quizeum-core`（Phase 20）**: `createTrueFalseChoices`, `resolveTrueFalseCorrectSide`, `normalizeTrueFalseChoices`（`src/lib/true-false-defaults.ts`）
-- **`quizeum-play-flow-ui`（共有）**: `useActiveGenres` フック（`src/hooks/useActiveGenres.ts`）
-- **`quizeum-core`（読み取り）**: `searchQuizzes` — 他者公開クイズ経由の問題候補探索（Phase 8・UI 集約のみ）
+- **`quizetika-auth-profile-ui`**: `Header`, `useAuth`
+- **`quizetika-play-flow-ui`**: `/quiz/[id]` プレイ遷移
+- **`quizetika-core`**: `QuizService`, `QuizListService`, `ReviewService`, **`listActiveGenres`（Phase 6）**, **`createQuizList`（`listType`）, `addQuestionToList`, `removeQuestionFromList`, `reorderQuestionList`, `exportQuestionList`, `getQuestionsInList`, `searchAuthorQuizzes`（Phase 12: 問題文・正解テキスト照合拡張）, `getQuestionsByQuiz`, `getBookmarkedQuestions`, `saveQuiz` 参照パス（Phase 8）**
+- **`quizetika-core`（Phase 20）**: `createTrueFalseChoices`, `resolveTrueFalseCorrectSide`, `normalizeTrueFalseChoices`（`src/lib/true-false-defaults.ts`）
+- **`quizetika-play-flow-ui`（共有）**: `useActiveGenres` フック（`src/hooks/useActiveGenres.ts`）
+- **`quizetika-core`（読み取り）**: `searchQuizzes` — 他者公開クイズ経由の問題候補探索（Phase 8・UI 集約のみ）
 
 ### Revalidation Triggers
 - `QuizService.saveQuiz` または `QuizListService.createQuizList` のシリアライズ仕様変更。

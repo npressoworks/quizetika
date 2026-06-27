@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-billing-subscription-ui
+# Implementation Plan: quizetika-billing-subscription-ui
 
 ## Tasks
 
@@ -90,7 +90,7 @@
   - _Depends: 6.1_
   - _Requirements: 2, 9_
 
-### 7. Phase 2 — Upstream 価格取得 API（quizeum-core 実装・先行必須）
+### 7. Phase 2 — Upstream 価格取得 API（quizetika-core 実装・先行必須）
 
 - [x] 7.1 (P) JPY 価格ラベル整形の実装
   - Stripe の `unit_amount`（JPY 整数）から「¥980/月」「¥9,800/年」形式の表示ラベルを生成する純関数を実装する。
@@ -166,13 +166,13 @@
 ## Implementation Notes
 
 ### Phase 1（完了）
-- **Upstream 前提**: `quizeum-core` Phase 14（購読開始 API、契約管理 API、`User.subscriptionTier`）が完了していること。
+- **Upstream 前提**: `quizetika-core` Phase 14（購読開始 API、契約管理 API、`User.subscriptionTier`）が完了していること。
 - **entitlement 同期**: core の `computeUserEntitlements` 規則変更時は `pricing-entitlement.ts` とテストを同時更新する。
-- **隣接スペック**: プレイ画面の `isPremium` 連携・AI 制限誘導は `quizeum-play-flow-ui` が担当（本スペック外）。
+- **隣接スペック**: プレイ画面の `isPremium` 連携・AI 制限誘導は `quizetika-play-flow-ui` が担当（本スペック外）。
 - **Checkout フィードバック**: `router.replace` 後もバナー表示するため、クエリ検知結果をローカル state に保持する。
 
 ### Phase 2（2026-06-08）
 - **実装順序**: タスク 7（core 価格 API）→ 8.2 → 9.1。タスク 8.1 は 7 と並行可能（`(P)`）。
 - **価格正本**: Stripe Price（`GET /api/billing/prices`）。`pricing-display.ts` の固定円ラベルは Phase 2 で廃止する。
 - **失敗時 UX**: 「価格を読み込めません」表示。ハードコード代替金額は使用しない（ディスカバリー確定方針）。
-- **core 境界**: タスク 7 のファイルは `quizeum-core` スペック境界だが、本ロードマップでは billing-ui Phase 2 の先行前提として同一 PR で実装してよい。
+- **core 境界**: タスク 7 のファイルは `quizetika-core` スペック境界だが、本ロードマップでは billing-ui Phase 2 の先行前提として同一 PR で実装してよい。

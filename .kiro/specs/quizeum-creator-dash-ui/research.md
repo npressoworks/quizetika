@@ -1,7 +1,7 @@
-# Research & Design Decisions: quizeum-creator-dash-ui
+# Research & Design Decisions: quizetika-creator-dash-ui
 
 ## Summary
-- **Feature**: quizeum-creator-dash-ui
+- **Feature**: quizetika-creator-dash-ui
 - **Discovery Scope**: Extension（Phase 12 — 作問エディタ UX 改善）
 - **Key Findings**:
   - テキストエリア自動伸長の既存実装なし。`field-sizing: content` は未使用。`scrollHeight` 同期の小さな制御コンポーネントが最も確実。
@@ -126,8 +126,8 @@
 - **jsdom での scrollHeight テスト** — テスト内で `Object.defineProperty(el, 'scrollHeight', { value: N })` を使用
 
 ## References
-- `.kiro/specs/quizeum-core/design.md` — Phase 8 契約
-- `.kiro/specs/quizeum-play-flow-ui/design.md` — リスト詳細・問題リストプレイ（Out of boundary）
+- `.kiro/specs/quizetika-core/design.md` — Phase 8 契約
+- `.kiro/specs/quizetika-play-flow-ui/design.md` — リスト詳細・問題リストプレイ（Out of boundary）
 - `src/lib/test-play.ts` — 問題タイプ別正解判定（Phase 12 正解テキスト抽出の対称ルール）
 - `src/components/quiz-list/quiz-list-editor.tsx` — 現行クイズリスト編集
 

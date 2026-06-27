@@ -1,11 +1,11 @@
-# Technical Design Document: quizeum-core
+# Technical Design Document: quizetika-core
 
 ## Overview
-本ドキュメントは、クイズ投稿SNS「quizeum」における核心的なコアシステム（`quizeum-core`）の技術設計仕様を定義します。クイズの作成・下書き・厳格な公開バリデーション、ローカルセッション保護と自動同期を備えたプレイ環境、AIを活用したステートレスなウミガメのスープ（水平思考クイズ）対話、退会時のAuth即時物理削除と大規模非同期クレンジング、そしてコミュニティモデレーションやマージ合意によるメタデータ仮想統合を含みます。
+本ドキュメントは、クイズ投稿SNS「quizetika」における核心的なコアシステム（`quizetika-core`）の技術設計仕様を定義します。クイズの作成・下書き・厳格な公開バリデーション、ローカルセッション保護と自動同期を備えたプレイ環境、AIを活用したステートレスなウミガメのスープ（水平思考クイズ）対話、退会時のAuth即時物理削除と大規模非同期クレンジング、そしてコミュニティモデレーションやマージ合意によるメタデータ仮想統合を含みます。
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフルスタック構成に加え、Firebase（Auth, Firestore, Storage）および外部AI（Gemini API）のハイブリッドアーキテクチャを採用し、セキュリティとパフォーマンス、ユーザー体験（UX）を最高レベルで実現します。
 
-**Phase 5（2026-06）**: クイズ単位リーダーボードを初回プレイ／リプレイの二系統に分割し、正解数優先・同点時タイムの順位規則で更新する。全問正解は不要。あわせて本人向けプレイ履歴取得APIをコア層に追加する（表示UIは `quizeum-auth-profile-ui` が担当）。
+**Phase 5（2026-06）**: クイズ単位リーダーボードを初回プレイ／リプレイの二系統に分割し、正解数優先・同点時タイムの順位規則で更新する。全問正解は不要。あわせて本人向けプレイ履歴取得APIをコア層に追加する（表示UIは `quizetika-auth-profile-ui` が担当）。
 
 **Phase 6（2026-06）**: ジャンル・タグメタデータを `docs/` 正本に整合する。公開保存時に `canonicalGenreId` / `canonicalTagIds` を解決・非正規化し、一覧・検索は正規識別子クエリを優先しつつ legacy クイズ向けに `genre in` フォールバックを併用する（C2 方式）。`metadata-resolution` ライブラリに解決ロジックを集約し、`tagMerge.ts` をガバナンスの単一経路とする。
 また、悪質ユーザーのBAN（アカウント停止）機能を追加し、Firestore Security Rulesによるデータ書き込みの即時遮断、監査ログ記録、認証セッションの強制無効化（Cookie連携）を設計する。
@@ -14,13 +14,13 @@
 
 **Phase 9（2026-06）**: トップページの統合検索機能（ジャンル、タグ、クイズ名、作者名を単一検索バーで同時検索可能にするハイブリッド検索ロジック）をコア層の設計仕様として追加します。
 
-**Phase 10（2026-06）**: ホーム統合検索のタグチップ化を支える `listActiveTags`（存続タグマスタ一覧）と、`searchQuizzes` への複数タグ AND フィルタ（`SearchFilters.tags`）を追加する。タグ照合は `getQuizzesByTag` / 要件 11.3 と同一の canonical 優先＋legacy フォールバック規則を `quiz-tag-match` に集約する（UI サジェストは `quizeum-play-flow-ui` が担当）。
+**Phase 10（2026-06）**: ホーム統合検索のタグチップ化を支える `listActiveTags`（存続タグマスタ一覧）と、`searchQuizzes` への複数タグ AND フィルタ（`SearchFilters.tags`）を追加する。タグ照合は `getQuizzesByTag` / 要件 11.3 と同一の canonical 優先＋legacy フォールバック規則を `quiz-tag-match` に集約する（UI サジェストは `quizetika-play-flow-ui` が担当）。
 
-**Phase 11（2026-06）**: ホーム内フィルタ型探索およびジャンル別一覧 scoped 検索を支える `SearchFilters.format`（出題形式）追加と、`searchQuizzes` 後段での `resolveQuizFormat` 一致フィルタを実装する。形式判定は UI カード表示（`quizeum-play-flow-ui`）と同一 lib 規則を用い、Firestore インデックス新設は行わない。
+**Phase 11（2026-06）**: ホーム内フィルタ型探索およびジャンル別一覧 scoped 検索を支える `SearchFilters.format`（出題形式）追加と、`searchQuizzes` 後段での `resolveQuizFormat` 一致フィルタを実装する。形式判定は UI カード表示（`quizetika-play-flow-ui`）と同一 lib 規則を用い、Firestore インデックス新設は行わない。
 
 **Phase 10 スマートサジェスト追記（2026-06-06）**: 検索フィールドの空クエリフォーカス時スマートサジェストを支える集計基盤を追加。`search_logs` コレクションへの検索ログ記録（`searchQuizzes` 内部で fire-and-forget）、週間人気ジャンル Top5 集計 API（`GET /api/genres/weekly-top`）、週間人気ワード／タグ Top5 集計 API（`GET /api/search/weekly-top`）を提供する。ユーザー個人履歴の保存は UI 側 `localStorage` のみで処理する。
 
-**Phase 13（2026-06-07）**: Stripe を前提とした Pro プラン・サブスクリプション基盤をコア層に追加する。`subscriptionTier`（`free` | `pro` | `premium`）によるエンタイトルメント、Checkout Session / Customer Portal Session API、Webhook による契約状態同期、および `ask-ai` の tier ベース制限判定を一貫実装する（プラン表示 UI は `quizeum-billing-subscription-ui` が担当）。
+**Phase 13（2026-06-07）**: Stripe を前提とした Pro プラン・サブスクリプション基盤をコア層に追加する。`subscriptionTier`（`free` | `pro` | `premium`）によるエンタイトルメント、Checkout Session / Customer Portal Session API、Webhook による契約状態同期、および `ask-ai` の tier ベース制限判定を一貫実装する（プラン表示 UI は `quizetika-billing-subscription-ui` が担当）。
 
 **Phase 14（2026-06-08）**: 水平思考クイズの真相自動判定を、必須キーワード文字列全一致による AI バイパス（旧 B2 ハイブリッド）から、裏設定・真相キーワード・プレイヤー要約を AI に渡す意味判定へ改定する。本番 `/api/attempt/verify-truth` は常に AI 呼び出しとし、テストプレイのローカルキーワード判定は変更しない。
 
@@ -32,13 +32,13 @@
 
 **Phase 20（2026-06-09）**: 〇×問題（`true-false`）を第一級出題形式として整備。`Quiz.format` 拡張、`true-false-defaults.ts` による固定「〇」「✕」選択肢の生成・正規化、`resolveQuizFormat` の単一形式解決、探索形式フィルタとの整合。プレイ／作問 UI は隣接スペックが担当。
 
-**Phase 21（2026-06-09）**: ホーム向け公開クイズ一覧の段階的取得 API を追加する。タブ別フィードは Firestore `startAfter` カーソル、複合検索は既存ハイブリッドパイプライン上のオフセットカーソルでページ分割する。共通応答型 `PaginatedQuizResult` を定義し、`quizeum-play-flow-ui` の無限スクロールが単一契約で消費できるようにする。
+**Phase 21（2026-06-09）**: ホーム向け公開クイズ一覧の段階的取得 API を追加する。タブ別フィードは Firestore `startAfter` カーソル、複合検索は既存ハイブリッドパイプライン上のオフセットカーソルでページ分割する。共通応答型 `PaginatedQuizResult` を定義し、`quizetika-play-flow-ui` の無限スクロールが単一契約で消費できるようにする。
 
 **Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）向けに既存一覧 API（トレンド Top 10・新着 Top 10・有効ジャンル一覧）を再利用し、検索画面（`/search`）向け URL クエリと探索タブ／フィルタ状態の相互変換 lib（`search-url-state.ts`）を追加する。UI・ナビは隣接スペックが担当。
 
-**Phase 23（2026-06-09）**: リスト探索（`/lists`）向け `searchLists`、カスタムクイズ（`/my-quiz`）向け4ソース問題プール合成（`buildMyQuizQuestionPool`）、アドホック連続プレイ用 `my-quiz-session`、および `Attempt.mode: 'my-quiz'` と `saveAttempt` の1問単位検証バイパスをコア層に追加する。UI は `quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui` が担当。
+**Phase 23（2026-06-09）**: リスト探索（`/lists`）向け `searchLists`、カスタムクイズ（`/my-quiz`）向け4ソース問題プール合成（`buildMyQuizQuestionPool`）、アドホック連続プレイ用 `my-quiz-session`、および `Attempt.mode: 'my-quiz'` と `saveAttempt` の1問単位検証バイパスをコア層に追加する。UI は `quizetika-lists-discovery-ui` / `quizetika-my-quiz-ui` が担当。
 
-**Phase 30（2026-06-21）**: ユーザープロフィール情報に `snsLinks` オブジェクト（YouTube, X, Instagram, TikTokのURL）を追加します。更新時の各URLに対する正規ドメイン（`youtube.com`, `x.com`, `twitter.com`, `instagram.com`, `tiktok.com`）の検証と一括保存、および Firebase Storage からのSNSロゴ画像URL取得（キャッシュ併用）をコア層に追加します（UIは `quizeum-auth-profile-ui` が担当）。
+**Phase 30（2026-06-21）**: ユーザープロフィール情報に `snsLinks` オブジェクト（YouTube, X, Instagram, TikTokのURL）を追加します。更新時の各URLに対する正規ドメイン（`youtube.com`, `x.com`, `twitter.com`, `instagram.com`, `tiktok.com`）の検証と一括保存、および Firebase Storage からのSNSロゴ画像URL取得（キャッシュ併用）をコア層に追加します（UIは `quizetika-auth-profile-ui` が担当）。
 
 ### Goals
 - ページの初期HTML読み込み時間を通常トラフィック下で平均0.5秒以内に維持する。
@@ -78,7 +78,7 @@
 ### This Spec Owns
 - **データ永続化と整合性**: `users`, `quizzes`, `quizLists`, `follows`, `bookmarks`, `attempts`, `feedbackReports`, `flags`, `reactions`, `notifications`, `metadata_genres`, `metadata_tags`, `mergeRequests`, `genreRequests`, `quizReviews`, `reviewResetRequests`, `adminLogs`（BAN/UNBAN等の監査ログ）などのFirestoreスキーマおよびトランザクション設計。
 - **アカウント削除プロセス**: Next.js API Routeを経由した即時Auth物理削除と、Cloud Tasks/Cloud Functionsを連動させた非同期ジョブ分割によるアトミックバッチ匿名化。
-- **ユーザーBAN/UNBAN処理とアクセス制限**: `users` の `isBanned` 等のアカウント状態管理、管理者用APIルート、Firestore Security Rulesによるデータ書き込み制限（`isNotBanned()`）、および認証セッション無効化のトリガー（クッキー `quizeum_banned` を使用した強制遷移）。
+- **ユーザーBAN/UNBAN処理とアクセス制限**: `users` の `isBanned` 等のアカウント状態管理、管理者用APIルート、Firestore Security Rulesによるデータ書き込み制限（`isNotBanned()`）、および認証セッション無効化のトリガー（クッキー `quizetika_banned` を使用した強制遷移）。
 - **水平思考プレイ判定ロジック**: サーバーAPIを仲介するGemini API連携（直近最大20回分の会話履歴参照を伴うステートフル化）、**Phase 17**: 正規化同一質問キャッシュ（全カウンタ非消費）、二層日次制限（無料：同一クイズ30回/日・`dailyAiTurnCounts/_global` で横断150回/日）、`limit-exceeded` + `limitType`、**Phase 14**: 真相提出時は裏設定・真相キーワード（エッセンス）・プレイヤー要約を AI に渡す意味判定（常時 AI 呼び出し、文字列一致バイパスなし）。**Phase 17**: 諦め API は不合格完了のみ（`revealText` 非返却）。
 - **メタデータ管理（Phase 6 拡張）**: 表記揺れタグの自動名寄せ、タグマスタ自動 create、ジャンルマスタ検証、`canonicalGenreId` / `canonicalTagIds` 書き込み時解決、C2 一覧クエリ、`listActiveGenres` / `searchQuizzes`、ガバナンス単一経路（`tagMerge.ts`）、`metadata_*` Security Rules。
 - **オフライン/セッション保護**: クライアントローカル永続ストレージでの進捗永続化およびオンライン復帰時の自動バッチ同期。
@@ -98,19 +98,19 @@
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
 - クイズデータの一括JSONインポートは行わず、手動によるエクスポート（ダウンロード）パッケージ生成のみを担当します。
 - プラットフォーム総合リーダーボード（`/leaderboard`）の集計・表示。
-- マイページ／プロフィール画面のプレイ履歴UIレイアウト（`quizeum-auth-profile-ui`）。
-- クイズ詳細画面のリーダーボードタブUI（`quizeum-play-flow-ui`）。
-- 管理者向けBAN/UNBAN操作画面のUIレイアウトおよび表示コンポーネント（`quizeum-admin-users-ui` が担当）。
+- マイページ／プロフィール画面のプレイ履歴UIレイアウト（`quizetika-auth-profile-ui`）。
+- クイズ詳細画面のリーダーボードタブUI（`quizetika-play-flow-ui`）。
+- 管理者向けBAN/UNBAN操作画面のUIレイアウトおよび表示コンポーネント（`quizetika-admin-users-ui` が担当）。
 - **Phase 6**: ホーム/エディタ/ジャンル一覧の UI、ジャンル新設・マージ画面のレイアウト、既存クイズの一括 `genre` 物理書き換え、Cloud Functions への投票移行。
-- **Phase 8**: `/bookmarks` タブ UI、リスト/作問エディタのピッカー・DnD・検索パネル（`quizeum-play-flow-ui` / `quizeum-creator-dash-ui`）。プロフィールのリストタイプ別表示（`quizeum-auth-profile-ui`）。
-- **Phase 10–11**: ホーム／ジャンルページの探索 UI（タグチップ、アコーディオン、カルーセル、フィルタ状態管理）は `quizeum-play-flow-ui` が担当。
-- **Phase 10 スマートサジェスト — 境界外**: ユーザー個人の直近検索履歴の保存（`localStorage` のみ）、スマートサジェスト UI ドロップダウンのレンダリング（`quizeum-play-flow-ui`）。
-- **Phase 13 — 課金 UI**: `/pricing` 画面、プランカード、購入・契約管理 CTA、Checkout 成功／キャンセル後の画面フィードバック（`quizeum-billing-subscription-ui`）。プレイ画面の残り質問数・制限誘導（`quizeum-play-flow-ui`）。Stripe Dashboard での Product/Price 作成・税設定。
+- **Phase 8**: `/bookmarks` タブ UI、リスト/作問エディタのピッカー・DnD・検索パネル（`quizetika-play-flow-ui` / `quizetika-creator-dash-ui`）。プロフィールのリストタイプ別表示（`quizetika-auth-profile-ui`）。
+- **Phase 10–11**: ホーム／ジャンルページの探索 UI（タグチップ、アコーディオン、カルーセル、フィルタ状態管理）は `quizetika-play-flow-ui` が担当。
+- **Phase 10 スマートサジェスト — 境界外**: ユーザー個人の直近検索履歴の保存（`localStorage` のみ）、スマートサジェスト UI ドロップダウンのレンダリング（`quizetika-play-flow-ui`）。
+- **Phase 13 — 課金 UI**: `/pricing` 画面、プランカード、購入・契約管理 CTA、Checkout 成功／キャンセル後の画面フィードバック（`quizetika-billing-subscription-ui`）。プレイ画面の残り質問数・制限誘導（`quizetika-play-flow-ui`）。Stripe Dashboard での Product/Price 作成・税設定。
 - **Phase 14**: テストプレイのローカル `truthKeywords` 部分一致判定（`checkTruthKeywordsLocally` / `test-play-client.tsx`）。
-- **Phase 16**: 水平思考本番プレイ UI（`quiz-play-client.tsx`）のチャット統合入力・諦め・経過時間・ルール説明（`quizeum-play-flow-ui` 境界と重複するが実装はコア play ルート）。
-- **Phase 17 — プレイ/課金 UI**: 未登録向けボタン表記、制限到達 Pro 誘導（`/pricing`）、諦め後チャット内ナビ、ルール説明の上限数値更新（`quizeum-play-flow-ui`）。Free プラン上限説明（`quizeum-billing-subscription-ui` の `pricing-display.ts`）。
-- **Phase 18 — モード選択警告 UI**: 模擬試験・フラッシュカードのランキング非対象および初回プレイ権利消滅の事前告知（`quizeum-play-flow-ui`）。
-- **Phase 20 — 〇× UI**: 専用プレイ回答パネル（`quizeum-play-flow-ui`）、作問正解トグル（`quizeum-creator-dash-ui`）。
+- **Phase 16**: 水平思考本番プレイ UI（`quiz-play-client.tsx`）のチャット統合入力・諦め・経過時間・ルール説明（`quizetika-play-flow-ui` 境界と重複するが実装はコア play ルート）。
+- **Phase 17 — プレイ/課金 UI**: 未登録向けボタン表記、制限到達 Pro 誘導（`/pricing`）、諦め後チャット内ナビ、ルール説明の上限数値更新（`quizetika-play-flow-ui`）。Free プラン上限説明（`quizetika-billing-subscription-ui` の `pricing-display.ts`）。
+- **Phase 18 — モード選択警告 UI**: 模擬試験・フラッシュカードのランキング非対象および初回プレイ権利消滅の事前告知（`quizetika-play-flow-ui`）。
+- **Phase 20 — 〇× UI**: 専用プレイ回答パネル（`quizetika-play-flow-ui`）、作問正解トグル（`quizetika-creator-dash-ui`）。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
@@ -129,7 +129,7 @@
 - `Attempt.mode` に `question-list` 追加、参照リンク問題の Copy-on-Write 契約変更。
 - `BookmarkFeed` / `BookmarkedQuestionEntry` レスポンス形状の変更。
 - **Phase 10**: `SearchFilters.tags` の意味変更、`listActiveTags` の存続タグ定義（`canonicalId == null`）変更、`quiz-tag-match` 照合規則変更。
-- **Phase 11**: `SearchFilters.format` の許容値集合変更、`quiz-format-match` / `resolveQuizFormat` 推定規則変更（`quizeum-play-flow-ui` のカード・カルーセル表示と連動再検証）。
+- **Phase 11**: `SearchFilters.format` の許容値集合変更、`quiz-format-match` / `resolveQuizFormat` 推定規則変更（`quizetika-play-flow-ui` のカード・カルーセル表示と連動再検証）。
 - **Phase 10 スマートサジェスト**: `search_logs` コレクションの TTL・スキーマ変更、`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` のレスポンス形状変更、`searchQuizzes` の fire-and-forget ログ書き込み報啄ルール変更。
 - **Phase 13**: `User` の `subscriptionTier` / 課金関連フィールド追加、`resolveUserEntitlements` の tier 解釈変更、Checkout / Portal / Webhook API のリクエスト・レスポンス形状変更、`subscription-plans` マスタへの `premium` tier 追加。
 - **Phase 17**: `FREE_TIER_PER_QUIZ_LIMIT` / `FREE_TIER_GLOBAL_DAILY_LIMIT` の変更、`dailyAiTurnCounts/_global` doc 契約変更、`limit-exceeded` の `limitType` 追加、諦め API 応答形状変更（`revealText` 廃止）、`normalizeQuestionText` 規則変更。
@@ -681,7 +681,7 @@ sequenceDiagram
 | 9.10        | 全問正解不要                                          | `AttemptService`                         | `saveAttempt`                                         | -                               |
 | 9.11        | ウミガメ合格時の同一LB規則                            | `VerifyTruthAPI`                         | `/api/attempt/verify-truth`                           | 真相判定フロー                  |
 | 9.12        | review/list/question-list は引き続き登録対象          | `leaderboard-update.ts`                  | `isLeaderboardEligibleAttempt`                        | -                               |
-| 9.13–9.14   | モード選択警告 UI は Out                              | —                                        | `quizeum-play-flow-ui`                                | Out of boundary                 |
+| 9.13–9.14   | モード選択警告 UI は Out                              | —                                        | `quizetika-play-flow-ui`                              | Out of boundary                 |
 | 10.1        | 本人履歴・完了日時降順                                | `AttemptService` / PlayHistoryAPI        | `listUserPlayHistory`                                 | -                               |
 | 10.2        | test-play 除外                                        | `AttemptService`                         | `listUserPlayHistory`                                 | -                               |
 | 10.3        | 表示用メタデータ                                      | `AttemptService`                         | `listUserPlayHistory`                                 | -                               |
@@ -749,7 +749,7 @@ sequenceDiagram
 | 18.14–18.16 | 境界明示（履歴は UI 側、Core 不保存）                 | —                                        | Out of boundary                                       | -                               |
 | 12.1        | ユーザーのBANと監査ログ記録                           | `ReputationService` / API Route          | `/api/admin/users/ban`                                | -                               |
 | 12.2        | BAN解除と監査ログ記録                                 | `ReputationService` / API Route          | `/api/admin/users/unban`                              | -                               |
-| 12.3        | BAN中の書き込み拒否と強制ログアウト                   | Security Rules / AuthContext             | `isNotBanned()`, `quizeum_banned` Cookie              | -                               |
+| 12.3        | BAN中の書き込み拒否と強制ログアウト                   | Security Rules / AuthContext             | `isNotBanned()`, `quizetika_banned` Cookie            | -                               |
 | 8.1         | 初期HTML読み込み速度0.5秒以内                         | Performance                              | SSR Cache / Optimization                              | -                               |
 | 8.2         | 高負荷時エラー率0.1%未満                              | Infrastructure                           | High Availability                                     | -                               |
 | 8.3         | クローラー向け高速HTMLとOGPメタデータ                 | SSR Component                            | `getServerSideProps` / Metadata                       | -                               |
@@ -976,7 +976,7 @@ export function applyFormatFilter(
 
 - **判定規則**: `resolveQuizFormat(quiz) === format`。`quiz.format` が未設定の旧データは問題 `type` から推定（`quiz-format.ts` 既存ロジック）。
 - **レガシーデータ（validate-design 2026-06-05 反映）**: `quiz.format` 未設定かつ `questions` が空配列のとき、`resolveQuizFormat` は `'mixed'` を返す（既存 lib 挙動。要件 17.6 と一致）。このため **`format: 'mixed'` フィルタのみヒット**し、他形式フィルタでは不一致となる。テストフィクスチャ `{ format: undefined, questions: [] }` で期待値を固定する。
-- **Invariants**: `quizeum-play-flow-ui` の `QuizCard` / 形式カルーセルは同一 `QuizFormat` 型および `getFormatLabel` を使用。コアはラベル変換を行わない。
+- **Invariants**: `quizetika-play-flow-ui` の `QuizCard` / 形式カルーセルは同一 `QuizFormat` 型および `getFormatLabel` を使用。コアはラベル変換を行わない。
 
 #### `TagMergeService`（`src/services/tagMerge.ts`）
 - **Intent**: マージ提案・投票、ジャンル新設申請・可決の単一実装（`moderation.ts` のジャンルスタブは削除）。
@@ -1328,7 +1328,7 @@ flowchart LR
 
 ```mermaid
 graph TB
-    subgraph core [quizeum-core Phase 8]
+    subgraph core [quizetika-core Phase 8]
         BookmarkSvc[BookmarkService]
         QuizListSvc[QuizListService]
         QuestionSvc[QuestionService]
@@ -1585,7 +1585,7 @@ function canDeleteQuestionDoc(
 - **NGワード自動検出・コンテンツ保留**:
   - サーバーサイドでのNGワード検証で不適切表現を検知した場合は、トランザクションを強制ロールバックし、`quizzes.status` を自動的に `'suspended'` に設定した上で、作成者への警告通知を送信します。
 - **ウミガメスープ制限超過（Phase 17）**:
-  - 無料ユーザーが同一クイズ30回/日または全クイズ横断150回/日のいずれかに到達した場合、API Route は `429`（`error: limit-exceeded`, `limitType: per-quiz | global-daily`）を返却する。真相提出 API は引き続き利用可能。プレイ UI は Pro プラン（`/pricing`）への誘導を表示する（`quizeum-play-flow-ui` 境界）。
+  - 無料ユーザーが同一クイズ30回/日または全クイズ横断150回/日のいずれかに到達した場合、API Route は `429`（`error: limit-exceeded`, `limitType: per-quiz | global-daily`）を返却する。真相提出 API は引き続き利用可能。プレイ UI は Pro プラン（`/pricing`）への誘導を表示する（`quizetika-play-flow-ui` 境界）。
 - **メタデータ検証（Phase 6）**:
   - 無効ジャンル・未解決タグで `saveQuiz` が失敗した場合、`validation-error` としてフィールド `genre` / `tags` にメッセージを返す（クライアントはエディタで表示）。
 - **Phase 8 — ブックマーク/リスト**:
@@ -2179,7 +2179,7 @@ export function getLateralRevealText(question: Question): string;
 | カウンタ更新     | 新規 AI 呼び出し成功時のみ、同一 Firestore Transaction で `attempt.aiTurnCount++`、`dailyAiTurnCounts/{quizId}.count++`、`dailyAiTurnCounts/_global.count++`               |
 | `turnsRemaining` | 成功応答に `{ perQuiz: number \| null, globalDaily: number \| null }` を返却（Pro は両方 `null`）。キャッシュヒット時も現残数を返し UI 同期                                |
 | 諦め API         | 成功応答は `{ completed: true }` のみ。`getLateralRevealText` / `revealText` は本番 API から除去（破壊的変更、クライアント同時デプロイ）                                   |
-| 諦め UI          | 真相・解説を右パネル／チャットに表示しない。チャット内 CTA: 常に「結果画面へ」。`attempt.listId != null` のとき「次の問題へ」も表示（`quizeum-play-flow-ui`）              |
+| 諦め UI          | 真相・解説を右パネル／チャットに表示しない。チャット内 CTA: 常に「結果画面へ」。`attempt.listId != null` のとき「次の問題へ」も表示（`quizetika-play-flow-ui`）            |
 | lateral `listId` | `createLateralAttemptSession` がクエリ `listId` を受け取り attempt に保存。リスト連続プレイ文脈のナビ出し分けに使用                                                        |
 | 認証             | ウミガメのみ会員必須（他モードはゲスト可）。詳細画面ボタン表記は play-flow-ui。プレイ直アクセスは `/login?redirect=...` で戻り先付与を推奨                                 |
 | entitlements     | `quiz-play-client` の `isPremium: false` ハードコードを廃止し、サーバー `resolveUserEntitlements` 結果を props または初期データで受け取る                                  |
@@ -2280,11 +2280,11 @@ export function checkAiTurnLimits(input: AiTurnLimitCheckInput): AiTurnLimitChec
 | `tests/api/give-up-lateral.test.ts`            | `revealText` 非期待、`completed: true` のみ                                                                                       |
 
 #### 隣接スペック境界（本スペックは契約のみ定義、実装は各 UI スペック）
-| ファイル                                      | スペック                          | 責務                                                                               |
-| --------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
-| `src/app/quiz/[id]/play/quiz-play-client.tsx` | `quizeum-play-flow-ui`            | Pro 誘導（`/pricing`）、諦め後チャット CTA、`entitlements` 連携、ルール説明 30/150 |
-| `src/app/quiz/[id]/quiz-detail-client.tsx`    | `quizeum-play-flow-ui`            | 未登録「会員登録してプレイする」（✅ 実装済）                                       |
-| `src/lib/pricing-display.ts`                  | `quizeum-billing-subscription-ui` | Free プラン「30回/クイズ・150回/日横断」文言                                       |
+| ファイル                                      | スペック                            | 責務                                                                               |
+| --------------------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | `quizetika-play-flow-ui`            | Pro 誘導（`/pricing`）、諦め後チャット CTA、`entitlements` 連携、ルール説明 30/150 |
+| `src/app/quiz/[id]/quiz-detail-client.tsx`    | `quizetika-play-flow-ui`            | 未登録「会員登録してプレイする」（✅ 実装済）                                       |
+| `src/lib/pricing-display.ts`                  | `quizetika-billing-subscription-ui` | Free プラン「30回/クイズ・150回/日横断」文言                                       |
 
 #### New Files（推奨）
 | ファイル                          | 責務                                                 |
@@ -2346,7 +2346,7 @@ export function checkAiTurnLimits(input: AiTurnLimitCheckInput): AiTurnLimitChec
 
 | Owns                                                              | Out of Boundary                                    |
 | ----------------------------------------------------------------- | -------------------------------------------------- |
-| `isLeaderboardEligibleAttempt` の `exam` / `flashcard` 除外       | クイズ詳細の警告 UI（`quizeum-play-flow-ui`）      |
+| `isLeaderboardEligibleAttempt` の `exam` / `flashcard` 除外       | クイズ詳細の警告 UI（`quizetika-play-flow-ui`）    |
 | prior 件数の全モードカウント契約（`countPriorCompletedAttempts`） | プラットフォーム総合 `/leaderboard`                |
 | `saveAttempt` / `verify-truth` の LB 更新分岐                     | 既存 LB 表示 UI・E2E（play-flow 側は警告のみ追加） |
 | `tests/lib/leaderboard-update.test.ts`（新規）                    | docs 同期（Direct Implementation 可）              |
@@ -2418,14 +2418,14 @@ export function checkAiTurnLimits(input: AiTurnLimitCheckInput): AiTurnLimitChec
 
 ### 1. Boundary Commitments
 
-| Owns                                               | Out of Boundary                                        |
-| -------------------------------------------------- | ------------------------------------------------------ |
-| `Quiz.format` に `'true-false'` 追加               | 〇／× 専用プレイ UI（`quizeum-play-flow-ui`）          |
-| `resolveQuizFormat` の単一形式解決                 | 作問エディタ正解トグル UI（`quizeum-creator-dash-ui`） |
-| `true-false-defaults` による固定選択肢生成・正規化 | `ChoiceAnswerPanel` の改修                             |
-| 公開検証（2択・正解1件・ラベル正規化）             |                                                        |
-| `quiz-format-labels` の「〇×式」ラベル             |                                                        |
-| 既存 `isChoiceAnswerCorrect` 採点経路の維持        |                                                        |
+| Owns                                               | Out of Boundary                                          |
+| -------------------------------------------------- | -------------------------------------------------------- |
+| `Quiz.format` に `'true-false'` 追加               | 〇／× 専用プレイ UI（`quizetika-play-flow-ui`）          |
+| `resolveQuizFormat` の単一形式解決                 | 作問エディタ正解トグル UI（`quizetika-creator-dash-ui`） |
+| `true-false-defaults` による固定選択肢生成・正規化 | `ChoiceAnswerPanel` の改修                               |
+| 公開検証（2択・正解1件・ラベル正規化）             |                                                          |
+| `quiz-format-labels` の「〇×式」ラベル             |                                                          |
+| 既存 `isChoiceAnswerCorrect` 採点経路の維持        |                                                          |
 
 ### 2. Architecture Decision
 
@@ -2800,11 +2800,11 @@ export function buildSearchUrlQuery(state: Partial<SearchUrlState>): string;
 
 ### 1. Overview
 
-Phase 23 は、隣接 UI スペック（`quizeum-lists-discovery-ui` / `quizeum-my-quiz-ui`）が消費する3つのコア契約を追加する。(1) 公開／本人非公開リストのキーワード探索 `searchLists`、(2) 4ソース統合の問題プール `buildMyQuizQuestionPool`、(3) 保存リストなし連続プレイ用 `my-quiz-session` と `Attempt.mode: 'my-quiz'` 試行記録。既存 `question-list-session` / `question-attach-search` / `dedupeQuestionCandidates` パターンを拡張し、新規 ranking エンジンやサーバー側セッション永続化は行わない。
+Phase 23 は、隣接 UI スペック（`quizetika-lists-discovery-ui` / `quizetika-my-quiz-ui`）が消費する3つのコア契約を追加する。(1) 公開／本人非公開リストのキーワード探索 `searchLists`、(2) 4ソース統合の問題プール `buildMyQuizQuestionPool`、(3) 保存リストなし連続プレイ用 `my-quiz-session` と `Attempt.mode: 'my-quiz'` 試行記録。既存 `question-list-session` / `question-attach-search` / `dedupeQuestionCandidates` パターンを拡張し、新規 ranking エンジンやサーバー側セッション永続化は行わない。
 
 **定数**:
 - `DEFAULT_LIST_SEARCH_LIMIT = 50`（`searchLists` 既定上限）
-- `MY_QUIZ_SESSION_KEY = 'quizeum_my_quiz_session'`（`question-list-session` とキー分離）
+- `MY_QUIZ_SESSION_KEY = 'quizetika_my_quiz_session'`（`question-list-session` とキー分離）
 
 ### 2. Boundary Commitments（Phase 23）
 
@@ -2825,15 +2825,15 @@ Phase 23 は、隣接 UI スペック（`quizeum-lists-discovery-ui` / `quizeum-
 
 ```mermaid
 flowchart TB
-  subgraph ListsDiscovery["quizeum-lists-discovery-ui"]
+  subgraph ListsDiscovery["quizetika-lists-discovery-ui"]
     ULS[useListsSearch]
   end
-  subgraph MyQuizUI["quizeum-my-quiz-ui"]
+  subgraph MyQuizUI["quizetika-my-quiz-ui"]
     UMP[useMyQuizPool]
     MQS[my-quiz-session]
     QPC[quiz-play-client mode=my-quiz]
   end
-  subgraph Core["quizeum-core"]
+  subgraph Core["quizetika-core"]
     SL[searchLists]
     POOL[buildMyQuizQuestionPool]
     SESS[my-quiz-session.ts]
@@ -2961,7 +2961,7 @@ export async function buildMyQuizQuestionPool(
 `question-list-session.ts` と同型の sessionStorage lib。`listId` の代わりに `sessionId`（UUID v4、呼び出し元が生成）を保持する。
 
 ```typescript
-export const MY_QUIZ_SESSION_KEY = 'quizeum_my_quiz_session';
+export const MY_QUIZ_SESSION_KEY = 'quizetika_my_quiz_session';
 
 export interface MyQuizSessionEntry {
   questionId: string;
@@ -2992,7 +2992,7 @@ export function buildMyQuizPlayUrl(session: MyQuizSession, index: number): strin
 ```
 
 **Postconditions**:
-- `QUESTION_LIST_SESSION_KEY`（`quizeum_question_list_session`）とは別キーで衝突しない（要件 25.5）
+- `QUESTION_LIST_SESSION_KEY`（`quizetika_question_list_session`）とは別キーで衝突しない（要件 25.5）
 - URL `qIndex` と `currentIndex` は `syncMyQuizSessionIndex` で同期（`question-list` 同型 — 要件 25.2）
 - セッション欠落時 `readMyQuizSession()` は `null`（要件 25.4。UI がエラー表示）
 

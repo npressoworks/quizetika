@@ -2,7 +2,7 @@
 
 ## 1. Foundation: シェル用プリミティブとナビヘルパーの準備
 - [x] 1.1 foundation Primitive Wave 2 の存在を確認する
-  - `src/components/ui/` に Avatar, DropdownMenu, Separator が存在することを確認する（`quizeum-ui-foundation` で追加済み）
+  - `src/components/ui/` に Avatar, DropdownMenu, Separator が存在することを確認する（`quizetika-ui-foundation` で追加済み）
   - 各コンポーネントが `cn()` を利用し TypeScript 型付きでエクスポートされることを確認する
   - `npm run build` が成功することを確認する
   - _Requirements: 2.4, 3.2, 5.5_

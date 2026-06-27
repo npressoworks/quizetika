@@ -1,4 +1,4 @@
-# Brief: quizeum-ai-quiz-authoring
+# Brief: quizetika-ai-quiz-authoring
 
 ## Problem
 クリエイター（特に Pro プラン契約者）がクイズを手作業で10問組み上げるには時間がかかり、作問の離脱要因になる。現状エディタでは静的な一括作問AIパネルのみが存在し、個別の問題の修正や削除、ファクトチェックを手動で行う必要があり、作問プロセスにおけるAIとの対話的なコラボレーション（「この問題を少し難しくして」「この記述が正しいかファクトチェックして」など）ができない。Pro プランの価値として「対話型AIエージェントによる作問の劇的な効率化」を明確に提供したい。
@@ -49,8 +49,8 @@ Vercel AI SDKを用いたサーバー・クライアント間通信と、Gemini 
   - 無料お試し利用枠。
 
 ## Boundary Candidates
-- **API / Vercel AI SDK / Google Search / Gemini** → `quizeum-core` (または API Routes)
-- **チャット UI・開閉状態・履歴表示・ローディング** → `quizeum-ai-quiz-authoring` の新規チャットコンポーネント
+- **API / Vercel AI SDK / Google Search / Gemini** → `quizetika-core` (または API Routes)
+- **チャット UI・開閉状態・履歴表示・ローディング** → `quizetika-ai-quiz-authoring` の新規チャットコンポーネント
 - **エディタとの状態結合（Tool コールの適用）** → `quiz-editor.tsx` 側への Tool Handler の統合
 
 ## Out of Boundary
@@ -58,12 +58,12 @@ Vercel AI SDKを用いたサーバー・クライアント間通信と、Gemini 
 - クイズ公開時の Firestore 自動保存（ユーザーが明示的に保存ボタンを押すまで保存しない）。
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core` (Firestore, Auth, Entitlements), Vercel AI SDK (`ai`, `@ai-sdk/google`), `GEMINI_API_KEY`
+- **Upstream**: `quizetika-core` (Firestore, Auth, Entitlements), Vercel AI SDK (`ai`, `@ai-sdk/google`), `GEMINI_API_KEY`
 - **Downstream**: 作問のユーザー体験向上、Pro プランの魅力向上
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-ai-quiz-authoring` (本スペック自体をチャットボット型にアップデート)。
-- **Adjacent**: `quizeum-ui-editor` (エディタレイアウトとの干渉を避けるレスポンシブデザイン)。
+- **Extends**: `quizetika-ai-quiz-authoring` (本スペック自体をチャットボット型にアップデート)。
+- **Adjacent**: `quizetika-ui-editor` (エディタレイアウトとの干渉を避けるレスポンシブデザイン)。
 
 ## Constraints
 - Vanilla CSS / CSS Modules を使用し、既存のネオン＋ダークテーマに完璧にフィットさせる。

@@ -1,7 +1,7 @@
-# Requirements Document: quizeum-moderation-governance-ui
+# Requirements Document: quizetika-moderation-governance-ui
 
 ## Introduction
-本ドキュメントは、クイズ投稿SNS「quizeum」における管理者向け通報コンテンツ審査キュー画面、モデレータ向けタグ/ジャンルの仮想マージリクエスト画面、ジャンル新設申請・投票画面、および管理者専用のジャンル直接追加画面を含む、コミュニティ自治（モデレーションとガバナンス）に関するフロントエンドUI要件を定義します。
+本ドキュメントは、クイズ投稿SNS「quizetika」における管理者向け通報コンテンツ審査キュー画面、モデレータ向けタグ/ジャンルの仮想マージリクエスト画面、ジャンル新設申請・投票画面、および管理者専用のジャンル直接追加画面を含む、コミュニティ自治（モデレーションとガバナンス）に関するフロントエンドUI要件を定義します。
 
 **Phase 6（2026-06）**: ジャンルアイコンアップロードの仕様文言を SEC-08 / `docs/` と整合（**SVG 禁止、PNG/JPEG/GIF のみ**）。実装済み UI との乖離を解消する。
 **管理者ジャンル直接追加機能の追加（2026-06-18 追加）**: システム管理者が直接ジャンルを定義・新設できる専用画面（`/admin/genres`）と、そこへの相互ナビゲーションを追加する。
@@ -9,7 +9,7 @@
 
 ## Boundary Context
 - **In scope**:
-  - 管理者ロール専用の通報審査画面におけるクイズの審査待ちリスト表示（リスト・プロフィールは `quizeum-core` の通報スキーマ整備後に拡張）。
+  - 管理者ロール専用の通報審査画面におけるクイズの審査待ちリスト表示（リスト・プロフィールは `quizetika-core` の通報スキーマ整備後に拡張）。
   - 「公開に復帰させる（通報却下）」または「永久非公開化 / 削除」のアクション実行ボタンUI。
   - 審査対象クイズの中身を確認するための「管理者特別検証閲覧ビュー」動線。
   - モデレータ専用のマージリクエスト画面におけるマージ提案 of 起案および保留提案に対する賛否加重投票UI。
@@ -21,7 +21,7 @@
   - 管理画面間（`/admin/moderation`, `/admin/users`, `/admin/genres`）の相互ナビゲーション導線の追加。
   - ジャンル直接管理画面（`/admin/genres`）および新ジャンル新設申請画面（`/community/genres`）における、Gemini APIを利用したジャンルアイコン画像AI生成機能の提供。
 - **Out of scope**:
-  - `metadata_genres` ドキュメントの書き込みや Cloud Functions 側の投票集計トリガー本体のバックエンド処理（`quizeum-core`が担当）。
+  - `metadata_genres` ドキュメントの書き込みや Cloud Functions 側の投票集計トリガー本体のバックエンド処理（`quizetika-core`が担当）。
   - 既存ジャンルの物理的な削除機能（不要になったジャンルは非表示または非アクティブ化で対応し、物理削除は本要件の対象外とする）。
 - **Adjacent expectations**:
   - 管理者によるジャンル追加操作は、Firestore の `metadata_genres` コレクションに直接書き込みを行う（Security Rules の `canWriteMetadataGenres()` の定義に依存）。
@@ -51,7 +51,7 @@
 7. The [Moderation Governance UI] shall [賛否の加重投票数（`weightedVotesFor`, `weightedVotesAgainst`）と現在の賛成率を可視化するリアルタイムプログレスバーを表示すること]。
 
 ### Requirement 3: ジャンル新設申請・投票画面 (Page: `/community/genres`)
-**Objective:** Quizeum ユーザーとして新規ジャンルを申請し、モデレータとして申請の承認・非承認に投票することで、共同でクイズカタログを拡張したい。
+**Objective:** Quizetika ユーザーとして新規ジャンルを申請し、モデレータとして申請の承認・非承認に投票することで、共同でクイズカタログを拡張したい。
 
 #### Acceptance Criteria
 1. The [Moderation Governance UI] shall [すべての認証済みユーザーに表示される「申請フォーム」タブを表示すること。このタブには、英語ジャンルID（小文字、ハイフン区切り）、日本語表示名、および PNG, JPEG, GIF 形式のみ（最大2MB）を受け入れるアイコンアップロードフィールドを含み、SVG やその他の形式はローカル一時ディレクトリに保存される前にインラインエラーで拒否されること]。
@@ -136,7 +136,7 @@
 
 
 ### Requirement 9: AIジャンルアイコン生成機能 (AI Genre Icon Generation)
-**Objective:** システム管理者または Quizeum ユーザーとして、ジャンルの表示名と説明に基づいて AI を使用してジャンルアイコン画像を生成し、ファイルを手動でアップロードすることなく高品質なアイコンを簡単に作成したい。
+**Objective:** システム管理者または Quizetika ユーザーとして、ジャンルの表示名と説明に基づいて AI を使用してジャンルアイコン画像を生成し、ファイルを手動でアップロードすることなく高品質なアイコンを簡単に作成したい。
 
 #### Acceptance Criteria
 1. When [管理者またはユーザーが「AIで生成」ボタンをクリックしたとき], if [ジャンル名（日本語）または説明文が未入力であるとき], the [Moderation Governance UI] shall [「ジャンル名と説明を入力してください」というインラインエラーを表示し、生成処理を中止すること]。

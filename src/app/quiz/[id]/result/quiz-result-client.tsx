@@ -260,13 +260,13 @@ export function QuizResultClient({
   useEffect(() => {
     const key = attemptId || localId;
     if (key) {
-      const savedTimes = localStorage.getItem(`quizeum_qp_times_${key}`);
+      const savedTimes = localStorage.getItem(`quizetika_qp_times_${key}`);
       if (savedTimes) {
         setQuickPressTimes(JSON.parse(savedTimes));
-        localStorage.removeItem(`quizeum_qp_times_${key}`);
+        localStorage.removeItem(`quizetika_qp_times_${key}`);
       }
 
-      const savedHints = localStorage.getItem(`quizeum_attempt_hints_${key}`);
+      const savedHints = localStorage.getItem(`quizetika_attempt_hints_${key}`);
       if (savedHints) {
         try {
           setRevealedHints(JSON.parse(savedHints));
@@ -281,7 +281,7 @@ export function QuizResultClient({
   }, [attemptId, localId]);
 
   const cleanOldHintsCache = (currentAttemptId: string) => {
-    const indexKey = 'quizeum_hints_cache_index';
+    const indexKey = 'quizetika_hints_cache_index';
     let index: { attemptId: string; timestamp: number }[] = [];
     try {
       const rawIndex = localStorage.getItem(indexKey);
@@ -305,7 +305,7 @@ export function QuizResultClient({
       const keep = index.slice(0, 20);
       const remove = index.slice(20);
       remove.forEach((item) => {
-        localStorage.removeItem(`quizeum_attempt_hints_${item.attemptId}`);
+        localStorage.removeItem(`quizetika_attempt_hints_${item.attemptId}`);
       });
       index = keep;
     }

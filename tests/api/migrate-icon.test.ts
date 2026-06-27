@@ -1,4 +1,4 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizeum-test-bucket';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
 
 import { NextRequest } from 'next/server';
 import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
@@ -21,7 +21,7 @@ const mockFile = {
 };
 
 const mockBucket = {
-  name: 'quizeum-test-bucket',
+  name: 'quizetika-test-bucket',
   file: jest.fn((path: string) => ({
     ...mockFile,
     name: path,
@@ -67,7 +67,7 @@ describe('Migrate Icon API Route', () => {
 
   test('正常系: 一時アセットを正式パスにコピーし、一時ファイルを削除して200 OKと公開URLを返すこと', async () => {
     const payload = {
-      tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/genres/temp/user-123_12345.png',
+      tempUrl: 'https://storage.googleapis.com/quizetika-test-bucket/genres/temp/user-123_12345.png',
       genreId: 'new-genre',
       userId: 'user-123',
     };
@@ -77,7 +77,7 @@ describe('Migrate Icon API Route', () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.iconImageUrl).toContain('https://storage.googleapis.com/quizeum-test-bucket/genres/new-genre/icon_');
+    expect(body.iconImageUrl).toContain('https://storage.googleapis.com/quizetika-test-bucket/genres/new-genre/icon_');
 
     // コピー元とコピー先の確認
     expect(mockBucket.file).toHaveBeenCalledWith('genres/temp/user-123_12345.png');
@@ -91,7 +91,7 @@ describe('Migrate Icon API Route', () => {
     mockVerifyFirebaseIdToken.mockResolvedValue(null);
 
     const payload = {
-      tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/genres/temp/user-123_12345.png',
+      tempUrl: 'https://storage.googleapis.com/quizetika-test-bucket/genres/temp/user-123_12345.png',
       genreId: 'new-genre',
       userId: 'user-123',
     };
@@ -103,7 +103,7 @@ describe('Migrate Icon API Route', () => {
 
   test('異常系: 不正なジャンルID形式の場合は 400 Bad Request を返すこと', async () => {
     const payload = {
-      tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/genres/temp/user-123_12345.png',
+      tempUrl: 'https://storage.googleapis.com/quizetika-test-bucket/genres/temp/user-123_12345.png',
       genreId: '../invalid-genre',
       userId: 'user-123',
     };

@@ -1,4 +1,4 @@
-# Implementation Plan: quizeum-play-flow-ui
+# Implementation Plan: quizetika-play-flow-ui
 
 ## Tasks
 
@@ -131,7 +131,7 @@
 
 ### 10. Phase 6 拡張 — ジャンルマスタ駆動の探索UI（2026-06）
 
-> **前提**: `quizeum-core` Phase 6 完了（`listActiveGenres`, `getQuizzesByGenre` C2, `searchQuizzes`）。本スペックは UI 接続のみ。
+> **前提**: `quizetika-core` Phase 6 完了（`listActiveGenres`, `getQuizzesByGenre` C2, `searchQuizzes`）。本スペックは UI 接続のみ。
 
 - [x] 10.1 `useActiveGenres` フックとジャンルナビコンポーネント (P)
   - `listActiveGenres` をマウント時に取得し、loading / error / 空配列を返すフックを実装する。
@@ -139,7 +139,7 @@
   - **完了状態**: 有効ジャンルが API から描画され、ハードコード `GENRES` がホームから削除されていること。
   - _Requirements: 1.2, 10.1, 10.2, 10.3, 10.9_
   - _Boundary: GenreNav, useActiveGenres_
-  - _Depends: quizeum-core Phase 6_
+  - _Depends: quizetika-core Phase 6_
 
 - [x] 10.1b (P) `GenreSearchField` — サジェスト付きジャンル選択
   - `useActiveGenres` の一覧を `displayName` / `genreId` で前方一致・部分一致サジェストするコンボボックスを複合検索パネルに配置する。
@@ -161,13 +161,13 @@
   - 「新着」「人気」「トレンド」タブで `getQuizzesByGenre(genreId, limit, sort)` を切り替える。
   - **完了状態**: マージ済み旧ジャンルのクイズが C2 経由で一覧に含まれ、ソート切替が動作すること。
   - _Requirements: 10.5, 10.6_
-  - _Depends: quizeum-core Phase 6_
+  - _Depends: quizetika-core Phase 6_
 
 - [x] 10.4 (P) タグ別一覧の canonical クエリとソート
   - `getQuizzesByTag(tag, limit, sort)` を用い、ジャンル一覧と同型のソート UI を追加する。
   - **完了状態**: タグページで新着／人気／トレンドの切替が動作すること。
   - _Requirements: 10.7_
-  - _Depends: quizeum-core Phase 6_
+  - _Depends: quizetika-core Phase 6_
 
 - [x] 10.5 弱点克服画面のジャンル選択をマスタ駆動に更新
   - `REVIEW_GENRES` ハードコードを `listActiveGenres` +「オールジャンル」に置換する。
@@ -192,16 +192,16 @@
 
 ### 11. Phase 8 拡張 — 分類ブックマークと問題リストプレイ UI（2026-06）
 
-> **前提**: `quizeum-core` Phase 8 完了（`getBookmarkFeed`, `getQuestionsInList`, `toggleBookmark` 問題対応, `saveAttempt` の `question-list` モード）。本スペックは UI・セッション状態・遷移のみ。
+> **前提**: `quizetika-core` Phase 8 完了（`getBookmarkFeed`, `getQuestionsInList`, `toggleBookmark` 問題対応, `saveAttempt` の `question-list` モード）。本スペックは UI・セッション状態・遷移のみ。
 
 - [x] 11.1 (P) 問題リスト連続プレイセッションライブラリ
-  - `sessionStorage` キー `quizeum_question_list_session` でリスト ID・順序付きエントリ（`questionId`, `parentQuizId`）・現在インデックスを初期化・読取・進行・クリアする純関数を実装する。
+  - `sessionStorage` キー `quizetika_question_list_session` でリスト ID・順序付きエントリ（`questionId`, `parentQuizId`）・現在インデックスを初期化・読取・進行・クリアする純関数を実装する。
   - 問題リストプレイ用 URL（`mode=question-list`, `questionId`, `qIndex`, `listId`）を組み立てるヘルパーを提供する。
   - Jest で init → read → advance → 最終後 null → clear のシーケンスを検証する。
   - **完了状態**: セッションライブラリの単体テストがグリーンであり、問題リスト開始時に先頭エントリの URL が生成できること。
   - _Requirements: 11.11, 11.12_
   - _Boundary: question-list-session_
-  - _Depends: quizeum-core Phase 8_
+  - _Depends: quizetika-core Phase 8_
 
 - [x] 11.2 (P) `useBookmarkFeed` フック
   - マウント時に `getBookmarkFeed` を1回呼び出し、クイズ・リスト・問題の3分類フィードと loading 状態を返す。
@@ -209,7 +209,7 @@
   - **完了状態**: 認証ユーザーで feed が3分類とも取得でき、解除後に UI 状態から当該アイテムが消えること。
   - _Requirements: 11.1, 11.3, 11.4, 11.5_
   - _Boundary: useBookmarkFeed_
-  - _Depends: quizeum-core Phase 8_
+  - _Depends: quizetika-core Phase 8_
 
 - [x] 11.3 (P) ブックマークタブ・カードコンポーネント群
   - `BookmarksTabs` で「クイズ」「リスト」「問題」タブを切り替え、設計どおりの `data-testid`（`bookmarks-tabs`, `bookmarks-tab-quiz`, `bookmarks-tab-list`, `bookmarks-tab-question`）を付与する。
@@ -236,7 +236,7 @@
   - **完了状態**: トグル操作で BM 状態が切り替わり、未認証時にログイン画面へ遷移すること。
   - _Requirements: 11.7, 11.8, 11.9_
   - _Boundary: QuestionBookmarkToggle_
-  - _Depends: quizeum-core Phase 8_
+  - _Depends: quizetika-core Phase 8_
 
 - [x] 11.6 (P) リスト詳細の問題リスト分岐と連続プレイ開始
   - `resolveListType` で `listType === 'question'` のとき `getQuestionsInList` による順序付き問題一覧（抜粋・親タイトル）と「問題リストプレイ開始」ボタンを表示する。
@@ -282,13 +282,13 @@
 
 - Phase 6 は **読み取り専用**（`metadata_genres` 書き込み除く）。`attempts` の **読み取り**（プレイ済み ID 一覧）は要件 1.3 のため `listUserPlayedQuizIds` + API で許容。
 - **確定 UX**: ジャンルアイコン＝遷移のみ。ジャンル条件は `GenreSearchField` + `searchQuizzes`（フィルタ変更・デバウンス）。`playStatus` は認証後クライアント後段フィルタ。
-- `quizeum-creator-dash-ui` のエディタ動的セレクトと併せて E2E するとジャンル一貫性の受け入れが容易。
+- `quizetika-creator-dash-ui` のエディタ動的セレクトと併せて E2E するとジャンル一貫性の受け入れが容易。
 - Phase 6 実装（2026-06-03）: `GenreNav` は遷移専用。`GenreSearchField` + `useHomeQuizFeed`（300ms debounce）+ `applyPlayStatusFilter` / `GET /api/user/played-quiz-ids` で要件 1.3 完遂。Jest 296 件・build PASS。
 - **Phase 8**: ブックマークは `getBookmarkFeed` 一括取得 + 楽観的解除。問題リスト進行は `question-list-session`（sessionStorage）。attempt 永続化・`bookmarksCount` はコアのみ（要件 11.14）。クイズリスト連続プレイ（`mode=list`）は回帰維持。
 - Phase 8 実装（2026-06-05）: `components/bookmark/*`, `useBookmarkFeed`, `question-list-session`。Jest 354 件・build PASS。
 - **Phase 10**: 統合検索は `UnifiedSearchField` + `useActiveTags` + `filter-search-suggestions`。タグ AND 検索は `useHomeQuizFeed` → `searchQuizzes({ tags })`（core 10.x 完了後に実装）。カードは `★ N` + ジャンル + 出題形式、探索一覧は `QuizCard` + `href` 共通化。
 - Phase 10 実装（2026-06-06）: `UnifiedSearchField`, `useActiveTags`, `quiz-format-labels`, `QuizCard` 拡張、探索一覧共通化。Jest 430 件・build PASS。
-- **Phase 11**: ホームは `ExploreAccordionsPanel` + カルーセル（ホーム内フィルタ、`GenreNav` 非表示）。`useExploreQuizFeed` が `format` 含む home/scoped 分岐。ジャンルページは `ExploreSearchSection` + `lockedGenreId`。scoped 検索 + ソート同時時は `sortQuizzesForList` でクライアント再ソート。前提: `quizeum-core` Phase 11（`SearchFilters.format`）完了。
+- **Phase 11**: ホームは `ExploreAccordionsPanel` + カルーセル（ホーム内フィルタ、`GenreNav` 非表示）。`useExploreQuizFeed` が `format` 含む home/scoped 分岐。ジャンルページは `ExploreSearchSection` + `lockedGenreId`。scoped 検索 + ソート同時時は `sortQuizzesForList` でクライアント再ソート。前提: `quizetika-core` Phase 11（`SearchFilters.format`）完了。
 - **Phase 19**: 主要画面を Server Component + `<Suspense>` 分割（`home-client`, `quiz-detail-client`, `quiz-result-client`, 探索・復習・LB・BM・通知各 `*-client`）。スケルトンは設計どおり `data-testid` 付与。`/bookmarks`, `/notifications` は middleware で `307` リダイレクト。Jest 548 件・build PASS・`e2e/streaming-skeleton.spec.ts` 7 件 PASS。
 
 ---
@@ -334,7 +334,7 @@
 
 ### 13. Phase 10 拡張 — タグチップ統合検索・サジェスト強化・クイズカード情報拡充（2026-06）
 
-> **前提**: `quizeum-core` Phase 10 完了（`listActiveTags`, `searchQuizzes` の `tags` 配列 AND 合成）。本スペックは UI・フィルタ状態・カード表示のみ。
+> **前提**: `quizetika-core` Phase 10 完了（`listActiveTags`, `searchQuizzes` の `tags` 配列 AND 合成）。本スペックは UI・フィルタ状態・カード表示のみ。
 
 - [x] 13.1 (P) 出題形式ラベル共有ライブラリ
   - クイズエディタ内のローカル形式ラベル解決を共有ライブラリへ抽出し、問題構成から推定した日本語ラベル（選択式、記述式、ウミガメのスープ等）をカードとエディタで同一規則で返す
@@ -357,7 +357,7 @@
   - `tagLabelById` マップを構築しサジェスト表示ラベルに利用する
   - **完了状態**: タグ取得失敗時にエラー状態が返り、成功時に安定したタグ一覧が描画に使えること
   - _Requirements: 12.7, 12.10_
-  - _Depends: quizeum-core Phase 10_
+  - _Depends: quizetika-core Phase 10_
   - _Boundary: useActiveTags_
 
 - [x] 13.4 `QuizCard` の難易度星表記・ジャンル・出題形式拡張
@@ -387,7 +387,7 @@
   - タグのみ・複数タグ AND・キーワード併用時に検索モードへ切り替わり、全未指定時はタブ別取得を維持する
   - **完了状態**: 複数タグチップ指定時に両タグを満たすクイズのみグリッドに表示されること
   - _Requirements: 12.12, 12.13, 12.14, 12.15_
-  - _Depends: quizeum-core Phase 10_
+  - _Depends: quizetika-core Phase 10_
   - _Boundary: useHomeQuizFeed, home-feed-filters_
 
 - [x] 13.7 ホーム画面への統合検索・クイックチップ連携
@@ -425,7 +425,7 @@
 
 ### 14. Phase 11 拡張 — 探索アコーディオン・カルーセルおよびジャンルページ scoped 検索（2026-06）
 
-> **前提**: `quizeum-core` Phase 11 完了（`searchQuizzes` の `format` フィルタ）。本スペックは UI・フィルタ状態・カルーセル・ジャンルページ scoped 検索のみ。
+> **前提**: `quizetika-core` Phase 11 完了（`searchQuizzes` の `format` フィルタ）。本スペックは UI・フィルタ状態・カルーセル・ジャンルページ scoped 検索のみ。
 
 - [x] 14.1 (P) 探索フィルタ基盤と出題形式定数
   - 7 種の出題形式カルーセル用定数（`QuizFormat` + `getFormatLabel` ラベル）を共有 lib に定義する
@@ -433,7 +433,7 @@
   - scoped / home 判定の単体テスト（固定ジャンルのみ、形式のみ、キーワードのみ等）を追加する
   - **完了状態**: `explore-filter-active` の Jest がグリーンであり、`HomeFeedFilters` に `format` が型安全に追加されていること
   - _Requirements: 13.15, 13.17, 13.22_
-  - _Depends: quizeum-core Phase 11_
+  - _Depends: quizetika-core Phase 11_
   - _Boundary: explore-formats, explore-filter-active, home-feed-filters_
 
 - [x] 14.2 `useExploreQuizFeed` フック（home / scoped 分岐）
@@ -555,7 +555,7 @@
 - [x] 16.2 クイズプレイ画面から結果への自動遷移
   - `src/app/quiz/[id]/play/page.tsx` において、すべての問題への解答完了時に待機用中間画面を挟まず、自動的に結果の保存処理を実行して結果画面へ直接遷移するよう変更する。
   - `usePlayState` の完了ハンドラから自動的に結果画面（`/quiz/[id]/result?attemptId={attemptId}`）へ遷移するリダイレクト制御を構築する。
-  - 連想クイズプレイ完了時、解答中に表示したヒントの一覧情報を `localStorage`（キー: `quizeum_attempt_hints_{attemptId}`）へ一時保存する。
+  - 連想クイズプレイ完了時、解答中に表示したヒントの一覧情報を `localStorage`（キー: `quizetika_attempt_hints_{attemptId}`）へ一時保存する。
   - **完了状態**: 最後の問題を送信した瞬間に待機画面を挟まず結果画面へ自動遷移し、連想クイズのヒント表示情報が `localStorage` へ保存されること。
   - _Requirements: 3.6, 5.6_
   - _Boundary: QuizPlayPage_
@@ -580,7 +580,7 @@
   - `src/app/quiz/[id]/result/page.tsx` の「お疲れ様でした」サマリーカード領域に、クイズ全体のブックマーク（お気に入り）登録・解除トグルボタンを追加する。
   - 間違い指摘モーダルにおいて、対象が「クイズ全体への指摘」の場合のみ指摘カテゴリから「別解の追加」を選択肢から除外する。
   - 指摘ボタンの隣に通報ボタンを配置し、クリックで通報モーダル `ReportModal` (`src/components/quiz/report-modal.tsx`) を表示する。未ログインのゲストユーザーの場合は、通報ボタンを非活性化するか、クリック時に `/login` へリダイレクトする認可ガードを実装する。
-  - `ReportModal` は通報理由 (reason) テキスト入力を提供し、送信時に `quizeum-core` の `flagContent(quizId, reporterId, reason)` を呼び出す。
+  - `ReportModal` は通報理由 (reason) テキスト入力を提供し、送信時に `quizetika-core` の `flagContent(quizId, reporterId, reason)` を呼び出す。
   - **完了状態**: 結果画面でのブックマーク切り替え、クイズ全体指摘時の別解除外、通報ボタン・モーダルの表示および送信が正しく行えること。
   - _Requirements: 5.3a, 5.10, 5.11, 5.11a_
   - _Boundary: QuizResultPage, ReportModal_
@@ -813,7 +813,7 @@
   - _Boundary: PlayStateManager_
 
 - [x] 22.2 (P) 楽観的 attempt 一時保存ユーティリティ
-  - `src/lib/optimistic-attempt.ts` を新設し、`sessionStorage` への完了 attempt 保存・読取・削除を実装する（キー: `quizeum_optimistic_attempt_{localId}`）。
+  - `src/lib/optimistic-attempt.ts` を新設し、`sessionStorage` への完了 attempt 保存・読取・削除を実装する（キー: `quizetika_optimistic_attempt_{localId}`）。
   - **完了状態**: 保存したデータが結果画面 Client から読み取れ、削除後は取得できないこと。
   - _Requirements: 17.17, 17.18, 17.19, 5.1b_
   - _Boundary: optimistic-attempt_
@@ -979,7 +979,7 @@
 
 ## Implementation Notes (Phase 19)
 
-- LB 登録ロジックは `quizeum-core` Phase 18 に依存。UI は告知のみでサーバー側判定を実装しない。
+- LB 登録ロジックは `quizetika-core` Phase 18 に依存。UI は告知のみでサーバー側判定を実装しない。
 - 専用コンポーネントは作らず `QuizDetailClient` 内インライン実装とする（design.md Phase 19 §6）。
 - プレイ中・結果画面での再警告は要件外。
 
@@ -1017,7 +1017,7 @@
   - ホームの出題形式カルーセルに「〇×式」を追加し、選択時に形式フィルタが `true-false` になること
   - **完了状態**: カード・カルーセルに「〇×式」が表示され、カルーセル選択でグリッドが絞り込まれること
   - _Requirements: 20.10, 20.11, 20.12_
-  - _Depends: quizeum-core 19.2_
+  - _Depends: quizetika-core 19.2_
   - _Boundary: QuizCard, ExploreFilterSection_
 
 - [x] 25.5 (P) Phase 20 コンポーネントテスト
@@ -1043,9 +1043,9 @@
 
 ## Implementation Notes (Phase 20)
 
-- 実装順: `quizeum-core` 19.x 完了後に 25.4（ラベル・カルーセル）。25.1–25.3 は既存 `choices` データで先行可能。
+- 実装順: `quizetika-core` 19.x 完了後に 25.4（ラベル・カルーセル）。25.1–25.3 は既存 `choices` データで先行可能。
 - `ChoiceAnswerPanel` は `true-false` から分離し変更しない（multiple-choice 専用のまま）。
-- 作問 UI は `quizeum-creator-dash-ui` Phase 10 が担当。
+- 作問 UI は `quizetika-creator-dash-ui` Phase 10 が担当。
 
 ---
 
@@ -1067,7 +1067,7 @@
   - ジャンル scoped モード（ジャンル一覧ページ）は一括取得のまま変更しないこと
   - **完了状態**: フィルタ変更で一覧がリセットされ、続きカーソル付きで2ページ目が末尾に追加されること
   - _Requirements: 21.1, 21.6, 21.7, 21.8, 21.15_
-  - _Depends: quizeum-core 20.3, 20.4_
+  - _Depends: quizetika-core 20.3, 20.4_
   - _Boundary: useExploreQuizFeed_
 
 - [x] 26.3 スクロール末端検知フックの追加
@@ -1111,7 +1111,7 @@
 
 ## Implementation Notes (Phase 21)
 
-- 実装順: `quizeum-core` 20.3・20.4 完了後に 26.2 以降。26.1（UI 再編）はコア API 待ちなしで先行可能。
+- 実装順: `quizetika-core` 20.3・20.4 完了後に 26.2 以降。26.1（UI 再編）はコア API 待ちなしで先行可能。
 - `ExploreAccordionsPanel` はホームから参照を外す。ファイル削除は任意。
 - ジャンル別・タグ別一覧への無限スクロールは将来拡張。本フェーズはホーム（`/`）のみ。
 
@@ -1141,7 +1141,7 @@
   - データ読み込み中はセクション単位のスケルトンを表示する
   - **完了状態**: `/` に3カルーセルのみ表示され、もっと見る・ジャンルクリックで正しい URL へ遷移すること
   - _Requirements: 22.1, 22.2, 22.3, 22.4, 22.5, 22.6, 22.7, 22.8, 22.9, 22.10, 22.24, 22.26_
-  - _Depends: 27.1, 27.2, quizeum-core 21.1_
+  - _Depends: 27.1, 27.2, quizetika-core 21.1_
   - _Boundary: HomeDiscoveryClient_
 
 - [x] 27.4 検索画面ルートへの探索 UX 移設
@@ -1159,7 +1159,7 @@
   - マウント時に URL から初期状態を復元し、ユーザー操作時に `router.replace` で URL を更新する
   - **完了状態**: `/search?tab=trending&genreId=xxx` 直アクセスでタブ・ジャンルフィルタが復元され、フィルタ変更で URL が更新されること
   - _Requirements: 22.13, 22.14_
-  - _Depends: quizeum-core 21.3, 27.4_
+  - _Depends: quizetika-core 21.3, 27.4_
   - _Boundary: useSearchUrlState_
 
 - [x] 27.6 検索バー下のフィルタ条件常時表示
@@ -1180,11 +1180,11 @@
   - _Boundary: Testing_
 
 - [x] 27.8 Phase 22 統合検証
-  - サイドバー／ボトムナビから `/` と `/search` を切り替えられること（`quizeum-sidebar-layout` Phase 5 完了後）
+  - サイドバー／ボトムナビから `/` と `/search` を切り替えられること（`quizetika-sidebar-layout` Phase 5 完了後）
   - ディスカバリー → 検索深いリンク → フィルタチップ → 一覧更新の一連フローが途切れないこと
   - **完了状態**: プレイフロー関連テスト・ビルドがグリーンであること
   - _Requirements: 22.6, 22.7, 22.8, 22.11, 22.12, 22.20, 22.21, 22.22, 22.23_
-  - _Depends: 27.7, quizeum-sidebar-layout 5.3_
+  - _Depends: 27.7, quizetika-sidebar-layout 5.3_
   - _Boundary: Integration_
 
 - [x]* 27.9 Phase 22 E2E スモーク（任意）
@@ -1211,7 +1211,7 @@
   - 廃止 URL はルート削除により Next.js 既定の 404 とする（リダイレクトなし）
   - **完了状態**: `/lists` および `/list/create` が 404 を返し、削除対象コンポーネントへの import が残らないこと
   - _Requirements: 26.1, 26.2, 26.6_
-  - _Depends: quizeum-core 23.6_
+  - _Depends: quizetika-core 23.6_
   - _Boundary: lists-routes_
 
 - [x] 28.2 ブックマーク画面の2タブ化
@@ -1220,7 +1220,7 @@
   - `data-testid="bookmarks-tabs"` を維持し、タブが2件のみであることをテスト可能にする
   - **完了状態**: `/bookmarks` にリストタブが存在せず、クイズ・問題タブの既存 UX が動作すること
   - _Requirements: 26.3, 26.4, 26.5, 26.6, 26.11, 26.16, 26.17_
-  - _Depends: quizeum-core 23.2, 28.1_
+  - _Depends: quizetika-core 23.2, 28.1_
   - _Boundary: bookmarks-client_
 
 - [x] 28.3 プレイ画面からリスト／問題リストモード導線の除去
@@ -1228,7 +1228,7 @@
   - ウミガメ諦め後の「次の問題へ」（リスト文脈）およびオフライン時リスト次クイズブロックを削除する
   - **完了状態**: 通常・`my-quiz` プレイが動作し、リストモード用クエリ・セッション import が存在しないこと
   - _Requirements: 26.7, 26.9, 26.10, 26.12_
-  - _Depends: quizeum-core 23.6, 28.1_
+  - _Depends: quizetika-core 23.6, 28.1_
   - _Boundary: quiz-play-client_
 
 - [x] 28.4 結果画面からリスト内ナビゲーションの除去
@@ -1270,7 +1270,7 @@
 
 ## Implementation Notes (Phase 26)
 
-- **前提**: `quizeum-core` Phase 26（23.6 完了）後に着手。Core と同一 PR の場合は Core 変更を先にコミット。
-- リストルート削除は本スペック（28.1）が正本。`quizeum-creator-dash-ui` はダッシュボード CTA のみ担当。
+- **前提**: `quizetika-core` Phase 26（23.6 完了）後に着手。Core と同一 PR の場合は Core 変更を先にコミット。
+- リストルート削除は本スペック（28.1）が正本。`quizetika-creator-dash-ui` はダッシュボード CTA のみ担当。
 - 維持: `quiz-list-skeleton.tsx`（ダッシュボード用）、問題・クイズブックマーク、`my-quiz` プレイ連携。
-- Sidebar「リスト」ナビは `quizeum-sidebar-layout` が別途担当。
+- Sidebar「リスト」ナビは `quizetika-sidebar-layout` が別途担当。

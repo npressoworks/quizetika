@@ -1,4 +1,4 @@
-# Brief: quizeum-ui-quiz-lifecycle
+# Brief: quizetika-ui-quiz-lifecycle
 
 ## Problem
 クイズ詳細・プレイ・結果・復習・リーダーボードは UI 最重要かつ CSS 量が最大級（`play.module.css` ~773 行）。没入型プレイ UX と回答パネル（選択肢/正誤）の視覚的フィードバックが UX の核（shadcn 標準の Button/RadioGroup/Progress で再現）。
@@ -31,12 +31,12 @@
 - スコア計算・attempt 永続化 lib
 
 ## Upstream / Downstream
-- **Upstream**: quizeum-ui-layout-shell, quizeum-ui-foundation
+- **Upstream**: quizetika-ui-layout-shell, quizetika-ui-foundation
 - **Downstream**: E2E play/result spec 更新
 
 ## Existing Spec Touchpoints
-- **Extends**: quizeum-play-flow-ui（プレイ/結果部分）
-- **Adjacent**: quizeum-core（attempt 契約）
+- **Extends**: quizetika-play-flow-ui（プレイ/結果部分）
+- **Adjacent**: quizetika-core（attempt 契約）
 
 ## Constraints
 - プレイ UX 退行は許容しない — E2E + 手動 QA 必須

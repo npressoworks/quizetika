@@ -15,10 +15,10 @@ const mockQuiz: Quiz = {
   id: 'performance-test-quiz',
   authorId: 'creator-99',
   authorName: 'テスト作家',
-  authorAvatar: 'https://quizeum.com/avatars/creator-99.png',
+  authorAvatar: 'https://quizetika.com/avatars/creator-99.png',
   title: '世界史の真実クイズ',
   description: '歴史ミステリーの真相に迫る高度なクイズです。',
-  thumbnailUrl: 'https://quizeum.com/covers/history.png',
+  thumbnailUrl: 'https://quizetika.com/covers/history.png',
   difficulty: 4,
   genre: '歴史',
   tags: ['歴史', 'ミステリー'],
@@ -58,19 +58,19 @@ describe('Task 4.1 非機能要件 & パフォーマンス検証テスト', () =
       expect(html).toContain('<html lang="ja">');
 
       // titleおよびdescriptionの整合性検証
-      expect(html).toContain('<title>世界史の真実クイズ | quizeum</title>');
+      expect(html).toContain('<title>世界史の真実クイズ | quizetika</title>');
       expect(html).toContain('<meta name="description" content="歴史ミステリーの真相に迫る高度なクイズです。">');
 
       // OGP (Facebook/SNS) メタデータの整合性検証
-      expect(html).toContain('<meta property="og:title" content="世界史の真実クイズ | quizeum">');
+      expect(html).toContain('<meta property="og:title" content="世界史の真実クイズ | quizetika">');
       expect(html).toContain('<meta property="og:description" content="歴史ミステリーの真相に迫る高度なクイズです。">');
-      expect(html).toContain('<meta property="og:url" content="https://quizeum.com/quiz/performance-test-quiz">');
-      expect(html).toContain('<meta property="og:image" content="https://quizeum.com/covers/history.png">');
+      expect(html).toContain('<meta property="og:url" content="https://quizetika.com/quiz/performance-test-quiz">');
+      expect(html).toContain('<meta property="og:image" content="https://quizetika.com/covers/history.png">');
 
       // Twitter カードメタデータの整合性検証
-      expect(html).toContain('<meta property="twitter:title" content="世界史の真実クイズ | quizeum">');
+      expect(html).toContain('<meta property="twitter:title" content="世界史の真実クイズ | quizetika">');
       expect(html).toContain('<meta property="twitter:description" content="歴史ミステリーの真相に迫る高度なクイズです。">');
-      expect(html).toContain('<meta property="twitter:image" content="https://quizeum.com/covers/history.png">');
+      expect(html).toContain('<meta property="twitter:image" content="https://quizetika.com/covers/history.png">');
     });
 
     test('8.1 初期HTMLのレンダリング応答時間が0.5秒（500ms）を遥かに下回り、極めて高速に処理完了すること', () => {

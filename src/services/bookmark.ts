@@ -27,7 +27,7 @@ import { createNotification } from './notification';
 const isTestEnv = process.env.NEXT_PUBLIC_ENV === 'test';
 
 // E2Eテスト時のお気に入りモックデータを保存するローカルストレージのキー
-const MOCK_BOOKMARKS_KEY = 'quizeum_mock_bookmarks';
+const MOCK_BOOKMARKS_KEY = 'quizetika_mock_bookmarks';
 
 export class InvalidBookmarkTargetError extends Error {
   readonly code = 'INVALID_BOOKMARK_TARGET' as const;

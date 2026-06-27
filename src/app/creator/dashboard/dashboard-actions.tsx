@@ -22,7 +22,7 @@ export function DashboardActions() {
       downloadAnchor.setAttribute('href', jsonString);
       downloadAnchor.setAttribute(
         'download',
-        `quizeum_export_${user.displayName}_${new Date().toISOString().split('T')[0]}.json`,
+        `quizetika_export_${user.displayName}_${new Date().toISOString().split('T')[0]}.json`,
       );
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();

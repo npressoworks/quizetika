@@ -57,7 +57,7 @@ export function HomeSidebar() {
         </a>
         <Separator className="mt-1" />
         <div className="text-xs text-muted-foreground/60 text-center pt-1" data-testid="sidebar-copyright">
-          © {new Date().getFullYear()} quizeum. All rights reserved.
+          © {new Date().getFullYear()} quizetika. All rights reserved.
         </div>
       </CardContent>
     </Card>

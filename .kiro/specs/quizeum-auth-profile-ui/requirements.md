@@ -1,11 +1,11 @@
-# 要件定義書: quizeum-auth-profile-ui
+# 要件定義書: quizetika-auth-profile-ui
 
 ## はじめに
-本ドキュメントは、クイズ投稿SNS「quizeum」におけるユーザー認証、プロフィール管理、ソーシャル連携、通知、および本人向けプレイ履歴表示のフロントエンドUI要件を定義します。
+本ドキュメントは、クイズ投稿SNS「quizetika」におけるユーザー認証、プロフィール管理、ソーシャル連携、通知、および本人向けプレイ履歴表示のフロントエンドUI要件を定義します。
 
-**Phase 5（2026-06）**: ログイン中ユーザーが自身のプロフィールで、完了済みプレイ履歴を一覧・ページング表示し、クイズ詳細へ再遷移できるUIを追加する（データ取得APIは `quizeum-core` が担当）。
+**Phase 5（2026-06）**: ログイン中ユーザーが自身のプロフィールで、完了済みプレイ履歴を一覧・ページング表示し、クイズ詳細へ再遷移できるUIを追加する（データ取得APIは `quizetika-core` が担当）。
 
-**Phase 8（2026-06）**: プロフィールの「作成したリスト」タブで、クイズリストと問題リスト（`listType`）をユーザーが区別できる表示に拡張する（`listType` の永続化と取得フィルタは `quizeum-core` が担当）。
+**Phase 8（2026-06）**: プロフィールの「作成したリスト」タブで、クイズリストと問題リスト（`listType`）をユーザーが区別できる表示に拡張する（`listType` の永続化と取得フィルタは `quizetika-core` が担当）。
 
 **Phase 12（2026-06）**: 主要画面（ブックマーク、通知）の Server Component 化、静的フレーム先行表示、および Suspense と Streaming による非同期スケルトン表示への移行を追加します。
 
@@ -26,25 +26,25 @@
   - **Phase 12**: ブックマーク一覧（`/bookmarks`）および通知一覧（`/notifications`）の Server Component 化、静的フレーム（戻るボタン、タイトルヘッダー、基本コンテナなど）の先行レンダリング、データ解決待ち中の部分スケルトン表示（`Suspense` 適用）。
   - **Phase 27**: プロフィール画面の「作成したクイズ」タブ内における、クイズ一覧に対するキーワード検索入力（タイトル、説明、ジャンル、タグ対象）とフィルタ表示、および「前へ」「次へ」・ページ番号によるクライアントサイドのページングUI。
 - **対象外（Out of scope）**:
-  - `attempts` の永続化、プレイ履歴クエリAPI、IDトークン検証（`quizeum-core`）。
+  - `attempts` の永続化、プレイ履歴クエリAPI、IDトークン検証（`quizetika-core`）。
   - 他ユーザーのプロフィールからのプレイ履歴閲覧（非公開）。
-  - クイズプレイ・作成画面UI（`quizeum-play-flow-ui` / `quizeum-creator-dash-ui`）。
-  - 退会時の Firestore 匿名化クレンジング本体（`quizeum-core`）。
-  - **Phase 8（リスト関連は Phase 26 で廃止）**: リストの作成・編集・`listType` 選択 UI（`quizeum-creator-dash-ui`）。ブックマーク3タブ・問題リスト連続プレイ（`quizeum-play-flow-ui`）。
+  - クイズプレイ・作成画面UI（`quizetika-play-flow-ui` / `quizetika-creator-dash-ui`）。
+  - 退会時の Firestore 匿名化クレンジング本体（`quizetika-core`）。
+  - **Phase 8（リスト関連は Phase 26 で廃止）**: リストの作成・編集・`listType` 選択 UI（`quizetika-creator-dash-ui`）。ブックマーク3タブ・問題リスト連続プレイ（`quizetika-play-flow-ui`）。
   - **Phase 12**: プロフィール画面（`/profile/[uid]`）やフォロー一覧、リアクション履歴などの非同期表示最適化（主要画面以外は本フェーズの対象外）。
   - **Phase 23**: `/profile/[uid]/likes` ルートの削除または404化、リアクション機能データ（`reactions` コレクション）のマイグレーション、リアクション関連 E2E の一括削除（導線削除と本人プロフィール UI 更新に限定する）。
-  - **Phase 26**: リストデータの Firestore 削除・マイグレーション（`quizeum-core`）。`/list/*` ルート・ブックマークリストタブ除去（`quizeum-play-flow-ui`）。Sidebar「リスト」ナビ（`quizeum-sidebar-layout`）。
+  - **Phase 26**: リストデータの Firestore 削除・マイグレーション（`quizetika-core`）。`/list/*` ルート・ブックマークリストタブ除去（`quizetika-play-flow-ui`）。Sidebar「リスト」ナビ（`quizetika-sidebar-layout`）。
 - **隣接システムへの期待**:
   - プレイ履歴は `GET /api/user/play-history`（`Authorization: Bearer`）で取得し、トークン本人の `uid` のみ返る。クエリで他 `uid` を指定しても 403。
   - 初回20件 + `nextCursor` による追加ページ。`test-play` はAPI側で除外済み。
   - **Phase 26**: リスト関連 API（`getQuizListsByAuthor` 等）は存在しない前提。プロフィールは「作成したクイズ」タブと本人のみ「プレイ履歴」タブを表示する。
   - **Phase 12**: ログイン必須画面に対する Next.js Middleware でのサーバーサイドリダイレクト（Cookie ベース認証）。
-  - **Phase 23**: Sidebar アカウントポップアップからの設定導線は `quizeum-sidebar-layout` が担当すること。設定ページ本体は `quizeum-user-settings-ui` が担当すること。
+  - **Phase 23**: Sidebar アカウントポップアップからの設定導線は `quizetika-sidebar-layout` が担当すること。設定ページ本体は `quizetika-user-settings-ui` が担当すること。
 
 ## 要件
 
 ### 要件 1: ユーザー認証画面 (`/login`)
-**目的:** ゲストユーザーとして、ソーシャルアカウントで安全にログインしたい。それにより quizeum の機能を利用できる。
+**目的:** ゲストユーザーとして、ソーシャルアカウントで安全にログインしたい。それにより quizetika の機能を利用できる。
 
 #### 受け入れ基準
 1. 認証画面は Google・X（Twitter）・Microsoft（Azure AD）のサインインボタンを表示し、Firebase Auth のポップアップで認証を開始すること。
@@ -54,7 +54,7 @@
 5. 開発・E2Eテスト環境（`NODE_ENV !== 'production'` かつ `NEXT_PUBLIC_ENV === 'test'`）ではのみ、メール／パスワードによる簡易ログインを表示してよい（本番では表示しない）。
 
 ### 要件 2: プロフィール画面 (`/profile/[uid]`)
-**目的:** Quizeumのユーザーとして、他者または自身のプロフィールを確認し、つながりや投稿内容を把握したい。
+**目的:** Quizetikaのユーザーとして、他者または自身のプロフィールを確認し、つながりや投稿内容を把握したい。
 
 #### 受け入れ基準
 1. プロフィール画面は、対象ユーザーのアバター、表示名、自己紹介、信頼スコア、権限ティアーバッジ、獲得称号バッジ一覧を表示すること。
@@ -74,21 +74,21 @@
 3. 「保存する」を押し入力が有効なとき、`UserService.updateProfile` を呼び出し、成功後に自身のプロフィール画面へ遷移すること。
 
 ### 要件 4: フォロー／フォロワー一覧画面 (`/profile/[uid]/connections`)
-**目的:** Quizeumのユーザーとして、つながりを確認しソーシャルネットワークを管理したい。
+**目的:** Quizetikaのユーザーとして、つながりを確認しソーシャルネットワークを管理したい。
 
 #### 受け入れ基準
 1. 接続一覧画面は「フォロー中」「フォロワー」をタブで切り替え表示すること。
 2. 各ユーザーカードはアバター、表示名、自己紹介を表示し、ログイン中ユーザー自身以外にはフォロー／フォロー解除トグルを表示すること。
 
 ### 要件 5: 通知一覧画面 (`/notifications`)
-**目的:** Quizeumのユーザーとして、アクティビティ通知を時系列で確認したい。
+**目的:** Quizetikaのユーザーとして、アクティビティ通知を時系列で確認したい。
 
 #### 受け入れ基準
 1. 通知一覧画面は、フォロー通知やクイズ指摘修正完了などのアクティビティを時系列で表示すること。
 2. 指摘修正完了系の通知カードをクリックしたとき、該当クイズの詳細画面（`/quiz/[id]`）へ遷移すること。
 
 ### 要件 6: リアクション履歴画面 (`/profile/[uid]/likes`)（レガシー・Phase 23 以降は導線廃止）
-**目的:** （レガシー）Quizeumのユーザーとして、送受信したリアクション履歴を確認したい。
+**目的:** （レガシー）Quizetikaのユーザーとして、送受信したリアクション履歴を確認したい。
 
 > **Phase 23 注記**: リアクション機能は廃止方向のため、**マイページからの導線は要件 10 で削除**する。本要件はルート存続時のレガシー参照とし、新規導線の追加や画面改修は行わない。
 
@@ -107,7 +107,7 @@
 5. APIレスポンスに `nextCursor` があるとき、「もっと見る」等の操作で `cursor` クエリを付与して追加取得し、既存リストに追記すること（初回取得件数はAPIデフォルト20件に合わせる）。
 6. 取得エラー（401／403／500）時は、再試行またはログイン案内を含むユーザー向けメッセージを表示し、クラッシュさせないこと。
 7. E2E用に、プレイ履歴領域に `data-testid="play-history-section"`、各行に `data-testid="play-history-entry"`、追加読み込みボタンに `data-testid="play-history-load-more"` を付与すること。
-8. プレイ履歴の永続化・除外ルール（`test-play` 除外等）をフロントエンドで再実装してはならない（`quizeum-core` のAPI結果を信頼する）。
+8. プレイ履歴の永続化・除外ルール（`test-play` 除外等）をフロントエンドで再実装してはならない（`quizetika-core` のAPI結果を信頼する）。
 
 ### 要件 8: 作成リストのタイプ別表示（Phase 8）— **Phase 26 で全体廃止**
 **目的:** （廃止）プロフィール閲覧者として、ユーザーが作成したクイズリストと問題リストを区別して把握したい。それによりリストの内容種別を誤解なく選べる。
@@ -122,7 +122,7 @@
 5. リストカードをクリックしたとき、プロフィール UI は、リスト詳細画面（`/list/[id]`）へ遷移すること。
 6. 本人プロフィールでリストが0件のとき、プロフィール UI は、既存と同様の空状態と「新しいリストを作成する」導線（`/list/create`）を表示すること。
 7. 本人プロフィールのリストタブにフィルタ UI を含める場合、プロフィール UI は、「すべて」「クイズリストのみ」「問題リストのみ」から一覧を絞り込めること（初版は種別ラベルのみでも可。フィルタは任意実装）。
-8. プロフィール UI は、`listType` の付与やリスト CRUD を実装してはならない（表示と遷移のみ。データは `quizeum-core` のリスト取得 API に依存する）。
+8. プロフィール UI は、`listType` の付与やリスト CRUD を実装してはならない（表示と遷移のみ。データは `quizetika-core` のリスト取得 API に依存する）。
 9. E2E用に、リストカードに `data-testid="profile-list-card"`、種別ラベルに `data-testid="profile-list-type-badge"` を付与すること。
 
 ### 要件 9: ブックマーク・通知画面の非同期表示最適化（Phase 12 追加）
@@ -171,7 +171,7 @@
 **テスト・隣接**
 6. The [Auth Profile UI] shall [本人プロフィール画面に `data-testid="profile-reaction-history-link"` 等のリアクション履歴導線用 testid を付与しないこと]。
 7. When [E2E テストが本人プロフィールのリアクション履歴導線の存在を検証している場合], the [Auth Profile UI] shall [当該テストの更新またはスキップを Phase 23 の直接実装候補（`remove-reaction-history-e2e`）と整合させること]。
-8. The [Auth Profile UI] shall [設定画面（`/settings`）および Sidebar ポップアップ「設定」導線の追加を本要件の範囲に含めない（`quizeum-user-settings-ui` / `quizeum-sidebar-layout` が担当）]。
+8. The [Auth Profile UI] shall [設定画面（`/settings`）および Sidebar ポップアップ「設定」導線の追加を本要件の範囲に含めない（`quizetika-user-settings-ui` / `quizetika-sidebar-layout` が担当）]。
 
 ### 要件 11: プロフィールリストタブの除去（Phase 26）
 **目的:** プロフィール閲覧者として、廃止されたリスト機能への導線がないプロフィール体験を得たい。それにより現行機能（作成クイズ・プレイ履歴）に集中できる。
@@ -192,8 +192,8 @@
 7. When [ログイン中ユーザーが自身のプロフィールを閲覧したとき], the [Auth Profile UI] shall [要件 7 に従い「プレイ履歴」タブと `ProfilePlayHistoryPanel` を維持すること]。
 
 **境界・隣接**
-8. The [Auth Profile UI] shall [`/list/*` ルート削除・ブックマークリストタブ除去を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当）]。
-9. The [Auth Profile UI] shall [リストデータの Firestore 削除を本要件の範囲に含めない（`quizeum-core` マイグレーションが担当）]。
+8. The [Auth Profile UI] shall [`/list/*` ルート削除・ブックマークリストタブ除去を本要件の範囲に含めない（`quizetika-play-flow-ui` が担当）]。
+9. The [Auth Profile UI] shall [リストデータの Firestore 削除を本要件の範囲に含めない（`quizetika-core` マイグレーションが担当）]。
 
 **アクセシビリティ・テスト支援**
 10. The [Auth Profile UI] shall [リスト専用単体テスト（`profile-list-display`、`ProfileListCard`、`ProfileListsPanel`）およびプロフィールリストタブ前提の E2E を削除または非リストフローへ更新すること]。

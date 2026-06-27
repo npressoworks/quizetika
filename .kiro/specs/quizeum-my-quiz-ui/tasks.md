@@ -1,6 +1,6 @@
-# Implementation Plan: quizeum-my-quiz-ui
+# Implementation Plan: quizetika-my-quiz-ui
 
-> **前提**: `quizeum-core` が `buildMyQuizQuestionPool`、`my-quiz-session.ts`、`saveAttempt` の `mode: 'my-quiz'` を提供済みであること。未完了の場合は core タスクを先に実装する。
+> **前提**: `quizetika-core` が `buildMyQuizQuestionPool`、`my-quiz-session.ts`、`saveAttempt` の `mode: 'my-quiz'` を提供済みであること。未完了の場合は core タスクを先に実装する。
 
 ## Tasks
 
@@ -35,7 +35,7 @@
   - 有効ソース0件時は空プール + 案内文案を返す。
   - 完了時、ソーストグル変更でプール件数が更新されること。
   - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6_
-  - _Depends: quizeum-core（buildMyQuizQuestionPool）_
+  - _Depends: quizetika-core（buildMyQuizQuestionPool）_
   - _Boundary: useMyQuizPool_
 
 ### 3. フィルタ UI とクライアント側絞り込み
@@ -89,7 +89,7 @@
   - `data-testid="my-quiz-start-play"` と `data-analytics="my-quiz-start-play"` を付与する。
   - 完了時、遷移 URL に `mode=my-quiz` と `sessionId` が含まれること。
   - _Requirements: 5.3, 5.4, 5.5, 5.6, 7.4_
-  - _Depends: quizeum-core（my-quiz-session）, 4.1, 5.1_
+  - _Depends: quizetika-core（my-quiz-session）, 4.1, 5.1_
   - _Boundary: MyQuizPreviewBar, useMyQuizPool_
 
 ### 6. プレイエンジン連携（quiz-play-client）
@@ -101,7 +101,7 @@
   - セッション欠落時はエラー UI + `/my-quiz` リンクを表示する。
   - 完了時、カスタムクイズ URL で1問プレイが開始され、通常モード即時フィードバックが適用されないこと。
   - _Requirements: 6.1, 6.4, 6.5, 6.6, 6.7_
-  - _Depends: quizeum-core（my-quiz-session, saveAttempt）, 5.2_
+  - _Depends: quizetika-core（my-quiz-session, saveAttempt）, 5.2_
   - _Boundary: my-quiz-ui minimal extension; play-flow coordination（quiz-play-client）_
 
 ### 7. プレイエンジン連携（quiz-result-client）
@@ -162,10 +162,10 @@
 
 ## 外部ブロッカー
 
-| 依存                     | 内容                                                                       |
-| ------------------------ | -------------------------------------------------------------------------- |
-| `quizeum-core`           | `buildMyQuizQuestionPool`, `my-quiz-session.ts`, `Attempt.mode: 'my-quiz'` |
-| `quizeum-sidebar-layout` | Sidebar「カスタムクイズ」導線（本スペック外、E2E は直接 URL アクセス可）   |
+| 依存                       | 内容                                                                       |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `quizetika-core`           | `buildMyQuizQuestionPool`, `my-quiz-session.ts`, `Attempt.mode: 'my-quiz'` |
+| `quizetika-sidebar-layout` | Sidebar「カスタムクイズ」導線（本スペック外、E2E は直接 URL アクセス可）   |
 
 ---
 
@@ -176,7 +176,7 @@
   - 自作・ブックマーククイズ・ブックマーク問題の3トグルに `data-testid` を維持する
   - **完了状態**: ソースパネルに3 `data-testid` のみ存在し、リスト関連 UI が表示されないこと
   - _Requirements: 2.1, 2.7, 2.8, 8.1_
-  - _Depends: quizeum-core 23.4_
+  - _Depends: quizetika-core 23.4_
   - _Boundary: my-quiz-source-panel_
 
 - [x] 10.2 問題プール取得フックのフラグ縮小
@@ -212,5 +212,5 @@
 
 ## Implementation Notes (Phase 26)
 
-- **前提**: `quizeum-core` 23.4 完了後に着手。プレイ連携（`mode=my-quiz`）は変更なし。
+- **前提**: `quizetika-core` 23.4 完了後に着手。プレイ連携（`mode=my-quiz`）は変更なし。
 - 実装順: 10.1 → 10.2 → 10.3 → 10.4 → 10.5。10.1 は core 23.4 完了後に play-flow と並行可能。

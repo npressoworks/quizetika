@@ -2,15 +2,15 @@
 
 ## Project Description (Input)
 
-Quizeum のエンドユーザーは、全画面のナビゲーション体験の基盤となるアプリシェル（Sidebar, Header, BottomNav, LayoutWrapper）を利用している。現状、これらは CSS Modules と旧 Quizeum ビジュアル（glass-card、ネオン色）で実装されており、Phase 24 の shadcn/ui + Tailwind 刷新方針と整合しない。
+Quizetika のエンドユーザーは、全画面のナビゲーション体験の基盤となるアプリシェル（Sidebar, Header, BottomNav, LayoutWrapper）を利用している。現状、これらは CSS Modules と旧 Quizetika ビジュアル（glass-card、ネオン色）で実装されており、Phase 24 の shadcn/ui + Tailwind 刷新方針と整合しない。
 
-本スペック（`quizeum-ui-layout-shell`）は、`quizeum-ui-foundation` が提供する shadcn 標準テーマと共通プリミティブの上にシェルコンポーネントを再構築する。レスポンシブ挙動（PC 275px / タブレット 70px Sidebar、モバイル BottomNav 固定）、アクティブナビ判定、ログイン状態による表示切替、`/play` パスでのシェル非表示契約、既存 `data-testid` は維持する。各ページ本体、ThemeProvider 実装、BottomNav 項目の IA 変更、認証ロジックは範囲外とする。
+本スペック（`quizetika-ui-layout-shell`）は、`quizetika-ui-foundation` が提供する shadcn 標準テーマと共通プリミティブの上にシェルコンポーネントを再構築する。レスポンシブ挙動（PC 275px / タブレット 70px Sidebar、モバイル BottomNav 固定）、アクティブナビ判定、ログイン状態による表示切替、`/play` パスでのシェル非表示契約、既存 `data-testid` は維持する。各ページ本体、ThemeProvider 実装、BottomNav 項目の IA 変更、認証ロジックは範囲外とする。
 
 ## Introduction
 
-Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 22–23 で確立したハイブリッドレイアウト（PC Sidebar、モバイル Header + BottomNav）は `quizeum-sidebar-layout` スペックにより機能要件が満たされている。Phase 24 では UI 刷新の最初のユーザー可視スライスとして、シェルコンポーネントのみを shadcn 標準寄せのビジュアルに移行し、関連 CSS Modules を削除する。
+Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 22–23 で確立したハイブリッドレイアウト（PC Sidebar、モバイル Header + BottomNav）は `quizetika-sidebar-layout` スペックにより機能要件が満たされている。Phase 24 では UI 刷新の最初のユーザー可視スライスとして、シェルコンポーネントのみを shadcn 標準寄せのビジュアルに移行し、関連 CSS Modules を削除する。
 
-本スペックは `quizeum-ui-foundation` に依存し、後続スペック（discovery, personal, quiz-lifecycle 等）がシェル内でページをレンダリングする前提を維持する。移行完了時に `e2e/layout.spec.ts` および関連 Jest テストがグリーンであることを要求する。
+本スペックは `quizetika-ui-foundation` に依存し、後続スペック（discovery, personal, quiz-lifecycle 等）がシェル内でページをレンダリングする前提を維持する。移行完了時に `e2e/layout.spec.ts` および関連 Jest テストがグリーンであることを要求する。
 
 ## Boundary Context
 
@@ -24,16 +24,16 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 22–23 で
   - シェル単体 Jest テスト更新および E2E 回帰確認
 - **Out of scope**:
   - 各ページ本体コンテンツ（discovery, personal, quiz-lifecycle 等）
-  - `ThemeProvider` / `localStorage` 永続化ロジックの変更（`quizeum-ui-foundation` / `quizeum-user-settings-ui`）
+  - `ThemeProvider` / `localStorage` 永続化ロジックの変更（`quizetika-ui-foundation` / `quizetika-user-settings-ui`）
   - 認証ロジック（`AuthProvider`, Firebase signOut）
   - BottomNav 項目の追加・削除・IA 変更
   - 未読通知バッジ等のリアルタイム更新
   - `variables.css` の完全削除（`css-modules-cleanup` 候補）
 - **Adjacent expectations**:
-  - `quizeum-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Card 等）を提供済みであること
-  - `quizeum-sidebar-layout` で定義されたナビ導線・到達先ルート・アクティブ契約は本移行後も同一であること
-  - `quizeum-sidebar-layout` スペックは本移行完了後に Tailwind 禁止条項を削除・更新する（roadmap 依存順）
-  - `quizeum-user-settings-ui` は設定ページ本体とテーマ切替 UI を担当し、本スペックは Sidebar/Header ポップアップからの `/settings` 導線のみ維持する
+  - `quizetika-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Card 等）を提供済みであること
+  - `quizetika-sidebar-layout` で定義されたナビ導線・到達先ルート・アクティブ契約は本移行後も同一であること
+  - `quizetika-sidebar-layout` スペックは本移行完了後に Tailwind 禁止条項を削除・更新する（roadmap 依存順）
+  - `quizetika-user-settings-ui` は設定ページ本体とテーマ切替 UI を担当し、本スペックは Sidebar/Header ポップアップからの `/settings` 導線のみ維持する
 
 ## Requirements
 
@@ -88,7 +88,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 22–23 で
 **Objective:** As a ユーザー, I want シェルが shadcn 標準のクリーンな見た目でライト/ダーク両方で視認できること, so that Phase 24 UI 刷新の一貫性を体感できる。
 
 #### Acceptance Criteria
-1. The Layout Shell shall 旧 Quizeum ビジュアル（glass-card、ネオン色クラス、Outfit ロゴスタイル）をシェルコンポーネントで使用しない。
+1. The Layout Shell shall 旧 Quizetika ビジュアル（glass-card、ネオン色クラス、Outfit ロゴスタイル）をシェルコンポーネントで使用しない。
 2. When ライトモードが適用されているとき, the Layout Shell shall shadcn 標準ライトパレットで Sidebar・Header・BottomNav を表示する。
 3. When ダークモードが適用されているとき, the Layout Shell shall shadcn 標準ダークパレットで Sidebar・Header・BottomNav を表示する。
 4. Where アクティブナビ項目が表示される, the Layout Shell shall ライト/ダークいずれでも十分なコントラストでアクティブ状態を識別できる。

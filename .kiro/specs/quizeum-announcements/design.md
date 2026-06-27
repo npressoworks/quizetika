@@ -1,7 +1,7 @@
-# Design Document: quizeum-announcements
+# Design Document: quizetika-announcements
 
 ## Overview
-本機能は、クイズ投稿SNS「Quizeum」において、運営・管理者がソースコードのビルドやデプロイを行わずに、Web上の管理画面から動的に「運営からのお知らせ」を追加・編集・削除できるようにするものです。
+本機能は、クイズ投稿SNS「Quizetika」において、運営・管理者がソースコードのビルドやデプロイを行わずに、Web上の管理画面から動的に「運営からのお知らせ」を追加・編集・削除できるようにするものです。
 また、一般ユーザー（未ログインユーザー含む）が通知メニュー（`/notifications`）からこれらのお知らせをマークダウン形式で閲覧できるようにします。さらに、お知らせや通知のページング、未読件数の表示、一括既読機能、および重要なお知らせの赤色強調表示を含みます。
 
 ### Goals
@@ -51,7 +51,7 @@
 
 未読カウントについては：
 - **個人宛て通知**: `isRead == false` のドキュメント件数をカウントする Firestore クエリを使用します。
-- **運営お知らせ**: ローカルストレージに `quizeum_announcements_last_read_at` (タイムスタンプ) を保存し、`publishedAt > last_read_at` のお知らせ件数をカウントします（初期アクセス時は 0 または最新1件の公開日時で初期化）。
+- **運営お知らせ**: ローカルストレージに `quizetika_announcements_last_read_at` (タイムスタンプ) を保存し、`publishedAt > last_read_at` のお知らせ件数をカウントします（初期アクセス時は 0 または最新1件の公開日時で初期化）。
 
 ### Architecture Pattern & Boundary Map
 ```mermaid
@@ -68,17 +68,17 @@ graph TD
 ```
 
 ### Technology Stack
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend / CLI | Next.js 16.2.6 (App Router), React 19.2.4 | UI / 画面構成 | shadcn/ui を使用 |
-| Backend / Services | Firebase SDK 12.13.0 | データアクセス・サービス層 | Firestore ページング・一括更新 |
-| Data / Storage | Firestore | 永続化 | announcements コレクション |
+| Layer              | Choice / Version                          | Role in Feature            | Notes                          |
+| ------------------ | ----------------------------------------- | -------------------------- | ------------------------------ |
+| Frontend / CLI     | Next.js 16.2.6 (App Router), React 19.2.4 | UI / 画面構成              | shadcn/ui を使用               |
+| Backend / Services | Firebase SDK 12.13.0                      | データアクセス・サービス層 | Firestore ページング・一括更新 |
+| Data / Storage     | Firestore                                 | 永続化                     | announcements コレクション     |
 
 ## File Structure Plan
 
 ### Directory Structure
 ```
-d:/quizeum/
+d:/quizetika/
 ├── src/
 │   ├── app/
 │   │   ├── admin/
@@ -131,19 +131,19 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.6 | カテゴリ「重要」の選択 | AdminAnnouncementsClient | `src/app/admin/announcements/client.tsx` | - |
-| 2.1 | 通知画面 of タブ順・初期タブ | NotificationsClient | `src/app/notifications/notifications-client.tsx` | - |
-| 2.8 | バッジとアイコンの表示 | AnnouncementsTab | `src/app/notifications/announcements-tab.tsx` | - |
-| 2.9 | 「重要」お知らせの赤色強調表示 | AnnouncementsTab | `src/app/notifications/announcements-tab.tsx` | - |
-| 4.1 | 初期10件表示 | NotificationsClient, AnnouncementsTab | `src/app/notifications/notifications-client.tsx`, `announcements-tab.tsx` | - |
-| 4.2 | 「もっと見る」ボタンによるページング | NotificationsClient, AnnouncementsTab | `src/app/notifications/notifications-client.tsx`, `announcements-tab.tsx` | - |
-| 4.3 | 追加データなし時のボタン制御 | NotificationsClient, AnnouncementsTab | `src/app/notifications/notifications-client.tsx`, `announcements-tab.tsx` | - |
-| 4.4 | 各タブの未読数バッジ表示 | NotificationsClient | `src/app/notifications/notifications-client.tsx` | - |
-| 4.5 | 未ログイン時の通知未読非表示 | NotificationsClient | `src/app/notifications/notifications-client.tsx` | - |
-| 4.6 | 通知の全件既読機能 | NotificationsClient, NotificationService | `src/app/notifications/notifications-client.tsx`, `src/services/notification.ts` | - |
-| 4.7 | お知らせの全件既読機能 | AnnouncementsTab, LocalStorage | `src/app/notifications/announcements-tab.tsx` | - |
+| Requirement | Summary                              | Components                               | Interfaces                                                                       | Flows |
+| ----------- | ------------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------- | ----- |
+| 1.6         | カテゴリ「重要」の選択               | AdminAnnouncementsClient                 | `src/app/admin/announcements/client.tsx`                                         | -     |
+| 2.1         | 通知画面 of タブ順・初期タブ         | NotificationsClient                      | `src/app/notifications/notifications-client.tsx`                                 | -     |
+| 2.8         | バッジとアイコンの表示               | AnnouncementsTab                         | `src/app/notifications/announcements-tab.tsx`                                    | -     |
+| 2.9         | 「重要」お知らせの赤色強調表示       | AnnouncementsTab                         | `src/app/notifications/announcements-tab.tsx`                                    | -     |
+| 4.1         | 初期10件表示                         | NotificationsClient, AnnouncementsTab    | `src/app/notifications/notifications-client.tsx`, `announcements-tab.tsx`        | -     |
+| 4.2         | 「もっと見る」ボタンによるページング | NotificationsClient, AnnouncementsTab    | `src/app/notifications/notifications-client.tsx`, `announcements-tab.tsx`        | -     |
+| 4.3         | 追加データなし時のボタン制御         | NotificationsClient, AnnouncementsTab    | `src/app/notifications/notifications-client.tsx`, `announcements-tab.tsx`        | -     |
+| 4.4         | 各タブの未読数バッジ表示             | NotificationsClient                      | `src/app/notifications/notifications-client.tsx`                                 | -     |
+| 4.5         | 未ログイン時の通知未読非表示         | NotificationsClient                      | `src/app/notifications/notifications-client.tsx`                                 | -     |
+| 4.6         | 通知の全件既読機能                   | NotificationsClient, NotificationService | `src/app/notifications/notifications-client.tsx`, `src/services/notification.ts` | -     |
+| 4.7         | お知らせの全件既読機能               | AnnouncementsTab, LocalStorage           | `src/app/notifications/announcements-tab.tsx`                                    | -     |
 
 ## Components and Interfaces
 

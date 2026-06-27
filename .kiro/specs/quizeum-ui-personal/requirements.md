@@ -2,15 +2,15 @@
 
 ## Project Description (Input)
 
-Quizeum のエンドユーザーは、プロフィール・ブックマーク・通知・設定・カスタムクイズ・ログイン・料金など個人向け画面を利用している。現状、これらは CSS Modules と旧 Quizeum ビジュアル（glass-card、ネオン色、`btn` グローバルクラス）で分散実装されており、フォーム・タブ・グリッド等の UI パターンが shadcn プリミティブに統一されていない。Phase 23 でカスタムクイズ・設定・テーマ切替は機能実装済みだが、Phase 24 の shadcn 標準寄せ方針と整合しない。
+Quizetika のエンドユーザーは、プロフィール・ブックマーク・通知・設定・カスタムクイズ・ログイン・料金など個人向け画面を利用している。現状、これらは CSS Modules と旧 Quizetika ビジュアル（glass-card、ネオン色、`btn` グローバルクラス）で分散実装されており、フォーム・タブ・グリッド等の UI パターンが shadcn プリミティブに統一されていない。Phase 23 でカスタムクイズ・設定・テーマ切替は機能実装済みだが、Phase 24 の shadcn 標準寄せ方針と整合しない。
 
-本スペック（`quizeum-ui-personal`）は、`quizeum-ui-foundation` と `quizeum-ui-layout-shell` が提供する shadcn 標準テーマ・共通プリミティブ・シェル上に、個人ハブ全画面を Tailwind + shadcn で再構築する。テーマ切替（ライト/ダーク）の settings 連携、カスタムクイズの 4 ソースフィルタ・出題設定・プレイ開始、ブックマーク/プロフィール/通知のタブ・グリッド UI の機能契約は維持する。Firestore データ取得ロジック、認可、プレイ画面起動後の UI、シェルコンポーネントは範囲外とする。
+本スペック（`quizetika-ui-personal`）は、`quizetika-ui-foundation` と `quizetika-ui-layout-shell` が提供する shadcn 標準テーマ・共通プリミティブ・シェル上に、個人ハブ全画面を Tailwind + shadcn で再構築する。テーマ切替（ライト/ダーク）の settings 連携、カスタムクイズの 4 ソースフィルタ・出題設定・プレイ開始、ブックマーク/プロフィール/通知のタブ・グリッド UI の機能契約は維持する。Firestore データ取得ロジック、認可、プレイ画面起動後の UI、シェルコンポーネントは範囲外とする。
 
 ## Introduction
 
-Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では UI 刷新をドメイン別垂直スライスで進めており、本スペックは layout-shell 完了後の第 4 スペックとして個人ハブ（7 ルート群）を対象とする。shadcn 標準寄せ（neutral/zinc デフォルト、glass/neon 非再現）を正とし、既存 `data-testid` とルーティング・認証リダイレクト契約を維持する。
+Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では UI 刷新をドメイン別垂直スライスで進めており、本スペックは layout-shell 完了後の第 4 スペックとして個人ハブ（7 ルート群）を対象とする。shadcn 標準寄せ（neutral/zinc デフォルト、glass/neon 非再現）を正とし、既存 `data-testid` とルーティング・認証リダイレクト契約を維持する。
 
-移行完了時に関連 Playwright E2E（`user-settings`, `my-quiz`, `auth-profile` 等）および Jest 回帰がグリーンであることを要求する。後続 spec 更新候補（`quizeum-auth-profile-ui`, `quizeum-my-quiz-ui`, `quizeum-user-settings-ui`, `quizeum-billing-subscription-ui`）の UI 記述追随を前提とする。
+移行完了時に関連 Playwright E2E（`user-settings`, `my-quiz`, `auth-profile` 等）および Jest 回帰がグリーンであることを要求する。後続 spec 更新候補（`quizetika-auth-profile-ui`, `quizetika-my-quiz-ui`, `quizetika-user-settings-ui`, `quizetika-billing-subscription-ui`）の UI 記述追随を前提とする。
 
 ## Boundary Context
 
@@ -24,17 +24,17 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
   - 既存 `data-testid` の維持
   - 関連 E2E・Jest 回帰確認
 - **Out of scope**:
-  - Sidebar / Header / BottomNav / LayoutWrapper（`quizeum-ui-layout-shell`）
-  - Tailwind/shadcn 基盤・ThemeProvider 実装（`quizeum-ui-foundation`）
+  - Sidebar / Header / BottomNav / LayoutWrapper（`quizetika-ui-layout-shell`）
+  - Tailwind/shadcn 基盤・ThemeProvider 実装（`quizetika-ui-foundation`）
   - Firestore データ取得・認可・`useMyQuizPool` 等フックのビジネスロジック変更
-  - プレイ画面起動後の UI（`quizeum-ui-quiz-lifecycle`）
+  - プレイ画面起動後の UI（`quizetika-ui-quiz-lifecycle`）
   - Stripe Pricing Table 等サードパーティ埋め込みのスタイル統一
   - 新ルート・IA 変更・API 変更
   - `variables.css` の完全削除（`css-modules-cleanup` 候補）
 - **Adjacent expectations**:
-  - `quizeum-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Input, Tabs, Card 等）を提供済みであること
-  - `quizeum-ui-layout-shell` はシェル内 `main` でページを描画する前提を維持すること
-  - テーマ永続化キー `quizeum-theme` と FOUC 防止は foundation 契約に従うこと
+  - `quizetika-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Input, Tabs, Card 等）を提供済みであること
+  - `quizetika-ui-layout-shell` はシェル内 `main` でページを描画する前提を維持すること
+  - テーマ永続化キー `quizetika-theme` と FOUC 防止は foundation 契約に従うこと
   - 後続 spec 更新候補は本移行完了後に design/requirements の Tailwind 禁止条項を削除・更新する
 
 ## Requirements
@@ -43,7 +43,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 **Objective:** As a ユーザー, I want 個人向け画面が shadcn 標準のクリーンな見た目で統一されること, so that Phase 24 UI 刷新の一貫性を体感できる。
 
 #### Acceptance Criteria
-1. The Personal Hub UI shall 個人ハブ全画面で旧 Quizeum ビジュアル（glass-card、ネオン色クラス、body gradient 依存）を使用しない。
+1. The Personal Hub UI shall 個人ハブ全画面で旧 Quizetika ビジュアル（glass-card、ネオン色クラス、body gradient 依存）を使用しない。
 2. When ライトモードが適用されているとき, the Personal Hub UI shall shadcn 標準ライトパレットで各画面を表示する。
 3. When ダークモードが適用されているとき, the Personal Hub UI shall shadcn 標準ダークパレットで各画面を表示する。
 4. Where カード・サーフェス・フォームが表示される, the Personal Hub UI shall shadcn `Card` / 標準 border + shadow パターンを用いる。
@@ -56,7 +56,7 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では U
 1. When ユーザーが `/settings` にアクセスしたとき, the Settings Page shall `data-testid="settings-page-container"` を持つコンテナとテーマ切替 UI（`data-testid="settings-theme-toggle"`）を表示する。
 2. When ユーザーがライトまたはダークを選択したとき, the Theme Toggle shall `useTheme().setTheme` 経由で `html` 要素の `data-theme` 属性を対応値に更新する。
 3. When ユーザーがテーマを変更したとき, the Theme Toggle shall `useTheme().setTheme` 経由で `html` 要素に `dark` クラスを適用（ライト選択時は除去）する。
-4. When ユーザーがテーマを変更したとき, the Theme Toggle shall `localStorage` キー `quizeum-theme` に選択値を保存する。
+4. When ユーザーがテーマを変更したとき, the Theme Toggle shall `localStorage` キー `quizetika-theme` に選択値を保存する。
 5. When ユーザーがページを再読み込みしたとき, the Settings Page shall 保存されたテーマを復元表示する。
 6. When ログインユーザーが設定画面を表示したとき, the Settings Page shall プロフィール編集への導線（`data-testid="settings-profile-edit-link"`）を表示する。
 7. When 未ログインユーザーが設定画面を表示したとき, the Settings Page shall アカウントセクション（プロフィール編集リンク）を非表示にする。

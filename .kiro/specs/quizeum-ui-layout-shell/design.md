@@ -1,8 +1,8 @@
-# Design Document: quizeum-ui-layout-shell
+# Design Document: quizetika-ui-layout-shell
 
 ## Overview
 
-本機能は Phase 24 UI 刷新の**第 2 スペック**であり、Quizeum のアプリシェル（`LayoutWrapper`, `Sidebar`, `Header`, `BottomNav`）を `quizeum-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。既存のナビゲーション IA、レスポンシブ契約、`/play` 没入型表示、認証連携、`data-testid` は変更しない。
+本機能は Phase 24 UI 刷新の**第 2 スペック**であり、Quizetika のアプリシェル（`LayoutWrapper`, `Sidebar`, `Header`, `BottomNav`）を `quizetika-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。既存のナビゲーション IA、レスポンシブ契約、`/play` 没入型表示、認証連携、`data-testid` は変更しない。
 
 **Users**: 全エンドユーザーがシェル経由でナビゲーションする。開発者は後続ドメインスライス（discovery, personal 等）がシェル内 `main` でページを描画する前提を利用する。
 
@@ -20,7 +20,7 @@
 - ThemeProvider / テーマ永続化変更
 - BottomNav IA 変更
 - `variables.css` 削除
-- `quizeum-sidebar-layout` spec 文書の更新（roadmap 既存 spec update 候補）
+- `quizetika-sidebar-layout` spec 文書の更新（roadmap 既存 spec update 候補）
 
 ---
 
@@ -37,14 +37,14 @@
 
 ### Out of Boundary
 - `src/app/layout.tsx` の Provider ツリー変更（foundation / 既存順序維持）
-- `ThemeProvider`, `lib/theme.ts`, FOUC script（`quizeum-ui-foundation`）
+- `ThemeProvider`, `lib/theme.ts`, FOUC script（`quizetika-ui-foundation`）
 - `AuthProvider`, `useAuth`, Firebase `signOut`（既存認証）
 - 各ページルートのコンテンツコンポーネント
-- 設定ページ UI・テーマ切替トグル（`quizeum-user-settings-ui`）
+- 設定ページ UI・テーマ切替トグル（`quizetika-user-settings-ui`）
 - `variables.css` および未移行ドメインの CSS Modules
 
 ### Allowed Dependencies
-- **`quizeum-ui-foundation`**: Tailwind, `globals.css` CSS 変数, `cn()`, Button, Card, Skeleton（P0）
+- **`quizetika-ui-foundation`**: Tailwind, `globals.css` CSS 変数, `cn()`, Button, Card, Skeleton（P0）
 - **`useAuth` / `AuthProvider`**: ログイン状態・ユーザー情報（P0、読み取りのみ）
 - **`next/link`, `next/navigation`**: ルーティング（P0）
 - **`@mui/icons-material`**: ナビアイコン（P0、既存）
@@ -75,14 +75,14 @@
 
 ```mermaid
 graph TD
-    subgraph Foundation [quizeum-ui-foundation]
+    subgraph Foundation [quizetika-ui-foundation]
         Globals[globals.css CSS vars]
         CN[cn utility]
         Btn[Button Card Skeleton]
         Theme[dark class on html]
     end
 
-    subgraph Shell [quizeum-ui-layout-shell]
+    subgraph Shell [quizetika-ui-layout-shell]
         LW[LayoutWrapper]
         SB[Sidebar]
         HD[Header]
@@ -130,15 +130,15 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16, React 19 | Client Components (`'use client'`) | 既存維持 |
-| Styling | Tailwind CSS v4 | レイアウト・レスポンシブ | foundation 経由 |
-| UI | shadcn/ui | Button, Avatar, DropdownMenu, Separator | foundation Wave 1+2 |
-| Icons | @mui/icons-material | ナビアイコン | 既存 |
-| Routing | next/navigation | pathname 判定 | 既存 |
-| Auth | useAuth context | 表示切替 | 読み取りのみ |
-| Testing | Jest, Playwright | 単体・E2E | 既存 spec 回帰 |
+| Layer    | Choice / Version     | Role in Feature                         | Notes               |
+| -------- | -------------------- | --------------------------------------- | ------------------- |
+| Frontend | Next.js 16, React 19 | Client Components (`'use client'`)      | 既存維持            |
+| Styling  | Tailwind CSS v4      | レイアウト・レスポンシブ                | foundation 経由     |
+| UI       | shadcn/ui            | Button, Avatar, DropdownMenu, Separator | foundation Wave 1+2 |
+| Icons    | @mui/icons-material  | ナビアイコン                            | 既存                |
+| Routing  | next/navigation      | pathname 判定                           | 既存                |
+| Auth     | useAuth context      | 表示切替                                | 読み取りのみ        |
+| Testing  | Jest, Playwright     | 単体・E2E                               | 既存 spec 回帰      |
 
 ---
 
@@ -192,12 +192,12 @@ flowchart TD
 
 ### レスポンシブ表示マトリクス
 
-| Viewport | Sidebar | Header | BottomNav | Content padding-left | Content padding-bottom |
-|----------|---------|--------|-----------|---------------------|------------------------|
-| ≥1024px | 275px 固定 | hidden | hidden | 275px | 0 |
-| 768–1023px | 70px アイコンのみ | hidden | hidden | 70px | 0 |
-| ≤767px | hidden | visible | fixed bottom | 0 | 60px |
-| `/play` 全幅 | hidden | hidden | hidden | 0 | 0 |
+| Viewport     | Sidebar           | Header  | BottomNav    | Content padding-left | Content padding-bottom |
+| ------------ | ----------------- | ------- | ------------ | -------------------- | ---------------------- |
+| ≥1024px      | 275px 固定        | hidden  | hidden       | 275px                | 0                      |
+| 768–1023px   | 70px アイコンのみ | hidden  | hidden       | 70px                 | 0                      |
+| ≤767px       | hidden            | visible | fixed bottom | 0                    | 60px                   |
+| `/play` 全幅 | hidden            | hidden  | hidden       | 0                    | 0                      |
 
 ### アクティブナビ判定フロー
 
@@ -216,46 +216,46 @@ flowchart LR
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | PC Sidebar 表示 | Sidebar, LayoutWrapper | responsive classes | Layout matrix |
-| 1.2 | Tablet 縮小 Sidebar | Sidebar | w-[70px], label hidden | Layout matrix |
-| 1.3 | Mobile Header+BottomNav | Header, BottomNav | max-md display | Layout matrix |
-| 1.4 | Play シェル非表示 | LayoutWrapper | pathname check | Play flow |
-| 1.5 | ブレークポイント維持 | All shell | tailwind breakpoints | Layout matrix |
-| 2.1–2.7 | Sidebar ナビ・active | Sidebar, nav-active.ts | menuItems, isNavItemActive | Active flow |
-| 2.8–2.9 | Sidebar testid | Sidebar | data-testid attrs | — |
-| 3.1–3.4 | Header モバイル | Header | DropdownMenu | — |
-| 3.5–3.8 | BottomNav | BottomNav, nav-active.ts | nav links, testid | Active flow |
-| 4.1–4.5 | コンテンツ余白 | LayoutWrapper | padding classes | Layout matrix |
-| 5.1–5.5 | shadcn ビジュアル | All shell | bg-background, border-border | Theme vars |
-| 6.1 | CSS module 削除 | layout/*.module.css | — | — |
-| 6.2–6.3 | 構造維持 | LayoutWrapper | semantic HTML | — |
-| 6.4 | active class E2E | Sidebar, BottomNav | cn + 'active' | Active flow |
-| 6.5 | data-analytics | Sidebar, Header | analytics attrs | — |
-| 7.1–7.4 | 回帰テスト | tests, e2e | — | — |
+| Requirement | Summary                 | Components               | Interfaces                   | Flows         |
+| ----------- | ----------------------- | ------------------------ | ---------------------------- | ------------- |
+| 1.1         | PC Sidebar 表示         | Sidebar, LayoutWrapper   | responsive classes           | Layout matrix |
+| 1.2         | Tablet 縮小 Sidebar     | Sidebar                  | w-[70px], label hidden       | Layout matrix |
+| 1.3         | Mobile Header+BottomNav | Header, BottomNav        | max-md display               | Layout matrix |
+| 1.4         | Play シェル非表示       | LayoutWrapper            | pathname check               | Play flow     |
+| 1.5         | ブレークポイント維持    | All shell                | tailwind breakpoints         | Layout matrix |
+| 2.1–2.7     | Sidebar ナビ・active    | Sidebar, nav-active.ts   | menuItems, isNavItemActive   | Active flow   |
+| 2.8–2.9     | Sidebar testid          | Sidebar                  | data-testid attrs            | —             |
+| 3.1–3.4     | Header モバイル         | Header                   | DropdownMenu                 | —             |
+| 3.5–3.8     | BottomNav               | BottomNav, nav-active.ts | nav links, testid            | Active flow   |
+| 4.1–4.5     | コンテンツ余白          | LayoutWrapper            | padding classes              | Layout matrix |
+| 5.1–5.5     | shadcn ビジュアル       | All shell                | bg-background, border-border | Theme vars    |
+| 6.1         | CSS module 削除         | layout/*.module.css      | —                            | —             |
+| 6.2–6.3     | 構造維持                | LayoutWrapper            | semantic HTML                | —             |
+| 6.4         | active class E2E        | Sidebar, BottomNav       | cn + 'active'                | Active flow   |
+| 6.5         | data-analytics          | Sidebar, Header          | analytics attrs              | —             |
+| 7.1–7.4     | 回帰テスト              | tests, e2e               | —                            | —             |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| LayoutWrapper | Layout | シェル骨格・play 分岐・main 余白 | 1, 4, 6 | usePathname (P0) | State |
-| Sidebar | Navigation | PC/Tablet グローバルナビ | 1, 2, 5, 6 | useAuth, nav-active (P0) | State |
-| Header | Navigation | モバイル上部 chrome | 1, 3, 5, 6 | useAuth, DropdownMenu (P1) | State |
-| BottomNav | Navigation | モバイル下部ナビ | 1, 3, 5, 6 | useAuth, nav-active (P0) | State |
-| NavActiveHelpers | Utility | パス→アクティブ判定 | 2, 3 | — | Service |
-| ShellPrimitives | UI | Avatar, DropdownMenu, Separator | 2, 3, 5 | foundation cn (P0) | State |
+| Component        | Domain/Layer | Intent                           | Req Coverage | Key Dependencies (P0/P1)   | Contracts |
+| ---------------- | ------------ | -------------------------------- | ------------ | -------------------------- | --------- |
+| LayoutWrapper    | Layout       | シェル骨格・play 分岐・main 余白 | 1, 4, 6      | usePathname (P0)           | State     |
+| Sidebar          | Navigation   | PC/Tablet グローバルナビ         | 1, 2, 5, 6   | useAuth, nav-active (P0)   | State     |
+| Header           | Navigation   | モバイル上部 chrome              | 1, 3, 5, 6   | useAuth, DropdownMenu (P1) | State     |
+| BottomNav        | Navigation   | モバイル下部ナビ                 | 1, 3, 5, 6   | useAuth, nav-active (P0)   | State     |
+| NavActiveHelpers | Utility      | パス→アクティブ判定              | 2, 3         | —                          | Service   |
+| ShellPrimitives  | UI           | Avatar, DropdownMenu, Separator  | 2, 3, 5      | foundation cn (P0)         | State     |
 
 ### Layout Layer
 
 #### LayoutWrapper
 
-| Field | Detail |
-|-------|--------|
-| Intent | 子ページをシェルでラップし `/play` 時は没入表示 |
-| Requirements | 1.1–1.4, 4.1–4.5, 6.2, 6.3 |
+| Field        | Detail                                          |
+| ------------ | ----------------------------------------------- |
+| Intent       | 子ページをシェルでラップし `/play` 時は没入表示 |
+| Requirements | 1.1–1.4, 4.1–4.5, 6.2, 6.3                      |
 
 **Responsibilities & Constraints**
 - `usePathname()` で `pathname.includes('/play')` を判定（既存ロジック維持）
@@ -278,10 +278,10 @@ flowchart LR
 
 #### Sidebar
 
-| Field | Detail |
-|-------|--------|
-| Intent | PC/Tablet 固定 Sidebar とアカウントメニュー |
-| Requirements | 1.1, 1.2, 2.1–2.9, 5.1–5.5, 6.4, 6.5 |
+| Field        | Detail                                      |
+| ------------ | ------------------------------------------- |
+| Intent       | PC/Tablet 固定 Sidebar とアカウントメニュー |
+| Requirements | 1.1, 1.2, 2.1–2.9, 5.1–5.5, 6.4, 6.5        |
 
 **Responsibilities & Constraints**
 - `fixed left-0 top-0 h-screen z-90` — PC `w-[275px]`、tablet `md:w-[70px] lg:w-[275px]` 相当（`hidden md:flex max-md:hidden` は tablet+、mobile hidden）
@@ -305,10 +305,10 @@ flowchart LR
 
 #### Header
 
-| Field | Detail |
-|-------|--------|
-| Intent | モバイル上部ロゴ・アクション行 |
-| Requirements | 1.3, 3.1–3.4, 5.1–5.5, 6.5 |
+| Field        | Detail                         |
+| ------------ | ------------------------------ |
+| Intent       | モバイル上部ロゴ・アクション行 |
+| Requirements | 1.3, 3.1–3.4, 5.1–5.5, 6.5     |
 
 **Responsibilities & Constraints**
 - `md:hidden fixed top-0 w-full z-90 border-b bg-background`
@@ -323,9 +323,9 @@ flowchart LR
 
 #### BottomNav
 
-| Field | Detail |
-|-------|--------|
-| Intent | モバイル下部固定ナビ |
+| Field        | Detail                     |
+| ------------ | -------------------------- |
+| Intent       | モバイル下部固定ナビ       |
 | Requirements | 1.3, 3.5–3.8, 5.1–5.5, 6.4 |
 
 **Responsibilities & Constraints**
@@ -343,10 +343,10 @@ flowchart LR
 
 #### NavActiveHelpers
 
-| Field | Detail |
-|-------|--------|
-| Intent | パスと href の一致判定を Sidebar/BottomNav で共有 |
-| Requirements | 2.5–2.7, 3.7 |
+| Field        | Detail                                            |
+| ------------ | ------------------------------------------------- |
+| Intent       | パスと href の一致判定を Sidebar/BottomNav で共有 |
+| Requirements | 2.5–2.7, 3.7                                      |
 
 **Contracts**: Service [x]
 
@@ -404,7 +404,7 @@ export function isSearchActive(pathname: string | null): boolean;
 
 ```mermaid
 flowchart LR
-    F0[quizeum-ui-foundation 完了]
+    F0[quizetika-ui-foundation 完了]
     S1[foundation Wave 2 確認]
     S2[nav-active 抽出]
     S3[LayoutWrapper Tailwind 化]
@@ -422,6 +422,6 @@ flowchart LR
     S6 --> S7
 ```
 
-- **前提**: `quizeum-ui-foundation` マージ済み（Tailwind ビルド可能）
+- **前提**: `quizetika-ui-foundation` マージ済み（Tailwind ビルド可能）
 - **Rollback**: 個別コンポーネントを revert。CSS Modules 復元で旧ビルドに戻せる
 - **完了定義**: 4 つの `.module.css` 削除 + `layout.spec.ts` グリーン

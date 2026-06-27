@@ -1,14 +1,14 @@
 # Requirements Document
 
 ## Introduction
-現在のQuizeumはデスクトップでもモバイルでもヘッダー（Header）を中心としたナビゲーションになっており、メニュー項目（ホーム、通知、ブックマーク、作問、ダッシュボード、プロフィールなど）が増えるにつれて、ヘッダーに要素が集中するかドロップダウンに隠れてしまい、アクセス性が低下しています。また、一般的なモダンSNS（XやInstagram）と比較して、UIのWOW感やプレミアムな操作性が不足しています。
+現在のQuizetikaはデスクトップでもモバイルでもヘッダー（Header）を中心としたナビゲーションになっており、メニュー項目（ホーム、通知、ブックマーク、作問、ダッシュボード、プロフィールなど）が増えるにつれて、ヘッダーに要素が集中するかドロップダウンに隠れてしまい、アクセス性が低下しています。また、一般的なモダンSNS（XやInstagram）と比較して、UIのWOW感やプレミアムな操作性が不足しています。
 本スペックでは、PC/タブレットでは左サイドバー、モバイルでは下部ボトムナビ＋上部ミニヘッダーというXやInstagram風のレスポンシブなフルハイブリッドレイアウトへと刷新し、全メニューの統合を行います。
 
-**Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）と検索画面（`/search`）の IA 分離に伴い、Sidebar および BottomNav に「検索」導線を追加し、ホーム（`/`）と検索（`/search`）のアクティブ状態を区別して表示します（各画面のコンテンツは `quizeum-play-flow-ui` が担当）。
+**Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）と検索画面（`/search`）の IA 分離に伴い、Sidebar および BottomNav に「検索」導線を追加し、ホーム（`/`）と検索（`/search`）のアクティブ状態を区別して表示します（各画面のコンテンツは `quizetika-play-flow-ui` が担当）。
 
 **Phase 23（2026-06-09）**: リスト探索（`/lists`）・カスタムクイズ（`/my-quiz`）・設定（`/settings`）へのナビ導線を追加します。Sidebar に「リスト」「カスタムクイズ」を追加し、アカウントポップアップに「設定」を追加します。各画面のコンテンツは隣接スペックが担当します。モバイル BottomNav への項目追加は過密のため、本フェーズでは Sidebar 優先とし、モバイル向け到達手段は設計で確定します。
 
-**Phase 26（2026-06-10）**: クイズリスト機能の完全廃止に伴い、Phase 23 で追加した「リスト」（`/lists`）ナビ導線を Sidebar および Header プロフィールポップアップから除去します。カスタムクイズ（`/my-quiz`）および設定（`/settings`）への導線は維持します（`quizeum-core`・`quizeum-play-flow-ui`・`quizeum-creator-dash-ui`・`quizeum-my-quiz-ui` が Phase 26 でリスト機能を除去済み）。
+**Phase 26（2026-06-10）**: クイズリスト機能の完全廃止に伴い、Phase 23 で追加した「リスト」（`/lists`）ナビ導線を Sidebar および Header プロフィールポップアップから除去します。カスタムクイズ（`/my-quiz`）および設定（`/settings`）への導線は維持します（`quizetika-core`・`quizetika-play-flow-ui`・`quizetika-creator-dash-ui`・`quizetika-my-quiz-ui` が Phase 26 でリスト機能を除去済み）。
 
 **Phase 27（2026-06-21）**: システム管理者（Super Admin）ロールを持つユーザーに対して、PC用 Sidebar およびモバイル用 Header のプロフィールポップアップから管理者ポータル画面（`/admin`）へ遷移できるナビゲーション項目を追加します。
 
@@ -36,10 +36,10 @@
 - **Adjacent expectations**:
   - ログイン状態やユーザーアバター画像、メールアドレスなどの基本情報は、既存の認証状態（`useAuth` フック）から提供されること。
   - サイドバー等のリンクから遷移する各画面（ホーム、通知、ブックマーク等）のメインコンテンツ自体は、本スペックの管轄外（既存の各UIスペックが所有）であること。
-  - **Phase 22**: ディスカバリーホームおよび検索画面のカルーセル・フィルタ UI は `quizeum-play-flow-ui` が提供すること。検索 URL クエリ契約は `quizeum-core` が提供すること。
-  - **Phase 23**: カスタムクイズページ（`/my-quiz`）は `quizeum-my-quiz-ui`、設定ページおよびテーマ切替は `quizeum-user-settings-ui` が提供すること。`layout.tsx` への ThemeProvider 統合は `quizeum-user-settings-ui` が担当し、本スペックはシェル構造の整合に協調すること。
-  - **Phase 26**: `/lists` ルートは廃止済み（404）。リスト探索・作成・編集 UI の除去は `quizeum-play-flow-ui`・`quizeum-creator-dash-ui` が担当済み。プロフィール「作成したリスト」タブ除去は `quizeum-auth-profile-ui` が担当。
-  - **Phase 27**: 管理者ユーザーの権限判定（`isAdminUser`）は `quizeum-core` の判定メソッド (`src/lib/middleware-auth-cookies.ts`) および `User` 型定義 (`src/types/index.ts`) を再利用すること。管理者ポータル画面（`/admin`）自体の実装や認可制御は `quizeum-admin-users-ui` 等が担当すること。
+  - **Phase 22**: ディスカバリーホームおよび検索画面のカルーセル・フィルタ UI は `quizetika-play-flow-ui` が提供すること。検索 URL クエリ契約は `quizetika-core` が提供すること。
+  - **Phase 23**: カスタムクイズページ（`/my-quiz`）は `quizetika-my-quiz-ui`、設定ページおよびテーマ切替は `quizetika-user-settings-ui` が提供すること。`layout.tsx` への ThemeProvider 統合は `quizetika-user-settings-ui` が担当し、本スペックはシェル構造の整合に協調すること。
+  - **Phase 26**: `/lists` ルートは廃止済み（404）。リスト探索・作成・編集 UI の除去は `quizetika-play-flow-ui`・`quizetika-creator-dash-ui` が担当済み。プロフィール「作成したリスト」タブ除去は `quizetika-auth-profile-ui` が担当。
+  - **Phase 27**: 管理者ユーザーの権限判定（`isAdminUser`）は `quizetika-core` の判定メソッド (`src/lib/middleware-auth-cookies.ts`) および `User` 型定義 (`src/types/index.ts`) を再利用すること。管理者ポータル画面（`/admin`）自体の実装や認可制御は `quizetika-admin-users-ui` 等が担当すること。
 
 ## Requirements
 
@@ -94,7 +94,7 @@
 3. The Bottom Navigation Component shall モバイル表示時に検索画面（`/search`）への導線を提供すること。
 4. The Sidebar Component shall 「検索」項目に `data-testid="nav-search"`、「ホーム」項目に `data-testid="nav-home"` を付与すること。
 5. The Bottom Navigation Component shall 検索リンクに `data-testid="bottom-nav-search"`、ホームリンクに `data-testid="bottom-nav-home"` を付与すること（既存 `bottom-nav-home` がある場合は `/` 向けとして維持）。
-6. The Sidebar Component shall [ディスカバリーホームのカルーセル内容・検索画面のフィルタ UI を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当）]。
+6. The Sidebar Component shall [ディスカバリーホームのカルーセル内容・検索画面のフィルタ UI を本要件の範囲に含めない（`quizetika-play-flow-ui` が担当）]。
 
 ### Requirement 6: リスト・カスタムクイズ・設定へのナビ拡張（Phase 23）
 **Objective:** As a ログインユーザー, I want リスト探索・カスタムクイズ・設定へナビからアクセスできること, so that 個人向け学習機能と表示設定に素早く到達できる。
@@ -121,10 +121,10 @@
 13. When モバイル向けに BottomNav へ「リスト」「カスタムクイズ」を追加しない設計を採用した場合, the Navigation Layout shall 代替導線の到達先が Sidebar と同一ルート（`/lists`・`/my-quiz`）であること。
 
 **境界・隣接**
-14. The Sidebar Component shall [リスト探索ページの検索・公開/非公開タブ UI を本要件の範囲に含めない（`quizeum-lists-discovery-ui` が担当）]。
-15. The Sidebar Component shall [カスタムクイズのフィルタ・出題数・プレイ開始 UI を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当）]。
-16. The Sidebar Component shall [設定ページのテーマ切替 UI および ThemeProvider 実装を本要件の範囲に含めない（`quizeum-user-settings-ui` が担当）]。
-17. The Sidebar Component shall [マイページからのリアクション履歴導線削除を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
+14. The Sidebar Component shall [リスト探索ページの検索・公開/非公開タブ UI を本要件の範囲に含めない（`quizetika-lists-discovery-ui` が担当）]。
+15. The Sidebar Component shall [カスタムクイズのフィルタ・出題数・プレイ開始 UI を本要件の範囲に含めない（`quizetika-my-quiz-ui` が担当）]。
+16. The Sidebar Component shall [設定ページのテーマ切替 UI および ThemeProvider 実装を本要件の範囲に含めない（`quizetika-user-settings-ui` が担当）]。
+17. The Sidebar Component shall [マイページからのリアクション履歴導線削除を本要件の範囲に含めない（`quizetika-auth-profile-ui` が担当）]。
 
 ### Requirement 7: リストナビ項目の除去（Phase 26）
 **Objective:** As a ログインユーザー, I want 廃止されたリスト機能へのナビ導線が表示されないこと, so that 存在しない画面へ遷移しようとする混乱を避けられる。
@@ -152,10 +152,10 @@
 12. The Layout E2E Tests shall Sidebar／Header から `/lists` へ遷移するシナリオを削除し、廃止ルート `/lists` が 404 を返す検証（`e2e/layout.spec.ts`）を維持すること。
 
 **境界・隣接**
-13. The Sidebar Component shall [廃止済み `/lists` ページ UI の除去を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当済み）]。
-14. The Sidebar Component shall [プロフィール画面の「作成したリスト」タブ除去を本要件の範囲に含めない（`quizeum-auth-profile-ui` が担当）]。
-15. The Sidebar Component shall [ブックマーク画面の「リスト」タブ除去を本要件の範囲に含めない（`quizeum-play-flow-ui` が担当済み）]。
-16. The Sidebar Component shall [カスタムクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizeum-my-quiz-ui` が担当済み）]。
+13. The Sidebar Component shall [廃止済み `/lists` ページ UI の除去を本要件の範囲に含めない（`quizetika-play-flow-ui` が担当済み）]。
+14. The Sidebar Component shall [プロフィール画面の「作成したリスト」タブ除去を本要件の範囲に含めない（`quizetika-auth-profile-ui` が担当）]。
+15. The Sidebar Component shall [ブックマーク画面の「リスト」タブ除去を本要件の範囲に含めない（`quizetika-play-flow-ui` が担当済み）]。
+16. The Sidebar Component shall [カスタムクイズのブックマークリストソース除去を本要件の範囲に含めない（`quizetika-my-quiz-ui` が担当済み）]。
 
 ### Requirement 8: 管理者メニューへのナビ導線追加（Phase 27）
 **Objective:** As a システム管理者, I want 各メニューから管理者ページ（`/admin`）へ1タップで遷移できること, so that ユーザー管理やモデレーション作業を迅速に開始できる。

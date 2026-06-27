@@ -1,4 +1,4 @@
-# Design Document: quizeum-analytics-bigquery
+# Design Document: quizetika-analytics-bigquery
 
 ## Overview
 ### 目的
@@ -25,8 +25,8 @@
 - **ユーザー向け統計画面**: BigQuery から直接データを読み取って Next.js 画面にダッシュボードを表示する機能（クエリ負荷やAPIキー管理を考慮し、アプリケーション画面は引き続き Firestore を直接参照）。
 
 ### 許容される依存関係 (Allowed Dependencies)
-- `quizeum-core` (Firestore スキーマ定義、`saveAttempt` トランザクション、オフライン同期)
-- `quizeum-ui-quiz-lifecycle` (クイズプレイ進行UI、タイマー表示、解答ボタン操作)
+- `quizetika-core` (Firestore スキーマ定義、`saveAttempt` トランザクション、オフライン同期)
+- `quizetika-ui-quiz-lifecycle` (クイズプレイ進行UI、タイマー表示、解答ボタン操作)
 - Firebase Extension `firestore-bigquery-export` (Firestore の書き込みイベント検知と BigQuery へのストリーミング同期)
 
 ### 再検証トリガー (Revalidation Triggers)
@@ -67,21 +67,21 @@ sequence-diagram
 
 ### 技術スタック
 
-| レイヤー | 技術 / バージョン | 本機能における役割 | 備考 |
-|---|---|---|---|
-| Frontend | React 19 / Next.js 16 | 解答時間・ヒント表示・回答変更のトラッキング、オフラインセッション保存 | `usePlayState` フックを拡張 |
-| Backend | Next.js API Routes | `saveAttempt` サービス、およびウミガメスープAPI (`verify-truth`, `give-up-lateral`) での解答詳細の検証・構築・保存 | Firestore トランザクション処理 |
-| Database | Cloud Firestore | 解答詳細配列 `questionAnswerDetails` を含む `attempts` レコードの永続化 | スキーマ拡張 |
-| Sync Engine | Firebase Extension | `attempts` の追加・変更を検知し BigQuery へストリーミング転送 | `firestore-bigquery-export` |
-| Data Warehouse | Google Cloud BigQuery | 蓄積されたクイズプレイデータの保存、アンネストビュー経由でのデータ分析 | STRUCT / REPEATED 構造 |
+| レイヤー       | 技術 / バージョン     | 本機能における役割                                                                                                 | 備考                           |
+| -------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| Frontend       | React 19 / Next.js 16 | 解答時間・ヒント表示・回答変更のトラッキング、オフラインセッション保存                                             | `usePlayState` フックを拡張    |
+| Backend        | Next.js API Routes    | `saveAttempt` サービス、およびウミガメスープAPI (`verify-truth`, `give-up-lateral`) での解答詳細の検証・構築・保存 | Firestore トランザクション処理 |
+| Database       | Cloud Firestore       | 解答詳細配列 `questionAnswerDetails` を含む `attempts` レコードの永続化                                            | スキーマ拡張                   |
+| Sync Engine    | Firebase Extension    | `attempts` の追加・変更を検知し BigQuery へストリーミング転送                                                      | `firestore-bigquery-export`    |
+| Data Warehouse | Google Cloud BigQuery | 蓄積されたクイズプレイデータの保存、アンネストビュー経由でのデータ分析                                             | STRUCT / REPEATED 構造         |
 
 ---
 
 ## File Structure Plan
 
 ### 新規ファイル (New Files)
-- `.kiro/specs/quizeum-analytics-bigquery/bigquery-schema.json` — BigQuery 同期先テーブルの `questionAnswerDetails` カラム用スキーマ定義 (STRUCT/REPEATED)。
-- `.kiro/specs/quizeum-analytics-bigquery/bigquery-views.sql` — `attempts_raw` から `questionAnswerDetails` を UNNEST 展開してフラットな行にする分析用ビューの SQL。
+- `.kiro/specs/quizetika-analytics-bigquery/bigquery-schema.json` — BigQuery 同期先テーブルの `questionAnswerDetails` カラム用スキーマ定義 (STRUCT/REPEATED)。
+- `.kiro/specs/quizetika-analytics-bigquery/bigquery-views.sql` — `attempts_raw` から `questionAnswerDetails` を UNNEST 展開してフラットな行にする分析用ビューの SQL。
 - `scripts/bq-import-guide.md` — 既存の Firestore 内 `attempts` 履歴データを BigQuery に一括移行するためのインポートコマンド・実行手順書。
 
 ### 変更ファイル (Modified Files)
@@ -120,24 +120,24 @@ graph TD
 
 ## Requirements Traceability
 
-| 要件 ID | 要件概要 | 該当ファイル / コンポーネント | 実現内容 |
-|---|---|---|---|
-| **1.1** | 問題解答詳細データのトラッキング開始 | `usePlayState.ts` | 設問表示時の `t0` タイムスタンプ記録、およびタイマー処理。 |
-| **1.2** | 解答決定時の秒数測定と記録 | `usePlayState.ts` | `recordAnswer` トリガー時の `elapsedSeconds` 計算。 |
-| **1.3** | ヒント表示数のカウント | `usePlayState.ts`, `quiz-play-client.tsx` | ヒント閲覧アクションと連動した `hintsUsedCount` の加算。 |
-| **1.4** | 回答変更有無の検知 | `usePlayState.ts` | 選択肢再クリックをカウントし、`answerChanged` を更新。 |
-| **1.5** | クイズ完了時の詳細一括保存 | `attempt.ts`, `quiz-play-client.tsx` | `saveAttempt` 呼び出し時に `questionAnswerDetails` 配列をペイロードに組み込み、サーバー側で二重検証した上でアトミックに保存。 |
-| **2.1** | 真偽値・選択式の詳細ログ収集 | `usePlayState.ts` | `selectedChoiceId`, `choicesOrder`, `choicesInteractionsCount` の記録。 |
-| **2.2** | 記述・短答・連想・早押しの回答内容保存 | `usePlayState.ts` | `userAnswer` にユーザーのテキスト回答を格納。 |
-| **2.3** | 早押しクイズの秒数計測 | `usePlayState.ts`, `quiz-play-client.tsx` | ストリーミング表示開始から早押しボタン押下までの `quickPressSeconds` の記録。 |
-| **2.4** | 並び替えクイズの並び順記録 | `usePlayState.ts` | 初期表示シャッフル順 (`initialItemOrder`) と決定順 (`finalItemOrder`) の記録。 |
-| **2.5** | 水平思考クイズの詳細ログ収集 | `verify-truth/route.ts`, `give-up-lateral/route.ts` | AI判定API側で `aiTurnCount`, `truthSummary`, `lateralPlayEndedStatus` を含む解答詳細を生成し、合格・リタイア時の attempt ドキュメントに保存。 |
-| **3.1** | オフライン時のローカル保存 | `attempt-session.ts`, `quiz-play-client.tsx` | `PlayProgressData` および `PendingSyncAttempt` に `questionAnswerDetails` を含め、`localStorage` にシリアライズ保存。 |
-| **3.2** | オンライン復旧時の自動同期 | `attempt.ts` | `syncPendingAttempts` 内で拡張された attempt データを Firestore に送信。 |
-| **3.3** | 同期失敗時のロールバック保護 | `attempt-session.ts`, `attempt.ts` | 同期失敗時は `localStorage` の未同期リストから削除せず保護を維持。 |
-| **4.1** | BigQuery へのリアルタイム転送 | Firebase Extension | Firestore の `attempts` の作成・更新時に BigQuery へのストリーミングをトリガー。 |
-| **4.2** | 配列型 (REPEATED) スキーマ | `bigquery-schema.json` | BigQuery 側に `questionAnswerDetails` を STRUCT 配列型として定義。 |
-| **4.3** | アンネストビューの提供 | `bigquery-views.sql` | `LEFT JOIN UNNEST` クエリを用いたフラット展開ビューの提供。 |
+| 要件 ID | 要件概要                               | 該当ファイル / コンポーネント                       | 実現内容                                                                                                                                      |
+| ------- | -------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1.1** | 問題解答詳細データのトラッキング開始   | `usePlayState.ts`                                   | 設問表示時の `t0` タイムスタンプ記録、およびタイマー処理。                                                                                    |
+| **1.2** | 解答決定時の秒数測定と記録             | `usePlayState.ts`                                   | `recordAnswer` トリガー時の `elapsedSeconds` 計算。                                                                                           |
+| **1.3** | ヒント表示数のカウント                 | `usePlayState.ts`, `quiz-play-client.tsx`           | ヒント閲覧アクションと連動した `hintsUsedCount` の加算。                                                                                      |
+| **1.4** | 回答変更有無の検知                     | `usePlayState.ts`                                   | 選択肢再クリックをカウントし、`answerChanged` を更新。                                                                                        |
+| **1.5** | クイズ完了時の詳細一括保存             | `attempt.ts`, `quiz-play-client.tsx`                | `saveAttempt` 呼び出し時に `questionAnswerDetails` 配列をペイロードに組み込み、サーバー側で二重検証した上でアトミックに保存。                 |
+| **2.1** | 真偽値・選択式の詳細ログ収集           | `usePlayState.ts`                                   | `selectedChoiceId`, `choicesOrder`, `choicesInteractionsCount` の記録。                                                                       |
+| **2.2** | 記述・短答・連想・早押しの回答内容保存 | `usePlayState.ts`                                   | `userAnswer` にユーザーのテキスト回答を格納。                                                                                                 |
+| **2.3** | 早押しクイズの秒数計測                 | `usePlayState.ts`, `quiz-play-client.tsx`           | ストリーミング表示開始から早押しボタン押下までの `quickPressSeconds` の記録。                                                                 |
+| **2.4** | 並び替えクイズの並び順記録             | `usePlayState.ts`                                   | 初期表示シャッフル順 (`initialItemOrder`) と決定順 (`finalItemOrder`) の記録。                                                                |
+| **2.5** | 水平思考クイズの詳細ログ収集           | `verify-truth/route.ts`, `give-up-lateral/route.ts` | AI判定API側で `aiTurnCount`, `truthSummary`, `lateralPlayEndedStatus` を含む解答詳細を生成し、合格・リタイア時の attempt ドキュメントに保存。 |
+| **3.1** | オフライン時のローカル保存             | `attempt-session.ts`, `quiz-play-client.tsx`        | `PlayProgressData` および `PendingSyncAttempt` に `questionAnswerDetails` を含め、`localStorage` にシリアライズ保存。                         |
+| **3.2** | オンライン復旧時の自動同期             | `attempt.ts`                                        | `syncPendingAttempts` 内で拡張された attempt データを Firestore に送信。                                                                      |
+| **3.3** | 同期失敗時のロールバック保護           | `attempt-session.ts`, `attempt.ts`                  | 同期失敗時は `localStorage` の未同期リストから削除せず保護を維持。                                                                            |
+| **4.1** | BigQuery へのリアルタイム転送          | Firebase Extension                                  | Firestore の `attempts` の作成・更新時に BigQuery へのストリーミングをトリガー。                                                              |
+| **4.2** | 配列型 (REPEATED) スキーマ             | `bigquery-schema.json`                              | BigQuery 側に `questionAnswerDetails` を STRUCT 配列型として定義。                                                                            |
+| **4.3** | アンネストビューの提供                 | `bigquery-views.sql`                                | `LEFT JOIN UNNEST` クエリを用いたフラット展開ビューの提供。                                                                                   |
 
 ---
 
@@ -145,7 +145,7 @@ graph TD
 
 ### データ型定義
 
-[src/types/index.ts](file:///d:/quizeum/src/types/index.ts) に追加する型契約定義です。
+[src/types/index.ts](file:///d:/quizetika/src/types/index.ts) に追加する型契約定義です。
 
 ```typescript
 /**
@@ -201,7 +201,7 @@ export function usePlayState(props: UsePlayStateProps) {
 ```
 
 #### `saveAttempt` のバリデーション
-`saveAttempt` ([src/services/attempt.ts](file:///d:/quizeum/src/services/attempt.ts)) 内で、クライアントから送信された `questionAnswerDetails` が以下の条件を満たすかチェックするサーバーサイド二重検証を実装します。
+`saveAttempt` ([src/services/attempt.ts](file:///d:/quizetika/src/services/attempt.ts)) 内で、クライアントから送信された `questionAnswerDetails` が以下の条件を満たすかチェックするサーバーサイド二重検証を実装します。
 - `questionAnswerDetails` の配列長が、実際のクイズ問題数（`totalQuestions`）と一致すること。
 - 各詳細データの `isCorrect` の合計数が、送信された `score` と一致すること。
 - 不正な `questionId` が含まれていないこと。

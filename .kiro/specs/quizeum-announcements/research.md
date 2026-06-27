@@ -1,12 +1,12 @@
-# Research & Design Decisions: quizeum-announcements
+# Research & Design Decisions: quizetika-announcements
 
 ## Summary
-- **Feature**: `quizeum-announcements`
+- **Feature**: `quizetika-announcements`
 - **Discovery Scope**: Extension
 - **Key Findings**:
   - `parseMarkdownToHtml` がすでに `src/lib/security/sanitize.ts` に存在しており、これをそのまま流用できる。
   - `/notifications` ページは現在 `middleware.ts` の `authRequiredPaths` に含まれており、未ログイン時はログイン画面に強制リダイレクトされるため、ここを緩和する必要がある。
-  - 管理者チェックには、`src/lib/middleware-auth-cookies.ts` の `isAdminUser` や Cookie に設定された `quizeum_role=admin` が使用可能。
+  - 管理者チェックには、`src/lib/middleware-auth-cookies.ts` の `isAdminUser` や Cookie に設定された `quizetika_role=admin` が使用可能。
 
 ## Research Log
 ### Markdown Render Integration

@@ -1,7 +1,7 @@
-# Brief: quizeum-sidebar-layout
+# Brief: quizetika-sidebar-layout
 
 ## Problem
-現在のQuizeumはデスクトップでもモバイルでもヘッダー（Header）を中心としたナビゲーションになっており、メニュー項目（ホーム、通知、ブックマーク、作問、ダッシュボード、プロフィールなど）が増えるにつれて、ヘッダーに要素が集中するかドロップダウンに隠れてしまい、アクセス性が低下しています。また、一般的なモダンSNS（XやInstagram）と比較して、UIのWOW感やプレミアムな操作性が不足しています。
+現在のQuizetikaはデスクトップでもモバイルでもヘッダー（Header）を中心としたナビゲーションになっており、メニュー項目（ホーム、通知、ブックマーク、作問、ダッシュボード、プロフィールなど）が増えるにつれて、ヘッダーに要素が集中するかドロップダウンに隠れてしまい、アクセス性が低下しています。また、一般的なモダンSNS（XやInstagram）と比較して、UIのWOW感やプレミアムな操作性が不足しています。
 
 ## Current State
 - `src/components/layout/header.tsx` がロゴ、デスクトップナビ、ユーザーメニュー、モバイルメニューのすべてを所有。
@@ -41,12 +41,12 @@
 - 各画面内部（ホーム、プロフィール等）のメインコンテンツのデザインや表示データのロジック変更。
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-auth-profile-ui` (ログイン状態やアバター表示、通知・ブックマークのルート定義に依存)
+- **Upstream**: `quizetika-auth-profile-ui` (ログイン状態やアバター表示、通知・ブックマークのルート定義に依存)
 - **Downstream**: 今後追加されるすべての画面UI（左サイドバーレイアウト下でレンダリングされる）
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-auth-profile-ui` の `Header` 実装を置き換える。
-- **Adjacent**: `quizeum-play-flow-ui` のホームやクイズ詳細のレイアウト余白に干渉するため、余白設定の整合をとる。
+- **Extends**: `quizetika-auth-profile-ui` の `Header` 実装を置き換える。
+- **Adjacent**: `quizetika-play-flow-ui` のホームやクイズ詳細のレイアウト余白に干渉するため、余白設定の整合をとる。
 
 ## Constraints
 - **TailwindCSS禁止**: スタイリングには CSS Modules (Vanilla CSS) を使用すること。

@@ -1,4 +1,4 @@
-# Technical Design Document: quizeum-ai-quiz-authoring
+# Technical Design Document: quizetika-ai-quiz-authoring
 
 ## Overview
 
@@ -38,13 +38,13 @@
 - **E2E テスト**: チャット開閉、メッセージ送信、ツール実行による問題の追加・編集・削除、エラー表示の検証。
 
 ### Out of Boundary
-- 水平思考プレイ中の質問チャット UI およびその制限ロジック（`quizeum-play-flow-ui`）。
-- 料金画面レイアウト（`quizeum-billing-subscription-ui`）。
+- 水平思考プレイ中の質問チャット UI およびその制限ロジック（`quizetika-play-flow-ui`）。
+- 料金画面レイアウト（`quizetika-billing-subscription-ui`）。
 - クイズ保存・公開・バリデーションライブラリ本体（既存 `quiz-validation` を呼び出すのみ）。
 - Stripe 連携およびサブスクリプションエンタイトルメント同期のインフラ部分。
 
 ### Allowed Dependencies
-- `quizeum-core`: `resolveUserEntitlements`, `verifyFirebaseIdToken`, `quiz-validation`, Firestore Admin, Storage Admin helper。
+- `quizetika-core`: `resolveUserEntitlements`, `verifyFirebaseIdToken`, `quiz-validation`, Firestore Admin, Storage Admin helper。
 - `ai` (Vercel AI SDK): 対話インターフェース構築用。
 - `@ai-sdk/google`: Gemini API 呼び出し用。
 - `GEMINI_API_KEY`, `GEMINI_MODEL_ID`（env 環境変数）。
@@ -106,13 +106,13 @@ sequenceDiagram
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | React 19 + CSS Modules | チャットパネル、UI 統合 | Tailwind を使わず Vanilla CSS |
-| Chat SDK | Vercel AI SDK (`ai` ^4.0.0) | クライアント `useChat` & サーバー `streamText` | Tool Use およびストリーミング管理 |
-| Model Provider | `@ai-sdk/google` ^1.0.0 | Gemini API 連携 | `gemini-2.5-flash` などのモデルを利用 |
-| Google Search | Gemini Google Search Tool | 事実関係のグラウンディング検証 | Vertex AI/AI Studio Grounding または自作検索ツール |
-| Limit Control | Firestore Admin | 日次チャット/ツール利用カウンタの永続化 | `users/{uid}/dailyAiAuthoringCounts/chat` |
+| Layer          | Choice / Version            | Role in Feature                                | Notes                                              |
+| -------------- | --------------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| Frontend       | React 19 + CSS Modules      | チャットパネル、UI 統合                        | Tailwind を使わず Vanilla CSS                      |
+| Chat SDK       | Vercel AI SDK (`ai` ^4.0.0) | クライアント `useChat` & サーバー `streamText` | Tool Use およびストリーミング管理                  |
+| Model Provider | `@ai-sdk/google` ^1.0.0     | Gemini API 連携                                | `gemini-2.5-flash` などのモデルを利用              |
+| Google Search  | Gemini Google Search Tool   | 事実関係のグラウンディング検証                 | Vertex AI/AI Studio Grounding または自作検索ツール |
+| Limit Control  | Firestore Admin             | 日次チャット/ツール利用カウンタの永続化        | `users/{uid}/dailyAiAuthoringCounts/chat`          |
 
 ## File Structure Plan
 
@@ -188,17 +188,17 @@ e2e/
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces / Files | Flows / Notes |
-|-------------|---------|------------|---------------------|---------------|
-| 1.1 - 1.5 | UI開閉、Pro制限 | `AiChatAssistantButton`, `AiChatAssistantPanel` | `components/quiz/editor/` | 起動・スライド表示、Proプラン認可 |
-| 2.1 - 2.4 | Vercel AI SDK基本対話 | `POST /api/quiz/ai-chat-authoring`, `useChat` | `route.ts`, `useAiChatAssistant.ts` | クイズのコンテキスト送信、ストリーミング |
-| 2.5 | チャット内のマークダウン表示 | `AiChatAssistantPanel`, `MarkdownContent` | `ai-chat-assistant-panel.tsx`, `sanitize.ts` | マークダウン（リスト、インラインコード、コードブロック等）のパースとダークテーマ適合表示 |
-| 2.6 | リンクの安全性と新タブ表示 | `MarkdownContent` | `sanitize.ts` | セキュリティ対策（rel="noopener noreferrer"）を施した新タブリンク遷移 |
-| 2.7 | コードブロックコピー機能 | `AiChatAssistantPanel` | `ai-chat-assistant-panel.tsx`, `ai-chat-assistant.module.css` | コードブロック内のコピーボタン（レ点変化付き）の表示とクリップボードコピー処理 |
-| 3.1 - 3.6 | エディタ操作ツール (Tool Use) とユーザー承認フロー | `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail` | API ツールスキーマ定義、クライアント Tool Handlers, 承認UI | ツール呼び出し時の承認保留、プレビュー表示、承認（適用）および却下（キャンセル）処理、バリデーション検証 |
-| 4.1 - 4.5 | 包括チェック & Google検索ファクトチェック | `checkQuestion`, `checkAllQuestions`, `googleSearch` | API ツール定義、Gemini Search Grounding | Google検索結果のソース提示、誤字脱字・不自然表現の校正 |
-| 5.1 - 5.5 | 100回/日利用制限 | `ai-authoring-utils`, Firestore カウンタ | `users/{uid}/dailyAiAuthoringCounts/chat` | サーバー側制限、チャットへの警告表示 |
-| 6.1 - 6.3 | エラーハンドリング | チャットエラー UI | Panel / Hook | エラー時の再送ボタン、日本語での説明表示 |
+| Requirement | Summary                                            | Components                                                                                         | Interfaces / Files                                            | Flows / Notes                                                                                            |
+| ----------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1.1 - 1.5   | UI開閉、Pro制限                                    | `AiChatAssistantButton`, `AiChatAssistantPanel`                                                    | `components/quiz/editor/`                                     | 起動・スライド表示、Proプラン認可                                                                        |
+| 2.1 - 2.4   | Vercel AI SDK基本対話                              | `POST /api/quiz/ai-chat-authoring`, `useChat`                                                      | `route.ts`, `useAiChatAssistant.ts`                           | クイズのコンテキスト送信、ストリーミング                                                                 |
+| 2.5         | チャット内のマークダウン表示                       | `AiChatAssistantPanel`, `MarkdownContent`                                                          | `ai-chat-assistant-panel.tsx`, `sanitize.ts`                  | マークダウン（リスト、インラインコード、コードブロック等）のパースとダークテーマ適合表示                 |
+| 2.6         | リンクの安全性と新タブ表示                         | `MarkdownContent`                                                                                  | `sanitize.ts`                                                 | セキュリティ対策（rel="noopener noreferrer"）を施した新タブリンク遷移                                    |
+| 2.7         | コードブロックコピー機能                           | `AiChatAssistantPanel`                                                                             | `ai-chat-assistant-panel.tsx`, `ai-chat-assistant.module.css` | コードブロック内のコピーボタン（レ点変化付き）の表示とクリップボードコピー処理                           |
+| 3.1 - 3.6   | エディタ操作ツール (Tool Use) とユーザー承認フロー | `createQuestion`, `updateQuestion`, `deleteQuestion`, `generateBulkQuestions`, `generateThumbnail` | API ツールスキーマ定義、クライアント Tool Handlers, 承認UI    | ツール呼び出し時の承認保留、プレビュー表示、承認（適用）および却下（キャンセル）処理、バリデーション検証 |
+| 4.1 - 4.5   | 包括チェック & Google検索ファクトチェック          | `checkQuestion`, `checkAllQuestions`, `googleSearch`                                               | API ツール定義、Gemini Search Grounding                       | Google検索結果のソース提示、誤字脱字・不自然表現の校正                                                   |
+| 5.1 - 5.5   | 100回/日利用制限                                   | `ai-authoring-utils`, Firestore カウンタ                                                           | `users/{uid}/dailyAiAuthoringCounts/chat`                     | サーバー側制限、チャットへの警告表示                                                                     |
+| 6.1 - 6.3   | エラーハンドリング                                 | チャットエラー UI                                                                                  | Panel / Hook                                                  | エラー時の再送ボタン、日本語での説明表示                                                                 |
 
 ## Components and Interfaces
 
@@ -346,10 +346,10 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 
 ### ユーザー UI コンポーネント (`AiChatAssistantPanel`)
 
-| Field | Detail |
-|-------|--------|
-| Intent | スライドインチャットパネルおよび対話ログ、入力欄 UI の提供（マークダウン表示、コードコピー、およびツール承認フロー対応） |
-| Requirements | 1.3, 1.5, 2.2, 2.4, 2.5, 2.7, 3.1 - 3.6, 5.4, 6 |
+| Field        | Detail                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| Intent       | スライドインチャットパネルおよび対話ログ、入力欄 UI の提供（マークダウン表示、コードコピー、およびツール承認フロー対応） |
+| Requirements | 1.3, 1.5, 2.2, 2.4, 2.5, 2.7, 3.1 - 3.6, 5.4, 6                                                                          |
 
 **Implementation Notes**
 - スライドイン時に右側から幅 500px のエリアを占有し、エディタ編集領域と並行して手動編集・操作可能。
@@ -371,10 +371,10 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 
 ### マークダウンサニタイズユーティリティ (`parseMarkdownToHtml`)
 
-| Field | Detail |
-|-------|--------|
-| Intent | 簡易マークダウンのテキストをサニタイズ済みの安全な HTML に変換するヘルパー |
-| Requirements | 2.5, 2.6 |
+| Field        | Detail                                                                     |
+| ------------ | -------------------------------------------------------------------------- |
+| Intent       | 簡易マークダウンのテキストをサニタイズ済みの安全な HTML に変換するヘルパー |
+| Requirements | 2.5, 2.6                                                                   |
 
 **Implementation Notes**
 - `src/lib/security/sanitize.ts` の `parseMarkdownToHtml` を拡張。

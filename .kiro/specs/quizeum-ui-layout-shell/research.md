@@ -1,10 +1,10 @@
 # Research & Design Decisions
 
 ## Summary
-- **Feature**: `quizeum-ui-layout-shell`
+- **Feature**: `quizetika-ui-layout-shell`
 - **Discovery Scope**: Extension（既存シェルのスタイル移行）
 - **Key Findings**:
-  - 既存シェルは 4 コンポーネント + 4 CSS Modules（合計約 400 行 CSS）で、`quizeum-sidebar-layout` の機能要件を満たしている
+  - 既存シェルは 4 コンポーネント + 4 CSS Modules（合計約 400 行 CSS）で、`quizetika-sidebar-layout` の機能要件を満たしている
   - レスポンシブ契約は 1024px / 768px / 767px ブレークポイントと 275px / 70px / 60px 余白で固定化されている
   - E2E `layout.spec.ts` は `aside`/`header`/`nav` セマンティクス、`data-testid`、および `class` の `/active/` マッチに依存
   - foundation は Button/Card 等 7 種のみ提供。シェルには Avatar, Separator, DropdownMenu（ポップアップ）が追加必要
@@ -13,7 +13,7 @@
 
 ### 既存シェル実装の分析
 - **Context**: brownfield 移行のため現行コードの契約を洗い出す
-- **Sources Consulted**: `src/components/layout/*.tsx`, `*.module.css`, `e2e/layout.spec.ts`, `quizeum-sidebar-layout` spec
+- **Sources Consulted**: `src/components/layout/*.tsx`, `*.module.css`, `e2e/layout.spec.ts`, `quizetika-sidebar-layout` spec
 - **Findings**:
   - `LayoutWrapper` は `pathname.includes('/play')` でシェル分岐。プレイ時は `playContainer` のみ
   - Sidebar は `glass-card`, `text-neon-primary` 等の旧クラスに依存。タブレット時はラベル非表示でアイコンのみ
@@ -24,11 +24,11 @@
 
 ### foundation 上流依存の確認
 - **Context**: 許可されるプリミティブとテーマ契約を確定
-- **Sources Consulted**: `quizeum-ui-foundation/design.md`, `requirements.md`
+- **Sources Consulted**: `quizetika-ui-foundation/design.md`, `requirements.md`
 - **Findings**:
   - shadcn 標準テーマ（neutral/zinc）、`dark` クラス、`cn()` が正
   - 初期プリミティブ: Button, Input, Dialog, Tabs, Skeleton, Badge, Card
-  - ThemeProvider / `quizeum-theme` / dual bridge は foundation が所有。シェルは `bg-background` 等の CSS 変数を消費するのみ
+  - ThemeProvider / `quizetika-theme` / dual bridge は foundation が所有。シェルは `bg-background` 等の CSS 変数を消費するのみ
   - `layout.tsx` Provider 順序: PostHog → Auth → Theme → LayoutWrapper（変更不可）
 - **Implications**: シェル移行は ThemeProvider を変更しない。追加 shadcn コンポーネント（Avatar, Separator, DropdownMenu）は本スペックで CLI add
 
@@ -56,11 +56,11 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| 全面書き換え | コンポーネント構造も shadcn Sidebar パターンに変更 | shadcn 公式パターンに近い | IA/E2E 破綻リスク、スコープ拡大 | 却下 |
-| Strangler スタイル移行 | 既存 TSX 構造・ロジック維持、CSS のみ Tailwind 化 | 機能維持、レビュー容易 | 一時的に旧クラス名（active）が残る | **採用** |
-| CSS Modules 共存 | 新 Tailwind と旧 module 併用 | 段階的 | トークン二重管理、スライス完了定義が曖昧 | 却下（本スペック完了時に module 削除） |
+| Option                 | Description                                        | Strengths                 | Risks / Limitations                      | Notes                                  |
+| ---------------------- | -------------------------------------------------- | ------------------------- | ---------------------------------------- | -------------------------------------- |
+| 全面書き換え           | コンポーネント構造も shadcn Sidebar パターンに変更 | shadcn 公式パターンに近い | IA/E2E 破綻リスク、スコープ拡大          | 却下                                   |
+| Strangler スタイル移行 | 既存 TSX 構造・ロジック維持、CSS のみ Tailwind 化  | 機能維持、レビュー容易    | 一時的に旧クラス名（active）が残る       | **採用**                               |
+| CSS Modules 共存       | 新 Tailwind と旧 module 併用                       | 段階的                    | トークン二重管理、スライス完了定義が曖昧 | 却下（本スペック完了時に module 削除） |
 
 ## Design Decisions
 
@@ -70,9 +70,9 @@
   1. shadcn 公式 Sidebar コンポーネント（collapsible）への構造変更
   2. 既存 DOM/ロジック維持のスタイルのみ置換
 - **Selected Approach**: 既存コンポーネント構造・ナビ IA・認証連携を維持し、CSS Modules を Tailwind ユーティリティ + shadcn プリミティブに置換
-- **Rationale**: `quizeum-sidebar-layout` の要件を再実装せず移行コスト最小化
+- **Rationale**: `quizetika-sidebar-layout` の要件を再実装せず移行コスト最小化
 - **Trade-offs**: shadcn Sidebar 公式パターンからは外れるが、E2E 安定性を優先
-- **Follow-up**: 後続で `quizeum-sidebar-layout` spec の Tailwind 禁止条項を更新
+- **Follow-up**: 後続で `quizetika-sidebar-layout` spec の Tailwind 禁止条項を更新
 
 ### Decision: DropdownMenu によるアカウントポップアップ
 - **Context**: brief の Sheet 言及と現行ポップアップの差異
@@ -95,11 +95,11 @@
 - **DropdownMenu による DOM 変更で E2E 失敗** — 既存 `data-testid` を同一インタラクション要素に維持、マージ前に `layout.spec.ts` 実行
 - **タブレット縮小 Sidebar の Tailwind 再現漏れ** — 768–1023px でラベル非表示・幅 70px を design の responsive table で明示、E2E viewport テスト追加検討
 - **ライトモードでのコントラスト不足** — shadcn `accent` / `muted-foreground` トークンを使用し、両テーマで手動確認をタスクに含める
-- **foundation 未完了での着手** — `quizeum-ui-foundation` を前提依存とし、ビルド失敗時は foundation 完了を待つ
+- **foundation 未完了での着手** — `quizetika-ui-foundation` を前提依存とし、ビルド失敗時は foundation 完了を待つ
 
 ## References
 - [shadcn/ui Dropdown Menu](https://ui.shadcn.com/docs/components/dropdown-menu) — アカウントポップアップ
 - [shadcn/ui Avatar](https://ui.shadcn.com/docs/components/avatar) — ユーザーアバター
-- `quizeum-ui-foundation/design.md` — テーマ・プリミティブ契約
-- `quizeum-sidebar-layout/requirements.md` — 既存ナビ機能要件
+- `quizetika-ui-foundation/design.md` — テーマ・プリミティブ契約
+- `quizetika-sidebar-layout/requirements.md` — 既存ナビ機能要件
 - `e2e/layout.spec.ts` — 回帰テスト契約

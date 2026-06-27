@@ -69,7 +69,7 @@ async function QuizResultDetailLoader({ quizId, searchParams }: DetailLoaderProp
 
   if (attemptId) {
     const cookieStore = await cookies();
-    const uid = cookieStore.get('quizeum_uid')?.value;
+    const uid = cookieStore.get('quizetika_uid')?.value;
 
     if (uid) {
       try {

@@ -1,4 +1,4 @@
-# Brief: quizeum-ui-editor
+# Brief: quizetika-ui-editor
 
 ## Problem
 クイズエディタ（~1882 LOC）とリストエディタはフォーム密度・DnD ソート・Markdown プレビュー等、最も複雑な UI。CSS Modules も大きい（create.module.css ~549 行）。
@@ -32,11 +32,11 @@ shadcn Form, Textarea, Select, Dialog, DropdownMenu + 既存 @dnd-kit を Tailwi
 - Firestore 保存ロジック
 
 ## Upstream / Downstream
-- **Upstream**: quizeum-ui-foundation, quizeum-ui-layout-shell
+- **Upstream**: quizetika-ui-foundation, quizetika-ui-layout-shell
 - **Downstream**: クリエイター体験全体、question-attach-search 共有 lib（スタイルのみ）
 
 ## Existing Spec Touchpoints
-- **Adjacent**: quizeum-core, quizeum-my-quiz-ui（question pool lib 共有）
+- **Adjacent**: quizetika-core, quizetika-my-quiz-ui（question pool lib 共有）
 
 ## Constraints
 - DnD 動作退行禁止

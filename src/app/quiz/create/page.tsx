@@ -4,8 +4,8 @@ import { EditorFormSkeleton } from '@/components/quiz/editor-skeleton';
 import { QuizEditorLoader } from './quiz-editor-loader';
 
 export const metadata: Metadata = {
-  title: '新規クイズ作成 | quizeum',
-  description: 'quizeumで新しいクイズを作成・編集して投稿しましょう。',
+  title: '新規クイズ作成 | quizetika',
+  description: 'quizetikaで新しいクイズを作成・編集して投稿しましょう。',
 };
 
 export default function QuizCreatePage() {

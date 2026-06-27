@@ -1,11 +1,11 @@
 # Research & Design Decisions
 
 ## Summary
-- **Feature**: `quizeum-ui-foundation`
+- **Feature**: `quizetika-ui-foundation`
 - **Discovery Scope**: Extension（既存 Next.js 16 + React 19 コードベースへのスタイル基盤追加）
 - **Key Findings**:
   - Tailwind CSS / PostCSS / shadcn は未導入。`package.json` に該当依存なし、`components.json` なし。
-  - 現行テーマは `data-theme` 属性 + `variables.css`（67 変数、ネオン/Glassmorphism）。`ThemeProvider`・FOUC script・`quizeum-theme` localStorage は `quizeum-user-settings-ui` で実装済み。
+  - 現行テーマは `data-theme` 属性 + `variables.css`（67 変数、ネオン/Glassmorphism）。`ThemeProvider`・FOUC script・`quizetika-theme` localStorage は `quizetika-user-settings-ui` で実装済み。
   - `src/components/ui/` に独自プリミティブ 7 件（skeleton 系、number-stepper 等）が CSS Modules 付きで存在。foundation では shadcn プリミティブを追加し、既存ファイルは段階置換（本スペックでは削除しない）。
   - steering（`tech.md`）は「TailwindCSSは使用しません」を明記。foundation 完了後に改定が必要。
 
@@ -13,9 +13,9 @@
 
 ### 既存テーマ実装の調査
 - **Context**: shadcn は `document.documentElement.classList.toggle('dark')` を標準とする。現行は `dataset.theme` 方式。
-- **Sources Consulted**: `src/lib/theme.ts`, `src/context/theme-context.tsx`, `src/app/layout.tsx`, `quizeum-user-settings-ui` design.md
+- **Sources Consulted**: `src/lib/theme.ts`, `src/context/theme-context.tsx`, `src/app/layout.tsx`, `quizetika-user-settings-ui` design.md
 - **Findings**:
-  - `THEME_STORAGE_KEY = 'quizeum-theme'`, `DEFAULT_THEME = 'dark'`
+  - `THEME_STORAGE_KEY = 'quizetika-theme'`, `DEFAULT_THEME = 'dark'`
   - `getThemeInitScript()` は `document.documentElement.dataset.theme` を同期設定
   - `ThemeProvider.applyThemeToDom` も `dataset.theme` を使用
   - 設定画面の `theme-toggle.tsx` は `useTheme` 経由で切替
@@ -62,11 +62,11 @@
 
 ## Architecture Pattern Evaluation
 
-| Option | Description | Strengths | Risks / Limitations | Notes |
-|--------|-------------|-----------|---------------------|-------|
-| A: 一括 globals 置換 + variables 削除 | foundation で旧トークンを即削除 | トークン二重管理なし | 未移行 80 CSS Modules が即破綻 | 却下 |
-| B: strangler + dual theme bridge | shadcn 基盤追加、variables 共存、data-theme + dark 併用 | 段階移行可能、E2E 維持 | 移行期のテーマ二重適用 | **採用**（roadmap Approach B） |
-| C: CSS Modules に Tailwind を併用のみ | @apply や任意クラスで段階導入 | 変更最小 | shadcn 標準パターンと乖離、保守コスト高 | 却下 |
+| Option                                | Description                                             | Strengths              | Risks / Limitations                     | Notes                          |
+| ------------------------------------- | ------------------------------------------------------- | ---------------------- | --------------------------------------- | ------------------------------ |
+| A: 一括 globals 置換 + variables 削除 | foundation で旧トークンを即削除                         | トークン二重管理なし   | 未移行 80 CSS Modules が即破綻          | 却下                           |
+| B: strangler + dual theme bridge      | shadcn 基盤追加、variables 共存、data-theme + dark 併用 | 段階移行可能、E2E 維持 | 移行期のテーマ二重適用                  | **採用**（roadmap Approach B） |
+| C: CSS Modules に Tailwind を併用のみ | @apply や任意クラスで段階導入                           | 変更最小               | shadcn 標準パターンと乖離、保守コスト高 | 却下                           |
 
 ## Design Decisions
 
@@ -83,11 +83,11 @@
 ### Decision: shadcn CLI デフォルトテーマを初版そのまま採用
 - **Context**: ブランド維持型テーマ移植は roadmap で却下済み。
 - **Alternatives Considered**:
-  1. Quizeum 紫 primary の `--primary` 上書き
+  1. Quizetika 紫 primary の `--primary` 上書き
   2. CLI デフォルト（neutral/zinc）
 - **Selected Approach**: CLI デフォルトをそのまま使用。カスタム色は初版では行わない。
 - **Rationale**: 保守性・一貫性最大化。後続スペックで必要なら `--primary` 微調整を別タスク化可能。
-- **Trade-offs**: 初版は Quizeum ブランド色と異なる見た目。意図的な方針転換。
+- **Trade-offs**: 初版は Quizetika ブランド色と異なる見た目。意図的な方針転換。
 - **Follow-up**: 全スライス完了後にブランド色検討があれば別スペックで対応。
 
 ### Decision: デフォルトテーマは `dark` を維持
@@ -96,7 +96,7 @@
   1. ライトをデフォルトに変更
   2. 既存 `dark` デフォルト維持
 - **Selected Approach**: `DEFAULT_THEME = 'dark'` を維持。
-- **Rationale**: 既存ユーザー体験の連続性。`quizeum-user-settings-ui` の要件 3.3 と整合。
+- **Rationale**: 既存ユーザー体験の連続性。`quizetika-user-settings-ui` の要件 3.3 と整合。
 - **Trade-offs**: shadcn 公式サンプルと初期表示が異なる。
 - **Follow-up**: なし（意図的決定）。
 
@@ -121,4 +121,4 @@
 - [shadcn/ui — Installation](https://ui.shadcn.com/docs/installation/next) — Next.js 16 向け init 手順
 - [shadcn/ui — Theming](https://ui.shadcn.com/docs/theming) — CSS 変数と `dark` クラス戦略
 - `.kiro/steering/roadmap.md` Phase 24 — 境界戦略と Visual Direction
-- `.kiro/specs/quizeum-user-settings-ui/design.md` — 既存テーマ実装の所有境界
+- `.kiro/specs/quizetika-user-settings-ui/design.md` — 既存テーマ実装の所有境界

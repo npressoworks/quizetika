@@ -16,10 +16,10 @@ const geistSans = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata: Metadata = {
-  title: "quizeum - クイズ投稿・管理SNS",
+  title: "quizetika - クイズ投稿・管理SNS",
   description: "クイズを自由に作成・投稿し、他のユーザーと競い合える次世代クイズSNSプラットフォーム。自分だけのリストの作成や、フォロー機能、ランキングなど楽しさ満載！",
-  keywords: ["クイズ", "リスト", "投稿", "SNS", "学習", "教育", "quizeum"],
-  authors: [{ name: "quizeum Dev Team" }],
+  keywords: ["クイズ", "リスト", "投稿", "SNS", "学習", "教育", "quizetika"],
+  authors: [{ name: "quizetika Dev Team" }],
 };
 
 export default function RootLayout({

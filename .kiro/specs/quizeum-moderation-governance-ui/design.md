@@ -1,7 +1,7 @@
-# Technical Design Document: quizeum-moderation-governance-ui
+# Technical Design Document: quizetika-moderation-governance-ui
 
 ## Overview
-本ドキュメントは、クイズ投稿SNS「quizeum」における管理者モデレーションおよびコミュニティ自治（ガバナンス）に関する専用UIの技術設計仕様を定義します。5回通報され一時保留状態にあるクイズ等の審査を行う管理者専用のモデレーションキュー、表記揺れタグやジャンルのマージ提案および加重投票UI、認証ユーザーによる新ジャンル新設申請フォームとモデレータ投票による自治承認UI、および管理者専用のジャンル直接追加・管理画面を構築します。
+本ドキュメントは、クイズ投稿SNS「quizetika」における管理者モデレーションおよびコミュニティ自治（ガバナンス）に関する専用UIの技術設計仕様を定義します。5回通報され一時保留状態にあるクイズ等の審査を行う管理者専用のモデレーションキュー、表記揺れタグやジャンルのマージ提案および加重投票UI、認証ユーザーによる新ジャンル新設申請フォームとモデレータ投票による自治承認UI、および管理者専用のジャンル直接追加・管理画面を構築します。
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフロントエンド構成に加え、Tailwind CSSおよびshadcn/uiコンポーネントを用いたガバナンスUIを実装し、Firestoreサービス（`ModerationService`等）およびサーバーサイドAPIと接続します。
 
@@ -36,13 +36,13 @@
 - **ジャンルデータ管理**: 初期ジャンルの一括投入（シード）および個別ジャンルの直接追加APIルート `/api/admin/genres`、および一時画像から正式フォルダへの移動を行う `/api/genres/migrate-icon`。
 
 ### Out of Boundary
-- Cloud Functions を用いた非同期の投票可決バックエンドトリガー処理（`quizeum-core`が担当）。
+- Cloud Functions を用いた非同期の投票可決バックエンドトリガー処理（`quizetika-core`が担当）。
 - ローカル画像ファイルの永続化やホストサーバー上でのバックアップ運用（ホスト環境に依存）。
 
 ### Allowed Dependencies
-- **`quizeum-auth-profile-ui`**: `Header`, `useAuth`, プロフィール権限バッジ
-- **`quizeum-play-flow-ui`**: `/quiz/[id]` 審査用特別閲覧ビュー
-- **`quizeum-core`**: `ModerationService`, Firebase Admin SDK
+- **`quizetika-auth-profile-ui`**: `Header`, `useAuth`, プロフィール権限バッジ
+- **`quizetika-play-flow-ui`**: `/quiz/[id]` 審査用特別閲覧ビュー
+- **`quizetika-core`**: `ModerationService`, Firebase Admin SDK
 - **Static Assets**: `src/data/initial_genres.json` (初期ジャンル定義データ)
 - **Local Directory**: `assets/genre/` (アセット書き込み・読み込み用)
 
@@ -143,66 +143,66 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | 管理者・シニアモデレータ専用アクセス制限 | `/admin/moderation` Page | `middleware.ts` | - |
-| 1.2 | 通報5回到達コンテンツの審査キュー表示 | `/admin/moderation` Page | Flagged Queue | - |
-| 1.3 | 通報理由および詳細内容の表示 | `/admin/moderation` Page | Flagged Queue | - |
-| 1.4 | 公開復帰（通報リセット）およびコンテンツ削除 | `/admin/moderation` Page | `ModerationService` | - |
-| 1.5 | 審査用特別閲覧ビュー遷移 | `/admin/moderation` Page | Special Quiz View | - |
-| 2.1 | モデレータ資格ルートガード | `/community/merge` Page | `middleware.ts` | - |
-| 2.2 | マージ提案起案フォーム | `/community/merge` Page | Form Input | - |
-| 2.3 | 保留中マージリクエスト投票一覧表示 | `/community/merge` Page | Request Queue | - |
-| 2.4 | ソースタグ/ジャンル分割一覧閲覧 | `/community/merge` Page | Split List View | - |
-| 2.5 | 賛成/反対加重投票UI | `/community/merge` Page | `ModerationService` | - |
-| 2.6 | シニアモデレータ「重みx2」表示と計算 | `/community/merge` Page | `ModerationService` | - |
-| 2.7 | 賛成率のリアルタイムプログレスバー表示 | `/community/merge` Page | CSS Progress Bar | - |
-| 3.1 | 認証ユーザー向け新ジャンル申請フォーム | `/community/genres` Page | Form (PNG/JPEG/GIF upload) | - |
-| 4.1 | SEC-08 仕様文言整合 | Spec docs | — | — |
-| 4.2 | MIME/size クライアント検証 | `genre-icon-upload` / Page | `validateGenreIconFile` | — |
-| 4.3 | SVG 拒否 UX とローカル保存のブロック | `/community/genres` Page | inline error | 直接追加フロー |
-| 4.4 | 承認時のアセットローカル移行とURL登録 | `/api/genres/migrate-icon` | File copy / DB update | 直接追加フロー |
-| 3.2 | 保留中ジャンル新設申請の一覧と投票UI | `/community/genres` Page | `ModerationService` | - |
-| 3.3 | モデレータ賛否投票 | `/community/genres` Page | `ModerationService` | - |
-| 3.4 | 可決条件判定とアセット移行処理 | `/community/genres` Page | `/api/genres/migrate-icon` | - |
-| 3.5 | 承認/否決履歴タブ表示 | `/community/genres` Page | History Tab | - |
-| 5.1 | 管理者専用シードUIアクセス制限 | `/admin/moderation` Page / API | check admin role | - |
-| 5.2 | 一括投入セクション・ボタン表示 | `/admin/moderation` Page | Button | - |
-| 5.3 | 一括登録APIへのリクエスト送信 | `/admin/moderation` Page | `fetch()` request | - |
-| 5.4 | Firestore一括書き込みと冪等性 | `tagMerge.ts` | `seedInitialGenres` | - |
-| 5.5 | 重複回避（スキップ/アップデート） | `tagMerge.ts` | `seedInitialGenres` | - |
-| 5.6 | 実行時ローディング表示とボタン無効化 | `/admin/moderation` Page | UI state | - |
-| 5.7 | 結果（件数）または失敗アラート表示 | `/admin/moderation` Page | Alert Messages | - |
-| 6.4 | マージ画面アクセス時の静的フレーム描画 | `/community/merge` Page | Suspense / Streaming | - |
-| 6.5 | マージ一覧取得中のスケルトン表示 | `/community/merge` Page | merge-requests-skeleton | - |
-| 6.6 | マージ一覧取得後のコンテンツ描画 | `/community/merge` Page | React rendering | - |
-| 6.7 | ジャンル申請画面アクセス時の静的フレーム描画 | `/community/genres` Page | Suspense / Streaming | - |
-| 6.8 | ジャンル申請一覧取得中のスケルトン表示 | `/community/genres` Page | genres-moderation-skeleton | - |
-| 6.9 | ジャンル申請一覧取得後のコンテンツ描画 | `/community/genres` Page | React rendering | - |
-| 6.10 | ジャンル管理画面アクセス時の静的フレーム描画 | `/admin/genres` Page | Suspense / Streaming | 直接追加フロー |
-| 6.11 | ジャンル管理画面の一覧取得中のスケルトン表示 | `/admin/genres` Page | genres-management-skeleton | 直接追加フロー |
-| 6.12 | ジャンル管理画面の一覧取得後のコンテンツ描画 | `/admin/genres` Page | React rendering | 直接追加フロー |
-| 6.13 | 通報審査キューのスケルトン属性付与 | `/admin/moderation` Page | moderation-queue-skeleton | - |
-| 6.14 | マージ投票スケルトン属性付与 | `/community/merge` Page | merge-requests-skeleton | - |
-| 6.15 | ジャンル申請スケルトン属性付与 | `/community/genres` Page | genres-moderation-skeleton | - |
-| 6.16 | ジャンル管理画面スケルトン属性付与 | `/admin/genres` Page | genres-management-skeleton | 直接追加フロー |
-| 7.1 | 管理者以外のジャンル管理画面アクセス制限 | `/admin/genres` Page / API | middleware.ts / guard | 直接追加フロー |
-| 7.2 | ジャンル管理画面ロード中インジケータ表示 | `/admin/genres` Page | UI spinner | - |
-| 7.3 | 登録済みジャンル一覧および追加フォーム提供 | `/admin/genres` Page | UI Card / Form | 直接追加フロー |
-| 7.4 | 有効値入力時のローカル保存と直接書き込み | `/admin/genres` Page / API | api-genres API | 直接追加フロー |
-| 7.5 | 重複ジャンルIDのエラーハンドリング | `/admin/genres` Page / API | api-genres API | 直接追加フロー |
-| 7.6 | アイコン画像のローカル保存検証 | `/admin/genres` Page | `validateGenreIconFile` | 直接追加フロー |
-| 7.7 | 登録成功時のジャンル一覧自動更新 | `/admin/genres` Page | React state refresh | 直接追加フロー |
-| 7.8 | モデレーション画面でのジャンル管理リンク表示 | `/admin/moderation` Page | Navigation link | 直接追加フロー |
-| 8.1 | 管理者以外のポータル画面アクセス制限 | `/admin` Page | middleware.ts / guard | ポータル表示フロー |
-| 8.2 | ポータル画面ロード中インジケータ表示 | `/admin` Page | UI spinner | ポータル表示フロー |
-| 8.3 | 各管理者メニューカードおよびリンクの表示 | `/admin` Page | UI Card | ポータル表示フロー |
-| 9.1 | AI生成時入力バリデーション（インラインエラー） | `/admin/genres` Page / `/community/genres` | Button interaction | AI生成フロー |
-| 9.2 | 生成中ローディングインジケータと非活性化 | `/admin/genres` Page / `/community/genres` | Button / Spinner | AI生成フロー |
-| 9.3 | 生成成功画像ローカル一時保存とプレビュー設定 | `/admin/genres` Page / `/community/genres` | Preview / State | AI生成フロー |
-| 9.4 | 生成失敗エラー表示とボタン活性化復帰 | `/admin/genres` Page / `/community/genres` | Error banner / State | AI生成フロー |
-| 9.5 | 一般ユーザーデイリー生成上限制限（1日5回） | `/api/genres/generate-icon` | checkDailyLimit | AI生成フロー |
-| 9.6 | 管理者生成上限免除（無制限） | `/api/genres/generate-icon` | skipDailyLimit | AI生成フロー |
+| Requirement | Summary                                        | Components                                 | Interfaces                 | Flows              |
+| ----------- | ---------------------------------------------- | ------------------------------------------ | -------------------------- | ------------------ |
+| 1.1         | 管理者・シニアモデレータ専用アクセス制限       | `/admin/moderation` Page                   | `middleware.ts`            | -                  |
+| 1.2         | 通報5回到達コンテンツの審査キュー表示          | `/admin/moderation` Page                   | Flagged Queue              | -                  |
+| 1.3         | 通報理由および詳細内容の表示                   | `/admin/moderation` Page                   | Flagged Queue              | -                  |
+| 1.4         | 公開復帰（通報リセット）およびコンテンツ削除   | `/admin/moderation` Page                   | `ModerationService`        | -                  |
+| 1.5         | 審査用特別閲覧ビュー遷移                       | `/admin/moderation` Page                   | Special Quiz View          | -                  |
+| 2.1         | モデレータ資格ルートガード                     | `/community/merge` Page                    | `middleware.ts`            | -                  |
+| 2.2         | マージ提案起案フォーム                         | `/community/merge` Page                    | Form Input                 | -                  |
+| 2.3         | 保留中マージリクエスト投票一覧表示             | `/community/merge` Page                    | Request Queue              | -                  |
+| 2.4         | ソースタグ/ジャンル分割一覧閲覧                | `/community/merge` Page                    | Split List View            | -                  |
+| 2.5         | 賛成/反対加重投票UI                            | `/community/merge` Page                    | `ModerationService`        | -                  |
+| 2.6         | シニアモデレータ「重みx2」表示と計算           | `/community/merge` Page                    | `ModerationService`        | -                  |
+| 2.7         | 賛成率のリアルタイムプログレスバー表示         | `/community/merge` Page                    | CSS Progress Bar           | -                  |
+| 3.1         | 認証ユーザー向け新ジャンル申請フォーム         | `/community/genres` Page                   | Form (PNG/JPEG/GIF upload) | -                  |
+| 4.1         | SEC-08 仕様文言整合                            | Spec docs                                  | —                          | —                  |
+| 4.2         | MIME/size クライアント検証                     | `genre-icon-upload` / Page                 | `validateGenreIconFile`    | —                  |
+| 4.3         | SVG 拒否 UX とローカル保存のブロック           | `/community/genres` Page                   | inline error               | 直接追加フロー     |
+| 4.4         | 承認時のアセットローカル移行とURL登録          | `/api/genres/migrate-icon`                 | File copy / DB update      | 直接追加フロー     |
+| 3.2         | 保留中ジャンル新設申請の一覧と投票UI           | `/community/genres` Page                   | `ModerationService`        | -                  |
+| 3.3         | モデレータ賛否投票                             | `/community/genres` Page                   | `ModerationService`        | -                  |
+| 3.4         | 可決条件判定とアセット移行処理                 | `/community/genres` Page                   | `/api/genres/migrate-icon` | -                  |
+| 3.5         | 承認/否決履歴タブ表示                          | `/community/genres` Page                   | History Tab                | -                  |
+| 5.1         | 管理者専用シードUIアクセス制限                 | `/admin/moderation` Page / API             | check admin role           | -                  |
+| 5.2         | 一括投入セクション・ボタン表示                 | `/admin/moderation` Page                   | Button                     | -                  |
+| 5.3         | 一括登録APIへのリクエスト送信                  | `/admin/moderation` Page                   | `fetch()` request          | -                  |
+| 5.4         | Firestore一括書き込みと冪等性                  | `tagMerge.ts`                              | `seedInitialGenres`        | -                  |
+| 5.5         | 重複回避（スキップ/アップデート）              | `tagMerge.ts`                              | `seedInitialGenres`        | -                  |
+| 5.6         | 実行時ローディング表示とボタン無効化           | `/admin/moderation` Page                   | UI state                   | -                  |
+| 5.7         | 結果（件数）または失敗アラート表示             | `/admin/moderation` Page                   | Alert Messages             | -                  |
+| 6.4         | マージ画面アクセス時の静的フレーム描画         | `/community/merge` Page                    | Suspense / Streaming       | -                  |
+| 6.5         | マージ一覧取得中のスケルトン表示               | `/community/merge` Page                    | merge-requests-skeleton    | -                  |
+| 6.6         | マージ一覧取得後のコンテンツ描画               | `/community/merge` Page                    | React rendering            | -                  |
+| 6.7         | ジャンル申請画面アクセス時の静的フレーム描画   | `/community/genres` Page                   | Suspense / Streaming       | -                  |
+| 6.8         | ジャンル申請一覧取得中のスケルトン表示         | `/community/genres` Page                   | genres-moderation-skeleton | -                  |
+| 6.9         | ジャンル申請一覧取得後のコンテンツ描画         | `/community/genres` Page                   | React rendering            | -                  |
+| 6.10        | ジャンル管理画面アクセス時の静的フレーム描画   | `/admin/genres` Page                       | Suspense / Streaming       | 直接追加フロー     |
+| 6.11        | ジャンル管理画面の一覧取得中のスケルトン表示   | `/admin/genres` Page                       | genres-management-skeleton | 直接追加フロー     |
+| 6.12        | ジャンル管理画面の一覧取得後のコンテンツ描画   | `/admin/genres` Page                       | React rendering            | 直接追加フロー     |
+| 6.13        | 通報審査キューのスケルトン属性付与             | `/admin/moderation` Page                   | moderation-queue-skeleton  | -                  |
+| 6.14        | マージ投票スケルトン属性付与                   | `/community/merge` Page                    | merge-requests-skeleton    | -                  |
+| 6.15        | ジャンル申請スケルトン属性付与                 | `/community/genres` Page                   | genres-moderation-skeleton | -                  |
+| 6.16        | ジャンル管理画面スケルトン属性付与             | `/admin/genres` Page                       | genres-management-skeleton | 直接追加フロー     |
+| 7.1         | 管理者以外のジャンル管理画面アクセス制限       | `/admin/genres` Page / API                 | middleware.ts / guard      | 直接追加フロー     |
+| 7.2         | ジャンル管理画面ロード中インジケータ表示       | `/admin/genres` Page                       | UI spinner                 | -                  |
+| 7.3         | 登録済みジャンル一覧および追加フォーム提供     | `/admin/genres` Page                       | UI Card / Form             | 直接追加フロー     |
+| 7.4         | 有効値入力時のローカル保存と直接書き込み       | `/admin/genres` Page / API                 | api-genres API             | 直接追加フロー     |
+| 7.5         | 重複ジャンルIDのエラーハンドリング             | `/admin/genres` Page / API                 | api-genres API             | 直接追加フロー     |
+| 7.6         | アイコン画像のローカル保存検証                 | `/admin/genres` Page                       | `validateGenreIconFile`    | 直接追加フロー     |
+| 7.7         | 登録成功時のジャンル一覧自動更新               | `/admin/genres` Page                       | React state refresh        | 直接追加フロー     |
+| 7.8         | モデレーション画面でのジャンル管理リンク表示   | `/admin/moderation` Page                   | Navigation link            | 直接追加フロー     |
+| 8.1         | 管理者以外のポータル画面アクセス制限           | `/admin` Page                              | middleware.ts / guard      | ポータル表示フロー |
+| 8.2         | ポータル画面ロード中インジケータ表示           | `/admin` Page                              | UI spinner                 | ポータル表示フロー |
+| 8.3         | 各管理者メニューカードおよびリンクの表示       | `/admin` Page                              | UI Card                    | ポータル表示フロー |
+| 9.1         | AI生成時入力バリデーション（インラインエラー） | `/admin/genres` Page / `/community/genres` | Button interaction         | AI生成フロー       |
+| 9.2         | 生成中ローディングインジケータと非活性化       | `/admin/genres` Page / `/community/genres` | Button / Spinner           | AI生成フロー       |
+| 9.3         | 生成成功画像ローカル一時保存とプレビュー設定   | `/admin/genres` Page / `/community/genres` | Preview / State            | AI生成フロー       |
+| 9.4         | 生成失敗エラー表示とボタン活性化復帰           | `/admin/genres` Page / `/community/genres` | Error banner / State       | AI生成フロー       |
+| 9.5         | 一般ユーザーデイリー生成上限制限（1日5回）     | `/api/genres/generate-icon`                | checkDailyLimit            | AI生成フロー       |
+| 9.6         | 管理者生成上限免除（無制限）                   | `/api/genres/generate-icon`                | skipDailyLimit             | AI生成フロー       |
 
 ---
 
@@ -210,18 +210,18 @@ sequenceDiagram
 
 ### Component Summary Table
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
-|-----------|--------------|--------|--------------|------------------|-----------|
-| `AdminPortal` | UI / Page | 各種管理者用サブ画面へのナビゲーションポータル | 8.1-8.3 | `useAuth` | UI State |
-| `AdminModeration` | UI / Page | 通報審査、初期ジャンル投入UI | 1.1-1.5, 5.1-5.3, 5.6, 5.7, 7.8, 6.13 | `useAuth`, `/api/admin/seed-genres` | UI State |
-| `AdminGenres` | UI / Page | 登録済みジャンル一覧、ジャンル直接登録フォーム | 7.1-7.7, 6.10-6.12, 6.16 | `useAuth`, `/api/admin/genres`, `/api/genres/upload-icon`, `validateGenreIconFile` | UI State / TSX |
-| `CommunityMerge` | UI / Page | マージ起案、加重投票、進捗可視化 | 2.1-2.7, 6.4-6.6, 6.14 | `ModerationService`, `useAuth` | UI State |
-| `CommunityGenres` | UI / Page | ジャンル新設申請（画像付）、投票、履歴閲覧 | 3.1-3.5, 4.2-4.4, 6.7-6.9, 6.15, 9.1-9.5 | `ModerationService`, `/api/genres/upload-icon`, `/api/genres/generate-icon`, `/api/genres/migrate-icon` | UI State |
-| `seed-genres API` | API Route | 初期ジャンル一括登録認可・実行 | 5.1, 5.3, 5.4, 5.5 | `tagMerge` service, Firebase Admin Auth | JSON response |
-| `admin-genres API` | API Route | 全ジャンル取得、新規ジャンル直接登録・画像移行 | 7.1, 7.4, 7.5 | Firebase Admin Auth / Firestore, `fs` module | JSON response |
-| `generate-icon API` | API Route | AIによるジャンルアイコン画像生成・ローカル一時保存 | 9.5, 9.6 | Gemini GenAI, Admin SDK Auth, `fs` module | JSON response |
-| `upload-icon API` | API Route | 手動選択画像ファイルのローカル一時保存 | 3.1, 4.3, 7.6 | `fs` module, `validateGenreIconFile` | JSON response |
-| `assets/genre API` | API Route | ローカルジャンル画像ファイルのバイナリ配信 | 7.4, 9.3 | `fs` module, `path` module | Image response |
+| Component           | Domain/Layer | Intent                                             | Req Coverage                             | Key Dependencies                                                                                        | Contracts      |
+| ------------------- | ------------ | -------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------- |
+| `AdminPortal`       | UI / Page    | 各種管理者用サブ画面へのナビゲーションポータル     | 8.1-8.3                                  | `useAuth`                                                                                               | UI State       |
+| `AdminModeration`   | UI / Page    | 通報審査、初期ジャンル投入UI                       | 1.1-1.5, 5.1-5.3, 5.6, 5.7, 7.8, 6.13    | `useAuth`, `/api/admin/seed-genres`                                                                     | UI State       |
+| `AdminGenres`       | UI / Page    | 登録済みジャンル一覧、ジャンル直接登録フォーム     | 7.1-7.7, 6.10-6.12, 6.16                 | `useAuth`, `/api/admin/genres`, `/api/genres/upload-icon`, `validateGenreIconFile`                      | UI State / TSX |
+| `CommunityMerge`    | UI / Page    | マージ起案、加重投票、進捗可視化                   | 2.1-2.7, 6.4-6.6, 6.14                   | `ModerationService`, `useAuth`                                                                          | UI State       |
+| `CommunityGenres`   | UI / Page    | ジャンル新設申請（画像付）、投票、履歴閲覧         | 3.1-3.5, 4.2-4.4, 6.7-6.9, 6.15, 9.1-9.5 | `ModerationService`, `/api/genres/upload-icon`, `/api/genres/generate-icon`, `/api/genres/migrate-icon` | UI State       |
+| `seed-genres API`   | API Route    | 初期ジャンル一括登録認可・実行                     | 5.1, 5.3, 5.4, 5.5                       | `tagMerge` service, Firebase Admin Auth                                                                 | JSON response  |
+| `admin-genres API`  | API Route    | 全ジャンル取得、新規ジャンル直接登録・画像移行     | 7.1, 7.4, 7.5                            | Firebase Admin Auth / Firestore, `fs` module                                                            | JSON response  |
+| `generate-icon API` | API Route    | AIによるジャンルアイコン画像生成・ローカル一時保存 | 9.5, 9.6                                 | Gemini GenAI, Admin SDK Auth, `fs` module                                                               | JSON response  |
+| `upload-icon API`   | API Route    | 手動選択画像ファイルのローカル一時保存             | 3.1, 4.3, 7.6                            | `fs` module, `validateGenreIconFile`                                                                    | JSON response  |
+| `assets/genre API`  | API Route    | ローカルジャンル画像ファイルのバイナリ配信         | 7.4, 9.3                                 | `fs` module, `path` module                                                                              | Image response |
 
 ---
 
@@ -261,9 +261,9 @@ sequenceDiagram
   5. プレビュー用URLとして `/api/assets/genre/temp/{filename}` をレスポンス（status 200）で返す。
 
 ##### API Contract
-| Method | Endpoint | Request | Response | Errors |
-|--------|----------|---------|----------|--------|
-| POST | `/api/genres/upload-icon` | FormData (file: File) | `{ success: boolean, tempUrl: string }` | 400 (Bad Request), 401 (Unauthorized), 500 (Internal Error) |
+| Method | Endpoint                  | Request               | Response                                | Errors                                                      |
+| ------ | ------------------------- | --------------------- | --------------------------------------- | ----------------------------------------------------------- |
+| POST   | `/api/genres/upload-icon` | FormData (file: File) | `{ success: boolean, tempUrl: string }` | 400 (Bad Request), 401 (Unauthorized), 500 (Internal Error) |
 
 #### assets/genre API (`src/app/api/assets/genre/[...path]/route.ts`)
 - **Intent**: `assets/genre/` ディレクトリに保存された画像ファイルを安全に読み込み、画像レスポンスとして配信する。
@@ -277,9 +277,9 @@ sequenceDiagram
   5. ファイルをバイナリとして読み出し、MIME ヘッダーを指定して返却。
 
 ##### API Contract
-| Method | Endpoint | Request | Response | Errors |
-|--------|----------|---------|----------|--------|
-| GET | `/api/assets/genre/[...path]` | なし | File Binary | 400 (Invalid Path), 404 (Not Found), 500 (Internal Error) |
+| Method | Endpoint                      | Request | Response    | Errors                                                    |
+| ------ | ----------------------------- | ------- | ----------- | --------------------------------------------------------- |
+| GET    | `/api/assets/genre/[...path]` | なし    | File Binary | 400 (Invalid Path), 404 (Not Found), 500 (Internal Error) |
 
 #### admin-genres API (`src/app/api/admin/genres/route.ts`)
 - **Intent**: 管理者認証を行い、全ジャンル情報の取得、および一時画像の正式保存移行処理を伴う新規ジャンル登録を提供する。
@@ -294,10 +294,10 @@ sequenceDiagram
     5. 不要になった一時ファイルを削除。
 
 ##### API Contract
-| Method | Endpoint | Request | Response | Errors |
-|--------|----------|---------|----------|--------|
-| GET | `/api/admin/genres` | なし (Auth Token 必須) | `GenreMetadata[]` | 401 (Unauthorized), 403 (Forbidden), 500 |
-| POST | `/api/admin/genres` | `{ id: string, displayName: string, description: string, iconImageUrl: string \| null }` | `{ success: boolean, data: GenreMetadata }` | 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 409 (Conflict), 500 |
+| Method | Endpoint            | Request                                                                                  | Response                                    | Errors                                                                      |
+| ------ | ------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
+| GET    | `/api/admin/genres` | なし (Auth Token 必須)                                                                   | `GenreMetadata[]`                           | 401 (Unauthorized), 403 (Forbidden), 500                                    |
+| POST   | `/api/admin/genres` | `{ id: string, displayName: string, description: string, iconImageUrl: string \| null }` | `{ success: boolean, data: GenreMetadata }` | 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 409 (Conflict), 500 |
 
 #### generate-icon API (`src/app/api/genres/generate-icon/route.ts`)
 - **Intent**: 認証済みセッションのもとで、Geminiモデルを呼び出してジャンル名等に応じたアイコン画像（PNG）を生成し、ローカル一時保存したURLを返却する。
@@ -310,9 +310,9 @@ sequenceDiagram
     3. 返却する `iconImageUrl` を `/api/assets/genre/temp/{filename}` として JSON レスポンス。
 
 ##### API Contract
-| Method | Endpoint | Request | Response | Errors |
-|--------|----------|---------|----------|--------|
-| POST | `/api/genres/generate-icon` | `{ displayName: string, description: string, userId: string }` | `{ success: boolean, iconImageUrl: string, usage?: { current: number, limit: number } }` | 400, 401, 429 (Too Many Requests), 503, 500 |
+| Method | Endpoint                    | Request                                                        | Response                                                                                 | Errors                                      |
+| ------ | --------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- |
+| POST   | `/api/genres/generate-icon` | `{ displayName: string, description: string, userId: string }` | `{ success: boolean, iconImageUrl: string, usage?: { current: number, limit: number } }` | 400, 401, 429 (Too Many Requests), 503, 500 |
 
 #### migrate-icon API (`src/app/api/genres/migrate-icon/route.ts`)
 - **Intent**: コミュニティジャンル申請の送信前に、一時保存されているローカルファイルを正式なジャンルディレクトリに移動・コピーする。
@@ -325,9 +325,9 @@ sequenceDiagram
   4. 新しいアセットURL `/api/assets/genre/{genreId}/icon_{timestamp}.png` を返却し、元のファイルを削除。
 
 ##### API Contract
-| Method | Endpoint | Request | Response | Errors |
-|--------|----------|---------|----------|--------|
-| POST | `/api/genres/migrate-icon` | `{ tempUrl: string, genreId: string, userId: string }` | `{ success: boolean, iconImageUrl: string }` | 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 |
+| Method | Endpoint                   | Request                                                | Response                                     | Errors                                                      |
+| ------ | -------------------------- | ------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------- |
+| POST   | `/api/genres/migrate-icon` | `{ tempUrl: string, genreId: string, userId: string }` | `{ success: boolean, iconImageUrl: string }` | 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 |
 
 ---
 

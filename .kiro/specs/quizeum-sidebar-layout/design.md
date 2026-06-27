@@ -1,7 +1,7 @@
-# Design Document: quizeum-sidebar-layout
+# Design Document: quizetika-sidebar-layout
 
 ## Overview
-本機能は、Quizeumのグローバルナビゲーションおよび全体レイアウトを刷新し、PC/モバイルそれぞれの画面サイズに最適化したハイブリッドレイアウトへと移行するものです。
+本機能は、Quizetikaのグローバルナビゲーションおよび全体レイアウトを刷新し、PC/モバイルそれぞれの画面サイズに最適化したハイブリッドレイアウトへと移行するものです。
 
 **Phase 22（2026-06-09）**: ディスカバリーホーム（`/`）と検索画面（`/search`）の IA 分離に伴い、Sidebar / BottomNav に「検索」導線を追加し、アクティブ状態を区別する。
 
@@ -33,9 +33,9 @@
 - **Phase 23**: Sidebar ログイン時「リスト」「カスタムクイズ」導線、ポップアップ「設定」導線、active 判定、`data-testid` 付与。モバイル Header プロフィールポップアップによる `/lists`・`/my-quiz`・`/settings` 到達手段。
 
 ### Out of Boundary
-- `useAuth` フックおよび Firebase 認証状態の管理（`quizeum-auth-profile-ui` に依存）。
+- `useAuth` フックおよび Firebase 認証状態の管理（`quizetika-auth-profile-ui` に依存）。
 - プロフィール画面、通知画面、ブックマーク画面、作問画面などの各ルーティング遷移先の中身（コンテンツ部）。
-- **Phase 23**: リスト探索・カスタムクイズ・設定各ページのコンテンツ UI、`ThemeProvider` / `layout.tsx` へのテーマ Provider 統合（`quizeum-user-settings-ui` が担当）。
+- **Phase 23**: リスト探索・カスタムクイズ・設定各ページのコンテンツ UI、`ThemeProvider` / `layout.tsx` へのテーマ Provider 統合（`quizetika-user-settings-ui` が担当）。
 
 ### Allowed Dependencies
 - **`useAuth`** (from `@/context/auth-context`): ログイン状態、ユーザー情報、アバター画像の取得。
@@ -117,16 +117,16 @@ src/
 
 ### Modified Files
 
-#### [layout.tsx](file:///d:/quizeum/src/app/layout.tsx)
+#### [layout.tsx](file:///d:/quizetika/src/app/layout.tsx)
 - `<Header />` を直接読み込むのをやめ、新規作成する `<LayoutWrapper>` で `{children}` を包むように変更する。
 
-#### [header.tsx](file:///d:/quizeum/src/components/layout/header.tsx)
+#### [header.tsx](file:///d:/quizetika/src/components/layout/header.tsx)
 - PC用のナビゲーションリンク、ユーザーメニュー、ドロップダウンを削除。
 - モバイルサイズ（767px以下）のみで機能するミニヘッダーとして再設計。
 - ロゴ、作問ショートカットボタン（ログイン時のみ）、アバター（ログイン時のみ、またはログインリンク）のみを表示。
 - ハンバーガーメニューとスライドドロワーメニューのコードを完全に削除。
 
-#### [header.module.css](file:///d:/quizeum/src/components/layout/header.module.css)
+#### [header.module.css](file:///d:/quizetika/src/components/layout/header.module.css)
 - モバイルミニヘッダー専用のスタイルのみに絞り込み、PC用スタイルの記述を削除。
 
 ---
@@ -383,19 +383,19 @@ function isSearchActive(pathname: string | null): boolean {
 
 モバイル（767px 以下）では BottomNav を 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、**Header のアバタータップで Sidebar と同型のプロフィールポップアップ（シート）** を開き、リスト・カスタムクイズ・設定・マイページ・ログアウトへ到達できるようにする。BottomNav のプロフィールタップは従来どおりマイページ直行を維持し、Header アバターがモバイル専用の拡張メニュー入口となる。
 
-`layout.tsx` への `ThemeProvider` 統合は **本フェーズのスコープ外** とし、`quizeum-user-settings-ui` が Provider を所有する。本スペックはシェル（Sidebar / Header / BottomNav / LayoutWrapper）のナビ整合のみを担当する。
+`layout.tsx` への `ThemeProvider` 統合は **本フェーズのスコープ外** とし、`quizetika-user-settings-ui` が Provider を所有する。本スペックはシェル（Sidebar / Header / BottomNav / LayoutWrapper）のナビ整合のみを担当する。
 
 ### 2. Boundary Commitments（Phase 23）
 
-| Owns                                                               | Out                                                               |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| Sidebar ログイン時「リスト」「カスタムクイズ」項目追加             | リスト探索ページ UI（`quizeum-lists-discovery-ui`）               |
-| Sidebar ポップアップ「設定」リンク（`/settings`）                  | カスタムクイズページ UI（`quizeum-my-quiz-ui`）                   |
-| `isListsActive` / `isMyQuizActive` active 判定                     | 設定ページ・ThemeProvider（`quizeum-user-settings-ui`）           |
-| `data-testid`: `nav-lists`, `nav-my-quiz`, `sidebar-settings-link` | マイページからのリアクション履歴削除（`quizeum-auth-profile-ui`） |
-| モバイル Header プロフィールポップアップ（代替到達手段）           | `layout.tsx` への ThemeProvider 追加                              |
+| Owns                                                               | Out                                                                 |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Sidebar ログイン時「リスト」「カスタムクイズ」項目追加             | リスト探索ページ UI（`quizetika-lists-discovery-ui`）               |
+| Sidebar ポップアップ「設定」リンク（`/settings`）                  | カスタムクイズページ UI（`quizetika-my-quiz-ui`）                   |
+| `isListsActive` / `isMyQuizActive` active 判定                     | 設定ページ・ThemeProvider（`quizetika-user-settings-ui`）           |
+| `data-testid`: `nav-lists`, `nav-my-quiz`, `sidebar-settings-link` | マイページからのリアクション履歴削除（`quizetika-auth-profile-ui`） |
+| モバイル Header プロフィールポップアップ（代替到達手段）           | `layout.tsx` への ThemeProvider 追加                                |
 
-**layout.tsx 協調メモ**: `quizeum-user-settings-ui` が `ThemeProvider` と inline テーマ初期化 script を `layout.tsx` に追加する。本フェーズでは `layout.tsx` を変更しない（ThemeProvider 未導入状態でも Sidebar / Header のナビ拡張は独立して実装可能）。両スペックのマージ順は user-settings → sidebar-layout を推奨。
+**layout.tsx 協調メモ**: `quizetika-user-settings-ui` が `ThemeProvider` と inline テーマ初期化 script を `layout.tsx` に追加する。本フェーズでは `layout.tsx` を変更しない（ThemeProvider 未導入状態でも Sidebar / Header のナビ拡張は独立して実装可能）。両スペックのマージ順は user-settings → sidebar-layout を推奨。
 
 ### 3. Navigation Items
 
@@ -571,7 +571,7 @@ const isNavItemActive = (href: string): boolean => {
 
 ### 1. Overview
 
-`quizeum-core`・`quizeum-play-flow-ui`・`quizeum-creator-dash-ui`・`quizeum-my-quiz-ui` における Phase 26 リスト機能廃止に追随し、本スペックが所有するグローバルナビから廃止ルート `/lists` への導線を除去する。
+`quizetika-core`・`quizetika-play-flow-ui`・`quizetika-creator-dash-ui`・`quizetika-my-quiz-ui` における Phase 26 リスト機能廃止に追随し、本スペックが所有するグローバルナビから廃止ルート `/lists` への導線を除去する。
 
 **現状（実装ギャップ）**: `sidebar.tsx` に `nav-lists`（`/lists`）が残存し、`header.tsx` のプロフィールポップアップに `header-nav-lists` が残存している。`/lists` はルート削除済みのため 404 を返すが、ナビからの遷移は UX 上のデッドリンクとなる。
 
@@ -579,13 +579,13 @@ const isNavItemActive = (href: string): boolean => {
 
 ### 2. Boundary Commitments（Phase 26）
 
-| Owns                                         | Out                                                                           |
-| -------------------------------------------- | ----------------------------------------------------------------------------- |
-| Sidebar から「リスト」menuItem 除去          | `/lists` ページ・ルート除去（`quizeum-play-flow-ui` 担当済み）                |
-| Header ポップアップから「リスト」リンク除去  | プロフィール「作成したリスト」タブ（`quizeum-auth-profile-ui`）               |
-| `nav-lists` / `header-nav-lists` testid 削除 | ブックマーク「リスト」タブ除去（`quizeum-play-flow-ui` 担当済み）             |
-| `/lists` active 判定の除去（残存時）         | カスタムクイズのブックマークリストソース除去（`quizeum-my-quiz-ui` 担当済み） |
-| 関連 Jest / E2E テスト更新                   | `quizeum-lists-discovery-ui`（廃止）                                          |
+| Owns                                         | Out                                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------------------- |
+| Sidebar から「リスト」menuItem 除去          | `/lists` ページ・ルート除去（`quizetika-play-flow-ui` 担当済み）                |
+| Header ポップアップから「リスト」リンク除去  | プロフィール「作成したリスト」タブ（`quizetika-auth-profile-ui`）               |
+| `nav-lists` / `header-nav-lists` testid 削除 | ブックマーク「リスト」タブ除去（`quizetika-play-flow-ui` 担当済み）             |
+| `/lists` active 判定の除去（残存時）         | カスタムクイズのブックマークリストソース除去（`quizetika-my-quiz-ui` 担当済み） |
+| 関連 Jest / E2E テスト更新                   | `quizetika-lists-discovery-ui`（廃止）                                          |
 
 **維持（Phase 23 から変更なし）**
 
@@ -683,15 +683,15 @@ if (user) {
 
 ### 1. Overview
 
-システム管理者（Super Admin）向けに、PC用 Sidebar 主要ナビゲーション、Sidebar プロフィールポップアップ、モバイル用 Header プロフィールポップアップに「管理者メニュー」への遷移リンクを追加します。管理者判定は `quizeum-core` ですでに実装済みの `isAdminUser(user)` を使用します。
+システム管理者（Super Admin）向けに、PC用 Sidebar 主要ナビゲーション、Sidebar プロフィールポップアップ、モバイル用 Header プロフィールポップアップに「管理者メニュー」への遷移リンクを追加します。管理者判定は `quizetika-core` ですでに実装済みの `isAdminUser(user)` を使用します。
 
 ### 2. Boundary Commitments（Phase 27）
 
-| Owns                                                          | Out                                                                 |
-| ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Sidebar / Header における「管理者メニュー」リンク追加         | `/admin` 画面の実装（`quizeum-admin-users-ui` 等が担当）            |
-| `nav-admin`, `sidebar-admin-link`, `header-admin-link` testid | `isAdminUser` 判定ロジック（`quizeum-core` の既存ロジックを再利用） |
-| `/admin` へのアクティブ状態の判定                             |                                                                     |
+| Owns                                                          | Out                                                                   |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Sidebar / Header における「管理者メニュー」リンク追加         | `/admin` 画面の実装（`quizetika-admin-users-ui` 等が担当）            |
+| `nav-admin`, `sidebar-admin-link`, `header-admin-link` testid | `isAdminUser` 判定ロジック（`quizetika-core` の既存ロジックを再利用） |
+| `/admin` へのアクティブ状態の判定                             |                                                                       |
 
 ### 3. Navigation Items（Phase 27 差分）
 
@@ -850,7 +850,7 @@ PC表示時（1024px以上）における、サイドバーの通常表示（275
 
 ### 3. Components & Interfaces（Phase 28 差分）
 
-#### `LayoutWrapper` ([layout-wrapper.tsx](file:///d:/quizeum/src/components/layout/layout-wrapper.tsx))
+#### `LayoutWrapper` ([layout-wrapper.tsx](file:///d:/quizetika/src/components/layout/layout-wrapper.tsx))
 サイドバーの切り替え状態を保持し、メインコンテンツの左側パディングを動的に切り替えます。
 
 ```tsx
@@ -880,7 +880,7 @@ export const LayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ childre
 };
 ```
 
-#### `Sidebar` ([sidebar.tsx](file:///d:/quizeum/src/components/layout/sidebar.tsx))
+#### `Sidebar` ([sidebar.tsx](file:///d:/quizetika/src/components/layout/sidebar.tsx))
 Props を受け取り、サイドバーの幅やテキストラベルの表示・非表示を制御します。また、トグルボタンとツールチップを追加します。
 
 ##### Props の定義

@@ -42,12 +42,12 @@
 - フロントエンドにおける UI レイアウトやスタイル（Tailwind + shadcn）の変更。
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core` (Firebase / Storage 管理用ヘルパー)
-- **Downstream**: `quizeum-moderation-governance-ui` (ジャンル申請・投票UI), `quizeum-play-flow-ui` (ジャンル表示UI)
+- **Upstream**: `quizetika-core` (Firebase / Storage 管理用ヘルパー)
+- **Downstream**: `quizetika-moderation-governance-ui` (ジャンル申請・投票UI), `quizetika-play-flow-ui` (ジャンル表示UI)
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core` (Storage 連携部分)
-- **Adjacent**: `quizeum-moderation-governance-ui`, `quizeum-play-flow-ui`
+- **Extends**: `quizetika-core` (Storage 連携部分)
+- **Adjacent**: `quizetika-moderation-governance-ui`, `quizetika-play-flow-ui`
 
 ## Constraints
 - 画像のアップロード制限（PNG, JPEG, GIFのみ。SVG禁止。最大2MB以下）のルールを遵守すること。

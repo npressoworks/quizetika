@@ -1,10 +1,10 @@
-# 要件定義書: quizeum-my-quiz-ui
+# 要件定義書: quizetika-my-quiz-ui
 
 ## はじめに
 
-本ドキュメントは、クイズ投稿SNS「quizeum」における**カスタムクイズ**機能（`/my-quiz`）のフロントエンド UI 要件を定義します。ログインユーザーが、自作クイズ・ブックマーククイズ・ブックマーク問題という3ソースから問題を横断的に集め、キーワード・ジャンル・タグ・出題形式・難易度等で絞り込み、出題数とシャッフル有無を指定して連続プレイを開始できる体験を提供します。
+本ドキュメントは、クイズ投稿SNS「quizetika」における**カスタムクイズ**機能（`/my-quiz`）のフロントエンド UI 要件を定義します。ログインユーザーが、自作クイズ・ブックマーククイズ・ブックマーク問題という3ソースから問題を横断的に集め、キーワード・ジャンル・タグ・出題形式・難易度等で絞り込み、出題数とシャッフル有無を指定して連続プレイを開始できる体験を提供します。
 
-**Phase 23（2026-06-09）**: リスト探索・カスタムクイズ・設定・ナビ拡張フェーズの一環。問題プール合成（`buildMyQuizQuestionPool`）およびアドホックセッション lib（`my-quiz-session`）は `quizeum-core` が提供する。Sidebar への「カスタムクイズ」導線は `quizeum-sidebar-layout` が担当する。
+**Phase 23（2026-06-09）**: リスト探索・カスタムクイズ・設定・ナビ拡張フェーズの一環。問題プール合成（`buildMyQuizQuestionPool`）およびアドホックセッション lib（`my-quiz-session`）は `quizetika-core` が提供する。Sidebar への「カスタムクイズ」導線は `quizetika-sidebar-layout` が担当する。
 
 **Phase 26（2026-06-10）**: リスト機能廃止に伴い、カスタムクイズの問題取得元から **ブックマークリスト** ソースを除去し、4ソースから **3ソース** に変更します（要件 8 参照）。`my-quiz` プレイ体験自体は維持します。
 
@@ -22,13 +22,13 @@
   - E2E（カスタムクイズ起動・プレイ1問完了まで）
 - **対象外（Out of scope）**:
   - フィルタプリセットの保存、URL 共有、復習モード（`/quiz/review`）との統合
-  - AI 生成問題、リスト探索（`/lists` — `quizeum-lists-discovery-ui`）
+  - AI 生成問題、リスト探索（`/lists` — `quizetika-lists-discovery-ui`）
   - クイズ新規作成・編集、ブックマーク一覧 UI の改修
-  - Sidebar / BottomNav 項目追加（`quizeum-sidebar-layout`）
-  - 問題プール合成ロジック本体、Firestore クエリ最適化（`quizeum-core`）
-  - `attempts` 永続化スキーマ変更の正本（`quizeum-core` が `mode: 'my-quiz'` を提供）
+  - Sidebar / BottomNav 項目追加（`quizetika-sidebar-layout`）
+  - 問題プール合成ロジック本体、Firestore クエリ最適化（`quizetika-core`）
+  - `attempts` 永続化スキーマ変更の正本（`quizetika-core` が `mode: 'my-quiz'` を提供）
 - **隣接システムへの期待**:
-  - `quizeum-core` が `buildMyQuizQuestionPool`、`MyQuizQuestionCandidate` 型、`my-quiz-session.ts`（`init` / `read` / `advance` / `buildMyQuizPlayUrl`）を提供する
+  - `quizetika-core` が `buildMyQuizQuestionPool`、`MyQuizQuestionCandidate` 型、`my-quiz-session.ts`（`init` / `read` / `advance` / `buildMyQuizPlayUrl`）を提供する
   - ブックマーク取得は既存 `getBookmarkedQuizzes`、`enrichBookmarkedQuestions`、自作クイズは `searchAuthorQuizzes` + `getQuestionsByQuiz` パターンに準拠する（`getBookmarkedLists` は Phase 26 で使用しない）
   - ブックマーク経由の問題は親クイズが `published` のもののみ（既存 `question-attach-search` 契約）
   - 自作ソースは下書き・非公開クイズ内問題を含めてよい
@@ -58,8 +58,8 @@
    - **自作クイズ**: ログインユーザーが作成したクイズ（公開・下書き・非公開を含む）に含まれる問題
    - **ブックマーククイズ**: ブックマークした公開済みクイズに含まれる問題
    - **ブックマーク問題**: ブックマークした個別問題（公開済み親クイズの問題のみ）
-2. When ユーザーがソース選択を変更したとき、the My Quiz UI shall `quizeum-core` の `buildMyQuizQuestionPool`（または同等 API）を呼び出し、有効なソースのみを統合した問題候補プールを再取得すること。
-3. When 複数ソースで同一 `questionId` が重複するとき、the My Quiz UI shall `quizeum-core` の `buildMyQuizQuestionPool` が返す dedupe 済みプールをそのまま利用すること（dedupe 本体は core が `dedupeQuestionCandidates` と同一規則で実施）。
+2. When ユーザーがソース選択を変更したとき、the My Quiz UI shall `quizetika-core` の `buildMyQuizQuestionPool`（または同等 API）を呼び出し、有効なソースのみを統合した問題候補プールを再取得すること。
+3. When 複数ソースで同一 `questionId` が重複するとき、the My Quiz UI shall `quizetika-core` の `buildMyQuizQuestionPool` が返す dedupe 済みプールをそのまま利用すること（dedupe 本体は core が `dedupeQuestionCandidates` と同一規則で実施）。
 4. When 有効なソースが1件も選択されていないとき、the My Quiz UI shall 問題プールを空とし、「ソースを1つ以上選択してください」等の案内を表示すること。
 5. While 問題プールの取得中である間、the My Quiz UI shall ソース領域またはプレビュー領域にローディング状態を表示すること。
 6. If 問題プールの取得に失敗した場合、the My Quiz UI shall エラーメッセージと再試行操作を表示し、サイレントに空プールへフォールバックしてはならない。
@@ -113,7 +113,7 @@
 
 1. The My Quiz UI shall フィルタ適用後の問題プール件数を常時表示すること（例: 「対象 42 問 / 出題 20 問」）。
 2. When フィルタ後プール件数が 0 件のとき、the My Quiz UI shall 空状態メッセージとフィルタ緩和の案内を表示すること。
-3. When ユーザーが「クイズを始める」を押したとき、the My Quiz UI shall 出題数・シャッフル設定に従い最終出題リストを確定し、`my-quiz-session` を `sessionStorage` に書き込むこと（`quizeum-core` lib 経由）。
+3. When ユーザーが「クイズを始める」を押したとき、the My Quiz UI shall 出題数・シャッフル設定に従い最終出題リストを確定し、`my-quiz-session` を `sessionStorage` に書き込むこと（`quizetika-core` lib 経由）。
 4. When セッション初期化が完了したとき、the My Quiz UI shall 先頭問題の親クイズプレイ画面（`/quiz/[parentQuizId]/play?mode=my-quiz&...`）へ遷移すること。
 5. The My Quiz UI shall プレイ開始ボタンに `data-testid="my-quiz-start-play"`、`data-analytics="my-quiz-start-play"` を付与すること。
 6. The My Quiz UI shall Firestore への attempt 書き込みや問題プールのサーバー側永続化を実装してはならない（セッション生成と遷移のみ）。
@@ -132,7 +132,7 @@
 6. The Play Flow UI shall 通常モード（`mode=normal`）の即時フィードバックフロー（要件 17）をカスタムクイズプレイに適用してはならない（`question-list` と同様、全問完了後に結果画面へ遷移する従来挙動を維持）。
 7. The My Quiz UI shall プレイエンジンの問題表示・正誤判定・タイマーロジックの正本を変更してはならない（セッション読み取りと次問題遷移の拡張のみ）。
 
-> **脚注（プレイクライアント拡張の所有）**: `quiz-play-client.tsx` / `quiz-result-client.tsx` への `mode=my-quiz` 最小拡張は **本スペック（quizeum-my-quiz-ui）** が所有する。実装タスクは **6（quiz-play-client）・7（quiz-result-client）**。`quizeum-play-flow-ui` スペック自体は本フェーズでは変更しない（coordination のみ）。
+> **脚注（プレイクライアント拡張の所有）**: `quiz-play-client.tsx` / `quiz-result-client.tsx` への `mode=my-quiz` 最小拡張は **本スペック（quizetika-my-quiz-ui）** が所有する。実装タスクは **6（quiz-play-client）・7（quiz-result-client）**。`quizetika-play-flow-ui` スペック自体は本フェーズでは変更しない（coordination のみ）。
 
 ### 要件 7: ローディング・エラー・E2E
 
@@ -159,7 +159,7 @@
 
 **境界・隣接**
 6. The [My Quiz UI] shall [カスタムクイズプレイ（`mode=my-quiz`）および `my-quiz-session` 契約を維持すること]。
-7. The [My Quiz UI] shall [問題プール合成ロジックの正本変更を本要件の範囲に含めない（`quizeum-core` が `buildMyQuizQuestionPool` からブックマークリスト分岐を除去）]。
+7. The [My Quiz UI] shall [問題プール合成ロジックの正本変更を本要件の範囲に含めない（`quizetika-core` が `buildMyQuizQuestionPool` からブックマークリスト分岐を除去）]。
 
 **アクセシビリティ・テスト支援**
 8. The [My Quiz UI] shall [E2E および単体テストから `bookmarked-list` / `bookmarkedLists` シナリオを削除または3ソース前提へ更新すること]。

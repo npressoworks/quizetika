@@ -1,8 +1,8 @@
-# Design Document: quizeum-ui-editor
+# Design Document: quizetika-ui-editor
 
 ## Overview
 
-本機能は Phase 24 UI 刷新の**エディタスライス**である。Quizeum のクイズエディタ（約 2,028 LOC）、リストエディタ、問題添付パネル、および関連サブコンポーネント（@dnd-kit ソート、Markdown プレビュー、エディタスケルトン）を `quizeum-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。問題 CRUD、DnD 並べ替え、バリデーション表示、下書き/公開/テストプレイ/リスト保存フローは変更しない。
+本機能は Phase 24 UI 刷新の**エディタスライス**である。Quizetika のクイズエディタ（約 2,028 LOC）、リストエディタ、問題添付パネル、および関連サブコンポーネント（@dnd-kit ソート、Markdown プレビュー、エディタスケルトン）を `quizetika-ui-foundation` の shadcn 標準テーマと Tailwind ユーティリティ上に再構築する。問題 CRUD、DnD 並べ替え、バリデーション表示、下書き/公開/テストプレイ/リスト保存フローは変更しない。
 
 **Users**: クリエイターが `/quiz/create`, `/quiz/[id]/edit`, `/list/create`, `/list/[id]/edit` でコンテンツを編集する。開発者は foundation Primitive Wave 2 の Form 系プリミティブを利用する。
 
@@ -19,7 +19,7 @@
 ### Non-Goals
 - Firestore サービス層・バリデーション lib の変更
 - AI 生成 API UI
-- プレイ/結果 UI（`quizeum-ui-quiz-lifecycle`）
+- プレイ/結果 UI（`quizetika-ui-quiz-lifecycle`）
 - @dnd-kit への HTML5 DnD 統一
 - `variables.css` 削除
 - react-hook-form 全面導入
@@ -44,12 +44,12 @@
 - `useQuestionAttachSearch` hook の検索ロジック
 - `AuthorQuizReferencePanel`, `ReferenceQuestionBadge` の機能ロジック（スタイル追随のみ本スペックで touch 可）
 - `AutoGrowTextarea`, `TrueFalseCorrectToggle`, `DifficultyVoteStars` の挙動ロジック（Tailwind 化は本スペック）
-- クリエイターダッシュボード（`quizeum-ui-admin-creator`）
-- シェルコンポーネント（`quizeum-ui-layout-shell`）
+- クリエイターダッシュボード（`quizetika-ui-admin-creator`）
+- シェルコンポーネント（`quizetika-ui-layout-shell`）
 
 ### Allowed Dependencies
-- **`quizeum-ui-foundation`**: Tailwind, `globals.css`, `cn()`, Button, Input, Card, Dialog, Tabs, Skeleton, Badge（P0）
-- **`quizeum-ui-layout-shell`**: シェル内 `main` 描画（P0）
+- **`quizetika-ui-foundation`**: Tailwind, `globals.css`, `cn()`, Button, Input, Card, Dialog, Tabs, Skeleton, Badge（P0）
+- **`quizetika-ui-layout-shell`**: シェル内 `main` 描画（P0）
 - **`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`**: SortableSortingList（P0、設定変更禁止）
 - **`useAuth`**: 認可・authorId（P0、読み取りのみ）
 - **`useActiveGenres`, `useQuestionAttachSearch`**: データ取得 hook（P0、ロジック不変）
@@ -82,13 +82,13 @@
 
 ```mermaid
 graph TD
-    subgraph Foundation [quizeum-ui-foundation]
+    subgraph Foundation [quizetika-ui-foundation]
         Globals[globals.css CSS vars]
         CN[cn utility]
         Primitives[Button Card Input Dialog Tabs]
     end
 
-    subgraph EditorSpec [quizeum-ui-editor]
+    subgraph EditorSpec [quizetika-ui-editor]
         QuizEditor[QuizEditorContent Container]
         SubComps[editor/* Presentational]
         ListEditor[QuizListEditor]
@@ -132,15 +132,15 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend | Next.js 16, React 19 | App Router, Client Components | 既存維持 |
-| Styling | Tailwind CSS v4 | フォーム・カードレイアウト | foundation 経由 |
-| UI | shadcn/ui | Form, Textarea, Select, Card, Alert 等 | foundation Wave 1+2 |
-| DnD | @dnd-kit ^6.3 / ^10.0 | sorting 問題のみ | 設定不変 |
-| DnD | HTML5 Drag API | リスト/問題並べ替え | 統一しない |
-| Markdown | 既存 sanitize + parse | プレビュー | ロジック不変 |
-| Testing | Jest, Playwright | 回帰 | 既存 spec |
+| Layer    | Choice / Version      | Role in Feature                        | Notes               |
+| -------- | --------------------- | -------------------------------------- | ------------------- |
+| Frontend | Next.js 16, React 19  | App Router, Client Components          | 既存維持            |
+| Styling  | Tailwind CSS v4       | フォーム・カードレイアウト             | foundation 経由     |
+| UI       | shadcn/ui             | Form, Textarea, Select, Card, Alert 等 | foundation Wave 1+2 |
+| DnD      | @dnd-kit ^6.3 / ^10.0 | sorting 問題のみ                       | 設定不変            |
+| DnD      | HTML5 Drag API        | リスト/問題並べ替え                    | 統一しない          |
+| Markdown | 既存 sanitize + parse | プレビュー                             | ロジック不変        |
+| Testing  | Jest, Playwright      | 回帰                                   | 既存 spec           |
 
 ---
 
@@ -260,45 +260,45 @@ graph LR
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1–1.6 | メタデータ・形式 UI | QuizMetadataSection, QuizFormatSelector, GenreEditorSelect, EditorSkeleton | QuizEditor props | — |
-| 2.1–2.7 | 問題 CRUD・DnD | QuestionCard, question-type-editors/*, SortableSortingList, ReferenceQuestionView | onReorder, question state | DnD flow |
-| 3.1–3.4 | Markdown | MarkdownPreview, MarkdownContent, MarkdownFieldHint | markdown string | — |
-| 4.1–4.7 | リストエディタ | QuizListEditor, ListTypeSelector, ListSkeleton | list props, handleSave | Save flow |
-| 5.1–5.6 | 問題添付 | QuestionListAttachPanel | useQuestionAttachSearch | — |
-| 6.1–6.8 | バリデーション・保存 | QuizEditorValidation, ActionBar, handleSave | validation errors, scroll IDs | Save flow |
-| 7.1–7.5 | shadcn ビジュアル | 全エディタコンポーネント | Tailwind + shadcn tokens | — |
-| 8.1–8.6 | CSS 削除・回帰 | 全コンポーネント、E2E | testid, routes | — |
+| Requirement | Summary              | Components                                                                        | Interfaces                    | Flows     |
+| ----------- | -------------------- | --------------------------------------------------------------------------------- | ----------------------------- | --------- |
+| 1.1–1.6     | メタデータ・形式 UI  | QuizMetadataSection, QuizFormatSelector, GenreEditorSelect, EditorSkeleton        | QuizEditor props              | —         |
+| 2.1–2.7     | 問題 CRUD・DnD       | QuestionCard, question-type-editors/*, SortableSortingList, ReferenceQuestionView | onReorder, question state     | DnD flow  |
+| 3.1–3.4     | Markdown             | MarkdownPreview, MarkdownContent, MarkdownFieldHint                               | markdown string               | —         |
+| 4.1–4.7     | リストエディタ       | QuizListEditor, ListTypeSelector, ListSkeleton                                    | list props, handleSave        | Save flow |
+| 5.1–5.6     | 問題添付             | QuestionListAttachPanel                                                           | useQuestionAttachSearch       | —         |
+| 6.1–6.8     | バリデーション・保存 | QuizEditorValidation, ActionBar, handleSave                                       | validation errors, scroll IDs | Save flow |
+| 7.1–7.5     | shadcn ビジュアル    | 全エディタコンポーネント                                                          | Tailwind + shadcn tokens      | —         |
+| 8.1–8.6     | CSS 削除・回帰       | 全コンポーネント、E2E                                                             | testid, routes                | —         |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|--------------|--------------------------|-----------|
-| EditorPrimitives | UI | Form 系 shadcn 追加 | 7.5 | foundation cn() (P0) | State |
-| SortableSortingList | UI | @dnd-kit ソート UI | 2.3, 2.4 | @dnd-kit (P0) | State |
-| MarkdownPreview | UI | Markdown プレビュー | 3.1–3.4 | sanitize lib (P0) | State |
-| QuizFormatSelector | UI | 8 形式選択 | 1.2, 1.3 | Card, Button (P0) | State |
-| QuizMetadataSection | UI | メタデータフォーム | 1.1, 1.4, 1.5 | Input, Select, AutoGrowTextarea (P0) | State |
-| QuizTagEditor | UI | タグ編集 | 1.1 | Badge, Input (P0) | State |
-| QuestionCard | UI | 問題 shell | 2.1, 2.7 | Card, question-type-editors (P0) | State |
-| SortingQuestionEditor | UI | sorting 問題 | 2.3, 2.4 | SortableSortingList (P0) | State |
-| QuizEditorValidation | UI | エラー表示 | 6.1, 6.2, 7.4 | Alert, FormMessage (P0) | State |
-| QuizEditorActionBar | UI | 保存アクション | 6.3–6.5, 6.8 | Button (P0) | Event |
-| QuizListEditor | UI | リスト編集 | 4.1–4.7, 6.6–6.8 | Switch, RadioGroup (P0) | Event |
-| QuestionListAttachPanel | UI | 問題添付 | 5.1–5.6 | Tabs, useQuestionAttachSearch (P0) | State |
-| EditorSkeletons | UI | 読込中表示 | 1.6, 4.7 | Skeleton (P0) | State |
+| Component               | Domain/Layer | Intent              | Req Coverage     | Key Dependencies (P0/P1)             | Contracts |
+| ----------------------- | ------------ | ------------------- | ---------------- | ------------------------------------ | --------- |
+| EditorPrimitives        | UI           | Form 系 shadcn 追加 | 7.5              | foundation cn() (P0)                 | State     |
+| SortableSortingList     | UI           | @dnd-kit ソート UI  | 2.3, 2.4         | @dnd-kit (P0)                        | State     |
+| MarkdownPreview         | UI           | Markdown プレビュー | 3.1–3.4          | sanitize lib (P0)                    | State     |
+| QuizFormatSelector      | UI           | 8 形式選択          | 1.2, 1.3         | Card, Button (P0)                    | State     |
+| QuizMetadataSection     | UI           | メタデータフォーム  | 1.1, 1.4, 1.5    | Input, Select, AutoGrowTextarea (P0) | State     |
+| QuizTagEditor           | UI           | タグ編集            | 1.1              | Badge, Input (P0)                    | State     |
+| QuestionCard            | UI           | 問題 shell          | 2.1, 2.7         | Card, question-type-editors (P0)     | State     |
+| SortingQuestionEditor   | UI           | sorting 問題        | 2.3, 2.4         | SortableSortingList (P0)             | State     |
+| QuizEditorValidation    | UI           | エラー表示          | 6.1, 6.2, 7.4    | Alert, FormMessage (P0)              | State     |
+| QuizEditorActionBar     | UI           | 保存アクション      | 6.3–6.5, 6.8     | Button (P0)                          | Event     |
+| QuizListEditor          | UI           | リスト編集          | 4.1–4.7, 6.6–6.8 | Switch, RadioGroup (P0)              | Event     |
+| QuestionListAttachPanel | UI           | 問題添付            | 5.1–5.6          | Tabs, useQuestionAttachSearch (P0)   | State     |
+| EditorSkeletons         | UI           | 読込中表示          | 1.6, 4.7         | Skeleton (P0)                        | State     |
 
 ### UI Layer
 
 #### QuizEditorContent（Container）
 
-| Field | Detail |
-|-------|--------|
-| Intent | クイズ編集 state・services 呼び出しの単一 Container |
-| Requirements | 1.1–2.7, 6.1–6.8 |
+| Field        | Detail                                              |
+| ------------ | --------------------------------------------------- |
+| Intent       | クイズ編集 state・services 呼び出しの単一 Container |
+| Requirements | 1.1–2.7, 6.1–6.8                                    |
 
 **Responsibilities & Constraints**
 - 既存 `handleSave`, question state, format state を保持
@@ -323,10 +323,10 @@ graph LR
 
 #### SortableSortingList
 
-| Field | Detail |
-|-------|--------|
-| Intent | @dnd-kit ベースの汎用ソートリスト |
-| Requirements | 2.3, 2.4 |
+| Field        | Detail                            |
+| ------------ | --------------------------------- |
+| Intent       | @dnd-kit ベースの汎用ソートリスト |
+| Requirements | 2.3, 2.4                          |
 
 **Responsibilities & Constraints**
 - `DndContext`, `SortableContext`, `PointerSensor({ activationConstraint: { distance: 8 } })`, `KeyboardSensor` を維持
@@ -337,10 +337,10 @@ graph LR
 
 #### QuizListEditor
 
-| Field | Detail |
-|-------|--------|
-| Intent | リスト作成・編集フォーム |
-| Requirements | 4.1–4.7, 6.6–6.8 |
+| Field        | Detail                   |
+| ------------ | ------------------------ |
+| Intent       | リスト作成・編集フォーム |
+| Requirements | 4.1–4.7, 6.6–6.8         |
 
 **Responsibilities & Constraints**
 - クイズリスト: 検索フォーム + 添付リスト + HTML5 DnD reorder
@@ -353,10 +353,10 @@ graph LR
 
 #### QuestionListAttachPanel
 
-| Field | Detail |
-|-------|--------|
-| Intent | 問題検索・添付・並べ替え |
-| Requirements | 5.1–5.6 |
+| Field        | Detail                   |
+| ------------ | ------------------------ |
+| Intent       | 問題検索・添付・並べ替え |
+| Requirements | 5.1–5.6                  |
 
 **Responsibilities & Constraints**
 - shadcn Tabs で 3 タブ UI
@@ -444,11 +444,11 @@ Phase 24 ではクイズエディタとリストエディタの両方を shadcn 
 
 ### 2. Boundary Commitments（Phase 26）
 
-| Owns | Out |
-|------|-----|
-| リストエディタコンポーネント削除の確認 | Core `quiz-list` サービス削除 |
-| エディタ E2E からリストシナリオ除去 | ブックマーク・探索 UI（play-flow） |
-| クイズエディタ Phase 24 成果の維持 | 作家ダッシュボード CTA（creator-dash） |
+| Owns                                   | Out                                    |
+| -------------------------------------- | -------------------------------------- |
+| リストエディタコンポーネント削除の確認 | Core `quiz-list` サービス削除          |
+| エディタ E2E からリストシナリオ除去    | ブックマーク・探索 UI（play-flow）     |
+| クイズエディタ Phase 24 成果の維持     | 作家ダッシュボード CTA（creator-dash） |
 
 **This Spec Owns（Phase 26 改定後）**
 - `src/components/quiz/quiz-editor.tsx` および `editor/*` サブコンポーネント
@@ -465,17 +465,17 @@ Phase 24 ではクイズエディタとリストエディタの両方を shadcn 
 
 ### 3. File Structure Plan（Phase 26）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/components/quiz-list/` | **Delete**（play-flow 28.1 正本） | リストエディタ一式 |
-| `src/app/list/` | **Delete**（play-flow 28.1 正本） | リスト作成・編集ルート |
-| `src/lib/list-editor-classes.ts` | **Delete** | リストエディタ Tailwind クラスマップ |
-| `tests/components/list-type-selector.test.tsx` | **Delete** | — |
-| `tests/components/question-list-attach-panel.test.tsx` | **Delete** | — |
-| `tests/components/creator-skeleton-components.test.tsx` | **Modify** | `ListEditorSkeleton` 期待除去 |
-| `e2e/quiz-list.spec.ts` | **Delete** | リスト E2E 専用 |
-| `e2e/phase8.spec.ts` | **Modify** | リスト作成・attach シナリオ削除 |
-| `e2e/creator-streaming-skeleton.spec.ts` | **Modify** | `list-editor-skeleton` シナリオ削除 |
+| ファイル                                                | 操作                              | 責務                                 |
+| ------------------------------------------------------- | --------------------------------- | ------------------------------------ |
+| `src/components/quiz-list/`                             | **Delete**（play-flow 28.1 正本） | リストエディタ一式                   |
+| `src/app/list/`                                         | **Delete**（play-flow 28.1 正本） | リスト作成・編集ルート               |
+| `src/lib/list-editor-classes.ts`                        | **Delete**                        | リストエディタ Tailwind クラスマップ |
+| `tests/components/list-type-selector.test.tsx`          | **Delete**                        | —                                    |
+| `tests/components/question-list-attach-panel.test.tsx`  | **Delete**                        | —                                    |
+| `tests/components/creator-skeleton-components.test.tsx` | **Modify**                        | `ListEditorSkeleton` 期待除去        |
+| `e2e/quiz-list.spec.ts`                                 | **Delete**                        | リスト E2E 専用                      |
+| `e2e/phase8.spec.ts`                                    | **Modify**                        | リスト作成・attach シナリオ削除      |
+| `e2e/creator-streaming-skeleton.spec.ts`                | **Modify**                        | `list-editor-skeleton` シナリオ削除  |
 
 **維持**
 - `src/app/quiz/create`, `src/app/quiz/[id]/edit`, `quiz-editor-loader.tsx`
@@ -485,12 +485,12 @@ Phase 24 ではクイズエディタとリストエディタの両方を shadcn 
 
 ```mermaid
 graph TD
-    subgraph Foundation [quizeum-ui-foundation]
+    subgraph Foundation [quizetika-ui-foundation]
         Globals[globals.css CSS vars]
         Primitives[Button Card Input Dialog Tabs]
     end
 
-    subgraph EditorSpec [quizeum-ui-editor Phase 26]
+    subgraph EditorSpec [quizetika-ui-editor Phase 26]
         QuizEditor[QuizEditorContent Container]
         SubComps[editor/* Presentational]
         Sortable[SortableSortingList]
@@ -520,27 +520,27 @@ Phase 24 Migration Strategy の **Phase 4（ListEditor + AttachPanel）** およ
 
 ### 5. Requirements Traceability（Phase 26）
 
-| Req | Summary | Component / Action |
-|-----|---------|-------------------|
-| 26.1 | リストコンポーネント削除 | `components/quiz-list` 不存在確認 |
-| 26.2 | リストルート削除 | `/list/*` 404 |
-| 26.3 | import 掃除 | grep 確認 |
-| 26.4 | リスト専用 Jest 削除 | tests/components |
-| 26.5 | E2E 更新 | quiz-list.spec 削除、phase8/skeleton 改修 |
-| 26.6 | クイズエディタ回帰 | quiz-creation, phase8 クイズ部分 |
-| 26.7 | ダッシュボード skeleton 維持 | `quiz-list-skeleton.tsx` |
+| Req  | Summary                      | Component / Action                        |
+| ---- | ---------------------------- | ----------------------------------------- |
+| 26.1 | リストコンポーネント削除     | `components/quiz-list` 不存在確認         |
+| 26.2 | リストルート削除             | `/list/*` 404                             |
+| 26.3 | import 掃除                  | grep 確認                                 |
+| 26.4 | リスト専用 Jest 削除         | tests/components                          |
+| 26.5 | E2E 更新                     | quiz-list.spec 削除、phase8/skeleton 改修 |
+| 26.6 | クイズエディタ回帰           | quiz-creation, phase8 クイズ部分          |
+| 26.7 | ダッシュボード skeleton 維持 | `quiz-list-skeleton.tsx`                  |
 
 ### 6. Testing Strategy（Phase 26）
 
-| 種別 | 検証 |
-|------|------|
-| **Grep / build** | `quiz-list-editor`・`question-list-attach`・`list-editor-loader` import ゼロ |
-| **E2E** | `quiz-creation.spec.ts` 下書き保存フルフロー |
-| **E2E** | `phase8.spec.ts` — クイズ参照リンク・genre-editor のみ（リスト attach なし） |
-| **E2E** | `creator-streaming-skeleton.spec.ts` — `quiz-editor-skeleton` のみ（`list-editor-skeleton` なし） |
-| **Regression** | 8 形式・参照問題・Markdown・sorting DnD |
+| 種別             | 検証                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| **Grep / build** | `quiz-list-editor`・`question-list-attach`・`list-editor-loader` import ゼロ                      |
+| **E2E**          | `quiz-creation.spec.ts` 下書き保存フルフロー                                                      |
+| **E2E**          | `phase8.spec.ts` — クイズ参照リンク・genre-editor のみ（リスト attach なし）                      |
+| **E2E**          | `creator-streaming-skeleton.spec.ts` — `quiz-editor-skeleton` のみ（`list-editor-skeleton` なし） |
+| **Regression**   | 8 形式・参照問題・Markdown・sorting DnD                                                           |
  
- **Effort**: **S**（0.5 日、`quizeum-play-flow-ui` 28.1 完了後の確認・E2E 掃除）
+ **Effort**: **S**（0.5 日、`quizetika-play-flow-ui` 28.1 完了後の確認・E2E 掃除）
  
 ---
 
@@ -560,14 +560,14 @@ Phase 24 Migration Strategy の **Phase 4（ListEditor + AttachPanel）** およ
 
 ### 3. File Structure Plan（Phase 27）
 
-| ファイル | 操作 | 責務 |
-|----------|------|------|
-| `src/components/quiz/genre-editor-select.tsx` | **Modify** | プルダウンからサジェスト付き検索バー（インプット ＋ ポップオーバー）へのリファクタリング。 |
+| ファイル                                        | 操作       | 責務                                                                                                   |
+| ----------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------ |
+| `src/components/quiz/genre-editor-select.tsx`   | **Modify** | プルダウンからサジェスト付き検索バー（インプット ＋ ポップオーバー）へのリファクタリング。             |
 | `tests/components/genre-editor-select.test.tsx` | **Modify** | 検索バーの挙動（サジェスト、絞り込み、選択、orphan値表示、エラー表示等）に合わせた Jest テストの更新。 |
-| `e2e/phase8.spec.ts` | **Modify** | `selectFirstGenre` を検索バー操作に変更。 |
-| `e2e/advanced-quiz-features.spec.ts` | **Modify** | `genreSelect` 操作手順を検索バー操作に変更。 |
-| `e2e/learning-support.spec.ts` | **Modify** | `genreSelect` 操作手順を検索バー操作に変更。 |
-| `e2e/moderation-feedback.spec.ts` | **Modify** | `genreSelect` 操作手順を検索バー操作に変更。 |
+| `e2e/phase8.spec.ts`                            | **Modify** | `selectFirstGenre` を検索バー操作に変更。                                                              |
+| `e2e/advanced-quiz-features.spec.ts`            | **Modify** | `genreSelect` 操作手順を検索バー操作に変更。                                                           |
+| `e2e/learning-support.spec.ts`                  | **Modify** | `genreSelect` 操作手順を検索バー操作に変更。                                                           |
+| `e2e/moderation-feedback.spec.ts`               | **Modify** | `genreSelect` 操作手順を検索バー操作に変更。                                                           |
 
 ### 4. Component Details & Flows
 

@@ -1,4 +1,4 @@
-# Brief: quizeum-admin-users-ui
+# Brief: quizetika-admin-users-ui
 
 ## Problem
 システム管理者が不適切なユーザーに対して緊急の信頼スコア・権限リセットを行ったり、アカウントの停止（BAN）処理を行ったりする際、データベース（Firestoreコンソール等）を直接操作する必要があり、誤操作のリスクや監査ログが残らないという課題があります。また、BANされたユーザーからの不適切なアクセスやデータ書き込みを即座に遮断する仕組みが不足しています。
@@ -35,12 +35,12 @@
 - モデレータ（Moderator / Senior Moderator）が管理者専用のユーザー管理画面にアクセスすることはできません。`role === 'admin'` のみがアクセスできます。
 
 ## Upstream / Downstream
-- **Upstream**: quizeum-core
+- **Upstream**: quizetika-core
 - **Downstream**: なし
 
 ## Existing Spec Touchpoints
-- **Extends**: quizeum-core (API・型定義、Firestore Rules、認証ミドルウェア)
-- **Adjacent**: quizeum-moderation-governance-ui (モデレーションルートガード、管理ナビゲーション)
+- **Extends**: quizetika-core (API・型定義、Firestore Rules、認証ミドルウェア)
+- **Adjacent**: quizetika-moderation-governance-ui (モデレーションルートガード、管理ナビゲーション)
 
 ## Constraints
 - **Styling**: Vanilla CSSを使用。他の管理者画面と統一感のある洗練されたダーク/ライトテーマデザイン。

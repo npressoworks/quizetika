@@ -1,4 +1,4 @@
-# 技術設計書: quizeum-my-quiz-ui
+# 技術設計書: quizetika-my-quiz-ui
 
 ## Overview
 
@@ -19,7 +19,7 @@
 ### Non-Goals
 
 - フィルタプリセット保存、URL 共有、Sidebar ナビ追加（他スペック）
-- `buildMyQuizQuestionPool` 実装本体（`quizeum-core`）
+- `buildMyQuizQuestionPool` 実装本体（`quizetika-core`）
 - リスト探索 UI、クイズ編集、弱点克服統合
 - 通常モード即時フィードバック（Phase 15）のカスタムクイズへの適用
 
@@ -35,23 +35,23 @@
 - **出題設定 UI**: 出題数プリセット/カスタム、シャッフルトグル
 - **クライアント側フィルタ**: `filterMyQuizCandidates` — キーワード・ジャンル・タグ・形式・難易度の AND 合成
 - **プレイ開始フロー**: 最終出題リスト確定 → `initMyQuizSession` → 先頭問題 URL へ `router.push`
-- **プレイ連携（最小・本スペック所有）**: `quiz-play-client.tsx` / `quiz-result-client.tsx` に `mode=my-quiz` 分岐追加（セッション読み取り・次問題遷移・完了導線）。`quizeum-play-flow-ui` は本フェーズ非変更
+- **プレイ連携（最小・本スペック所有）**: `quiz-play-client.tsx` / `quiz-result-client.tsx` に `mode=my-quiz` 分岐追加（セッション読み取り・次問題遷移・完了導線）。`quizetika-play-flow-ui` は本フェーズ非変更
 - **E2E**: `e2e/my-quiz.spec.ts`
 
 ### Out of Boundary
 
-- **`quizeum-core`**: `buildMyQuizQuestionPool`、`my-quiz-session.ts` lib、`Attempt.mode: 'my-quiz'` 永続化、`saveAttempt` スキーマ
-- **`quizeum-sidebar-layout`**: Sidebar / BottomNav「カスタムクイズ」項目
-- **`quizeum-play-flow-ui`**: 通常プレイ・結果画面のコア UX。**本フェーズでは `quizeum-play-flow-ui` スペックは変更しない**。`quiz-play-client.tsx` / `quiz-result-client.tsx` への `mode=my-quiz` 最小分岐は **quizeum-my-quiz-ui** が所有（タスク 6–7）。play-flow との関係は coordination のみ
-- **`quizeum-creator-dash-ui`**: `useQuestionAttachSearch` / リスト attach パネル（重複回避のため共有 lib 化は core が担当）
+- **`quizetika-core`**: `buildMyQuizQuestionPool`、`my-quiz-session.ts` lib、`Attempt.mode: 'my-quiz'` 永続化、`saveAttempt` スキーマ
+- **`quizetika-sidebar-layout`**: Sidebar / BottomNav「カスタムクイズ」項目
+- **`quizetika-play-flow-ui`**: 通常プレイ・結果画面のコア UX。**本フェーズでは `quizetika-play-flow-ui` スペックは変更しない**。`quiz-play-client.tsx` / `quiz-result-client.tsx` への `mode=my-quiz` 最小分岐は **quizetika-my-quiz-ui** が所有（タスク 6–7）。play-flow との関係は coordination のみ
+- **`quizetika-creator-dash-ui`**: `useQuestionAttachSearch` / リスト attach パネル（重複回避のため共有 lib 化は core が担当）
 
 ### Allowed Dependencies
 
 | 依存                                                 | 用途                            | 必須度           |
 | ---------------------------------------------------- | ------------------------------- | ---------------- |
-| `quizeum-core` — `buildMyQuizQuestionPool`           | 3ソース統合取得                 | P0               |
-| `quizeum-core` — `my-quiz-session`                   | sessionStorage CRUD + URL 生成  | P0               |
-| `quizeum-core` — `saveAttempt` (`mode: 'my-quiz'`)   | 各問 attempt 記録               | P0               |
+| `quizetika-core` — `buildMyQuizQuestionPool`         | 3ソース統合取得                 | P0               |
+| `quizetika-core` — `my-quiz-session`                 | sessionStorage CRUD + URL 生成  | P0               |
+| `quizetika-core` — `saveAttempt` (`mode: 'my-quiz'`) | 各問 attempt 記録               | P0               |
 | `useAuth`                                            | ログインガード                  | P0               |
 | `listActiveGenres` / `listActiveTags`                | フィルタ候補                    | P1               |
 | `question-attach-search`                             | dedupe / keyword フィルタ再利用 | P1               |
@@ -81,7 +81,7 @@
 
 ```mermaid
 graph TD
-  subgraph MyQuizUI["quizeum-my-quiz-ui"]
+  subgraph MyQuizUI["quizetika-my-quiz-ui"]
     Page["/my-quiz page"]
     Hook["useMyQuizPool"]
     Filters["MyQuizFilters"]
@@ -89,7 +89,7 @@ graph TD
     Start["handleStartMyQuiz"]
   end
 
-  subgraph Core["quizeum-core"]
+  subgraph Core["quizetika-core"]
     Pool["buildMyQuizQuestionPool"]
     Session["my-quiz-session"]
     Attempt["saveAttempt mode=my-quiz"]
@@ -161,14 +161,14 @@ e2e/
 
 本スペックが変更するファイルと、他スペック所有ファイルの境界を明示する。
 
-| ファイル                                          | 所有者                 | 変更内容                                                                                   | 備考                                                     |
-| ------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| `src/app/quiz/[id]/play/quiz-play-client.tsx`     | **quizeum-my-quiz-ui** | `myQuizMode` 分岐、`readMyQuizSession`、`playQuestions` 1問抽出、attempt `mode: 'my-quiz'` | play-flow coordination のみ。play-flow-ui スペック非変更 |
-| `src/app/quiz/[id]/result/quiz-result-client.tsx` | **quizeum-my-quiz-ui** | `my-quiz` 次問題 URL、`buildMyQuizPlayUrl`、最終問完了 UI                                  | 同上（タスク 7）                                         |
+| ファイル                                          | 所有者                   | 変更内容                                                                                   | 備考                                                     |
+| ------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx`     | **quizetika-my-quiz-ui** | `myQuizMode` 分岐、`readMyQuizSession`、`playQuestions` 1問抽出、attempt `mode: 'my-quiz'` | play-flow coordination のみ。play-flow-ui スペック非変更 |
+| `src/app/quiz/[id]/result/quiz-result-client.tsx` | **quizetika-my-quiz-ui** | `my-quiz` 次問題 URL、`buildMyQuizPlayUrl`、最終問完了 UI                                  | 同上（タスク 7）                                         |
 
 ### Core-Provided Files（本スペック外・前提）
 
-- `src/lib/my-quiz-session.ts` — `quizeum-core` が新設（`question-list-session` 同型 + `sessionId`）
+- `src/lib/my-quiz-session.ts` — `quizetika-core` が新設（`question-list-session` 同型 + `sessionId`）
 - `src/lib/my-quiz-pool.ts` — `buildMyQuizQuestionPool`, `MyQuizSourceFlags`, `MyQuizQuestionCandidate`
 
 ---
@@ -284,7 +284,7 @@ interface MyQuizPlaySettings {
 - フィルタは取得済み `rawCandidates` に対し `filterMyQuizCandidates` を適用（再フェッチ不要）
 - 安定順: ソース priority（own → bq → bl → bqst）→ `parentQuizTitle` → `questionId`
 
-### Core Contracts（Allowed Dependency — quizeum-core 実装）
+### Core Contracts（Allowed Dependency — quizetika-core 実装）
 
 #### buildMyQuizQuestionPool
 
@@ -326,7 +326,7 @@ export async function buildMyQuizQuestionPool(
 #### my-quiz-session
 
 ```typescript
-export const MY_QUIZ_SESSION_KEY = 'quizeum_my_quiz_session';
+export const MY_QUIZ_SESSION_KEY = 'quizetika_my_quiz_session';
 
 export interface MyQuizSessionEntry {
   questionId: string;
@@ -377,9 +377,9 @@ Postconditions: `readMyQuizSession()?.sessionId === sessionId` かつ URL `qInde
 - チェックボックス: シャッフル（default true）
 - `effectivePlayCount` を親 hook から受け取り表示
 
-### Play Integration（最小拡張 — quizeum-my-quiz-ui 所有、play-flow-ui 非変更）
+### Play Integration（最小拡張 — quizetika-my-quiz-ui 所有、play-flow-ui 非変更）
 
-`mode=my-quiz` 分岐は本スペック（タスク 6–7）が `quiz-play-client` / `quiz-result-client` に直接追加する。`quizeum-play-flow-ui` スペック・要件書は本フェーズでは更新しない。
+`mode=my-quiz` 分岐は本スペック（タスク 6–7）が `quiz-play-client` / `quiz-result-client` に直接追加する。`quizetika-play-flow-ui` スペック・要件書は本フェーズでは更新しない。
 
 #### quiz-play-client 変更点
 
@@ -474,7 +474,7 @@ MyQuizSessionEntry[] ──initMyQuizSession──> MyQuizSession (sessionStorag
 ## Supporting References
 
 - 既存 `question-list-session.ts` — セッション API の模倣正本
-- `quizeum-play-flow-ui` 要件 11 — 問題リストプレイ URL・attempt 契約
+- `quizetika-play-flow-ui` 要件 11 — 問題リストプレイ URL・attempt 契約
 - Phase 23 roadmap — 4ソース定義、BottomNav は sidebar-layout が別途決定
 
 ---
@@ -483,7 +483,7 @@ MyQuizSessionEntry[] ──initMyQuizSession──> MyQuizSession (sessionStorag
 
 ### 1. Overview
 
-カスタムクイズの問題取得元を **4ソース → 3ソース** に縮小する。「ブックマークリスト」トグルと `bookmarkedLists` / `bookmarked-list` ラベルを除去し、`quizeum-core` の `buildMyQuizQuestionPool`（3フラグ）と整合させる。`my-quiz` プレイ体験は維持する。
+カスタムクイズの問題取得元を **4ソース → 3ソース** に縮小する。「ブックマークリスト」トグルと `bookmarkedLists` / `bookmarked-list` ラベルを除去し、`quizetika-core` の `buildMyQuizQuestionPool`（3フラグ）と整合させる。`my-quiz` プレイ体験は維持する。
 
 ### 2. Boundary Commitments（Phase 26）
 

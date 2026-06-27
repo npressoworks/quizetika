@@ -1,5 +1,5 @@
 /**
- * クイズ投稿SNS「quizeum」共通型定義
+ * クイズ投稿SNS「quizetika」共通型定義
  */
 
 import type { SubscriptionStatus, SubscriptionTier } from './subscription';

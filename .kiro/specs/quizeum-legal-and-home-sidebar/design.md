@@ -1,12 +1,12 @@
-# Design Document: quizeum-legal-and-home-sidebar
+# Design Document: quizetika-legal-and-home-sidebar
 
 ## Overview
 
 ### Purpose
-本機能は、quizeumの一般ユーザー向けに、サービスに関する法的な情報（利用規約、プライバシーポリシー）およびサポート・問い合わせ窓口へのアクセスを提供します。これにより、サービス運営の透明性と法的コンプライアンスを担保し、ユーザーが安心して利用できる環境を提供します。
+本機能は、quizetikaの一般ユーザー向けに、サービスに関する法的な情報（利用規約、プライバシーポリシー）およびサポート・問い合わせ窓口へのアクセスを提供します。これにより、サービス運営の透明性と法的コンプライアンスを担保し、ユーザーが安心して利用できる環境を提供します。
 
 ### Users
-quizeumを訪れるすべてのユーザー（ログイン済み、未ログインの双方）が、トップページおよびそれぞれの専用ページから利用規約等を確認できます。
+quizetikaを訪れるすべてのユーザー（ログイン済み、未ログインの双方）が、トップページおよびそれぞれの専用ページから利用規約等を確認できます。
 
 ### Impact
 トップページ（`/`）のレイアウトが、従来の1カラム型から、PC表示時に右カラム（サイドバー）を持つ2カラム型へと変更されます。モバイル表示時には、既存のカルーセル構造の下部へ追加コンテンツとして自動で配置されます。また、新規ルートとして `/terms` および `/privacy` へのアクセスが可能になります。
@@ -73,12 +73,12 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-|-------|------------------|-----------------|-------|
-| Frontend / UI | Next.js App Router | ルーティングおよびページ・コンポーネントの構築 | `src/app/` ディレクトリ配下の配置 |
-| Styling | Tailwind CSS v4 | レスポンシブ配置、プレミアムなカードスタイリング | `lg:grid` 等を用いた2カラム制御 |
-| Content Data | Markdown | 利用規約・プライバシーポリシーのコンテンツデータ | `src/data/` ディレクトリ配下 |
-| MD Parser | marked (v13.0.3) + DOMPurify | MarkdownをHTMLに安全に変換してレンダリング | XSSを防ぐためのサニタイズを含む |
+| Layer         | Choice / Version             | Role in Feature                                  | Notes                             |
+| ------------- | ---------------------------- | ------------------------------------------------ | --------------------------------- |
+| Frontend / UI | Next.js App Router           | ルーティングおよびページ・コンポーネントの構築   | `src/app/` ディレクトリ配下の配置 |
+| Styling       | Tailwind CSS v4              | レスポンシブ配置、プレミアムなカードスタイリング | `lg:grid` 等を用いた2カラム制御   |
+| Content Data  | Markdown                     | 利用規約・プライバシーポリシーのコンテンツデータ | `src/data/` ディレクトリ配下      |
+| MD Parser     | marked (v13.0.3) + DOMPurify | MarkdownをHTMLに安全に変換してレンダリング       | XSSを防ぐためのサニタイズを含む   |
 
 ---
 
@@ -135,18 +135,18 @@ sequenceDiagram
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-|-------------|---------|------------|------------|-------|
-| 1.1 | PC表示時の右側300pxカラム配置 | `home-discovery-client` | CSS Grid Layout | - |
-| 1.2 | モバイル表示時の下部配置 | `home-discovery-client` | CSS flex/grid order | - |
-| 1.3 | 既存ネオンデザインへの調和 | `HomeSidebar` | Tailwind v4 (shadcn card) | - |
-| 2.1 | 「利用規約」リンクから `/terms` へ遷移 | `HomeSidebar` | Next.js Link | - |
-| 2.2 | 「プライバシーポリシー」リンクから `/privacy` | `HomeSidebar` | Next.js Link | - |
-| 2.3 | 共通レイアウト適用とマークダウン描画 | `TermsPage`, `PrivacyPage` | Server Component / marked | Markdownドキュメント表示フロー |
-| 2.4 | 各ページ独自のメタデータ (SEO) | `TermsPage`, `PrivacyPage` | Next.js Metadata API | - |
-| 3.1 | 新しいタブでお問い合わせフォームを開く | `HomeSidebar` | Next.js Link (target="_blank") | - |
-| 3.2 | 環境変数 `NEXT_PUBLIC_CONTACT_FORM_URL` 利用 | `HomeSidebar` | Config Env | - |
-| 3.3 | 未定義時のデフォルトURLへのフォールバック | `HomeSidebar` | Config Env | - |
+| Requirement | Summary                                       | Components                 | Interfaces                     | Flows                          |
+| ----------- | --------------------------------------------- | -------------------------- | ------------------------------ | ------------------------------ |
+| 1.1         | PC表示時の右側300pxカラム配置                 | `home-discovery-client`    | CSS Grid Layout                | -                              |
+| 1.2         | モバイル表示時の下部配置                      | `home-discovery-client`    | CSS flex/grid order            | -                              |
+| 1.3         | 既存ネオンデザインへの調和                    | `HomeSidebar`              | Tailwind v4 (shadcn card)      | -                              |
+| 2.1         | 「利用規約」リンクから `/terms` へ遷移        | `HomeSidebar`              | Next.js Link                   | -                              |
+| 2.2         | 「プライバシーポリシー」リンクから `/privacy` | `HomeSidebar`              | Next.js Link                   | -                              |
+| 2.3         | 共通レイアウト適用とマークダウン描画          | `TermsPage`, `PrivacyPage` | Server Component / marked      | Markdownドキュメント表示フロー |
+| 2.4         | 各ページ独自のメタデータ (SEO)                | `TermsPage`, `PrivacyPage` | Next.js Metadata API           | -                              |
+| 3.1         | 新しいタブでお問い合わせフォームを開く        | `HomeSidebar`              | Next.js Link (target="_blank") | -                              |
+| 3.2         | 環境変数 `NEXT_PUBLIC_CONTACT_FORM_URL` 利用  | `HomeSidebar`              | Config Env                     | -                              |
+| 3.3         | 未定義時のデフォルトURLへのフォールバック     | `HomeSidebar`              | Config Env                     | -                              |
 
 ---
 
@@ -155,10 +155,10 @@ sequenceDiagram
 ### explore
 
 #### HomeSidebar
-| Field | Detail |
-|-------|--------|
-| Intent | トップページの右側（PC）または下部（モバイル）に表示する、利用規約、プライバシーポリシー、お問い合わせなどのリンクおよびコピーライトをまとめたカードコンポーネント |
-| Requirements | 1.3, 2.1, 2.2, 3.1, 3.2, 3.3 |
+| Field        | Detail                                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Intent       | トップページの右側（PC）または下部（モバイル）に表示する、利用規約、プライバシーポリシー、お問い合わせなどのリンクおよびコピーライトをまとめたカードコンポーネント |
+| Requirements | 1.3, 2.1, 2.2, 3.1, 3.2, 3.3                                                                                                                                       |
 
 **Responsibilities & Constraints**
 - トップページ専用のウィジェットとして表示され、利用規約・プライバシーポリシー・お問い合わせへのナビゲーションを提供します。
@@ -184,10 +184,10 @@ sequenceDiagram
 ### Pages (RSC)
 
 #### TermsPage (`src/app/terms/page.tsx`)
-| Field | Detail |
-|-------|--------|
-| Intent | 利用規約（`/terms`）にアクセスした際に、`src/data/terms.md` からテキストデータをロードし、パースしてユーザーに表示するページコンポーネント。 |
-| Requirements | 2.1, 2.3, 2.4 |
+| Field        | Detail                                                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Intent       | 利用規約（`/terms`）にアクセスした際に、`src/data/terms.md` からテキストデータをロードし、パースしてユーザーに表示するページコンポーネント。 |
+| Requirements | 2.1, 2.3, 2.4                                                                                                                                |
 
 **Responsibilities & Constraints**
 - Next.js の Server Component として実装し、サーバー側で安全にファイル読み込みおよびHTML変換を行います。
@@ -198,10 +198,10 @@ sequenceDiagram
 - External: `isomorphic-dompurify` — HTMLサニタイズ (P0)
 
 #### PrivacyPage (`src/app/privacy/page.tsx`)
-| Field | Detail |
-|-------|--------|
-| Intent | プライバシーポリシー（`/privacy`）にアクセスした際に、`src/data/privacy.md` からテキストデータをロードし、パースしてユーザーに表示するページコンポーネント。 |
-| Requirements | 2.2, 2.3, 2.4 |
+| Field        | Detail                                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Intent       | プライバシーポリシー（`/privacy`）にアクセスした際に、`src/data/privacy.md` からテキストデータをロードし、パースしてユーザーに表示するページコンポーネント。 |
+| Requirements | 2.2, 2.3, 2.4                                                                                                                                                |
 
 **Responsibilities & Constraints**
 - `TermsPage` と同様の設計パターン（RSCでのファイル読込、パース、サニタイズ）で実装します。

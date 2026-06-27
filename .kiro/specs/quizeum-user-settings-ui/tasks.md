@@ -2,7 +2,7 @@
 
 ## 1. Foundation: テーマ定数とライブラリ
 - [x] 1.1 `theme.ts` の実装
-  - `Theme` 型、`THEME_STORAGE_KEY`（`quizeum-theme`）、`DEFAULT_THEME`（`dark`）を定義する
+  - `Theme` 型、`THEME_STORAGE_KEY`（`quizetika-theme`）、`DEFAULT_THEME`（`dark`）を定義する
   - `parseTheme`、`readStoredTheme`、`writeStoredTheme` を実装し、不正値は `dark` にフォールバックする
   - inline script 用の `getThemeInitScript()` を export し、キー名・許可値が `theme.ts` と一致する文字列を返す
   - **完了状態**: Jest で valid/invalid/null の `parseTheme` と storage モックが検証できること
@@ -90,7 +90,7 @@
 
 - [x] 5.2 Playwright E2E（ユーザー設定・テーマ）の実装
   - `/settings` 直接アクセスで `settings-page-container`・`settings-theme-toggle` を検証
-  - ライト選択 → `html[data-theme="light"]` と `localStorage quizeum-theme === 'light'`
+  - ライト選択 → `html[data-theme="light"]` と `localStorage quizetika-theme === 'light'`
   - リロード後もライトが維持されること
   - ログインユーザーで `settings-profile-edit-link` → `/profile/edit` 遷移（Emulator シード使用）
   - **完了状態**: `e2e/user-settings.spec.ts` が CI / ローカルでパスすること
@@ -102,8 +102,8 @@
 
 ## Implementation Notes
 
-- **Sidebar ポップアップ導線**: アカウントポップアップへの「設定」リンク（`data-testid="sidebar-settings-link"`）は **`quizeum-sidebar-layout`** が実装する。本スペックは `/settings` ルートとページを先に提供し、E2E は URL 直接アクセスで検証する。
-- **layout.tsx coordination**: シェル構造（Sidebar / Header / BottomNav）は **quizeum-sidebar-layout** が所有。本スペックは `ThemeProvider` + inline script + Provider 順序のみ担当: `PostHogProvider` → `AuthProvider` → `ThemeProvider` → `LayoutWrapper`。
+- **Sidebar ポップアップ導線**: アカウントポップアップへの「設定」リンク（`data-testid="sidebar-settings-link"`）は **`quizetika-sidebar-layout`** が実装する。本スペックは `/settings` ルートとページを先に提供し、E2E は URL 直接アクセスで検証する。
+- **layout.tsx coordination**: シェル構造（Sidebar / Header / BottomNav）は **quizetika-sidebar-layout** が所有。本スペックは `ThemeProvider` + inline script + Provider 順序のみ担当: `PostHogProvider` → `AuthProvider` → `ThemeProvider` → `LayoutWrapper`。
 - **globals.css scope**: テーマ切替に必要なスタイルのみ（body 背景・フォーム focus 等）。シェル / ナビ CSS は sidebar-layout 所有。
 - **既存 light プレースホルダー**: `variables.css` に `[data-theme='light']` が存在するため、新規追加より **整備・globals 連携** が主作業。
 - **実装順**: 1.1 → 2.1（3.1 と並行可）→ 2.2 → 3.2 → 4.1 → 4.2 → 4.3 → 5.1（5.2 と並行可）→ 5.2。

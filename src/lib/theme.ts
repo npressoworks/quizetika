@@ -1,6 +1,6 @@
 export type Theme = 'dark' | 'light';
 
-export const THEME_STORAGE_KEY = 'quizeum-theme';
+export const THEME_STORAGE_KEY = 'quizetika-theme';
 export const DEFAULT_THEME: Theme = 'dark';
 
 const VALID_THEMES = new Set<Theme>(['dark', 'light']);

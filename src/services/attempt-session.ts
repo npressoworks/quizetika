@@ -17,10 +17,10 @@ import { Attempt, QuestionAnswerRecord, QuestionAnswerDetail } from '../types';
    ========================================================================== */
 
 /** セッション保存キーのプレフィックス。クイズIDとユーザーIDで一意になる */
-export const ATTEMPT_SESSION_KEY_PREFIX = 'quizeum_session_';
+export const ATTEMPT_SESSION_KEY_PREFIX = 'quizetika_session_';
 
 /** 未同期Attempt一覧を保存するキー */
-export const PENDING_SYNC_KEY = 'quizeum_pending_sync';
+export const PENDING_SYNC_KEY = 'quizetika_pending_sync';
 
 /* ==========================================================================
    型定義

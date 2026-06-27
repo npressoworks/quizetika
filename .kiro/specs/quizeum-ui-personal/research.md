@@ -1,7 +1,7 @@
-# Research & Design Decisions: quizeum-ui-personal
+# Research & Design Decisions: quizetika-ui-personal
 
 ## Summary
-- **Feature**: `quizeum-ui-personal`
+- **Feature**: `quizetika-ui-personal`
 - **Discovery Scope**: Extension（既存 CSS Modules UI の shadcn + Tailwind 置換）
 - **Key Findings**:
   - 個人ハブは 7 ルート群・約 25 コンポーネント・15+ CSS Modules で構成。ビジネスロジックは hooks/services に分離済みで UI 層のみ移行可能
@@ -23,7 +23,7 @@
 
 ### shadcn プリミティブ選定
 - **Context**: brief が Tabs, Form, Select, Switch, Table を指定
-- **Sources Consulted**: shadcn/ui 公式コンポーネント一覧、quizeum-ui-foundation design
+- **Sources Consulted**: shadcn/ui 公式コンポーネント一覧、quizetika-ui-foundation design
 - **Findings**:
   - カスタムクイズ取得元 4 トグル → `ToggleGroup` + `ToggleGroupItem`（`aria-pressed` 維持）
   - 出題数プリセット → `ToggleGroup` role=radiogroup 相当または shadcn Tabs variant
@@ -91,6 +91,6 @@
 
 ## References
 - `.kiro/steering/roadmap.md` Phase 24 Visual Direction
-- `.kiro/specs/quizeum-ui-foundation/design.md` — Theme bridge, primitives
-- `.kiro/specs/quizeum-ui-layout-shell/design.md` — Shell boundary
+- `.kiro/specs/quizetika-ui-foundation/design.md` — Theme bridge, primitives
+- `.kiro/specs/quizetika-ui-layout-shell/design.md` — Shell boundary
 - shadcn/ui documentation — Form, Table, Toggle Group components

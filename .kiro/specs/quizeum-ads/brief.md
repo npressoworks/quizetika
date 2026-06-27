@@ -1,7 +1,7 @@
-# Brief: quizeum-ads
+# Brief: quizetika-ads
 
 ## Problem
-クイズSNS「quizeum」において、無料プラン（一般ユーザー）向けの収益化手段として広告表示を実装する必要があります。ただし、ゲームプレイの快適性や没入感を過度に損なわず、また有料プラン（Pro/Premium）のユーザーには広告を一切表示しない制御が求められます。
+クイズSNS「quizetika」において、無料プラン（一般ユーザー）向けの収益化手段として広告表示を実装する必要があります。ただし、ゲームプレイの快適性や没入感を過度に損なわず、また有料プラン（Pro/Premium）のユーザーには広告を一切表示しない制御が求められます。
 
 ## Current State
 Stripe課金および有料プラン判定ロジック（`pro` / `premium` で active）はすでに実装されていますが、Google AdSense のスクリプト読み込み、インライン広告枠のレンダリング、クイズ完了から結果への遷移時の割り込み等の広告表示制御は全く存在しません。
@@ -37,16 +37,16 @@ Stripe課金および有料プラン判定ロジック（`pro` / `premium` で a
 - 広告用コンポーネントおよびロジックの配置： `src/components/ads/` または `src/hooks/useAds.ts`
 
 ## Out of Boundary
-- Stripe サブスクリプション決済処理自体（既存の `quizeum-billing-subscription-ui` が担当）
+- Stripe サブスクリプション決済処理自体（既存の `quizetika-billing-subscription-ui` が担当）
 - ユーザーのサブスクリプション状態の同期（既存の Webhook が担当）
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core` (プラン判定ロジック、環境変数)
-- **Downstream**: `quizeum-play-flow-ui` (クイズ一覧描画、プレイ・結果遷移)
+- **Upstream**: `quizetika-core` (プラン判定ロジック、環境変数)
+- **Downstream**: `quizetika-play-flow-ui` (クイズ一覧描画、プレイ・結果遷移)
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-play-flow-ui`, `quizeum-core`
-- **Adjacent**: `quizeum-billing-subscription-ui`
+- **Extends**: `quizetika-play-flow-ui`, `quizetika-core`
+- **Adjacent**: `quizetika-billing-subscription-ui`
 
 ## Constraints
 - Tailwind CSS v4 / shadcn/ui もしくは Vanilla CSS を用いたクリーンでモダンなデザイン

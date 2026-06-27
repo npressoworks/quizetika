@@ -124,7 +124,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
 
     // システムプロンプトの構築
-    const systemPrompt = `あなたはクイズ投稿SNS「quizeum」のクイズ作成を支援する優秀なAI作問アシスタントです。
+    const systemPrompt = `あなたはクイズ投稿SNS「quizetika」のクイズ作成を支援する優秀なAI作問アシスタントです。
 現在のクイズエディタの内容は以下の通りです：
 - クイズタイトル: ${quizState.title || '（未入力）'}
 - クイズ説明: ${quizState.description || '（未入力）'}

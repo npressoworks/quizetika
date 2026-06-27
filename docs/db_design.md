@@ -1,6 +1,6 @@
-# quizeum 論理DB設計書 (Firestore Schema Specification)
+# quizetika 論理DB設計書 (Firestore Schema Specification)
 
-本ドキュメントは、クイズ投稿SNS「quizeum」におけるデータの永続化設計、Firestore コレクション構造、データモデルの型定義、インデックス設計、および非正規化によるパフォーマンス最適化設計を定義します。
+本ドキュメントは、クイズ投稿SNS「quizetika」におけるデータの永続化設計、Firestore コレクション構造、データモデルの型定義、インデックス設計、および非正規化によるパフォーマンス最適化設計を定義します。
 
 ---
 
@@ -134,7 +134,7 @@ erDiagram
 * `id` (`string`): 問題の一意ID（UUIDまたは連番）。
 * `type` (`'true-false' \| 'multiple-choice' \| 'text-input' \| 'quick-press' \| 'sorting' \| 'association' \| 'lateral-thinking'`): 問題タイプ。
   - `text-input`（記述式）: テキスト入力による正解判定（旧称：短答式）。作問時に `textInputMode` で入力タイプ（通常／数値／文字数指定）を設定可能。
-  - `quick-press`（早押し）: 問題文の一文字ずつ表示と早押しボタンによる解答。`correctTextAnswerList` 必須。プレイ時の早押しタイムは `localStorage`（`quizeum_qp_times_{attemptId}`）に一時保存（DB非永続）。
+  - `quick-press`（早押し）: 問題文の一文字ずつ表示と早押しボタンによる解答。`correctTextAnswerList` 必須。プレイ時の早押しタイムは `localStorage`（`quizetika_qp_times_{attemptId}`）に一時保存（DB非永続）。
   - `sorting`（並び替えクイズ）: 提示された複数の要素（2〜6個）を、プレイ時・作問時ともに**ドラッグ＆ドロップ**で正しい順番（`correctOrder` に対応する表示インデックス）に並び替える形式です。上下ボタンによる順序変更UIは採用しません。
   - `association`（連想クイズ）: 段階的なヒント（連想ヒントリスト）を提示して、最終的な正解を導き出させる形式です。
 * `questionText` (`string`): 問題文。**必須**。作問時の下書き保存・公開バリデーションではトリム後5文字以上・500文字以内（`collectQuestionTextValidationErrors`）。

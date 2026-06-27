@@ -44,7 +44,7 @@
 
 ### ルートガード (Middleware)
 **Location**: `/src/middleware.ts`  
-**Purpose**: 管理者・モデレーター向けルートの一次フィルタ（Cookie ベース）。BAN ユーザーは `quizeum_banned` Cookie により `/banned` へリダイレクト。実際の認可は API Route / Firestore Rules で再検証する。
+**Purpose**: 管理者・モデレーター向けルートの一次フィルタ（Cookie ベース）。BAN ユーザーは `quizetika_banned` Cookie により `/banned` へリダイレクト。実際の認可は API Route / Firestore Rules で再検証する。
 
 ### カスタムフック (Custom Hooks)
 **Location**: `/src/hooks/`  

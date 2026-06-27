@@ -2,7 +2,7 @@
 
 ## 1. Foundation: ライフサイクル用プリミティブの確認
 - [x] 1.1 foundation Primitive Wave 2 の存在を確認する
-  - `src/components/ui/` に RadioGroup, Progress, Accordion, Label が存在することを確認する（`quizeum-ui-foundation` で追加済み）
+  - `src/components/ui/` に RadioGroup, Progress, Accordion, Label が存在することを確認する（`quizetika-ui-foundation` で追加済み）
   - foundation 既存の Tabs, Dialog, Button, Card, Skeleton が利用可能であることを確認する
   - 各コンポーネントが `cn()` を利用し TypeScript 型付きでエクスポートされることを確認する
   - `npm run build` が成功することを確認する
@@ -220,11 +220,11 @@
 ## Implementation Notes (Phase 27)
 
 - 実装順: 11.1 → 11.2 → 11.3 → 11.4。
-- クイズコア（`quizeum-core`）側の `saveAttempt` のバリデーション対応が先行または同時に完了している必要があります。
+- クイズコア（`quizetika-core`）側の `saveAttempt` のバリデーション対応が先行または同時に完了している必要があります。
 
 
 ## Implementation Notes
 - 大規模ページは `*-classes.ts` Tailwind クラスマップで CSS Modules の API を置換（play/detail/result/success/review/leaderboard）
 - 早押しワイプアニメーションは `globals.css` に `quick-press-wipe-in` キーフレームを追加
-- エディタ境界外の `true-false-correct-toggle.module.css` は quizeum-ui-editor 所有のため残置
+- エディタ境界外の `true-false-correct-toggle.module.css` は quizetika-ui-editor 所有のため残置
 - ビルド修復時に `quiz-editor.tsx` へ `getFormatDescription` import を追加（editor 側の既存欠落）

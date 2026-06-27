@@ -1,5 +1,5 @@
-const RECENT_GENRES_KEY = 'quizeum_recent_search_genres';
-const RECENT_KEYWORDS_KEY = 'quizeum_recent_search_words';
+const RECENT_GENRES_KEY = 'quizetika_recent_search_genres';
+const RECENT_KEYWORDS_KEY = 'quizetika_recent_search_words';
 
 const MAX_RECENT_GENRES = 3;
 const MAX_RECENT_KEYWORDS = 5;

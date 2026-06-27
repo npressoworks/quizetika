@@ -1,4 +1,4 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizeum-test-bucket';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
 
 import { NextRequest } from 'next/server';
 
@@ -27,7 +27,7 @@ describe('Upload Icon API Route', () => {
   }
 
   test('正常系: 正しいPNG形式画像をアップロードした際、200 OK と一時URLを返すこと', async () => {
-    const mockUrl = 'https://storage.googleapis.com/quizeum-test-bucket/genres/temp/upload_12345.png';
+    const mockUrl = 'https://storage.googleapis.com/quizetika-test-bucket/genres/temp/upload_12345.png';
     mockUploadTemporaryGenreIconBuffer.mockResolvedValue(mockUrl);
 
     const req = buildUploadRequest('test.png', 'image/png', 'dummy png content');

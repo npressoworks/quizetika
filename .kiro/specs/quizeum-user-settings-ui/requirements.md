@@ -1,27 +1,27 @@
 # Requirements Document
 
 ## Introduction
-Quizeum ユーザーは表示テーマ（ダーク / ライト）などのアプリ設定を変更したいが、現状は Sidebar フッターのアカウントポップアップに「マイページ」「ログアウト」のみで、**設定画面もテーマ切替も存在しない**。アプリは `variables.css` のダークトークン固定で、ライトモード用の定義はプレースホルダー程度であり、`layout.tsx` にテーマ Provider もない。
-本スペックでは `/settings` ルートに設定ページを新設し、`ThemeProvider` と `localStorage`（キー `quizeum-theme`）によるダーク / ライト切替、初回描画時のテーマちらつき防止、およびプロフィール編集（`/profile/edit`）への導線を提供する。Sidebar アカウントポップアップへの「設定」リンクは `quizeum-sidebar-layout` が `/settings` ルート確定後に追加する。
+Quizetika ユーザーは表示テーマ（ダーク / ライト）などのアプリ設定を変更したいが、現状は Sidebar フッターのアカウントポップアップに「マイページ」「ログアウト」のみで、**設定画面もテーマ切替も存在しない**。アプリは `variables.css` のダークトークン固定で、ライトモード用の定義はプレースホルダー程度であり、`layout.tsx` にテーマ Provider もない。
+本スペックでは `/settings` ルートに設定ページを新設し、`ThemeProvider` と `localStorage`（キー `quizetika-theme`）によるダーク / ライト切替、初回描画時のテーマちらつき防止、およびプロフィール編集（`/profile/edit`）への導線を提供する。Sidebar アカウントポップアップへの「設定」リンクは `quizetika-sidebar-layout` が `/settings` ルート確定後に追加する。
 
 ## Boundary Context
 - **In scope**:
   - `ThemeProvider` / `useTheme` によるクライアントテーマ状態管理
   - `<html data-theme="dark|light">` 属性による CSS 変数切替
-  - `localStorage` キー `quizeum-theme` への永続化とリロード後の復元
+  - `localStorage` キー `quizetika-theme` への永続化とリロード後の復元
   - 初回描画・リロード時のテーマフラッシュ防止（inline script または同等の同期初期化）
   - `variables.css` のライトトークン整備、`globals.css` のテーマ依存スタイル調整
   - `/settings` ページ（テーマ切替 UI、プロフィール編集リンク）
   - Jest ユニットテスト、Playwright E2E（テーマ切替・永続化）
 - **Out of scope**:
-  - Sidebar / BottomNav / Header のアカウントポップアップへの「設定」項目追加（`quizeum-sidebar-layout`）
-  - プロフィール編集フォーム本体（`quizeum-auth-profile-ui` / `/profile/edit`）
+  - Sidebar / BottomNav / Header のアカウントポップアップへの「設定」項目追加（`quizetika-sidebar-layout`）
+  - プロフィール編集フォーム本体（`quizetika-auth-profile-ui` / `/profile/edit`）
   - サーバー側ユーザー設定同期（Firestore 等）
   - `prefers-color-scheme` によるシステム設定追従（follow-up）
   - 通知・言語・アクセシビリティ設定
   - Tailwind 導入
 - **Adjacent expectations**:
-  - `quizeum-sidebar-layout` が Sidebar フッターアカウントポップアップに「設定」リンク（`/settings`）を追加し、既存「マイページ」「ログアウト」と同型の `popupItem` パターンで配置すること
+  - `quizetika-sidebar-layout` が Sidebar フッターアカウントポップアップに「設定」リンク（`/settings`）を追加し、既存「マイページ」「ログアウト」と同型の `popupItem` パターンで配置すること
   - モバイル BottomNav / Header のプロフィール導線からの設定到達は sidebar-layout の Phase 23 方針に従う（初版は Sidebar ポップアップ優先）
   - `docs/screen_transition.md` への `/settings` 追記は Phase 23 直接実装候補が担当
 
@@ -46,14 +46,14 @@ Quizeum ユーザーは表示テーマ（ダーク / ライト）などのアプ
 4. When テーマが切り替わったとき, the Settings Page shall 切替 UI の選択状態が現在のテーマと一致する。
 5. The Settings Page shall テーマ切替 UI に `data-testid="settings-theme-toggle"` を付与する。
 6. The Theme System shall Tailwind を使用せず、CSS 変数（`variables.css`）のみでテーマを表現する。
-7. The Theme System shall ライトテーマでも Quizeum のブランド感（紫アクセント等）を維持する。
+7. The Theme System shall ライトテーマでも Quizetika のブランド感（紫アクセント等）を維持する。
 
 ### Requirement 3: テーマ設定の永続化
 **Objective:** As a ユーザー, I want 選択したテーマがリロード後も維持されること, so that 毎回設定し直す必要がない。
 
 #### Acceptance Criteria
-1. When ユーザーがテーマを変更したとき, the Theme System shall `localStorage` キー `quizeum-theme` に `dark` または `light` を保存する。
-2. When ユーザーがアプリを再読み込みしたとき, the Theme System shall `localStorage` の `quizeum-theme` を読み取り、保存値に応じて `data-theme` を復元する。
+1. When ユーザーがテーマを変更したとき, the Theme System shall `localStorage` キー `quizetika-theme` に `dark` または `light` を保存する。
+2. When ユーザーがアプリを再読み込みしたとき, the Theme System shall `localStorage` の `quizetika-theme` を読み取り、保存値に応じて `data-theme` を復元する。
 3. If `localStorage` に有効なテーマ値が存在しないとき, the Theme System shall デフォルトテーマとして `dark` を適用する。
 4. If `localStorage` に `dark` / `light` 以外の値が保存されているとき, the Theme System shall デフォルトテーマ `dark` を適用し、不正値を上書きまたは無視する。
 
@@ -61,7 +61,7 @@ Quizeum ユーザーは表示テーマ（ダーク / ライト）などのアプ
 **Objective:** As a ユーザー, I want ページ読み込み時に一瞬だけ別テーマが表示されないこと, so that 快適な視覚体験を損なわない。
 
 #### Acceptance Criteria
-1. When ページの初回 HTML 描画が行われる前, the Theme System shall `localStorage` の `quizeum-theme` を同期的に読み取り `<html data-theme>` を設定する。
+1. When ページの初回 HTML 描画が行われる前, the Theme System shall `localStorage` の `quizetika-theme` を同期的に読み取り `<html data-theme>` を設定する。
 2. While React のクライアントハイドレーションが完了する前, the Theme System shall 初回描画時のテーマがユーザー保存値と一致する。
 3. The Theme System shall テーマ初期化の失敗時（`localStorage` 不可等）にデフォルト `dark` を適用し、アプリの表示を継続する。
 

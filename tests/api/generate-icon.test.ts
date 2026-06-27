@@ -1,4 +1,4 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizeum-test-bucket';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
 
 import { NextRequest } from 'next/server';
 
@@ -63,7 +63,7 @@ const mockFile = {
 };
 
 const mockBucket = {
-  name: 'quizeum-test-bucket',
+  name: 'quizetika-test-bucket',
   file: jest.fn(() => mockFile),
 };
 
@@ -140,7 +140,7 @@ describe('AI Genre Icon API Suite', () => {
     }
 
     test('正常系: 一般ユーザーが画像生成に成功し、URLとリミットを返す', async () => {
-      const mockUrl = 'https://storage.googleapis.com/quizeum-test-bucket/genres/temp/uid-user_12345.png';
+      const mockUrl = 'https://storage.googleapis.com/quizetika-test-bucket/genres/temp/uid-user_12345.png';
       mockUploadTemporaryGenreIconBuffer.mockResolvedValue(mockUrl);
 
       const res = await generateIconPOST(
@@ -207,7 +207,7 @@ describe('AI Genre Icon API Suite', () => {
       mockDelete.mockResolvedValue(undefined);
 
       const tempFileName = 'uid-user_12345.png';
-      const tempUrl = `https://storage.googleapis.com/quizeum-test-bucket/genres/temp/${tempFileName}`;
+      const tempUrl = `https://storage.googleapis.com/quizetika-test-bucket/genres/temp/${tempFileName}`;
 
       const res = await migrateIconPOST(
         makeRequest({
@@ -220,7 +220,7 @@ describe('AI Genre Icon API Suite', () => {
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.success).toBe(true);
-      expect(body.iconImageUrl).toContain('https://storage.googleapis.com/quizeum-test-bucket/genres/japanese-history/icon_');
+      expect(body.iconImageUrl).toContain('https://storage.googleapis.com/quizetika-test-bucket/genres/japanese-history/icon_');
 
       expect(mockBucket.file).toHaveBeenCalledWith(`genres/temp/${tempFileName}`);
       expect(mockExists).toHaveBeenCalledTimes(1);
@@ -233,7 +233,7 @@ describe('AI Genre Icon API Suite', () => {
       mockExists.mockResolvedValue([false]);
 
       const tempFileName = 'non-existent-file.png';
-      const tempUrl = `https://storage.googleapis.com/quizeum-test-bucket/genres/temp/${tempFileName}`;
+      const tempUrl = `https://storage.googleapis.com/quizetika-test-bucket/genres/temp/${tempFileName}`;
 
       const res = await migrateIconPOST(
         makeRequest({
@@ -251,7 +251,7 @@ describe('AI Genre Icon API Suite', () => {
     test('異常系: 一時保存パスではないURLの場合は400', async () => {
       const res = await migrateIconPOST(
         makeRequest({
-          tempUrl: 'https://storage.googleapis.com/quizeum-test-bucket/genres/other-dir/test.png',
+          tempUrl: 'https://storage.googleapis.com/quizetika-test-bucket/genres/other-dir/test.png',
           genreId: 'japanese-history',
           userId: 'uid-user',
         })

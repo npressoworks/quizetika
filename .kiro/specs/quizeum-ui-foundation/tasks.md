@@ -32,7 +32,7 @@
   - `src/lib/theme.ts` に `applyThemeToDocument(theme)` を追加し、`dark` クラスと `data-theme` 属性を同時設定する
   - `getThemeInitScript()` を dual bridge ロジックに更新する
   - `src/context/theme-context.tsx` の `applyThemeToDom` を共有ヘルパー経由に変更する
-  - `localStorage` キー `quizeum-theme` と `DEFAULT_THEME = 'dark'` を維持する
+  - `localStorage` キー `quizetika-theme` と `DEFAULT_THEME = 'dark'` を維持する
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
   - _Boundary: ThemeBridge_
   - _Depends: 1.3_

@@ -2,13 +2,13 @@
 
 ## Project Description (Input)
 
-Quizeum の管理者・モデレーター・クリエイター・コミュニティ運営者は、ユーザー管理、モデレーション審査、クリエイターダッシュボード、ジャンル管理・マージ投票といった dense なテーブル/フォーム UI を利用している。現状、これらは CSS Modules（admin 各 ~450 行、community/genres ~687 行）と旧 Quizeum ビジュアルで実装されており、Phase 24 の shadcn 標準寄せ UI 刷新方針と整合しない。
+Quizetika の管理者・モデレーター・クリエイター・コミュニティ運営者は、ユーザー管理、モデレーション審査、クリエイターダッシュボード、ジャンル管理・マージ投票といった dense なテーブル/フォーム UI を利用している。現状、これらは CSS Modules（admin 各 ~450 行、community/genres ~687 行）と旧 Quizetika ビジュアルで実装されており、Phase 24 の shadcn 標準寄せ UI 刷新方針と整合しない。
 
-本スペック（`quizeum-ui-admin-creator`）は、`quizeum-ui-foundation` と `quizeum-ui-layout-shell` が提供する shadcn 標準テーマと共通プリミティブの上に、管理画面（`/admin/users`, `/admin/moderation`）、クリエイターダッシュボード（`/creator/dashboard`）、コミュニティツール（`/community/genres`, `/community/merge`）、および関連チャート・スケルトンコンポーネントを再構築する。テーブル、フィルタ、モデレーションアクション、統計チャートの機能は維持し、管理者/モデレーター権限ガード（middleware + UI）は変更しない。認可 middleware/API、reputation サービス、Firestore admin API、Stripe ダッシュボード連携は範囲外とする。
+本スペック（`quizetika-ui-admin-creator`）は、`quizetika-ui-foundation` と `quizetika-ui-layout-shell` が提供する shadcn 標準テーマと共通プリミティブの上に、管理画面（`/admin/users`, `/admin/moderation`）、クリエイターダッシュボード（`/creator/dashboard`）、コミュニティツール（`/community/genres`, `/community/merge`）、および関連チャート・スケルトンコンポーネントを再構築する。テーブル、フィルタ、モデレーションアクション、統計チャートの機能は維持し、管理者/モデレーター権限ガード（middleware + UI）は変更しない。認可 middleware/API、reputation サービス、Firestore admin API、Stripe ダッシュボード連携は範囲外とする。
 
 ## Introduction
 
-Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では shadcn/ui + Tailwind による段階的 UI 刷新が進行中であり、基盤（foundation）とシェル（layout-shell）完了後、管理/クリエイター/コミュニティドメインを垂直スライスとして移行する。
+Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では shadcn/ui + Tailwind による段階的 UI 刷新が進行中であり、基盤（foundation）とシェル（layout-shell）完了後、管理/クリエイター/コミュニティドメインを垂直スライスとして移行する。
 
 本スペックは Phase 24 の第 7 スペックとして、内部運用者向け dense UI を shadcn 標準のクリーンな見た目に置換し、当該ドメインの CSS Modules を削除する。管理画面は内部ユーザー向けのため視覚刷新の許容度はやや高いが、機能・データフロー・認可契約は厳守する。移行完了時に関連 Playwright E2E および Jest テストがグリーンであることを要求する。
 
@@ -33,9 +33,9 @@ Quizeum は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では s
   - シェル（Sidebar/Header/BottomNav）の変更
   - `variables.css` の完全削除（`css-modules-cleanup` 候補）
 - **Adjacent expectations**:
-  - `quizeum-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Input, Dialog, Tabs, Skeleton, Badge, Card）を提供済みであること
-  - `quizeum-ui-layout-shell` はシェル内 `main` でページを描画する前提を維持すること
-  - `quizeum-admin-users-ui`, `quizeum-moderation-governance-ui`, `quizeum-creator-dash-ui` は本移行完了後に design を更新する（roadmap 依存順）
+  - `quizetika-ui-foundation` は Tailwind、shadcn テーマ、`cn()`、初期プリミティブ（Button, Input, Dialog, Tabs, Skeleton, Badge, Card）を提供済みであること
+  - `quizetika-ui-layout-shell` はシェル内 `main` でページを描画する前提を維持すること
+  - `quizetika-admin-users-ui`, `quizetika-moderation-governance-ui`, `quizetika-creator-dash-ui` は本移行完了後に design を更新する（roadmap 依存順）
 
 ## Requirements
 

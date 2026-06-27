@@ -1,6 +1,6 @@
 # Implementation Plan
 
-> **⚠ OBSOLETE（Phase 26 / 2026-06-10）**: 本スペックは **obsolete（廃止）** です。理由: Phase 26 リスト機能完全廃止。以下タスク 1〜4 は Phase 23 実装完了済みの **履歴** です。Phase 26 タスク 5 にて全作業をキャンセル済みとします。削除実装は `quizeum-play-flow-ui` Phase 28 が担当。
+> **⚠ OBSOLETE（Phase 26 / 2026-06-10）**: 本スペックは **obsolete（廃止）** です。理由: Phase 26 リスト機能完全廃止。以下タスク 1〜4 は Phase 23 実装完了済みの **履歴** です。Phase 26 タスク 5 にて全作業をキャンセル済みとします。削除実装は `quizetika-play-flow-ui` Phase 28 が担当。
 
 ## 1. Foundation: ルートとページシェルの構築
 - [x] 1.1 `/lists` App Router ページシェルの作成
@@ -26,7 +26,7 @@
   - **完了状態**: Jest で public/private/keyword デバウンスの呼び出し契約が検証できること
   - _Requirements: 2.2, 2.3, 2.6, 3.2, 3.3, 3.5, 5.3, 6.1, 6.2, 6.3, 6.4, 6.5_
   - _Boundary: useListsSearch_
-  - _Depends: quizeum-core searchLists 実装（モックで先行開発可）_
+  - _Depends: quizetika-core searchLists 実装（モックで先行開発可）_
 
 - [x] 2.2 (P) 公開/非公開タブコンポーネントの実装
   - `BookmarksTabs` と同型のタブバーで「公開リスト」「非公開リスト」を切り替える
@@ -97,8 +97,8 @@
 ## Implementation Notes
 
 - **型名**: 公開/非公開区分は Core 契約 `ListSearchVisibility` を正とする。UI フックでは `ListsVisibility` をエイリアスとして使用可。
-- **Core 依存**: タスク 2.1 は `quizeum-core` の `searchLists` 実装完了前でもモックで UI 開発可能。結合前に Core タスク完了を確認すること。
-- **ナビ導線**: Sidebar「リスト」リンクは `quizeum-sidebar-layout` Phase 23 タスクが `/lists` 確定後に実装。本 E2E は URL 直接アクセスで検証。
+- **Core 依存**: タスク 2.1 は `quizetika-core` の `searchLists` 実装完了前でもモックで UI 開発可能。結合前に Core タスク完了を確認すること。
+- **ナビ導線**: Sidebar「リスト」リンクは `quizetika-sidebar-layout` Phase 23 タスクが `/lists` 確定後に実装。本 E2E は URL 直接アクセスで検証。
 - **実装順**: 2.1–2.4 は並行可 → 3.1 → 3.2 → 4.1（4.2 と並行可）→ 4.2。
 - **モバイル**: BottomNav へのリスト追加は sidebar-layout design 次第。本スペックはページ本体のみ。
 
@@ -116,7 +116,7 @@
 
 - [x] 5.2 全実装タスクのキャンセル明記
   - タスク 1〜4 を履歴完了として残し、Phase 26 により **キャンセル（削除対象）** と注記する
-  - 物理削除は `quizeum-play-flow-ui` Phase 28 に委譲する
+  - 物理削除は `quizetika-play-flow-ui` Phase 28 に委譲する
   - **完了状態**: 新規実装タスクが追加されず、5.1 が唯一の Phase 26 作業であること
   - _Requirements: 7.1, 7.3_
   - _Depends: 5.1_
@@ -133,5 +133,5 @@
 ## Implementation Notes (Phase 26)
 
 - タスク 1〜4 の実装成果は Phase 26 でルート・コンポーネントごと削除される。本スペックからの追加実装は行わない。
-- `quizeum-ui-discovery` Phase 26 と相互参照: リスト探索は ui-discovery の Phase 24 スコープからも除外済み。
+- `quizetika-ui-discovery` Phase 26 と相互参照: リスト探索は ui-discovery の Phase 24 スコープからも除外済み。
 - E2E `e2e/lists-discovery.spec.ts` は play-flow-ui Phase 28 で削除。

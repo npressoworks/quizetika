@@ -1,10 +1,10 @@
-# Brief: quizeum-announcements
+# Brief: quizetika-announcements
 
 ## Problem
 運営メンバーや非開発者が、ビルドやデプロイを行わずにアプリ内のお知らせ（Announcements/News）を動的に追加・編集・削除できるようにしたい。また、ユーザーはお知らせと個人宛ての通知を一元的に確認したいが、お知らせは未ログインユーザーであっても自由に閲覧可能にする必要がある。
 
 ## Current State
-現在、クイズ投稿SNS「Quizeum」には個人宛ての通知機能（`notifications` コレクション、`/notifications` ページ）は存在するが、全ユーザー向けおよび運営からのお知らせ機能は存在しない。また、通知画面には認証ガードがかかっており、ログインしないと画面にアクセスできない。
+現在、クイズ投稿SNS「Quizetika」には個人宛ての通知機能（`notifications` コレクション、`/notifications` ページ）は存在するが、全ユーザー向けおよび運営からのお知らせ機能は存在しない。また、通知画面には認証ガードがかかっており、ログインしないと画面にアクセスできない。
 
 ## Desired Outcome
 Firestore に `announcements` コレクションを作成し、管理者用のCRUD画面（`/admin/announcements`）を用意してブラウザ上で簡単にお知らせを追加・管理可能にする。一般ユーザーは、ログインの有無にかかわらず `/notifications` ページから運営からのお知らせ（Markdown対応）を閲覧できるようになり、通知と併せて確認できるようになる。
@@ -35,14 +35,14 @@ Firestore に `announcements` コレクションを作成し、管理者用のCR
 - 一般ユーザー通知画面（お知らせタブ統合）
 
 ## Out of Boundary
-- 個別ユーザーの通知システム（既存の `quizeum-auth-profile-ui` が所有）
+- 個別ユーザーの通知システム（既存の `quizetika-auth-profile-ui` が所有）
 
 ## Upstream / Downstream
-- **Upstream**: `quizeum-core` (Firestore, 認証), `quizeum-auth-profile-ui` (通知画面)
+- **Upstream**: `quizetika-core` (Firestore, 認証), `quizetika-auth-profile-ui` (通知画面)
 - **Downstream**: なし
 
 ## Existing Spec Touchpoints
-- **Extends**: `quizeum-core` (データ層, 認証・管理者認可), `quizeum-auth-profile-ui` (通知画面UIの拡張)
+- **Extends**: `quizetika-core` (データ層, 認証・管理者認可), `quizetika-auth-profile-ui` (通知画面UIの拡張)
 - **Adjacent**: なし
 
 ## Constraints

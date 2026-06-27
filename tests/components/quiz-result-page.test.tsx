@@ -172,7 +172,7 @@ describe('QuizResultPage Component (Phase 12)', () => {
 
   test('結果画面に「もう一度プレイする」ボタンと「作者リンク」が表示されること', async () => {
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByText('クイズ作者')).toBeInTheDocument();
@@ -189,10 +189,10 @@ attemptId="mock-attempt-789" />);
         revealedCount: 2,
       },
     ];
-    localStorage.setItem('quizeum_attempt_hints_mock-attempt-789', JSON.stringify(hintsCache));
+    localStorage.setItem('quizetika_attempt_hints_mock-attempt-789', JSON.stringify(hintsCache));
 
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('result-question-accordion-q-1')).toBeInTheDocument();
@@ -209,7 +209,7 @@ attemptId="mock-attempt-789" />);
 
   test('体感難易度投票が ★ UI で表示されクリックできること', async () => {
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('difficulty-vote-stars')).toBeInTheDocument();
@@ -239,7 +239,7 @@ attemptId="mock-attempt-789" />);
     (toggleBookmark as jest.Mock).mockResolvedValue(true);
 
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('quiz-result-bookmark-btn')).toBeInTheDocument();
@@ -255,7 +255,7 @@ attemptId="mock-attempt-789" />);
 
   test('クイズ全体の指摘モーダルで、指摘カテゴリから「別解の追加要望」が除外されていること', async () => {
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByText('クイズ全体の指摘')).toBeInTheDocument();
@@ -274,7 +274,7 @@ attemptId="mock-attempt-789" />);
 
   test('「クイズを通報」ボタンをクリックした際、通報モーダルが表示されること', async () => {
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('quiz-report-btn')).toBeInTheDocument();
@@ -291,7 +291,7 @@ attemptId="mock-attempt-789" />);
   test('自分以外の作者のクイズ結果画面の場合、フォローボタンが表示され、初期状態が取得されること', async () => {
     (isFollowing as jest.Mock).mockResolvedValue(false);
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('author-follow-btn')).toBeInTheDocument();
@@ -303,7 +303,7 @@ attemptId="mock-attempt-789" />);
   test('すでにフォロー中の場合、フォローボタンが「フォロー中」表示になること', async () => {
     (isFollowing as jest.Mock).mockResolvedValue(true);
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.getByTestId('author-follow-btn')).toBeInTheDocument();
@@ -316,7 +316,7 @@ attemptId="mock-attempt-789" />);
     (getQuiz as jest.Mock).mockResolvedValue(myQuiz);
 
     render(<QuizResultPageContent quiz={myQuiz as any} initialAttempt={mockAttempt as any}
-attemptId="mock-attempt-789" />);
+      attemptId="mock-attempt-789" />);
 
     await waitFor(() => {
       expect(screen.queryByTestId('author-follow-btn')).not.toBeInTheDocument();

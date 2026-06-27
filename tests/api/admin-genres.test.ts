@@ -1,4 +1,4 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizeum-test-bucket';
+process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
 
 import { NextRequest } from 'next/server';
 import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
@@ -25,7 +25,7 @@ jest.mock('firebase/firestore', () => {
 });
 
 const mockBucket = {
-  name: 'quizeum-test-bucket',
+  name: 'quizetika-test-bucket',
   file: jest.fn((path: string) => ({
     copy: jest.fn().mockResolvedValue(undefined),
     makePublic: jest.fn().mockResolvedValue(undefined),
@@ -240,7 +240,7 @@ describe('Admin Genres API', () => {
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
       expect(mockDoc.set).toHaveBeenCalledTimes(1);
-      
+
       const setArg = mockDoc.set.mock.calls[0][0];
       expect(setArg.id).toBe(validPayload.id);
       expect(setArg.displayName).toBe(validPayload.displayName);
@@ -268,7 +268,7 @@ describe('Admin Genres API', () => {
 
       const tempPayload = {
         ...validPayload,
-        iconImageUrl: 'https://storage.googleapis.com/quizeum-test-bucket/genres/temp/temp_icon_admin_12345.png',
+        iconImageUrl: 'https://storage.googleapis.com/quizetika-test-bucket/genres/temp/temp_icon_admin_12345.png',
       };
 
       const res = await POST(buildRequest('POST', tempPayload));
@@ -277,9 +277,9 @@ describe('Admin Genres API', () => {
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
       expect(mockDoc.set).toHaveBeenCalledTimes(1);
-      
+
       const setArg = mockDoc.set.mock.calls[0][0];
-      expect(setArg.iconImageUrl).toContain('https://storage.googleapis.com/quizeum-test-bucket/genres/new-genre/icon_');
+      expect(setArg.iconImageUrl).toContain('https://storage.googleapis.com/quizetika-test-bucket/genres/new-genre/icon_');
 
       // Storage操作のアサーション
       expect(mockBucket.file).toHaveBeenCalledWith('genres/temp/temp_icon_admin_12345.png');

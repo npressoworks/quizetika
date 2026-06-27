@@ -1,11 +1,11 @@
-# Design Document: quizeum-lists-discovery-ui
+# Design Document: quizetika-lists-discovery-ui
 
-> **⚠ OBSOLETE（Phase 26 / 2026-06-10）**: 本スペックは **obsolete（廃止）** です。理由: Phase 26 リスト機能完全廃止。Phase 23 で実装完了していた `/lists` 探索 UI は削除対象となり、以下の設計は **履歴参照のみ** とします。実装・削除の正本は `quizeum-core` Phase 26 および `quizeum-play-flow-ui` Phase 26。
+> **⚠ OBSOLETE（Phase 26 / 2026-06-10）**: 本スペックは **obsolete（廃止）** です。理由: Phase 26 リスト機能完全廃止。Phase 23 で実装完了していた `/lists` 探索 UI は削除対象となり、以下の設計は **履歴参照のみ** とします。実装・削除の正本は `quizetika-core` Phase 26 および `quizetika-play-flow-ui` Phase 26。
 
 ## Overview
-本機能は Quizeum に **グローバルなリスト探索画面**（`/lists`）を新設し、キーワード検索と公開/非公開タブ切り替えにより、ユーザーがクイズリスト・問題リストを発見し `/list/[id]` 詳細へ遷移できる導線を提供する。
+本機能は Quizetika に **グローバルなリスト探索画面**（`/lists`）を新設し、キーワード検索と公開/非公開タブ切り替えにより、ユーザーがクイズリスト・問題リストを発見し `/list/[id]` 詳細へ遷移できる導線を提供する。
 
-**Phase 23（2026-06-09）**: リスト探索は Sidebar 優先の Phase 23 ナビ拡張の一部。ページ本体は本スペックが所有し、Sidebar/BottomNav への「リスト」リンクは `quizeum-sidebar-layout` が `/lists` ルート確定後に追加する。
+**Phase 23（2026-06-09）**: リスト探索は Sidebar 優先の Phase 23 ナビ拡張の一部。ページ本体は本スペックが所有し、Sidebar/BottomNav への「リスト」リンクは `quizetika-sidebar-layout` が `/lists` ルート確定後に追加する。
 
 ### Goals
 - `/lists` ルートとクライアントページ `ListsClient` を新設する
@@ -16,7 +16,7 @@
 
 ### Non-Goals
 - リスト CRUD・編集 UI（既存 `/list/create`, `/list/[id]/edit`）
-- Sidebar / BottomNav メニュー項目の追加（`quizeum-sidebar-layout`）
+- Sidebar / BottomNav メニュー項目の追加（`quizetika-sidebar-layout`）
 - ソート・ページング UI（初版 limit 固定）
 - 他人の非公開リスト表示
 
@@ -32,8 +32,8 @@
 - Jest コンポーネントテストおよび Playwright E2E（`/lists` 直接アクセス）
 
 ### Out of Boundary
-- `searchLists` の Firestore クエリ実装（`quizeum-core` / `src/services/quiz-list.ts`）
-- Sidebar・BottomNav への「リスト」ナビリンク（`quizeum-sidebar-layout`）
+- `searchLists` の Firestore クエリ実装（`quizetika-core` / `src/services/quiz-list.ts`）
+- Sidebar・BottomNav への「リスト」ナビリンク（`quizetika-sidebar-layout`）
 - リスト詳細・プレイ画面（既存 `/list/[id]` ルート）
 - `docs/screen_transition.md` 更新（Phase 23 直接実装候補）
 
@@ -75,7 +75,7 @@ graph TD
         useListsSearch[useListsSearch]
     end
 
-    subgraph Core [quizeum-core]
+    subgraph Core [quizetika-core]
         searchLists[searchLists]
     end
 
@@ -95,12 +95,12 @@ graph TD
 
 ### Technology Stack
 
-| Layer | Choice / Version | Role in Feature | Notes |
-| :--- | :--- | :--- | :--- |
-| Frontend | Next.js 16.2.6 (App Router) | `/lists` ルート、Client ページ | RSC + Client 分離 |
-| UI/Styling | Vanilla CSS (CSS Modules) | タブ・検索バー・グリッド | Tailwind 不使用 |
-| Data | Firebase Firestore（Core 経由） | リスト一覧クエリ | `searchLists` が抽象化 |
-| Icons | Material Icons (@mui/icons-material) | ページタイトル・種別アイコン | |
+| Layer      | Choice / Version                     | Role in Feature                | Notes                  |
+| :--------- | :----------------------------------- | :----------------------------- | :--------------------- |
+| Frontend   | Next.js 16.2.6 (App Router)          | `/lists` ルート、Client ページ | RSC + Client 分離      |
+| UI/Styling | Vanilla CSS (CSS Modules)            | タブ・検索バー・グリッド       | Tailwind 不使用        |
+| Data       | Firebase Firestore（Core 経由）      | リスト一覧クエリ               | `searchLists` が抽象化 |
+| Icons      | Material Icons (@mui/icons-material) | ページタイトル・種別アイコン   |                        |
 
 ---
 
@@ -139,10 +139,10 @@ e2e/
 ```
 
 ### Modified Files（本スペック実装範囲外だが依存）
-- `src/components/layout/sidebar.tsx` — **`quizeum-sidebar-layout`** が `/lists` リンク追加
+- `src/components/layout/sidebar.tsx` — **`quizetika-sidebar-layout`** が `/lists` リンク追加
 
 ### Core-Provided Files（本スペック外・前提）
-- `src/services/quiz-list.ts` — **`quizeum-core`** が `searchLists` を追加（本 UI タスクの前提。UI スペックは変更しない）
+- `src/services/quiz-list.ts` — **`quizetika-core`** が `searchLists` を追加（本 UI タスクの前提。UI スペックは変更しない）
 
 ---
 
@@ -192,38 +192,38 @@ stateDiagram-v2
 
 ## Requirements Traceability
 
-| Requirement | Summary | Components | Interfaces | Flows |
-| :--- | :--- | :--- | :--- | :--- |
-| **1.1–1.4** | ページ基本表示・testid・作成リンク | `ListsPage`, `ListsClient` | page shell | - |
-| **2.1–2.6** | 公開/非公開タブ・認証 | `ListsVisibilityTabs`, `useListsSearch` | `ListSearchVisibility` | タブ切り替え |
-| **3.1–3.5** | キーワード検索デバウンス | `ListsSearchBar`, `useListsSearch` | `SearchListsParams.keyword` | デバウンス |
-| **4.1–4.5** | カード一覧・詳細遷移 | `ListsGrid`, `ListDiscoveryCard` | `QuizList` | - |
-| **5.1–5.4** | 空状態・エラー | `ListsGrid`, `useListsSearch` | retry callback | - |
-| **6.1–6.5** | Core API 契約 | `useListsSearch` | `searchLists` | タブ切り替え |
+| Requirement | Summary                            | Components                              | Interfaces                  | Flows        |
+| :---------- | :--------------------------------- | :-------------------------------------- | :-------------------------- | :----------- |
+| **1.1–1.4** | ページ基本表示・testid・作成リンク | `ListsPage`, `ListsClient`              | page shell                  | -            |
+| **2.1–2.6** | 公開/非公開タブ・認証              | `ListsVisibilityTabs`, `useListsSearch` | `ListSearchVisibility`      | タブ切り替え |
+| **3.1–3.5** | キーワード検索デバウンス           | `ListsSearchBar`, `useListsSearch`      | `SearchListsParams.keyword` | デバウンス   |
+| **4.1–4.5** | カード一覧・詳細遷移               | `ListsGrid`, `ListDiscoveryCard`        | `QuizList`                  | -            |
+| **5.1–5.4** | 空状態・エラー                     | `ListsGrid`, `useListsSearch`           | retry callback              | -            |
+| **6.1–6.5** | Core API 契約                      | `useListsSearch`                        | `searchLists`               | タブ切り替え |
 
 ---
 
 ## Components and Interfaces
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `ListsPage` | UI / Route | ページシェル・Suspense | 1.1, 1.2 | `ListsClient` | - |
-| `ListsClient` | UI / Page | タブ・検索・グリッド統合 | 1, 2, 3, 5 | `useListsSearch`, `useAuth` | State |
-| `ListsSearchBar` | UI | キーワード入力 | 3.1, 3.4 | 親から controlled | State |
-| `ListsVisibilityTabs` | UI | 公開/非公開切替 | 2.1, 2.5 | 親 callback | State |
-| `ListsGrid` | UI | グリッド・空状態・エラー | 4, 5 | `ListDiscoveryCard` | State |
-| `ListDiscoveryCard` | UI | 単一カード・`/list/[id]` リンク | 4.2–4.5 | `profile-list-display` | - |
-| `useListsSearch` | Hook | fetch 状態・デバウンス | 2, 3, 5, 6 | `searchLists`, `useAuth` | Service |
+| Component             | Domain/Layer | Intent                          | Req Coverage | Key Dependencies            | Contracts |
+| :-------------------- | :----------- | :------------------------------ | :----------- | :-------------------------- | :-------- |
+| `ListsPage`           | UI / Route   | ページシェル・Suspense          | 1.1, 1.2     | `ListsClient`               | -         |
+| `ListsClient`         | UI / Page    | タブ・検索・グリッド統合        | 1, 2, 3, 5   | `useListsSearch`, `useAuth` | State     |
+| `ListsSearchBar`      | UI           | キーワード入力                  | 3.1, 3.4     | 親から controlled           | State     |
+| `ListsVisibilityTabs` | UI           | 公開/非公開切替                 | 2.1, 2.5     | 親 callback                 | State     |
+| `ListsGrid`           | UI           | グリッド・空状態・エラー        | 4, 5         | `ListDiscoveryCard`         | State     |
+| `ListDiscoveryCard`   | UI           | 単一カード・`/list/[id]` リンク | 4.2–4.5      | `profile-list-display`      | -         |
+| `useListsSearch`      | Hook         | fetch 状態・デバウンス          | 2, 3, 5, 6   | `searchLists`, `useAuth`    | Service   |
 
-### [Core / Service — quizeum-core 依存]
+### [Core / Service — quizetika-core 依存]
 
 #### searchLists（`src/services/quiz-list.ts` に追加）
 
-| Field | Detail |
-|-------|--------|
-| Intent | 公開/非公開 visibility とキーワードに基づくリスト一覧取得 |
-| Requirements | 6.1–6.5 |
-| Owner | quizeum-core（本スペックは契約消費者） |
+| Field        | Detail                                                    |
+| ------------ | --------------------------------------------------------- |
+| Intent       | 公開/非公開 visibility とキーワードに基づくリスト一覧取得 |
+| Requirements | 6.1–6.5                                                   |
+| Owner        | quizetika-core（本スペックは契約消費者）                  |
 
 **Contracts**: Service [x]
 
@@ -271,10 +271,10 @@ export async function searchLists(params: SearchListsParams): Promise<QuizList[]
 
 #### ListsClient
 
-| Field | Detail |
-|-------|--------|
-| Intent | 探索ページの Client ルート。認証・タブ・検索・一覧を束ねる |
-| Requirements | 1, 2, 3, 4, 5 |
+| Field        | Detail                                                     |
+| ------------ | ---------------------------------------------------------- |
+| Intent       | 探索ページの Client ルート。認証・タブ・検索・一覧を束ねる |
+| Requirements | 1, 2, 3, 4, 5                                              |
 
 **Responsibilities & Constraints**
 - `useListsSearch` から `lists`, `loading`, `error`, `visibility`, `keyword`, handlers を受け取り子コンポーネントへ分配
@@ -293,10 +293,10 @@ export async function searchLists(params: SearchListsParams): Promise<QuizList[]
 
 #### useListsSearch
 
-| Field | Detail |
-|-------|--------|
-| Intent | リスト探索のデータ取得と UI 状態を管理するカスタムフック |
-| Requirements | 2, 3, 5, 6 |
+| Field        | Detail                                                   |
+| ------------ | -------------------------------------------------------- |
+| Intent       | リスト探索のデータ取得と UI 状態を管理するカスタムフック |
+| Requirements | 2, 3, 5, 6                                               |
 
 **Contracts**: Service [x] / State [x]
 
@@ -326,10 +326,10 @@ export function useListsSearch(userId: string | undefined): UseListsSearchResult
 
 #### ListDiscoveryCard
 
-| Field | Detail |
-|-------|--------|
-| Intent | 単一 `QuizList` をカード表示し `/list/[id]` へリンク |
-| Requirements | 4.2–4.5 |
+| Field        | Detail                                               |
+| ------------ | ---------------------------------------------------- |
+| Intent       | 単一 `QuizList` をカード表示し `/list/[id]` へリンク |
+| Requirements | 4.2–4.5                                              |
 
 **Implementation Notes**
 - `getProfileListTypeLabel(resolveListType(list))` で種別バッジ
@@ -396,7 +396,7 @@ export function useListsSearch(userId: string | undefined): UseListsSearchResult
 ---
 
 ## Supporting References
-- 詳細調査: `.kiro/specs/quizeum-lists-discovery-ui/research.md`
+- 詳細調査: `.kiro/specs/quizetika-lists-discovery-ui/research.md`
 - 参照 UI: `src/app/bookmarks/bookmarks-client.tsx`, `src/components/profile/profile-list-card.tsx`
 
 ---
@@ -409,19 +409,19 @@ export function useListsSearch(userId: string | undefined): UseListsSearchResult
 
 ### 2. 削除対象（play-flow-ui / core Phase 26 が実行）
 
-| パス | 操作 |
-|------|------|
-| `src/app/lists/` | Delete |
+| パス                                              | 操作   |
+| ------------------------------------------------- | ------ |
+| `src/app/lists/`                                  | Delete |
 | `src/components/lists/` または `lists-discovery/` | Delete |
-| `src/hooks/useListsSearch.ts` | Delete |
-| `e2e/lists-discovery.spec.ts` | Delete |
-| `tests/hooks/useListsSearch.test.ts` | Delete |
-| `tests/components/lists-discovery/` | Delete |
+| `src/hooks/useListsSearch.ts`                     | Delete |
+| `e2e/lists-discovery.spec.ts`                     | Delete |
+| `tests/hooks/useListsSearch.test.ts`              | Delete |
+| `tests/components/lists-discovery/`               | Delete |
 
 ### 3. 関連スペック
 
-- `quizeum-ui-discovery` Phase 26 — リスト探索を Phase 24 移行スコープから除外
-- `quizeum-sidebar-layout` — Sidebar「リスト」ナビ除去
-- `quizeum-core` Phase 26 — `searchLists` API 削除
+- `quizetika-ui-discovery` Phase 26 — リスト探索を Phase 24 移行スコープから除外
+- `quizetika-sidebar-layout` — Sidebar「リスト」ナビ除去
+- `quizetika-core` Phase 26 — `searchLists` API 削除
 
 **Document Status（Phase 26 設計）**: **OBSOLETE**。本節以降の設計は履歴参照のみ。
