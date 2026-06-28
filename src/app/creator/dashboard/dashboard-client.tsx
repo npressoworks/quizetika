@@ -17,8 +17,31 @@ import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
 import { QuizListSkeleton } from '@/components/quiz/quiz-list-skeleton';
 import { FeedbackSkeleton } from '@/components/quiz/feedback-skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PlayerDashboardClient } from './player-dashboard-client';
 
 export function CreatorDashboardClient() {
+  return (
+    <Tabs defaultValue="player" className="w-full">
+      <TabsList className="mb-8 w-full max-w-[400px]">
+        <TabsTrigger value="player" data-testid="dashboard-tab-player" className="flex-1 py-2">
+          プレイヤー
+        </TabsTrigger>
+        <TabsTrigger value="creator" data-testid="dashboard-tab-creator" className="flex-1 py-2">
+          作家
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="player" className="space-y-10 focus-visible:outline-none">
+        <PlayerDashboardClient />
+      </TabsContent>
+      <TabsContent value="creator" className="space-y-10 focus-visible:outline-none">
+        <CreatorDashboardClientInner />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function CreatorDashboardClientInner() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
@@ -64,7 +87,7 @@ export function CreatorDashboardClient() {
           setFeedbacks(fbList);
         }
       } catch (err) {
-        console.error('[CreatorDashboardClient] データ取得失敗:', err);
+        console.error('[CreatorDashboardClientInner] データ取得失敗:', err);
         if (!cancelled) {
           setQuizzes([]);
           setStats(computeDashboardStats([]));

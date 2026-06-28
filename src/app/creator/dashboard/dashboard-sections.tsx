@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnalyticsChart } from '@/components/charts/analytics-chart';
 import { SelectionPie } from '@/components/charts/selection-pie';
-import { Quiz, FeedbackReport } from '@/types';
+import { Quiz, FeedbackReport, PlayHistoryEntry } from '@/types';
 import { formatReviewScorePercent } from '@/services/review-utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,12 @@ import {
   TrendingUpOutlined as TrendingUpIcon,
   ChevronRight as ChevronRightIcon,
   InboxOutlined as InboxIcon,
+  HistoryOutlined as HistoryIcon,
+  AccessTimeOutlined as TimeIcon,
+  CategoryOutlined as CategoryIcon,
+  LocalOfferOutlined as TagIcon,
 } from '@mui/icons-material';
+import type { PlayerStats } from '@/lib/player-stats';
 
 const playsTrendData = [
   { label: '5/23', value: 12 },
@@ -304,6 +309,266 @@ export function FeedbackSection({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// プレイモードの日本語ラベル (再定義して使用)
+const modeLabels: Record<string, string> = {
+  normal: '通常',
+  exam: '試験',
+  flashcard: '暗記カード',
+  review: '復習',
+  list: 'リストプレイ',
+  'question-list': '問題リストプレイ',
+  'my-quiz': 'カスタムクイズ',
+  'test-play': 'テストプレイ',
+};
+
+// 1. PlayerStatsGridSection
+export function PlayerStatsGridSection({ stats }: { stats: PlayerStats }) {
+  const items = [
+    { icon: PlayIcon, label: '累計プレイ数', value: `${stats.totalPlays} 回`, variant: 'primary' as const },
+    { icon: StarIcon, label: '平均正解率', value: `${stats.averageAccuracy}%`, variant: 'warning' as const },
+    { icon: TimeIcon, label: '平均解答時間', value: `${stats.averageTime} 秒`, variant: 'info' as const },
+    { icon: FileTextIcon, label: 'プレイ済クイズ数', value: `${stats.uniqueQuizzesCount} 個`, variant: 'accent' as const },
+  ];
+
+  return (
+    <div
+      className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5"
+      data-testid="player-stats"
+    >
+      {items.map(({ icon: Icon, label, value, variant }) => (
+        <Card key={label} className="transition-colors hover:border-primary/50">
+          <CardContent className="flex items-center gap-5 p-6">
+            <div
+              className={cn(
+                'flex size-12 shrink-0 items-center justify-center rounded-full border',
+                statIconVariants[variant],
+              )}
+            >
+              <Icon className="size-6" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-muted-foreground">{label}</span>
+              <span className="text-xl font-bold">{value}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+// 2. PlayerChartsSection
+export function PlayerChartsSection({ stats }: { stats: PlayerStats }) {
+  const modePieData = stats.modeDistribution.map((item) => ({
+    label: item.label,
+    count: item.count,
+  }));
+
+  return (
+    <div
+      className="grid grid-cols-1 gap-5 md:grid-cols-2"
+      data-testid="player-charts"
+    >
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 pb-2">
+          <TrendingUpIcon className="size-5 text-primary" />
+          <CardTitle className="text-base">プレイトレンド (直近7日間)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AnalyticsChart data={stats.dailyPlayCounts} title="日別プレイ数" color="primary" />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center gap-2 pb-2">
+          <CategoryIcon className="size-5 text-chart-2" />
+          <CardTitle className="text-base">プレイモード割合</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {modePieData.length === 0 ? (
+            <div className="flex h-[180px] items-center justify-center text-sm text-muted-foreground">
+              データがありません
+            </div>
+          ) : (
+            <SelectionPie data={modePieData} />
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// 3. PlayerGenreTagAnalysisSection
+export function PlayerGenreTagAnalysisSection({
+  stats,
+  genreLabelById,
+}: {
+  stats: PlayerStats;
+  genreLabelById: Map<string, string>;
+}) {
+  return (
+    <div
+      className="grid grid-cols-1 gap-6 lg:grid-cols-2"
+      data-testid="player-genre-tag-analysis"
+    >
+      {/* 頻度分析 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">よくプレイするジャンル & タグ</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-primary">
+              <CategoryIcon className="size-4" /> よくプレイするジャンル
+            </h4>
+            {stats.frequentGenres.length === 0 ? (
+              <p className="text-sm text-muted-foreground">データがありません</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {stats.frequentGenres.map((g) => (
+                  <Badge key={g.genreId} variant="secondary" className="px-3 py-1 text-xs">
+                    {genreLabelById.get(g.genreId) || g.genreId} ({g.count}回)
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-chart-2">
+              <TagIcon className="size-4" /> よくプレイするタグ
+            </h4>
+            {stats.frequentTags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">データがありません</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {stats.frequentTags.map((t) => (
+                  <Badge key={t.tagName} variant="outline" className="px-3 py-1 text-xs">
+                    #{t.tagName} ({t.count}回)
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 得意（正答率）分析 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">得意なジャンル & タグ (プレイ3回以上)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div>
+            <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-amber-500">
+              <StarIcon className="size-4" /> 得意なジャンル
+            </h4>
+            {stats.accurateGenres.length === 0 ? (
+              <p className="text-sm text-muted-foreground">条件に合うジャンルがありません</p>
+            ) : (
+              <div className="space-y-2">
+                {stats.accurateGenres.map((g) => (
+                  <div key={g.genreId} className="flex items-center justify-between text-sm border-b pb-1 last:border-0 last:pb-0">
+                    <span className="font-medium">{genreLabelById.get(g.genreId) || g.genreId}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">({g.count}回プレイ)</span>
+                      <span className="font-bold text-primary">{g.accuracy}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-indigo-500">
+              <TagIcon className="size-4" /> 得意なタグ
+            </h4>
+            {stats.accurateTags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">条件に合うタグがありません</p>
+            ) : (
+              <div className="space-y-2">
+                {stats.accurateTags.map((t) => (
+                  <div key={t.tagName} className="flex items-center justify-between text-sm border-b pb-1 last:border-0 last:pb-0">
+                    <span className="font-medium">#{t.tagName}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">({t.count}回プレイ)</span>
+                      <span className="font-bold text-chart-2">{t.accuracy}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// 4. PlayerRecentPlayHistorySection
+export function PlayerRecentPlayHistorySection({
+  history,
+  genreLabelById,
+}: {
+  history: PlayHistoryEntry[];
+  genreLabelById: Map<string, string>;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <HistoryIcon className="size-5" /> 最近のプレイ履歴
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {history.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">プレイ履歴がありません。</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b text-muted-foreground text-xs uppercase">
+                  <th className="pb-3 pt-2 font-medium">クイズ</th>
+                  <th className="pb-3 pt-2 font-medium">モード</th>
+                  <th className="pb-3 pt-2 font-medium">正解数</th>
+                  <th className="pb-3 pt-2 font-medium">解答時間</th>
+                  <th className="pb-3 pt-2 font-medium">日時</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {history.map((h) => (
+                  <tr key={h.attemptId} className="hover:bg-muted/50 transition-colors">
+                    <td className="py-4 pr-3 font-medium truncate max-w-[200px]" title={h.quizTitle}>
+                      {h.quizTitle}
+                    </td>
+                    <td className="py-4 pr-3">
+                      <Badge variant="outline" className="text-xs">
+                        {modeLabels[h.mode] || h.mode}
+                      </Badge>
+                    </td>
+                    <td className="py-4 pr-3">
+                      {h.score} / {h.totalQuestions}
+                    </td>
+                    <td className="py-4 pr-3">
+                      {h.elapsedSeconds}秒
+                    </td>
+                    <td className="py-4 text-muted-foreground text-xs">
+                      {new Date(h.completedAt).toLocaleDateString('ja-JP', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </CardContent>
