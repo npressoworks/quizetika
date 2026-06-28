@@ -364,7 +364,7 @@ export interface FeedbackReport {
   creatorId: string;
   category: 'typo' | 'fact' | 'alternative';
   content: string;
-  status: 'open' | 'resolved';
+  status: 'open' | 'resolved' | 'rejected';
   createdAt: Date;
 }
 

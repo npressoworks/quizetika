@@ -13,6 +13,9 @@
 
 **Phase 27（2026-06-28）**: 作家ダッシュボードをプレイヤー統計情報も確認できる統合ダッシュボードへと拡張し、タブ（「プレイヤー」「作家」）で表示を切り替え可能にする。プレイヤーダッシュボードには、基本プレイ統計、直近7日間のプレイ回数推移、プレイモード割合、よくプレイするジャンル／タグ、および正答率の高いジャンル／タグを表示する。
 
+**Phase 28（2026-06-28）**: 作家ダッシュボードの間違い指摘キューにおいて、各指摘を解決（解消）済みとするアクションを追加し、Firestoreの指摘ステータス更新（`resolveReport` 呼び出し）とダッシュボード表示の即時反映を連携する。また、`resolveReport` で追加される通知データ構造のスキーマバグを修正する。
+
+
 ### Goals
 - 問題の動的追加・削除、クイズタイプトグルを備えた直感的なクイズエディタの構築。
 - タグ入力時におけるリアルタイム「自動名寄せ」正規化と類似 canonical タグのインラインサジェスト警告UI。
@@ -48,8 +51,9 @@
 - **参照リンク作問 UI（Phase 8）**: 自作クイズ検索パネル、参照問題のエディタ状態追加、視覚区別、CoW 保存前通知。
 - **テキストエリア自動伸長（Phase 12）**: `AutoGrowTextarea` コンポーネントと `QuizEditor` への適用（説明・問題文・真相・解説）。
 - **参照検索 UX 改善（Phase 12）**: 検索プレースホルダー更新、リンク／リンク解除成功インライン通知（7.13, 7.16）、問題文ヒット時のアコーディオン自動展開（7.15）。
-- **テストプレイ復帰（Phase 12）**: `sessionStorage` ドラフトの consume と `skipServerQuizLoadRef` による通常ロード抑止（要件 9）。
+- **テストプレイ復帰（Phase 12）**: `sessionStorage` ドラフト of consume と `skipServerQuizLoadRef` による通常ロード抑止（要件 9）。
 - **〇×作問 UI（Phase 20）**: 出題形式カード「〇×式」、複合形式の問題タイプ「〇×」、`TrueFalseCorrectToggle` 正解トグル、形式一括変換。
+- **間違い指摘解決 UI & API バグ修正（Phase 28）**: 指摘キューカード上の「解決済みにする」アクションの提供、解決処理中の二重送信防止用非活性化、クライアント状態更新、および `resolveReport` による通知作成のバグ修正（`userId` / `type: 'correction_resolved'` への修正と `sender` 情報付与）。
 
 ### Out of Boundary
 - クイズリストやクイズのJSONインポート用ファイルのアップロード処理（インポート機能は廃止されたため、本UIは一切のインポート機能を包含しません）。
@@ -57,6 +61,7 @@
 - **Phase 8**: `listType` 永続化検証、参照リンクの Firestore 書き込み、問題 doc の CoW 実行（`quizetika-core`）。
 - **Phase 12**: 問題文・正解テキスト照合の純関数実装と `searchAuthorQuizzes` 内の問題バッチ取得（`src/lib/` + `src/services/author-quiz-search.ts`）。本スペックの UI コンポーネントから Firestore 直接クエリしてはならない。
 - **Phase 20**: 選択肢ラベルの正規化・`Quiz.format` 永続化・公開検証（`quizetika-core`）。プレイ時 〇／× 1タップ UI（`quizetika-play-flow-ui`）。
+- **Phase 28**: プレイヤー側の通知画面での表示最適化（既存の `notifications-client.tsx` 実装がそのまま流用される）。
 
 ### Allowed Dependencies
 - **`quizetika-auth-profile-ui`**: `Header`, `useAuth`
@@ -65,6 +70,7 @@
 - **`quizetika-core`（Phase 20）**: `createTrueFalseChoices`, `resolveTrueFalseCorrectSide`, `normalizeTrueFalseChoices`（`src/lib/true-false-defaults.ts`）
 - **`quizetika-play-flow-ui`（共有）**: `useActiveGenres` フック（`src/hooks/useActiveGenres.ts`）
 - **`quizetika-core`（読み取り）**: `searchQuizzes` — 他者公開クイズ経由の問題候補探索（Phase 8・UI 集約のみ）
+- **`quizetika-core`（依存）**: `resolveReport`（`src/services/review.ts`）
 
 ### Revalidation Triggers
 - `QuizService.saveQuiz` または `QuizListService.createQuizList` のシリアライズ仕様変更。
@@ -344,6 +350,27 @@ sequenceDiagram
     end
 ```
 
+### 間違い指摘解決および通知連携フロー（Phase 28）
+```mermaid
+sequenceDiagram
+    actor Creator as クリエイター
+    participant UI as FeedbackSection (UI)
+    participant Client as CreatorDashboardClient
+    participant ReviewSvc as ReviewService (review.ts)
+    participant Firestore as Firestore
+
+    Creator->>UI: 「解決済みにする」をクリック
+    Note over UI: ボタンを非活性化 (resolvingId = report.id)
+    UI->>ReviewSvc: resolveReport(report.id)
+    ReviewSvc->>Firestore: feedbackReports[reportId] の status を "resolved" に更新
+    ReviewSvc->>Firestore: notifications に通知作成 (userId, type="correction_resolved", targetId, senderId="system", etc.)
+    Firestore-->>ReviewSvc: 成功
+    ReviewSvc-->>UI: 成功
+    UI->>Client: onResolve(report.id) コールバック
+    Client->>Client: feedbacks 状態から該当指摘をフィルタアウト (除外)
+    Note over UI: カードが消去され、ボタン活性復帰
+```
+
 ### プレイヤーダッシュボード・データ集計フロー（Phase 27）
 ```mermaid
 sequenceDiagram
@@ -391,6 +418,8 @@ sequenceDiagram
 | 2.3         | クローズド指摘フィードバック一覧表示     | Creator Dashboard                                                         | Feedback Queue                                  | -                        |
 | 2.4         | 指摘「修正する」からのクイズ編集画面遷移 | Creator Dashboard                                                         | `useRouter`                                     | -                        |
 | 2.5         | クイズ一括エクスポートダウンロード処理   | Creator Dashboard                                                         | `QuizService.exportQuizzes`                     | -                        |
+| 2.6         | 指摘カードの「解決済みにする」処理       | Creator Dashboard, FeedbackSection                                        | `resolveReport`, `onResolve`                    | 指摘解決・通知連携フロー |
+| 2.7         | 解決処理中の二重送信防止                 | FeedbackSection                                                           | State / disabled                                | —                        |
 | 3.1         | リスト情報と収録クイズ一覧               | `/list/[id]` Page                                                         | List Detail                                     | -                        |
 | 3.2         | listId 連続プレイのトラッキング開始      | `/list/[id]` Page                                                         | `AttemptService`                                | -                        |
 | 3.3         | リスト作成者本人の場合の「編集する」表示 | `/list/[id]` Page                                                         | State Guard                                     | -                        |
@@ -467,7 +496,7 @@ sequenceDiagram
 | `QuizEditor`                       | UI / Page      | クイズの新規作成・編集、タグ警告、Zod検証、テストプレイ復帰   | 1.1–1.6, 5.1–5.7, 7.16, 8.1–8.5, 9.1–9.7 | `QuizService`, `GenreEditorSelect`, `AutoGrowTextarea`, `test-play.ts` | FormState      |
 | `AutoGrowTextarea`                 | UI / Component | 内容に応じた textarea 高さ同期                                | 8.1–8.5                                  | —                                                                      | Controlled     |
 | `GenreEditorSelect`                | UI / Component | マスタ駆動ジャンル `<select>`                                 | 5.1–5.6                                  | `useActiveGenres`                                                      | Controlled     |
-| `CreatorDashboard`                 | UI / Page      | 作家アナリティクス、指摘解決、クイズエクスポート              | 2.1, 2.2, 2.3, 2.4, 2.5                  | `ReviewService`, `QuizService`                                         | State          |
+| `CreatorDashboard`                 | UI / Page      | 作家アナリティクス、指摘解決、クイズエクスポート              | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6             | `ReviewService`, `QuizService`, `FeedbackSection`                      | State          |
 | `QuizListDetail`                   | UI / Page      | クイズリストの閲覧、プレイ開始トラッキング                    | 3.1, 3.2, 3.3                            | `QuizListService`, `useAuth`                                           | State          |
 | `QuizListEditor`                   | UI / Page      | リストの新規作成・編集、listType 分岐、アタッチ、エクスポート | 4.1–4.3, 6.1–6.3, 6.10                   | `QuizListService`                                                      | State          |
 | `ListTypeSelector`                 | UI / Component | 新規リストの `quiz` / `question` 選択                         | 6.1, 6.2                                 | —                                                                      | Controlled     |
@@ -1017,3 +1046,47 @@ export function consumeTestPlayDraftForEditor(
 **Effort**: **M**（2日）
 
 **Document Status（Phase 27 設計）**: 本節に反映。
+
+---
+
+## Phase 28: 間違い指摘キューの解消（解決）機能（2026-06-28）
+
+### 1. Overview
+作家ダッシュボードの間違い指摘キュー（`FeedbackSection`）において、指摘を解決（解消）済みとするアクションボタン（「解決済みにする」）を提供します。非同期でのFirestore更新処理（`resolveReport`）を呼び出し、処理中の二重送信防止および完了後のクライアント側状態（リスト表示）の即時更新を行います。また、既存の `resolveReport` 内で発生している通知コレクションへのスキーマ不整合バグを修正します。
+
+### 2. Boundary Commitments（Phase 28）
+
+| Owns | Out of Boundary |
+|---|---|
+| 指摘カード上の「解決済みにする」ボタンの実装と二重送信防止 (`resolvingId` による活性制御) | プレイヤー側の通知画面での表示制御（既存の通知一覧UIがそのまま使用されます） |
+| コールバックを通じたダッシュボード上の指摘キューのクライアント状態同期 | Firestoreセキュリティルールの新規登録（既存の `feedbackReports` の `resolved` 更新ルールおよび `notifications` の `create` ルールをそのまま利用） |
+| `src/services/review.ts` 内の `resolveReport` のバグ修正（通知オブジェクトのスキーマ適合） | |
+
+### 3. UI Design
+
+**「解決済みにする」ボタンの追加**:
+指摘キューカード（`dashboard-sections.tsx` 内の `FeedbackSection`）の各指摘アイテムの「修正する」ボタンの隣に、「解決済みにする」ボタンを追加します。
+- ボタンラベル: 「解決済みにする」
+- アイコン: `CheckOutlined`（Material Icons）
+- `data-testid`: `resolve-feedback-btn-{reportId}`
+- `resolvingId === report.id` の場合、ローディング用のスタイルとしてボタン内部にスピン等を表示し、ボタン本体および「修正する」ボタンの両方を非活性化（disabled）します。
+
+### 4. File Structure Plan（Phase 28）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/services/review.ts` | **Modify** | `resolveReport` の通知ペイロードのバグ修正（`recipientId -> userId`、`type: 'report_resolved' -> 'correction_resolved'`、`quizId/quizTitle -> targetId/targetTitle` への変更、および `senderId/senderName/senderAvatar` の追加）。 |
+| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `FeedbackSection` に `onResolve` props を追加。各指摘カードに「解決済みにする」ボタンを配置し、クリック時に非同期処理を実行するハンドラを実装。ボタン非活性状態（`resolvingId`）のローカル制御。 |
+| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `CreatorDashboardClientInner` 側に `handleResolveFeedback` ハンドラを定義。Firestoreの更新成功後に `feedbacks` 状態から該当の指摘を `filter` で除外するステート更新を行い、`FeedbackSection` に `onResolve` として渡す。 |
+
+### 5. Testing Strategy（Phase 28）
+
+| 種別 | 検証 |
+|---|---|
+| **Unit** | `tests/services/review.test.ts` に `resolveReport` の単体テストを追加。モックされた Firestore に対し、指定された指摘 ID が `resolved` に更新されること、および作成される通知オブジェクトに `userId`, `type: 'correction_resolved'`, `targetId`, `targetTitle`, `senderId` が正しく含まれていることを検証する。 |
+| **E2E** | `e2e/creator-dashboard.spec.ts` の「指摘・修正フロー」テストを拡張。ダッシュボード上で「解決済みにする」ボタン（`resolve-feedback-btn-{id}`）をクリックした際に、ローディング非活性が機能し、成功後に指摘カードが画面上から即座に消失することを確認する。 |
+
+**Effort**: **S**（1日）
+
+**Document Status（Phase 28 設計）**: 本節に反映。
+

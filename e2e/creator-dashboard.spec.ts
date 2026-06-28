@@ -6,6 +6,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
     // 1. クリエイターダッシュボードへアクセス
     await page.goto('/creator/dashboard');
     await page.waitForLoadState('domcontentloaded');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     await expect(page.getByTestId('stats-skeleton')).toBeHidden({ timeout: 15000 });
 
@@ -22,6 +23,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   test('F-902: 問題別解答分析（アナリティクス）が表示されること', async ({ page }) => {
     // 1. クリエイターダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     // 2. ダッシュボードが表示されることを確認
     await expect(page.locator('h1').first()).toBeVisible();
@@ -88,6 +90,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   test('F-904: リアクション受信履歴が表示されること', async ({ page }) => {
     // 1. クリエイターダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     // 2. リアクション履歴セクションを確認
     const reactionsSection = page.locator('[data-testid="reactions-section"]').first()
@@ -109,6 +112,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   test('クリエイターダッシュボード: クイズ編集機能が正常に動作すること', async ({ page }) => {
     // 1. ダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     // 2. クイズカードから編集ボタンをクリック
     const editBtn = page.locator('button').filter({ hasText: /編集/ }).first();
@@ -128,6 +132,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   test('クリエイターダッシュボード: クイズ削除機能が正常に動作すること', async ({ page }) => {
     // 1. ダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     // 2. クイズカードから削除ボタンを探す
     const deleteBtn = page.locator('button').filter({ hasText: /削除|✕/ }).first();
@@ -152,6 +157,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   test('クリエイターダッシュボード: 指摘・修正フロー', async ({ page }) => {
     // 1. ダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     // 2. 指摘レポートセクションを確認
     const reportSection = page.locator('[data-testid="reports-section"]').first()
@@ -179,9 +185,38 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
     }
   });
 
+  test('クリエイターダッシュボード: 指摘解決フロー', async ({ page }) => {
+    // 1. ダッシュボードへアクセスし、作家タブへ切り替え
+    await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
+
+    // 2. 指摘解決ボタンを探す (モックの mock_fb_1 もしくは実データ)
+    const resolveBtn = page.locator('button').filter({ hasText: /解決済みにする/ }).first();
+    
+    if (await resolveBtn.isVisible()) {
+      // 3. 解決前のカードを取得
+      const card = resolveBtn.locator('xpath=ancestor::div[contains(@class, "border")][1]');
+      const cardText = await card.textContent();
+
+      // 4. 解決ボタンをクリック
+      await resolveBtn.click();
+
+      // 5. 非同期処理後にカードが非表示になることをアサート
+      await expect(resolveBtn).toBeHidden({ timeout: 5000 });
+      
+      // 指摘キューから該当カードが消えていることを確認
+      if (cardText) {
+        const cleanedText = cardText.replace(/\s+/g, ' ').trim();
+        const contentLocator = page.locator('div').filter({ hasText: /間違い指摘キュー/ }).first();
+        await expect(contentLocator).not.toContainText(cleanedText.slice(0, 15));
+      }
+    }
+  });
+
   test('クリエイターダッシュボード: クイズ一括エクスポート機能', async ({ page }) => {
     // 1. ダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     // 2. エクスポートボタンを探す
     const exportBtn = page.locator('button').filter({ hasText: /エクスポート|ダウンロード|JSON/ }).first();
@@ -206,6 +241,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   test('複合テスト: ダッシュボード → クイズ作成 → 統計確認 の完全フロー', async ({ page }) => {
     // 1. ダッシュボードへアクセス
     await page.goto('/creator/dashboard');
+    await page.getByTestId('dashboard-tab-creator').click();
 
     // ダッシュボードが表示されることを確認
     await expect(page.locator('h1').first()).toBeVisible();
@@ -225,6 +261,22 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
         const quizTitle = `[TEST] ダッシュボード_${Date.now().toString().slice(-4)}`;
         await titleInput.fill(quizTitle);
 
+        // ジャンルを選択する (Phase 6 マスタ駆動 select)
+        const genreInput = page.getByTestId('genre-editor-search-input');
+        if (await genreInput.isVisible()) {
+          await genreInput.click();
+          await genreInput.fill('雑学');
+          const option = page.getByTestId('genre-editor-search-option-trivia');
+          await expect(option).toBeVisible();
+          await option.click();
+        }
+
+        // 第1問の問題文を入力
+        const q1Textarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
+        if (await q1Textarea.isVisible()) {
+          await q1Textarea.fill('テスト問題文です。');
+        }
+
         // 下書き保存
         const saveDraftBtn = page.locator('text=下書き保存').first();
         if (await saveDraftBtn.isVisible()) {
@@ -232,6 +284,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
 
           // ダッシュボードに戻ることを確認
           await expect(page).toHaveURL(/\/creator\/dashboard/);
+          await page.getByTestId('dashboard-tab-creator').click();
 
           // 4. 新しく作成したクイズが一覧に表示されることを確認
           await expect(page.locator(`text=${quizTitle}`)).toBeVisible();

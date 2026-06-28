@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { getQuizzesByAuthor } from '@/services/quiz';
-import { getReportsForCreator } from '@/services/review';
+import { getReportsForCreator, resolveReport } from '@/services/review';
 import { Quiz, FeedbackReport } from '@/types';
 import { computeDashboardStats, type DashboardStats } from '@/lib/dashboard-stats';
 import {
@@ -106,6 +106,11 @@ function CreatorDashboardClientInner() {
     };
   }, [user, authLoading, router]);
 
+  const handleResolveFeedback = async (reportId: string) => {
+    await resolveReport(reportId);
+    setFeedbacks((prev) => (prev ? prev.filter((fb) => fb.id !== reportId) : null));
+  };
+
   const dataLoading = authLoading || quizzes === null || stats === null;
 
   return (
@@ -132,7 +137,7 @@ function CreatorDashboardClientInner() {
         {feedbacks === null ? (
           <FeedbackSkeleton data-testid="feedback-list-skeleton" />
         ) : (
-          <FeedbackSection feedbacks={feedbacks} quizzes={quizzes ?? []} />
+          <FeedbackSection feedbacks={feedbacks} quizzes={quizzes ?? []} onResolve={handleResolveFeedback} />
         )}
       </div>
     </>

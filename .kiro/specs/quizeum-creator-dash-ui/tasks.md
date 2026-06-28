@@ -426,3 +426,44 @@
   - **完了状態**: `npm test` および `npm run build` がエラーなく通過すること。
   - _Requirements: 13.9_
   - _Boundary: Testing_
+
+---
+
+### 13. Phase 28: 間違い指摘キューの解消（解決）機能（2026-06-28）
+
+- [x] 13.1 (P) API 通知バグ修正の実装
+  - `src/services/review.ts` 内の `resolveReport` 関数を修正し、作成される通知ドキュメントのスキーマを `Notification` 型および `firestore.rules` の認可要件に適合させる。
+  - 具体的には `recipientId -> userId`、`type: 'report_resolved' -> 'correction_resolved'`、`quizId/quizTitle -> targetId/targetTitle` へフィールド名を変更し、欠落している `senderId: 'system'`, `senderName: '運営'`, `senderAvatar: ''` を追加する。
+  - **完了状態**: `resolveReport` の通知書き込みロジックが型エラーなしにコンパイルでき、Firestore Emulator 環境で通知ドキュメントが正しいスキーマで生成されること。
+  - _Requirements: 2.6_
+  - _Boundary: review-service_
+
+- [x] 13.2 (P) 指摘解決ボタン UI とローカル状態制御の実装
+  - `src/app/creator/dashboard/dashboard-sections.tsx` の `FeedbackSection` コンポーネントに `onResolve` props を追加する。
+  - 指摘アイテムカードの「修正する」ボタンの隣に「解決済みにする」ボタン（`data-testid="resolve-feedback-btn-{id}"`、`CheckOutlined` アイコン）を追加する。
+  - `resolvingId` ローカルステートを導入し、非同期処理の実行中は該当指摘カードの「解決済みにする」ボタンおよび「修正する」ボタンを disabled にして二重送信を防止する。
+  - **完了状態**: 指摘カード上に解決ボタンが表示され、クリック中にローディング表示および disabled 状態になり、二重クリックが防止されること。
+  - _Requirements: 2.6, 2.7_
+  - _Boundary: FeedbackSection_
+
+- [x] 13.3 ダッシュボード of クライアント側状態更新の統合
+  - `src/app/creator/dashboard/dashboard-client.tsx` の `CreatorDashboardClientInner` コンポーネントに `handleResolveFeedback` ハンドラを実装する。
+  - ハンドラ内から `resolveReport(reportId)` を非同期に呼び出し、Firestoreの更新成功後に `feedbacks` 状態から該当指摘を `filter` で除外するステート更新を行う。これを `FeedbackSection` の `onResolve` に受け渡す。
+  - **完了状態**: 解決成功後、ダッシュボード画面上の指摘カード一覧から該当指摘が即座に消去されること。
+  - _Requirements: 2.6_
+  - _Boundary: DashboardClient_
+  - _Depends: 13.1, 13.2_
+
+- [x] 13.4 Phase 28 結合テストと E2E テストの作成・更新
+  - `tests/services/review.test.ts` に `resolveReport` が正しい通知スキーマでドキュメントを追加し、ステータスを `resolved` に更新することを検証する単体テストを追加する。
+  - `e2e/creator-dashboard.spec.ts` の「指摘・修正フロー」テストケースを拡張し、解決ボタンクリック後のローディング非活性が機能し、成功後に指摘カードが画面上から即座に消失することを確認するアサーションを追加する。
+  - **完了状態**: `npm test`、`npm run build`、および Playwright による E2E テストがエラーなく通過すること。
+  - _Requirements: 2.6, 2.7_
+  - _Boundary: Testing_
+  - _Depends: 13.3_
+
+## Implementation Notes (Phase 28)
+- データベースの `resolveReport` は UI 側と同じリポジトリに配置されているため、本フェーズで API 不整合バグを一緒に解消します。
+- プレイヤー側への通知の表示は、既存の通知画面（`notifications-client.tsx`）が型 `correction_resolved` を処理可能であるため、追加のUI開発は不要です。
+
+

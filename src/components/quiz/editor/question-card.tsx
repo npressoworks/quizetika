@@ -37,6 +37,9 @@ export function QuestionCard({
   isRefReadOnly,
   isCollapsed,
   onToggleCollapse,
+  reports = [],
+  onResolveReport,
+  onRejectReport,
 }: QuestionCardProps) {
 
   const questionTextHasError =
@@ -58,6 +61,11 @@ export function QuestionCard({
           <span className={`${editorClasses.questionNumber} shrink-0`}>
             第 {qIdx + 1} 問
             {isRefReadOnly && <ReferenceQuestionBadge />}
+            {reports.length > 0 && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-bold text-amber-500" data-testid="question-inline-feedback-badge">
+                ⚠️ 指摘あり
+              </span>
+            )}
           </span>
           {/* 問題文が入力済みのときだけプレビューを表示 */}
           {previewText && (
@@ -94,6 +102,75 @@ export function QuestionCard({
       {/* ── アコーディオン本体（折りたたみ対象） ── */}
       {!isCollapsed && (
         <>
+          {reports.length > 0 && (
+            <div
+              className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4"
+              data-testid="question-inline-feedback"
+            >
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-amber-500">
+                <WarningAmberOutlined sx={{ fontSize: 16 }} />
+                この問題への間違い指摘 ({reports.length}件)
+              </h4>
+              <div className="flex flex-col gap-3">
+                {reports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="flex flex-col gap-2 rounded-lg bg-black/30 border border-white/5 p-3 text-sm"
+                    data-testid={`inline-report-card-${report.id}`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="inline-block rounded bg-white/10 px-2 py-0.5 text-xs text-slate-300">
+                        {report.category === 'typo'
+                          ? '誤字・脱字'
+                          : report.category === 'fact'
+                          ? '事実誤認'
+                          : '別解の存在'}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {new Date(report.createdAt).toLocaleDateString('ja-JP')}
+                      </span>
+                    </div>
+                    <div className="text-slate-200 leading-relaxed whitespace-pre-wrap">
+                      {report.content}
+                    </div>
+                    <div className="flex gap-2 mt-1">
+                      <button
+                        type="button"
+                        className="flex-1 cursor-pointer bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded px-3 py-1.5 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
+                        onClick={async () => {
+                          if (onResolveReport) {
+                            try {
+                              await onResolveReport(report.id);
+                            } catch (err) {
+                              alert('解決処理中にエラーが発生しました。');
+                            }
+                          }
+                        }}
+                      >
+                        解決済
+                      </button>
+                      <button
+                        type="button"
+                        className="flex-1 cursor-pointer border border-white/10 bg-white/5 hover:bg-red-500/10 hover:text-red-400 text-slate-300 rounded px-3 py-1.5 text-xs font-semibold transition-colors"
+                        onClick={async () => {
+                          if (onRejectReport) {
+                            try {
+                              await onRejectReport(report.id);
+                            } catch (err) {
+                              alert('却下処理中にエラーが発生しました。');
+                            }
+                          }
+                        }}
+                      >
+                        却下
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {cowNoticeIds.has(question.id) && (
             <div className={editorClasses.tagWarning} role="status" data-testid="cow-detach-notice">
               <WarningAmberOutlined sx={{ fontSize: 16 }} />

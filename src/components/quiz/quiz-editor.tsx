@@ -56,7 +56,12 @@ import { AiChatAssistantPanel } from '@/components/quiz/editor/ai-chat-assistant
 import { Button } from '@/components/ui/button';
 import { hasUnlimitedAiQuestionsForUser } from '@/lib/pricing-entitlement';
 import type { QuestionEditorHandlers } from '@/components/quiz/editor/question-editor-types';
-import type { GenreMetadata, TagMetadata } from '@/types';
+import type { GenreMetadata, TagMetadata, FeedbackReport } from '@/types';
+import { getOpenReportsByQuizId, resolveReport, rejectReport } from '@/services/review';
+import { FeedbackReportSidebar } from '@/components/quiz/editor/feedback-report-sidebar';
+import { UnresolvedReportsModal } from '@/components/quiz/editor/unresolved-reports-modal';
+import { ReportProblemOutlined } from '@mui/icons-material';
+import feedbackStyles from '@/components/quiz/editor/feedback-report-sidebar.module.css';
 
 interface QuizEditorProps {
   quizId?: string;
@@ -102,6 +107,11 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
   const [validationErrors, setValidationErrors] = useState<QuizPublishValidationError[]>([]);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [unauthorized, setUnauthorized] = useState(false);
+  
+  // 指摘レポート関連ステート
+  const [reports, setReports] = useState<FeedbackReport[]>([]);
+  const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [isUnresolvedModalOpen, setIsUnresolvedModalOpen] = useState(false);
 
 
 
@@ -283,6 +293,29 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       cancelled = true;
     };
   }, [quizId, user, authLoading, searchParams, router, initialQuiz]);
+
+  // 未解決の指摘一覧をロード
+  useEffect(() => {
+    if (!quizId || !user) return;
+    let cancelled = false;
+
+    const fetchReports = async () => {
+      try {
+        const data = await getOpenReportsByQuizId(quizId, user.id);
+        if (!cancelled) {
+          setReports(data);
+        }
+      } catch (err) {
+        console.error('指摘データの取得に失敗しました:', err);
+      }
+    };
+
+    fetchReports();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [quizId, user]);
 
   // 修正指摘からのスクロール連動 (要件 2.4)
   useEffect(() => {
@@ -1008,6 +1041,16 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     router.push('/quiz/test-play/play?mode=normal');
   };
 
+  const handleResolveReport = async (reportId: string) => {
+    await resolveReport(reportId);
+    setReports((prev) => prev.filter((r) => r.id !== reportId));
+  };
+
+  const handleRejectReport = async (reportId: string) => {
+    await rejectReport(reportId);
+    setReports((prev) => prev.filter((r) => r.id !== reportId));
+  };
+
   // 保存処理 (status = 'draft' | 'published')
   const handleSave = async (status: 'draft' | 'published') => {
     if (!user) {
@@ -1015,6 +1058,17 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       return;
     }
 
+    // 未解消の指摘がある場合は確認ダイアログを開く
+    if (status === 'published' && quizId && reports.length > 0) {
+      setIsUnresolvedModalOpen(true);
+      return;
+    }
+
+    await executeSave(status);
+  };
+
+  const executeSave = async (status: 'draft' | 'published') => {
+    if (!user) return;
     setLoading(true);
     setValidationErrors([]);
     setErrorText(null);
@@ -1319,28 +1373,34 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           <FieldValidationMessages errors={validationErrors} field="questions" unscopedOnly />
 
           <div className={styles.questionList}>
-            {questions.map((q, qIdx) => (
-              <QuestionCard
-                key={q.id || qIdx}
-                qIdx={qIdx}
-                question={q}
-                format={format}
-                validationErrors={validationErrors}
-                cowNoticeIds={cowNoticeIds}
-                keywordInputs={keywordInputs}
-                handlers={questionEditorHandlers}
-                isRefReadOnly={isReferenceLinkQuestion(q)}
-                isCollapsed={collapsedIds.has(q.id)}
-                onToggleCollapse={() =>
-                  setCollapsedIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(q.id)) next.delete(q.id);
-                    else next.add(q.id);
-                    return next;
-                  })
-                }
-              />
-            ))}
+            {questions.map((q, qIdx) => {
+              const questionReports = reports.filter((r) => r.questionId === q.id);
+              return (
+                <QuestionCard
+                  key={q.id || qIdx}
+                  qIdx={qIdx}
+                  question={q}
+                  format={format}
+                  validationErrors={validationErrors}
+                  cowNoticeIds={cowNoticeIds}
+                  keywordInputs={keywordInputs}
+                  handlers={questionEditorHandlers}
+                  isRefReadOnly={isReferenceLinkQuestion(q)}
+                  isCollapsed={collapsedIds.has(q.id)}
+                  reports={questionReports}
+                  onResolveReport={handleResolveReport}
+                  onRejectReport={handleRejectReport}
+                  onToggleCollapse={() =>
+                    setCollapsedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(q.id)) next.delete(q.id);
+                      else next.add(q.id);
+                      return next;
+                    })
+                  }
+                />
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1350,7 +1410,51 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         onSaveDraft={() => handleSave('draft')}
         onTestPlay={handleTestPlay}
         onPublish={() => handleSave('published')}
+        isEdit={!!quizId}
       />
+
+      {/* 指摘一覧サイドバーとモーダル（編集モード時のみ） */}
+      {quizId && (
+        <>
+          <button
+            data-testid="feedback-sidebar-button"
+            className={`${feedbackStyles.feedbackButton} ${isReportsOpen ? feedbackStyles.feedbackButtonOpen : ''}`}
+            onClick={() => setIsReportsOpen(!isReportsOpen)}
+            aria-label="間違い指摘一覧を開く"
+            style={{
+              // AIチャットボタンが表示されていない場合は右端に寄せる
+              right: canUseAiAuthoring ? '96px' : '24px',
+            }}
+          >
+            <ReportProblemOutlined sx={{ fontSize: 24 }} />
+            {reports.length > 0 && (
+              <span className={feedbackStyles.badge}>{reports.length}</span>
+            )}
+          </button>
+
+          <FeedbackReportSidebar
+            isOpen={isReportsOpen}
+            onClose={() => setIsReportsOpen(false)}
+            reports={reports}
+            questions={questions}
+            onResolveReport={handleResolveReport}
+            onRejectReport={handleRejectReport}
+          />
+
+          <UnresolvedReportsModal
+            isOpen={isUnresolvedModalOpen}
+            onClose={() => setIsUnresolvedModalOpen(false)}
+            reports={reports}
+            questions={questions}
+            onResolveReport={handleResolveReport}
+            onRejectReport={handleRejectReport}
+            onForcePublish={async () => {
+              setIsUnresolvedModalOpen(false);
+              await executeSave('published');
+            }}
+          />
+        </>
+      )}
 
 
 

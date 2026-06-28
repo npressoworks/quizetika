@@ -1,9 +1,12 @@
-import { runTransaction, doc, getDoc, getDocs } from 'firebase/firestore';
+import { runTransaction, doc, getDoc, getDocs, updateDoc, addDoc } from 'firebase/firestore';
 import {
   submitReview,
   getReviewStats,
   submitReviewResetRequest,
   resetReviews,
+  resolveReport,
+  getOpenReportsByQuizId,
+  rejectReport,
 } from '../../src/services/review';
 
 jest.mock('firebase/firestore', () => {
@@ -21,6 +24,7 @@ jest.mock('firebase/firestore', () => {
     getDoc: jest.fn(),
     getDocs: jest.fn(),
     updateDoc: jest.fn(),
+    addDoc: jest.fn(),
     writeBatch: jest.fn(),
     increment: jest.fn((n) => n),
     arrayUnion: jest.fn((...items) => items),
@@ -226,3 +230,105 @@ describe('ReviewService - submitReviewResetRequest', () => {
     );
   });
 });
+
+describe('ReviewService - resolveReport', () => {
+  const reportId = 'test-report-id';
+  const mockReport = {
+    reporterId: 'reporter-uid',
+    creatorId: 'creator-uid',
+    quizId: 'quiz-uid',
+    quizTitle: 'テストクイズタイトル',
+    status: 'open',
+  };
+
+  test('指摘が解決済み（resolved）に更新され、正しいスキーマで通知が追加されること', async () => {
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => true,
+      data: () => mockReport,
+    });
+
+    (updateDoc as jest.Mock).mockResolvedValue(undefined);
+    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-notif-id' });
+
+    await resolveReport(reportId, '修正を行いました。');
+
+    // 1. 指摘のステータス更新検証
+    expect(updateDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ id: reportId }),
+      expect.objectContaining({ status: 'resolved' })
+    );
+
+    // 2. 通知の追加検証 (正しいスキーマ仕様)
+    expect(addDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userId: mockReport.reporterId, // recipientId ではなく userId であること
+        type: 'correction_resolved', // report_resolved ではなく correction_resolved であること
+        targetId: mockReport.quizId, // quizId ではなく targetId であること
+        targetTitle: mockReport.quizTitle, // quizTitle ではなく targetTitle であること
+        resolverNote: '修正を行いました。',
+        senderId: 'system',
+        senderName: '運営',
+        senderAvatar: '',
+        isRead: false,
+      })
+    );
+  });
+});
+
+describe('ReviewService - rejectReport', () => {
+  const reportId = 'test-report-id';
+  const mockReport = {
+    reporterId: 'reporter-uid',
+    creatorId: 'creator-uid',
+    quizId: 'quiz-uid',
+    quizTitle: 'テストクイズタイトル',
+    status: 'open',
+  };
+
+  test('指摘が却下（rejected）に更新され、通知は追加されないこと', async () => {
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => true,
+      data: () => mockReport,
+    });
+
+    (updateDoc as jest.Mock).mockResolvedValue(undefined);
+    (addDoc as jest.Mock).mockClear();
+
+    await rejectReport(reportId);
+
+    // 1. 指摘のステータス更新検証
+    expect(updateDoc).toHaveBeenCalledWith(
+      expect.objectContaining({ id: reportId }),
+      expect.objectContaining({ status: 'rejected' })
+    );
+
+    // 2. 通知は追加されないことを検証
+    expect(addDoc).not.toHaveBeenCalled();
+  });
+});
+
+describe('ReviewService - getOpenReportsByQuizId', () => {
+  const quizId = 'test-quiz-id';
+  const mockReports = [
+    { id: 'report-1', quizId, status: 'open', content: '指摘1' },
+    { id: 'report-2', quizId, status: 'open', content: '指摘2' },
+  ];
+
+  test('指定したクイズIDの未解決の指摘一覧が取得できること', async () => {
+    (getDocs as jest.Mock).mockResolvedValue({
+      docs: mockReports.map(r => ({
+        id: r.id,
+        data: () => r
+      }))
+    });
+
+    const result = await getOpenReportsByQuizId(quizId, 'creator-uid-123');
+
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe('report-1');
+    expect(result[1].id).toBe('report-2');
+  });
+});
+
+

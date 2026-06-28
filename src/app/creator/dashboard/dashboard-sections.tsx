@@ -25,6 +25,7 @@ import {
   AccessTimeOutlined as TimeIcon,
   CategoryOutlined as CategoryIcon,
   LocalOfferOutlined as TagIcon,
+  CheckOutlined as CheckIcon,
 } from '@mui/icons-material';
 import type { PlayerStats } from '@/lib/player-stats';
 
@@ -248,11 +249,15 @@ const feedbackCategoryVariant = {
 export function FeedbackSection({
   feedbacks,
   quizzes,
+  onResolve,
 }: {
   feedbacks: FeedbackReport[];
   quizzes: Quiz[];
+  onResolve?: (reportId: string) => Promise<void>;
 }) {
   const router = useRouter();
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFixFeedback = (report: FeedbackReport) => {
     const quizObj = quizzes.find((q) => q.id === report.quizId);
@@ -262,6 +267,20 @@ export function FeedbackSection({
       if (foundIdx !== -1) qIdx = foundIdx;
     }
     router.push(`/quiz/${report.quizId}/edit?questionIdx=${qIdx}`);
+  };
+
+  const handleResolveFeedback = async (reportId: string) => {
+    if (!onResolve) return;
+    try {
+      setResolvingId(reportId);
+      setError(null);
+      await onResolve(reportId);
+    } catch (err) {
+      console.error('指摘の解決処理失敗:', err);
+      setError('解決処理に失敗しました。時間をおいて再度お試しください。');
+    } finally {
+      setResolvingId(null);
+    }
   };
 
   const categoryLabel = (category: FeedbackReport['category']) => {
@@ -279,10 +298,15 @@ export function FeedbackSection({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {error && (
+          <div className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">
+            {error}
+          </div>
+        )}
         {feedbacks.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
             <InboxIcon className="size-12 opacity-40" />
-            <p>現在、未解決の指摘報告はありません。素晴らしいクオリティです！</p>
+            <p>現在、未解決 of 指摘報告はありません。素晴らしいクオリティです！</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -302,10 +326,29 @@ export function FeedbackSection({
                   <span className="truncate text-xs text-muted-foreground" title={report.quizTitle}>
                     対象: {report.quizTitle}
                   </span>
-                  <Button type="button" variant="outline" size="sm" onClick={() => handleFixFeedback(report)}>
-                    <EditIcon className="size-3" />
-                    修正する
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleResolveFeedback(report.id)}
+                      disabled={resolvingId !== null}
+                      data-testid={`resolve-feedback-btn-${report.id}`}
+                    >
+                      <CheckIcon className="size-3 mr-1" />
+                      {resolvingId === report.id ? '処理中...' : '解決済みにする'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleFixFeedback(report)}
+                      disabled={resolvingId !== null}
+                    >
+                      <EditIcon className="size-3" />
+                      修正する
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

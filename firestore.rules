@@ -416,13 +416,13 @@ service cloud.firestore {
         && request.resource.data.category in ['typo', 'fact', 'alternative'];
 
       // 更新ルール:
-      // 1. クイズ作成者が status を resolved に更新可能
+      // 1. クイズ作成者が status を resolved または rejected に更新可能
       // 2. 報告者自身が open 状態の指摘の category / content / updatedAt を修正可能
       allow update: if isAuthenticated() && isNotBanned() && (
         (
           resource.data.creatorId == request.auth.uid
           && resource.data.status == 'open'
-          && request.resource.data.status == 'resolved'
+          && (request.resource.data.status == 'resolved' || request.resource.data.status == 'rejected')
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         ) || (
           resource.data.reporterId == request.auth.uid

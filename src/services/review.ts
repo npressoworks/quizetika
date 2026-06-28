@@ -112,11 +112,14 @@ export async function resolveReport(reportId: string, resolverNote?: string): Pr
   await updateDoc(reportRef, { status: 'resolved' });
 
   await addDoc(notificationsCollection, {
-    recipientId: report.reporterId,
-    type: 'report_resolved',
-    quizId: report.quizId,
-    quizTitle: report.quizTitle,
+    userId: report.reporterId,
+    type: 'correction_resolved',
+    targetId: report.quizId,
+    targetTitle: report.quizTitle,
     resolverNote: resolverNote ?? null,
+    senderId: 'system',
+    senderName: '運営',
+    senderAvatar: '',
     isRead: false,
     createdAt: new Date(),
   });
@@ -366,3 +369,30 @@ export async function resetReviews(quizId: string): Promise<void> {
     throw err;
   }
 }
+
+/**
+ * 指定されたクイズIDに関連する未解決（open）の指摘一覧を取得する。
+ */
+export async function getOpenReportsByQuizId(quizId: string, creatorId: string): Promise<FeedbackReport[]> {
+  const q = query(
+    feedbackReportsCollection,
+    where('quizId', '==', quizId),
+    where('creatorId', '==', creatorId),
+    where('status', '==', 'open')
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedbackReport));
+}
+
+/**
+ * 指定された指摘レポートを却下（rejected）にする。
+ * 却下時は報告者への通知は行わない。
+ */
+export async function rejectReport(reportId: string): Promise<void> {
+  const reportRef = doc(feedbackReportsCollection, reportId);
+  const reportSnap = await getDoc(reportRef);
+  if (!reportSnap.exists()) throw new Error(`レポートが見つかりません: ${reportId}`);
+
+  await updateDoc(reportRef, { status: 'rejected' });
+}
+

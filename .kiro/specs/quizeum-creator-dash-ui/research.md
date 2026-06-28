@@ -223,3 +223,44 @@
 
 **Document Status（Phase 26 設計）**: `design.md` Phase 26 節に反映済。
 
+---
+
+# Gap Analysis: 間違い指摘キューの解消（解決）機能（Phase 28 追記 — 2026-06-28）
+
+## 1. 調査と分析のサマリー
+- **機能**: 作家ダッシュボードの間違い指摘キューで、個別の指摘を解決済みにするアクションの提供、API（`resolveReport`）連携、および通知機能のバグ修正。
+- **実装アプローチ**:
+  - `dashboard-sections.tsx` の `FeedbackSection` コンポーネント内の各指摘カードに、「解決済みにする」ボタンを追加。
+  - ボタンがクリックされた際、`src/services/review.ts` の `resolveReport(report.id)` を非同期で呼び出す。
+  - 実行中は、状態管理用のローカルステート（`resolvingId` 等）を使用し、処理中の指摘カード内の「解決済みにする」および「修正する」ボタンを disabled にして二重送信を防止する。
+  - 処理が成功した場合、`dashboard-client.tsx` で保持している `feedbacks` 状態（`FeedbackReport[]`）から該当指摘を即座に除外（`setFeedbacks(prev => prev.filter(...))`）するためのコールバック関数（`onResolve`等）を実行し、画面からカードを消去する。
+- **発見されたギャップ（バグ）**:
+  - `src/services/review.ts` の `resolveReport` 関数において、追加される通知（`notifications`）のデータ構造が現在の `Notification` スキーマ（`src/services/notification.ts`）および `firestore.rules` の認可要件と不整合を起こしている。
+    - `recipientId` という古いプロパティが使われているため、認可に必要な `userId` が欠落し、セキュリティルール（`resource.data.userId == request.auth.uid`）によって受信者が通知を読み取ることができない。
+    - `type` に `report_resolved` という未定義の文字列が指定されている（正しくは `correction_resolved`）。
+    - 遷移先情報として `quizId` / `quizTitle` が使われているが、通知クライアント（`notifications-client.tsx`）側では `targetId` / `targetTitle` が期待されている。
+    - `Notification` スキーマで必須とされる `senderId`, `senderName`, `senderAvatar` が通知オブジェクトに存在しない。
+
+## 2. 設計上の決定とトレードオフ
+
+### 決定: resolveReport 側のバグ修正を本フェーズに統合
+- **Context**: 既存の `resolveReport` に通知スキーマおよびセキュリティルールとの不整合（バグ）が存在する。
+- **選択アプローチ**: UI側のボタン追加だけでなく、依存する `src/services/review.ts` の `resolveReport` 内の通知オブジェクト構築処理のバグ（`userId`, `type: 'correction_resolved'`, `targetId/targetTitle`, `sender*` の付与）を一緒に修正する。
+- **理由**: API側の通知作成処理がバグを孕んだままだと、UIから `resolveReport` を呼び出した際にセキュリティ認可違反、あるいはプレイヤー側に通知が届かない問題が発生し、機能の「解消」という要件を実質的に満たせなくなるため。同じリポジトリのコードであるため、一括で修正するのが最も安全かつ効率的。
+
+### 決定: コールバックによるクライアント側状態の同期
+- **Context**: 指摘解決成功時のダッシュボード上の状態更新。
+- **選択アプローチ**: 解決成功後にダッシュボードのデータを再フェッチするのではなく、親の `CreatorDashboardClientInner` 側で定義したステート更新関数を通じて、クライアントサイドの配列から解決済み指摘をフィルタアウトする。
+- **理由**: 無駄な Firestore 読み取りを発生させず、UI を即座に更新することで、軽快なレスポンス（UXの向上）が得られるため。
+
+## 3. リスクと緩和策
+- **通知作成時の `sender` 情報不足**:
+  - `resolveReport` はクイズの作成者（解決者）が呼び出すが、作成者のユーザー名やアバターを特定するために追加のフェッチが必要になると非効率。
+  - **緩和策**: `senderId` はシステムまたは解決者とし、通知クライアント側でアイコン描画などの表示が壊れない最低限のダッシュデータ（例: `senderName: "運営"` などのシステム固定値）を設定することで、追加クエリを最小限に抑える。
+
+## Document Status
+- 分析: Grep/Read + コードベースのバグ特定
+- Discovery 種別: **Light（Extension / Bugfix）**
+- 外部 Web 調査: 不要
+
+

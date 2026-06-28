@@ -10,6 +10,7 @@ export interface QuizEditorActionBarProps {
   onSaveDraft: () => void;
   onTestPlay: () => void;
   onPublish: () => void;
+  isEdit?: boolean;
 }
 
 export function QuizEditorActionBar({
@@ -17,6 +18,7 @@ export function QuizEditorActionBar({
   onSaveDraft,
   onTestPlay,
   onPublish,
+  isEdit = false,
 }: QuizEditorActionBarProps) {
   return (
     <div className={editorClasses.actionsBar}>
@@ -47,7 +49,7 @@ export function QuizEditorActionBar({
         data-analytics="quiz-publish"
       >
         <SendOutlined sx={{ fontSize: 18 }} />
-        公開
+        {isEdit ? '更新' : '公開'}
       </Button>
     </div>
   );

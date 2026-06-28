@@ -1410,6 +1410,48 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
 - [ ] docs-sync-infinite-scroll -- `docs/api_specification.md` や `docs/detailed_design.md` のクエリページネーション仕様を追記。
 - [ ] e2e-infinite-scroll -- 検索画面・プロフィール画面のハイブリッド無限スクロール挙動を確認する E2E テストの追加・更新。
 
+---
+
+## Phase 34: クイズ指摘機能の拡張と編集画面への統合（2026-06-28 ディスカバリー）
+
+### Overview（本フェーズ）
+クイズの作成者がクイズを編集する際、そのクイズに対して寄せられた未解決の指摘（FeedbackReport）を編集画面上で確認し、その場で「解決」または「却下」を行えるようにします。
+また、未解消の指摘が残っている場合にクイズを更新しようとしたとき、警告と解消アクションを促すポップアップモーダルを表示し、確認の上で更新を実行できるようにします。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: クライアントサイド指摘連動 ＋ 指摘フローティングサイドバー ＋ 更新前バリデーションモーダル
+- **Why**: 編集画面の既存レイアウトを損なうことなく、チャットボタンの横にフローティング指摘ボタンを配置してサイドバーを呼び出すことで、必要な時だけ指摘一覧にアクセスできるようにします。さらに、問題ごとのインライン表示や、更新時のモーダル表示により、指摘の見落としを防ぎます。
+- **Rejected alternatives**:
+  - **編集画面上部への固定表示**: 指摘件数が多い場合に編集フォームが押し下げられ、操作性が悪化するため却下。
+  - **未解決指摘がある場合の更新完全ブロック**: 指摘が残ったままでも更新は行えるようにしたいという要件を満たせないため却下。
+
+### Scope（本フェーズ）
+- **In**:
+  - `types/index.ts` の `FeedbackReport` の status に `'rejected'` を追加。
+  - `src/services/review.ts` に `getOpenReportsByQuizId` および `rejectReport` を追加。
+  - `QuizEditor` での編集時、公開ボタンの表記を「更新」に変更。
+  - `QuizEditor` マウント時のそのクイズの未解決指摘一覧ロードと状態管理。
+  - チャットボタンの左隣に「指摘ボタン」を追加し、クリックで「指摘一覧サイドバー」を表示。
+  - 指摘一覧サイドバー内で各指摘に「解決済（感謝通知送信）」「却下」ボタンを提供。
+  - 各問題カード（`QuestionCard`）内に関連する指摘内容をインライン表示。
+  - 未解消の指摘がある状態で更新を押した際、ポップアップモーダルで一覧を表示し、その場でも「解決済」「却下」を選択させ、かつ「このまま更新」を可能にする。
+- **Out**:
+  - クイズ新規作成画面での指摘ロード（新規作成時は指摘が存在しないため対象外）。
+  - ダッシュボード側の指摘キューでの却下ボタン表示（本フェーズでは編集画面での機能追加にフォーカスするが、余力があればダッシュボードの修正も視野に入れる）。
+
+### Boundary Strategy（本フェーズ）
+- **Core** (`quizetika-core`) が `getOpenReportsByQuizId` や `rejectReport` を提供。
+- **UI** (`quizeum-creator-dash-ui`) が編集画面での指摘表示、サイドバー、モーダル、および更新前警告の制御を担当。
+
+## Existing Spec Updates（Phase 34・依存順）
+- [ ] quizetika-core -- `types/index.ts` および `src/services/review.ts` の拡張。Dependencies: none
+- [ ] quizeum-creator-dash-ui -- `QuizEditor` の編集画面統合（サイドバー、インライン表示、モーダル、ボタンラベル切替）。Dependencies: quizetika-core
+
+## Direct Implementation Candidates（Phase 34）
+- [ ] docs-sync-reports -- `docs/detailed_design.md` や `docs/requirements_definition.md` の指摘フロー部分を更新。
+- [ ] e2e-reports -- 編集画面での指摘表示、解決・却下、および更新時の警告モーダルに関する E2E テストの追加・更新。
+
+
 
 
 

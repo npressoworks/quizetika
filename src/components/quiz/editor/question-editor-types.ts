@@ -1,5 +1,5 @@
 import type { QuizPublishValidationError } from '@/services/quiz-validation';
-import type { Question } from '@/types';
+import type { Question, FeedbackReport } from '@/types';
 import type { QuizFormat } from '@/lib/quiz-format';
 
 export type QuestionType =
@@ -64,4 +64,7 @@ export interface QuestionCardProps {
   isCollapsed: boolean;
   /** 折りたたみトグルコールバック */
   onToggleCollapse: () => void;
+  reports?: FeedbackReport[];
+  onResolveReport?: (reportId: string) => Promise<void>;
+  onRejectReport?: (reportId: string) => Promise<void>;
 }
