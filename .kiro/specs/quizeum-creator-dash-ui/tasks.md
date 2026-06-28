@@ -389,3 +389,40 @@
 - 維持: `/quiz/create`・`/quiz/[id]/edit`、過去自作検索・参照リンク、〇×作問、`QuizListSkeleton`（クイズ一覧用 testId）。
 - 実装順: `quizetika-core` 23.6 → play-flow 28.1 → 本スペック 11.1/11.2（並行可）→ 11.3。
 
+---
+
+### 12. Phase 27: 作家＆プレイヤー統合ダッシュボード（2026-06-28）
+
+- [x] 12.1 (P) プレイヤープレイ履歴集計ライブラリ of 作成
+  - `src/lib/player-stats.ts` を作成し、完了した `Attempt` リストと `Quiz` メタデータのマップを引数に取り、基本統計（累計プレイ数、平均正解率、平均解答時間、ユニーククイズ数）、日別プレイ数（直近7日間）、プレイモード分布、よくプレイするジャンル/タグ、および正答率の高いジャンル/タグ（プレイ回数3回以上を対象、各最大5件）を計算する純関数を実装する。
+  - **完了状態**: 各種境界条件（履歴空、未定義クイズなど）をカバーする単体テストがグリーンであること。
+  - _Requirements: 13.4, 13.5, 13.6_
+  - _Boundary: player-stats_
+
+- [ ] 12.2 (P) プレイヤーダッシュボードクライアントコンポーネントの実装
+  - `src/app/creator/dashboard/player-dashboard-client.tsx` を新規作成する。
+  - `useEffect` 内で `listUserPlayHistory` を呼び出して直近最大 100 件の attempts をロードし、抽出したユニークなクイズIDリストに対して30件ずつのチャンク分割バッチフェッチを行い、ロード完了時に `player-stats.ts` を適用して状態を更新する。
+  - ロード状態中は `data-testid="player-skeleton"` を付与したスケルトンプレースホルダーを表示する。
+  - **完了状態**: 画面マウント時に非同期でロードと集計が走り、スケルトンからコンテンツ表示へ差し替わること。
+  - _Requirements: 13.2, 13.3, 13.7_
+  - _Boundary: PlayerDashboardClient_
+
+- [ ] 12.3 プレイヤーダッシュボード UI セクションの実装
+  - `src/app/creator/dashboard/dashboard-sections.tsx` にプレイヤーダッシュボード専用の表示セクション（統計グリッド、グラフエリア、ジャンル・タグ分析、最近のプレイ履歴）を定義する。
+  - 統計グリッド領域に `data-testid="player-stats"`、グラフ表示領域に `data-testid="player-charts"`、ジャンル・タグ分析領域に `data-testid="player-genre-tag-analysis"` を付与する。
+  - **完了状態**: 統計カード、recharts によるプレイトレンド・モード割合グラフ、よくプレイする/得意なジャンル/タグ、最近のプレイ履歴のテーブルがデザインシステムに則って表示されること。
+  - _Requirements: 13.4, 13.5, 13.6, 13.8, 13.9_
+  - _Boundary: PlayerDashboardSections_
+
+- [ ] 12.4 ダッシュボード画面へのタブ切り替え統合
+  - `src/app/creator/dashboard/page.tsx` を修正し、画面見出しを「ダッシュボード」に変更する。
+  - `src/app/creator/dashboard/dashboard-client.tsx` に `Tabs` を導入し、デフォルトで「プレイヤーダッシュボード」、もう一方に「作家ダッシュボード」を配置する。
+  - **完了状態**: URL `/creator/dashboard` アクセス時に「プレイヤー」「作家」のタブが表示され、デフォルトでプレイヤーダッシュボードが表示されること。
+  - _Requirements: 13.1_
+  - _Boundary: DashboardClient_
+
+- [ ] 12.5 Phase 27 結合テストとスモーク検証
+  - 新規作成した集計ライブラリの単体テストを `tests/lib/player-stats.test.ts` に作成し、ダッシュボード画面のテストケースを更新する。
+  - **完了状態**: `npm test` および `npm run build` がエラーなく通過すること。
+  - _Requirements: 13.9_
+  - _Boundary: Testing_
