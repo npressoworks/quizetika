@@ -4,7 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import initialGenresData from '../src/data/initial_genres.json';
 import type { InitialGenreSeed } from '../src/services/tagMerge';
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizetika-77bc6';
+const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6';
 
 /**
  * E2E 実行前に Firestore Emulator へジャンルマスタを投入する。
@@ -116,18 +116,48 @@ export default async function globalSetup() {
     );
 
   // 広告テスト用のダミークイズを25件シード（既存データは事前に削除）
-  // 前回のテスト実行でデータが蓄積しないよう e2e-ad-test-quiz-* を事前削除
+  // 前回のテスト実行でデータが蓄積しないよう e2e-ad-test-quiz-* および e2e-ad-test-q-* を事前削除
   const existingQuizSnap = await db.collection('quizzes')
     .where('authorId', '==', e2eUid)
     .get();
-  const deletePromises = existingQuizSnap.docs.map(doc => doc.ref.delete());
-  if (deletePromises.length > 0) {
-    await Promise.all(deletePromises);
-    console.log(`[global-setup] 既存E2Eクイズを${deletePromises.length}件削除しました。`);
+  const deleteQuizPromises = existingQuizSnap.docs.map(doc => doc.ref.delete());
+  
+  const existingQuestionSnap = await db.collection('questions')
+    .where('authorId', '==', e2eUid)
+    .get();
+  const deleteQuestionPromises = existingQuestionSnap.docs.map(doc => doc.ref.delete());
+
+  await Promise.all([...deleteQuizPromises, ...deleteQuestionPromises]);
+  if (deleteQuizPromises.length > 0 || deleteQuestionPromises.length > 0) {
+    console.log(`[global-setup] 既存E2Eクイズ（${deleteQuizPromises.length}件）と問題（${deleteQuestionPromises.length}件）を削除しました。`);
   }
 
   for (let i = 1; i <= 25; i++) {
     const qid = `e2e-ad-test-quiz-${i}`;
+    const questionId = `e2e-ad-test-q-${i}`;
+
+    const questionData = {
+      id: questionId,
+      quizId: qid,
+      authorId: e2eUid,
+      authorName: 'e2e-test-user',
+      authorAvatar: '',
+      type: 'multiple-choice',
+      questionText: `問題_${i} の本文`,
+      explanation: '解説の内容です。',
+      imageUrl: null,
+      hint: null,
+      limitTime: null,
+      choices: [
+        { id: '1', choiceText: '正解', isCorrect: true, selectedCount: 0 },
+        { id: '2', choiceText: '不正解', isCorrect: false, selectedCount: 0 }
+      ],
+      correctCount: 0,
+      incorrectCount: 0
+    };
+
+    await db.collection('questions').doc(questionId).set(questionData);
+
     await db.collection('quizzes').doc(qid).set({
       id: qid,
       authorId: e2eUid,
@@ -142,28 +172,8 @@ export default async function globalSetup() {
       tags: ['e2e-ad-test'],
       originalTags: ['e2e-ad-test'],
       canonicalTagIds: ['e2e-ad-test'],
-      questionIds: ['q-1'],
-      questions: [
-        {
-          id: 'q-1',
-          quizId: qid,
-          authorId: e2eUid,
-          authorName: 'e2e-test-user',
-          authorAvatar: '',
-          type: 'multiple-choice',
-          questionText: `問題_${i} の本文`,
-          explanation: '解説の内容です。',
-          imageUrl: null,
-          hint: null,
-          limitTime: null,
-          choices: [
-            { id: '1', choiceText: '正解', isCorrect: true, selectedCount: 0 },
-            { id: '2', choiceText: '不正解', isCorrect: false, selectedCount: 0 }
-          ],
-          correctCount: 0,
-          incorrectCount: 0
-        }
-      ],
+      questionIds: [questionId],
+      questions: [questionData],
       questionCount: 1,
       status: 'published',
       visibility: 'public',

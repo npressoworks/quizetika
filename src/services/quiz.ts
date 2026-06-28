@@ -841,24 +841,43 @@ export async function getTrendingQuizzes(limitCount: number = 10): Promise<Quiz[
  * @param authorId 作成者のユーザーID
  * @param includeUnpublished 下書きも含めるか (本人のダッシュボード用)
  */
+const getTimestampTime = (val: any): number => {
+  if (!val) return 0;
+  if (val instanceof Date) return val.getTime();
+  if (typeof val === 'object') {
+    if (typeof val.toDate === 'function') {
+      return val.toDate().getTime();
+    }
+    if (typeof val.seconds === 'number') {
+      return val.seconds * 1000;
+    }
+  }
+  if (typeof val === 'string' || typeof val === 'number') {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  return 0;
+};
+
 export async function getQuizzesByAuthor(authorId: string, includeUnpublished: boolean = false): Promise<Quiz[]> {
   let q;
   if (includeUnpublished) {
     q = query(
       quizzesRef,
-      where('authorId', '==', authorId),
-      orderBy('createdAt', 'desc')
+      where('authorId', '==', authorId)
     );
   } else {
     q = query(
       quizzesRef,
       where('authorId', '==', authorId),
-      where('status', '==', 'published'),
-      orderBy('createdAt', 'desc')
+      where('status', '==', 'published')
     );
   }
   const snap = await getDocs(q);
   const rows = snap.docs.map((doc) => doc.data());
+
+  rows.sort((a, b) => getTimestampTime(b.createdAt) - getTimestampTime(a.createdAt));
+
   if (!includeUnpublished) {
     return filterDiscoveryQuizzes(rows);
   }

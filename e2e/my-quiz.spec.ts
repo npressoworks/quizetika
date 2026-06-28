@@ -10,13 +10,10 @@ test.describe('カスタムクイズ', () => {
   });
 
   test('ログイン後にカスタムクイズページが表示される', async ({ page }) => {
-    await page.goto('/');
-    const loginBtn = page.locator('#e2e-test-login-btn');
-    if (!(await loginBtn.isVisible())) {
-      test.skip();
-      return;
-    }
-    await loginBtn.click();
+    page.on('console', msg => {
+      console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`);
+    });
+
     await page.goto('/my-quiz');
     await expect(page.getByTestId('my-quiz-page')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('my-quiz-source-own')).toBeVisible();
@@ -24,5 +21,9 @@ test.describe('カスタムクイズ', () => {
     await expect(page.getByTestId('my-quiz-source-bookmarked-question')).toBeVisible();
     await expect(page.getByTestId('my-quiz-source-bookmarked-list')).toHaveCount(0);
     await expect(page.getByTestId('my-quiz-start-play')).toBeVisible();
+
+    // 自作クイズのリストが取得できることを確認
+    // e2e-test-user の所有するクイズ問題「問題_1 の本文」が表示されていること
+    await expect(page.locator('text=問題_1 の本文')).toBeVisible({ timeout: 10000 });
   });
 });

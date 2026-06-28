@@ -1,4 +1,4 @@
-import { Attempt } from '@/types';
+import { PlayHistoryEntry, Attempt } from '@/types';
 
 export interface PlayerStats {
   totalPlays: number;          // 累計プレイ回数 (Attempt数)
@@ -29,7 +29,7 @@ const modeLabels: Record<Attempt['mode'], string> = {
 };
 
 export function computePlayerStats(
-  attempts: Attempt[],
+  attempts: PlayHistoryEntry[],
   quizMap: Map<string, { genre: string; tags: string[] }>,
   baseDate: Date = new Date()
 ): PlayerStats {
@@ -177,7 +177,7 @@ function generateEmptyDailyCounts(baseDate: Date): { label: string; value: numbe
 }
 
 // 日別プレイ回数を集計するヘルパー
-function calculateDailyPlayCounts(attempts: Attempt[], baseDate: Date): { label: string; value: number }[] {
+function calculateDailyPlayCounts(attempts: PlayHistoryEntry[], baseDate: Date): { label: string; value: number }[] {
   const counts = generateEmptyDailyCounts(baseDate);
 
   attempts.forEach((att) => {

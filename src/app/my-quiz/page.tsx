@@ -11,7 +11,7 @@ export default function MyQuizPage() {
       <header>
         <h1 className="text-3xl font-extrabold tracking-tight">カスタムクイズ</h1>
         <p className="mt-2 text-muted-foreground">
-          自作・ブックマークから問題を集め、フィルタして連続プレイできます。
+          自作クイズ・ブックマークから問題を集め、フィルタして連続プレイできます。
         </p>
       </header>
 

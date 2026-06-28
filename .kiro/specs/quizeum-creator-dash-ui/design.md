@@ -11,6 +11,8 @@
 
 **Phase 12（2026-06）**: 作問エディタの説明文・問題文・真相・解説文テキストエリアの自動伸長、過去自作クイズ検索の問題文・正解テキスト照合拡張、参照リンク成功フィードバック、問題文ヒット時のアコーディオン自動展開、リンク済み問題のリンク解除、テストプレイ後の編集画面ドラフト復元（問題重複防止）を追加する。問題照合の純関数と `searchAuthorQuizzes` パイプライン拡張は lib/service 層が担当し、UI は表示・フィードバックのみ。
 
+**Phase 27（2026-06-28）**: 作家ダッシュボードをプレイヤー統計情報も確認できる統合ダッシュボードへと拡張し、タブ（「プレイヤー」「作家」）で表示を切り替え可能にする。プレイヤーダッシュボードには、基本プレイ統計、直近7日間のプレイ回数推移、プレイモード割合、よくプレイするジャンル／タグ、および正答率の高いジャンル／タグを表示する。
+
 ### Goals
 - 問題の動的追加・削除、クイズタイプトグルを備えた直感的なクイズエディタの構築。
 - タグ入力時におけるリアルタイム「自動名寄せ」正規化と類似 canonical タグのインラインサジェスト警告UI。
@@ -90,7 +92,9 @@ src/
 ├── app/
 │   ├── creator/
 │   │   └── dashboard/
-│   │       ├── page.tsx           # 作家ダッシュボード画面 (2.1, 2.2, 2.3, 2.4, 2.5)
+│   │       ├── page.tsx           # 統合ダッシュボード画面 (2.1-2.5, 13.1)
+│   │       ├── dashboard-client.tsx # タブ切り替えとクライアント側振る分け (13.1, 13.2, 13.3)
+│   │       ├── player-dashboard-client.tsx # プレイヤーダッシュボード (13.4-13.9) 【Phase 27 新規】
 │   │       └── dashboard.module.css
 │   ├── list/
 │   │   ├── create/
@@ -112,8 +116,8 @@ src/
 │               └── edit.module.css
 └── components/
     ├── charts/
-    │   ├── analytics-chart.tsx    # 累計アナリティクス用グラフコンポーネント
-    │   └── selection-pie.tsx      # 解答選択肢割合用パイチャートコンポーネント
+    │   ├── analytics-chart.tsx    # 累計アナリティクス用グラフコンポーネント (再利用)
+    │   └── selection-pie.tsx      # 解答選択肢割合用パイチャートコンポーネント (再利用)
     ├── ui/
     │   └── auto-grow-textarea.tsx       # 自動伸長 textarea (8.x) 【Phase 12 新規】
     ├── quiz/
@@ -132,7 +136,8 @@ lib/
 ├── question-attach-search.ts          # キーワードフィルタ純関数 (6.4)
 ├── question-search-text.ts            # 問題の検索対象テキスト抽出・表示並べ替え (7.11, 7.15) 【Phase 12 新規】
 ├── test-play.ts                       # テストプレイ payload / 復帰 URL (9.x) 【既存・Phase 12 復帰ガード拡張】
-└── author-quiz-search.ts              # 自作クイズフィルタ (7.2, 7.11) 【Phase 12 拡張】
+├── author-quiz-search.ts              # 自作クイズフィルタ (7.2, 7.11) 【Phase 12 拡張】
+└── player-stats.ts                    # プレイヤープレイ履歴集計 (13.4-13.6) 【Phase 27 新規】
 services/
 └── author-quiz-search.ts              # searchAuthorQuizzes + 問題バッチ取得 (7.11) 【Phase 12 拡張】
 ```
@@ -339,6 +344,23 @@ sequenceDiagram
     end
 ```
 
+### プレイヤーダッシュボード・データ集計フロー（Phase 27）
+```mermaid
+sequenceDiagram
+    participant PC as PlayerDashboardClient
+    participant Svc as listUserPlayHistory (services/attempt)
+    participant QRef as getQuizzesByIds (バッチ取得)
+    participant Lib as computePlayerStats (lib/player-stats)
+    
+    PC->>Svc: mount (uid, limit=100)
+    Svc-->>PC: attempts (直近最大100件)
+    PC->>QRef: ユニークな quizId 一覧 (30件ずつチャンク化して Promise.all)
+    QRef-->>PC: quizzes (genre と tags を含む)
+    PC->>Lib: computePlayerStats(attempts, quizzes)
+    Lib-->>PC: playerStats (基本統計、日別プレイ数、モード割合、上位ジャンル/タグ、得意ジャンル/タグ)
+    Note over PC: UI に統計カード、各種グラフ、ジャンル・タグ分析、最近のプレイ履歴をレンダリング
+```
+
 ### テキストエリア自動伸長フロー（Phase 12）
 
 ```mermaid
@@ -424,6 +446,15 @@ sequenceDiagram
 | 9.5         | クエリ除去・重複防止                     | `QuizEditor`                                                              | `router.replace`                                | テストプレイ復帰フロー   |
 | 9.6         | ユーザー未確定時ロード抑止               | `QuizEditor`                                                              | auth gate                                       | テストプレイ復帰フロー   |
 | 9.7         | payload 欠落時の重複防止                 | `QuizEditor`                                                              | no fallthrough to fetch                         | テストプレイ復帰フロー   |
+| 13.1        | タブ切り替えとデフォルト表示             | `DashboardClient`                                                         | Tabs (UI)                                       | -                        |
+| 13.2        | プレイヤー統計ロード中スケルトン         | `PlayerDashboardClient`                                                   | stats skeleton, charts skeleton                 | -                        |
+| 13.3        | プレイヤー統計ロード完了時の差し替え     | `PlayerDashboardClient`                                                   | StatsGridSection, ChartsSection, etc.           | -                        |
+| 13.4        | 基本統計カード                           | `PlayerDashboardClient`                                                   | StatsGridSection                                | -                        |
+| 13.5        | よくプレイするジャンル／タグ表示         | `PlayerDashboardClient`                                                   | GenreTagFrequencySection                        | -                        |
+| 13.6        | 正答率の高いジャンル／タグ表示           | `PlayerDashboardClient`                                                   | GenreTagAccuracySection                         | -                        |
+| 13.7        | 直近最大100件の完了したattempts取得       | `PlayerDashboardClient`                                                   | `listUserPlayHistory`                           | -                        |
+| 13.8        | 日別プレイ数・プレイモード割合グラフ     | `PlayerDashboardClient`                                                   | `AnalyticsChart`, `SelectionPie`                | -                        |
+| 13.9        | アクセシビリティ・テスト用testidの付与   | `PlayerDashboardClient`                                                   | `data-testid`                                   | -                        |
 
 ---
 
@@ -915,3 +946,74 @@ export function consumeTestPlayDraftForEditor(
 **Effort**: **S**（1日）
 
 **Document Status（Phase 26 設計）**: 本節に反映。
+
+---
+
+## Phase 27: 作家＆プレイヤー統合ダッシュボード
+
+### 1. Overview
+
+作家ダッシュボード（`/creator/dashboard`）を、プレイヤーとしての統計情報も閲覧できる「統合ダッシュボード」へと拡張します。画面上部に「プレイヤー」と「作家」の切り替えタブを追加し、デフォルトで「プレイヤー」のダッシュボードを表示します。
+
+### 2. Boundary Commitments（Phase 27）
+
+| Owns | Out of Boundary |
+|---|---|
+| `/creator/dashboard` のタブ切り替え UI | `attempts`（プレイ履歴）の Firestore 側自動集計（クライアント側で行う） |
+| `PlayerDashboardClient` の実装 | `useActiveGenres` などの既存ジャンルマスタ解決処理自体 |
+| `player-stats.ts` による集計ロジック | 100件を超える全件プレイデータのフェッチ |
+
+### 3. UI Design
+
+**ダッシュボードタブ切り替え**:
+```tsx
+<Tabs defaultValue="player" className="w-full">
+  <TabsList className="mb-6 grid w-full grid-cols-2 max-w-[400px]">
+    <TabsTrigger value="player">プレイヤー</TabsTrigger>
+    <TabsTrigger value="writer">作家</TabsTrigger>
+  </TabsList>
+  <TabsContent value="player">
+    <PlayerDashboardClient />
+  </TabsContent>
+  <TabsContent value="writer">
+    <CreatorDashboardClient />
+  </TabsContent>
+</Tabs>
+```
+
+**プレイヤーダッシュボード内のコンテンツ構成**:
+1. **基本統計グリッド (`data-testid="player-stats"`)**:
+   - 累計プレイ回数 (Attempt数)
+   - 平均正解率 (合計正解問題数 / 合計問題数)
+   - 平均解答時間 (秒)
+   - プレイしたユニークなクイズ数
+2. **グラフエリア (`data-testid="player-charts"`)**:
+   - 日別プレイ数 (直近7日間の棒グラフ)
+   - プレイモード割合 (円グラフ: normal, exam, flashcard 等の分布)
+3. **ジャンル・タグ別分析 (`data-testid="player-genre-tag-analysis"`)**:
+   - **よくプレイするジャンル / タグ** (プレイ回数が多い順、最大5件)
+   - **正答率の高いジャンル / タグ** (プレイ回数3回以上を対象、正答率の高い順、最大5件)
+4. **最近のプレイ履歴**:
+   - 直近5件のプレイ履歴一覧表示（クイズ名、モード、スコア/問題数、解答時間、プレイ日時）
+
+### 4. File Structure Plan（Phase 27）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/lib/player-stats.ts` | **New** | 完了した attempts と紐づく quizzes から、基本統計、日別推移、モード割合、ジャンル・タグの頻度・正答率を集計する純関数 |
+| `src/app/creator/dashboard/player-dashboard-client.tsx` | **New** | プレイヤー統計データの非同期フェッチ（直近100件 attempts & 紐づく quizzes）、集計実行、およびプレイヤーダッシュボード UI のレンダリング |
+| `src/app/creator/dashboard/page.tsx` | **Modify** | 画面のタイトルを「ダッシュボード」に更新（「作家ダッシュボード」から変更） |
+| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `Tabs` コンポーネントを導入し、プレイヤーと作家のダッシュボードの表示を切り替え（`PlayerDashboardClient` / `CreatorDashboardClient`） |
+| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | プレイヤーダッシュボード用の統計グリッド、ジャンル/タグ分析表示用のUIコンポーネントを定義 |
+
+### 5. Testing Strategy（Phase 27）
+
+| 種別 | 検証 |
+|---|---|
+| **Component** | `src/lib/player-stats.ts` の単体テスト：ダミーの attempts/quizzes から期待通りの集計値、よくプレイするジャンル、正答率、グラフデータが出力されることを検証。 |
+| **E2E** | ダッシュボードページでデフォルトで「プレイヤー」が表示されること、タブクリックで「作家」ダッシュボードに切り替わること。 |
+| **E2E** | プレイヤーダッシュボードに、基本統計、グラフ、ジャンル・タグ分析が期待通り表示されること（モックデータを利用）。 |
+
+**Effort**: **M**（2日）
+
+**Document Status（Phase 27 設計）**: 本節に反映。
