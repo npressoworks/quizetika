@@ -1,7 +1,7 @@
 # Research & Design Decisions: quizetika-auth-profile-ui
 
 ## Summary
-- **Feature**: quizetika-auth-profile-ui（Phase 5: 本人プレイ履歴 / Phase 8: 作成リスト listType 表示 / **Phase 23: リアクション履歴導線削除**）
+- **Feature**: quizetika-auth-profile-ui（Phase 5: 本人プレイ履歴 / Phase 8: 作成リスト listType 表示 / Phase 23: リアクション履歴導線削除 / **Phase 29: マイページ表記・ダッシュボードリンク・プレイ履歴露出ガード**）
 - **Discovery Scope**: Extension（Light）
 - **Key Findings**:
   - Phase 5（プレイ履歴）は `ProfilePlayHistoryPanel` + `play-history-client` で実装済み。
@@ -192,5 +192,26 @@
 - `src/hooks/useActiveGenres.ts` — `useActiveGenres`
 - `src/app/profile/edit/profile-edit-client.tsx` — 編集画面
 - `src/app/profile/[uid]/profile-client.tsx` — 表示画面
+
+---
+
+# Phase 29: マイページ表記変更、ダッシュボードリンク追加、およびプレイ履歴表示ガード（2026-06-28）
+
+## 1. 調査と分析のサマリー
+- **機能**: プロフィール（サイドバー）の「マイページ」への表記変更、アバタードロップダウンへの「ダッシュボード」リンク追加、他ユーザーのプロフィールでのプレイ履歴露出防止ガードの強化。
+- **実装アプローチ**:
+  - `sidebar.tsx` 内の `menuItems` 定義でラベルを「マイページ」に変更する。
+  - `sidebar.tsx` のアバタークリック時および `header.tsx` のアバタークリック時に表示される `DropdownMenuContent` の中に `Link` でダッシュボードへのリンクを追加。
+  - `profile-client.tsx` の `<TabsContent value="history">` が `isMyProfile` が `false` の場合に描画されないよう、論理積演算子（`isMyProfile && (...)`）によるガードを徹底。
+
+## 2. 設計上の決定とトレードオフ
+- **決定: プレイ履歴タブの完全なレンダリング抑止**
+  - **Rationale**: 現在のコードでは、タブ（`TabsTrigger`）こそ `isMyProfile` で隠されているが、タブコンテンツ（`TabsContent`）は他人のプロフィール表示時でもDOM上にレンダリングされてしまい、自分自身の履歴が表示されてしまう構造になっていた。これを防ぐため、タブコンテンツそのものを `isMyProfile && (...)` でガードし、他人のプロフィールを開いたときには完全にマウントされないようにする。
+
+## 3. リスクと緩和策
+- **テストの破損リスク**: メニュー文言を「プロフィール」から「マイページ」に変更することで、既存の `sidebar.test.tsx` のアサーションが失敗する。
+  - **緩和策**: `sidebar.test.tsx` 内の「プロフィール」を含むテストケース（ラベル検証、ツールチップ検証）の期待値を「マイページ」に書き換える。
+- **ドロップダウンメニューの配置バランス**: PCとモバイルでそれぞれドロップダウンに項目を追加する際、順番が不整合にならないよう揃える。
+  - **緩和策**: 両ドロップダウンで「管理者メニュー」「カスタムクイズ」「ダッシュボード」「マイページ」「設定」「ログアウト」の論理的順序になるよう調整する。
 
 

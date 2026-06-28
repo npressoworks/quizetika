@@ -123,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
       },
       {
         href: `/profile/${user.id}`,
-        label: 'プロフィール',
+        label: 'マイページ',
         icon: <PersonOutlined sx={{ fontSize: 22 }} />,
         activeIcon: <Person sx={{ fontSize: 22 }} />,
         testId: 'nav-profile',
@@ -310,6 +310,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                   <span>管理者メニュー</span>
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/creator/dashboard"
+                    onClick={() => setPopupOpen(false)}
+                    data-testid="sidebar-dashboard-link"
+                  />
+                }
+              >
+                <DashboardOutlined sx={{ fontSize: 18 }} />
+                <span>ダッシュボード</span>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 render={
                   <Link

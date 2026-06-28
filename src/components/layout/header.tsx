@@ -13,6 +13,7 @@ import {
   AssignmentOutlined,
   SettingsOutlined,
   AdminPanelSettingsOutlined,
+  DashboardOutlined,
 } from '@mui/icons-material';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { buttonVariants } from '@/components/ui/button';
@@ -114,6 +115,18 @@ export const Header: React.FC = () => {
                   >
                     <AssignmentOutlined sx={{ fontSize: 18 }} />
                     <span>カスタムクイズ</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    render={
+                      <Link
+                        href="/creator/dashboard"
+                        onClick={() => setPopupOpen(false)}
+                        data-testid="header-dashboard-link"
+                      />
+                    }
+                  >
+                    <DashboardOutlined sx={{ fontSize: 18 }} />
+                    <span>ダッシュボード</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     render={

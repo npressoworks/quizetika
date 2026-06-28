@@ -21,6 +21,7 @@
 - **Phase 23**: 本人プロフィール `profileActions` からリアクション履歴リンク（Heart アイコン付き）の削除。編集・弱点克服等の現行有効導線は維持。
 - **Phase 27**: 「作成したクイズ」タブ内でのキーワード検索とページングUI（1ページあたり9件）、共通クイズカード `QuizCard` の適用とブックマーク状態解決およびトグル機能。
 - **Phase 28**: 好きなジャンルの複数選択・保存UI（編集画面）およびアイコン画像付きジャンルチップ表示（詳細画面）。
+- **Phase 29**: プロフィールメニュー表示名を「マイページ」に変更し、PCサイドバーおよびモバイルヘッダーのドロップダウンメニューにダッシュボードリンクを追加する。また、他人のプロフィール画面において本人のプレイ履歴が露出しないよう、表示制御を厳格化する。
 
 ### Non-Goals
 - クイズプレイ・作成・モデレーション画面（各専用スペック）。
@@ -43,6 +44,7 @@
 - **Phase 23**: `ProfileClient` — 本人 `profileActions` からリアクション履歴導線の削除（`/profile/[uid]/likes` ルート本体はレガシー存続）。
 - **Phase 27**: `ProfileClient` — 「作成したクイズ」タブ内でのクライアントサイド検索・ページング状態管理およびUI描画、共通 `QuizCard` のアタッチとブックマーク状態のトグル・遷移処理。
 - **Phase 28**: `ProfileEditClient` における好きなジャンル（`followedGenres`）の複数選択および保存、`ProfileClient` における好きなジャンルチップ（マスタ解決後の表示名・アイコン）の表示。
+- **Phase 29**: `Sidebar` および `Header` 内のアバタードロップダウンメニューUIの拡張（ダッシュボードリンク追加）、および `Sidebar` メニューの表示名変更。他人のプロフィール画面におけるプレイ履歴タブコンテンツのレンダリングガード。
 
 ### Out of Boundary
 - Firestoreセキュリティルール、バッジ自動付与サーバー処理。
@@ -129,6 +131,13 @@ src/
 ### Modified Files（Phase 28）
 - `src/app/profile/edit/profile-edit-client.tsx` — `useActiveGenres` を用いた好きなジャンル選択UI（複数選択可能、保存処理）の追加。
 - `src/app/profile/[uid]/profile-client.tsx` — ユーザーの `followedGenres` に対し、マスタ解決を行って好きなジャンルをアイコン付きのチップで表示するUIの追加。
+
+### Modified Files（Phase 29）
+- `src/components/layout/sidebar.tsx` — メニュー項目のラベルを「プロフィール」から「マイページ」に変更。アバターのドロップダウンにダッシュボードへのリンクを追加。
+- `src/components/layout/header.tsx` — アバターのドロップダウンにダッシュボードへのリンクを追加。
+- `src/app/profile/[uid]/profile-client.tsx` — `TabsContent value="history"` を `isMyProfile` でガード。
+- `tests/components/sidebar.test.tsx` — 「プロフィール」のアサーションを「マイページ」に変更。ドロップダウンのテストにダッシュボードリンクを追加。
+- `tests/components/header-profile-popup.test.tsx` — ドロップダウンのテストにダッシュボードリンクを追加。
 
 ### Modified Files（既存）
 - `src/app/globals.css` — 共通トークン。
@@ -837,6 +846,11 @@ import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
 | 14.5 | ジャンル未設定かつ本人時の登録促し表示 | `ProfileClient` | 好きなジャンルが0件かつマイプロフィールの場合に登録リンクを表示する | 詳細表示フロー |
 | 14.6 | ジャンル未設定かつ他人時の表示領域非表示 | `ProfileClient` | 好きなジャンルが0件かつ他ユーザーの場合は領域全体を非表示とする | 詳細表示フロー |
 | 14.7 | E2E用 `data-testid` 契約 | `ProfileClient`, `ProfileEditClient` | `profile-genre-select` と `profile-favorite-genres` を付与 | テスト支援 |
+| 15.1 | メニュー項目の「マイページ」表記変更 | `Sidebar` | メニュー項目定義を「マイページ」に変更する | 表示フロー |
+| 15.2 | アバタードロップダウンへのダッシュボードリンク追加 | `Sidebar`, `Header` | ドロップダウンメニューに `/creator/dashboard` へのリンクを追加する | ドロップダウンUI |
+| 15.3 | 他人プロフィールでのプレイ履歴非レンダリング | `ProfileClient` | `isMyProfile` が `false` の場合にプレイ履歴コンテンツエリアを描画しない | データガード |
+| 15.4 | 本人プロフィールでのプレイ履歴表示 | `ProfileClient` | `isMyProfile` が `true` かつ該当タブ選択時にプレイ履歴を描画する | 表示フロー |
+| 15.5 | E2E用 `data-testid` 契約 | `Sidebar`, `Header` | ダッシュボードリンクに testid を付与する | テスト支援 |
 
 ### 1. 状態管理とデータフロー
 
@@ -962,6 +976,83 @@ export function ProfileClient() {
   1. `profile-edit-client.tsx` への `useActiveGenres` 組み込みと複数選択UI実装・テスト。
   2. `profile-client.tsx` への `useActiveGenres` 解決とアイコン付きチップ表示実装・テスト。
   3. 全体結合テスト（RSC サスペンス、E2Eテスト確認）。
+
+---
+
+## Phase 29: マイページ表記変更、ダッシュボードリンク追加、およびプレイ履歴表示ガード設計（2026-06-28）
+
+### 1. 変更詳細設計
+
+#### A. サイドバー表示変更 (`src/components/layout/sidebar.tsx`)
+- `menuItems` 内のオブジェクト定義を修正し、ナビゲーションラベルを「マイページ」に変更します：
+  ```typescript
+  {
+    href: `/profile/${user.id}`,
+    label: 'マイページ',
+    icon: <PersonOutlined sx={{ fontSize: 22 }} />,
+    activeIcon: <Person sx={{ fontSize: 22 }} />,
+    testId: 'nav-profile',
+  }
+  ```
+- アバタークリック時に展開する `DropdownMenuContent` の中に、以下のダッシュボードへの遷移リンクを追加します：
+  ```tsx
+  <DropdownMenuItem
+    render={
+      <Link
+        href="/creator/dashboard"
+        onClick={() => setPopupOpen(false)}
+        data-testid="sidebar-dashboard-link"
+      />
+    }
+  >
+    <DashboardOutlined sx={{ fontSize: 18 }} />
+    <span>ダッシュボード</span>
+  </DropdownMenuItem>
+  ```
+  ※ 管理者メニューと設定の間に挿入します。
+
+#### B. ヘッダードロップダウン変更 (`src/components/layout/header.tsx`)
+- モバイルヘッダーのアバターをクリックした際に展開する `DropdownMenuContent` の中に、以下のリンクを追加します：
+  ```tsx
+  <DropdownMenuItem
+    render={
+      <Link
+        href="/creator/dashboard"
+        onClick={() => setPopupOpen(false)}
+        data-testid="header-dashboard-link"
+      />
+    }
+  >
+    <DashboardOutlined sx={{ fontSize: 18 }} />
+    <span>ダッシュボード</span>
+  </DropdownMenuItem>
+  ```
+  ※ カスタムクイズとマイページの間に挿入します。
+
+#### C. プロフィール画面でのプレイ履歴ガード (`src/app/profile/[uid]/profile-client.tsx`)
+- 他人のプロフィールでプレイ履歴コンテンツが初期化またはマウントされるのを防ぐため、 `TabsContent` のレンダリング自体を `isMyProfile` で条件分岐させます：
+  ```tsx
+  {isMyProfile && (
+    <TabsContent value="history">
+      <ProfilePlayHistoryPanel isActive={activeTab === 'history'} />
+    </TabsContent>
+  )}
+  ```
+
+### 2. テストの修正と追加
+
+#### A. `tests/components/sidebar.test.tsx` の修正
+- メニュー項目のテキスト期待値を「プロフィール」から「マイページ」に変更します：
+  - `expect(screen.getAllByText('プロフィール')[0]).toBeInTheDocument();`
+    → `expect(screen.getAllByText('マイページ')[0]).toBeInTheDocument();`
+  - `const profileTooltip = screen.getAllByText('プロフィール').find((el) => el.classList.contains('absolute'));`
+    → `const profileTooltip = screen.getAllByText('マイページ').find((el) => el.classList.contains('absolute'));`
+- ドロップダウンの展開時テストに「ダッシュボード」リンクが存在することを検証するアサーションを追加します：
+  - `expect(screen.getByTestId('sidebar-dashboard-link')).toBeInTheDocument();` を追加。
+
+#### B. `tests/components/header-profile-popup.test.tsx` の修正
+- ヘッダードロップダウンの展開時テストに「ダッシュボード」リンクが存在することを検証するアサーションを追加します：
+  - `expect(screen.getByTestId('header-dashboard-link')).toBeInTheDocument();` を追加。
 
 
 

@@ -34,6 +34,7 @@ describe('Header profile popup', () => {
     expect(screen.getByTestId('header-profile-popup')).toBeInTheDocument();
     expect(screen.queryByTestId('header-nav-lists')).not.toBeInTheDocument();
     expect(screen.getByTestId('header-nav-my-quiz')).toBeInTheDocument();
+    expect(screen.getByTestId('header-dashboard-link')).toBeInTheDocument();
     expect(screen.getByTestId('header-settings-link')).toBeInTheDocument();
   });
 

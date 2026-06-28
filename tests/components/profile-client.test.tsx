@@ -304,4 +304,53 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
       }
     });
   });
+
+  describe('プレイ履歴タブの露出ガード（Phase 29）', () => {
+    it('他人のプロフィールのとき、プレイ履歴の TabsContent がレンダリングされないこと', async () => {
+      const { getUser } = require('@/services/user');
+      (getUser as jest.Mock).mockResolvedValueOnce({
+        id: 'user-2',
+        displayName: '他人ユーザー',
+        reputationScore: 50,
+        followersCount: 2,
+        followingCount: 2,
+        bio: '他人の自己紹介',
+        badges: [],
+        deleteStatus: 'active',
+        totalFailedQuestionsCount: 0,
+        followedGenres: [],
+      });
+
+      const originalParams = { ...mockParams };
+      mockParams.uid = 'user-2'; // 他人
+
+      try {
+        render(<ProfileClient />);
+        await waitFor(() => {
+          expect(screen.getByText('他人ユーザー')).toBeInTheDocument();
+        });
+
+        // プレイ履歴の TabsContent が存在しないこと
+        expect(screen.queryByTestId('profile-tab-content-history')).not.toBeInTheDocument();
+      } finally {
+        mockParams.uid = originalParams.uid;
+      }
+    });
+
+    it('自分のプロフィールのとき、プレイ履歴の TabsContent がレンダリングされること', async () => {
+      render(<ProfileClient />);
+      await waitFor(() => {
+        expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+      });
+
+      // プレイ履歴タブをクリック
+      const historyTab = screen.getByTestId('profile-tab-history');
+      fireEvent.click(historyTab);
+
+      // タブ切り替え後に TabsContent が存在すること
+      await waitFor(() => {
+        expect(screen.getByTestId('profile-tab-content-history')).toBeInTheDocument();
+      });
+    });
+  });
 });

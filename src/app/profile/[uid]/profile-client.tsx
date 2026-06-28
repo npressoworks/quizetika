@@ -453,9 +453,11 @@ export function ProfileClient() {
               )}
             </TabsList>
 
-            <TabsContent value="history">
-              <ProfilePlayHistoryPanel isActive={activeTab === 'history'} />
-            </TabsContent>
+            {isMyProfile && (
+              <TabsContent value="history" data-testid="profile-tab-content-history">
+                <ProfilePlayHistoryPanel isActive={activeTab === 'history'} />
+              </TabsContent>
+            )}
 
             <TabsContent value="quizzes">
               <ProfileQuizzesPanel

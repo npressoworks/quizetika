@@ -341,3 +341,32 @@
   - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7_
   - _Depends: 13.5_
   - _Boundary: Integration_
+
+### 14. Phase 29: マイページ表記変更、ダッシュボードリンク追加、およびプレイ履歴表示ガード（2026-06-28）
+
+- [ ] 14.1 (P) プロフィール関連メニューの「マイページ」表記への変更
+  - `src/components/layout/sidebar.tsx` 内 of `menuItems` 配列 of オブジェクト定義で、ラベル `label: 'プロフィール'` を `label: 'マイページ'` に変更する。
+  - `tests/components/sidebar.test.tsx` of 中 of 「プロフィール」期待値を含むテスト（2箇所）を「マイページ」に書き換え、テストがパスすることを確認する。
+  - **完了状態**: サイドバー上で「プロフィール」 of 代わりに「マイページ」と描画され、テストスイートがパスすること。
+  - _Requirements: 15.1_
+  - _Boundary: Sidebar-Rename_
+
+- [ ] 14.2 (P) アバタードロップダウンメニューへのダッシュボードリンク追加
+  - `src/components/layout/sidebar.tsx` および `src/components/layout/header.tsx` of アバタークリック時 of `DropdownMenuContent` に、クリエイターダッシュボード（`/creator/dashboard`）へのリンクを挿入し、適切な `data-testid` （`sidebar-dashboard-link` と `header-dashboard-link`）を付与する。
+  - `tests/components/sidebar.test.tsx` および `tests/components/header-profile-popup.test.tsx` of ドロップダウン開閉テストにダッシュボードリンク存在検証 of アサーションを追加し、テストがパスすることを確認する。
+  - **完了状態**: アバタークリック時 of ドロップダウンメニュー内にダッシュボードリンクが描画され、関連テストがすべてグリーンであること。
+  - _Requirements: 15.2, 15.5_
+  - _Boundary: Layout-Dropdowns_
+
+- [ ] 14.3 (P) 他人プロフィールでのプレイ履歴タブコンテンツのレンダリングガード
+  - `src/app/profile/[uid]/profile-client.tsx` で、他人 of プロフィール（`isMyProfile` が `false`） of ときに `<TabsContent value="history">` がマウントされないように `isMyProfile && (...)` による条件付きレンダリングに変更する。
+  - **完了状態**: 他人プロフィール（`isMyProfile == false`）を開いた際、HTML/DOM上にプレイ履歴セクションが一切描画されず、自分自身 of プロフィールではタブ選択時に正しくプレイ履歴が表示されること。
+  - _Requirements: 15.3, 15.4_
+  - _Boundary: ProfilePage-PlayHistoryGuard_
+
+- [ ] 14.4 Phase 29 統合検証
+  - `npm test` と `npm run build` を実行し、既存テストおよび追加・修正したテストがすべてエラーなくビルド・パスすることを確認する。
+  - **完了状態**: 全テストおよび本番ビルドがグリーン（PASS）であること。
+  - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
+  - _Depends: 14.1, 14.2, 14.3_
+  - _Boundary: Integration_
