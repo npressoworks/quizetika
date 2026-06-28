@@ -101,6 +101,7 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockParams.uid = 'user-1';
     (getQuizzesByAuthor as jest.Mock).mockResolvedValue(mockQuizzes);
     (getQuizzesByAuthorPage as jest.Mock).mockImplementation((authorId, options = {}) => {
       const limit = options.limit ?? 20;
