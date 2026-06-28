@@ -184,8 +184,8 @@ describe('Sidebar Component', () => {
     expect(aside).toHaveClass('lg:w-[70px]');
     expect(aside).not.toHaveClass('lg:w-[275px]');
 
-    // ロゴの "eum" 部分が非表示クラスを持つこと
-    const logoSuffix = screen.getByText('eum');
+    // ロゴの "etika" 部分が非表示クラスを持つこと
+    const logoSuffix = screen.getByText('etika');
     expect(logoSuffix).toHaveClass('lg:hidden');
 
     // ナビゲーションラベルが非表示クラスを持つこと
@@ -203,7 +203,7 @@ describe('Sidebar Component', () => {
     expect(aside).toHaveClass('lg:w-[275px]');
     expect(aside).not.toHaveClass('lg:w-[70px]');
 
-    const logoSuffix = screen.getByText('eum');
+    const logoSuffix = screen.getByText('etika');
     expect(logoSuffix).not.toHaveClass('lg:hidden');
 
     const labels = container.querySelectorAll('.nav-label');
