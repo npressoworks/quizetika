@@ -15,6 +15,7 @@ import {
   WarningAmberOutlined
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { useActiveGenres } from '@/hooks/useActiveGenres';
 
 interface SuccessClientProps {
   quizId: string;
@@ -26,6 +27,7 @@ interface SuccessClientProps {
  */
 export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
   const router = useRouter();
+  const { genreLabelById } = useActiveGenres();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -80,15 +82,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
 
   // ジャンルの日本語ラベルマッピング
   const getGenreLabel = (genreName: string) => {
-    const genres: { [key: string]: string } = {
-      programming: 'プログラミング / IT',
-      history: '歴史 / 世界史',
-      science: '科学 / 自然科学',
-      anime: 'アニメ / ゲーム',
-      sports: 'スポーツ / 運動',
-      general: '一般常識 / 雑学',
-    };
-    return genres[genreName] || genreName;
+    return genreLabelById.get(genreName) || genreName;
   };
 
   if (loading) {

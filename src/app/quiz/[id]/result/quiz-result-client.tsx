@@ -24,7 +24,7 @@ import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useAuth } from '@/context/auth-context';
 import { getDifficultyColor } from '@/lib/difficulty-color';
-import { submitReview, submitFeedbackReport, getOpenReportsForQuiz, updateFeedbackReport } from '@/services/review';
+import { submitReview, submitFeedbackReport, getOpenReportsForQuiz, updateFeedbackReport, getUserReviewForQuiz } from '@/services/review';
 import { isFollowing, followUser, unfollowUser } from '@/services/user';
 import { db } from '@/lib/firebase/config';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -392,6 +392,25 @@ export function QuizResultClient({
     loadOpenReports();
   }, [userId, quizIdStr]);
 
+  // 良問投票（フィードバック）の初期状態取得
+  useEffect(() => {
+    if (!userId || !quizIdStr) {
+      setVoted(null);
+      return;
+    }
+    async function loadUserReview() {
+      try {
+        const voteType = await getUserReviewForQuiz(quizIdStr!, userId!);
+        setVoted(voteType);
+      } catch (err) {
+        console.error('[QuizResultClient] ユーザーの投票状態取得失敗:', err);
+        setVoted(null);
+      }
+    }
+    loadUserReview();
+  }, [userId, quizIdStr]);
+
+
   const myQuizSessionId = searchParams.get('sessionId');
 
   // カスタムクイズ連続プレイ判定
@@ -450,6 +469,11 @@ export function QuizResultClient({
   };
 
   const openFeedbackModal = (q: Question | null) => {
+    if (!user) {
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
     setSelectedQuestion(q);
     const targetId = q ? q.id : 'unknown';
     const existingReport = openReports.find((r) => r.questionId === targetId);
@@ -464,25 +488,39 @@ export function QuizResultClient({
   };
 
   const handleReviewVote = async (vote: 'positive' | 'negative') => {
-    if (!user || voted || !online) return;
+    if (!user) {
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+    if (voted || !online) return;
     try {
       await submitReview(quiz.id, user.id, vote);
       setVoted(vote);
-    } catch (e) {
+    } catch (e: any) {
       console.error('[QuizResultClient] 投票失敗:', e);
+      alert(`投票に失敗しました: ${e.message || '不明なエラー'}`);
     }
   };
 
   const handleDifficultyVote = async (level: number) => {
-    if (!user || !online) return;
+    if (!user) {
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      return;
+    }
+    if (!online) return;
+    const oldDifficultyVote = difficultyVote;
     setDifficultyVote(level);
     try {
       if (attemptId) {
         const attRef = doc(db, 'attempts', attemptId);
         await updateDoc(attRef, { difficultyVote: level });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('[QuizResultClient] 難易度投票失敗:', e);
+      alert(`難易度投票に失敗しました: ${e.message || '不明なエラー'}`);
+      setDifficultyVote(oldDifficultyVote);
     }
   };
 
@@ -982,7 +1020,9 @@ export function QuizResultClient({
         <h2 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>
           この作者の他のクイズ
         </h2>
-        {recommendChildren}
+        <div key="quiz-recommend-children-wrapper">
+          {recommendChildren}
+        </div>
       </section>
 
       {/* 間違い指摘モーダル */}

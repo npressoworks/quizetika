@@ -93,7 +93,7 @@ async function QuizResultDetailLoader({ quizId, searchParams }: DetailLoaderProp
       initialAttempt={plainAttempt}
       initialAttemptError={initialAttemptError}
       recommendChildren={
-        <Suspense fallback={<RecommendSkeleton data-testid="recommend-skeleton" />}>
+        <Suspense key="quiz-recommend-suspense" fallback={<RecommendSkeleton data-testid="recommend-skeleton" />}>
           <QuizResultRecommendLoader
             authorId={quiz.authorId}
             currentQuizId={quiz.id}

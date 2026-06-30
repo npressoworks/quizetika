@@ -93,4 +93,13 @@ describe('buildLeaderboardUpdatesForQuiz - Phase 18', () => {
     expect(result!.board).toBe('firstPlay');
     expect(result!.updates).toHaveProperty('leaderboardFirstPlay');
   });
+
+  test('作者自身によるプレイでは null を返す', () => {
+    const authorEntry = {
+      ...entry,
+      userId: 'author-1',
+    };
+    const result = buildLeaderboardUpdatesForQuiz(mockQuiz(), 0, authorEntry, 'normal');
+    expect(result).toBeNull();
+  });
 });

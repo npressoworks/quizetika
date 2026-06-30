@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { BookmarkBorderOutlined, Bookmark, ThumbUpAltOutlined } from '@mui/icons-material';
 import type { Quiz } from '../../types';
@@ -29,6 +29,12 @@ export function QuizCard({
   onBookmarkToggle,
   onPlayClick,
 }: QuizCardProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -65,27 +71,29 @@ export function QuizCard({
             className="cursor-help border-border bg-background/80 backdrop-blur-sm shadow-sm"
           />
         </div>
-        <button
-          className="absolute top-2 right-2 z-10 rounded-full border border-border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted"
-          onClick={handleBookmarkClick}
-          data-testid="quiz-card-bookmark-btn"
-          data-analytics="quiz-bookmark-toggle"
-          aria-label="ブックマーク"
-          type="button"
-        >
-          {isBookmarked ? (
-            <Bookmark
-              sx={{ fontSize: 18, color: '#00ff66' }}
-              data-testid="bookmark-icon-filled"
-            />
-          ) : (
-            <BookmarkBorderOutlined
-              sx={{ fontSize: 18, color: 'currentColor' }}
-              data-testid="bookmark-icon-outlined"
-            />
-          )}
-        </button>
-        {quiz.reviewScore != null && (
+        {mounted && (
+          <button
+            className="absolute top-2 right-2 z-10 rounded-full border border-border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted"
+            onClick={handleBookmarkClick}
+            data-testid="quiz-card-bookmark-btn"
+            data-analytics="quiz-bookmark-toggle"
+            aria-label="ブックマーク"
+            type="button"
+          >
+            {isBookmarked ? (
+              <Bookmark
+                sx={{ fontSize: 18, color: '#00ff66' }}
+                data-testid="bookmark-icon-filled"
+              />
+            ) : (
+              <BookmarkBorderOutlined
+                sx={{ fontSize: 18, color: 'currentColor' }}
+                data-testid="bookmark-icon-outlined"
+              />
+            )}
+          </button>
+        )}
+        {mounted && quiz.reviewScore != null && (
           <span
             className="absolute right-2 bottom-2 z-10 flex items-center gap-1 rounded-full border border-border bg-background/80 px-2.5 py-1 text-xs font-medium text-foreground backdrop-blur-sm shadow-sm"
             data-testid="quiz-card-review-score"

@@ -177,8 +177,8 @@ export async function submitReview(
 
         // スコアとバッジを更新 (非マスク期間のみ)
         if (!isResetPeriod) {
-          const newPositive = quiz.positiveCount + (type === 'positive' ? 1 : -1);
-          const newNegative = quiz.negativeCount + (type === 'negative' ? 1 : -1);
+          const newPositive = (quiz.positiveCount ?? 0) + (type === 'positive' ? 1 : -1);
+          const newNegative = (quiz.negativeCount ?? 0) + (type === 'negative' ? 1 : -1);
           const newScore = calculateReviewScore(newPositive, newNegative);
           updates.reviewScore = newScore;
           updates.reviewBadge = getReviewBadge(newScore);
@@ -198,8 +198,8 @@ export async function submitReview(
       updates[type === 'positive' ? positiveField : negativeField] = increment(1);
 
       if (!isResetPeriod) {
-        const newPositive = quiz.positiveCount + (type === 'positive' ? 1 : 0);
-        const newNegative = quiz.negativeCount + (type === 'negative' ? 1 : 0);
+        const newPositive = (quiz.positiveCount ?? 0) + (type === 'positive' ? 1 : 0);
+        const newNegative = (quiz.negativeCount ?? 0) + (type === 'negative' ? 1 : 0);
         const newScore = calculateReviewScore(newPositive, newNegative);
         updates.reviewScore = newScore;
         updates.reviewBadge = getReviewBadge(newScore);
@@ -395,4 +395,20 @@ export async function rejectReport(reportId: string): Promise<void> {
 
   await updateDoc(reportRef, { status: 'rejected' });
 }
+
+/**
+ * ログインユーザーが指定したクイズに対して行った投票（良問👍/微妙👎）を取得する。
+ */
+export async function getUserReviewForQuiz(
+  quizId: string,
+  reviewerId: string
+): Promise<'positive' | 'negative' | null> {
+  const voteDocId = `${reviewerId}_${quizId}`;
+  const voteDocRef = doc(quizReviewsCollection, voteDocId);
+  const snap = await getDoc(voteDocRef);
+  if (!snap.exists()) return null;
+  const data = snap.data() as QuizReview;
+  return data.type;
+}
+
 

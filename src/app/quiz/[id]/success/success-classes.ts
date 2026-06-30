@@ -18,7 +18,7 @@ export const successClasses = {
   thumbnailImage: 'size-24 shrink-0 object-cover',
   quizMeta: 'flex flex-1 flex-col gap-2 p-4 text-left',
   quizTitle: 'line-clamp-2 font-bold text-foreground',
-  metaRow: 'flex flex-wrap gap-2',
+  metaRow: 'flex flex-wrap items-center gap-2',
   genreBadge:
     'rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs text-muted-foreground',
   difficultyText: 'text-xs text-muted-foreground',

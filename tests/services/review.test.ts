@@ -7,6 +7,7 @@ import {
   resolveReport,
   getOpenReportsByQuizId,
   rejectReport,
+  getUserReviewForQuiz,
 } from '../../src/services/review';
 
 jest.mock('firebase/firestore', () => {
@@ -330,5 +331,30 @@ describe('ReviewService - getOpenReportsByQuizId', () => {
     expect(result[1].id).toBe('report-2');
   });
 });
+
+describe('ReviewService - getUserReviewForQuiz', () => {
+  const quizId = 'test-quiz-id';
+  const reviewerId = 'voter-uid';
+
+  test('投票履歴が存在しない場合、nullを返すこと', async () => {
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => false,
+    });
+
+    const result = await getUserReviewForQuiz(quizId, reviewerId);
+    expect(result).toBeNull();
+  });
+
+  test('投票履歴が存在する場合、投票タイプを返すこと', async () => {
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => true,
+      data: () => ({ type: 'positive' }),
+    });
+
+    const result = await getUserReviewForQuiz(quizId, reviewerId);
+    expect(result).toBe('positive');
+  });
+});
+
 
 

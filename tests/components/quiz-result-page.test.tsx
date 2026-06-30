@@ -60,6 +60,7 @@ jest.mock('@/services/review', () => ({
   submitFeedbackReport: jest.fn(),
   getOpenReportsForQuiz: jest.fn().mockResolvedValue([]),
   updateFeedbackReport: jest.fn(),
+  getUserReviewForQuiz: jest.fn().mockResolvedValue(null),
 }));
 
 

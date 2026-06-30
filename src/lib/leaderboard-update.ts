@@ -29,6 +29,10 @@ export function buildLeaderboardUpdatesForQuiz(
   if (!isLeaderboardEligibleAttempt({ userId: entry.userId, mode })) {
     return null;
   }
+  // クイズ作成者自身はリーダーボードに載せない
+  if (entry.userId === quiz.authorId) {
+    return null;
+  }
   const board = resolveLeaderboardBoard(priorCompletedCount);
   const updates = buildLeaderboardFieldUpdates(quiz, board, entry);
   return { board, updates };
