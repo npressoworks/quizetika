@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
@@ -45,6 +45,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { isNavItemActive } from './nav-active';
+import { getUnreadNotificationsCount } from '@/services/notification';
 
 const navLinkBase =
   'flex items-center gap-4 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground md:max-lg:justify-center md:max-lg:px-3';
@@ -62,6 +63,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
   const pathname = usePathname();
   const router = useRouter();
   const [popupOpen, setPopupOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    const userId = user.id;
+    let active = true;
+    async function loadUnreadCount() {
+      try {
+        const count = await getUnreadNotificationsCount(userId);
+        if (active) setUnreadCount(count);
+      } catch (err) {
+        console.error('Failed to load unread count:', err);
+      }
+    }
+    loadUnreadCount();
+    return () => {
+      active = false;
+    };
+  }, [user, pathname]);
 
   if (pathname && pathname.includes('/play')) {
     return null;
@@ -173,6 +196,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                 {isActive ? item.activeIcon : item.icon}
               </span>
               <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>{item.label}</span>
+              {item.href === '/notifications' && unreadCount > 0 && (
+                <span className={cn(
+                  "absolute flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground border-2 border-background",
+                  isCollapsed ? "top-1 right-2" : "right-4 max-lg:top-1 max-lg:right-2"
+                )}>
+                  {unreadCount}
+                </span>
+              )}
               {/* ミニ表示時にホバーで表示されるツールチップ */}
               <span className={cn(
                 "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
