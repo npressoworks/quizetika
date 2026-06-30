@@ -33,6 +33,12 @@ export const resultClasses = {
   voteBtn:
     'inline-flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50',
   voteActive: 'border-primary bg-primary/10 text-primary',
+  // 良問評価ボタンを押した後に3秒間表示されるトースト通知（成功）
+  voteToast:
+    'animate-in fade-in slide-in-from-top-2 duration-300 flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300',
+  // 評価取り消し時のトースト通知（ニュートラル）
+  voteToastNeutral:
+    'animate-in fade-in slide-in-from-top-2 duration-300 flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm font-semibold text-muted-foreground',
   difficultyVoteSection: 'flex flex-col gap-3 border-t border-border pt-4',
   actionBtnRow: 'flex flex-col gap-3 sm:flex-row',
   listNavigation: 'mt-4 flex flex-col gap-3',

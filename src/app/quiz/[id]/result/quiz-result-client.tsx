@@ -24,7 +24,7 @@ import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useAuth } from '@/context/auth-context';
 import { getDifficultyColor } from '@/lib/difficulty-color';
-import { submitReview, submitFeedbackReport, getOpenReportsForQuiz, updateFeedbackReport, getUserReviewForQuiz } from '@/services/review';
+import { submitReview, retractReview, submitFeedbackReport, getOpenReportsForQuiz, updateFeedbackReport, getUserReviewForQuiz } from '@/services/review';
 import { isFollowing, followUser, unfollowUser } from '@/services/user';
 import { db } from '@/lib/firebase/config';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -82,6 +82,8 @@ export function QuizResultClient({
 
   // 投票・リアクション状況
   const [voted, setVoted] = useState<'positive' | 'negative' | null>(null);
+  // 投票成功時のトースト通知メッセージ
+  const [voteToastMessage, setVoteToastMessage] = useState<string | null>(null);
   const [difficultyVote, setDifficultyVote] = useState<number | null>(initialAttempt?.difficultyVote ?? null);
   const [isFollowingAuthor, setIsFollowingAuthor] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState<boolean>(false);
@@ -493,13 +495,29 @@ export function QuizResultClient({
       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
-    if (voted || !online) return;
+    if (!online) return;
+
     try {
-      await submitReview(quiz.id, user.id, vote);
-      setVoted(vote);
+      if (voted === vote) {
+        // 同じボタンを再度押した場合 → 取り消し
+        await retractReview(quiz.id, user.id);
+        setVoted(null);
+        setVoteToastMessage('↩️ 評価を取り消しました。');
+      } else {
+        // 未投票または反対の投票 → 新規投票 or 変更
+        await submitReview(quiz.id, user.id, vote);
+        setVoted(vote);
+        const message =
+          vote === 'positive'
+            ? '👍 良問として評価しました！ありがとうございます。'
+            : '👎 評価を送信しました。ご意見ありがとうございます。';
+        setVoteToastMessage(message);
+      }
+      // 3秒後にトースト通知を消す
+      setTimeout(() => setVoteToastMessage(null), 3000);
     } catch (e: any) {
-      console.error('[QuizResultClient] 投票失敗:', e);
-      alert(`投票に失敗しました: ${e.message || '不明なエラー'}`);
+      console.error('[QuizResultClient] 投票操作失敗:', e);
+      alert(`操作に失敗しました: ${e.message || '不明なエラー'}`);
     }
   };
 
@@ -792,7 +810,8 @@ export function QuizResultClient({
             <button
               className={`${styles.voteBtn} ${voted === 'positive' ? styles.voteActive : ''}`}
               onClick={() => handleReviewVote('positive')}
-              disabled={!online || voted !== null || user?.id === quiz.authorId}
+              disabled={!online || user?.id === quiz.authorId}
+              title={voted === 'positive' ? 'クリックで取り消す' : '良問として評価する'}
               data-analytics="quiz-review-vote-positive"
             >
               <ThumbUpOutlined sx={{ fontSize: 16 }} /> 良問
@@ -800,13 +819,21 @@ export function QuizResultClient({
             <button
               className={`${styles.voteBtn} ${voted === 'negative' ? styles.voteActive : ''}`}
               onClick={() => handleReviewVote('negative')}
-              disabled={!online || voted !== null || user?.id === quiz.authorId}
+              disabled={!online || user?.id === quiz.authorId}
+              title={voted === 'negative' ? 'クリックで取り消す' : '微妙として評価する'}
               data-analytics="quiz-review-vote-negative"
             >
               <ThumbDownOutlined sx={{ fontSize: 16 }} /> 微妙
             </button>
           </div>
         </div>
+
+        {/* 投票成功トースト通知 */}
+        {voteToastMessage && (
+          <div className={voteToastMessage.startsWith('↩️') ? styles.voteToastNeutral : styles.voteToast}>
+            {voteToastMessage}
+          </div>
+        )}
 
         {/* 難易度投票 (1 - 5) */}
         <div className={styles.difficultyVoteSection}>

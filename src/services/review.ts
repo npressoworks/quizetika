@@ -221,6 +221,60 @@ export async function submitReview(
 }
 
 /**
+ * ユーザーの良問/悪問投票を取り消し、クイズのカウンタをアトミックに減算する。
+ * 取り消し後は `quizReviews` のドキュメントを物理削除する。
+ */
+export async function retractReview(
+  quizId: string,
+  reviewerId: string,
+): Promise<void> {
+  const quizDocRef = doc(quizzesRef, quizId);
+  const voteDocId = `${reviewerId}_${quizId}`;
+  const voteDocRef = doc(quizReviewsCollection, voteDocId);
+
+  await runTransaction(db, async (transaction) => {
+    const quizSnap = await transaction.get(quizDocRef);
+    if (!quizSnap.exists()) throw new Error(`クイズが見つかりません: ${quizId}`);
+    const quiz = quizSnap.data() as Quiz;
+
+    const voteSnap = await transaction.get(voteDocRef);
+    if (!voteSnap.exists()) {
+      // すでに取り消し済みの場合は何もしない
+      return;
+    }
+
+    const oldVote = voteSnap.data() as QuizReview;
+    const isResetPeriod = quiz.isReviewMasked;
+    const now = new Date();
+
+    const positiveField = isResetPeriod ? 'tempPositiveCount' : 'positiveCount';
+    const negativeField = isResetPeriod ? 'tempNegativeCount' : 'negativeCount';
+
+    const updates: Record<string, any> = { updatedAt: now };
+
+    // 削除する投票の分だけカウンタを減算
+    if (oldVote.type === 'positive') {
+      updates[positiveField] = increment(-1);
+    } else {
+      updates[negativeField] = increment(-1);
+    }
+
+    // スコアとバッジを再計算 (非マスク期間のみ)
+    if (!isResetPeriod) {
+      const newPositive = (quiz.positiveCount ?? 0) - (oldVote.type === 'positive' ? 1 : 0);
+      const newNegative = (quiz.negativeCount ?? 0) - (oldVote.type === 'negative' ? 1 : 0);
+      const newScore = calculateReviewScore(Math.max(0, newPositive), Math.max(0, newNegative));
+      updates.reviewScore = newScore;
+      updates.reviewBadge = getReviewBadge(newScore);
+    }
+
+    // 投票ドキュメントを物理削除
+    transaction.delete(voteDocRef);
+    transaction.update(quizDocRef, updates);
+  });
+}
+
+/**
  * 指定クイズの良問率・良問数・悪問数・バッジ指定を取得。
  * 仮リセット期間中の場合は temp カウンタを返し、過去の評価をマスクする。
  */
