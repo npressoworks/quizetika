@@ -19,6 +19,7 @@ import {
   NotificationsOutlined,
   CheckOutlined,
   LoginOutlined,
+  SmsOutlined,
 } from '@mui/icons-material';
 import { NotificationsSkeleton } from '@/components/ui/notifications-skeleton';
 import { Button } from '@/components/ui/button';
@@ -135,6 +136,8 @@ export function NotificationsClient() {
         router.push(`/quiz/${notif.targetId}`);
       } else if (notif.type === 'quiz_review_warning' && notif.targetId) {
         router.push(`/quiz/${notif.targetId}`);
+      } else if (notif.type === 'correction_reported') {
+        router.push('/creator/dashboard');
       }
     } catch (err) {
       console.error('[NotificationsClient] Failed to process notification click:', err);
@@ -183,6 +186,8 @@ export function NotificationsClient() {
         return <FavoriteOutlined sx={{ fontSize: 20 }} className="text-pink-500" />;
       case 'badge_unlocked':
         return <NotificationsOutlined sx={{ fontSize: 20 }} className="text-green-500" />;
+      case 'correction_reported':
+        return <SmsOutlined sx={{ fontSize: 20 }} className="text-amber-500" />;
       case 'quiz_review_warning':
       default:
         return <WarningAmberOutlined sx={{ fontSize: 20 }} className="text-amber-500" />;
@@ -197,6 +202,8 @@ export function NotificationsClient() {
         return `${notif.senderName}さんがあなたのクイズ『${notif.targetTitle || 'クイズ'}』をブックマークしました。`;
       case 'correction_resolved':
         return `${notif.senderName}さんがクイズ『${notif.targetTitle || 'クイズ'}』の指摘を修正しました。`;
+      case 'correction_reported':
+        return `${notif.senderName}さんがクイズ『${notif.targetTitle || 'クイズ'}』に間違い指摘を送信しました。`;
       case 'badge_unlocked':
         return `新しいバッジ「${notif.targetTitle || 'バッジ'}」を獲得しました！`;
       case 'quiz_review_warning':

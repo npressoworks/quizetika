@@ -8,6 +8,7 @@ import {
   getOpenReportsByQuizId,
   rejectReport,
   getUserReviewForQuiz,
+  submitFeedbackReport,
 } from '../../src/services/review';
 
 jest.mock('firebase/firestore', () => {
@@ -353,6 +354,137 @@ describe('ReviewService - getUserReviewForQuiz', () => {
 
     const result = await getUserReviewForQuiz(quizId, reviewerId);
     expect(result).toBe('positive');
+  });
+});
+
+describe('ReviewService - submitFeedbackReport', () => {
+  const mockReport = {
+    quizId: 'quiz-uid',
+    quizTitle: 'テストクイズタイトル',
+    questionId: 'question-uid',
+    questionText: '問題文',
+    reporterId: 'reporter-uid',
+    creatorId: 'creator-uid',
+    category: 'typo' as const,
+    content: '誤字があります。',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('指摘が送信された際、クイズ作成者宛ての通知が正しいスキーマで追加されること', async () => {
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => true,
+      data: () => ({ displayName: '指摘ユーザー', avatarUrl: 'avatar-url' }),
+    });
+
+    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-report-id' });
+
+    await submitFeedbackReport(mockReport);
+
+    // 1. 指摘レポート自体の登録
+    expect(addDoc).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({
+        quizId: mockReport.quizId,
+        reporterId: mockReport.reporterId,
+        status: 'open',
+      })
+    );
+
+    // 2. 作成者への通知作成
+    expect(addDoc).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      expect.objectContaining({
+        userId: mockReport.creatorId,
+        type: 'correction_reported',
+        senderId: mockReport.reporterId,
+        senderName: '指摘ユーザー',
+        senderAvatar: 'avatar-url',
+        targetId: mockReport.quizId,
+        targetTitle: mockReport.quizTitle,
+        isRead: false,
+      })
+    );
+  });
+
+  test('指摘送信者と作成者が同一の場合は通知が作成されないこと', async () => {
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => true,
+      data: () => ({ displayName: '作者ユーザー', avatarUrl: 'avatar-url' }),
+    });
+
+    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-report-id' });
+
+    const selfReport = {
+      ...mockReport,
+      reporterId: 'creator-uid',
+    };
+
+    await submitFeedbackReport(selfReport);
+
+    expect(addDoc).toHaveBeenCalledTimes(1);
+    expect(addDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        reporterId: 'creator-uid',
+      })
+    );
+  });
+});
+
+describe('ReviewService - submitReview warning notification', () => {
+  const quizId = 'test-quiz-id';
+  const reviewerId = 'voter-uid';
+  const authorId = 'author-uid';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('評価が「要改善」以下に低下した際、作成者宛てに警告通知が追加されること', async () => {
+    const mockQuizSnap = {
+      exists: () => true,
+      data: () => ({
+        authorId,
+        title: 'テストクイズ',
+        positiveCount: 6,
+        negativeCount: 4,
+        isReviewMasked: false,
+        reviewBadge: '普通',
+      }),
+    };
+
+    const mockVoteSnap = {
+      exists: () => false,
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockImplementation((ref) => {
+        if (ref.id === quizId) return mockQuizSnap;
+        return mockVoteSnap;
+      }),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-notif-id' });
+
+    await submitReview(quizId, reviewerId, 'negative');
+
+    expect(addDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userId: authorId,
+        type: 'quiz_review_warning',
+        targetId: quizId,
+        targetTitle: 'テストクイズ',
+      })
+    );
   });
 });
 

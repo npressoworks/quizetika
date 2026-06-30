@@ -178,6 +178,7 @@ export async function toggleBookmark(
   }
 
   let questionForNotify: Question | null = null;
+  let quizForNotify: Quiz | null = null;
   if (targetType === 'question' && !isTestEnv) {
     questionForNotify = await assertQuestionBookmarkable(targetId, userId);
   }
@@ -187,9 +188,10 @@ export async function toggleBookmark(
     if (!quizSnap.exists()) {
       throw new Error('Target document does not exist.');
     }
+    quizForNotify = quizSnap.data() as Quiz;
     const already = await isBookmarked(userId, targetId);
     if (!already) {
-      await assertQuizBookmarkable(quizSnap.data() as Quiz, userId);
+      await assertQuizBookmarkable(quizForNotify, userId);
     }
   }
 
@@ -253,23 +255,33 @@ export async function toggleBookmark(
     return true;
   });
 
-  if (
-    added &&
-    targetType === 'question' &&
-    questionForNotify?.authorId &&
-    questionForNotify.authorId !== userId
-  ) {
+  if (added && !isTestEnv) {
     const senderSnap = await getDoc(doc(usersRef, userId));
     const sender = senderSnap.exists() ? senderSnap.data() : null;
-    await createNotification({
-      userId: questionForNotify.authorId,
-      type: 'bookmark',
-      senderId: userId,
-      senderName: (sender as { displayName?: string })?.displayName ?? 'ユーザー',
-      senderAvatar: (sender as { avatarUrl?: string })?.avatarUrl ?? '',
-      targetId: questionForNotify.id,
-      targetTitle: questionForNotify.questionText.slice(0, 80),
-    });
+    const senderName = (sender as { displayName?: string })?.displayName ?? 'ユーザー';
+    const senderAvatar = (sender as { avatarUrl?: string })?.avatarUrl ?? '';
+
+    if (targetType === 'question' && questionForNotify?.authorId && questionForNotify.authorId !== userId) {
+      await createNotification({
+        userId: questionForNotify.authorId,
+        type: 'bookmark',
+        senderId: userId,
+        senderName,
+        senderAvatar,
+        targetId: questionForNotify.id,
+        targetTitle: questionForNotify.questionText.slice(0, 80),
+      });
+    } else if (targetType === 'quiz' && quizForNotify?.authorId && quizForNotify.authorId !== userId) {
+      await createNotification({
+        userId: quizForNotify.authorId,
+        type: 'bookmark',
+        senderId: userId,
+        senderName,
+        senderAvatar,
+        targetId: quizForNotify.id,
+        targetTitle: quizForNotify.title,
+      });
+    }
   }
 
   return added;

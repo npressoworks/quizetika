@@ -14,6 +14,8 @@ import {
   runTransaction,
   writeBatch,
   increment,
+  collection,
+  addDoc,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import { usersRef, followsRef, quizzesRef } from '../lib/firebase/firestore';
@@ -21,6 +23,8 @@ import { auth } from '../lib/firebase/config';
 import { User, Follow, Badge } from '../types';
 import { resolveSubscriptionTier } from '@/lib/subscription-plans';
 import { deleteImage } from './storage';
+
+const notificationsCollection = collection(db, 'notifications');
 
 /**
  * プロフィール更新データ型
@@ -318,6 +322,27 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
     return badgesToAward;
   });
 
+  // 新規バッジ獲得通知の作成
+  if (newlyAwarded.length > 0) {
+    for (const badge of newlyAwarded) {
+      try {
+        await addDoc(notificationsCollection, {
+          userId: uid,
+          type: 'badge_unlocked',
+          senderId: 'system',
+          senderName: '運営',
+          senderAvatar: '',
+          targetId: badge.id,
+          targetTitle: badge.title,
+          isRead: false,
+          createdAt: new Date(),
+        });
+      } catch (err) {
+        console.error('バッジ獲得通知の作成に失敗しました:', err);
+      }
+    }
+  }
+
   return newlyAwarded;
 }
 
@@ -362,6 +387,7 @@ export async function followUser(followerId: string, followingId: string): Promi
   const followerUserRef = doc(usersRef, followerId);
   const followingUserRef = doc(usersRef, followingId);
 
+  let added = false;
   await runTransaction(db, async (transaction) => {
     const existingSnap = await transaction.get(followDocRef);
     if (existingSnap.exists()) {
@@ -378,7 +404,30 @@ export async function followUser(followerId: string, followingId: string): Promi
 
     transaction.update(followerUserRef, { followingCount: increment(1), updatedAt: new Date() });
     transaction.update(followingUserRef, { followersCount: increment(1), updatedAt: new Date() });
+    added = true;
   });
+
+  if (added) {
+    try {
+      const senderSnap = await getDoc(followerUserRef);
+      const sender = senderSnap.exists() ? senderSnap.data() : null;
+      const senderName = (sender as { displayName?: string })?.displayName ?? 'ユーザー';
+      const senderAvatar = (sender as { avatarUrl?: string })?.avatarUrl ?? '';
+
+      await addDoc(notificationsCollection, {
+        userId: followingId,
+        type: 'follow',
+        senderId: followerId,
+        senderName,
+        senderAvatar,
+        targetId: followerId,
+        isRead: false,
+        createdAt: new Date(),
+      });
+    } catch (err) {
+      console.error('フォロー通知の作成に失敗しました:', err);
+    }
+  }
 
   return { isFollowing: true };
 }

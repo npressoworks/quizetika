@@ -17,7 +17,7 @@ import { db } from '../lib/firebase/config';
 export interface Notification {
   id: string;
   userId: string; // recipientId から userId へ仕様一元化
-  type: 'follow' | 'bookmark' | 'correction_resolved' | 'badge_unlocked' | 'quiz_review_warning';
+  type: 'follow' | 'bookmark' | 'correction_resolved' | 'badge_unlocked' | 'quiz_review_warning' | 'correction_reported';
   senderId: string;
   senderName: string;
   senderAvatar: string;

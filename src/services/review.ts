@@ -15,7 +15,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { quizzesRef } from '../lib/firebase/firestore';
+import { quizzesRef, usersRef } from '../lib/firebase/firestore';
 import { FeedbackReport, Quiz } from '../types';
 import { calculateReviewScore, getReviewBadge, canVote } from './review-utils';
 
@@ -54,6 +54,32 @@ export async function submitFeedbackReport(
     createdAt: new Date(),
   };
   const docRef = await addDoc(feedbackReportsCollection, payload);
+
+  // クイズ作成者に間違い指摘が届いたことを通知する
+  if (report.reporterId !== report.creatorId) {
+    try {
+      const senderSnap = await getDoc(doc(usersRef, report.reporterId));
+      const sender = senderSnap.exists() ? senderSnap.data() : null;
+      const senderName = (sender as { displayName?: string })?.displayName ?? 'ユーザー';
+      const senderAvatar = (sender as { avatarUrl?: string })?.avatarUrl ?? '';
+
+      await addDoc(notificationsCollection, {
+        userId: report.creatorId,
+        type: 'correction_reported',
+        senderId: report.reporterId,
+        senderName,
+        senderAvatar,
+        targetId: report.quizId,
+        targetTitle: report.quizTitle,
+        isRead: false,
+        createdAt: new Date(),
+      });
+    } catch (err) {
+      console.error('指摘送信時の通知作成に失敗しました:', err);
+      // 指摘自体の送信は成功しているため、通知作成エラーで全体の処理を失敗させない
+    }
+  }
+
   return docRef.id;
 }
 
@@ -143,7 +169,7 @@ export async function submitReview(
   const voteDocId = `${reviewerId}_${quizId}`;
   const voteDocRef = doc(quizReviewsCollection, voteDocId);
 
-  await runTransaction(db, async (transaction) => {
+  const warningInfo = await runTransaction(db, async (transaction) => {
     const quizSnap = await transaction.get(quizDocRef);
     if (!quizSnap.exists()) throw new Error(`クイズが見つかりません: ${quizId}`);
     const quiz = quizSnap.data() as Quiz;
@@ -217,7 +243,34 @@ export async function submitReview(
     }
 
     transaction.update(quizDocRef, updates);
+
+    // 評価が低下した（要改善・悪問バッジに低下した）か判定
+    const oldBadge = quiz.reviewBadge;
+    const newBadge = updates.reviewBadge || oldBadge;
+    const isWarningBadge = newBadge === '要改善' || newBadge === '悪問';
+    const wasWarningBadge = oldBadge === '要改善' || oldBadge === '悪問';
+    const shouldWarn = isWarningBadge && !wasWarningBadge && !isResetPeriod;
+
+    return { shouldWarn, creatorId: quiz.authorId, quizTitle: quiz.title };
   });
+
+  if (warningInfo && warningInfo.shouldWarn) {
+    try {
+      await addDoc(notificationsCollection, {
+        userId: warningInfo.creatorId,
+        type: 'quiz_review_warning',
+        senderId: 'system',
+        senderName: '運営',
+        senderAvatar: '',
+        targetId: quizId,
+        targetTitle: warningInfo.quizTitle,
+        isRead: false,
+        createdAt: new Date(),
+      });
+    } catch (err) {
+      console.error('評価警告通知の作成に失敗しました:', err);
+    }
+  }
 }
 
 /**

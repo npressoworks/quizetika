@@ -4,6 +4,11 @@ import {
   InvalidBookmarkTargetError,
 } from '@/services/bookmark';
 import { getDoc, getDocs } from 'firebase/firestore';
+import { createNotification } from '@/services/notification';
+
+jest.mock('@/services/notification', () => ({
+  createNotification: jest.fn(),
+}));
 
 jest.mock('firebase/firestore', () => {
   const original = jest.requireActual('firebase/firestore');
@@ -77,5 +82,49 @@ describe('bookmark service', () => {
     await expect(
       toggleBookmark(userId, 'list-a', 'list' as 'quiz')
     ).rejects.toBeInstanceOf(InvalidBookmarkTargetError);
+  });
+
+  it('toggleBookmark はクイズ（targetType=quiz）が追加された時、作成者へ通知を作成する', async () => {
+    const mockQuiz = {
+      id: 'quiz-a',
+      title: 'テストクイズ',
+      authorId: 'author-1',
+      status: 'published',
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockImplementation((ref) => {
+        if (ref.id === 'user-1_quiz-a') return { exists: () => false };
+        return { exists: () => true, data: () => mockQuiz };
+      }),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    const { runTransaction } = require('firebase/firestore');
+    (runTransaction as jest.Mock).mockImplementation((db: any, callback: any) => callback(mockTransaction));
+
+    (getDoc as jest.Mock).mockImplementation((ref: any) => {
+      if (ref.id === 'quiz-a') {
+        return { exists: () => true, data: () => mockQuiz };
+      }
+      if (ref.id === 'user-1') {
+        return { exists: () => true, data: () => ({ displayName: 'ブックマーク者', avatarUrl: 'avatar' }) };
+      }
+      return { exists: () => false };
+    });
+
+    const added = await toggleBookmark(userId, 'quiz-a', 'quiz');
+    expect(added).toBe(true);
+
+    expect(createNotification).toHaveBeenCalledWith({
+      userId: 'author-1',
+      type: 'bookmark',
+      senderId: userId,
+      senderName: 'ブックマーク者',
+      senderAvatar: 'avatar',
+      targetId: 'quiz-a',
+      targetTitle: 'テストクイズ',
+    });
   });
 });

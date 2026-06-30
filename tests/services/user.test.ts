@@ -8,16 +8,27 @@
  * Firestore へのアクセスは発生しないため、モックなしで実行可能。
  */
 
-import { validateProfileData, BADGE_DEFINITIONS, UpdateProfileData, updateProfile } from '../../src/services/user';
+import { validateProfileData, BADGE_DEFINITIONS, UpdateProfileData, updateProfile, followUser, checkAndAwardBadges } from '../../src/services/user';
 import { User } from '../../src/types';
-import { updateDoc } from 'firebase/firestore';
+import { updateDoc, runTransaction, getDoc, addDoc } from 'firebase/firestore';
 
 jest.mock('firebase/firestore', () => {
   const original = jest.requireActual('firebase/firestore');
   return {
     ...original,
     doc: jest.fn((_ref, ...paths) => ({ id: paths[paths.length - 1] })),
+    collection: jest.fn((db, path) => ({ path })),
+    query: jest.fn(),
+    where: jest.fn(),
+    limit: jest.fn(),
+    getDoc: jest.fn(),
+    getDocs: jest.fn(),
     updateDoc: jest.fn(),
+    addDoc: jest.fn(),
+    increment: jest.fn((n) => n),
+    arrayUnion: jest.fn((...items) => items),
+    runTransaction: jest.fn(),
+    writeBatch: jest.fn(),
   };
 });
 
@@ -329,6 +340,90 @@ describe('updateProfile', () => {
         snsLinks: {
           x: 'https://x.com/username',
         },
+      })
+    );
+  });
+});
+
+describe('UserService - followUser', () => {
+  const followerId = 'follower-uid';
+  const followingId = 'following-uid';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('フォローが成功した際、被フォローユーザー宛ての通知が作成されること', async () => {
+    const mockTransaction = {
+      get: jest.fn().mockReturnValue({ exists: () => false }),
+      set: jest.fn(),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+    (getDoc as jest.Mock).mockResolvedValue({
+      exists: () => true,
+      data: () => ({ displayName: 'フォロワー名', avatarUrl: 'avatar-url' }),
+    });
+    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-notif-id' });
+
+    const result = await followUser(followerId, followingId);
+    expect(result.isFollowing).toBe(true);
+
+    expect(addDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userId: followingId,
+        type: 'follow',
+        senderId: followerId,
+        senderName: 'フォロワー名',
+        senderAvatar: 'avatar-url',
+        targetId: followerId,
+      })
+    );
+  });
+});
+
+describe('UserService - checkAndAwardBadges', () => {
+  const uid = 'user-uid';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('新規バッジがアトミック付与された際、バッジ獲得通知が作成されること', async () => {
+    const mockUser = {
+      badges: [],
+      createdQuizzesCount: 0,
+      totalPlayCount: 10,
+      followersCount: 0,
+      followingCount: 0,
+    };
+
+    const mockTransaction = {
+      get: jest.fn().mockReturnValue({
+        exists: () => true,
+        data: () => mockUser,
+      }),
+      update: jest.fn(),
+    };
+
+    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-notif-id' });
+
+    const badges = await checkAndAwardBadges(uid);
+    expect(badges).toHaveLength(1);
+    expect(badges[0].id).toBe('play_10');
+
+    expect(addDoc).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userId: uid,
+        type: 'badge_unlocked',
+        senderId: 'system',
+        senderName: '運営',
+        targetId: 'play_10',
+        targetTitle: '初挑戦者',
       })
     );
   });
