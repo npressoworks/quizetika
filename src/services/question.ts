@@ -51,6 +51,11 @@ export async function getQuestionsByQuiz(quizId: string): Promise<Question[]> {
     });
   }
 
+  // 個別ドキュメントの取得数が questionIds と一致しない（不整合がある）場合、親ドキュメントの非正規化コピーをフォールバックとして使用
+  if (questions.length < questionIds.length && quizData.questions && quizData.questions.length > 0) {
+    return quizData.questions;
+  }
+
   // クイズが保持する本来の順序（questionIds配列のインデックス）通りにソートして返す
   const idToIndex = new Map(questionIds.map((id, index) => [id, index]));
   return questions.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
