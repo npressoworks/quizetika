@@ -705,3 +705,12 @@
 27. The [Quizetika System] shall [クイズ詳細・プレイ画面の未認可 UX（非公開メッセージ、フォロー促し等）を本要件の範囲に含めない（`quizetika-ui-quiz-lifecycle` / `quizetika-play-flow-ui` が担当）]。
 28. The [Quizetika System] shall [シークレットリンク・パスワード共有・共同編集者招待を本フェーズの範囲に含めない]。
 29. The [Quizetika System] shall [Stripe Webhook 自体の改修を本要件の範囲に含めない（既存 tier 更新を利用。ダウングレード後の限定公開維持は保存時ゲートで担保）]。
+
+## Phase 31: 複合形式における許容問題形式の拡張 (2026-07)
+
+### 要件 31: 複合形式における「連想」問題の許可
+
+#### 受け入れ基準
+1. When [クイズ全体の出題形式が `mixed`（複合形式）であるとき], the [Quizetika System] shall [問題タイプとして「連想（`association`）」を許可し、公開検証においてエラーを発生させない]。
+2. When [クイズ全体の出題形式が `mixed` であるとき], the [Quizetika System] shall [「早押し（`quick-press`）」および「ウミガメのスープ（`lateral-thinking`）」のいずれかが含まれている場合は、公開検証において不一致エラーを発生させる]。
+3. When [AI一括作問機能において出題形式に `mixed` が指定されたとき], the [Quizetika System] shall [Gemini APIのレスポンススキーマとして「連想（`association`）」問題も選択肢として含め、AIが複合形式の一部として連想問題を生成できるようにする]。

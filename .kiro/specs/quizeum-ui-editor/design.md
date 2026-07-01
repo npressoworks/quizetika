@@ -622,4 +622,50 @@ Phase 24 Migration Strategy の **Phase 4（ListEditor + AttachPanel）** およ
       await expect(firstOption).toBeVisible({ timeout: 15000 });
       await firstOption.click();
     }
+
+## Phase 31: 複合形式における許容問題形式の拡張 (2026-07 設計詳細)
+
+### 1. 概要と目標
+本フェーズでは、クイズ全体の出題形式が複合（`mixed`）の際、作問UIで「連想（`association`）」形式を切り替え・追加可能にし、また形式変換時も連想問題が維持されるように設計します。
+
+### 2. UIコンポーネント設計
+* `src/components/quiz/editor/question-card.tsx`
+  * `format === 'mixed'` 条件時、問題タイプトグルのコンテナである `editorClasses.typeToggle` 内に「連想」用の `<button type="button">` を追加します。
+  * 切り替え時のイベントハンドラとして `handlers.onToggleQuestionType(qIdx, 'association')` を紐付けます。
+* `src/components/quiz/quiz-editor.tsx`
+  * 全体の出題形式が `mixed` に変更された際、`handleFormatChange`（または対応するハンドラ）で問題形式の強制リセットルールである `allowedTypes` 配列に `'association'` を追加します。これにより、すでに「連想」問題が含まれている場合に強制的に「選択式」へ変換されてしまうのを防ぎます。
+
+### 3. 表示ラベルと言語設計
+* `src/lib/quiz-format-labels.ts`
+  * `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕式・記述式・並び替え・連想を自由に組み合わせ可能」へ変更します。
+
+### 4. File Structure Plan（Phase 31）
+
+| ファイル                                       | 操作       | 責務                                                                        |
+| ---------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
+| `src/components/quiz/editor/question-card.tsx` | **Modify** | 複合形式時の問題タイプトグルに「連想」ボタンを追加                          |
+| `src/components/quiz/quiz-editor.tsx`          | **Modify** | `format` が `mixed` に変更された際の `allowedTypes` に `association` を追加 |
+| `src/lib/quiz-format-labels.ts`                | **Modify** | 複合形式の説明文（`getFormatDescription`）を更新                            |
+
+### 5. Requirements Traceability（Phase 31）
+
+| Req  | Summary                          | Component                                                         |
+| ---- | -------------------------------- | ----------------------------------------------------------------- |
+| 31.1 | 複合形式での「連想」トグル追加   | `question-card.tsx` の問題タイプトグルに「連想」ボタンを追加      |
+| 31.2 | `mixed` 変更時の「連想」形式維持 | `quiz-editor.tsx` 内の `allowedTypes` 判定に `association` を追加 |
+| 31.3 | 複合形式の説明文更新             | `quiz-format-labels.ts` の `getFormatDescription` 変更            |
+
+### 6. Testing Strategy（Phase 31）
+
+| 種別           | 検証                                                                                                                                      |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Component**  | `QuestionCard` — `format === 'mixed'` の際、「連想」切り替えボタンが表示され、クリック時に `onToggleQuestionType` がトリガーされること    |
+| **Regression** | `QuizEditor` — 全体の出題形式を「連想」から「複合」に切り替えた際、既存の「連想」問題が「選択式」へ強制変換されずにそのまま維持されること |
+| **Regression** | `QuizEditor` — 全体の出題形式を「早押し」から「複合」に切り替えた際、既存の「早押し」が「選択式」（デフォルト形式）へ強制変換されること   |
+
+**Effort**: **XS** (既存のJSXボタン追加、説明文リフレッシュ、配列変更のみ)
+**Risk**: **Low** (UIトグルおよび説明テキストの修正であり、全体へのリスクは極めて低い)
+
+**Document Status（Phase 31 設計）**: 本節に反映。
+
     ```

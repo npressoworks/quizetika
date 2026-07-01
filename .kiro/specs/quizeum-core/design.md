@@ -3843,3 +3843,51 @@ sequenceDiagram
 
 **Document Status（Phase 30 設計）**: 本節に反映。
 
+## Phase 31: 複合形式における許容問題形式の拡張（2026-07 設計詳細）
+
+### 1. 概要と目標
+本フェーズでは、クイズ全体の出題形式が複合（`mixed`）の際、許可される問題タイプを拡張し、「連想（`association`）」形式を組み合わせ可能とします。また、AI一括作問 API においても連想問題を複合形式の生成候補に含めるための設計変更を行います。
+
+### 2. データ検証と定数設計
+* `src/services/ai-authoring-types.ts`
+  * `MIXED_ALLOWED_QUESTION_TYPES` 定数配列に `'association'` を追加します。
+* `src/lib/quiz-format.ts`
+  * `resolveQuizFormat` 内の `MIXED_ALLOWED_QUESTION_TYPES` Setオブジェクトに `'association'` を追加します。
+* `src/services/quiz-validation.ts`
+  * `validateQuizForPublish` における `quiz.format === 'mixed'` の判定で許可される問題タイプ配列 `allowedTypes` に `'association'` を追加します。
+
+### 3. AI作問スキーマ設計
+* `src/app/api/quiz/ai-generate-questions/route.ts`
+  * `buildQuestionItemSchema` 内で `format === 'mixed'` の条件分岐において、`anyOf` 配列に `schemas['association']` を追加します。これにより、Gemini API に渡す JSON スキーマで連想問題が複合形式の生成ターゲットに含まれるようになります。
+
+### 4. File Structure Plan（Phase 31）
+
+| ファイル                                       | 操作   | 責務                                                                     |
+| --------------------------------------------- | ------ | ------------------------------------------------------------------------ |
+| `src/services/ai-authoring-types.ts`          | Modify | `MIXED_ALLOWED_QUESTION_TYPES` に `'association'` を追加                  |
+| `src/lib/quiz-format.ts`                      | Modify | `MIXED_ALLOWED_QUESTION_TYPES` に `'association'` を追加                  |
+| `src/services/quiz-validation.ts`             | Modify | `validateQuizForPublish` 内の `mixed` 判定用 `allowedTypes` に `'association'` を追加 |
+| `src/app/api/quiz/ai-generate-questions/route.ts` | Modify | `buildQuestionItemSchema` で `format === 'mixed'` の際に `association` スキーマを追加 |
+
+### 5. Requirements Traceability（Phase 31）
+
+| Req  | Summary                           | Component                                                       |
+| ---- | --------------------------------- | --------------------------------------------------------------- |
+| 31.1 | 複合形式での「連想」問題許可      | `validateQuizForPublish` 内の `allowedTypes` に `association` を追加 |
+| 31.2 | 複合形式での早押し・ウミガメ制限   | `validateQuizForPublish` の既存制限の維持 (早押し/ウミガメは含めない) |
+| 31.3 | AI作問での「連想」スキーマ追加     | `buildQuestionItemSchema` の `anyOf` に `association` スキーマを追加 |
+
+### 6. Testing Strategy（Phase 31）
+
+| 種別     | 検証                                                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Unit** | `validateQuizForPublish` — 複合形式（`mixed`）のクイズに `association` 問題が含まれている場合、エラーを返さず通過すること                      |
+| **Unit** | `validateQuizForPublish` — 複合形式のクイズに `quick-press` または `lateral-thinking` が含まれる場合、適切にバリデーションエラーを返すこと          |
+| **Unit** | `mapAiJsonToQuestions` — `format: 'mixed'` にて、AIが生成した連想問題が正常にバリデーションを通過してマッピングされること                        |
+
+**Effort**: **XS** (既存の定数やスキーマ配列への要素追加と検証式の書き換えのみ)
+**Risk**: **Low** (既存の判定文の配列拡張であり、副作用は極めて低い)
+
+**Document Status（Phase 31 設計）**: 本節に反映。
+
+

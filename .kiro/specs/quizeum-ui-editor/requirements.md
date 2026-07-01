@@ -165,3 +165,12 @@ Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 UI 刷
 5. When Phase 26 が完了したとき, the Editor UI shall `e2e/quiz-list.spec.ts` および E2E 内のリスト作成・編集・`list-editor-skeleton` シナリオが除去されていること。
 6. The Editor UI shall `/quiz/create`・`/quiz/[id]/edit` のクイズエディタ shadcn + Tailwind 移行成果（Phase 24）を維持し、下書き保存・公開・テストプレイ・8 形式・参照問題 UI が回帰なく動作すること。
 7. The Editor UI shall `quiz-list-skeleton.tsx`（作家ダッシュボード用クイズ一覧スケルトン）をリスト機能と混同せず維持すること。
+
+## Phase 31: 複合形式における許容問題形式の拡張 (2026-07)
+
+### Requirement 31: 複合形式における「連想」問題タイプトグルの追加
+
+#### Acceptance Criteria
+1. When ユーザーが複合形式（mixed）を選択したとき, the Quiz Editor shall 各問題カードの問題タイプトグル（typeToggle）に「連想」ボタンを表示し、クリック時に「連想」形式へ切り替え可能にする。
+2. When クイズ全体の出題形式が mixed に変更されたとき, the Quiz Editor shall 既存の「連想」問題を含めて強制変換せず維持し、「早押し」および「ウミガメのスープ」問題のみをデフォルト形式（multiple-choice）に変換する。
+3. The Quiz Editor shall 複合形式の説明文（getFormatDescription）において、「連想」も組み合わせ可能であることを説明に含める。
