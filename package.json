@@ -19,7 +19,8 @@
     "db:reset": "node scripts/reset-firestore.mjs --confirm",
     "db:reset:emulator": "node scripts/reset-firestore.mjs --emulator",
     "db:reset-and-seed": "node scripts/reset-firestore.mjs --confirm && node scripts/seed-test-data.mjs",
-    "db:reset-and-seed:emulator": "node scripts/reset-firestore.mjs --emulator && node scripts/seed-test-data.mjs --emulator"
+    "db:reset-and-seed:emulator": "node scripts/reset-firestore.mjs --emulator && node scripts/seed-test-data.mjs --emulator",
+    "gen:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.82",
@@ -38,6 +39,8 @@
     "@radix-ui/react-label": "^2.1.9",
     "@radix-ui/react-slot": "^1.2.5",
     "@stripe/stripe-js": "^9.7.0",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.110.0",
     "ai": "^6.0.206",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
