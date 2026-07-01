@@ -58,14 +58,14 @@
   - _Boundary: supabase/migrations/_
 
 - [ ] 4. Core: Next.js 用 Supabase クライアント初期化
-- [ ] 4.1 (P) ブラウザおよびサーバー用クライアント
+- [x] 4.1 (P) ブラウザおよびサーバー用クライアント
   - `src/lib/supabase/client.ts` を作成し、ブラウザ環境（Client Components）で動作するクライアントを実装する。
   - `src/lib/supabase/server.ts` を作成し、サーバー環境（Server Components, Actions, API）で動作する Cookie 連携クライアントを実装する。
   - 成果物確認: 各初期化ファイルが正しくエクスポートされ、静的コンパイルをパスすること。
   - _Requirements: 1.1, 1.2_
   - _Boundary: src/lib/supabase/_
 
-- [ ] 4.2 (P) ミドルウェア用セッション更新および特権クライアント
+- [x] 4.2 (P) ミドルウェア用セッション更新および特権クライアント
   - `src/lib/supabase/middleware.ts` を作成し、Next.js ミドルウェア環境で動作するセッション更新クライアントを実装する。
   - `src/lib/supabase/server.ts`（または独立したファイル）に、特権操作用のサービスロールクライアント初期化関数を実装する。
   - 成果物確認: 各ファイルがエラーなく作成され、型エラーなく定義されていること。
