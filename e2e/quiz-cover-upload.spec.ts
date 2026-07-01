@@ -38,7 +38,7 @@ test.describe('クイズカバー画像アップロード E2Eテスト', () => {
     });
 
     // 5. トリミングモーダルが表示されることを確認
-    const cropperDialog = page.locator('text=画像を 1.91:1 (OGP規格) に切り抜く');
+    const cropperDialog = page.locator('text=トリミング');
     await expect(cropperDialog).toBeVisible();
 
     // 6. 「確定」ボタンをクリックしてトリミングを確定
@@ -48,7 +48,7 @@ test.describe('クイズカバー画像アップロード E2Eテスト', () => {
 
     // 7. モーダルが非表示になり、サムネイルプレビューが表示されることを確認
     await expect(cropperDialog).not.toBeVisible();
-    
+
     const previewImage = page.locator('img[alt="Thumbnail preview"]');
     await expect(previewImage).toBeVisible();
 
@@ -92,7 +92,7 @@ test.describe('クイズカバー画像アップロード E2Eテスト', () => {
     await page.goto('/quiz/create');
 
     const fileInput = page.locator('input[type="file"]');
-    
+
     // 10.1MBのダミーバッファを生成して入力
     const largeBuffer = Buffer.alloc(10.1 * 1024 * 1024);
     await fileInput.setInputFiles({
@@ -106,7 +106,7 @@ test.describe('クイズカバー画像アップロード E2Eテスト', () => {
     await expect(errorMsg).toBeVisible();
 
     // モーダルが立ち上がっていないことを確認
-    const cropperDialog = page.locator('text=画像を 1.91:1 (OGP規格) に切り抜く');
+    const cropperDialog = page.locator('text=トリミング');
     await expect(cropperDialog).not.toBeVisible();
   });
 });

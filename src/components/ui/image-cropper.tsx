@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import Cropper from 'react-easy-crop';
-import type { Area } from 'react-easy-crop';
+import type { Area, MediaSize } from 'react-easy-crop';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { AddOutlined, RemoveOutlined } from '@mui/icons-material';
+
+const CROP_ASPECT = 1.91; // OGP 推奨比率
 
 // 解像度制限(FHD)および1.91:1(OGP)アスペクト比維持のための寸法計算関数
 export function calculateTargetDimensions(
@@ -23,15 +25,13 @@ export function calculateTargetDimensions(
   let targetWidth = width;
   let targetHeight = height;
 
-  const aspect = 1.91;
-
   if (targetWidth > maxWidth || targetHeight > maxHeight) {
-    if (targetWidth / targetHeight >= aspect) {
+    if (targetWidth / targetHeight >= CROP_ASPECT) {
       targetWidth = maxWidth;
-      targetHeight = Math.round(maxWidth / aspect);
+      targetHeight = Math.round(maxWidth / CROP_ASPECT);
     } else {
       targetHeight = maxHeight;
-      targetWidth = Math.round(maxHeight * aspect);
+      targetWidth = Math.round(maxHeight * CROP_ASPECT);
     }
   }
   return { width: targetWidth, height: targetHeight };
@@ -110,8 +110,34 @@ export function ImageCropper({
 }: ImageCropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
+  const [minZoom, setMinZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [cropSize, setCropSize] = useState<{ width: number; height: number } | undefined>(undefined);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 画像ロード時にクロップ領域サイズと最小ズームを同時に算出
+  // mediaSize.width/height は CSS contain モードでの実際の画像描画ピクセルサイズ
+  const onMediaLoaded = useCallback((mediaSize: MediaSize) => {
+    if (!containerRef.current) return;
+    const containerW = containerRef.current.clientWidth;
+    const containerH = containerRef.current.clientHeight;
+
+    // クロップ領域をコンテナ全幅に設定（高さはアスペクト比で制限）
+    const cropW = Math.min(containerW, containerH * CROP_ASPECT);
+    const cropH = cropW / CROP_ASPECT;
+    setCropSize({ width: cropW, height: cropH });
+
+    // mediaSize.width/height = 画像の実際の表示サイズ(zoom=1時点)
+    // クロップ領域を画像が過不足なくぴったり覆うための最小ズーム
+    const neededZoomW = cropW / mediaSize.width;
+    const neededZoomH = cropH / mediaSize.height;
+    const computedMinZoom = Math.max(1, neededZoomW, neededZoomH);
+
+    setMinZoom(computedMinZoom);
+    setZoom(computedMinZoom);
+    setCrop({ x: 0, y: 0 });
+  }, []);
 
   const onCropCompleteCallback = useCallback(
     (_croppedArea: Area, croppedAreaPixelsData: Area) => {
@@ -138,23 +164,31 @@ export function ImageCropper({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>画像を 1.91:1 (OGP規格) に切り抜く</DialogTitle>
+          <DialogTitle>トリミング</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4 py-2">
           {/* クロッパーエリア */}
-          <div className="relative w-full h-[280px] bg-black rounded-lg overflow-hidden border border-border">
+          <div
+            ref={containerRef}
+            className="relative w-full h-[320px] bg-black rounded-lg overflow-hidden border border-border"
+          >
             <Cropper
               image={imageSrc}
               crop={crop}
               zoom={zoom}
-              aspect={1.91}
+              minZoom={minZoom}
+              maxZoom={Math.max(minZoom + 2, 3)}
+              aspect={CROP_ASPECT}
+              cropSize={cropSize}
               onCropChange={setCrop}
               onCropComplete={onCropCompleteCallback}
               onZoomChange={setZoom}
-              objectFit="cover"
+              onMediaLoaded={onMediaLoaded}
+              objectFit="contain"
+              showGrid={true}
             />
           </div>
 
@@ -162,12 +196,12 @@ export function ImageCropper({
           <div className="flex items-center gap-3 px-1">
             <RemoveOutlined
               className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-              onClick={() => setZoom(Math.max(1, zoom - 0.2))}
+              onClick={() => setZoom(Math.max(minZoom, zoom - 0.2))}
             />
             <input
               type="range"
-              min={1}
-              max={3}
+              min={minZoom}
+              max={Math.max(minZoom + 2, 3)}
               step={0.1}
               value={zoom}
               onChange={(e) => setZoom(parseFloat(e.target.value))}
@@ -175,7 +209,7 @@ export function ImageCropper({
             />
             <AddOutlined
               className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-              onClick={() => setZoom(Math.min(3, zoom + 0.2))}
+              onClick={() => setZoom(Math.min(Math.max(minZoom + 2, 3), zoom + 0.2))}
             />
             <span className="text-xs text-muted-foreground font-mono min-w-[32px] text-right">
               {zoom.toFixed(1)}x
