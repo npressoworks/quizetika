@@ -73,12 +73,13 @@ export function MyQuizResultClient() {
   // 2. 問題データのフェッチとブックマーク状態・指摘レポートのロード
   useEffect(() => {
     if (!result) return;
+    const currentResult = result;
 
     async function loadQuestionsData() {
       setLoading(true);
       try {
         const list = await Promise.all(
-          result.details.map(async (detail) => {
+          currentResult.details.map(async (detail) => {
             const q = await getQuestion(detail.questionId);
             return q;
           })
@@ -98,7 +99,7 @@ export function MyQuizResultClient() {
           setBookmarkedQuestionIds(new Set(bookmarkedIds));
 
           // 指摘レポートの確認 (各親クイズIDに基づいてフェッチ)
-          const parentQuizIds = [...new Set(result.details.map(d => (d as any).parentQuizId).filter(Boolean))];
+          const parentQuizIds = [...new Set(currentResult.details.map(d => (d as any).parentQuizId).filter(Boolean))];
           const reportsList = await Promise.all(
             parentQuizIds.map(async (qId) => {
               try {

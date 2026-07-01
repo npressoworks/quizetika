@@ -377,7 +377,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                 totalQuestions: 1,
                 elapsedSeconds: Math.round(detail.elapsedSeconds),
                 failedQuestionIds: detail.isCorrect ? [] : [detail.questionId],
-                questionAnswers: { [detail.questionId]: detail.userAnswer || detail.selectedChoiceId || '' },
+                questionAnswers: [{ questionId: detail.questionId, userAnswer: detail.userAnswer || detail.selectedChoiceId || '' }],
                 questionAnswerDetails: [detail],
                 aiTurnCount: 0,
                 aiTurnLimit: null,

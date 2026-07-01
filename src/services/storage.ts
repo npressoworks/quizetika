@@ -114,3 +114,32 @@ export async function getSnsLogoUrl(snsName: string): Promise<string> {
   snsLogoCache[name] = url;
   return url;
 }
+
+/**
+ * クイズカバー画像を Firebase Storage にアップロードする
+ * @param file アップロードする画像データ（File または Blob）
+ * @param quizId クイズのドキュメントID
+ * @returns アップロード後のダウンロードURL
+ */
+export async function uploadQuizCover(file: File | Blob, quizId: string): Promise<string> {
+  const contentType = file.type || 'image/jpeg';
+  const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/gif'];
+  if (!allowedMimeTypes.includes(contentType)) {
+    throw new Error('PNG, JPEG, GIF ファイルのみアップロード可能です。');
+  }
+
+  const maxBytes = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxBytes) {
+    throw new Error('ファイルサイズは 10MB 以下にしてください。');
+  }
+
+  const extension = contentType === 'image/jpeg' ? 'jpeg' : contentType === 'image/gif' ? 'gif' : 'png';
+  const path = getQuizCoverPath(quizId, extension);
+  const storageRef = ref(storage, path);
+  const metadata = {
+    contentType: contentType,
+  };
+
+  const snapshot = await uploadBytes(storageRef, file, metadata);
+  return await getDownloadURL(snapshot.ref);
+}

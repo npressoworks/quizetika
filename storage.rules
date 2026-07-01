@@ -13,8 +13,8 @@ service firebase.storage {
         // 1. ユーザーが認証されているか（要件に応じて適用）
         request.auth != null
         
-        // 2. アップロードされるファイルの最大容量制限（2MB以下）
-        && request.resource.size < 2 * 1024 * 1024
+        // 2. アップロードされるファイルの最大容量制限（10MB以下）
+        && request.resource.size < 10 * 1024 * 1024
         
         // 3. MIMEタイプの厳密な制限（PNG、JPEG、GIFのみを許可し、SVGや危険なスクリプト混入HTMLを禁止）
         && request.resource.contentType.matches('image/(png|jpeg|gif)');

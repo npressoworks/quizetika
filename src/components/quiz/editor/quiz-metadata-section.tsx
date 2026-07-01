@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { ImageOutlined, InfoOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-va
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 import { filterValidationErrors, type QuizPublishValidationError } from '@/services/quiz-validation';
 import type { GenreMetadata } from '@/types';
+import { ImageCropper } from '@/components/ui/image-cropper';
 
 export interface QuizMetadataSectionProps {
   title: string;
@@ -42,6 +43,8 @@ export interface QuizMetadataSectionProps {
   onAddTag: (e: React.FormEvent) => void;
   onApplySuggestedTag: () => void;
   onRemoveTag: (idx: number) => void;
+  quizId?: string;
+  onThumbnailChange: (url: string | null, blob: Blob | null) => void;
 }
 
 export function QuizMetadataSection({
@@ -71,11 +74,71 @@ export function QuizMetadataSection({
   onAddTag,
   onApplySuggestedTag,
   onRemoveTag,
+  quizId,
+  onThumbnailChange,
 }: QuizMetadataSectionProps) {
   const { user } = useAuth();
   const isAdmin = !!user && isAdminUser(user);
   const titleHasError = filterValidationErrors(validationErrors, { field: 'title' }).length > 0;
   const genreHasError = filterValidationErrors(validationErrors, { field: 'genre' }).length > 0;
+
+  // ローカルファイルアップロードとトリミングの状態管理
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
+  const [localUploadError, setLocalUploadError] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // ファイル形式バリデーション (SVGを排除)
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setLocalUploadError('PNG, JPEG, GIF 形式の画像のみアップロード可能です。');
+      return;
+    }
+
+    // ファイルサイズバリデーション (10MB以下)
+    const maxBytes = 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setLocalUploadError('ファイルサイズは 10MB 以下にしてください。');
+      return;
+    }
+
+    setLocalUploadError(null);
+    const objectUrl = URL.createObjectURL(file);
+    setSelectedImageSrc(objectUrl);
+    setCropperOpen(true);
+
+    // 同じファイルを再度選択できるように選択値をリセット
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    try {
+      setLocalUploadError(null);
+      // 一時的なオブジェクト URL を作成して即時プレビューに反映させる（Storageアップロードは保存時に遅延実行）
+      const objectUrl = URL.createObjectURL(croppedBlob);
+      onThumbnailChange(objectUrl, croppedBlob);
+    } catch (err: any) {
+      console.error('画像の切り抜き処理に失敗しました:', err);
+      setLocalUploadError(err.message || '画像の切り抜きに失敗しました。');
+    } finally {
+      if (selectedImageSrc) {
+        URL.revokeObjectURL(selectedImageSrc);
+        setSelectedImageSrc(null);
+      }
+    }
+  };
+
+  const handleCropperClose = () => {
+    setCropperOpen(false);
+    if (selectedImageSrc) {
+      URL.revokeObjectURL(selectedImageSrc);
+      setSelectedImageSrc(null);
+    }
+  };
 
   return (
     <div className={editorClasses.editorCard}>
@@ -115,16 +178,50 @@ export function QuizMetadataSection({
         <div className={editorClasses.metaGrid}>
           <div className={editorClasses.formGroup}>
             <label className={editorClasses.label}>サムネイル画像</label>
-            <div className={editorClasses.thumbnailUpload}>
-              {thumbnailUrl ? (
-                <img src={thumbnailUrl} alt="Thumbnail preview" className={editorClasses.thumbnailPreview} />
+            <div
+              className={`${editorClasses.thumbnailUpload} relative overflow-hidden group`}
+              onClick={() => !isAiThumbnailGenerating && fileInputRef.current?.click()}
+            >
+              {isAiThumbnailGenerating ? (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <CircularProgress size={24} />
+                  <span className="text-sm font-semibold">AIで生成中…</span>
+                </div>
+              ) : thumbnailUrl ? (
+                <>
+                  <img src={thumbnailUrl} alt="Thumbnail preview" className={editorClasses.thumbnailPreview} />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-sm font-semibold">
+                    ローカル画像を選択
+                  </div>
+                </>
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <ImageOutlined sx={{ fontSize: 32 }} />
-                  <span className="text-sm">AI でサムネイルを生成</span>
+                  <span className="text-sm font-semibold">画像を選択 / ドロップ</span>
                 </div>
               )}
             </div>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/png,image/jpeg,image/gif"
+              className="hidden"
+            />
+
+            {localUploadError && (
+              <p className="text-xs text-destructive mt-1.5">{localUploadError}</p>
+            )}
+
+            {selectedImageSrc && (
+              <ImageCropper
+                imageSrc={selectedImageSrc}
+                isOpen={cropperOpen}
+                onClose={handleCropperClose}
+                onCropComplete={handleCropComplete}
+              />
+            )}
             {canUseAiThumbnail && (
               <div className="mt-2 flex flex-col gap-2">
                 {aiThumbnailUsageLabel && (

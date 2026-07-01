@@ -47,6 +47,7 @@ import { EditorFormSkeleton } from '@/components/quiz/editor-skeleton';
 import { QuizFormatSelector } from '@/components/quiz/editor/quiz-format-selector';
 import { QuizMetadataSection } from '@/components/quiz/editor/quiz-metadata-section';
 import { QuestionCard } from '@/components/quiz/editor/question-card';
+import { uploadQuizCover } from '@/services/storage';
 import { QuizEditorActionBar } from '@/components/quiz/editor/quiz-editor-action-bar';
 import { AiQuizProUpsell } from '@/components/quiz/editor/ai-quiz-pro-upsell';
 import { useAiQuizAuthoring } from '@/hooks/useAiQuizAuthoring';
@@ -119,6 +120,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [pendingThumbnailBlob, setPendingThumbnailBlob] = useState<Blob | null>(null);
   const [difficulty, setDifficulty] = useState<number | null>(null);
   const [genre, setGenre] = useState('');
   const [format, setFormat] = useState<QuizFormat>('mixed');
@@ -1073,18 +1075,35 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     setValidationErrors([]);
     setErrorText(null);
 
+    let finalThumbnailUrl = thumbnailUrl;
+
+    // 遅延された画像アップロードを実行
+    if (pendingThumbnailBlob) {
+      try {
+        const targetQuizId = quizId || `temp_${user.id}`;
+        finalThumbnailUrl = await uploadQuizCover(pendingThumbnailBlob, targetQuizId);
+        setThumbnailUrl(finalThumbnailUrl);
+        setPendingThumbnailBlob(null);
+      } catch (err: any) {
+        console.error('画像アップロードに失敗しました:', err);
+        setErrorText(err.message || 'カバー画像のアップロードに失敗したため、クイズを保存できません。');
+        setLoading(false);
+        return;
+      }
+    }
+
     const quizData = {
       authorId: user.id,
       authorName: user.displayName,
       authorAvatar: user.avatarUrl,
       title,
       description,
-      thumbnailUrl,
+      thumbnailUrl: finalThumbnailUrl,
       difficulty: difficulty ?? 0,
       genre,
       tags,
       originalTags,
-      questionIds: questions.map((q) => q.id), // 問題の独立化対応に伴い、問題IDの配列をアタッチ
+      questionIds: questions.map((q) => q.id), // 問題の独立化対応に伴い、問題ID의 配列をアタッチ
       questions,
       questionCount: questions.length,
       status,
@@ -1149,7 +1168,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         await updateQuiz(quizId, {
           title,
           description,
-          thumbnailUrl,
+          thumbnailUrl: finalThumbnailUrl,
           difficulty: difficulty ?? 0,
           genre,
           tags,
@@ -1296,6 +1315,11 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
           onAddTag={handleAddTag}
           onApplySuggestedTag={applySuggestedTag}
           onRemoveTag={handleRemoveTag}
+          quizId={quizId}
+          onThumbnailChange={(url, blob) => {
+            setThumbnailUrl(url);
+            setPendingThumbnailBlob(blob);
+          }}
         />
 
         {canUseAiAuthoring ? (
