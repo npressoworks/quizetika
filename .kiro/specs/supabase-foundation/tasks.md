@@ -17,7 +17,7 @@
   - _Requirements: 8.1, 8.2, 8.3_
   - _Boundary: .env.local.example_
 
-- [ ] 1.3 Supabase CLI プロジェクト初期化
+- [x] 1.3 Supabase CLI プロジェクト初期化
   - ローカル開発ディレクトリのルートで `supabase init` を実行し、`supabase/` ディレクトリと `config.toml` を作成する。
   - `supabase/config.toml` 内で、データベースポート、ストレージ、および認証の設定を確認・最適化する。
   - 成果物確認: `supabase/config.toml` が作成され、Supabase の構成初期設定が完了していること。
