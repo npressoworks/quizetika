@@ -230,6 +230,13 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       return;
     }
 
+    if (!user) {
+      setUnauthorized(true);
+      setErrorText('クイズを作成・編集するにはログインが必要です。');
+      setInitialFetchLoading(false);
+      return;
+    }
+
     if (!quizId) {
       // 新規作成時は必ず1問だけ初期表示する（追記式を避けて置き換え）
       setQuestions((prev) => {
@@ -252,7 +259,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     }
 
     if (initialQuiz) {
-      if (user && initialQuiz.authorId !== user.id) {
+      if (initialQuiz.authorId !== user.id) {
         setUnauthorized(true);
         setErrorText('このクイズを編集する権限がありません。');
       } else {
@@ -269,7 +276,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         const quiz = await getQuiz(quizId);
         if (cancelled || skipServerQuizLoadRef.current) return;
         if (quiz) {
-          if (user && quiz.authorId !== user.id) {
+          if (quiz.authorId !== user.id) {
             setUnauthorized(true);
             setErrorText('このクイズを編集する権限がありません。');
             return;
@@ -280,7 +287,11 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         }
       } catch (err: any) {
         if (!cancelled && !skipServerQuizLoadRef.current) {
-          setErrorText('クイズの取得に失敗しました。');
+          if (err?.code === 'permission-denied') {
+            setErrorText('このクイズを閲覧または編集する権限がありません。ログイン状態を確認してください。');
+          } else {
+            setErrorText('クイズの取得に失敗しました。');
+          }
         }
       } finally {
         if (!cancelled && !skipServerQuizLoadRef.current) {

@@ -12,10 +12,18 @@ interface QuizEditorLoaderProps {
 }
 
 export async function QuizEditorLoader({ quizId }: QuizEditorLoaderProps) {
-  const [genres, tags, quiz] = await Promise.all([
+  let quiz: Quiz | null = null;
+  try {
+    quiz = await getQuiz(quizId);
+  } catch (e: any) {
+    if (e?.code !== 'permission-denied') {
+      console.error('QuizEditorLoader getQuiz error:', e);
+    }
+  }
+
+  const [genres, tags] = await Promise.all([
     listActiveGenres(),
     listActiveTags(),
-    getQuiz(quizId),
   ]);
 
   const plainGenres = serialize<GenreMetadata[]>(genres);

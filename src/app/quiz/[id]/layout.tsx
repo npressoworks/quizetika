@@ -73,8 +73,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
         images: [imageUrl],
       },
     };
-  } catch (e) {
-    console.error('generateMetadata error:', e);
+  } catch (e: any) {
+    if (e?.code !== 'permission-denied') {
+      console.error('generateMetadata error:', e);
+    }
     return defaultMeta;
   }
 }
