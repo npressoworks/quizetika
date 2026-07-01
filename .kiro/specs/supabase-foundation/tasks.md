@@ -10,7 +10,7 @@
   - _Requirements: 7.3_
   - _Boundary: package.json_
 
-- [ ] 1.2 環境変数テンプレートの設定
+- [x] 1.2 環境変数テンプレートの設定
   - `.env.local.example` に `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` を追記する。
   - `SUPABASE_SERVICE_ROLE_KEY` には `NEXT_PUBLIC_` プレフィックスを付与せず、サーバー専用の機密情報である旨のコメントを付記する。
   - 成果物確認: `.env.local.example` に必要な環境変数が過不足なく追加されていること。
