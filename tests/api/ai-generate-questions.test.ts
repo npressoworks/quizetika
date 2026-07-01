@@ -242,12 +242,13 @@ describe('POST /api/quiz/ai-generate-questions', () => {
 
     // anyOf が定義されており、各タイプが含まれていることを検証
     expect(schema.anyOf).toBeDefined();
-    expect(schema.anyOf).toHaveLength(4);
+    expect(schema.anyOf).toHaveLength(5);
     
     const types = schema.anyOf.map((sub: any) => sub.properties.type.enum[0]);
     expect(types).toContain('multiple-choice');
     expect(types).toContain('true-false');
     expect(types).toContain('text-input');
     expect(types).toContain('sorting');
+    expect(types).toContain('association');
   });
 });
