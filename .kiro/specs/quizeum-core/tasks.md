@@ -1446,3 +1446,48 @@
 - `User.snsLinks` は任意項目（オプショナル）であり、YouTube, X, Instagram, TikTok のうち設定されたもののみ保存される。
 - SNSロゴ画像は SVG 形式ではなく PNG 形式（`assets/logos/{snsName}.png`）として Storage に保存・取得される。
 - インメモリキャッシュ (`snsLogoCache`) を `src/services/storage.ts` に配置し、表示パフォーマンスを担保する。
+
+---
+
+### 27. Phase 31: 複合形式における許容問題形式の拡張 (2026-07)
+
+- [x] 27.1 複合形式許容タイプの定数更新
+  - `src/services/ai-authoring-types.ts` および `src/lib/quiz-format.ts` に定義されている `MIXED_ALLOWED_QUESTION_TYPES` に `'association'` を追加する
+  - **完了状態**: 型チェックがすべてパスし、`MixedAllowedQuestionType` に `'association'` が含まれていること
+  - _Requirements: 31.1_
+  - _Boundary: types_
+
+- [x] 27.2 クイズ公開時バリデーションの更新
+  - `src/services/quiz-validation.ts` の `validateQuizForPublish` における `quiz.format === 'mixed'` の判定で、許可問題タイプ `allowedTypes` に `'association'` を追加する
+  - **完了状態**: 複合形式のクイズ内に `association` 形式の問題が含まれていても、バリデーションエラーを返さず正常に通過すること
+  - _Requirements: 31.1, 31.2_
+  - _Depends: 27.1_
+  - _Boundary: QuizService_
+
+- [x] 27.3 AI作問 API 用スキーマ定義の更新
+  - `src/app/api/quiz/ai-generate-questions/route.ts` 内の `buildQuestionItemSchema` において、`format === 'mixed'` 分岐時のレスポンススキーマ `anyOf` に `schemas['association']` を追加する
+  - **完了状態**: `buildQuestionItemSchema` の返却するスキーマに `association` 問題のスキーマが含まれていること
+  - _Requirements: 31.3_
+  - _Depends: 27.1_
+  - _Boundary: VerifyTruthAPI_
+
+- [x] 27.4 Phase 31 単体テストの追加・更新
+  - `tests/services/ai-authoring-utils.test.ts` および `tests/services/quiz-validation.test.ts` 内の複合形式関連のテストを修正・追加する
+  - `validateQuizForPublish` で `mixed` に連想問題が含まれていてもエラーが出ないこと、および `quick-press` や `lateral-thinking` が含まれる場合にエラーが返ることを検証する
+  - **完了状態**: Phase 31 に関連するすべての Jest テストがグリーンでパスすること
+  - _Requirements: 31.1, 31.2_
+  - _Depends: 27.2_
+  - _Boundary: Testing_
+
+- [x] 27.5 Phase 31 統合検証
+  - コア全体のテストスイートを実行し、ビルドや既存の機能への回帰がないことを確認する
+  - **完了状態**: 全ての Jest テストがグリーンでパスし、`npm run build` がエラーなく成功すること
+  - _Requirements: 31.1, 31.2, 31.3_
+  - _Depends: 27.4_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 31)
+
+- 実装順: 27.1 → 27.2 / 27.3（27.1 後並行可）→ 27.4 → 27.5。
+- 既存の `MIXED_ALLOWED_QUESTION_TYPES` が型と定数の両方で定義されているため、両方を同期させて更新します。
+

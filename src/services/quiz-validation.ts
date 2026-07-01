@@ -546,7 +546,7 @@ export function validateQuizForPublish(quiz: Quiz): QuizPublishValidationError[]
       quiz.questions.forEach((q, idx) => {
         if (isReferenceLinkQuestion(q)) return;
         if (quiz.format === 'mixed') {
-          const allowedTypes = ['multiple-choice', 'true-false', 'text-input', 'sorting'];
+          const allowedTypes = ['multiple-choice', 'true-false', 'text-input', 'sorting', 'association'];
           if (!allowedTypes.includes(q.type)) {
             errors.push({
               field: 'questions',

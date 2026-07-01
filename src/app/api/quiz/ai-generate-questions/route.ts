@@ -146,7 +146,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
     },
   };
 
-  // mixed 形式の場合は anyOf で 4つの許容される個別スキーマを定義する
+  // mixed 形式の場合は anyOf で 5つの許容される個別スキーマを定義する
   if (format === 'mixed') {
     const mcSchemaForMixed = {
       ...schemas['multiple-choice'],
@@ -162,6 +162,7 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
         schemas['true-false'],
         schemas['text-input'],
         schemas['sorting'],
+        schemas['association'],
       ],
     } as unknown as Schema;
   }

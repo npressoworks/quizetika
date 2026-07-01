@@ -17,6 +17,7 @@ const MIXED_ALLOWED_QUESTION_TYPES = new Set([
   'true-false',
   'text-input',
   'sorting',
+  'association',
 ]);
 
 /**

@@ -15,6 +15,7 @@ export const MIXED_ALLOWED_QUESTION_TYPES = [
   'true-false',
   'text-input',
   'sorting',
+  'association',
 ] as const;
 
 export type MixedAllowedQuestionType = (typeof MIXED_ALLOWED_QUESTION_TYPES)[number];

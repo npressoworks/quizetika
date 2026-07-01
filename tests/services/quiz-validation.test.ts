@@ -488,31 +488,64 @@ describe('validateQuizForPublish', () => {
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
-    test('複合形式(mixed)で許可されていない問題形式が含まれる場合エラーを返す', () => {
+    test('複合形式(mixed)で許可されていない問題形式（ウミガメ・早押し）が含まれる場合エラーを返す', () => {
       const lateralQuestion = makeQuestion({
         type: 'lateral-thinking',
         choices: undefined,
         aiContextDetails: '真相',
         truthKeywords: ['エッセンス'],
       });
-      const quiz = makeQuiz({
+      const quickPressQuestion = makeQuestion({
+        type: 'quick-press',
+        choices: undefined,
+        correctTextAnswerList: ['正解'],
+      });
+
+      const quiz1 = makeQuiz({
         format: 'mixed',
         questions: [lateralQuestion],
       });
-      const errors = validateQuizForPublish(quiz);
-      expect(errors.some((e) => e.field === 'questions')).toBe(true);
+      const quiz2 = makeQuiz({
+        format: 'mixed',
+        questions: [quickPressQuestion],
+      });
+
+      expect(validateQuizForPublish(quiz1).some((e) => e.field === 'questions')).toBe(true);
+      expect(validateQuizForPublish(quiz2).some((e) => e.field === 'questions')).toBe(true);
     });
 
-    test('複合形式(mixed)で許可された問題形式のみが含まれる場合エラーを返さない', () => {
+    test('複合形式(mixed)で許可された問題形式（選択・〇✕・記述・並べ替え・連想）が含まれる場合エラーを返さない', () => {
       const mcQuestion = makeQuestion({ type: 'multiple-choice' });
+      const tfQuestion = makeQuestion({
+        type: 'true-false',
+        choices: [
+          makeChoice({ id: 't1', choiceText: '〇', isCorrect: true }),
+          makeChoice({ id: 't2', choiceText: '✕', isCorrect: false }),
+        ],
+      });
       const tiQuestion = makeQuestion({
         type: 'text-input',
         choices: undefined,
         correctTextAnswerList: ['正解'],
       });
+      const stQuestion = makeQuestion({
+        type: 'sorting',
+        choices: undefined,
+        sortingItems: [
+          { text: 'A', correctOrder: 0 },
+          { text: 'B', correctOrder: 1 },
+        ],
+      });
+      const asQuestion = makeQuestion({
+        type: 'association',
+        choices: undefined,
+        correctTextAnswerList: ['正解'],
+        associationHints: ['ヒントA', 'ヒントB'],
+      });
+
       const quiz = makeQuiz({
         format: 'mixed',
-        questions: [mcQuestion, tiQuestion],
+        questions: [mcQuestion, tfQuestion, tiQuestion, stQuestion, asQuestion],
       });
       const errors = validateQuizForPublish(quiz);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);

@@ -95,7 +95,7 @@ describe('mapAiJsonToQuestions', () => {
     expect(() => mapAiJsonToQuestions(raw, 'mixed')).toThrow('invalid-type');
   });
 
-  test('mixed allowlist の4種のみ許可する', () => {
+  test('mixed allowlist の許可形式のみ許可する', () => {
     const raw = Array.from({ length: AI_QUIZ_QUESTION_COUNT }, (_, i) => {
       const type = MIXED_ALLOWED_QUESTION_TYPES[i % MIXED_ALLOWED_QUESTION_TYPES.length];
       if (type === 'sorting') {
@@ -115,6 +115,15 @@ describe('mapAiJsonToQuestions', () => {
           questionText: `記述問題${i}`,
           explanation: `解説${i}`,
           correctTextAnswerList: ['正解'],
+        };
+      }
+      if (type === 'association') {
+        return {
+          type,
+          questionText: `連想問題${i}`,
+          explanation: `解説${i}`,
+          correctTextAnswerList: ['正解'],
+          associationHints: ['ヒント1', 'ヒント2'],
         };
       }
       return makeMcItem(i);
