@@ -416,7 +416,7 @@ export async function updateQuiz(
         incorrectCount: q.incorrectCount || 0,
       });
 
-      batch.set(qDocRef, fullQuestion);
+      batch.set(qDocRef, cleanUndefined(fullQuestion));
       newQuestionIds.push(qId);
       processedQuestions.push(fullQuestion);
     }
@@ -500,7 +500,7 @@ export async function updateQuiz(
     }
   }
 
-  batch.update(quizDocRef, updatePayload);
+  batch.update(quizDocRef, cleanUndefined(updatePayload));
   await batch.commit();
 }
 
@@ -556,6 +556,29 @@ async function findQuizIdsContainingQuestion(questionId: string): Promise<string
 function stripEditorOnlyFields(question: Question): Question {
   const { linkKind: _linkKind, ...rest } = question;
   return rest as Question;
+}
+
+/**
+ * オブジェクトから値が undefined のプロパティを再帰的に取り除く
+ */
+export function cleanUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined) as any;
+  }
+  if (typeof obj === 'object') {
+    const newObj: any = {};
+    for (const key of Object.keys(obj)) {
+      const val = (obj as any)[key];
+      if (val !== undefined) {
+        newObj[key] = cleanUndefined(val);
+      }
+    }
+    return newObj;
+  }
+  return obj;
 }
 
 /**
@@ -616,7 +639,7 @@ export async function saveQuiz(
       correctCount: q.correctCount || 0,
       incorrectCount: q.incorrectCount || 0,
     });
-    batch.set(qDocRef, fullQuestion);
+    batch.set(qDocRef, cleanUndefined(fullQuestion));
     questionIds.push(qId);
     processedQuestions.push(fullQuestion);
   }
@@ -677,7 +700,7 @@ export async function saveQuiz(
     }
   }
 
-  batch.set(quizDocRef, payload);
+  batch.set(quizDocRef, cleanUndefined(payload));
   await batch.commit();
 
   return quizId;

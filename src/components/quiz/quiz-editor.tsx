@@ -1145,6 +1145,21 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         setValidationErrors(errors);
         setErrorText('公開バリデーションエラーが発生しました。内容を修正してください。');
         setLoading(false);
+
+        // エラーがある問題カードを自動的に展開
+        const errorQuestionIds = errors
+          .filter((e) => e.questionIndex != null)
+          .map((e) => questions[e.questionIndex!]?.id)
+          .filter(Boolean) as string[];
+
+        if (errorQuestionIds.length > 0) {
+          setCollapsedIds((prev) => {
+            const next = new Set(prev);
+            errorQuestionIds.forEach((id) => next.delete(id));
+            return next;
+          });
+        }
+
         scrollToFirstValidationError(errors);
         return;
       }
@@ -1165,6 +1180,21 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         setValidationErrors(draftErrors);
         setErrorText('下書き保存できません。未入力の項目を確認してください。');
         setLoading(false);
+
+        // エラーがある問題カードを自動的に展開
+        const errorQuestionIds = draftErrors
+          .filter((e) => e.questionIndex != null)
+          .map((e) => questions[e.questionIndex!]?.id)
+          .filter(Boolean) as string[];
+
+        if (errorQuestionIds.length > 0) {
+          setCollapsedIds((prev) => {
+            const next = new Set(prev);
+            errorQuestionIds.forEach((id) => next.delete(id));
+            return next;
+          });
+        }
+
         scrollToFirstValidationError(draftErrors);
         return;
       }

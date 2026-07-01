@@ -74,3 +74,47 @@ describe('QuizEditor AI Chat Integration', () => {
     expect(screen.getByRole('button', { name: '全問包括チェック' })).toBeInTheDocument();
   });
 });
+
+describe('QuizEditor Validation Auto Expand', () => {
+  it('バリデーションエラーが発生した際、折りたたまれていた問題カードが自動的に展開されること', async () => {
+    // window.scrollTo と scrollIntoView をモック
+    const originalScrollTo = window.scrollTo;
+    window.scrollTo = jest.fn();
+    const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+    window.HTMLElement.prototype.scrollIntoView = jest.fn();
+
+    render(
+      <QuizEditorContent
+        quizId={undefined}
+        initialGenres={[]}
+        initialQuiz={null}
+      />
+    );
+
+    // 初期状態では1つの問題があり、展開されている（aria-expanded="true"）
+    const toggleButton = screen.getByTitle('折りたたむ');
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('問題文（必須）')).toBeInTheDocument();
+
+    // 問題カードを折りたたむ
+    const { fireEvent, act } = require('@testing-library/react');
+    fireEvent.click(toggleButton);
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('問題文（必須）')).not.toBeInTheDocument();
+
+    // 「公開」ボタンをクリックしてバリデーションを実行する
+    const publishButton = screen.getByRole('button', { name: '公開' });
+    
+    await act(async () => {
+      fireEvent.click(publishButton);
+    });
+
+    // バリデーションエラー（問題文未入力）が発生し、問題カードが自動展開されるはず
+    expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('問題文（必須）')).toBeInTheDocument();
+
+    // 元に戻す
+    window.scrollTo = originalScrollTo;
+    window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  });
+});
