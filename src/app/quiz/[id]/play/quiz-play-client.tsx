@@ -79,8 +79,6 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
   const rawMode = searchParams.get('mode') || 'normal';
   const myQuizMode = rawMode === 'my-quiz';
   const playMode = rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral' | 'my-quiz';
-  const effectivePlayMode: 'normal' | 'exam' | 'flashcard' | 'lateral' =
-    myQuizMode ? 'normal' : (rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral');
   const questionIdParam = searchParams.get('questionId');
   const startAtQuestionId = searchParams.get('startAtQuestionId');
 
@@ -194,7 +192,16 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     questions: playQuestions,
     manualAdvance: isNormalFeedbackFlow,
     elapsedPolicy: isNormalFeedbackFlow ? elapsedPolicy : undefined,
+    persistSession: quizId !== 'my-quiz',
   });
+
+  const currentQuestion = quiz?.questions?.[currentIdx];
+  const currentQuestionFormat = (currentQuestion as any)?.format || 'normal';
+
+  const effectivePlayMode: 'normal' | 'exam' | 'flashcard' | 'lateral' =
+    myQuizMode
+      ? (currentQuestionFormat === 'flashcard' ? 'flashcard' : 'normal')
+      : (rawMode as 'normal' | 'exam' | 'flashcard' | 'lateral');
 
   useEffect(() => {
     const q = playQuestions[currentIdx];
@@ -330,6 +337,75 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
 
   const handlePlayComplete = async (finalScore = score, finalFailed = failedIds) => {
     if (!quiz) return;
+
+    if (quiz.id === 'my-quiz') {
+      clearSession();
+      const details = questionAnswerDetails;
+      const sessionId = searchParams.get('sessionId') || '';
+
+      sessionStorage.setItem(
+        'quizetika_my_quiz_result',
+        JSON.stringify({
+          score: finalScore,
+          totalQuestions: playQuestions.length,
+          elapsedSeconds,
+          details,
+        })
+      );
+
+      if (online) {
+        try {
+          const parentQuizMap = new Map<string, string>();
+          const { readMyQuizSession } = await import('@/lib/my-quiz-session');
+          const session = readMyQuizSession();
+          if (session) {
+            session.entries.forEach((e) => {
+              parentQuizMap.set(e.questionId, e.parentQuizId);
+            });
+          }
+
+          await Promise.all(
+            details.map(async (detail) => {
+              const pQuizId = parentQuizMap.get(detail.questionId) || quizId;
+              const attemptData = {
+                userId: user?.id || 'guest',
+                quizId: pQuizId,
+                listId: null,
+                sessionId: sessionId || null,
+                mode: 'my-quiz' as const,
+                score: detail.isCorrect ? 1 : 0,
+                totalQuestions: 1,
+                elapsedSeconds: Math.round(detail.elapsedSeconds),
+                failedQuestionIds: detail.isCorrect ? [] : [detail.questionId],
+                questionAnswers: { [detail.questionId]: detail.userAnswer || detail.selectedChoiceId || '' },
+                questionAnswerDetails: [detail],
+                aiTurnCount: 0,
+                aiTurnLimit: null,
+              };
+              return await saveAttempt(attemptData);
+            })
+          );
+
+          if (user && finalFailed.length > 0) {
+            await updateFailedQuestionsCount(user.id, finalFailed.length);
+          }
+
+          triggerResultTransition(() => {
+            router.push(`/my-quiz/result?sessionId=${sessionId}`);
+          });
+        } catch (error) {
+          console.error('[QuizPlay] カスタムクイズ保存失敗:', error);
+          triggerResultTransition(() => {
+            router.push(`/my-quiz/result?sessionId=${sessionId}`);
+          });
+        }
+      } else {
+        triggerResultTransition(() => {
+          router.push(`/my-quiz/result?sessionId=${sessionId}`);
+        });
+      }
+      return;
+    }
 
     const attemptData = buildAttemptData(finalScore, finalFailed);
     clearSession();
@@ -973,7 +1049,6 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     }
   };
 
-  const currentQuestion = quiz.questions[currentIdx];
   const progressPercent = playQuestions.length > 0 ? (answeredIds.length / playQuestions.length) * 100 : 0;
   const isLastQuestion = currentIdx >= playQuestions.length - 1;
   const showNormalFeedback =
@@ -1003,7 +1078,11 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       {/* プレイ画面ヘッダー情報 */}
       <div className={styles.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <Link href={`/quiz/${quiz.id}`} className={styles.backBtn} onClick={clearSession}>
+          <Link
+            href={quiz.id === 'my-quiz' ? '/my-quiz' : `/quiz/${quiz.id}`}
+            className={styles.backBtn}
+            onClick={clearSession}
+          >
             <ArrowBackOutlined sx={{ fontSize: 16 }} />
             中断する
           </Link>
@@ -1448,6 +1527,75 @@ export function QuizPlayClientBoundary({ quizId, initialQuiz }: QuizPlayClientPr
 
     async function loadQuiz() {
       try {
+        if (quizId === 'my-quiz') {
+          const { readMyQuizSession } = await import('@/lib/my-quiz-session');
+          const session = readMyQuizSession();
+          if (!session || !session.entries || session.entries.length === 0) {
+            setLoading(false);
+            return;
+          }
+
+          const { getQuestion } = await import('@/services/question');
+          const questions = await Promise.all(
+            session.entries.map(async (entry) => {
+              const q = await getQuestion(entry.questionId);
+              if (q) {
+                return {
+                  ...q,
+                  parentQuizId: entry.parentQuizId,
+                  format: entry.format || 'normal',
+                } as Question;
+              }
+              return null;
+            })
+          );
+
+          const validQuestions = questions.filter((q): q is Question => q !== null);
+          if (validQuestions.length === 0) {
+            setLoading(false);
+            return;
+          }
+
+          const virtualQuiz: Quiz = {
+            id: 'my-quiz',
+            authorId: 'system',
+            authorName: 'システム',
+            authorAvatar: '',
+            title: 'カスタムクイズ',
+            description: 'かき集めた問題のカスタムクイズです',
+            thumbnailUrl: null,
+            difficulty: 3,
+            genre: 'general',
+            tags: [],
+            originalTags: [],
+            questionIds: validQuestions.map((q) => q.id),
+            questions: validQuestions,
+            questionCount: validQuestions.length,
+            status: 'published',
+            flagsCount: 0,
+            playCount: 0,
+            bookmarksCount: 0,
+            positiveCount: 0,
+            negativeCount: 0,
+            tempPositiveCount: 0,
+            tempNegativeCount: 0,
+            reviewScore: null,
+            reviewBadge: null,
+            isReviewMasked: false,
+            activeResetRequestId: null,
+            canonicalGenreId: 'general',
+            canonicalTagIds: [],
+            leaderboardFirstPlay: [],
+            leaderboardReplay: [],
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          setQuiz(virtualQuiz);
+          setLoading(false);
+          return;
+        }
+
         const data = await getQuiz(quizId);
         if (data) {
           const plainQuiz = JSON.parse(

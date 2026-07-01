@@ -110,6 +110,9 @@ export function QuizResultClient({
   // 特定の問題に対する間違い指摘用
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
 
+  // 一括開閉用
+  const [allOpen, setAllOpen] = useState<boolean>(false);
+
   // アテンプトの非同期ロード（localId やサーバー未取得時のみ）
   useEffect(() => {
     if (initialAttempt) {
@@ -908,9 +911,19 @@ export function QuizResultClient({
 
       {/* 問題正誤リストおよび解説表示 */}
       <section className={styles.questionsList}>
-        <h2 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-main)' }}>
-          問題ごとの解説
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--text-main)' }}>
+            問題ごとの解説
+          </h2>
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+            onClick={() => setAllOpen((prev) => !prev)}
+            data-testid="expand-all-btn"
+          >
+            {allOpen ? 'すべて折りたたむ' : 'すべて展開する'}
+          </button>
+        </div>
 
         {(quiz.questions ?? []).map((q, idx) => {
           const isCorrect = !attempt.failedQuestionIds.includes(q.id);
@@ -984,7 +997,11 @@ export function QuizResultClient({
                 className={styles.questionTextResult}
               />
 
-              <ResultQuestionDetailsAccordion questionId={q.id}>
+              <ResultQuestionDetailsAccordion
+                key={`${q.id}_${allOpen}`}
+                questionId={q.id}
+                defaultOpen={allOpen}
+              >
                 <div className={styles.answerSummary}>
                   <div className={styles.answerRow}>
                     <span className={styles.answerLabel}>あなたの回答</span>

@@ -3,6 +3,7 @@ export const MY_QUIZ_SESSION_KEY = 'quizetika_my_quiz_session';
 export interface MyQuizSessionEntry {
   questionId: string;
   parentQuizId: string;
+  format?: string;
 }
 
 export interface MyQuizSession {

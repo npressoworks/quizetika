@@ -4,7 +4,6 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import {
   initMyQuizSession,
-  buildMyQuizPlayUrl,
 } from '@/lib/my-quiz-session';
 import type { MyQuizSessionEntry } from '@/lib/my-quiz-session';
 import { Button } from '@/components/ui/button';
@@ -33,8 +32,7 @@ export function MyQuizPreviewBar({
     if (entries.length === 0) return;
     const sessionId = crypto.randomUUID();
     initMyQuizSession(sessionId, entries);
-    const session = { sessionId, entries, currentIndex: 0 };
-    router.push(buildMyQuizPlayUrl(session, 0));
+    router.push(`/quiz/my-quiz/play?mode=my-quiz&sessionId=${sessionId}`);
   };
 
   return (

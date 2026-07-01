@@ -66,7 +66,11 @@ function judgeAnswer(
 
   let isCorrect = false;
 
-  if (mode === 'flashcard') {
+  const effectiveMode = (mode === 'normal' && (currentQuestion as any).format === 'flashcard')
+    ? 'flashcard'
+    : mode;
+
+  if (effectiveMode === 'flashcard') {
     isCorrect = answerTextOrChoiceId === 'correct';
   } else if (currentQuestion.type === 'multiple-choice' || currentQuestion.type === 'true-false') {
     isCorrect = isChoiceAnswerCorrect(answerTextOrChoiceId, currentQuestion);

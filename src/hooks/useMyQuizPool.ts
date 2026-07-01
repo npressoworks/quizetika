@@ -67,6 +67,7 @@ export function buildFinalEntries(
   return ordered.slice(0, effective).map((c) => ({
     questionId: c.questionId,
     parentQuizId: c.parentQuizId,
+    format: c.format,
   }));
 }
 
