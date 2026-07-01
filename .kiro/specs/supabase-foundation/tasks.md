@@ -41,16 +41,16 @@
   - _Boundary: supabase/migrations/_
   - _Depends: 2.1_
 
-- [ ] 3. Core: RLS（Row Level Security）とストレージバケット定義
-- [ ] 3.1 データベース RLS ポリシーの定義
+- [x] 3. Core: RLS（Row Level Security）とストレージバケット定義
+- [x] 3.1 データベース RLS ポリシーの定義
   - 各テーブル（`users`, `quizzes`, `bookmarks`, `attempts` 等）に対し、RLS ポリシー（`ENABLE ROW LEVEL SECURITY`）を有効化し、Firestore Rules 準拠のポリシーを定義する。
   - BAN ユーザー（`is_banned = true`）による書き込みを共通で拒否するポリシーを設定する。
-  - 成果物確認: SQL ファイルに全テーブルに対する RLS 有効化コマンドとポリシーが正しく記述されていること。
+  - 成果物確認: SQL マイグレーションファイルに全テーブルに対する RLS 有効化コマンドとポリシーが正しく記述されていること。
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10_
   - _Boundary: supabase/migrations/_
   - _Depends: 2.1, 2.2_
 
-- [ ] 3.2 (P) ストレージバケットの作成とアクセスポリシー
+- [x] 3.2 (P) ストレージバケットの作成とアクセスポリシー
   - マイグレーションファイルまたは初期設定として、4つのバケット（`quizzes`, `users`, `genres`, `sns-logos`）の作成と設定を定義する。
   - `sns-logos` は public バケット、他は RLS 制限バケットとし、容量制限（10MB）や MIME タイプ制限（PNG/JPEG/GIF のみ）を適用する。
   - 成果物確認: ストレージバケットおよびストレージ用の RLS ポリシーが SQL または構成内に記述されていること。

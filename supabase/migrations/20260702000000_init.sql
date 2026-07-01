@@ -296,3 +296,163 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- ==========================================
+-- RLSポリシーの定義
+-- ==========================================
+
+-- RLSの有効化
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quizzes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookmarks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE feedback_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quiz_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE search_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE flags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE quiz_lists ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_ai_authoring_counts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leaderboard_entries ENABLE ROW LEVEL SECURITY;
+
+-- 1. users
+CREATE POLICY users_read ON users FOR SELECT USING (TRUE);
+CREATE POLICY users_update ON users FOR UPDATE 
+    USING (auth.uid() = id AND is_not_banned())
+    WITH CHECK (
+        auth.uid() = id 
+        AND moderation_tier = OLD.moderation_tier
+        AND reputation_score = OLD.reputation_score
+        AND subscription_tier = OLD.subscription_tier
+    );
+
+-- 2. quizzes
+CREATE POLICY quizzes_read ON quizzes FOR SELECT
+    USING (
+        status = 'published' AND visibility = 'public'
+        OR (auth.uid() = author_id)
+        OR (visibility = 'followers' AND EXISTS (
+            SELECT 1 FROM follows WHERE follower_id = auth.uid() AND following_id = quizzes.author_id
+        ))
+    );
+CREATE POLICY quizzes_write ON quizzes FOR ALL
+    USING (auth.uid() = author_id AND is_not_banned());
+
+-- 3. questions
+CREATE POLICY questions_read ON questions FOR SELECT USING (TRUE);
+CREATE POLICY questions_write ON questions FOR ALL
+    USING (auth.uid() = author_id AND is_not_banned());
+
+-- 4. attempts
+CREATE POLICY attempts_all ON attempts FOR ALL
+    USING (auth.uid() = user_id AND is_not_banned());
+
+-- 5. follows
+CREATE POLICY follows_all ON follows FOR ALL
+    USING ((auth.uid() = follower_id OR auth.uid() = following_id) AND is_not_banned());
+
+-- 6. bookmarks
+CREATE POLICY bookmarks_all ON bookmarks FOR ALL
+    USING (auth.uid() = user_id AND is_not_banned());
+
+-- 7. feedback_reports
+CREATE POLICY feedback_reports_read ON feedback_reports FOR SELECT
+    USING (auth.uid() = creator_id OR auth.uid() = reporter_id);
+CREATE POLICY feedback_reports_write ON feedback_reports FOR INSERT
+    WITH CHECK (auth.uid() = reporter_id AND is_not_banned());
+CREATE POLICY feedback_reports_update ON feedback_reports FOR UPDATE
+    USING (auth.uid() = creator_id AND is_not_banned());
+
+-- 8. quiz_reviews
+CREATE POLICY quiz_reviews_read ON quiz_reviews FOR SELECT USING (TRUE);
+CREATE POLICY quiz_reviews_write ON quiz_reviews FOR ALL
+    USING (auth.uid() = reviewer_id AND is_not_banned());
+
+-- 9. notifications
+CREATE POLICY notifications_all ON notifications FOR ALL
+    USING (auth.uid() = user_id AND is_not_banned());
+
+-- 10. announcements
+CREATE POLICY announcements_read ON announcements FOR SELECT 
+    USING (status = 'published' OR EXISTS (
+        SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'
+    ));
+CREATE POLICY announcements_write ON announcements FOR ALL
+    USING (EXISTS (
+        SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'
+    ));
+
+-- 11. admin_logs
+CREATE POLICY admin_logs_policy ON admin_logs FOR ALL USING (FALSE); -- クライアントからは全遮断
+
+-- 12. search_logs
+CREATE POLICY search_logs_insert ON search_logs FOR INSERT
+    WITH CHECK (auth.uid() = user_id AND is_not_banned());
+
+-- 13. flags
+CREATE POLICY flags_insert ON flags FOR INSERT
+    WITH CHECK (auth.uid() = reporter_id AND is_not_banned());
+CREATE POLICY flags_read ON flags FOR SELECT
+    USING (EXISTS (
+        SELECT 1 FROM users WHERE id = auth.uid() AND moderation_tier IN ('moderator', 'senior_moderator', 'admin')
+    ));
+
+-- 14. quiz_lists
+CREATE POLICY quiz_lists_all ON quiz_lists FOR ALL
+    USING (auth.uid() = author_id AND is_not_banned());
+
+-- 15. daily_ai_authoring_counts
+CREATE POLICY daily_ai_authoring_counts_read ON daily_ai_authoring_counts FOR SELECT
+    USING (auth.uid() = user_id);
+
+-- 16. leaderboard_entries
+CREATE POLICY leaderboard_entries_read ON leaderboard_entries FOR SELECT USING (TRUE);
+CREATE POLICY leaderboard_entries_write ON leaderboard_entries FOR ALL
+    USING (auth.uid() = user_id AND is_not_banned());
+
+-- ==========================================
+-- ストレージバケット & ストレージアクセスポリシー定義
+-- ==========================================
+
+-- バケットの作成と制限の設定 (容量制限 10MB = 10485760 bytes, MIMEタイプ制限)
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES 
+    ('quizzes', 'quizzes', false, 10485760, ARRAY['image/png', 'image/jpeg', 'image/gif']),
+    ('users', 'users', false, 10485760, ARRAY['image/png', 'image/jpeg', 'image/gif']),
+    ('genres', 'genres', false, 10485760, ARRAY['image/png', 'image/jpeg', 'image/gif']),
+    ('sns-logos', 'sns-logos', true, 10485760, ARRAY['image/png', 'image/jpeg', 'image/gif'])
+ON CONFLICT (id) DO UPDATE 
+SET 
+    public = EXCLUDED.public,
+    file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- ストレージ用 RLS ポリシー定義
+CREATE POLICY "Public Read Access for sns-logos"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'sns-logos');
+
+CREATE POLICY "Authenticated Read Access for buckets"
+ON storage.objects FOR SELECT
+USING (bucket_id IN ('quizzes', 'users', 'genres'));
+
+CREATE POLICY "Authenticated Insert Access for buckets"
+ON storage.objects FOR INSERT
+WITH CHECK (
+    auth.role() = 'authenticated'
+    AND is_not_banned()
+    AND bucket_id IN ('quizzes', 'users', 'genres')
+);
+
+CREATE POLICY "Authenticated Delete Access for buckets"
+ON storage.objects FOR DELETE
+USING (
+    auth.role() = 'authenticated'
+    AND is_not_banned()
+    AND bucket_id IN ('quizzes', 'users', 'genres')
+);
+
+
