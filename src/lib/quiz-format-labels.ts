@@ -26,7 +26,7 @@ export function getFormatLabel(fmt: string): string {
 export function getFormatDescription(fmt: string): string {
   switch (fmt) {
     case 'mixed':
-      return '選択式・記述式・並び替えを自由に組み合わせ可能';
+      return '選択式・〇✕式・記述式・並び替え・連想を自由に組み合わせ可能';
     case 'multiple-choice':
       return '複数の選択肢から1つの正解を選ぶ定番クイズ';
     case 'true-false':

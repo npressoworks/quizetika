@@ -248,3 +248,38 @@
   - _Requirements: 8.5, 8.6, 8.7_
   - _Boundary: Integration_
   - _Depends: 12.2, 12.3_
+
+---
+
+## 13. Phase 31: 複合形式における許容問題形式の拡張 (2026-07)
+
+- [x] 13.1 問題タイプトグルへの「連想」追加
+  - `src/components/quiz/editor/question-card.tsx` の `format === 'mixed'` 条件における問題タイプトグル（`typeToggle`）に「連想」用の `<button type="button">` を追加し、`handlers.onToggleQuestionType(qIdx, 'association')` を紐付ける
+  - **完了状態**: 複合形式クイズの編集時に、トグルボタンに「連想」が表示され、クリック時に問題形式が連想形式に切り替わること
+  - _Requirements: 31.1_
+  - _Boundary: QuestionCard_
+
+- [x] 13.2 形式変更時の「連想」形式維持ロジックの追加
+  - `src/components/quiz/quiz-editor.tsx` の `handleFormatChange`（または対応するハンドラ）における問題形式強制変更判定の `allowedTypes` 配列に `'association'` を追加する
+  - **完了状態**: クイズ全体の出題形式を「複合」に切り替えた際、すでに作成済みの連想問題が強制リセットされず維持されること
+  - _Requirements: 31.2_
+  - _Boundary: QuizEditorContent_
+
+- [x] 13.3 複合形式の説明テキスト更新
+  - `src/lib/quiz-format-labels.ts` の `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕式・記述式・並び替え・連想を自由に組み合わせ可能」へ更新する
+  - **完了状態**: エディタ画面などで複合形式の説明が更新され、連想問題が組み合わせ可能であることが表示されること
+  - _Requirements: 31.3_
+  - _Boundary: QuizFormatLabels_
+
+- [x] 13.4 UIおよびリグレッション検証
+  - クイズエディタ関連の Jest テストおよび E2E テストを実行し、複合形式での連想形式切り替えや維持が回帰なく動作することを確認する
+  - **完了状態**: `npm run build` がエラーなく成功し、関連するテストがすべてグリーンでパスすること
+  - _Requirements: 31.1, 31.2_
+  - _Depends: 13.1, 13.2, 13.3_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 31)
+
+- 実装順: 13.1 → 13.2 → 13.3 → 13.4。
+- クイズ全体の出題形式（format）を `mixed` にしたときに、`association` が `allowedTypes` に追加されることで、既存の連想問題が破壊されずにエディタUI上で維持されることを確認します。
+

@@ -217,6 +217,14 @@ export function QuestionCard({
                   >
                     並び替え
                   </button>
+                  <button
+                    type="button"
+                    className={`${editorClasses.toggleBtn} ${question.type === 'association' ? editorClasses.toggleBtnActive : ''}`}
+                    onClick={() => handlers.onToggleQuestionType(qIdx, 'association')}
+                    data-testid="question-type-association"
+                  >
+                    連想式
+                  </button>
                 </div>
               ) : (
                 <div className="mb-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-muted/20 px-3.5 py-2.5 text-sm text-muted-foreground">

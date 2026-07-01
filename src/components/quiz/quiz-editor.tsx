@@ -403,7 +403,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     const nextQuestions = questions.map((q) => {
       let targetType = q.type;
       if (newFormat === 'mixed') {
-        const allowedTypes = ['multiple-choice', 'true-false', 'text-input', 'sorting'];
+        const allowedTypes = ['multiple-choice', 'true-false', 'text-input', 'sorting', 'association'];
         if (!allowedTypes.includes(q.type)) {
           targetType = 'multiple-choice';
         }
