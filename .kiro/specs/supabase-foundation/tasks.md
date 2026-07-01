@@ -24,8 +24,8 @@
   - _Requirements: 6.1_
   - _Boundary: supabase/config.toml_
 
-- [ ] 2. Core: PostgreSQL DDL とインデックス設計
-- [ ] 2.1 テーブルスキーマおよびインデックス DDL 定義
+- [x] 2. Core: PostgreSQL DDL とインデックス設計
+- [x] 2.1 テーブルスキーマおよびインデックス DDL 定義
   - `supabase/migrations/20260702000000_init.sql` を新規作成する。
   - 22のテーブル（`users`, `quizzes`, `questions` 等）の DDL を定義する。主キーは UUID（`gen_random_uuid()` 優先）、日付は `timestamptz DEFAULT now()` とする。
   - 外部キー制約、チェック制約、および必要なインデックス（`quizzes` の検索/ソート複合インデックス、タグ検索用 GIN インデックス等）を定義する。
@@ -33,7 +33,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 4.1, 4.2, 4.3, 4.4, 4.5_
   - _Boundary: supabase/migrations/_
 
-- [ ] 2.2 (P) 共通ヘルパー関数および RPC 定義
+- [x] 2.2 (P) 共通ヘルパー関数および RPC 定義
   - `supabase/migrations/20260702000000_init.sql` または追加のマイグレーションファイルに、RLS で利用する共通ヘルパー関数（`is_not_banned` 等）を定義する。
   - 関数定義には `SECURITY DEFINER` または `SECURITY INVOKER` を適切に設定し、データベース内アクセスを最適化する。
   - 成果物確認: PostgreSQL 関数が SQL 定義内に含まれており、正常にコンパイル可能な状態であること。
