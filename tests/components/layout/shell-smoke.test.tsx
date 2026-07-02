@@ -20,8 +20,7 @@ jest.mock('@/context/auth-context', () => ({
   useAuth: () => mockUseAuth(),
 }));
 
-jest.mock('@/lib/firebase/config', () => ({ auth: {} }));
-jest.mock('@/lib/firebase/auth', () => ({ signOut: jest.fn() }));
+jest.mock('@/lib/supabase/auth', () => ({ signOut: jest.fn() }));
 
 describe('shell components smoke', () => {
   test('BottomNav renders for logged-out user', () => {

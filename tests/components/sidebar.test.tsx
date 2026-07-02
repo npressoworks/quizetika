@@ -26,12 +26,7 @@ jest.mock('@/context/auth-context', () => ({
     loading: mockLoading,
   }),
 }));
-
-jest.mock('@/lib/firebase/config', () => ({
-  auth: {},
-}));
-
-jest.mock('@/lib/firebase/auth', () => ({
+jest.mock('@/lib/supabase/auth', () => ({
   signOut: jest.fn(() => Promise.resolve()),
 }));
 

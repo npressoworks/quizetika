@@ -1069,6 +1069,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      handle_check_and_award_badges: {
+        Args: { p_badges: Json; p_user_id: string }
+        Returns: Json
+      }
+      handle_follow_user: {
+        Args: { p_follower_id: string; p_following_id: string }
+        Returns: boolean
+      }
+      handle_unfollow_user: {
+        Args: { p_follower_id: string; p_following_id: string }
+        Returns: boolean
+      }
       is_not_banned: { Args: never; Returns: boolean }
     }
     Enums: {
