@@ -1,17 +1,4 @@
-import {
-  doc,
-  getDoc,
-  query,
-  where,
-  getDocs,
-  runTransaction,
-  setDoc,
-  type DocumentData,
-  type DocumentReference,
-  documentId,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
-import { bookmarksRef, quizzesRef, questionsRef, usersRef } from '../lib/firebase/firestore';
+import { createClient } from '../lib/supabase/client';
 import {
   Bookmark,
   Quiz,
@@ -21,6 +8,11 @@ import {
 } from '../types';
 import { assertParentQuizPublished, assertQuizBookmarkable } from '../lib/bookmark-validation';
 import { createNotification } from './notification';
+import { Database } from '../lib/supabase/database.types';
+import { mapRowToQuiz } from './quiz';
+import { mapQuestionRowToQuestion, mapQuestionToRow } from './question';
+
+const supabase = createClient();
 
 // テスト環境かどうかを判定するためのフラグ
 // E2Eテスト実行時（NEXT_PUBLIC_ENVがtest）にのみtrueとなります
@@ -44,50 +36,35 @@ function getBookmarkDocId(userId: string, targetId: string): string {
   return `${userId}_${targetId}`;
 }
 
-function bookmarkCreatedAtMs(val: unknown): number {
-  if (!val) return 0;
-  if (val instanceof Date) return val.getTime();
-  if (val && typeof val === 'object') {
-    const obj = val as Record<string, unknown>;
-    if (typeof obj.toDate === 'function') {
-      return (obj.toDate as () => Date)().getTime();
-    }
-    if (typeof obj.seconds === 'number') {
-      return obj.seconds * 1000;
-    }
-  }
-  if (typeof val === 'string' || typeof val === 'number') {
-    const date = new Date(val);
-    return isNaN(date.getTime()) ? 0 : date.getTime();
-  }
-  return 0;
+function mapRowToBookmark(row: Database['public']['Tables']['bookmarks']['Row']): Bookmark {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    targetId: row.target_id,
+    targetType: row.target_type as 'quiz' | 'question',
+    createdAt: new Date(row.created_at),
+  };
 }
 
-function sortBookmarksByCreatedAtDesc(bookmarkDocs: Bookmark[]): Bookmark[] {
-  return [...bookmarkDocs].sort(
-    (a, b) => bookmarkCreatedAtMs(b.createdAt) - bookmarkCreatedAtMs(a.createdAt)
-  );
-}
-
-/** createConverter が本文から id を除去するため、ドキュメント ID で直接取得する */
+/** ドキュメント ID で直接取得する */
 async function fetchPublishedQuizzesByDocIds(quizIds: string[]): Promise<Quiz[]> {
   if (quizIds.length === 0) return [];
   const uniqueIds = [...new Set(quizIds)];
-  const chunks = [];
-  for (let i = 0; i < uniqueIds.length; i += 30) {
-    chunks.push(uniqueIds.slice(i, i + 30));
-  }
-  const snaps = await Promise.all(
-    chunks.map((chunk) => getDocs(query(quizzesRef, where(documentId(), 'in', chunk))))
-  );
+  
   const quizzes: Quiz[] = [];
-  snaps.forEach((snap) => {
-    snap.forEach((d) => {
-      const quiz = d.data() as Quiz;
-      if (quiz.status === 'published') {
-        quizzes.push(quiz);
-      }
-    });
+  // Supabase で id 一括取得
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .in('id', uniqueIds);
+
+  if (error || !data) return [];
+
+  data.forEach((row) => {
+    const quiz = mapRowToQuiz(row);
+    if (quiz.status === 'published') {
+      quizzes.push(quiz);
+    }
   });
   return quizzes;
 }
@@ -96,21 +73,27 @@ async function assertQuestionBookmarkable(
   questionId: string,
   viewerUid: string
 ): Promise<Question> {
-  const questionRef = doc(questionsRef, questionId);
-  const questionSnap = await getDoc(questionRef);
+  const { data: questionRow } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('id', questionId)
+    .maybeSingle();
 
   let question: Question;
 
-  if (!questionSnap.exists()) {
-    const parentQuizQuery = query(quizzesRef, where('questionIds', 'array-contains', questionId));
-    const parentQuizSnap = await getDocs(parentQuizQuery);
+  if (!questionRow) {
+    // クイズ内の question_ids 配列にこの問題 ID が含まれているクイズを探す
+    const { data: parentQuizzes } = await supabase
+      .from('quizzes')
+      .select('*')
+      .contains('question_ids', [questionId]);
 
-    if (parentQuizSnap.empty) {
+    if (!parentQuizzes || parentQuizzes.length === 0) {
       throw new Error('Target document does not exist.');
     }
 
-    const quizDoc = parentQuizSnap.docs[0];
-    const quiz = quizDoc.data() as Quiz;
+    const quizRow = parentQuizzes[0];
+    const quiz = mapRowToQuiz(quizRow);
 
     assertParentQuizPublished(quiz.status);
     await assertQuizBookmarkable(quiz, viewerUid);
@@ -132,18 +115,23 @@ async function assertQuestionBookmarkable(
       incorrectCount: foundQuestion.incorrectCount || 0,
     };
 
-    await setDoc(questionRef, restoredQuestion);
+    // データベースの questions テーブルへ保存
+    await supabase.from('questions').insert(mapQuestionToRow(restoredQuestion));
     question = restoredQuestion;
   } else {
-    question = questionSnap.data() as Question;
+    question = mapQuestionRowToQuestion(questionRow);
     if (!question.quizId) {
       throw new Error('Target document does not exist.');
     }
-    const quizSnap = await getDoc(doc(quizzesRef, question.quizId));
-    if (!quizSnap.exists()) {
+    const { data: quizRow } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('id', question.quizId)
+      .maybeSingle();
+    if (!quizRow) {
       throw new Error('Target document does not exist.');
     }
-    const quiz = quizSnap.data() as Quiz;
+    const quiz = mapRowToQuiz(quizRow);
     assertParentQuizPublished(quiz.status);
     await assertQuizBookmarkable(quiz, viewerUid);
   }
@@ -160,9 +148,12 @@ export async function isBookmarked(userId: string, targetId: string): Promise<bo
     return list.some((b: { userId: string; targetId: string }) => b.userId === userId && b.targetId === targetId);
   }
   const docId = getBookmarkDocId(userId, targetId);
-  const docRef = doc(bookmarksRef, docId);
-  const snap = await getDoc(docRef);
-  return snap.exists();
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .select('id')
+    .eq('id', docId)
+    .maybeSingle();
+  return !!data && !error;
 }
 
 /**
@@ -184,11 +175,16 @@ export async function toggleBookmark(
   }
 
   if (targetType === 'quiz' && !isTestEnv) {
-    const quizSnap = await getDoc(doc(quizzesRef, targetId));
-    if (!quizSnap.exists()) {
+    const { data: quizRow } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('id', targetId)
+      .maybeSingle();
+
+    if (!quizRow) {
       throw new Error('Target document does not exist.');
     }
-    quizForNotify = quizSnap.data() as Quiz;
+    quizForNotify = mapRowToQuiz(quizRow);
     const already = await isBookmarked(userId, targetId);
     if (!already) {
       await assertQuizBookmarkable(quizForNotify, userId);
@@ -214,52 +210,27 @@ export async function toggleBookmark(
     localStorage.setItem(MOCK_BOOKMARKS_KEY, JSON.stringify(list));
     return added;
   }
-  const bookmarkDocId = getBookmarkDocId(userId, targetId);
-  const bookmarkDocRef = doc(bookmarksRef, bookmarkDocId);
 
-  const targetDocRef =
-    targetType === 'quiz' ? doc(quizzesRef, targetId) : doc(questionsRef, targetId);
-
-  // Firestore SDK はユニオン型の DocumentReference を受け付けないため DocumentData にキャストする
-  const targetRef = targetDocRef as DocumentReference<DocumentData>;
-
-  const added = await runTransaction(db, async (transaction) => {
-    const bookmarkSnap = await transaction.get(bookmarkDocRef);
-    const targetSnap = await transaction.get(targetRef);
-
-    if (!targetSnap.exists()) {
-      throw new Error('Target document does not exist.');
-    }
-
-    const currentCount = (targetSnap.data() as { bookmarksCount?: number })?.bookmarksCount || 0;
-    const isAlreadyBookmarked = bookmarkSnap.exists();
-
-    if (isAlreadyBookmarked) {
-      transaction.delete(bookmarkDocRef);
-      const newCount = Math.max(0, currentCount - 1);
-      transaction.update(targetRef, { bookmarksCount: newCount });
-      return false;
-    }
-
-    const newBookmark: Bookmark = {
-      id: bookmarkDocId,
-      userId,
-      targetId,
-      targetType,
-      createdAt: new Date(),
-    };
-    transaction.set(bookmarkDocRef, newBookmark as Bookmark);
-
-    const newCount = currentCount + 1;
-    transaction.update(targetRef, { bookmarksCount: newCount });
-    return true;
+  // RPC の呼び出しでアトミックにトグル
+  const { data: added, error } = await supabase.rpc('handle_bookmark_toggle', {
+    p_user_id: userId,
+    p_target_id: targetId,
+    p_target_type: targetType,
   });
 
-  if (added && !isTestEnv) {
-    const senderSnap = await getDoc(doc(usersRef, userId));
-    const sender = senderSnap.exists() ? senderSnap.data() : null;
-    const senderName = (sender as { displayName?: string })?.displayName ?? 'ユーザー';
-    const senderAvatar = (sender as { avatarUrl?: string })?.avatarUrl ?? '';
+  if (error) {
+    throw new Error(`ブックマーク処理のRPC実行に失敗しました: ${error.message}`);
+  }
+
+  if (added) {
+    const { data: senderRow } = await supabase
+      .from('users')
+      .select('display_name, avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const senderName = senderRow?.display_name ?? 'ユーザー';
+    const senderAvatar = senderRow?.avatar_url ?? '';
 
     if (targetType === 'question' && questionForNotify?.authorId && questionForNotify.authorId !== userId) {
       await createNotification({
@@ -298,13 +269,14 @@ export async function getBookmarkedQuizIds(userId: string): Promise<string[]> {
       .map((b: { targetId: string }) => b.targetId);
   }
 
-  const q = query(
-    bookmarksRef,
-    where('userId', '==', userId),
-    where('targetType', '==', 'quiz')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => (d.data() as Bookmark).targetId);
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .select('target_id')
+    .eq('user_id', userId)
+    .eq('target_type', 'quiz');
+
+  if (error || !data) return [];
+  return data.map((d) => d.target_id);
 }
 
 /**
@@ -333,18 +305,17 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
       questionIds: [],
     })) as Quiz[];
   }
-  const q = query(
-    bookmarksRef,
-    where('userId', '==', userId),
-    where('targetType', '==', 'quiz')
-  );
 
-  const snap = await getDocs(q);
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('target_type', 'quiz')
+    .order('created_at', { ascending: false });
 
-  const bookmarkDocs = sortBookmarksByCreatedAtDesc(
-    snap.docs.map((docSnap) => docSnap.data() as Bookmark)
-  );
+  if (error || !data) return [];
 
+  const bookmarkDocs = data.map(mapRowToBookmark);
   const quizIds = bookmarkDocs.map((docSnap) => docSnap.targetId);
 
   if (quizIds.length === 0) return [];
@@ -361,15 +332,16 @@ export async function getBookmarkedQuizzes(userId: string): Promise<Quiz[]> {
 export async function enrichBookmarkedQuestions(
   userId: string
 ): Promise<BookmarkedQuestionEntry[]> {
-  const q = query(
-    bookmarksRef,
-    where('userId', '==', userId),
-    where('targetType', '==', 'question')
-  );
-  const snap = await getDocs(q);
-  const bookmarkDocs = sortBookmarksByCreatedAtDesc(
-    snap.docs.map((d) => d.data() as Bookmark)
-  );
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('target_type', 'question')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+
+  const bookmarkDocs = data.map(mapRowToBookmark);
 
   if (bookmarkDocs.length === 0) return [];
 
@@ -377,18 +349,17 @@ export async function enrichBookmarkedQuestions(
   const questionIds = [...new Set(bookmarkDocs.map((bm) => bm.targetId))];
   const questionMap = new Map<string, Question>();
   if (questionIds.length > 0) {
-    const chunks = [];
-    for (let i = 0; i < questionIds.length; i += 30) {
-      chunks.push(questionIds.slice(i, i + 30));
-    }
-    const snaps = await Promise.all(
-      chunks.map((chunk) => getDocs(query(questionsRef, where(documentId(), 'in', chunk))))
-    );
-    snaps.forEach((s) => {
-      s.forEach((d) => {
-        questionMap.set(d.id, d.data() as Question);
+    const { data: questionsData } = await supabase
+      .from('questions')
+      .select('*')
+      .in('id', questionIds);
+
+    if (questionsData) {
+      questionsData.forEach((row) => {
+        const q = mapQuestionRowToQuestion(row);
+        questionMap.set(q.id, q);
       });
-    });
+    }
   }
 
   // 2. クイズIDを一括取得
@@ -401,18 +372,17 @@ export async function enrichBookmarkedQuestions(
   ];
   const quizMap = new Map<string, Quiz>();
   if (quizIds.length > 0) {
-    const chunks = [];
-    for (let i = 0; i < quizIds.length; i += 30) {
-      chunks.push(quizIds.slice(i, i + 30));
-    }
-    const snaps = await Promise.all(
-      chunks.map((chunk) => getDocs(query(quizzesRef, where(documentId(), 'in', chunk))))
-    );
-    snaps.forEach((s) => {
-      s.forEach((d) => {
-        quizMap.set(d.id, d.data() as Quiz);
+    const { data: quizzesData } = await supabase
+      .from('quizzes')
+      .select('*')
+      .in('id', quizIds);
+
+    if (quizzesData) {
+      quizzesData.forEach((row) => {
+        const quiz = mapRowToQuiz(row);
+        quizMap.set(quiz.id, quiz);
       });
-    });
+    }
   }
 
   // 3. エントリの構築
@@ -427,10 +397,7 @@ export async function enrichBookmarkedQuestions(
       question,
       parentQuizId: quiz.id,
       parentQuizTitle: quiz.title,
-      bookmarkedAt:
-        bm.createdAt instanceof Date
-          ? bm.createdAt
-          : new Date(bookmarkCreatedAtMs(bm.createdAt)),
+      bookmarkedAt: bm.createdAt,
       genreId: quiz.canonicalGenreId ?? quiz.genre ?? 'general',
       difficulty: quiz.difficulty ?? 3,
       tags: quiz.tags ?? [],
