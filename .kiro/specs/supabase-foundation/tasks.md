@@ -74,7 +74,7 @@
   - _Depends: 4.1_
 
 - [ ] 5. Validation: ローカル検証と型自動生成
-- [ ] 5.1 ローカル Supabase 起動と DDL マイグレーション適用テスト
+- [x] 5.1 ローカル Supabase 起動と DDL マイグレーション適用テスト
   - ローカル環境で Docker を起動し、`supabase start` を実行して PostgreSQL, Auth, Storage を起動する。
   - 定義したマイグレーション SQL とシードデータ（`supabase/seed.sql`）が正常に適用され、エラーが発生しないことを確認する。
   - `supabase db reset` が正常に機能することを確認する。
