@@ -1,19 +1,19 @@
 # Implementation Plan - supabase-auth-migration
 
-- [ ] 1. Core Auth Library & Verification (P)
-- [ ] 1.1 認証ラッパーモジュールの作成 (P)
+- [x] 1. Core Auth Library & Verification (P)
+- [x] 1.1 認証ラッパーモジュールの作成 (P)
   - `src/lib/supabase/auth.ts` を新規作成し、Google/Twitter/Microsoft/メール各認証メソッドおよびサインアウト処理を実装する。
   - 成果物確認: `src/lib/supabase/auth.ts` がエラーなく作成され、認証操作用のクライアント呼び出しインターフェースが正しく定義されていること。
   - _Requirements: 1.1, 1.2, 1.3_
   - _Boundary: src/lib/supabase/auth.ts_
 
-- [ ] 1.2 サーバーサイドトークン検証モジュールの作成 (P)
+- [x] 1.2 サーバーサイドトークン検証モジュールの作成 (P)
   - `src/lib/supabase/auth-verify.ts` を新規作成し、Authorization Bearer ヘッダーから抽出した Supabase JWT を検証してユーザー ID を返却する `verifySupabaseAccessToken` を実装する。
   - 成果物確認: `verifySupabaseAccessToken` が定義され、不正なトークンに対して `null` を返却するハンドリングが含まれていること。
   - _Requirements: 4.1, 4.2_
   - _Boundary: src/lib/supabase/auth-verify.ts_
 
-- [ ] 1.3 トークン検証機能のユニットテスト実装
+- [x] 1.3 トークン検証機能のユニットテスト実装
   - `tests/lib/supabase/auth-verify.test.ts` (または同等パス) を作成し、JWT 署名検証、有効期限切れ、および正当なセッションに対するモック検証テストを記述する。
   - 成果物確認: テストコマンドを実行して、トークン検証モジュールのテストが全て PASS すること。
   - _Requirements: 4.1, 4.2_
