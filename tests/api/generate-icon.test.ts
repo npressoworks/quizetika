@@ -71,9 +71,9 @@ const mockStorage = {
   bucket: jest.fn(() => mockBucket),
 };
 
-jest.mock('@/lib/firebase/auth-verify', () => ({
+jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'valid-token',
-  verifyFirebaseIdToken: (...args: any[]) => mockVerify(...args),
+  verifySupabaseAccessToken: (...args: any[]) => mockVerify(...args),
 }));
 
 jest.mock('@google/genai', () => ({

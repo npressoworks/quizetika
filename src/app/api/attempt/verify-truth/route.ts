@@ -21,7 +21,7 @@ import { buildLeaderboardUpdatesForQuiz } from '@/lib/leaderboard-update';
 import { normalizeElapsedSeconds } from '@/lib/format-play-elapsed';
 import { buildVerifyTruthPrompt, parseTruthVerifyResponse } from '@/services/verify-truth-utils';
 import { Attempt, Quiz, QuestionAnswerDetail } from '@/types';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
 
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const token = extractBearerToken(request);
-    const verifiedUid = await verifyFirebaseIdToken(token, userId);
+    const verifiedUid = await verifySupabaseAccessToken(token);
 
     if (!verifiedUid || verifiedUid !== userId) {
       console.warn(`[verify-truth] 認証に失敗しました。要求userId: ${userId}, 検証UID: ${verifiedUid}`);

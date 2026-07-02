@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { getAdminFirestore } from '@/lib/firebase/admin';
 import {
   AlreadySubscribedError,
@@ -15,7 +15,7 @@ import type { PriceInterval } from '@/types/subscription';
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const token = extractBearerToken(request);
-    const uid = await verifyFirebaseIdToken(token);
+    const uid = await verifySupabaseAccessToken(token);
 
     if (!uid) {
       return NextResponse.json(

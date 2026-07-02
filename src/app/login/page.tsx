@@ -4,16 +4,13 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { getSafeRedirectPath } from '@/lib/safe-redirect-path';
-import { auth } from '@/lib/firebase/config';
 import {
-  signInWithPopup,
-  GoogleAuthProvider,
-  TwitterAuthProvider,
-  createMicrosoftAuthProvider,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
-} from '@/lib/firebase/auth';
-import type { AuthProvider } from 'firebase/auth';
+  signInWithGoogle,
+  signInWithTwitter,
+  signInWithMicrosoft,
+  signInWithEmail,
+  signUpWithEmail
+} from '@/lib/supabase/auth';
 import { ErrorOutlined } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { Button } from '@/components/ui/button';
@@ -27,6 +24,9 @@ import {
 } from '@/components/ui/card';
 
 const isMockAuthEnabled = process.env.NEXT_PUBLIC_ENV === 'test';
+
+const isLocalhost = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
 function LoginLoading() {
   return (
@@ -51,68 +51,51 @@ function LoginPageContent() {
     }
   }, [user, loading, router, redirectPath]);
 
-  const getFriendlyErrorMessage = (code: string) => {
-    switch (code) {
-      case 'auth/popup-closed-by-user':
-        return 'ログインがキャンセルされました。もう一度お試しください。';
-      case 'auth/cancelled-popup-request':
-        return '他のポップアップが開いているため処理を中断しました。';
-      case 'auth/popup-blocked':
-        return 'ポップアップがブラウザにブロックされました。ポップアップを許可してください。';
-      case 'auth/operation-not-allowed':
-        return 'このログイン方法は現在利用できません。管理者にお問い合わせください。';
-      case 'auth/account-exists-with-different-credential':
-        return '同じメールアドレスで別の方法で登録済みです。別のログイン方法をお試しください。';
-      default:
-        return 'エラーが発生しました。時間をおいて再度お試しください。';
-    }
-  };
-
-  const handleSocialLogin = async (provider: AuthProvider, providerLabel: string) => {
+  const handleGoogleLogin = async () => {
     setErrorMsg('');
     setSubmitting(true);
-    try {
-      await signInWithPopup(auth, provider);
-      router.push(redirectPath);
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code ?? '';
-      console.error(`${providerLabel} auth error:`, err);
-      setErrorMsg(getFriendlyErrorMessage(code));
-    } finally {
+    const { error } = await signInWithGoogle();
+    if (error) {
+      console.error('Google auth error:', error);
+      setErrorMsg(error.message);
       setSubmitting(false);
     }
   };
 
-  const handleGoogleLogin = () => handleSocialLogin(new GoogleAuthProvider(), 'Google');
-  const handleXLogin = () => handleSocialLogin(new TwitterAuthProvider(), 'X');
-  const handleAzureAdLogin = () => handleSocialLogin(createMicrosoftAuthProvider(), 'Azure AD');
+  const handleXLogin = async () => {
+    setErrorMsg('');
+    setSubmitting(true);
+    const { error } = await signInWithTwitter();
+    if (error) {
+      console.error('X auth error:', error);
+      setErrorMsg(error.message);
+      setSubmitting(false);
+    }
+  };
 
-  const handleE2ETestLogin = isMockAuthEnabled ? async () => {
+  const handleAzureAdLogin = async () => {
+    setErrorMsg('');
+    setSubmitting(true);
+    const { error } = await signInWithMicrosoft();
+    if (error) {
+      console.error('Azure AD auth error:', error);
+      setErrorMsg(error.message);
+      setSubmitting(false);
+    }
+  };
+
+  const handleE2ETestLogin = (isMockAuthEnabled || isLocalhost) ? async () => {
     setErrorMsg('');
     setSubmitting(true);
     const email = 'e2e-test-user@example.com';
     const password = 'e2e-test-password-999';
     try {
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch (err: unknown) {
-        const error = err as { code?: string; message?: string };
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/invalid-email') {
-          await createUserWithEmailAndPassword(auth, email, password);
-        } else if (error.code === 'auth/operation-not-allowed' || error.message?.includes('operation-not-allowed')) {
-          console.warn('Firebase Email Auth is disabled. Falling back to local storage mock login.');
-          const mockUser = {
-            uid: 'e2e-test-uid-123456',
-            email: email,
-            displayName: 'テストユーザー',
-            photoURL: 'https://api.dicebear.com/7.x/bottts/svg?seed=e2e-test-uid-123456',
-            emailVerified: true
-          };
-          localStorage.setItem('quizetika_mock_user', JSON.stringify(mockUser));
-          window.location.href = '/';
-          return;
-        } else {
-          throw err;
+      const { error: signInError } = await signInWithEmail(email, password);
+      if (signInError) {
+        // ログインできない場合は、新規登録を試す
+        const { error: signUpError } = await signUpWithEmail(email, password);
+        if (signUpError) {
+          throw signUpError;
         }
       }
       router.push(redirectPath);
@@ -197,7 +180,7 @@ function LoginPageContent() {
             </Button>
           </div>
 
-          {isMockAuthEnabled && handleE2ETestLogin && (
+          {(isMockAuthEnabled || isLocalhost) && handleE2ETestLogin && (
             <Button
               id="e2e-test-login-btn"
               type="button"

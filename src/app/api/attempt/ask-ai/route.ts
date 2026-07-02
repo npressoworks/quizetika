@@ -23,7 +23,7 @@ import {
   type AiTurnLimitType,
 } from '@/services/ask-ai-utils';
 import { AiQuestion, Attempt, Quiz } from '@/types';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { resolveUserEntitlements } from '@/services/entitlement';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const token = extractBearerToken(request);
-    const verifiedUid = await verifyFirebaseIdToken(token, userId);
+    const verifiedUid = await verifySupabaseAccessToken(token);
 
     if (!verifiedUid || verifiedUid !== userId) {
       console.warn(`[ask-ai] 認証に失敗しました。要求userId: ${userId}, 検証UID: ${verifiedUid}`);

@@ -18,6 +18,7 @@
 
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
 /** moderationTier の優先順位マップ */
 const TIER_RANK: Record<string, number> = {
@@ -40,7 +41,11 @@ function hasSufficientTier(
   return currentRank >= requiredRank;
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  // -------------------------------------------------------------------
+  // 1. Supabase 認証セッションの更新
+  // -------------------------------------------------------------------
+  let response = await updateSession(request);
   const { pathname } = request.nextUrl;
 
   // Cookie からユーザー認証情報を取得
@@ -49,11 +54,23 @@ export function middleware(request: NextRequest) {
   const isBanned = request.cookies.get('quizetika_banned')?.value === 'true';
 
   // -------------------------------------------------------------------
+  // Helper: リダイレクト時に更新された Cookie を引き継ぐ
+  // -------------------------------------------------------------------
+  const createRedirectResponse = (targetUrl: URL, status = 307) => {
+    const redirectRes = NextResponse.redirect(targetUrl, status);
+    // updateSession で更新されたクッキーをリダイレクトレスポンスにコピーする
+    response.cookies.getAll().forEach((cookie) => {
+      redirectRes.cookies.set(cookie.name, cookie.value);
+    });
+    return redirectRes;
+  };
+
+  // -------------------------------------------------------------------
   // BAN ユーザーの強制リダイレクト
   // -------------------------------------------------------------------
   if (isBanned && pathname !== '/banned') {
     const bannedUrl = new URL('/banned', request.url);
-    return NextResponse.redirect(bannedUrl);
+    return createRedirectResponse(bannedUrl, 307);
   }
 
   // -------------------------------------------------------------------
@@ -65,18 +82,17 @@ export function middleware(request: NextRequest) {
       request.cookies.get('quizetika_role')?.value === 'admin';
 
     if (!uid || !isAdminOrSenior) {
-      // 未認証または権限不足の場合は /not-found にリダイレクト（404相当）
       const notFound = new URL('/not-found', request.url);
-      return NextResponse.redirect(notFound);
+      return createRedirectResponse(notFound, 307);
     }
   }
 
-  // /admin, /admin/users, /admin/genres: 管理者のみ (Req 1.1, 7.1, 8.1)
+  // /admin, /admin/users, /admin/genres: 管理者のみ
   if (pathname === '/admin' || pathname.startsWith('/admin/users') || pathname.startsWith('/admin/genres')) {
     const isAdmin = request.cookies.get('quizetika_role')?.value === 'admin';
     if (!uid || !isAdmin) {
       const notFound = new URL('/not-found', request.url);
-      return NextResponse.redirect(notFound);
+      return createRedirectResponse(notFound, 307);
     }
   }
 
@@ -86,18 +102,18 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith('/community/merge')) {
     if (!uid || !hasSufficientTier(moderationTier, 'moderator')) {
       const notFound = new URL('/not-found', request.url);
-      return NextResponse.redirect(notFound);
+      return createRedirectResponse(notFound, 307);
     }
   }
 
   // -------------------------------------------------------------------
-  // /community/genres: 認証済みユーザーのみ（投票タブはページ側で追加制限）
+  // /community/genres: 認証済みユーザーのみ
   // -------------------------------------------------------------------
   if (pathname.startsWith('/community/genres')) {
     if (!uid) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl, 307);
+      return createRedirectResponse(loginUrl, 307);
     }
   }
 
@@ -112,19 +128,19 @@ export function middleware(request: NextRequest) {
   if (requiresAuth && !uid) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl, 307);
+    return createRedirectResponse(loginUrl, 307);
   }
 
   // -------------------------------------------------------------------
-  // クイズ編集: 認証済みユーザーのみ（所有者チェックはページ側）
+  // クイズ編集: 認証済みユーザーのみ
   // -------------------------------------------------------------------
   if (/^\/quiz\/[^/]+\/edit$/.test(pathname) && !uid) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl, 307);
+    return createRedirectResponse(loginUrl, 307);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

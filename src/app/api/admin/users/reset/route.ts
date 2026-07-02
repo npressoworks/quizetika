@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { resetUserReputation } from '@/services/reputation';
 
 /**
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // ── トークン検証による認証チェック ────────────────────
     const token = extractBearerToken(request);
-    const executorId = await verifyFirebaseIdToken(token);
+    const executorId = await verifySupabaseAccessToken(token);
 
     if (!executorId) {
       return NextResponse.json(

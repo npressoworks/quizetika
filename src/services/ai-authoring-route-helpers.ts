@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import type { DocumentReference } from 'firebase-admin/firestore';
 import { getAdminFirestore } from '@/lib/firebase/admin';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { resolveUserEntitlements } from '@/services/entitlement';
 import {
   assertAiAuthoringAccess,
@@ -45,7 +45,7 @@ export async function authorizeAiAuthoringRequest(
   }
 
   const token = extractBearerToken(request);
-  const verifiedUid = await verifyFirebaseIdToken(token, userId);
+  const verifiedUid = await verifySupabaseAccessToken(token);
 
   if (!verifiedUid || verifiedUid !== userId) {
     return {

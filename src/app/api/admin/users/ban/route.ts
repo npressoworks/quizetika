@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { banUser } from '@/services/reputation';
 
 /**
@@ -13,7 +13,7 @@ import { banUser } from '@/services/reputation';
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const token = extractBearerToken(request);
-    const executorId = await verifyFirebaseIdToken(token);
+    const executorId = await verifySupabaseAccessToken(token);
 
     if (!executorId) {
       return NextResponse.json(

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { listUserPlayedQuizIds } from '@/services/attempt';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const verifiedUid = await verifyFirebaseIdToken(token);
+    const verifiedUid = await verifySupabaseAccessToken(token);
     if (!verifiedUid) {
       return NextResponse.json(
         { error: 'unauthorized', message: '認証に失敗しました' },

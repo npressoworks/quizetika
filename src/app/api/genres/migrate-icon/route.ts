@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import path from 'path';
 import { getAdminStorage } from '@/lib/firebase/admin';
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const token = extractBearerToken(request);
-    const verifiedUid = await verifyFirebaseIdToken(token, userId);
+    const verifiedUid = await verifySupabaseAccessToken(token);
 
     if (!verifiedUid || verifiedUid !== userId) {
       return NextResponse.json(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, getDoc } from 'firebase/firestore';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { usersRef } from '@/lib/firebase/firestore';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { seedInitialGenresWithAdmin } from '@/services/seedInitialGenresAdmin';
@@ -15,7 +15,7 @@ import { User } from '@/types';
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const token = extractBearerToken(request);
-    const executorId = await verifyFirebaseIdToken(token);
+    const executorId = await verifySupabaseAccessToken(token);
 
     if (!executorId) {
       return NextResponse.json(

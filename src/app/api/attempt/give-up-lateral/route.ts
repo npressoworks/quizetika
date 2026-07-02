@@ -10,7 +10,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminFirestore } from '@/lib/firebase/admin';
 import { normalizeElapsedSeconds } from '@/lib/format-play-elapsed';
 import { Attempt, Quiz, QuestionAnswerDetail } from '@/types';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const token = extractBearerToken(request);
-    const verifiedUid = await verifyFirebaseIdToken(token, userId);
+    const verifiedUid = await verifySupabaseAccessToken(token);
 
     if (!verifiedUid || verifiedUid !== userId) {
       return NextResponse.json(

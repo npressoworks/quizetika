@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { getDoc } from 'firebase/firestore';
 
 jest.mock('@/lib/firebase/config', () => require('../__mocks__/firebase-config'));
@@ -7,9 +7,9 @@ jest.mock('@/lib/firebase/firestore', () => ({
   usersRef: { path: 'users' },
 }));
 
-jest.mock('@/lib/firebase/auth-verify', () => ({
+jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: jest.fn(),
-  verifyFirebaseIdToken: jest.fn(),
+  verifySupabaseAccessToken: jest.fn(),
 }));
 
 jest.mock('@/services/seedInitialGenresAdmin', () => ({
@@ -26,8 +26,8 @@ jest.mock('firebase/firestore', () => {
 });
 
 const mockExtractBearerToken = extractBearerToken as jest.MockedFunction<typeof extractBearerToken>;
-const mockVerifyFirebaseIdToken = verifyFirebaseIdToken as jest.MockedFunction<
-  typeof verifyFirebaseIdToken
+const mockVerifyFirebaseIdToken = verifySupabaseAccessToken as jest.MockedFunction<
+  typeof verifySupabaseAccessToken
 >;
 const mockGetDoc = getDoc as jest.MockedFunction<typeof getDoc>;
 const { seedInitialGenresWithAdmin } = jest.requireMock('@/services/seedInitialGenresAdmin') as {

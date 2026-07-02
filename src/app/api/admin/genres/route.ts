@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, getDoc } from 'firebase/firestore';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { usersRef } from '@/lib/firebase/firestore';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { getAdminFirestore, getAdminStorage } from '@/lib/firebase/admin';
@@ -28,7 +28,7 @@ function resolveBucketName(): string {
 async function authorizeAdmin(request: NextRequest): Promise<string | null> {
   try {
     const token = extractBearerToken(request);
-    const executorId = await verifyFirebaseIdToken(token);
+    const executorId = await verifySupabaseAccessToken(token);
 
     if (!executorId) {
       return null;
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (!isAdmin) {
       // 認証失敗のトリアージ
       const token = extractBearerToken(request);
-      const executorId = token ? await verifyFirebaseIdToken(token) : null;
+      const executorId = token ? await verifySupabaseAccessToken(token) : null;
       if (!executorId) {
         return NextResponse.json(
           { error: 'unauthorized', message: '認証に失敗したか、無効なトークンです。' },
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const isAdmin = await authorizeAdmin(request);
     if (!isAdmin) {
       const token = extractBearerToken(request);
-      const executorId = token ? await verifyFirebaseIdToken(token) : null;
+      const executorId = token ? await verifySupabaseAccessToken(token) : null;
       if (!executorId) {
         return NextResponse.json(
           { error: 'unauthorized', message: '認証に失敗したか、無効なトークンです。' },

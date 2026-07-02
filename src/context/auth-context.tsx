@@ -1,9 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut } from '@/lib/firebase/auth';
-import { User as FirebaseUser } from 'firebase/auth';
-import { auth } from '../lib/firebase/config';
+import { supabaseClient } from '@/lib/supabase/client';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { getUser, createUser } from '../services/user';
 import { User } from '../types';
 import {
@@ -11,9 +10,19 @@ import {
   syncMiddlewareAuthCookies,
 } from '@/lib/middleware-auth-cookies';
 
+// 既存のフロントエンド・コード（firebaseUser.uid や firebaseUser.getIdToken()）との
+// 互換性を保つためのアダプター型定義
+interface CompatibleUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  getIdToken: () => Promise<string | null>;
+}
+
 interface AuthContextType {
   user: User | null; // Firestore 内のユーザー詳細情報
-  firebaseUser: FirebaseUser | null; // Firebase Auth の生ユーザーオブジェクト
+  firebaseUser: CompatibleUser | null; // 互換性を持たせた Supabase ユーザーオブジェクト
   loading: boolean; // ローディングフラグ
   refreshUser: () => Promise<void>; // プロフィール更新時などの手動リロード用
 }
@@ -26,9 +35,23 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<CompatibleUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // 互換ユーザーオブジェクトを作成するファクトリ
+  const createCompatibleUser = (sUser: SupabaseUser): CompatibleUser => {
+    return {
+      uid: sUser.id,
+      email: sUser.email ?? null,
+      displayName: sUser.user_metadata?.full_name ?? sUser.email?.split('@')[0] ?? 'ユーザー',
+      photoURL: sUser.user_metadata?.avatar_url ?? null,
+      getIdToken: async () => {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        return session?.access_token ?? null;
+      },
+    };
+  };
 
   // Firestoreから最新のユーザー情報を再取得する
   const refreshUser = async () => {
@@ -36,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const dbUser = await getUser(firebaseUser.uid);
 
       if (dbUser && dbUser.isBanned === true) {
-        await signOut(auth);
+        await supabaseClient.auth.signOut();
         setUser(null);
         setFirebaseUser(null);
         if (typeof document !== 'undefined') {
@@ -53,68 +76,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fUser) => {
-      setFirebaseUser(fUser);
-
-      if (fUser) {
-        try {
-          // 1. Firestore からユーザー情報を取得
-          let dbUser = await getUser(fUser.uid);
-
-          // BANチェック
-          if (dbUser && dbUser.isBanned === true) {
-            await signOut(auth);
-            setUser(null);
-            setFirebaseUser(null);
-            if (typeof document !== 'undefined') {
-              const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-              document.cookie = `quizetika_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
-              clearMiddlewareAuthCookies();
-            }
-            setLoading(false);
-            return;
-          }
-
-          // 2. 存在しない場合 (新規会員登録直後など) は初期ドキュメントを作成
-          if (!dbUser) {
-            const tempUser: Omit<User, 'createdAt' | 'updatedAt'> = {
-              id: fUser.uid,
-              email: fUser.email || '',
-              displayName: fUser.displayName || fUser.email?.split('@')[0] || 'ユーザー',
-              avatarUrl: fUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fUser.uid}`,
-              bio: 'クイズ大好き！よろしくお願いします。',
-              followedGenres: [],
-              badges: [],
-              createdQuizzesCount: 0,
-              totalPlayCount: 0,
-              followersCount: 0,
-              followingCount: 0,
-              reputationScore: 0,
-              moderationTier: 'newcomer',
-              reputationHistory: [],
-              lastReputationCalculatedAt: null,
-              totalFailedQuestionsCount: 0,
-              deleteStatus: 'active',
-            };
-            await createUser(tempUser);
-            dbUser = await getUser(fUser.uid);
-          }
-          setUser(dbUser);
-          syncMiddlewareAuthCookies(dbUser, fUser.uid);
-        } catch (error) {
-          console.error('Failed to sync user to Firestore:', error);
-          syncMiddlewareAuthCookies(null, fUser.uid);
-        }
+    // 初回マウント時に現在のセッションを確認
+    supabaseClient.auth.getSession().then(async ({ data: { session } }) => {
+      const sUser = session?.user ?? null;
+      if (sUser) {
+        const compatUser = createCompatibleUser(sUser);
+        setFirebaseUser(compatUser);
+        await syncUserProfile(compatUser);
       } else {
+        setFirebaseUser(null);
         setUser(null);
         clearMiddlewareAuthCookies();
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    // 認証状態の変化を監視
+    const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(
+      async (event, session) => {
+        const sUser = session?.user ?? null;
+        if (sUser) {
+          const compatUser = createCompatibleUser(sUser);
+          setFirebaseUser(compatUser);
+          await syncUserProfile(compatUser);
+        } else {
+          setFirebaseUser(null);
+          setUser(null);
+          clearMiddlewareAuthCookies();
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  // ユーザーのプロフィール同期および初期作成
+  const syncUserProfile = async (compatUser: CompatibleUser) => {
+    try {
+      let dbUser = await getUser(compatUser.uid);
+
+      // BANチェック
+      if (dbUser && dbUser.isBanned === true) {
+        await supabaseClient.auth.signOut();
+        setUser(null);
+        setFirebaseUser(null);
+        if (typeof document !== 'undefined') {
+          const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = `quizetika_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
+          clearMiddlewareAuthCookies();
+        }
+        setLoading(false);
+        return;
+      }
+
+      // 存在しない場合は初期プロフィールを作成
+      if (!dbUser) {
+        const tempUser: Omit<User, 'createdAt' | 'updatedAt'> = {
+          id: compatUser.uid,
+          email: compatUser.email || '',
+          displayName: compatUser.displayName || 'ユーザー',
+          avatarUrl: compatUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${compatUser.uid}`,
+          bio: 'クイズ大好き！よろしくお願いします。',
+          followedGenres: [],
+          badges: [],
+          createdQuizzesCount: 0,
+          totalPlayCount: 0,
+          followersCount: 0,
+          followingCount: 0,
+          reputationScore: 0,
+          moderationTier: 'newcomer',
+          reputationHistory: [],
+          lastReputationCalculatedAt: null,
+          totalFailedQuestionsCount: 0,
+          deleteStatus: 'active',
+        };
+        await createUser(tempUser);
+        dbUser = await getUser(compatUser.uid);
+      }
+      setUser(dbUser);
+      syncMiddlewareAuthCookies(dbUser, compatUser.uid);
+    } catch (error) {
+      console.error('Failed to sync user to Firestore:', error);
+      syncMiddlewareAuthCookies(null, compatUser.uid);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, loading, refreshUser }}>

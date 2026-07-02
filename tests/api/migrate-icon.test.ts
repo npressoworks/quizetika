@@ -1,11 +1,11 @@
 process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
 
 import { NextRequest } from 'next/server';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 
-jest.mock('@/lib/firebase/auth-verify', () => ({
+jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: jest.fn(),
-  verifyFirebaseIdToken: jest.fn(),
+  verifySupabaseAccessToken: jest.fn(),
 }));
 
 const mockCopy = jest.fn();
@@ -39,8 +39,8 @@ jest.mock('@/lib/firebase/admin', () => {
 });
 
 const mockExtractBearerToken = extractBearerToken as jest.MockedFunction<typeof extractBearerToken>;
-const mockVerifyFirebaseIdToken = verifyFirebaseIdToken as jest.MockedFunction<
-  typeof verifyFirebaseIdToken
+const mockVerifyFirebaseIdToken = verifySupabaseAccessToken as jest.MockedFunction<
+  typeof verifySupabaseAccessToken
 >;
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { quizzesRef } from '@/lib/firebase/firestore';
-import { extractBearerToken, verifyFirebaseIdToken } from '@/lib/firebase/auth-verify';
+import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { assertCanViewQuizAsync, QuizAccessDeniedError } from '@/lib/quiz-access';
 import {
   parseMarkdownToQuickPressTokens,
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     const quiz = quizSnap.data() as Quiz;
 
     const token = extractBearerToken(request);
-    const viewerUid = token ? await verifyFirebaseIdToken(token) : null;
+    const viewerUid = token ? await verifySupabaseAccessToken(token) : null;
     try {
       await assertCanViewQuizAsync(quiz, viewerUid);
     } catch (err) {

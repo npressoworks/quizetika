@@ -37,9 +37,9 @@ const mockDb = {
   runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
 };
 
-jest.mock('@/lib/firebase/auth-verify', () => ({
+jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'token',
-  verifyFirebaseIdToken: (...args: unknown[]) => mockVerify(...args),
+  verifySupabaseAccessToken: (...args: unknown[]) => mockVerify(...args),
 }));
 
 jest.mock('@/services/entitlement', () => ({
