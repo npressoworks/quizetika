@@ -1,21 +1,4 @@
-import {
-  doc,
-  getDoc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  increment,
-  writeBatch,
-  collection as firestoreCollection,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
-import { quizzesRef, followsRef, bookmarksRef, questionsRef, usersRef } from '../lib/firebase/firestore';
+import { createClient } from '@/lib/supabase/client';
 import { Quiz, Question, PaginatedQuizResult } from '../types';
 import {
   validateQuizForPublish,
@@ -68,18 +51,123 @@ import {
   resolveQuizVisibility,
 } from '../lib/quiz-access';
 import type { EntitlementUserFields } from './entitlement';
+import { Database } from '@/lib/supabase/database.types';
+import { mapQuestionRowToQuestion, mapQuestionToRow } from './question';
 
 export type { QuizListSort } from '../lib/metadata-resolution';
 export { QuizFeedCursorError } from '../lib/quiz-feed-cursor';
+
+const supabase = createClient();
+
+/** UUID 生成用の簡易ヘルパー */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * データベースRowからQuizオブジェクトへマッピング
+ */
+export function mapRowToQuiz(row: Database['public']['Tables']['quizzes']['Row']): Quiz {
+  return {
+    id: row.id,
+    authorId: row.author_id,
+    authorName: row.author_name,
+    authorAvatar: row.author_avatar ?? '',
+    title: row.title,
+    description: row.description,
+    thumbnailUrl: row.thumbnail_url,
+    difficulty: row.difficulty,
+    genre: row.genre,
+    tags: row.tags ?? [],
+    originalTags: row.original_tags ?? [],
+    questionIds: row.question_ids ?? [],
+    questions: (row.questions as any) ?? [],
+    questionCount: row.question_count ?? 0,
+    status: row.status as Quiz['status'],
+    visibility: row.visibility as Quiz['visibility'],
+    flagsCount: row.flags_count ?? 0,
+    playCount: row.play_count ?? 0,
+    bookmarksCount: row.bookmarks_count ?? 0,
+    positiveCount: row.positive_count ?? 0,
+    negativeCount: row.negative_count ?? 0,
+    tempPositiveCount: row.temp_positive_count ?? 0,
+    tempNegativeCount: row.temp_negative_count ?? 0,
+    reviewScore: row.review_score,
+    canonicalGenreId: row.canonical_genre_id ?? '',
+    canonicalTagIds: row.canonical_tag_ids ?? [],
+    format: (row.format as Quiz['format']) ?? undefined,
+    isReviewMasked: row.is_review_masked ?? undefined,
+    reviewBadge: (row.review_badge as Quiz['reviewBadge']) ?? undefined,
+    activeResetRequestId: row.active_reset_request_id ?? undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+/**
+ * Quizオブジェクトの部分データからデータベースのアップデート用レコードへマッピング
+ */
+export function mapQuizToRow(quiz: Partial<Quiz>): Database['public']['Tables']['quizzes']['Update'] {
+  const row: Database['public']['Tables']['quizzes']['Update'] = {};
+  if (quiz.id !== undefined) row.id = quiz.id;
+  if (quiz.authorId !== undefined) row.author_id = quiz.authorId;
+  if (quiz.authorName !== undefined) row.author_name = quiz.authorName;
+  if (quiz.authorAvatar !== undefined) row.author_avatar = quiz.authorAvatar ?? null;
+  if (quiz.title !== undefined) row.title = quiz.title;
+  if (quiz.description !== undefined) row.description = quiz.description;
+  if (quiz.thumbnailUrl !== undefined) row.thumbnail_url = quiz.thumbnailUrl ?? null;
+  if (quiz.difficulty !== undefined) row.difficulty = quiz.difficulty;
+  if (quiz.genre !== undefined) row.genre = quiz.genre;
+  if (quiz.tags !== undefined) row.tags = quiz.tags;
+  if (quiz.originalTags !== undefined) row.original_tags = quiz.originalTags;
+  if (quiz.questionIds !== undefined) row.question_ids = quiz.questionIds;
+  if (quiz.questions !== undefined) row.questions = quiz.questions as any;
+  if (quiz.questionCount !== undefined) row.question_count = quiz.questionCount;
+  if (quiz.status !== undefined) row.status = quiz.status;
+  if (quiz.visibility !== undefined) row.visibility = quiz.visibility;
+  if (quiz.flagsCount !== undefined) row.flags_count = quiz.flagsCount;
+  if (quiz.playCount !== undefined) row.play_count = quiz.playCount;
+  if (quiz.bookmarksCount !== undefined) row.bookmarks_count = quiz.bookmarksCount;
+  if (quiz.positiveCount !== undefined) row.positive_count = quiz.positiveCount;
+  if (quiz.negativeCount !== undefined) row.negative_count = quiz.negativeCount;
+  if (quiz.tempPositiveCount !== undefined) row.temp_positive_count = quiz.tempPositiveCount;
+  if (quiz.tempNegativeCount !== undefined) row.temp_negative_count = quiz.tempNegativeCount;
+  if (quiz.reviewScore !== undefined) row.review_score = quiz.reviewScore;
+  if (quiz.canonicalGenreId !== undefined) row.canonical_genre_id = quiz.canonicalGenreId ?? null;
+  if (quiz.canonicalTagIds !== undefined) row.canonical_tag_ids = quiz.canonicalTagIds;
+  if (quiz.format !== undefined) row.format = quiz.format ?? null;
+  if (quiz.isReviewMasked !== undefined) row.is_review_masked = quiz.isReviewMasked ?? null;
+  if (quiz.reviewBadge !== undefined) row.review_badge = quiz.reviewBadge ?? null;
+  if (quiz.activeResetRequestId !== undefined) row.active_reset_request_id = quiz.activeResetRequestId ?? null;
+  if (quiz.createdAt !== undefined) row.created_at = quiz.createdAt.toISOString();
+  if (quiz.updatedAt !== undefined) row.updated_at = quiz.updatedAt.toISOString();
+  return row;
+}
 
 async function enforceVisibilityEntitlement(
   authorId: string,
   nextVisibility: ReturnType<typeof resolveQuizVisibility>,
   prevVisibility?: ReturnType<typeof resolveQuizVisibility>
 ): Promise<void> {
-  const userSnap = await getDoc(doc(usersRef, authorId));
-  const fields: EntitlementUserFields = userSnap.exists()
-    ? (userSnap.data() as EntitlementUserFields)
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', authorId)
+    .maybeSingle();
+
+  const fields: EntitlementUserFields = userRow
+    ? {
+        subscriptionTier: userRow.subscription_tier as any,
+        stripeSubscriptionId: userRow.stripe_subscription_id ?? undefined,
+        subscriptionStatus: userRow.subscription_status ?? undefined,
+      }
     : {};
   assertCanSetQuizVisibilitySync(fields, nextVisibility, prevVisibility);
 }
@@ -137,24 +225,46 @@ function intersectQuizzesById(quizSets: Quiz[][]): Quiz[] {
 
 /** 有効ジャンルマスタ（`isActive=true`）。ディスカバリーホームのジャンルカルーセルでも再利用。 */
 export async function listActiveGenres(): Promise<GenreMetadata[]> {
-  const genresRef = firestoreCollection(db, 'metadata_genres');
-  const q = query(genresRef, where('isActive', '==', true));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => {
-    const data = d.data() as GenreMetadata;
-    return { ...data, id: d.id };
+  const { data, error } = await supabase
+    .from('metadata_genres')
+    .select('*')
+    .eq('is_active', true);
+
+  if (error || !data) return [];
+  return data.map((d) => {
+    return {
+      id: d.id,
+      displayName: d.display_name,
+      description: d.description ?? undefined,
+      iconImageUrl: d.icon_image_url,
+      canonicalId: d.canonical_id,
+      mergedGenreIds: d.merged_genre_ids ?? [],
+      isActive: d.is_active,
+    };
   });
 }
 
 /** 存続タグ（canonicalId 未設定）のみ。UI サジェスト用 */
 export async function listActiveTags(): Promise<TagMetadata[]> {
-  const tagsRef = firestoreCollection(db, 'metadata_tags');
-  const q = query(tagsRef, where('canonicalId', '==', null));
-  const snap = await getDocs(q);
-  const rows = snap.docs.map((d) => {
-    const data = d.data() as TagMetadata;
-    return { ...data, id: d.id };
+  const { data, error } = await supabase
+    .from('metadata_tags')
+    .select('*')
+    .is('canonical_id', null);
+
+  if (error || !data) return [];
+  
+  const rows = data.map((d) => {
+    return {
+      id: d.id,
+      tagName: d.tag_name ?? undefined,
+      canonicalId: d.canonical_id,
+      mergedTagIds: d.merged_tag_ids ?? [],
+      createdBy: d.created_by ?? undefined,
+      createdAt: new Date(d.created_at),
+      updatedAt: new Date(d.updated_at),
+    };
   });
+
   return rows.sort((a, b) => {
     const nameA = a.tagName ?? a.id;
     const nameB = b.tagName ?? b.id;
@@ -169,30 +279,34 @@ async function queryPublishedByCanonicalGenre(
   limitCount: number
 ): Promise<Quiz[]> {
   const orderField =
-    sort === 'popular' ? 'playCount' : sort === 'trending' ? 'bookmarksCount' : 'createdAt';
-  const q = query(
-    quizzesRef,
-    where('status', '==', 'published'),
-    where('visibility', '==', 'public'),
-    where('canonicalGenreId', '==', canonicalGenreId),
-    orderBy(orderField, 'desc'),
-    limit(limitCount)
-  );
-  const snap = await getDocs(q);
-  return filterDiscoveryQuizzes(snap.docs.map((d) => d.data()));
+    sort === 'popular' ? 'play_count' : sort === 'trending' ? 'bookmarks_count' : 'created_at';
+
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('status', 'published')
+    .eq('visibility', 'public')
+    .eq('canonical_genre_id', canonicalGenreId)
+    .order(orderField, { ascending: false })
+    .limit(limitCount);
+
+  if (error || !data) return [];
+  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
 }
 
 async function queryPublishedByGenreIn(genreIds: string[], limitCount: number): Promise<Quiz[]> {
   if (genreIds.length === 0) return [];
-  const q = query(
-    quizzesRef,
-    where('status', '==', 'published'),
-    where('visibility', '==', 'public'),
-    where('genre', 'in', genreIds),
-    limit(limitCount)
-  );
-  const snap = await getDocs(q);
-  return filterDiscoveryQuizzes(snap.docs.map((d) => d.data()));
+
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('status', 'published')
+    .eq('visibility', 'public')
+    .in('genre', genreIds)
+    .limit(limitCount);
+
+  if (error || !data) return [];
+  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
 }
 
 async function queryPublishedByCanonicalTag(
@@ -201,35 +315,36 @@ async function queryPublishedByCanonicalTag(
   limitCount: number
 ): Promise<Quiz[]> {
   const orderField =
-    sort === 'popular' ? 'playCount' : sort === 'trending' ? 'bookmarksCount' : 'createdAt';
-  const q = query(
-    quizzesRef,
-    where('status', '==', 'published'),
-    where('visibility', '==', 'public'),
-    where('canonicalTagIds', 'array-contains', tagId),
-    orderBy(orderField, 'desc'),
-    limit(limitCount)
-  );
-  const snap = await getDocs(q);
-  return filterDiscoveryQuizzes(snap.docs.map((d) => d.data()));
+    sort === 'popular' ? 'play_count' : sort === 'trending' ? 'bookmarks_count' : 'created_at';
+
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('status', 'published')
+    .eq('visibility', 'public')
+    .contains('canonical_tag_ids', [tagId])
+    .order(orderField, { ascending: false })
+    .limit(limitCount);
+
+  if (error || !data) return [];
+  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
 }
 
 async function queryPublishedByLegacyTag(tag: string, limitCount: number): Promise<Quiz[]> {
-  const q = query(
-    quizzesRef,
-    where('status', '==', 'published'),
-    where('visibility', '==', 'public'),
-    where('tags', 'array-contains', tag),
-    limit(limitCount)
-  );
-  const snap = await getDocs(q);
-  return filterDiscoveryQuizzes(snap.docs.map((d) => d.data()));
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('status', 'published')
+    .eq('visibility', 'public')
+    .contains('tags', [tag])
+    .limit(limitCount);
+
+  if (error || !data) return [];
+  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
 }
 
 /**
  * 新規クイズを作成・投稿する
- * アトミックなバッチ処理により、各問題（questions）を個別の questions/{questionId} ドキュメントとして書き出します。
- * 親クイズ（quizzes）には、questionIds 配列および非正規化された問題配列を同期保存します。
  */
 export async function createQuiz(
   quiz: Omit<Quiz, 'id' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>
@@ -249,16 +364,11 @@ export async function createQuiz(
     canonicalTagIds = resolved.canonicalTagIds;
   }
 
-  // 1. 新しいクイズドキュメントIDを事前に取得
-  const quizDocRef = doc(quizzesRef);
-  const quizId = quizDocRef.id;
+  const quizId = generateUUID();
 
-  const batch = writeBatch(db);
-
-  // 2. 問題の個別保存と ID の収集
+  // 問題の個別保存と ID の収集
   const questionIds: string[] = [];
   const processedQuestions: Question[] = [];
-
   const inputQuestions = quiz.questions || [];
   const effectiveStatus = quiz.status ?? 'draft';
   const nextVisibility = normalizeQuizVisibilityForSave(
@@ -269,10 +379,9 @@ export async function createQuiz(
     await enforceVisibilityEntitlement(quiz.authorId, nextVisibility);
   }
 
+  const questionInserts: Database['public']['Tables']['questions']['Insert'][] = [];
   for (const q of inputQuestions) {
-    const qDocRef = doc(questionsRef);
-    const qId = qDocRef.id;
-
+    const qId = generateUUID();
     const fullQuestion: Question = {
       ...q,
       id: qId,
@@ -285,14 +394,17 @@ export async function createQuiz(
       incorrectCount: q.incorrectCount || 0,
     };
 
-    // questions コレクションに保存
-    batch.set(qDocRef, fullQuestion);
-
+    questionInserts.push(mapQuestionToRow(fullQuestion) as Database['public']['Tables']['questions']['Insert']);
     questionIds.push(qId);
     processedQuestions.push(fullQuestion);
   }
 
-  // 3. クイズドキュメントの作成
+  if (questionInserts.length > 0) {
+    const { error: qError } = await supabase.from('questions').insert(questionInserts);
+    if (qError) throw new Error(`問題の作成に失敗しました: ${qError.message}`);
+  }
+
+  // クイズの保存
   const newQuiz: Quiz = {
     ...(quiz as any),
     id: quizId,
@@ -309,10 +421,17 @@ export async function createQuiz(
     ...(nextVisibility !== undefined ? { visibility: nextVisibility } : {}),
   };
 
-  batch.set(quizDocRef, newQuiz);
+  const { error: quizError } = await supabase
+    .from('quizzes')
+    .insert(mapQuizToRow(newQuiz) as Database['public']['Tables']['quizzes']['Insert']);
 
-  // 4. バッチコミット
-  await batch.commit();
+  if (quizError) {
+    // ロールバック: 挿入した問題を削除
+    if (questionIds.length > 0) {
+      await supabase.from('questions').delete().in('id', questionIds);
+    }
+    throw new Error(`クイズの作成に失敗しました: ${quizError.message}`);
+  }
 
   return quizId;
 }
@@ -321,38 +440,35 @@ export async function createQuiz(
  * クイズをIDで1件取得
  */
 export async function getQuiz(quizId: string): Promise<Quiz | null> {
-  const docRef = doc(quizzesRef, quizId);
-  const snap = await getDoc(docRef);
-  return snap.exists() ? snap.data() : null;
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('id', quizId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapRowToQuiz(data);
 }
 
 /**
  * クイズ情報を更新する
- * 問題（questions）が更新データに含まれる場合、古い問題との差分を検出し、
- * 削除された問題を questions コレクションからアトミックに削除、
- * 新規問題の登録、および既存問題の更新を同期処理します。
  */
 export async function updateQuiz(
   quizId: string,
   data: Partial<Omit<Quiz, 'id' | 'authorId' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>>
 ): Promise<void> {
-  const quizDocRef = doc(quizzesRef, quizId);
   const currentQuiz = await getQuiz(quizId);
 
   if (!currentQuiz) {
     throw new Error('クイズが見つかりません');
   }
 
-  const batch = writeBatch(db);
   const now = new Date();
-
-  // 更新ペイロードの作成
   const updatePayload: any = {
     ...data,
     updatedAt: now,
   };
 
-  // もし questions が更新データに含まれている場合、問題の同期・差分削除を行う
   if (data.questions) {
     const normalizedQuestions = normalizeQuizQuestionsForSave(data.questions);
     const oldQuestionIds = currentQuiz.questionIds || [];
@@ -368,9 +484,13 @@ export async function updateQuiz(
 
     for (const q of normalizedQuestions) {
       if (isReferenceLinkQuestion(q) && q.id && !storedById.has(q.id)) {
-        const snap = await getDoc(doc(questionsRef, q.id));
-        if (snap.exists()) {
-          storedById.set(q.id, snap.data() as Question);
+        const { data: qData } = await supabase
+          .from('questions')
+          .select('*')
+          .eq('id', q.id)
+          .maybeSingle();
+        if (qData) {
+          storedById.set(q.id, mapQuestionRowToQuestion(qData));
         }
       }
     }
@@ -391,17 +511,16 @@ export async function updateQuiz(
       processedQuestions.push(stripEditorOnlyFields({ ...stored, id: refId }));
     }
 
+    const questionInserts: Database['public']['Tables']['questions']['Insert'][] = [];
+    const questionUpdates: { id: string; payload: Database['public']['Tables']['questions']['Update'] }[] = [];
+
     for (const q of partition.ownedToWrite) {
       let qId = q.id;
       const isExistingOwned =
         !!qId && oldQuestionIds.includes(qId) && !isReferenceLinkQuestion(q);
 
-      let qDocRef;
-      if (isExistingOwned && qId) {
-        qDocRef = doc(questionsRef, qId);
-      } else {
-        qDocRef = doc(questionsRef);
-        qId = qDocRef.id;
+      if (!isExistingOwned || !qId) {
+        qId = generateUUID();
       }
 
       const fullQuestion: Question = stripEditorOnlyFields({
@@ -416,12 +535,34 @@ export async function updateQuiz(
         incorrectCount: q.incorrectCount || 0,
       });
 
-      batch.set(qDocRef, cleanUndefined(fullQuestion));
+      const row = mapQuestionToRow(fullQuestion);
+
+      if (isExistingOwned && qId) {
+        questionUpdates.push({ id: qId, payload: row });
+      } else {
+        questionInserts.push(row as Database['public']['Tables']['questions']['Insert']);
+      }
+
       newQuestionIds.push(qId);
       processedQuestions.push(fullQuestion);
     }
 
+    // データベースへの問題更新/挿入処理
+    if (questionInserts.length > 0) {
+      const { error: insError } = await supabase.from('questions').insert(questionInserts);
+      if (insError) throw new Error(`問題の新規作成に失敗しました: ${insError.message}`);
+    }
+
+    for (const item of questionUpdates) {
+      const { error: updError } = await supabase
+        .from('questions')
+        .update(item.payload)
+        .eq('id', item.id);
+      if (updError) throw new Error(`問題の更新に失敗しました: ${updError.message}`);
+    }
+
     const deletedQuestionIds = oldQuestionIds.filter((id) => !newQuestionIds.includes(id));
+    const finalDeletes: string[] = [];
     for (const dId of deletedQuestionIds) {
       const deletable = await canDeleteQuestionDoc(
         dId,
@@ -429,10 +570,23 @@ export async function updateQuiz(
         findQuizIdsContainingQuestion
       );
       if (deletable) {
-        batch.delete(doc(questionsRef, dId));
+        finalDeletes.push(dId);
       }
     }
 
+    if (finalDeletes.length > 0) {
+      const { error: delError } = await supabase
+        .from('questions')
+        .delete()
+        .in('id', finalDeletes);
+      if (delError) console.error('問題の削除に失敗しました:', delError.message);
+    }
+
+    updatePayload.question_ids = newQuestionIds;
+    updatePayload.questions = processedQuestions;
+    updatePayload.question_count = processedQuestions.length;
+
+    // クリーズオブジェクトへの逆インポート用フィールドもセット
     updatePayload.questionIds = newQuestionIds;
     updatePayload.questions = processedQuestions;
     updatePayload.questionCount = processedQuestions.length;
@@ -464,6 +618,10 @@ export async function updateQuiz(
         currentQuiz.authorId
       );
       updatePayload.tags = mergedTags.map(normalizeTag).filter(Boolean);
+      updatePayload.canonical_genre_id = canonicalGenreId;
+      updatePayload.canonical_tag_ids = canonicalTagIds;
+
+      // 逆インポート用
       updatePayload.canonicalGenreId = canonicalGenreId;
       updatePayload.canonicalTagIds = canonicalTagIds;
     } catch (err) {
@@ -500,35 +658,31 @@ export async function updateQuiz(
     }
   }
 
-  batch.update(quizDocRef, cleanUndefined(updatePayload));
-  await batch.commit();
+  const { error: quizError } = await supabase
+    .from('quizzes')
+    .update(mapQuizToRow(cleanUndefined(updatePayload)))
+    .eq('id', quizId);
+
+  if (quizError) {
+    throw new Error(`クイズの更新に失敗しました: ${quizError.message}`);
+  }
 }
 
 /**
  * クイズを削除する
- * 関連するブックマークを非同期でクリーンアップする
  */
 export async function deleteQuiz(quizId: string): Promise<void> {
-  const docRef = doc(quizzesRef, quizId);
-  // Firestore の writeBatch で関連ブックマークをまとめて削除 (最大500件)
-  const bmQuery = query(bookmarksRef, where('targetId', '==', quizId));
-  const bmSnap = await getDocs(bmQuery);
-  const batch = writeBatch(db);
-  bmSnap.docs.forEach((bmDoc) => batch.delete(bmDoc.ref));
-  batch.delete(docRef);
-  await batch.commit();
-}
+  // RLS に準拠し、子テーブルから安全に削除します
+  await supabase.from('bookmarks').delete().eq('target_id', quizId);
+  
+  const { error } = await supabase
+    .from('quizzes')
+    .delete()
+    .eq('id', quizId);
 
-/* ==========================================================================
-   クイズ保存・公開 (バリデーション付き)
-   ========================================================================== */
-
-/**
- * クイズの保存エクスポート型
- */
-export interface QuizExportPackage {
-  exportedAt: string;
-  quizzes: Quiz[];
+  if (error) {
+    throw new Error(`クイズの削除に失敗しました: ${error.message}`);
+  }
 }
 
 async function loadQuestionsByIds(ids: string[]): Promise<Map<string, Question>> {
@@ -537,20 +691,29 @@ async function loadQuestionsByIds(ids: string[]): Promise<Map<string, Question>>
   const unique = [...new Set(ids)];
   for (let i = 0; i < unique.length; i += 10) {
     const chunk = unique.slice(i, i + 10);
-    const snap = await getDocs(query(questionsRef, where('id', 'in', chunk)));
-    snap.forEach((d) => {
-      const q = d.data() as Question;
-      map.set(q.id, q);
-    });
+    const { data } = await supabase
+      .from('questions')
+      .select('*')
+      .in('id', chunk);
+
+    if (data) {
+      data.forEach((row) => {
+        const q = mapQuestionRowToQuestion(row);
+        map.set(q.id, q);
+      });
+    }
   }
   return map;
 }
 
 async function findQuizIdsContainingQuestion(questionId: string): Promise<string[]> {
-  const snap = await getDocs(
-    query(quizzesRef, where('questionIds', 'array-contains', questionId))
-  );
-  return snap.docs.map((d) => d.id);
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('id')
+    .contains('question_ids', [questionId]);
+
+  if (error || !data) return [];
+  return data.map((d) => d.id);
 }
 
 function stripEditorOnlyFields(question: Question): Question {
@@ -563,6 +726,9 @@ function stripEditorOnlyFields(question: Question): Question {
  */
 export function cleanUndefined<T>(obj: T): T {
   if (obj === null || obj === undefined) {
+    return obj;
+  }
+  if (obj instanceof Date) {
     return obj;
   }
   if (Array.isArray(obj)) {
@@ -583,27 +749,15 @@ export function cleanUndefined<T>(obj: T): T {
 
 /**
  * クイズを下書き保存、または公開する統合関数。
- * - status = 'draft': タイトル・ジャンル・問題文必須 + メタデータ解決
- * - status = 'published': validateQuizForPublish による完全バリデーションを実行
- *
- * @param quizData クイズデータ（id/playCount/bookmarksCount/createdAt/updatedAt を除く）
- * @param status 'draft' | 'published'
- * @returns 作成または更新されたクイズのID
- * @throws 公開時バリデーションエラー、またはNGワード検出時
  */
 export async function saveQuiz(
   quizData: Omit<Quiz, 'id' | 'playCount' | 'bookmarksCount' | 'createdAt' | 'updatedAt'>,
   status: 'draft' | 'published'
 ): Promise<string> {
   const now = new Date();
-
-  // タグを正規化（常に適用）
   const normalizedTags = quizData.tags.map(normalizeTag).filter(Boolean);
 
-  const quizDocRef = doc(quizzesRef);
-  const quizId = quizDocRef.id;
-
-  const batch = writeBatch(db);
+  const quizId = generateUUID();
 
   const questionIds: string[] = [];
   const processedQuestions: Question[] = [];
@@ -625,9 +779,10 @@ export async function saveQuiz(
     processedQuestions.push(stripEditorOnlyFields({ ...stored, id: refId }));
   }
 
+  const questionInserts: Database['public']['Tables']['questions']['Insert'][] = [];
+
   for (const q of partition.ownedToWrite) {
-    const qDocRef = doc(questionsRef);
-    const qId = qDocRef.id;
+    const qId = generateUUID();
     const fullQuestion: Question = stripEditorOnlyFields({
       ...q,
       id: qId,
@@ -639,9 +794,15 @@ export async function saveQuiz(
       correctCount: q.correctCount || 0,
       incorrectCount: q.incorrectCount || 0,
     });
-    batch.set(qDocRef, cleanUndefined(fullQuestion));
+    
+    questionInserts.push(mapQuestionToRow(fullQuestion) as Database['public']['Tables']['questions']['Insert']);
     questionIds.push(qId);
     processedQuestions.push(fullQuestion);
+  }
+
+  if (questionInserts.length > 0) {
+    const { error: insError } = await supabase.from('questions').insert(questionInserts);
+    if (insError) throw new Error(`問題の作成に失敗しました: ${insError.message}`);
   }
 
   let canonicalGenreId = '';
@@ -658,6 +819,10 @@ export async function saveQuiz(
   } catch (err) {
     if (err instanceof MetadataValidationError) {
       throw err;
+    }
+    // ロールバック
+    if (questionIds.length > 0) {
+      await supabase.from('questions').delete().in('id', questionIds);
     }
     throw err;
   }
@@ -687,6 +852,10 @@ export async function saveQuiz(
   if (status === 'published') {
     const errors = validateQuizForPublish(payload);
     if (errors.length > 0) {
+      // ロールバック
+      if (questionIds.length > 0) {
+        await supabase.from('questions').delete().in('id', questionIds);
+      }
       throw new Error(
         `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`
       );
@@ -694,30 +863,48 @@ export async function saveQuiz(
   } else {
     const draftErrors = validateQuizForDraft(payload);
     if (draftErrors.length > 0) {
+      // ロールバック
+      if (questionIds.length > 0) {
+        await supabase.from('questions').delete().in('id', questionIds);
+      }
       throw new Error(
         `下書き保存に失敗しました: ${draftErrors.map((e) => e.message).join('; ')}`
       );
     }
   }
 
-  batch.set(quizDocRef, cleanUndefined(payload));
-  await batch.commit();
+  const { error: quizError } = await supabase
+    .from('quizzes')
+    .insert(mapQuizToRow(cleanUndefined(payload)) as Database['public']['Tables']['quizzes']['Insert']);
+
+  if (quizError) {
+    // ロールバック
+    if (questionIds.length > 0) {
+      await supabase.from('questions').delete().in('id', questionIds);
+    }
+    throw new Error(`クイズの作成に失敗しました: ${quizError.message}`);
+  }
 
   return quizId;
 }
 
 /**
  * 作成者の全クイズ（下書き含む）をエクスポート用パッケージとして返す
- * @param uid 作成者のユーザーID
- * @returns QuizExportPackage（JSONダウンロード用）
  */
 export async function exportQuizzes(uid: string): Promise<QuizExportPackage> {
-  const q = query(quizzesRef, where('authorId', '==', uid), orderBy('createdAt', 'desc'));
-  const snap = await getDocs(q);
-  const quizzes = snap.docs.map((d) => d.data());
+  const { data, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('author_id', uid)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) {
+    return { exportedAt: new Date().toISOString(), quizzes: [] };
+  }
+
   return {
     exportedAt: new Date().toISOString(),
-    quizzes,
+    quizzes: data.map(mapRowToQuiz),
   };
 }
 
@@ -725,10 +912,13 @@ export async function exportQuizzes(uid: string): Promise<QuizExportPackage> {
  * クイズの挑戦回数（プレイ回数）をインクリメント
  */
 export async function incrementPlayCount(quizId: string): Promise<void> {
-  const docRef = doc(quizzesRef, quizId);
-  await updateDoc(docRef, {
-    playCount: increment(1),
-  });
+  const current = await getQuiz(quizId);
+  if (!current) return;
+
+  await supabase
+    .from('quizzes')
+    .update({ play_count: (current.playCount ?? 0) + 1 })
+    .eq('id', quizId);
 }
 
 /* ==========================================================================
@@ -750,9 +940,6 @@ function quizSortKeyValue(quiz: Quiz, field: QuizFeedOrderField): number {
     const d = quiz.createdAt;
     if (!d) return Date.now();
     if (d instanceof Date) return d.getTime();
-    if (typeof d === 'object' && d !== null && 'seconds' in d) {
-      return (d as { seconds: number }).seconds * 1000;
-    }
     const ms = new Date(d as unknown as string).getTime();
     return isNaN(ms) ? Date.now() : ms;
   }
@@ -781,33 +968,57 @@ function paginateQuizRows(
   return { items, nextCursor };
 }
 
+/** PostgreSQL 向けのカーソルフィルタ適用 */
+async function applyCursorFilter(
+  queryBuilder: any,
+  cursor: string,
+  kind: QuizFeedTabKind
+) {
+  const decoded = decodeQuizFeedCursor(cursor, kind);
+  const { data: cursorQuiz, error } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('id', decoded.quizId)
+    .maybeSingle();
+
+  if (error || !cursorQuiz) {
+    throw new QuizFeedCursorError('Invalid cursor');
+  }
+
+  const orderField = orderFieldForTabKind(kind);
+  const dbOrderField = orderField === 'playCount' ? 'play_count' : orderField === 'bookmarksCount' ? 'bookmarks_count' : 'created_at';
+  const val = cursorQuiz[dbOrderField];
+
+  return queryBuilder.or(`${dbOrderField}.lt."${val}",and(${dbOrderField}.eq."${val}",id.lt."${cursorQuiz.id}")`);
+}
+
 async function fetchPublishedTabPage(
   kind: QuizFeedTabKind,
   options: QuizFeedPageOptions = {}
 ): Promise<PaginatedQuizResult> {
   const pageSize = options.limit ?? HOME_FEED_PAGE_SIZE;
   const orderField = orderFieldForTabKind(kind);
-  const baseConstraints = [
-    where('status', '==', 'published'),
-    where('visibility', '==', 'public'),
-    orderBy(orderField, 'desc'),
-  ] as const;
+  const dbOrderField = orderField === 'playCount' ? 'play_count' : orderField === 'bookmarksCount' ? 'bookmarks_count' : 'created_at';
 
-  let q;
+  let q = supabase
+    .from('quizzes')
+    .select('*')
+    .eq('status', 'published')
+    .eq('visibility', 'public');
+
   if (options.cursor) {
-    const decoded = decodeQuizFeedCursor(options.cursor, kind);
-    const cursorSnap = await getDoc(doc(quizzesRef, decoded.quizId));
-    if (!cursorSnap.exists()) {
-      throw new QuizFeedCursorError('Invalid cursor');
-    }
-    q = query(quizzesRef, ...baseConstraints, startAfter(cursorSnap), limit(pageSize + 1));
-  } else {
-    q = query(quizzesRef, ...baseConstraints, limit(pageSize + 1));
+    q = await applyCursorFilter(q, options.cursor, kind);
   }
 
-  const snap = await getDocs(q);
+  const { data, error } = await q
+    .order(dbOrderField, { ascending: false })
+    .order('id', { ascending: false })
+    .limit(pageSize + 1);
+
+  if (error || !data) return { items: [], nextCursor: null };
+
   return paginateQuizRows(
-    filterDiscoveryQuizzes(snap.docs.map((d) => d.data())),
+    filterDiscoveryQuizzes(data.map(mapRowToQuiz)),
     pageSize,
     kind
   );
@@ -833,8 +1044,6 @@ export async function getTrendingQuizzesPage(
 
 /**
  * 新着クイズを取得 (公開中のみ)。
- * ディスカバリーホーム新着カルーセルは `DISCOVERY_CAROUSEL_SIZE` 件で呼び出し、
- * 検索画面 `tab=latest` の先頭ページ（`getLatestQuizzesPage`）と同一ソート規則。
  */
 export async function getLatestQuizzes(limitCount: number = 10): Promise<Quiz[]> {
   const page = await getLatestQuizzesPage({ limit: limitCount });
@@ -851,8 +1060,6 @@ export async function getPopularQuizzes(limitCount: number = 10): Promise<Quiz[]
 
 /**
  * トレンドクイズを取得 (ブックマーク数順、公開中のみ)。
- * ディスカバリーホームおすすめカルーセルは `DISCOVERY_CAROUSEL_SIZE` 件で呼び出し、
- * 検索画面 `tab=trending` の先頭ページ（`getTrendingQuizzesPage`）と同一ソート規則。
  */
 export async function getTrendingQuizzes(limitCount: number = 10): Promise<Quiz[]> {
   const page = await getTrendingQuizzesPage({ limit: limitCount });
@@ -861,45 +1068,21 @@ export async function getTrendingQuizzes(limitCount: number = 10): Promise<Quiz[
 
 /**
  * 特定の作成者のクイズ一覧を取得
- * @param authorId 作成者のユーザーID
- * @param includeUnpublished 下書きも含めるか (本人のダッシュボード用)
  */
-const getTimestampTime = (val: any): number => {
-  if (!val) return 0;
-  if (val instanceof Date) return val.getTime();
-  if (typeof val === 'object') {
-    if (typeof val.toDate === 'function') {
-      return val.toDate().getTime();
-    }
-    if (typeof val.seconds === 'number') {
-      return val.seconds * 1000;
-    }
-  }
-  if (typeof val === 'string' || typeof val === 'number') {
-    const d = new Date(val);
-    return isNaN(d.getTime()) ? 0 : d.getTime();
-  }
-  return 0;
-};
-
 export async function getQuizzesByAuthor(authorId: string, includeUnpublished: boolean = false): Promise<Quiz[]> {
-  let q;
-  if (includeUnpublished) {
-    q = query(
-      quizzesRef,
-      where('authorId', '==', authorId)
-    );
-  } else {
-    q = query(
-      quizzesRef,
-      where('authorId', '==', authorId),
-      where('status', '==', 'published')
-    );
-  }
-  const snap = await getDocs(q);
-  const rows = snap.docs.map((doc) => doc.data());
+  let q = supabase
+    .from('quizzes')
+    .select('*')
+    .eq('author_id', authorId);
 
-  rows.sort((a, b) => getTimestampTime(b.createdAt) - getTimestampTime(a.createdAt));
+  if (!includeUnpublished) {
+    q = q.eq('status', 'published');
+  }
+
+  const { data, error } = await q.order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  const rows = data.map(mapRowToQuiz);
 
   if (!includeUnpublished) {
     return filterDiscoveryQuizzes(rows);
@@ -923,40 +1106,34 @@ export async function getQuizzesByAuthorPage(
   const pageSize = options.limit ?? HOME_FEED_PAGE_SIZE;
   const includeUnpublished = options.includeUnpublished ?? false;
 
-  const baseConstraints = includeUnpublished
-    ? [
-        where('authorId', '==', authorId),
-        orderBy('createdAt', 'desc'),
-      ]
-    : [
-        where('authorId', '==', authorId),
-        where('status', '==', 'published'),
-        where('visibility', '==', 'public'),
-        orderBy('createdAt', 'desc'),
-      ];
+  let q = supabase
+    .from('quizzes')
+    .select('*')
+    .eq('author_id', authorId);
 
-  let q;
-  if (options.cursor) {
-    const decoded = decodeQuizFeedCursor(options.cursor, 'author');
-    const cursorSnap = await getDoc(doc(quizzesRef, decoded.quizId));
-    if (!cursorSnap.exists()) {
-      throw new QuizFeedCursorError('Invalid cursor');
-    }
-    q = query(quizzesRef, ...baseConstraints, startAfter(cursorSnap), limit(pageSize + 1));
-  } else {
-    q = query(quizzesRef, ...baseConstraints, limit(pageSize + 1));
+  if (!includeUnpublished) {
+    q = q.eq('status', 'published').eq('visibility', 'public');
   }
 
-  const snap = await getDocs(q);
-  const rows = snap.docs.map((d) => d.data());
+  if (options.cursor) {
+    q = await applyCursorFilter(q, options.cursor, 'author');
+  }
+
+  const { data, error } = await q
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(pageSize + 1);
+
+  if (error || !data) return { items: [], nextCursor: null };
+
+  const rows = data.map(mapRowToQuiz);
   const filteredRows = includeUnpublished ? rows : filterDiscoveryQuizzes(rows);
 
   return paginateQuizRows(filteredRows, pageSize, 'author');
 }
 
-
 /**
- * 特定ジャンルのクイズ一覧を取得（C2: canonical 優先 + genre in フォールバック）
+ * 特定ジャンルのクイズ一覧を取得
  */
 export async function getQuizzesByGenre(
   genreName: string,
@@ -978,7 +1155,7 @@ export async function getQuizzesByGenre(
 }
 
 /**
- * 特定タグのクイズ一覧を取得（canonicalTagIds 優先 + tags フォールバック）
+ * 特定タグのクイズ一覧を取得
  */
 export async function getQuizzesByTag(
   tag: string,
@@ -1003,7 +1180,7 @@ export async function getQuizzesByTag(
 }
 
 /**
- * 複合検索パイプライン: マージ・フィルタ・AND 合成（ページング／非ページング共有）
+ * 複合検索パイプライン
  */
 export async function materializeSearchQuizzes(
   queryText: string,
@@ -1018,29 +1195,26 @@ export async function materializeSearchQuizzes(
   if (hasQuery) {
     const normalizedQuery = normalizeTag(queryText);
 
-    const tagQuery = query(
-      quizzesRef,
-      where('status', '==', 'published'),
-      where('tags', 'array-contains', normalizedQuery),
-      limit(SEARCH_POOL_SIZE)
-    );
+    // タグ検索、作成者検索、ジャンル検索、最新新着
+    const { data: tagData } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('status', 'published')
+      .contains('tags', [normalizedQuery])
+      .limit(SEARCH_POOL_SIZE);
 
-    const authorQuery = query(
-      quizzesRef,
-      where('status', '==', 'published'),
-      where('authorName', '==', queryText),
-      limit(SEARCH_POOL_SIZE)
-    );
+    const { data: authorData } = await supabase
+      .from('quizzes')
+      .select('*')
+      .eq('status', 'published')
+      .eq('author_name', queryText)
+      .limit(SEARCH_POOL_SIZE);
 
-    const [tagSnap, authorSnap, genreQuizzes, latestQuizzes] = await Promise.all([
-      getDocs(tagQuery),
-      getDocs(authorQuery),
-      getQuizzesByGenre(queryText, SEARCH_POOL_SIZE).catch(() => []),
-      getLatestQuizzes(SEARCH_POOL_SIZE),
-    ]);
+    const genreQuizzes = await getQuizzesByGenre(queryText, SEARCH_POOL_SIZE).catch(() => []);
+    const latestQuizzes = await getLatestQuizzes(SEARCH_POOL_SIZE);
 
-    const tagQuizzes = tagSnap.docs.map((d) => d.data());
-    const authorQuizzes = authorSnap.docs.map((d) => d.data());
+    const tagQuizzes = tagData ? tagData.map(mapRowToQuiz) : [];
+    const authorQuizzes = authorData ? authorData.map(mapRowToQuiz) : [];
 
     const rawMerged = [...tagQuizzes, ...authorQuizzes, ...genreQuizzes, ...latestQuizzes];
     base = dedupeQuizzesById(rawMerged);
@@ -1167,36 +1341,37 @@ export async function getFollowedTimelinePage(
   const pageSize = options.limit ?? HOME_FEED_PAGE_SIZE;
   const kind: QuizFeedTabKind = 'timeline';
 
-  const followQuery = query(followsRef, where('followerId', '==', followerId));
-  const followSnap = await getDocs(followQuery);
-  const followingIds = followSnap.docs.map((d) => d.data().followingId);
+  const { data: followsData, error: followsError } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', followerId);
 
-  if (followingIds.length === 0) {
+  if (followsError || !followsData || followsData.length === 0) {
     return { items: [], nextCursor: null };
   }
 
+  const followingIds = followsData.map((d) => d.following_id);
   const targetIds = followingIds.slice(0, 30);
-  const baseConstraints = [
-    where('status', '==', 'published'),
-    where('authorId', 'in', targetIds),
-    orderBy('createdAt', 'desc'),
-  ] as const;
 
-  let q;
+  let q = supabase
+    .from('quizzes')
+    .select('*')
+    .eq('status', 'published')
+    .in('author_id', targetIds);
+
   if (options.cursor) {
-    const decoded = decodeQuizFeedCursor(options.cursor, kind);
-    const cursorSnap = await getDoc(doc(quizzesRef, decoded.quizId));
-    if (!cursorSnap.exists()) {
-      throw new QuizFeedCursorError('Invalid cursor');
-    }
-    q = query(quizzesRef, ...baseConstraints, startAfter(cursorSnap), limit(pageSize + 1));
-  } else {
-    q = query(quizzesRef, ...baseConstraints, limit(pageSize + 1));
+    q = await applyCursorFilter(q, options.cursor, kind);
   }
 
-  const snap = await getDocs(q);
+  const { data, error } = await q
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(pageSize + 1);
+
+  if (error || !data) return { items: [], nextCursor: null };
+
   return paginateQuizRows(
-    filterFollowTimelineQuizzes(snap.docs.map((d) => d.data())),
+    filterFollowTimelineQuizzes(data.map(mapRowToQuiz)),
     pageSize,
     kind
   );

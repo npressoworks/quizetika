@@ -1,92 +1,129 @@
 import { getFollowerUsers, getFollowingUsers } from '@/services/user';
-import { documentId, getDocs, where } from 'firebase/firestore';
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('../../tests/__mocks__/firebase/firestore.ts');
+// チェーン用のモックヘルパー
+const createChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    in: jest.fn(() => chain),
+    then: jest.fn((onFulfilled) => {
+      return Promise.resolve(resolveValue).then(onFulfilled);
+    }),
+  };
+  return chain;
+};
+
+// Supabase クライアントのモックを作成
+jest.mock('@/lib/supabase/client', () => {
+  const mock = {
+    from: jest.fn(() => mock),
+  };
   return {
-    ...original,
-    query: jest.fn((_ref, ...clauses) => ({ clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    getDocs: jest.fn(),
+    createClient: () => mock,
   };
 });
 
-function makeQuerySnapshot(docs: Array<{ data: () => unknown }>) {
-  return {
-    docs,
-    forEach: (fn: (doc: { data: () => unknown }) => void) => docs.forEach(fn),
-  };
-}
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
 
-function makeUserDoc(id: string, displayName: string) {
+function makeUserRow(id: string, displayName: string) {
   return {
-    data: () => ({
-      id,
-      email: `${id}@example.com`,
-      displayName,
-      avatarUrl: '',
-      bio: '',
-      followedGenres: [],
-      badges: [],
-      createdQuizzesCount: 0,
-      totalPlayCount: 0,
-      followersCount: 0,
-      followingCount: 0,
-      reputationScore: 0,
-      moderationTier: 'newcomer' as const,
-      reputationHistory: [],
-      lastReputationCalculatedAt: null,
-      totalFailedQuestionsCount: 0,
-      deleteStatus: 'active' as const,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }),
+    id,
+    email: `${id}@example.com`,
+    display_name: displayName,
+    avatar_url: '',
+    bio: '',
+    followed_genres: [],
+    badges: [],
+    created_quizzes_count: 0,
+    total_play_count: 0,
+    followers_count: 0,
+    following_count: 0,
+    reputation_score: 0,
+    moderation_tier: 'newcomer',
+    reputation_history: [],
+    last_reputation_calculated_at: null,
+    total_failed_questions_count: 0,
+    delete_status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   };
 }
 
 describe('user connections service', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
-    (documentId as jest.Mock).mockReturnValue('__documentId__');
+    jest.clearAllMocks();
   });
 
-  it('getFollowerUsers は documentId() でユーザーを解決する', async () => {
-    (getDocs as jest.Mock)
-      .mockResolvedValueOnce({
-        docs: [{ data: () => ({ followerId: 'follower-1', followingId: 'target-1' }) }],
-      })
-      .mockResolvedValueOnce(makeQuerySnapshot([makeUserDoc('follower-1', 'フォロワーA')]));
+  it('getFollowerUsers は DB からフォロワーを解決する', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'follows') {
+        const chain = createChainMock({
+          data: [{ follower_id: 'follower-1', following_id: 'target-1' }],
+          error: null,
+        });
+        return chain;
+      }
+      if (table === 'users') {
+        const chain = createChainMock({
+          data: [makeUserRow('follower-1', 'フォロワーA')],
+          error: null,
+        });
+        return chain;
+      }
+      return mockSupabase;
+    });
 
     const users = await getFollowerUsers('target-1');
 
     expect(users).toHaveLength(1);
     expect(users[0].id).toBe('follower-1');
     expect(users[0].displayName).toBe('フォロワーA');
-    expect(where).toHaveBeenCalledWith('__documentId__', 'in', ['follower-1']);
-    expect(where).not.toHaveBeenCalledWith('id', 'in', expect.anything());
+    expect(mockSupabase.from).toHaveBeenCalledWith('follows');
+    expect(mockSupabase.from).toHaveBeenCalledWith('users');
   });
 
-  it('getFollowingUsers は documentId() でユーザーを解決する', async () => {
-    (getDocs as jest.Mock)
-      .mockResolvedValueOnce({
-        docs: [{ data: () => ({ followerId: 'target-1', followingId: 'following-1' }) }],
-      })
-      .mockResolvedValueOnce(makeQuerySnapshot([makeUserDoc('following-1', 'フォロー先B')]));
+  it('getFollowingUsers は DB からフォローしているユーザーを解決する', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'follows') {
+        const chain = createChainMock({
+          data: [{ follower_id: 'target-1', following_id: 'following-1' }],
+          error: null,
+        });
+        return chain;
+      }
+      if (table === 'users') {
+        const chain = createChainMock({
+          data: [makeUserRow('following-1', 'フォロー先B')],
+          error: null,
+        });
+        return chain;
+      }
+      return mockSupabase;
+    });
 
     const users = await getFollowingUsers('target-1');
 
     expect(users).toHaveLength(1);
     expect(users[0].id).toBe('following-1');
     expect(users[0].displayName).toBe('フォロー先B');
-
-    expect(where).toHaveBeenCalledWith('__documentId__', 'in', ['following-1']);
-    expect(where).not.toHaveBeenCalledWith('id', 'in', expect.anything());
+    expect(mockSupabase.from).toHaveBeenCalledWith('follows');
+    expect(mockSupabase.from).toHaveBeenCalledWith('users');
   });
 
   it('フォロー関係がない場合は空配列を返す', async () => {
-    (getDocs as jest.Mock).mockResolvedValueOnce({ docs: [] });
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'follows') {
+        const chain = createChainMock({
+          data: [],
+          error: null,
+        });
+        return chain;
+      }
+      return mockSupabase;
+    });
 
     await expect(getFollowerUsers('target-1')).resolves.toEqual([]);
-    expect(getDocs).toHaveBeenCalledTimes(1);
+    expect(mockSupabase.from).toHaveBeenCalledWith('follows');
   });
 });

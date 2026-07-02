@@ -1,23 +1,38 @@
 import { searchQuizzes } from '../../src/services/quiz';
-import { getDocs } from 'firebase/firestore';
 import type { Question, Quiz } from '../../src/types';
 
-jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
+// チェーン用のモックヘルパー
+const createChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    in: jest.fn(() => chain),
+    contains: jest.fn(() => chain),
+    limit: jest.fn(() => chain),
+    order: jest.fn(() => chain),
+    or: jest.fn(() => chain),
+    is: jest.fn(() => chain),
+    maybeSingle: jest.fn(() => Promise.resolve(resolveValue)),
+    then: jest.fn((onFulfilled) => {
+      return Promise.resolve(resolveValue).then(onFulfilled);
+    }),
+  };
+  return chain;
+};
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
+// Supabase クライアントのモックを作成
+jest.mock('@/lib/supabase/client', () => {
+  const mock = {
+    from: jest.fn(() => mock),
+    then: jest.fn((onFulfilled) => Promise.resolve({ data: [], error: null }).then(onFulfilled)),
+  };
   return {
-    ...original,
-    doc: jest.fn((ref, ...paths) => ({ id: paths[paths.length - 1] || 'auto-id', path: paths.join('/') })),
-    collection: jest.fn((_db, path) => ({ path })),
-    query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    limit: jest.fn((n) => ({ limit: n })),
-    orderBy: jest.fn((field, dir) => ({ field, dir })),
-    getDocs: jest.fn(),
-    getDoc: jest.fn(),
+    createClient: () => mock,
   };
 });
+
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
 
 jest.mock('../../src/lib/metadata-resolution', () => {
   const actual = jest.requireActual('../../src/lib/metadata-resolution');
@@ -67,6 +82,7 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
     questions: [],
     questionCount: 5,
     status: 'published',
+    visibility: 'public',
     flagsCount: 0,
     playCount: 1,
     bookmarksCount: 0,
@@ -88,69 +104,85 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
   };
 }
 
+function makeQuizRow(quiz: Quiz) {
+  return {
+    id: quiz.id,
+    author_id: quiz.authorId,
+    author_name: quiz.authorName,
+    author_avatar: quiz.authorAvatar || null,
+    title: quiz.title,
+    description: quiz.description,
+    thumbnail_url: quiz.thumbnailUrl,
+    difficulty: quiz.difficulty,
+    genre: quiz.genre,
+    tags: quiz.tags,
+    original_tags: quiz.originalTags,
+    question_ids: quiz.questionIds,
+    questions: quiz.questions as any,
+    question_count: quiz.questionCount,
+    status: quiz.status,
+    visibility: quiz.visibility ?? 'public',
+    flags_count: quiz.flagsCount,
+    play_count: quiz.playCount,
+    bookmarks_count: quiz.bookmarksCount,
+    positive_count: quiz.positiveCount,
+    negative_count: quiz.negativeCount,
+    temp_positive_count: quiz.tempPositiveCount,
+    temp_negative_count: quiz.tempNegativeCount,
+    review_score: quiz.reviewScore,
+    format: quiz.format ?? null,
+    canonical_genre_id: quiz.canonicalGenreId ?? null,
+    canonical_tag_ids: quiz.canonicalTagIds ?? null,
+    created_at: quiz.createdAt.toISOString(),
+    updated_at: quiz.updatedAt.toISOString(),
+  };
+}
+
 function mockLatestQuizzes(quizzes: Quiz[]) {
-  (getDocs as jest.Mock).mockImplementation((q: { clauses?: Array<{ field: string; op: string; value?: unknown }> }) => {
-    const clauses = q.clauses ?? [];
-    const isCanonicalGenre = clauses.some(
-      (c) => c.field === 'canonicalGenreId' && c.op === '=='
-    );
-    const isLegacyGenre = clauses.some((c) => c.field === 'genre' && c.op === 'in');
-    const isTagQuery = clauses.some(
-      (c) =>
-        (c.field === 'canonicalTagIds' && c.op === 'array-contains') ||
-        (c.field === 'tags' && c.op === 'array-contains')
-    );
-    const isLatest =
-      clauses.some((c) => c.field === 'status' && c.op === '==') &&
-      !isCanonicalGenre &&
-      !isLegacyGenre &&
-      !isTagQuery &&
-      !clauses.some((c) => c.field === 'authorName');
+  mockSupabase.from.mockImplementation((table: string) => {
+    if (table === 'quizzes') {
+      const chain = createChainMock({ data: [], error: null });
 
-    if (isCanonicalGenre || isLegacyGenre) {
-      const genreValue =
-        (clauses.find((c) => c.field === 'canonicalGenreId' && c.op === '==')?.value as string) ??
-        (clauses.find((c) => c.field === 'genre' && c.op === 'in')?.value as string[] | undefined)?.[0];
-
-      const matched = quizzes.filter(
-        (quiz) => quiz.canonicalGenreId === genreValue || quiz.genre === genreValue
-      );
-      return Promise.resolve({
-        docs: matched.map((data) => ({ id: data.id, data: () => data })),
+      // getQuizzesByGenre 内の queryPublishedByCanonicalGenre 用に eq/in をモック
+      chain.eq.mockImplementation((field: string, val: string) => {
+        if (field === 'canonical_genre_id') {
+          const matched = quizzes.filter(q => q.canonicalGenreId === val || q.genre === val);
+          return createChainMock({ data: matched.map(makeQuizRow), error: null });
+        }
+        return chain;
       });
+
+      chain.in.mockImplementation((field: string, val: string[]) => {
+        if (field === 'genre') {
+          const matched = quizzes.filter(q => val.includes(q.genre));
+          return createChainMock({ data: matched.map(makeQuizRow), error: null });
+        }
+        return chain;
+      });
+
+      chain.contains.mockImplementation((field: string, val: string[]) => {
+        const tagValue = val[0];
+        const matched = quizzes.filter(
+          (quiz) => quiz.canonicalTagIds?.includes(tagValue) || quiz.tags?.includes(tagValue)
+        );
+        return createChainMock({ data: matched.map(makeQuizRow), error: null });
+      });
+
+      // limit() などの最新取得用
+      chain.limit.mockImplementation(() => {
+        return createChainMock({ data: quizzes.map(makeQuizRow), error: null });
+      });
+
+      return chain;
     }
-
-    if (isTagQuery) {
-      const tagValue = clauses.find(
-        (c) =>
-          (c.field === 'canonicalTagIds' && c.op === 'array-contains') ||
-          (c.field === 'tags' && c.op === 'array-contains')
-      )?.value as string;
-
-      const matched = quizzes.filter((quiz) => {
-        if (quiz.canonicalTagIds?.includes(tagValue)) return true;
-        if (quiz.tags?.includes(tagValue)) return true;
-        return false;
-      });
-
-      return Promise.resolve({
-        docs: matched.map((data) => ({ id: data.id, data: () => data })),
-      });
-    }
-
-    if (isLatest) {
-      return Promise.resolve({
-        docs: quizzes.map((data) => ({ id: data.id, data: () => data })),
-      });
-    }
-
-    return Promise.resolve({ docs: [] });
+    return mockSupabase as any;
   });
 }
 
 describe('searchQuizzes (出題形式フィルタ)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.from.mockClear();
   });
 
   test('形式のみで選択式クイズを返す（format フィールドあり）', async () => {
@@ -228,20 +260,27 @@ describe('searchQuizzes (出題形式フィルタ)', () => {
       tags: ['python'],
     });
 
-    (getDocs as jest.Mock).mockImplementation((q: { clauses?: Array<{ field: string; op: string; value?: unknown }> }) => {
-      const clauses = q.clauses ?? [];
-      const isTagQuery = clauses.some((c) => c.field === 'tags' && c.op === 'array-contains');
-      const pool = [match, wrongFormat, wrongTag];
+    const pool = [match, wrongFormat, wrongTag];
 
-      if (isTagQuery) {
-        return Promise.resolve({
-          docs: pool.map((data) => ({ id: data.id, data: () => data })),
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'quizzes') {
+        const chain = createChainMock({ data: pool.map(makeQuizRow), error: null });
+
+        chain.contains.mockImplementation(() => {
+          return createChainMock({ data: pool.map(makeQuizRow), error: null });
         });
-      }
 
-      return Promise.resolve({
-        docs: pool.map((data) => ({ id: data.id, data: () => data })),
-      });
+        chain.eq.mockImplementation(() => {
+          return createChainMock({ data: pool.map(makeQuizRow), error: null });
+        });
+
+        chain.limit.mockImplementation(() => {
+          return createChainMock({ data: pool.map(makeQuizRow), error: null });
+        });
+
+        return chain;
+      }
+      return mockSupabase as any;
     });
 
     const results = await searchQuizzes('javascript', {

@@ -1,25 +1,43 @@
 import { searchQuizzes } from '../../src/services/quiz';
-import { getDocs } from 'firebase/firestore';
 import type { Quiz } from '../../src/types';
 
 jest.mock('../../src/lib/search-log', () => ({
   writeSearchLog: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
+// チェーン用のモックヘルパー
+const createChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    in: jest.fn(() => chain),
+    contains: jest.fn(() => chain),
+    limit: jest.fn(() => chain),
+    order: jest.fn(() => chain),
+    or: jest.fn(() => chain),
+    is: jest.fn(() => chain),
+    maybeSingle: jest.fn(() => Promise.resolve(resolveValue)),
+    then: jest.fn((onFulfilled) => {
+      return Promise.resolve(resolveValue).then(onFulfilled);
+    }),
+  };
+  return chain;
+};
+
+// Supabase クライアントのモックを作成
+jest.mock('@/lib/supabase/client', () => {
+  const mock = {
+    from: jest.fn(() => mock),
+    // 念のためルートも Thenable にしておく
+    then: jest.fn((onFulfilled) => Promise.resolve({ data: [], error: null }).then(onFulfilled)),
+  };
   return {
-    ...original,
-    doc: jest.fn((ref, ...paths) => ({ id: paths[paths.length - 1] || 'auto-id', path: paths.join('/') })),
-    collection: jest.fn((db, path) => ({ path })),
-    query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    limit: jest.fn((n) => ({ limit: n })),
-    orderBy: jest.fn((field, dir) => ({ field, dir })),
-    getDocs: jest.fn(),
-    getDoc: jest.fn(),
+    createClient: () => mock,
   };
 });
+
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
 
 // metadata-resolution.ts もモック化する
 jest.mock('../../src/lib/metadata-resolution', () => {
@@ -79,9 +97,41 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
   };
 }
 
+function makeQuizRow(quiz: Quiz) {
+  return {
+    id: quiz.id,
+    author_id: quiz.authorId,
+    author_name: quiz.authorName,
+    author_avatar: quiz.authorAvatar || null,
+    title: quiz.title,
+    description: quiz.description,
+    thumbnail_url: quiz.thumbnailUrl,
+    difficulty: quiz.difficulty,
+    genre: quiz.genre,
+    tags: quiz.tags,
+    original_tags: quiz.originalTags,
+    question_ids: quiz.questionIds,
+    questions: quiz.questions as any,
+    question_count: quiz.questionCount,
+    status: quiz.status,
+    visibility: quiz.visibility ?? 'public',
+    flags_count: quiz.flagsCount,
+    play_count: quiz.playCount,
+    bookmarks_count: quiz.bookmarksCount,
+    positive_count: quiz.positiveCount,
+    negative_count: quiz.negativeCount,
+    temp_positive_count: quiz.tempPositiveCount,
+    temp_negative_count: quiz.tempNegativeCount,
+    review_score: quiz.reviewScore,
+    created_at: quiz.createdAt.toISOString(),
+    updated_at: quiz.updatedAt.toISOString(),
+  };
+}
+
 describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.from.mockClear();
   });
 
   test('queryText が指定された場合、並行クエリを実行し、重複排除と部分一致フィルタ、詳細条件フィルタを適用する', async () => {
@@ -92,54 +142,57 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
       makeQuiz({ id: '4', title: 'TypeScript 入門', authorName: 'ユーザーC', tags: ['ts', 'js'], difficulty: 4, questionCount: 15 }),
     ];
 
-    // getDocs がモックのデータを返すように設定
-    const { getDocs: mockGetDocs } = require('firebase/firestore');
     let queryCallCount = 0;
-    mockGetDocs.mockImplementation((q: any) => {
-      queryCallCount++;
-      const clauses = q.clauses || [];
-      const isTagQuery = clauses.some((c: any) => c.field === 'tags' && c.op === 'array-contains');
-      const isAuthorQuery = clauses.some((c: any) => c.field === 'authorName' && c.op === '==');
-      const isGenreQuery = clauses.some((c: any) => c.field === 'genre' && c.op === 'in');
-      const isCanonicalGenreQuery = clauses.some((c: any) => c.field === 'canonicalGenreId' && c.op === '==');
-      const isLatestQuery = clauses.some((c: any) => c.field === 'status' && c.op === '==') && !isTagQuery && !isAuthorQuery && !isGenreQuery && !isCanonicalGenreQuery;
 
-      let result: Quiz[] = [];
-      if (isTagQuery) {
-        result = mockQuizzes.filter(quiz => quiz.tags.includes('js'));
-      } else if (isAuthorQuery) {
-        result = mockQuizzes.filter(quiz => quiz.authorName === 'ユーザーA');
-      } else if (isCanonicalGenreQuery || isGenreQuery) {
-        result = mockQuizzes.filter(quiz => quiz.genre === 'programming');
-      } else if (isLatestQuery) {
-        result = mockQuizzes;
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'quizzes') {
+        const chain = createChainMock({ data: [], error: null });
+        
+        // contains() が呼ばれたら tags 検索用の結果
+        chain.contains.mockImplementation(() => {
+          queryCallCount++;
+          return createChainMock({
+            data: mockQuizzes.filter(q => q.tags.includes('js')).map(makeQuizRow),
+            error: null,
+          });
+        });
+
+        // eq('author_name', 'js') が呼ばれたら作者検索用の結果
+        chain.eq.mockImplementation((field: string, val: string) => {
+          if (field === 'author_name' && val === 'js') {
+            queryCallCount++;
+            return createChainMock({
+              data: mockQuizzes.filter(q => q.authorName === 'js').map(makeQuizRow),
+              error: null,
+            });
+          }
+          return chain;
+        });
+
+        // それ以外の limit() など、新着一覧取得用
+        chain.limit.mockImplementation(() => {
+          queryCallCount++;
+          return createChainMock({
+            data: mockQuizzes.map(makeQuizRow),
+            error: null,
+          });
+        });
+
+        return chain;
       }
-
-      return Promise.resolve({
-        docs: result.map(data => ({
-          id: data.id,
-          data: () => data
-        }))
-      });
+      return mockSupabase as any;
     });
 
     const results = await searchQuizzes('js');
 
-    // 統合検索時には、タグ検索、作者名検索、ジャンル検索、最新新着検索が並行実行されるため、
-    // getDocs の呼び出し回数が複数回行われていることを検証する（並行化の確認）
+    // 統合検索の並行実行確認
     expect(queryCallCount).toBeGreaterThanOrEqual(3);
 
-    // 「js」に部分一致・完全一致するものが返ってくることを期待
-    // 1: JavaScript 入門 (title に js, tags に js) -> 合致
-    // 2: Python 基礎 (js 含まない) -> 除外
-    // 3: React の世界 (tags に js) -> 合致
-    // 4: TypeScript 入門 (tags に js) -> 合致
     expect(results.map(r => r.id)).toContain('1');
     expect(results.map(r => r.id)).toContain('3');
     expect(results.map(r => r.id)).toContain('4');
     expect(results.map(r => r.id)).not.toContain('2');
 
-    // 重複がないこと
     const ids = results.map(r => r.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
@@ -151,12 +204,11 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
       makeQuiz({ id: '3', title: 'JS 達人', difficulty: 5, questionCount: 20, genre: 'programming' }),
     ];
 
-    const { getDocs: mockGetDocs } = require('firebase/firestore');
-    mockGetDocs.mockResolvedValue({
-      docs: mockQuizzes.map(data => ({
-        id: data.id,
-        data: () => data
-      }))
+    mockSupabase.from.mockImplementation(() => {
+      return createChainMock({
+        data: mockQuizzes.map(makeQuizRow),
+        error: null,
+      }) as any;
     });
 
     const filtered = await searchQuizzes('JS', {
@@ -176,8 +228,9 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
 
   test('userId が渡された場合、writeSearchLog がサイレントに呼び出されること', async () => {
     const { writeSearchLog } = require('../../src/lib/search-log');
-    const { getDocs: mockGetDocs } = require('firebase/firestore');
-    mockGetDocs.mockResolvedValue({ docs: [] });
+    mockSupabase.from.mockImplementation(() => {
+      return createChainMock({ data: [], error: null }) as any;
+    });
 
     await searchQuizzes('検索ワード', { tags: ['tag1'] }, 'user-abc');
 

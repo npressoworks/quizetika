@@ -1,48 +1,64 @@
-import { getQuestionsByQuiz } from '@/services/question';
-import { getDoc, getDocs } from 'firebase/firestore';
+/**
+ * question service - getQuestionsByQuiz (Supabase 移行版)
+ */
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
+import { getQuestionsByQuiz } from '@/services/question';
+
+// Supabase クライアントのモックを作成
+jest.mock('@/lib/supabase/client', () => {
+  const mock = {
+    from: jest.fn(() => mock),
+    select: jest.fn(() => mock),
+    eq: jest.fn(() => mock),
+    in: jest.fn(() => mock),
+    maybeSingle: jest.fn(),
+  };
   return {
-    ...original,
-    collection: jest.fn(),
-    query: jest.fn(),
-    where: jest.fn(),
-    getDocs: jest.fn(),
-    getDoc: jest.fn(),
-    doc: jest.fn((_ref, ...paths) => ({ id: paths[paths.length - 1] })),
+    createClient: () => mock,
   };
 });
+
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
 
 describe('question service - getQuestionsByQuiz', () => {
   const quizId = 'quiz-123';
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.from.mockClear();
+    mockSupabase.select.mockClear();
+    mockSupabase.eq.mockClear();
+    mockSupabase.in.mockClear();
+    mockSupabase.maybeSingle.mockReset();
+
+    mockSupabase.from.mockReturnValue(mockSupabase);
+    mockSupabase.select.mockReturnValue(mockSupabase);
+    mockSupabase.eq.mockReturnValue(mockSupabase);
+    mockSupabase.in.mockReturnValue(mockSupabase);
   });
 
   it('問題の個別ドキュメントがすべて正常に存在する場合はそれらを返す', async () => {
     // クイズデータのモック（個別問題IDが2つ存在する）
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({
+    mockSupabase.maybeSingle.mockResolvedValueOnce({
+      data: {
         id: quizId,
-        questionIds: ['q-1', 'q-2'],
+        question_ids: ['q-1', 'q-2'],
         questions: [
           { id: 'q-1', questionText: '親ドキュメント内の問題1' },
           { id: 'q-2', questionText: '親ドキュメント内の問題2' },
         ],
-      }),
+      },
+      error: null,
     });
 
     // 個別問題ドキュメントが正常に2件返ってくるモック
-    (getDocs as jest.Mock).mockResolvedValue({
-      forEach(callback: any) {
-        [
-          { id: 'q-1', data: () => ({ id: 'q-1', questionText: '個別問題1' }) },
-          { id: 'q-2', data: () => ({ id: 'q-2', questionText: '個別問題2' }) },
-        ].forEach((docSnap) => callback(docSnap));
-      },
+    mockSupabase.in.mockResolvedValueOnce({
+      data: [
+        { id: 'q-1', question_text: '個別問題1', type: 'multiple-choice' },
+        { id: 'q-2', question_text: '個別問題2', type: 'multiple-choice' },
+      ],
+      error: null,
     });
 
     const questions = await getQuestionsByQuiz(quizId);
@@ -54,25 +70,24 @@ describe('question service - getQuestionsByQuiz', () => {
 
   it('問題の個別ドキュメントが欠落している（不整合）場合は、親の非正規化コピーをフォールバックとして返す', async () => {
     // クイズデータのモック
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({
+    mockSupabase.maybeSingle.mockResolvedValueOnce({
+      data: {
         id: quizId,
-        questionIds: ['q-1', 'q-2'],
+        question_ids: ['q-1', 'q-2'],
         questions: [
           { id: 'q-1', questionText: '親ドキュメント内の問題1' },
           { id: 'q-2', questionText: '親ドキュメント内の問題2' },
         ],
-      }),
+      },
+      error: null,
     });
 
     // 個別問題ドキュメントが1件しか返ってこない（q-2が欠落している）モック
-    (getDocs as jest.Mock).mockResolvedValue({
-      forEach(callback: any) {
-        [
-          { id: 'q-1', data: () => ({ id: 'q-1', questionText: '個別問題1' }) },
-        ].forEach((docSnap) => callback(docSnap));
-      },
+    mockSupabase.in.mockResolvedValueOnce({
+      data: [
+        { id: 'q-1', question_text: '個別問題1', type: 'multiple-choice' },
+      ],
+      error: null,
     });
 
     const questions = await getQuestionsByQuiz(quizId);

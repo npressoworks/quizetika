@@ -1,6 +1,8 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from './firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import type { GenreMetadata, Quiz, TagMetadata } from '../types';
+import { Database } from './supabase/database.types';
+
+const supabase = createClient();
 
 export const IN_QUERY_CHUNK_SIZE = 10;
 
@@ -25,10 +27,38 @@ export class MetadataValidationError extends Error {
   }
 }
 
-const metadataGenresCollection = 'metadata_genres';
-const metadataTagsCollection = 'metadata_tags';
+/**
+ * データベースRowからGenreMetadataへマッピング
+ */
+export function mapGenreRowToMetadata(row: Database['public']['Tables']['metadata_genres']['Row']): GenreMetadata {
+  return {
+    id: row.id,
+    displayName: row.display_name,
+    description: row.description ?? undefined,
+    iconImageUrl: row.icon_image_url,
+    canonicalId: row.canonical_id,
+    mergedGenreIds: row.merged_genre_ids ?? [],
+    isActive: row.is_active,
+    createdAt: new Date(row.created_at),
+  };
+}
 
-/** Firestore `in` クエリ用に ID 配列をチャンク分割する */
+/**
+ * データベースRowからTagMetadataへマッピング
+ */
+export function mapTagRowToMetadata(row: Database['public']['Tables']['metadata_tags']['Row']): TagMetadata {
+  return {
+    id: row.id,
+    tagName: row.tag_name ?? undefined,
+    canonicalId: row.canonical_id,
+    mergedTagIds: row.merged_tag_ids ?? [],
+    createdBy: row.created_by ?? undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+/** ID 配列をチャンク分割する */
 export function chunkIdsForInQuery(
   ids: string[],
   chunkSize: number = IN_QUERY_CHUNK_SIZE
@@ -117,17 +147,25 @@ function isGenreActive(data: GenreMetadata & { isEnabled?: boolean }): boolean {
 }
 
 async function fetchGenreMaster(genreId: string): Promise<GenreMetadata | null> {
-  const snap = await getDoc(doc(db, metadataGenresCollection, genreId));
-  if (!snap.exists()) return null;
-  const data = snap.data() as GenreMetadata & { isEnabled?: boolean };
-  return { ...data, id: genreId };
+  const { data, error } = await supabase
+    .from('metadata_genres')
+    .select('*')
+    .eq('id', genreId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapGenreRowToMetadata(data);
 }
 
 async function fetchTagMaster(tagId: string): Promise<TagMetadata | null> {
-  const snap = await getDoc(doc(db, metadataTagsCollection, tagId));
-  if (!snap.exists()) return null;
-  const data = snap.data() as TagMetadata;
-  return { ...data, id: tagId };
+  const { data, error } = await supabase
+    .from('metadata_tags')
+    .select('*')
+    .eq('id', tagId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapTagRowToMetadata(data);
 }
 
 export async function resolveCanonicalGenreId(genreId: string): Promise<string> {
@@ -225,17 +263,24 @@ export async function ensureTagMasters(
   const now = new Date();
   for (const tagId of tagIds) {
     if (!tagId) continue;
-    const ref = doc(db, metadataTagsCollection, tagId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      await setDoc(ref, {
+    
+    // 存在確認と新規挿入を upsert や get/insert で行います。
+    // RLS を考慮し、単一タグの maybeSingle で取得します。
+    const { data: tagMaster, error } = await supabase
+      .from('metadata_tags')
+      .select('id')
+      .eq('id', tagId)
+      .maybeSingle();
+
+    if (!tagMaster && !error) {
+      await supabase.from('metadata_tags').insert({
         id: tagId,
-        tagName: tagId,
-        canonicalId: null,
-        mergedTagIds: [],
-        createdBy,
-        createdAt: now,
-        updatedAt: now,
+        tag_name: tagId,
+        canonical_id: null,
+        merged_tag_ids: [],
+        created_by: createdBy,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
       });
     }
   }

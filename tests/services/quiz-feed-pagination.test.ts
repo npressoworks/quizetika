@@ -5,30 +5,32 @@ import {
   QuizFeedCursorError,
   getQuizzesByAuthorPage,
 } from '../../src/services/quiz';
-import { getDoc, getDocs, query } from 'firebase/firestore';
 import type { Quiz } from '../../src/types';
 import {
   buildSearchFingerprint,
   encodeSearchOffsetCursor,
 } from '../../src/lib/quiz-feed-cursor';
 
-jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
-
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
+jest.mock('@/lib/supabase/client', () => {
+  const mock = {
+    from: jest.fn(() => mock),
+    select: jest.fn(() => mock),
+    eq: jest.fn(() => mock),
+    in: jest.fn(() => mock),
+    maybeSingle: jest.fn(),
+    order: jest.fn(() => mock),
+    limit: jest.fn(() => mock),
+    or: jest.fn(() => mock),
+    is: jest.fn(() => mock),
+    contains: jest.fn(() => mock),
+  };
   return {
-    ...original,
-    doc: jest.fn((ref, ...paths) => ({ id: paths[paths.length - 1] || 'auto-id', path: paths.join('/') })),
-    collection: jest.fn((_db, path) => ({ path })),
-    query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    limit: jest.fn((n) => ({ limit: n })),
-    orderBy: jest.fn((field, dir) => ({ field, dir })),
-    startAfter: jest.fn((snap) => ({ startAfter: snap })),
-    getDocs: jest.fn(),
-    getDoc: jest.fn(),
+    createClient: () => mock,
   };
 });
+
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
 
 jest.mock('../../src/lib/metadata-resolution', () => {
   const actual = jest.requireActual('../../src/lib/metadata-resolution');
@@ -47,7 +49,7 @@ jest.mock('../../src/lib/metadata-resolution', () => {
   };
 });
 
-function makeQuiz(id: string, createdAtMs: number): Quiz {
+function makeQuiz(id: string, createdAtMs: number, playCount: number = 1): Quiz {
   return {
     id,
     authorId: 'author-1',
@@ -65,7 +67,7 @@ function makeQuiz(id: string, createdAtMs: number): Quiz {
     questionCount: 5,
     status: 'published',
     flagsCount: 0,
-    playCount: 1,
+    playCount,
     bookmarksCount: 0,
     positiveCount: 0,
     negativeCount: 0,
@@ -84,25 +86,80 @@ function makeQuiz(id: string, createdAtMs: number): Quiz {
   };
 }
 
+function makeQuizRow(quiz: Quiz) {
+  return {
+    id: quiz.id,
+    author_id: quiz.authorId,
+    author_name: quiz.authorName,
+    author_avatar: quiz.authorAvatar || null,
+    title: quiz.title,
+    description: quiz.description,
+    thumbnail_url: quiz.thumbnailUrl,
+    difficulty: quiz.difficulty,
+    genre: quiz.genre,
+    tags: quiz.tags,
+    original_tags: quiz.originalTags,
+    question_ids: quiz.questionIds,
+    questions: quiz.questions as any,
+    question_count: quiz.questionCount,
+    status: quiz.status,
+    visibility: quiz.visibility ?? 'public',
+    flags_count: quiz.flagsCount,
+    play_count: quiz.playCount,
+    bookmarks_count: quiz.bookmarksCount,
+    positive_count: quiz.positiveCount,
+    negative_count: quiz.negativeCount,
+    temp_positive_count: quiz.tempPositiveCount,
+    temp_negative_count: quiz.tempNegativeCount,
+    review_score: quiz.reviewScore,
+    created_at: quiz.createdAt.toISOString(),
+    updated_at: quiz.updatedAt.toISOString(),
+  };
+}
+
 describe('quiz feed pagination', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.from.mockClear();
+    mockSupabase.select.mockClear();
+    mockSupabase.eq.mockClear();
+    mockSupabase.in.mockClear();
+    mockSupabase.maybeSingle.mockReset();
+    mockSupabase.order.mockClear();
+    mockSupabase.limit.mockClear();
+    mockSupabase.or.mockClear();
+    mockSupabase.is.mockClear();
+    mockSupabase.contains.mockClear();
+
+    mockSupabase.from.mockReturnValue(mockSupabase);
+    mockSupabase.select.mockReturnValue(mockSupabase);
+    mockSupabase.eq.mockReturnValue(mockSupabase);
+    mockSupabase.in.mockReturnValue(mockSupabase);
+    mockSupabase.order.mockReturnValue(mockSupabase);
+    mockSupabase.limit.mockReturnValue(mockSupabase);
+    mockSupabase.or.mockReturnValue(mockSupabase);
+    mockSupabase.is.mockReturnValue(mockSupabase);
+    mockSupabase.contains.mockReturnValue(mockSupabase);
   });
 
   it('getLatestQuizzesPage の2ページ目先頭 ID が1ページ目に含まれない', async () => {
     const page1 = [makeQuiz('q-1', 3000), makeQuiz('q-2', 2000)];
 
-    (getDocs as jest.Mock)
-      .mockResolvedValueOnce({
-        docs: page1.map((q) => ({ data: () => q })),
-      })
-      .mockResolvedValueOnce({
-        docs: [page1[1]].map((q) => ({ data: () => q })),
-      });
+    mockSupabase.limit.mockResolvedValueOnce({
+      data: page1.map(makeQuizRow),
+      error: null,
+    });
 
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => page1[0],
+    // 2ページ目取得時、カーソル用レコードを maybeSingle で取得
+    mockSupabase.maybeSingle.mockResolvedValueOnce({
+      data: makeQuizRow(page1[0]),
+      error: null,
+    });
+
+    // 2ページ目の取得
+    mockSupabase.limit.mockResolvedValueOnce({
+      data: [makeQuizRow(page1[1])],
+      error: null,
     });
 
     const first = await getLatestQuizzesPage({ limit: 1 });
@@ -116,8 +173,9 @@ describe('quiz feed pagination', () => {
 
   it('getLatestQuizzes は先頭ページ API の薄いラッパーとして動作する', async () => {
     const rows = [makeQuiz('wrap-1', 1000), makeQuiz('wrap-2', 900)];
-    (getDocs as jest.Mock).mockResolvedValue({
-      docs: rows.map((q) => ({ data: () => q })),
+    mockSupabase.limit.mockResolvedValueOnce({
+      data: rows.map(makeQuizRow),
+      error: null,
     });
 
     const items = await getLatestQuizzes(2);
@@ -126,9 +184,15 @@ describe('quiz feed pagination', () => {
 
   it('searchQuizzesPaginated は offset 0/1 で件数が整合する', async () => {
     const rows = [makeQuiz('s-1', 3000), makeQuiz('s-2', 2000), makeQuiz('s-3', 1000)];
-    (getDocs as jest.Mock).mockResolvedValue({
-      docs: rows.map((q) => ({ data: () => q })),
-    });
+    mockSupabase.limit
+      .mockResolvedValueOnce({
+        data: rows.map(makeQuizRow),
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: rows.map(makeQuizRow),
+        error: null,
+      });
 
     const page1 = await searchQuizzesPaginated('', {}, { limit: 2 });
     expect(page1.items).toHaveLength(2);
@@ -152,8 +216,9 @@ describe('quiz feed pagination', () => {
   describe('getQuizzesByAuthorPage', () => {
     it('作成者IDで絞り込まれたクイズ一覧を createdAt 降順でロードできる', async () => {
       const page1 = [makeQuiz('q-author-1', 3000), makeQuiz('q-author-2', 2000)];
-      (getDocs as jest.Mock).mockResolvedValue({
-        docs: page1.map((q) => ({ data: () => q })),
+      mockSupabase.limit.mockResolvedValueOnce({
+        data: page1.map(makeQuizRow),
+        error: null,
       });
 
       const result = await getQuizzesByAuthorPage('author-1', { limit: 1 });
@@ -163,35 +228,52 @@ describe('quiz feed pagination', () => {
 
     it('下書きを含める場合と含めない場合でクエリの制約が切り替わる', async () => {
       const page = [makeQuiz('q-author-1', 3000), makeQuiz('q-author-2', 2000)];
-      (getDocs as jest.Mock).mockResolvedValue({
-        docs: page.map((q) => ({ data: () => q })),
+      
+      // 1回目：下書きを含める
+      mockSupabase.limit.mockResolvedValueOnce({
+        data: page.map(makeQuizRow),
+        error: null,
       });
-
-      // includeUnpublished === true の場合 (status=published や visibility=public の where 条件がない)
       await getQuizzesByAuthorPage('author-1', { includeUnpublished: true });
-      const lastQueryCall = (jest.mocked(query).mock.calls);
-      const callForDrafts = lastQueryCall[lastQueryCall.length - 1];
-      const clausesDraft = callForDrafts.slice(1);
-      expect(clausesDraft.some((c: any) => c.field === 'status')).toBe(false);
-      expect(clausesDraft.some((c: any) => c.field === 'visibility')).toBe(false);
+      
+      const callsForDrafts = mockSupabase.eq.mock.calls;
+      // 'author_id' は指定するが 'status' や 'visibility' は指定しない
+      expect(callsForDrafts.some((c: any) => c[0] === 'author_id' && c[1] === 'author-1')).toBe(true);
+      expect(callsForDrafts.some((c: any) => c[0] === 'status')).toBe(false);
 
-      // includeUnpublished === false の場合
+      mockSupabase.eq.mockClear();
+
+      // 2回目：下書きを含めない
+      mockSupabase.limit.mockResolvedValueOnce({
+        data: page.map(makeQuizRow),
+        error: null,
+      });
       await getQuizzesByAuthorPage('author-1', { includeUnpublished: false });
-      const lastQueryCall2 = (jest.mocked(query).mock.calls);
-      const callForPublic = lastQueryCall2[lastQueryCall2.length - 1];
-      const clausesPublic = callForPublic.slice(1);
-      expect(clausesPublic.some((c: any) => c.field === 'status' && c.value === 'published')).toBe(true);
-      expect(clausesPublic.some((c: any) => c.field === 'visibility' && c.value === 'public')).toBe(true);
+      
+      const callsForPublic = mockSupabase.eq.mock.calls;
+      expect(callsForPublic.some((c: any) => c[0] === 'status' && c[1] === 'published')).toBe(true);
+      expect(callsForPublic.some((c: any) => c[0] === 'visibility' && c[1] === 'public')).toBe(true);
     });
 
-    it('カーソルを指定したとき startAfter が正しく設定される', async () => {
+    it('カーソルを指定したとき or フィルタが正しく設定される', async () => {
       const page = [makeQuiz('q-author-1', 3000), makeQuiz('q-author-2', 2000)];
-      (getDocs as jest.Mock).mockResolvedValue({
-        docs: page.map((q) => ({ data: () => q })),
+      
+      // 1回目のロード
+      mockSupabase.limit.mockResolvedValueOnce({
+        data: page.map(makeQuizRow),
+        error: null,
       });
-      (getDoc as jest.Mock).mockResolvedValue({
-        exists: () => true,
-        data: () => page[0],
+
+      // maybeSingle (カーソル用のクイズ取得)
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: makeQuizRow(page[0]),
+        error: null,
+      });
+
+      // 2回目のロード
+      mockSupabase.limit.mockResolvedValueOnce({
+        data: [makeQuizRow(page[1])],
+        error: null,
       });
 
       const first = await getQuizzesByAuthorPage('author-1', { limit: 1 });
@@ -199,10 +281,10 @@ describe('quiz feed pagination', () => {
 
       await getQuizzesByAuthorPage('author-1', { limit: 1, cursor: first.nextCursor });
       
-      const lastQueryCall = (jest.mocked(query).mock.calls);
-      const callWithCursor = lastQueryCall[lastQueryCall.length - 1];
-      const clauses = callWithCursor.slice(1);
-      expect(clauses.some((c: any) => c.hasOwnProperty('startAfter'))).toBe(true);
+      // or メソッドが呼び出されていることを確認
+      expect(mockSupabase.or).toHaveBeenCalled();
+      const orCallArg = mockSupabase.or.mock.calls[0][0];
+      expect(orCallArg).toContain('created_at.lt');
     });
   });
 });

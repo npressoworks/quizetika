@@ -1,26 +1,24 @@
-jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
-
 import { saveQuiz } from '../../src/services/quiz';
 import { MetadataValidationError } from '../../src/lib/metadata-resolution';
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  const batchSet = jest.fn();
-  const batchCommit = jest.fn().mockResolvedValue(undefined);
+// Supabase クライアントのモックを作成
+jest.mock('@/lib/supabase/client', () => {
+  const mock = {
+    from: jest.fn(() => mock),
+    insert: jest.fn(() => mock),
+    delete: jest.fn(() => mock),
+    in: jest.fn(() => mock),
+    select: jest.fn(() => mock),
+    maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    then: jest.fn((onFulfilled) => Promise.resolve({ data: null, error: null }).then(onFulfilled)),
+  };
   return {
-    ...original,
-    doc: jest.fn(() => ({ id: 'new-quiz-id' })),
-    collection: jest.fn((_db, path) => ({ path })),
-    query: jest.fn(),
-    where: jest.fn(),
-    orderBy: jest.fn(),
-    limit: jest.fn(),
-    getDoc: jest.fn(),
-    getDocs: jest.fn(),
-    writeBatch: jest.fn(() => ({ set: batchSet, commit: batchCommit })),
-    setDoc: jest.fn(),
+    createClient: () => mock,
   };
 });
+
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
 
 jest.mock('../../src/lib/metadata-resolution', () => {
   const actual = jest.requireActual('../../src/lib/metadata-resolution');
@@ -37,7 +35,6 @@ jest.mock('../../src/lib/metadata-resolution', () => {
   };
 });
 
-import { writeBatch } from 'firebase/firestore';
 import { applyQuizMetadataFields } from '../../src/lib/metadata-resolution';
 
 const baseQuiz = {
@@ -89,9 +86,31 @@ const baseQuiz = {
 describe('saveQuiz metadata integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.from.mockClear();
+    mockSupabase.insert.mockClear();
+    mockSupabase.delete.mockClear();
+    mockSupabase.in.mockClear();
+    mockSupabase.select.mockClear();
+    mockSupabase.maybeSingle.mockReset();
+
+    mockSupabase.from.mockReturnValue(mockSupabase);
+    mockSupabase.insert.mockReturnValue(mockSupabase);
+    mockSupabase.delete.mockReturnValue(mockSupabase);
+    mockSupabase.in.mockReturnValue(mockSupabase);
+    mockSupabase.select.mockReturnValue(mockSupabase);
   });
 
   test('下書き保存時に canonical フィールドが埋め込まれる', async () => {
+    // maybeSingle がユーザー情報取得 (enforceVisibilityEntitlement) とタグ・ジャンルチェックで呼ばれます
+    mockSupabase.maybeSingle
+      .mockResolvedValueOnce({ data: { subscription_tier: 'free' }, error: null }) // user
+      .mockResolvedValueOnce({ data: { id: 'react' }, error: null }); // tag checks inside ensureTagMasters
+
+    // insert 呼び出し時のモック
+    mockSupabase.insert
+      .mockResolvedValueOnce({ data: [], error: null }) // questions
+      .mockResolvedValueOnce({ data: [], error: null }); // quizzes
+
     await saveQuiz(baseQuiz as any, 'draft');
 
     expect(applyQuizMetadataFields).toHaveBeenCalledWith(
@@ -100,15 +119,20 @@ describe('saveQuiz metadata integration', () => {
       'author-1'
     );
 
-    const batch = (writeBatch as jest.Mock).mock.results[0].value;
-    const payload = batch.set.mock.calls.find(
-      (call: unknown[]) => call[1]?.canonicalGenreId === 'programming'
-    )?.[1];
-    expect(payload?.canonicalGenreId).toBe('programming');
-    expect(payload?.canonicalTagIds).toEqual(['react']);
+    // quizzes への insert 引数を検証
+    expect(mockSupabase.from).toHaveBeenCalledWith('quizzes');
+    expect(mockSupabase.insert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        canonical_genre_id: 'programming',
+        canonical_tag_ids: ['react'],
+      })
+    );
   });
 
   test('無効ジャンルは validation-error で拒否', async () => {
+    mockSupabase.maybeSingle
+      .mockResolvedValueOnce({ data: { subscription_tier: 'free' }, error: null }); // user
+
     (applyQuizMetadataFields as jest.Mock).mockRejectedValueOnce(
       new MetadataValidationError('選択されたジャンルはマスタに存在しないか、無効です', 'genre')
     );
