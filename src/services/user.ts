@@ -1,30 +1,9 @@
-import {
-  doc,
-  documentId,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  limit,
-  getDocs,
-  arrayUnion,
-  arrayRemove,
-  runTransaction,
-  writeBatch,
-  increment,
-  collection,
-  addDoc,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
-import { usersRef, followsRef, quizzesRef } from '../lib/firebase/firestore';
-import { auth } from '../lib/firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import { User, Follow, Badge } from '../types';
 import { resolveSubscriptionTier } from '@/lib/subscription-plans';
-import { deleteImage } from './storage';
+import { Database } from '@/lib/supabase/database.types';
 
-const notificationsCollection = collection(db, 'notifications');
+const supabase = createClient();
 
 /**
  * プロフィール更新データ型
@@ -50,7 +29,94 @@ export interface ProfileValidationError {
 }
 
 /**
- * Firestore から読み取ったユーザーレコードを正規化する
+ * データベースレコードからUser型オブジェクトへマッピングする
+ */
+export function mapRowToUser(row: Database['public']['Tables']['users']['Row']): User {
+  return {
+    id: row.id,
+    email: row.email,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url ?? '',
+    bio: row.bio ?? '',
+    followedGenres: row.followed_genres ?? [],
+    badges: (row.badges as any[])?.map((b) => ({
+      id: b.id,
+      title: b.title,
+      description: b.description,
+      iconName: b.iconName,
+      unlockedAt: new Date(b.unlockedAt),
+    })) ?? [],
+    createdQuizzesCount: row.created_quizzes_count ?? 0,
+    totalPlayCount: row.total_play_count ?? 0,
+    followersCount: row.followers_count ?? 0,
+    followingCount: row.following_count ?? 0,
+    reputationScore: row.reputation_score ?? 0,
+    moderationTier: (row.moderation_tier as User['moderationTier']) ?? 'newcomer',
+    role: row.role ?? undefined,
+    reputationHistory: (row.reputation_history as any[])?.map((h) => ({
+      eventId: h.eventId,
+      delta: h.delta,
+      reason: h.reason,
+      createdAt: new Date(h.createdAt),
+    })) ?? [],
+    lastReputationCalculatedAt: row.last_reputation_calculated_at ? new Date(row.last_reputation_calculated_at) : null,
+    totalFailedQuestionsCount: row.total_failed_questions_count ?? 0,
+    deleteStatus: (row.delete_status as User['deleteStatus']) ?? 'active',
+    isBanned: row.is_banned ?? undefined,
+    bannedReason: row.banned_reason ?? undefined,
+    bannedAt: row.banned_at ? new Date(row.banned_at) : undefined,
+    subscriptionTier: row.subscription_tier as any,
+    stripeCustomerId: row.stripe_customer_id ?? undefined,
+    stripeSubscriptionId: row.stripe_subscription_id ?? undefined,
+    subscriptionStatus: row.subscription_status as any,
+    currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : undefined,
+    isPremium: row.is_premium ?? undefined,
+    snsLinks: (row.sns_links as User['snsLinks']) ?? undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+  };
+}
+
+/**
+ * User型オブジェクトの部分データからデータベースのアップデート用レコードへマッピングする
+ */
+export function mapUserToRow(user: Partial<User>): Database['public']['Tables']['users']['Update'] {
+  const row: Database['public']['Tables']['users']['Update'] = {};
+  if (user.id !== undefined) row.id = user.id;
+  if (user.email !== undefined) row.email = user.email;
+  if (user.displayName !== undefined) row.display_name = user.displayName;
+  if (user.avatarUrl !== undefined) row.avatar_url = user.avatarUrl;
+  if (user.bio !== undefined) row.bio = user.bio;
+  if (user.followedGenres !== undefined) row.followed_genres = user.followedGenres;
+  if (user.badges !== undefined) row.badges = user.badges as any;
+  if (user.createdQuizzesCount !== undefined) row.created_quizzes_count = user.createdQuizzesCount;
+  if (user.totalPlayCount !== undefined) row.total_play_count = user.totalPlayCount;
+  if (user.followersCount !== undefined) row.followers_count = user.followersCount;
+  if (user.followingCount !== undefined) row.following_count = user.followingCount;
+  if (user.reputationScore !== undefined) row.reputation_score = user.reputationScore;
+  if (user.moderationTier !== undefined) row.moderation_tier = user.moderationTier;
+  if (user.role !== undefined) row.role = user.role;
+  if (user.reputationHistory !== undefined) row.reputation_history = user.reputationHistory as any;
+  if (user.lastReputationCalculatedAt !== undefined) row.last_reputation_calculated_at = user.lastReputationCalculatedAt?.toISOString() ?? null;
+  if (user.totalFailedQuestionsCount !== undefined) row.total_failed_questions_count = user.totalFailedQuestionsCount;
+  if (user.deleteStatus !== undefined) row.delete_status = user.deleteStatus;
+  if (user.isBanned !== undefined) row.is_banned = user.isBanned;
+  if (user.bannedReason !== undefined) row.banned_reason = user.bannedReason;
+  if (user.bannedAt !== undefined) row.banned_at = user.bannedAt?.toISOString() ?? null;
+  if (user.subscriptionTier !== undefined) row.subscription_tier = user.subscriptionTier;
+  if (user.stripeCustomerId !== undefined) row.stripe_customer_id = user.stripeCustomerId;
+  if (user.stripeSubscriptionId !== undefined) row.stripe_subscription_id = user.stripeSubscriptionId;
+  if (user.subscriptionStatus !== undefined) row.subscription_status = user.subscriptionStatus;
+  if (user.currentPeriodEnd !== undefined) row.current_period_end = user.currentPeriodEnd?.toISOString() ?? null;
+  if (user.isPremium !== undefined) row.is_premium = user.isPremium;
+  if (user.snsLinks !== undefined) row.sns_links = user.snsLinks as any;
+  if (user.createdAt !== undefined) row.created_at = user.createdAt.toISOString();
+  if (user.updatedAt !== undefined) row.updated_at = user.updatedAt.toISOString();
+  return row;
+}
+
+/**
+ * ユーザーレコードを正規化する
  */
 export function normalizeUserRecord(user: User): User {
   return {
@@ -61,38 +127,56 @@ export function normalizeUserRecord(user: User): User {
 
 /**
  * ユーザープロフィール情報を取得
- * @param uid Firebase Auth UID
+ * @param uid Auth UID
  */
 export async function getUserProfile(uid: string): Promise<User | null> {
-  const docRef = doc(usersRef, uid);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return null;
-  return normalizeUserRecord(snap.data() as User);
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', uid)
+    .single();
+
+  if (error || !data) return null;
+  return normalizeUserRecord(mapRowToUser(data));
 }
 
 /**
- * ユーザープロフィールを更新する（バリデーション付き）
+ * ユーザープロフィールを更新する
  */
 export async function updateUserProfile(uid: string, updates: Partial<User>): Promise<void> {
-  const docRef = doc(usersRef, uid);
-  await updateDoc(docRef, {
+  const rowUpdates = mapUserToRow({
     ...updates,
     updatedAt: new Date(),
   });
+
+  const { error } = await supabase
+    .from('users')
+    .update(rowUpdates)
+    .eq('id', uid);
+
+  if (error) {
+    throw new Error(`ユーザープロフィールの更新に失敗しました: ${error.message}`);
+  }
 }
 
 /**
  * ユーザー情報を新規作成
  */
 export async function createUser(user: Omit<User, 'createdAt' | 'updatedAt'>): Promise<void> {
-  const docRef = doc(usersRef, user.id);
   const now = new Date();
   const newUser: User = {
     ...user,
     createdAt: now,
     updatedAt: now,
   };
-  await setDoc(docRef, newUser);
+
+  const { error } = await supabase
+    .from('users')
+    .insert(mapUserToRow(newUser) as Database['public']['Tables']['users']['Insert']);
+
+  if (error) {
+    throw new Error(`ユーザーの作成に失敗しました: ${error.message}`);
+  }
 }
 
 // 既存の互換用スタブ
@@ -259,15 +343,14 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
     );
   }
 
-  const docRef = doc(usersRef, uid);
-  const updateData: Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>> & { updatedAt: Date } & { snsLinks?: Record<string, string> } = {
+  const updates: Partial<User> = {
     displayName: data.displayName.trim(),
     bio: data.bio,
     updatedAt: new Date(),
   };
 
   if (data.followedGenres !== undefined) {
-    updateData.followedGenres = data.followedGenres;
+    updates.followedGenres = data.followedGenres;
   }
 
   if (data.snsLinks !== undefined) {
@@ -277,10 +360,10 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
         snsLinks[key] = value.trim();
       }
     }
-    updateData.snsLinks = snsLinks;
+    updates.snsLinks = snsLinks;
   }
 
-  await updateDoc(docRef, updateData as any);
+  await updateUserProfile(uid, updates);
 }
 
 /* ==========================================================================
@@ -288,62 +371,57 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
    ========================================================================== */
 
 export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
-  const docRef = doc(usersRef, uid);
+  const user = await getUserProfile(uid);
+  if (!user) {
+    throw new Error(`ユーザーが見つかりません: uid=${uid}`);
+  }
 
-  const newlyAwarded: Badge[] = await runTransaction(db, async (transaction) => {
-    const snap = await transaction.get(docRef);
-    if (!snap.exists()) {
-      throw new Error(`ユーザーが見つかりません: uid=${uid}`);
-    }
+  const existingBadgeIds = new Set(user.badges.map((b) => b.id));
+  const now = new Date();
+  const badgesToAward: Badge[] = BADGE_DEFINITIONS.filter(
+    (def) => def.condition(user) && !existingBadgeIds.has(def.id)
+  ).map((def) => ({
+    id: def.id,
+    title: def.title,
+    description: def.description,
+    iconName: def.iconName,
+    unlockedAt: now,
+  }));
 
-    const user = snap.data() as User;
-    const existingBadgeIds = new Set(user.badges.map((b) => b.id));
+  if (badgesToAward.length === 0) {
+    return [];
+  }
 
-    const now = new Date();
-    const badgesToAward: Badge[] = BADGE_DEFINITIONS.filter(
-      (def) => def.condition(user) && !existingBadgeIds.has(def.id)
-    ).map((def) => ({
-      id: def.id,
-      title: def.title,
-      description: def.description,
-      iconName: def.iconName,
-      unlockedAt: now,
-    }));
-
-    if (badgesToAward.length === 0) {
-      return [];
-    }
-
-    transaction.update(docRef, {
-      badges: arrayUnion(...badgesToAward),
-      updatedAt: now,
-    });
-
-    return badgesToAward;
+  // RPC関数の実行
+  const { error } = await supabase.rpc('handle_check_and_award_badges', {
+    p_user_id: uid,
+    p_badges: badgesToAward as any,
   });
 
+  if (error) {
+    throw new Error(`バッジ獲得処理のRPC実行に失敗しました: ${error.message}`);
+  }
+
   // 新規バッジ獲得通知の作成
-  if (newlyAwarded.length > 0) {
-    for (const badge of newlyAwarded) {
-      try {
-        await addDoc(notificationsCollection, {
-          userId: uid,
-          type: 'badge_unlocked',
-          senderId: 'system',
-          senderName: '運営',
-          senderAvatar: '',
-          targetId: badge.id,
-          targetTitle: badge.title,
-          isRead: false,
-          createdAt: new Date(),
-        });
-      } catch (err) {
-        console.error('バッジ獲得通知の作成に失敗しました:', err);
-      }
+  for (const badge of badgesToAward) {
+    try {
+      await supabase.from('notifications').insert({
+        user_id: uid,
+        type: 'badge_unlocked',
+        sender_id: 'system',
+        sender_name: '運営',
+        sender_avatar: '',
+        target_id: badge.id,
+        target_title: badge.title,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('バッジ獲得通知の作成に失敗しました:', err);
     }
   }
 
-  return newlyAwarded;
+  return badgesToAward;
 }
 
 /* ==========================================================================
@@ -355,7 +433,9 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
  * クライアントのブラウザ環境でのバッチループを廃止し、データ不整合リスクを排除。
  */
 export async function deleteUserAccount(uid: string): Promise<void> {
-  const token = await auth.currentUser?.getIdToken();
+  const session = (await supabase.auth.getSession()).data.session;
+  const token = session?.access_token;
+  
   const res = await fetch('/api/user/delete-account', {
     method: 'POST',
     headers: {
@@ -375,54 +455,34 @@ export async function deleteUserAccount(uid: string): Promise<void> {
    フォロー機能
    ========================================================================== */
 
-function getFollowDocId(followerId: string, followingId: string): string {
-  return `${followerId}_${followingId}`;
-}
-
 export async function followUser(followerId: string, followingId: string): Promise<{ isFollowing: boolean }> {
   if (followerId === followingId) return { isFollowing: false };
 
-  const docId = getFollowDocId(followerId, followingId);
-  const followDocRef = doc(followsRef, docId);
-  const followerUserRef = doc(usersRef, followerId);
-  const followingUserRef = doc(usersRef, followingId);
-
-  let added = false;
-  await runTransaction(db, async (transaction) => {
-    const existingSnap = await transaction.get(followDocRef);
-    if (existingSnap.exists()) {
-      return;
-    }
-
-    const followData: Follow = {
-      id: docId,
-      followerId,
-      followingId,
-      createdAt: new Date(),
-    };
-    transaction.set(followDocRef, followData as any);
-
-    transaction.update(followerUserRef, { followingCount: increment(1), updatedAt: new Date() });
-    transaction.update(followingUserRef, { followersCount: increment(1), updatedAt: new Date() });
-    added = true;
+  // RPC関数の実行
+  const { data: added, error } = await supabase.rpc('handle_follow_user', {
+    p_follower_id: followerId,
+    p_following_id: followingId,
   });
+
+  if (error) {
+    throw new Error(`フォロー処理のRPC実行に失敗しました: ${error.message}`);
+  }
 
   if (added) {
     try {
-      const senderSnap = await getDoc(followerUserRef);
-      const sender = senderSnap.exists() ? senderSnap.data() : null;
-      const senderName = (sender as { displayName?: string })?.displayName ?? 'ユーザー';
-      const senderAvatar = (sender as { avatarUrl?: string })?.avatarUrl ?? '';
+      const sender = await getUserProfile(followerId);
+      const senderName = sender?.displayName ?? 'ユーザー';
+      const senderAvatar = sender?.avatarUrl ?? '';
 
-      await addDoc(notificationsCollection, {
-        userId: followingId,
+      await supabase.from('notifications').insert({
+        user_id: followingId,
         type: 'follow',
-        senderId: followerId,
-        senderName,
-        senderAvatar,
-        targetId: followerId,
-        isRead: false,
-        createdAt: new Date(),
+        sender_id: followerId,
+        sender_name: senderName,
+        sender_avatar: senderAvatar,
+        target_id: followerId,
+        is_read: false,
+        created_at: new Date().toISOString(),
       });
     } catch (err) {
       console.error('フォロー通知の作成に失敗しました:', err);
@@ -433,64 +493,68 @@ export async function followUser(followerId: string, followingId: string): Promi
 }
 
 export async function unfollowUser(followerId: string, followingId: string): Promise<void> {
-  const docId = getFollowDocId(followerId, followingId);
-  const followDocRef = doc(followsRef, docId);
-  const followerUserRef = doc(usersRef, followerId);
-  const followingUserRef = doc(usersRef, followingId);
+  if (followerId === followingId) return;
 
-  await runTransaction(db, async (transaction) => {
-    const existingSnap = await transaction.get(followDocRef);
-    if (!existingSnap.exists()) return;
-
-    transaction.delete(followDocRef);
-    transaction.update(followerUserRef, { followingCount: increment(-1), updatedAt: new Date() });
-    transaction.update(followingUserRef, { followersCount: increment(-1), updatedAt: new Date() });
+  const { error } = await supabase.rpc('handle_unfollow_user', {
+    p_follower_id: followerId,
+    p_following_id: followingId,
   });
+
+  if (error) {
+    throw new Error(`フォロー解除のRPC実行に失敗しました: ${error.message}`);
+  }
 }
 
 export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
-  const docId = getFollowDocId(followerId, followingId);
-  const docRef = doc(followsRef, docId);
-  const snap = await getDoc(docRef);
-  return snap.exists();
+  const { data, error } = await supabase
+    .from('follows')
+    .select('id')
+    .eq('follower_id', followerId)
+    .eq('following_id', followingId)
+    .maybeSingle();
+
+  if (error || !data) return false;
+  return true;
 }
 
 export async function getFollowingUsers(userId: string): Promise<User[]> {
-  const q = query(followsRef, where('followerId', '==', userId));
-  const snap = await getDocs(q);
-  
-  const followingIds = snap.docs.map((doc) => doc.data().followingId);
-  if (followingIds.length === 0) return [];
-  
-  const users: User[] = [];
-  const chunkSize = 10;
-  for (let i = 0; i < followingIds.length; i += chunkSize) {
-    const chunk = followingIds.slice(i, i + chunkSize);
-    const usersQuery = query(usersRef, where(documentId(), 'in', chunk));
-    const usersSnap = await getDocs(usersQuery);
-    usersSnap.forEach((doc) => users.push(doc.data()));
-  }
-  
-  return users;
+  const { data: followsData, error: followsError } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId);
+
+  if (followsError || !followsData || followsData.length === 0) return [];
+
+  const followingIds = followsData.map((f) => f.following_id);
+
+  const { data: usersData, error: usersError } = await supabase
+    .from('users')
+    .select('*')
+    .in('id', followingIds);
+
+  if (usersError || !usersData) return [];
+
+  return usersData.map((row) => normalizeUserRecord(mapRowToUser(row)));
 }
 
 export async function getFollowerUsers(userId: string): Promise<User[]> {
-  const q = query(followsRef, where('followingId', '==', userId));
-  const snap = await getDocs(q);
-  
-  const followerIds = snap.docs.map((doc) => doc.data().followerId);
-  if (followerIds.length === 0) return [];
-  
-  const users: User[] = [];
-  const chunkSize = 10;
-  for (let i = 0; i < followerIds.length; i += chunkSize) {
-    const chunk = followerIds.slice(i, i + chunkSize);
-    const usersQuery = query(usersRef, where(documentId(), 'in', chunk));
-    const usersSnap = await getDocs(usersQuery);
-    usersSnap.forEach((doc) => users.push(doc.data()));
-  }
-  
-  return users;
+  const { data: followsData, error: followsError } = await supabase
+    .from('follows')
+    .select('follower_id')
+    .eq('following_id', userId);
+
+  if (followsError || !followsData || followsData.length === 0) return [];
+
+  const followerIds = followsData.map((f) => f.follower_id);
+
+  const { data: usersData, error: usersError } = await supabase
+    .from('users')
+    .select('*')
+    .in('id', followerIds);
+
+  if (usersError || !usersData) return [];
+
+  return usersData.map((row) => normalizeUserRecord(mapRowToUser(row)));
 }
 
 /* ==========================================================================
@@ -498,17 +562,21 @@ export async function getFollowerUsers(userId: string): Promise<User[]> {
    ========================================================================== */
 
 export async function followGenre(userId: string, genreName: string): Promise<void> {
-  const docRef = doc(usersRef, userId);
-  await updateDoc(docRef, {
-    followedGenres: arrayUnion(genreName),
-    updatedAt: new Date(),
-  });
+  const user = await getUserProfile(userId);
+  if (!user) return;
+
+  const genres = user.followedGenres.includes(genreName)
+    ? user.followedGenres
+    : [...user.followedGenres, genreName];
+
+  await updateUserProfile(userId, { followedGenres: genres });
 }
 
 export async function unfollowGenre(userId: string, genreName: string): Promise<void> {
-  const docRef = doc(usersRef, userId);
-  await updateDoc(docRef, {
-    followedGenres: arrayRemove(genreName),
-    updatedAt: new Date(),
-  });
+  const user = await getUserProfile(userId);
+  if (!user) return;
+
+  const genres = user.followedGenres.filter((g) => g !== genreName);
+
+  await updateUserProfile(userId, { followedGenres: genres });
 }

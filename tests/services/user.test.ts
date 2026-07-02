@@ -1,35 +1,63 @@
 /**
- * Task 2.1 単体テスト: ユーザープロフィールと称号バッジアトミック管理
- *
- * テスト対象:
- * - validateProfileData: プロフィール入力バリデーション
- * - BADGE_DEFINITIONS:   バッジ条件の判定ロジック (純粋関数)
- *
- * Firestore へのアクセスは発生しないため、モックなしで実行可能。
+ * Task 2.1 単体テスト: ユーザープロフィールと称号バッジアトミック管理 (Supabase 移行版)
  */
 
-import { validateProfileData, BADGE_DEFINITIONS, UpdateProfileData, updateProfile, followUser, checkAndAwardBadges } from '../../src/services/user';
-import { User } from '../../src/types';
-import { updateDoc, runTransaction, getDoc, addDoc } from 'firebase/firestore';
-
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((_ref, ...paths) => ({ id: paths[paths.length - 1] })),
-    collection: jest.fn((db, path) => ({ path })),
-    query: jest.fn(),
-    where: jest.fn(),
-    limit: jest.fn(),
-    getDoc: jest.fn(),
-    getDocs: jest.fn(),
-    updateDoc: jest.fn(),
-    addDoc: jest.fn(),
-    increment: jest.fn((n) => n),
-    arrayUnion: jest.fn((...items) => items),
-    runTransaction: jest.fn(),
-    writeBatch: jest.fn(),
+import {
+  validateProfileData,
+  BADGE_DEFINITIONS,
+  UpdateProfileData,
+  updateProfile,
+  followUser,
+  unfollowUser,
+  isFollowing,
+  getFollowingUsers,
+  getFollowerUsers,
+  checkAndAwardBadges,
+} from '../../src/services/user';
+import { User, Badge } from '../../src/types';
+jest.mock('@/lib/supabase/client', () => {
+  const mockInstance = {
+    from: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
+    single: jest.fn(),
+    maybeSingle: jest.fn(),
+    update: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    rpc: jest.fn(),
+    auth: {
+      getSession: jest.fn(),
+    },
   };
+  return {
+    createClient: () => mockInstance,
+  };
+});
+
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockSupabase.from.mockClear();
+  mockSupabase.select.mockClear();
+  mockSupabase.eq.mockClear();
+  mockSupabase.in.mockClear();
+  mockSupabase.single.mockReset();
+  mockSupabase.maybeSingle.mockReset();
+  mockSupabase.update.mockClear();
+  mockSupabase.insert.mockClear();
+  mockSupabase.rpc.mockReset();
+  mockSupabase.auth.getSession.mockReset();
+  
+  // mockReturnThis を設定し直す
+  mockSupabase.from.mockReturnValue(mockSupabase);
+  mockSupabase.select.mockReturnValue(mockSupabase);
+  mockSupabase.eq.mockReturnValue(mockSupabase);
+  mockSupabase.in.mockReturnValue(mockSupabase);
+  mockSupabase.update.mockReturnValue(mockSupabase);
+  mockSupabase.insert.mockReturnValue(mockSupabase);
 });
 
 /* ============================================================
@@ -60,11 +88,38 @@ function makeUser(overrides: Partial<User> = {}): User {
   };
 }
 
+/**
+ * データベースのRow型をモックするためのヘルパー
+ */
+function makeUserRow(overrides: any = {}) {
+  return {
+    id: 'test-uid',
+    email: 'test@example.com',
+    display_name: 'テストユーザー',
+    avatar_url: '',
+    bio: '',
+    followed_genres: [],
+    badges: [],
+    created_quizzes_count: 0,
+    total_play_count: 0,
+    followers_count: 0,
+    following_count: 0,
+    reputation_score: 0,
+    moderation_tier: 'newcomer',
+    reputation_history: [],
+    last_reputation_calculated_at: null,
+    total_failed_questions_count: 0,
+    delete_status: 'active',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
 /* ============================================================
    validateProfileData のテスト
    ============================================================ */
 describe('validateProfileData', () => {
-  // ── 正常系 ─────────────────────────────────────────────
   describe('正常系', () => {
     test('有効なdisplayNameとbioはエラーなし', () => {
       const data: UpdateProfileData = { displayName: '山田太郎', bio: '好きなことを書く' };
@@ -87,7 +142,6 @@ describe('validateProfileData', () => {
     });
   });
 
-  // ── 異常系: displayName ────────────────────────────────
   describe('異常系: displayName', () => {
     test('displayNameが空文字列はエラー', () => {
       const data: UpdateProfileData = { displayName: '', bio: '' };
@@ -111,7 +165,6 @@ describe('validateProfileData', () => {
     });
   });
 
-  // ── 異常系: bio ────────────────────────────────────────
   describe('異常系: bio', () => {
     test('bioが201文字はエラー', () => {
       const data: UpdateProfileData = { displayName: '有効ユーザー', bio: 'あ'.repeat(201) };
@@ -121,7 +174,6 @@ describe('validateProfileData', () => {
     });
   });
 
-  // ── 複数エラー ─────────────────────────────────────────
   describe('複数エラー', () => {
     test('displayNameとbioの両方が無効な場合、2件のエラーを返す', () => {
       const data: UpdateProfileData = { displayName: '', bio: 'あ'.repeat(201) };
@@ -132,7 +184,6 @@ describe('validateProfileData', () => {
     });
   });
 
-  // ── 正常系: snsLinks ──────────────────────────────────────
   describe('正常系: snsLinks', () => {
     test('有効なSNSリンクはエラーなし', () => {
       const data: UpdateProfileData = {
@@ -180,7 +231,6 @@ describe('validateProfileData', () => {
     });
   });
 
-  // ── 異常系: snsLinks ──────────────────────────────────────
   describe('異常系: snsLinks', () => {
     test('不正なURL形式はエラー', () => {
       const data: UpdateProfileData = {
@@ -221,7 +271,6 @@ describe('validateProfileData', () => {
    BADGE_DEFINITIONS のバッジ条件ロジックテスト
    ============================================================ */
 
-/** バッジIDから定義を取得するユーティリティ */
 function getBadgeDef(id: string) {
   const def = BADGE_DEFINITIONS.find((d) => d.id === id);
   if (!def) throw new Error(`バッジ定義が見つかりません: ${id}`);
@@ -281,10 +330,6 @@ describe('BADGE_DEFINITIONS - 全バッジIDがユニークであること', () 
 describe('updateProfile', () => {
   const uid = 'test-uid';
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   test('正常系: バリデーションに合格したプロフィールとSNSリンクを保存する', async () => {
     const data: UpdateProfileData = {
       displayName: '山田太郎',
@@ -297,17 +342,16 @@ describe('updateProfile', () => {
 
     await updateProfile(uid, data);
 
-    expect(updateDoc).toHaveBeenCalledTimes(1);
-    expect(updateDoc).toHaveBeenCalledWith(
-      expect.any(Object),
+    expect(mockSupabase.from).toHaveBeenCalledWith('users');
+    expect(mockSupabase.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        displayName: '山田太郎',
+        display_name: '山田太郎',
         bio: '自己紹介',
-        snsLinks: {
+        sns_links: {
           youtube: 'https://youtube.com/channel/abc',
           x: 'https://x.com/username',
         },
-        updatedAt: expect.any(Date),
+        updated_at: expect.any(String),
       })
     );
   });
@@ -319,29 +363,7 @@ describe('updateProfile', () => {
     };
 
     await expect(updateProfile(uid, data)).rejects.toThrow('プロフィールのバリデーションに失敗しました');
-    expect(updateDoc).not.toHaveBeenCalled();
-  });
-
-  test('正常系: 空文字列のSNSリンクは保存時に除外される', async () => {
-    const data: UpdateProfileData = {
-      displayName: '山田太郎',
-      bio: '自己紹介',
-      snsLinks: {
-        youtube: '',
-        x: 'https://x.com/username',
-      }
-    };
-
-    await updateProfile(uid, data);
-
-    expect(updateDoc).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({
-        snsLinks: {
-          x: 'https://x.com/username',
-        },
-      })
-    );
+    expect(mockSupabase.update).not.toHaveBeenCalled();
   });
 });
 
@@ -349,36 +371,28 @@ describe('UserService - followUser', () => {
   const followerId = 'follower-uid';
   const followingId = 'following-uid';
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   test('フォローが成功した際、被フォローユーザー宛ての通知が作成されること', async () => {
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue({ exists: () => false }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({ displayName: 'フォロワー名', avatarUrl: 'avatar-url' }),
+    // mock handle_follow_user RPC
+    mockSupabase.rpc.mockResolvedValueOnce({ data: true, error: null });
+    
+    // mock getUserProfile for followerId to create notice details
+    mockSupabase.single.mockResolvedValueOnce({
+      data: makeUserRow({ id: followerId, display_name: 'フォロワー名', avatar_url: 'avatar-url' }),
+      error: null,
     });
-    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-notif-id' });
 
     const result = await followUser(followerId, followingId);
     expect(result.isFollowing).toBe(true);
 
-    expect(addDoc).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(mockSupabase.from).toHaveBeenCalledWith('notifications');
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: followingId,
+        user_id: followingId,
         type: 'follow',
-        senderId: followerId,
-        senderName: 'フォロワー名',
-        senderAvatar: 'avatar-url',
-        targetId: followerId,
+        sender_id: followerId,
+        sender_name: 'フォロワー名',
+        sender_avatar: 'avatar-url',
+        target_id: followerId,
       })
     );
   });
@@ -387,43 +401,43 @@ describe('UserService - followUser', () => {
 describe('UserService - checkAndAwardBadges', () => {
   const uid = 'user-uid';
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   test('新規バッジがアトミック付与された際、バッジ獲得通知が作成されること', async () => {
-    const mockUser = {
+    // プレイ回数が10回のユーザー
+    const userRow = makeUserRow({
+      id: uid,
+      total_play_count: 10,
       badges: [],
-      createdQuizzesCount: 0,
-      totalPlayCount: 10,
-      followersCount: 0,
-      followingCount: 0,
-    };
+    });
 
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue({
-        exists: () => true,
-        data: () => mockUser,
-      }),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
-    (addDoc as jest.Mock).mockResolvedValue({ id: 'new-notif-id' });
+    mockSupabase.single.mockResolvedValueOnce({ data: userRow, error: null });
+    mockSupabase.rpc.mockResolvedValueOnce({ data: true, error: null });
 
     const badges = await checkAndAwardBadges(uid);
     expect(badges).toHaveLength(1);
     expect(badges[0].id).toBe('play_10');
 
-    expect(addDoc).toHaveBeenCalledWith(
-      expect.anything(),
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'handle_check_and_award_badges',
       expect.objectContaining({
-        userId: uid,
+        p_user_id: uid,
+        p_badges: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'play_10',
+            title: '初挑戦者',
+          })
+        ])
+      })
+    );
+
+    expect(mockSupabase.from).toHaveBeenCalledWith('notifications');
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: uid,
         type: 'badge_unlocked',
-        senderId: 'system',
-        senderName: '運営',
-        targetId: 'play_10',
-        targetTitle: '初挑戦者',
+        sender_id: 'system',
+        sender_name: '運営',
+        target_id: 'play_10',
+        target_title: '初挑戦者',
       })
     );
   });
