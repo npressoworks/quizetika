@@ -121,7 +121,7 @@ describe('usePlayState 区間累計経過時間', () => {
         }),
       {
         initialProps: {
-          policy: readingPolicy,
+          policy: readingPolicy as any,
         },
       }
     );

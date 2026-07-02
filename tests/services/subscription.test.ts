@@ -30,10 +30,13 @@ jest.mock('@/lib/firebase/admin', () => {
     const uid = mockDoc.mock.lastCall?.[0];
     if (uid) userDocs[uid] = { ...userDocs[uid], ...data };
   });
-  const mockGet = jest.fn(async () => ({
-    exists: true,
-    data: () => userDocs[mockDoc.mock.lastCall?.[0]] ?? {},
-  }));
+  const mockGet = jest.fn(async () => {
+    const key = mockDoc.mock.lastCall?.[0];
+    return {
+      exists: true,
+      data: () => (key ? userDocs[key] : {}) ?? {},
+    };
+  });
   const mockDoc = jest.fn((uid: string) => {
     if (!userDocs[uid]) userDocs[uid] = { email: 'user@example.com' };
     return { get: mockGet, set: mockSet };

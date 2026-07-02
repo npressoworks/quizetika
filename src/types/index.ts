@@ -391,4 +391,9 @@ export interface Announcement {
   authorId: string;
 }
 
+export interface QuizExportPackage {
+  exportedAt: string;
+  quizzes: Quiz[];
+}
+
 

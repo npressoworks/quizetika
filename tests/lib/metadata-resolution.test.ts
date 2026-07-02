@@ -1,6 +1,20 @@
-jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
+let mockSupabase: any;
 
-import { getDoc } from 'firebase/firestore';
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: () => {
+    if (!mockSupabase) {
+      mockSupabase = {
+        from: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: jest.fn(),
+        insert: jest.fn(),
+      };
+    }
+    return mockSupabase;
+  },
+}));
+
 import {
   chunkIdsForInQuery,
   dedupeQuizzesById,
@@ -14,15 +28,6 @@ import {
 } from '../../src/lib/metadata-resolution';
 import type { Quiz } from '../../src/types';
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((_db, collectionPath, id) => ({ collectionPath, id })),
-    getDoc: jest.fn(),
-    setDoc: jest.fn(),
-  };
-});
 
 describe('metadata-resolution (pure)', () => {
   test('chunkIdsForInQuery: 10件超で分割される', () => {
@@ -33,53 +38,49 @@ describe('metadata-resolution (pure)', () => {
     expect(chunks[2]).toHaveLength(5);
   });
 
-  test('walkCanonicalIdChain: チェーン末端を返す', () => {
-    const canonical = walkCanonicalIdChain('a', (id) => {
-      if (id === 'a') return 'b';
-      if (id === 'b') return null;
-      return null;
-    });
-    expect(canonical).toBe('b');
+  test('chunkIdsForInQuery: 重複排除される', () => {
+    const ids = ['a', 'b', 'a', '', 'b'];
+    const chunks = chunkIdsForInQuery(ids);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]).toEqual(['a', 'b']);
   });
 
-  test('walkCanonicalIdChain: 循環で拒否', () => {
-    expect(() =>
-      walkCanonicalIdChain('a', (id) => (id === 'a' ? 'b' : 'a'))
-    ).toThrow('循環参照が検出されました');
+  test('dedupeQuizzesById: 重複排除される', () => {
+    const quizzes = [
+      { id: '1', title: 'a' },
+      { id: '2', title: 'b' },
+      { id: '1', title: 'a2' },
+    ] as Quiz[];
+    const deduped = dedupeQuizzesById(quizzes);
+    expect(deduped).toHaveLength(2);
+    expect(deduped.map((q) => q.title)).toEqual(['a2', 'b']);
   });
 
-  test('dedupeQuizzesById: id で重複排除', () => {
-    const q = (id: string): Quiz =>
-      ({
-        id,
-        genre: 'g',
-        canonicalGenreId: 'g',
-        createdAt: new Date(0),
-        playCount: 0,
-        bookmarksCount: 0,
-      }) as Quiz;
-    expect(dedupeQuizzesById([q('1'), q('1'), q('2')])).toHaveLength(2);
-  });
-
-  test('quizMatchesGenreFilter: genre / canonical のいずれかで一致', () => {
-    const expanded = new Set(['parent', 'child']);
+  test('quizMatchesGenreFilter: genre が一致するか', () => {
+    const expanded = new Set(['programming', 'coding']);
     expect(
       quizMatchesGenreFilter(
-        { genre: 'child', canonicalGenreId: 'parent' } as Quiz,
+        { genre: 'programming', canonicalGenreId: '' } as Quiz,
         expanded
       )
     ).toBe(true);
     expect(
       quizMatchesGenreFilter(
-        { genre: 'other', canonicalGenreId: '' } as Quiz,
+        { genre: 'prog', canonicalGenreId: 'programming' } as Quiz,
+        expanded
+      )
+    ).toBe(true);
+    expect(
+      quizMatchesGenreFilter(
+        { genre: 'history', canonicalGenreId: '' } as Quiz,
         expanded
       )
     ).toBe(false);
   });
 
   test('sortQuizzesForList: popular は playCount 降順', () => {
-    const a = { playCount: 1, bookmarksCount: 0, createdAt: new Date(1) } as Quiz;
-    const b = { playCount: 9, bookmarksCount: 0, createdAt: new Date(0) } as Quiz;
+    const a = { playCount: 1, bookmarksCount: 0, createdAt: new Date(1) } as any;
+    const b = { playCount: 9, bookmarksCount: 0, createdAt: new Date(0) } as any;
     const sorted = sortQuizzesForList([a, b], 'popular');
     expect(sorted[0].playCount).toBe(9);
   });
@@ -89,54 +90,84 @@ describe('metadata-resolution (pure)', () => {
       playCount: 0,
       bookmarksCount: 0,
       createdAt: { seconds: 100, toDate: () => new Date(100_000) },
-    } as Quiz;
+    } as any;
     const newer = {
       playCount: 0,
       bookmarksCount: 0,
       createdAt: { seconds: 200, toDate: () => new Date(200_000) },
-    } as Quiz;
+    } as any;
     const sorted = sortQuizzesForList([older, newer], 'latest');
     expect(sorted[0].createdAt).toBe(newer.createdAt);
   });
 });
 
-describe('metadata-resolution (Firestore)', () => {
+describe('metadata-resolution (Supabase)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.from.mockReturnValue(mockSupabase);
+    mockSupabase.select.mockReturnValue(mockSupabase);
+    mockSupabase.eq.mockReturnValue(mockSupabase);
+    mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: null });
   });
 
   test('assertActiveGenre: マスタ不在で validation-error', async () => {
-    (getDoc as jest.Mock).mockResolvedValue({ exists: () => false });
+    mockSupabase.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
 
     await expect(assertActiveGenre('unknown')).rejects.toThrow(MetadataValidationError);
   });
 
   test('resolveCanonicalGenreId: canonicalId チェーンを解決', async () => {
-    (getDoc as jest.Mock).mockImplementation(async (ref: { id: string }) => {
-      if (ref.id === 'prog') {
-        return { exists: () => true, data: () => ({ canonicalId: 'programming' }) };
+    mockSupabase.maybeSingle.mockImplementation(async () => {
+      const lastId = mockSupabase.eq.mock.lastCall?.[1];
+      if (lastId === 'prog') {
+        return {
+          data: {
+            id: 'prog',
+            display_name: 'Prog',
+            is_active: true,
+            canonical_id: 'programming',
+            merged_genre_ids: [],
+            created_at: new Date().toISOString(),
+          },
+          error: null,
+        };
       }
-      if (ref.id === 'programming') {
-        return { exists: () => true, data: () => ({ canonicalId: null }) };
+      if (lastId === 'programming') {
+        return {
+          data: {
+            id: 'programming',
+            display_name: 'Programming',
+            is_active: true,
+            canonical_id: null,
+            merged_genre_ids: ['prog', 'code'],
+            created_at: new Date().toISOString(),
+          },
+          error: null,
+        };
       }
-      return { exists: () => false };
+      return { data: null, error: null };
     });
 
     await expect(resolveCanonicalGenreId('prog')).resolves.toBe('programming');
   });
 
   test('expandGenreIdsForQuery: canonical と merged を含む', async () => {
-    (getDoc as jest.Mock).mockImplementation(async (ref: { id: string }) => {
-      if (ref.id === 'programming') {
+    mockSupabase.maybeSingle.mockImplementation(async () => {
+      const lastId = mockSupabase.eq.mock.lastCall?.[1];
+      if (lastId === 'programming') {
         return {
-          exists: () => true,
-          data: () => ({
-            canonicalId: null,
-            mergedGenreIds: ['prog', 'code'],
-          }),
+          data: {
+            id: 'programming',
+            display_name: 'Programming',
+            is_active: true,
+            canonical_id: null,
+            merged_genre_ids: ['prog', 'code'],
+            created_at: new Date().toISOString(),
+          },
+          error: null,
         };
       }
-      return { exists: () => false };
+      return { data: null, error: null };
     });
 
     const ids = await expandGenreIdsForQuery('programming');

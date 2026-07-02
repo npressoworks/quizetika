@@ -400,7 +400,7 @@ describe('AttemptService - createLateralAttemptSession', () => {
         mode: 'normal',
       })
     );
-    expect(setDoc.mock.calls[0][1]).not.toHaveProperty('completedAt');
+    expect((setDoc as jest.Mock).mock.calls[0][1]).not.toHaveProperty('completedAt');
     expect(runTransaction).not.toHaveBeenCalled();
   });
 

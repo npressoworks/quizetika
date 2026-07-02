@@ -12,7 +12,7 @@ import {
 } from '../../src/lib/quiz-feed-cursor';
 
 jest.mock('@/lib/supabase/client', () => {
-  const mock = {
+  const mock: any = {
     from: jest.fn(() => mock),
     select: jest.fn(() => mock),
     eq: jest.fn(() => mock),

@@ -47,7 +47,7 @@ const mockDb = {
     }
     return { doc: jest.fn() };
   }),
-  runTransaction: (...args: any[]) => mockRunTransaction(...args),
+  runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
 };
 
 const mockExists = jest.fn();
@@ -57,7 +57,7 @@ const mockDelete = jest.fn();
 
 const mockFile = {
   exists: () => mockExists(),
-  copy: (...args: any[]) => mockCopy(...args),
+  copy: (dest: any) => mockCopy(dest),
   makePublic: () => mockMakePublic(),
   delete: () => mockDelete(),
 };
@@ -73,13 +73,13 @@ const mockStorage = {
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'valid-token',
-  verifySupabaseAccessToken: (...args: any[]) => mockVerify(...args),
+  verifySupabaseAccessToken: (token: any) => mockVerify(token),
 }));
 
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
     models: {
-      generateContent: (...args: any[]) => mockGenerateContent(...args),
+      generateContent: (options: any) => mockGenerateContent(options),
     },
   })),
 }));

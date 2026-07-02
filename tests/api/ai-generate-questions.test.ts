@@ -32,7 +32,7 @@ const mockDb = {
     }
     return { doc: jest.fn() };
   }),
-  runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
+  runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
 };
 
 function makeGeminiQuestions() {
@@ -51,20 +51,20 @@ function makeGeminiQuestions() {
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'token',
-  verifySupabaseAccessToken: (...args: unknown[]) => mockVerify(...args),
+  verifySupabaseAccessToken: (token: any) => mockVerify(token),
 }));
 
 jest.mock('@/services/entitlement', () => ({
-  resolveUserEntitlements: (...args: unknown[]) => mockResolveEntitlements(...args),
+  resolveUserEntitlements: (uid: any) => mockResolveEntitlements(uid),
 }));
 
 const mockGetGenerativeModel = jest.fn().mockReturnValue({
-  generateContent: (...args: unknown[]) => mockGenerateContent(...args),
+  generateContent: (req: any) => mockGenerateContent(req),
 });
 
 jest.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: (...args: unknown[]) => mockGetGenerativeModel(...args),
+    getGenerativeModel: (modelName: any) => mockGetGenerativeModel(modelName),
   })),
   SchemaType: {
     OBJECT: 'OBJECT',

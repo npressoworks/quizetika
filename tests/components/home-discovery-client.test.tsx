@@ -30,7 +30,7 @@ const mockGenres = [
   },
 ];
 
-const mockQuizzes = [
+const mockQuizzes: any = [
   {
     id: 'quiz-1',
     authorId: 'author-1',

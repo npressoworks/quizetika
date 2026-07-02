@@ -13,6 +13,9 @@ function choiceQuestion(correctIds: string[]): Question {
     type: 'multiple-choice',
     questionText: 'test',
     explanation: 'exp',
+    imageUrl: null,
+    hint: null,
+    limitTime: null,
     choices: [
       { id: 'a', choiceText: 'A', isCorrect: correctIds.includes('a'), selectedCount: 0 },
       { id: 'b', choiceText: 'B', isCorrect: correctIds.includes('b'), selectedCount: 0 },

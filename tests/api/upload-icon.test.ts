@@ -16,7 +16,7 @@ describe('Upload Icon API Route', () => {
   });
 
   function buildUploadRequest(fileName: string, mimeType: string, content: string | Buffer): NextRequest {
-    const blob = new Blob([content], { type: mimeType });
+    const blob = new Blob([content as any], { type: mimeType });
     const formData = new FormData();
     formData.append('file', blob, fileName);
 

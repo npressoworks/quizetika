@@ -3,7 +3,7 @@ import { MetadataValidationError } from '../../src/lib/metadata-resolution';
 
 // Supabase クライアントのモックを作成
 jest.mock('@/lib/supabase/client', () => {
-  const mock = {
+  const mock: any = {
     from: jest.fn(() => mock),
     insert: jest.fn(() => mock),
     delete: jest.fn(() => mock),

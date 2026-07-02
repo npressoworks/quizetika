@@ -76,7 +76,7 @@ describe('AdsenseInlineAd Component', () => {
   });
 
   it('showAds が true かつ本番環境のとき、AdSense insタグをレンダリングし push を呼び出す', () => {
-    process.env.NODE_ENV = 'production';
+    (process.env as any).NODE_ENV = 'production';
     
     mockUseAds.mockReturnValue({
       showAds: true,

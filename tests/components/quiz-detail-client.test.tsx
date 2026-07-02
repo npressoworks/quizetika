@@ -50,7 +50,7 @@ jest.mock('@/services/bookmark', () => ({
   toggleBookmark: jest.fn(),
 }));
 
-function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
+function makeQuiz(overrides: any = {}): any {
   return {
     id: 'quiz-1',
     authorId: 'author-1',
@@ -68,12 +68,14 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
       {
         id: 'q1',
         type: 'multiple-choice',
-        text: '問題1',
-        choices: ['A', 'B'],
-        correctAnswer: 'A',
+        questionText: '問題1',
+        choices: [
+          { id: 'A', choiceText: 'A', isCorrect: true, selectedCount: 0 },
+          { id: 'B', choiceText: 'B', isCorrect: false, selectedCount: 0 }
+        ],
         explanation: '',
       },
-    ],
+    ] as any,
     questionCount: 1,
     status: 'published',
     flagsCount: 0,

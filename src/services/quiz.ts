@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
-import { Quiz, Question, PaginatedQuizResult } from '../types';
+import { Quiz, Question, PaginatedQuizResult, QuizExportPackage } from '../types';
 import {
   validateQuizForPublish,
   validateQuizForDraft,
@@ -92,6 +92,8 @@ export function mapRowToQuiz(row: Database['public']['Tables']['quizzes']['Row']
     questionCount: row.question_count ?? 0,
     status: row.status as Quiz['status'],
     visibility: row.visibility as Quiz['visibility'],
+    leaderboardFirstPlay: (row as any).leaderboard_first_play ?? [],
+    leaderboardReplay: (row as any).leaderboard_replay ?? [],
     flagsCount: row.flags_count ?? 0,
     playCount: row.play_count ?? 0,
     bookmarksCount: row.bookmarks_count ?? 0,
@@ -103,9 +105,9 @@ export function mapRowToQuiz(row: Database['public']['Tables']['quizzes']['Row']
     canonicalGenreId: row.canonical_genre_id ?? '',
     canonicalTagIds: row.canonical_tag_ids ?? [],
     format: (row.format as Quiz['format']) ?? undefined,
-    isReviewMasked: row.is_review_masked ?? undefined,
-    reviewBadge: (row.review_badge as Quiz['reviewBadge']) ?? undefined,
-    activeResetRequestId: row.active_reset_request_id ?? undefined,
+    isReviewMasked: row.is_review_masked ?? false,
+    reviewBadge: (row.review_badge as Quiz['reviewBadge']) ?? null,
+    activeResetRequestId: row.active_reset_request_id ?? null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -162,7 +164,7 @@ async function enforceVisibilityEntitlement(
     .eq('id', authorId)
     .maybeSingle();
 
-  const fields: EntitlementUserFields = userRow
+  const fields: any = userRow
     ? {
         subscriptionTier: userRow.subscription_tier as any,
         stripeSubscriptionId: userRow.stripe_subscription_id ?? undefined,

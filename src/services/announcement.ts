@@ -15,7 +15,7 @@ function mapRowToAnnouncement(row: Database['public']['Tables']['announcements']
     publishedAt: row.published_at ? new Date(row.published_at) : null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
-    authorId: row.author_id,
+    authorId: row.author_id ?? '',
   };
 }
 

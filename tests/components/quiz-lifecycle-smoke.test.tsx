@@ -10,7 +10,7 @@ import { PostAnswerFeedback } from '@/components/quiz/post-answer-feedback';
 import { ReportModal } from '@/components/quiz/report-modal';
 import type { Question } from '@/types';
 
-const choiceQuestion: Question = {
+const choiceQuestion: any = {
   id: 'q1',
   type: 'multiple-choice',
   text: 'テスト問題',
@@ -22,7 +22,7 @@ const choiceQuestion: Question = {
   explanation: '',
 };
 
-const trueFalseQuestion: Question = {
+const trueFalseQuestion: any = {
   id: 'q2',
   type: 'true-false',
   text: '○×問題',

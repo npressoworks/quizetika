@@ -1451,7 +1451,66 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
 - [ ] docs-sync-reports -- `docs/detailed_design.md` や `docs/requirements_definition.md` の指摘フロー部分を更新。
 - [ ] e2e-reports -- 編集画面での指摘表示、解決・却下、および更新時の警告モーダルに関する E2E テストの追加・更新。
 
+---
 
+## Phase 35: Firebase → Supabase 完全移行（2026-07-02 ディスカバリー）
 
+### Overview（本フェーズ）
+プロジェクト全体のバックエンド基盤を Firebase（Auth, Firestore, Storage）から Supabase（Auth, PostgreSQL, Storage）に完全移行する。Firebase の NoSQL ドキュメントモデルを PostgreSQL のリレーショナルモデルに再設計し、Firestore Security Rules を Row Level Security (RLS) ポリシーに置き換え、Firebase Auth を Supabase Auth に切り替える。Firebase Storage は Supabase Storage (S3互換) に移行する。データマイグレーションスクリプトは本スコープ外とし、コードベースの移行に集中する。
 
+### Approach Decision（本フェーズ）
+- **Chosen**: ドメイン別垂直移行 (Vertical Domain Slicing) — 共通基盤（Supabase初期化 + DDL + RLS）を最初に構築し、その後ドメイン単位（認証、コアデータ、ゲームプレイ、ストレージ、ガバナンス）で垂直に移行
+- **Why**: 既存プロジェクトの「機能別垂直分割 (Vertical Feature Slicing)」方針に合致し、各ドメインが独立してテスト・検証可能。ビッグバン移行の要件に適合し、全ドメイン完了後に一括リリース。スキーマ設計を最初に確定できるため、後続ドメインの移行がスムーズ
+- **Rejected alternatives**:
+  - レイヤー別段階移行 (Bottom-Up): Firebase と Supabase の共存期間が長く、中間状態の管理が煩雑
+  - アダプターパターン移行: Firestore (NoSQL) と PostgreSQL (RDB) の差異が大きく、完全な抽象化は困難で過剰なオーバーヘッド
+
+### Scope（本フェーズ）
+- **In**:
+  - Supabase プロジェクトの初期化・クライアントセットアップ（`src/lib/supabase/`）
+  - 全 Firestore コレクション → PostgreSQL テーブル DDL 設計（正規化）
+  - 全 Firestore Security Rules → RLS ポリシー移行
+  - Firebase Auth → Supabase Auth（Google, Twitter/X, Microsoft, Email/Password）
+  - 認証コンテキスト（`auth-context.tsx`）・ミドルウェアの書き換え
+  - 全サービス層（22+ファイル）の Firestore SDK → Supabase JS Client 書き換え
+  - 全 API Routes（20+ファイル）の Firebase Admin SDK → Supabase サーバークライアント書き換え
+  - Firebase Storage → Supabase Storage（クライアント・サーバー両方）
+  - テストモック・E2E の Supabase 対応
+  - Firebase パッケージ・設定ファイルの完全削除
+  - Steering ドキュメント（`tech.md`, `structure.md`）の更新
+- **Out**:
+  - 既存 Firestore/Storage データの物理マイグレーション（別途手動で対応）
+  - Gemini API 連携の変更（Firebase非依存のため変更不要）
+  - Stripe 連携のビジネスロジック変更（DB接続先のみ変更）
+  - PostHog アナリティクスの変更（Firebase非依存）
+
+### Constraints（本フェーズ）
+- **NoSQL → RDB 変換**: Firestore の配列フィールド（`tags[]`, `leaderboardFirstPlay[]` 等）は JSON 型または正規化テーブルに変換。ネストされたマップ型は JSONB カラムまたは別テーブルに展開
+- **トランザクション**: Firestore の `runTransaction`（楽観的ロック）→ PostgreSQL トランザクション / Supabase RPC（サーバー関数）に置換
+- **カーソルベースページネーション**: Firestore の `startAfter` → PostgreSQL の `keyset pagination`（`WHERE id > cursor ORDER BY ... LIMIT N`）に変換
+- **App Check 代替**: RLS ポリシー + API キー制限 + Supabase の Built-in Rate Limiting で代替
+- **パッケージ**: `@supabase/supabase-js` + `@supabase/ssr`（Next.js SSR用）を新規追加。`firebase`, `firebase-admin` を削除
+- **ローカル開発**: `supabase start` で PostgreSQL/Auth/Storage をローカル起動（Firebase Emulator の代替）
+- **Tailwind / shadcn**: UI フレームワークは変更なし（バックエンドのみの移行）
+
+### Boundary Strategy（本フェーズ）
+- **Why this split**: 基盤（DDL/RLS/クライアント初期化）→ 認証 → コアデータ → ゲームプレイ → ストレージ → ガバナンス → クリーンアップの順で、各ドメインの依存を最小限に保ちながら移行
+- **Shared seams to watch**:
+  - `src/lib/supabase/` の初期化パターン（クライアント/サーバー/ミドルウェア用の3パターン）
+  - 認証トークン検証方式（Supabase Auth の JWT → `getUser()` 検証）
+  - 型定義（`src/types/`）の Firestore 依存部分（Timestamp, DocumentData 等）の除去
+  - テストインフラ（Firebase モック → Supabase ローカルまたはモック）
+
+## Specs (dependency order)
+- [ ] supabase-foundation -- Supabase プロジェクト初期化、クライアント構成（ブラウザ/サーバー/ミドルウェア）、全テーブル DDL、RLS ポリシー、型生成、ローカル開発環境セットアップ。Dependencies: none
+- [ ] supabase-auth-migration -- Firebase Auth → Supabase Auth 完全移行。OAuth プロバイダ (Google/Twitter/Microsoft)、Email/Password、`auth-context.tsx`、ミドルウェア、BAN検知、ログインUI。Dependencies: supabase-foundation
+- [ ] supabase-core-data -- 主要サービス層（user, quiz, question, bookmark, notification, announcement）の Firestore → Supabase 移行。Dependencies: supabase-auth-migration
+- [ ] supabase-gameplay -- ゲームプレイ関連サービス（attempt, review, rating, reaction, leaderboard, play-history）の移行。Dependencies: supabase-core-data
+- [ ] supabase-storage-migration -- Firebase Storage → Supabase Storage 移行。クライアント/サーバー両方のアップロード・ダウンロード・削除処理。Dependencies: supabase-foundation
+- [ ] supabase-governance -- モデレーション・ガバナンス関連サービス（moderation, tagMerge, reputation, entitlement, subscription）の移行。Dependencies: supabase-core-data
+- [ ] supabase-cleanup -- Firebase パッケージ・設定ファイルの完全削除、テストインフラ更新、Steering ドキュメント更新。Dependencies: supabase-auth-migration, supabase-core-data, supabase-gameplay, supabase-storage-migration, supabase-governance
+
+## Direct Implementation Candidates（Phase 35）
+- [ ] docs-sync-supabase -- `docs/` 配下の全仕様書（db_design.md, api_specification.md, detailed_design.md, security_architecture.md）を Supabase/PostgreSQL ベースに全面更新
+- [ ] steering-update -- `.kiro/steering/tech.md`, `structure.md`, `security.md` を Supabase ベースに更新
 

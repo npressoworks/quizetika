@@ -116,7 +116,7 @@ async function assertQuestionBookmarkable(
     };
 
     // データベースの questions テーブルへ保存
-    await supabase.from('questions').insert(mapQuestionToRow(restoredQuestion));
+    await supabase.from('questions').insert(mapQuestionToRow(restoredQuestion as any) as any);
     question = restoredQuestion;
   } else {
     question = mapQuestionRowToQuestion(questionRow);
@@ -212,7 +212,7 @@ export async function toggleBookmark(
   }
 
   // RPC の呼び出しでアトミックにトグル
-  const { data: added, error } = await supabase.rpc('handle_bookmark_toggle', {
+  const { data: added, error } = await (supabase as any).rpc('handle_bookmark_toggle', {
     p_user_id: userId,
     p_target_id: targetId,
     p_target_type: targetType,
@@ -369,7 +369,7 @@ export async function enrichBookmarkedQuestions(
         .map((q) => q.quizId)
         .filter(Boolean)
     ),
-  ];
+  ] as string[];
   const quizMap = new Map<string, Quiz>();
   if (quizIds.length > 0) {
     const { data: quizzesData } = await supabase

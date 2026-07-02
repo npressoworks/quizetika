@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabaseClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { getUser, createUser } from '../services/user';
 import { User } from '../types';
@@ -9,6 +9,8 @@ import {
   clearMiddlewareAuthCookies,
   syncMiddlewareAuthCookies,
 } from '@/lib/middleware-auth-cookies';
+
+const supabaseClient = createClient();
 
 // 既存のフロントエンド・コード（firebaseUser.uid や firebaseUser.getIdToken()）との
 // 互換性を保つためのアダプター型定義

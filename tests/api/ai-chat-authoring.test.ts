@@ -34,16 +34,16 @@ const mockDb = {
     }
     return { doc: jest.fn() };
   }),
-  runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
+  runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
 };
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'token',
-  verifySupabaseAccessToken: (...args: unknown[]) => mockVerify(...args),
+  verifySupabaseAccessToken: (token: any) => mockVerify(token),
 }));
 
 jest.mock('@/services/entitlement', () => ({
-  resolveUserEntitlements: (...args: unknown[]) => mockResolveEntitlements(...args),
+  resolveUserEntitlements: (uid: any) => mockResolveEntitlements(uid),
 }));
 
 jest.mock('@/lib/firebase/admin', () => ({

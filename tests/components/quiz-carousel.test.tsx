@@ -25,7 +25,7 @@ jest.mock('@/services/bookmark', () => ({
   getBookmarkedQuizIds: jest.fn().mockResolvedValue(['quiz-1']),
 }));
 
-const mockQuizzes = [
+const mockQuizzes: any = [
   {
     id: 'quiz-1',
     authorId: 'author-1',

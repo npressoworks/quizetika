@@ -28,7 +28,7 @@ const attemptData = {
 
 const mockAttemptRef = {
   get: jest.fn(async () => ({ exists: true, data: () => attemptData, id: 'att-1' })),
-  update: (...args: unknown[]) => mockAttemptUpdate(...args),
+  update: (data: any) => mockAttemptUpdate(data),
 };
 
 const mockQuizRef = {
@@ -38,7 +38,7 @@ const mockQuizRef = {
 const mockAttemptsQueryGet = jest.fn(async () => ({ docs: [] }));
 
 function createAttemptsCollection() {
-  const queryBuilder = {
+  const queryBuilder: any = {
     where: jest.fn(() => queryBuilder),
     get: mockAttemptsQueryGet,
   };

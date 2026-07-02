@@ -83,13 +83,14 @@ describe('test-play editor restore', () => {
       activeResetRequestId: null,
       canonicalGenreId: '',
       canonicalTagIds: [],
-      leaderboard: [],
+      leaderboardFirstPlay: [],
+      leaderboardReplay: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     saveTestPlayPayload(
-      buildTestPlayPayload(draft, '/quiz/create', 'user-1')
+      buildTestPlayPayload(draft as any, '/quiz/create', 'user-1')
     );
 
     const restored = consumeTestPlayDraftForEditor('user-1', '/quiz/create');
@@ -129,13 +130,14 @@ describe('test-play editor restore', () => {
       activeResetRequestId: null,
       canonicalGenreId: '',
       canonicalTagIds: [],
-      leaderboard: [],
+      leaderboardFirstPlay: [],
+      leaderboardReplay: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     saveTestPlayPayload(
-      buildTestPlayPayload(draft, '/quiz/create', 'user-1')
+      buildTestPlayPayload(draft as any, '/quiz/create', 'user-1')
     );
 
     expect(consumeTestPlayDraftForEditor('user-1', '/quiz/other/edit')).toBeNull();

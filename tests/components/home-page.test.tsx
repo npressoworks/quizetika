@@ -14,7 +14,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/hooks/useSearchUrlState', () => {
-  const React = require('react');
+  const React = require('react') as any;
   const { DEFAULT_HOME_FEED_FILTERS } = require('@/lib/home-feed-filters');
   return {
     useSearchUrlState: () => {
@@ -23,7 +23,7 @@ jest.mock('@/hooks/useSearchUrlState', () => {
         ...DEFAULT_HOME_FEED_FILTERS,
         tagChips: [] as string[],
       });
-      const [playStatus, setPlayStatus] = React.useState<'all' | 'unplayed' | 'played'>('all');
+      const [playStatus, setPlayStatus] = React.useState('all');
       const [openFilters, setOpenFilters] = React.useState(false);
 
       return {
@@ -33,10 +33,10 @@ jest.mock('@/hooks/useSearchUrlState', () => {
         openFilters,
         setTab,
         patchFilters: (patch: Partial<typeof DEFAULT_HOME_FEED_FILTERS>) =>
-          setFilters((prev) => ({
+          setFilters((prev: any) => ({
             ...prev,
             ...patch,
-            tagChips: patch.tagChips ? [...patch.tagChips] : prev.tagChips,
+            tagChips: (patch as any).tagChips ? [...(patch as any).tagChips] : prev.tagChips,
           })),
         setPlayStatus,
         setOpenFilters,
@@ -82,7 +82,7 @@ jest.mock('@/hooks/useActiveTags', () => ({
   }),
 }));
 
-const mockQuizzes = [
+const mockQuizzes: any = [
   {
     id: 'quiz-1',
     authorId: 'author-1',

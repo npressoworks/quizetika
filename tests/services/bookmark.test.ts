@@ -22,7 +22,7 @@ const createChainMock = (resolveValue: any) => {
 
 // Supabase クライアントのモックを作成
 jest.mock('@/lib/supabase/client', () => {
-  const mock = {
+  const mock: any = {
     from: jest.fn(() => mock),
     select: jest.fn(() => mock),
     eq: jest.fn(() => mock),

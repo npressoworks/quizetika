@@ -21,7 +21,7 @@ export interface PaginatedNotifications {
   lastVisible: any; // startAfterDoc / ページング用カーソル（created_at または id など）
 }
 
-function mapRowToNotification(row: Database['public']['Tables']['notifications']['Row']): Notification {
+function mapRowToNotification(row: any): Notification {
   return {
     id: row.id,
     userId: row.user_id,
@@ -121,7 +121,7 @@ export async function createNotification(
       target_title: notificationData.targetTitle ?? null,
       is_read: false,
       created_at: new Date().toISOString(),
-    })
+    } as any)
     .select('id')
     .single();
 

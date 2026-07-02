@@ -415,7 +415,7 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
         target_title: badge.title,
         is_read: false,
         created_at: new Date().toISOString(),
-      });
+      } as any);
     } catch (err) {
       console.error('バッジ獲得通知の作成に失敗しました:', err);
     }
@@ -483,7 +483,7 @@ export async function followUser(followerId: string, followingId: string): Promi
         target_id: followerId,
         is_read: false,
         created_at: new Date().toISOString(),
-      });
+      } as any);
     } catch (err) {
       console.error('フォロー通知の作成に失敗しました:', err);
     }

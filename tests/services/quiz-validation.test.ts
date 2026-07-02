@@ -532,8 +532,8 @@ describe('validateQuizForPublish', () => {
         type: 'sorting',
         choices: undefined,
         sortingItems: [
-          { text: 'A', correctOrder: 0 },
-          { text: 'B', correctOrder: 1 },
+          { id: 's1', text: 'A', correctOrder: 0 },
+          { id: 's2', text: 'B', correctOrder: 1 },
         ],
       });
       const asQuestion = makeQuestion({

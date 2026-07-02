@@ -4,7 +4,7 @@
 import '@testing-library/jest-dom';
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+
 import { VideoAdModal } from '@/components/ads/video-ad-modal';
 
 describe('VideoAdModal Component', () => {

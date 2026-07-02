@@ -26,7 +26,7 @@ const createChainMock = (resolveValue: any) => {
 
 // Supabase クライアントのモックを作成
 jest.mock('@/lib/supabase/client', () => {
-  const mock = {
+  const mock: any = {
     from: jest.fn(() => mock),
     // 念のためルートも Thenable にしておく
     then: jest.fn((onFulfilled) => Promise.resolve({ data: [], error: null }).then(onFulfilled)),

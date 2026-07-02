@@ -3,7 +3,7 @@
  */
 import { renderHook, act, waitFor } from '@testing-library/react';
 
-const sleepMock = jest.fn<() => Promise<void>>();
+const sleepMock = jest.fn();
 
 jest.mock('@/lib/quick-press-stream-config', () => ({
   QUICK_PRESS_LABEL: '問題：',

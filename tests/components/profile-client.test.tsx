@@ -206,18 +206,22 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
       expect(screen.getByText('クイズタイトル 1')).toBeInTheDocument();
     });
 
-    // 共通QuizCard内のブックマークボタンを取得 (1つ目のクイズ用)
-    const bookmarkButtons = screen.getAllByTestId('quiz-card-bookmark-btn');
-    expect(bookmarkButtons).toHaveLength(20); // 1ページ目に20のカードがあるため
+    // QuizCard の mounted パターン対応: useEffect 後にボタンが表示されるため waitFor で待機
+    let bookmarkButtons: HTMLElement[];
+    await waitFor(() => {
+      bookmarkButtons = screen.getAllByTestId('quiz-card-bookmark-btn');
+      expect(bookmarkButtons).toHaveLength(20); // 1ページ目に20のカードがあるため
+    });
 
     await act(async () => {
-      fireEvent.click(bookmarkButtons[0]);
+      fireEvent.click(bookmarkButtons![0]);
     });
 
     await waitFor(() => {
       expect(toggleBookmark).toHaveBeenCalledWith('user-1', 'quiz-1', 'quiz');
     });
   });
+
 
   describe('好きなジャンル表示機能 (Phase 28)', () => {
     it('登録された好きなジャンルがチップ形式（アイコン・表示名）で表示されること', async () => {

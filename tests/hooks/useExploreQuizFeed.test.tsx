@@ -11,7 +11,7 @@ const mockGetLatestQuizzesPage = jest.fn();
 const mockGetQuizzesByGenre = jest.fn();
 const mockSearchQuizzes = jest.fn();
 const mockSearchQuizzesPaginated = jest.fn();
-const mockSortQuizzesForList = jest.fn((quizzes: unknown[]) => quizzes);
+const mockSortQuizzesForList = jest.fn((quizzes: any, sort?: any) => quizzes);
 
 jest.mock('@/services/quiz', () => ({
   getLatestQuizzesPage: (...args: unknown[]) => mockGetLatestQuizzesPage(...args),
@@ -24,7 +24,7 @@ jest.mock('@/services/quiz', () => ({
 }));
 
 jest.mock('@/lib/metadata-resolution', () => ({
-  sortQuizzesForList: (...args: unknown[]) => mockSortQuizzesForList(...args),
+  sortQuizzesForList: (quizzes: any, sort?: any) => mockSortQuizzesForList(quizzes, sort),
 }));
 
 describe('useExploreQuizFeed', () => {
