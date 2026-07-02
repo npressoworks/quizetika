@@ -1,18 +1,5 @@
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs, 
-  doc, 
-  addDoc,
-  updateDoc,
-  QueryDocumentSnapshot,
-  startAfter,
-  getCountFromServer,
-  writeBatch
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
+import { createClient } from '../lib/supabase/client';
+import { Database } from '../lib/supabase/database.types';
 
 export interface Notification {
   id: string;
@@ -27,11 +14,26 @@ export interface Notification {
   createdAt: Date;
 }
 
-const notificationsCollection = collection(db, 'notifications');
+const supabase = createClient();
 
 export interface PaginatedNotifications {
   items: Notification[];
-  lastVisible: QueryDocumentSnapshot | null;
+  lastVisible: any; // startAfterDoc / ページング用カーソル（created_at または id など）
+}
+
+function mapRowToNotification(row: Database['public']['Tables']['notifications']['Row']): Notification {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    type: row.type as Notification['type'],
+    senderId: row.sender_id,
+    senderName: row.sender_name,
+    senderAvatar: row.sender_avatar ?? '',
+    targetId: row.target_id ?? undefined,
+    targetTitle: row.target_title ?? undefined,
+    isRead: row.is_read,
+    createdAt: new Date(row.created_at),
+  };
 }
 
 /**
@@ -40,42 +42,47 @@ export interface PaginatedNotifications {
 export async function getNotifications(
   userId: string,
   limitCount?: number,
-  startAfterDoc?: QueryDocumentSnapshot | null
+  startAfterDoc?: any // テスト互換性を考慮して any。FirebaseのQueryDocumentSnapshotまたは作成日時のISO文字列
 ): Promise<PaginatedNotifications> {
-  let q = query(
-    notificationsCollection,
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  
+  let queryBuilder = supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
   if (startAfterDoc) {
-    q = query(q, startAfter(startAfterDoc));
+    // startAfterDocがQueryDocumentSnapshotライクなオブジェクトの場合、createdAtの値を抽出
+    let cursorTime: string;
+    if (typeof startAfterDoc === 'object') {
+      const data = typeof startAfterDoc.data === 'function' ? startAfterDoc.data() : startAfterDoc;
+      const rawCreatedAt = data.createdAt || data.created_at;
+      if (rawCreatedAt instanceof Date) {
+        cursorTime = rawCreatedAt.toISOString();
+      } else if (typeof rawCreatedAt === 'object' && typeof rawCreatedAt.toDate === 'function') {
+        cursorTime = rawCreatedAt.toDate().toISOString();
+      } else {
+        cursorTime = new Date(rawCreatedAt).toISOString();
+      }
+    } else {
+      cursorTime = new Date(startAfterDoc).toISOString();
+    }
+    queryBuilder = queryBuilder.lt('created_at', cursorTime);
   }
-  
+
   if (limitCount && limitCount > 0) {
-    const { limit } = require('firebase/firestore');
-    q = query(q, limit(limitCount));
+    queryBuilder = queryBuilder.limit(limitCount);
   }
-  
-  const snap = await getDocs(q);
-  const items = snap.docs.map(docSnap => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      userId: data.userId,
-      type: data.type,
-      senderId: data.senderId,
-      senderName: data.senderName,
-      senderAvatar: data.senderAvatar,
-      targetId: data.targetId,
-      targetTitle: data.targetTitle,
-      isRead: data.isRead,
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
-    } as Notification;
-  });
-  
-  const lastVisible = snap.docs.length > 0 ? (snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot) : null;
-  
+
+  const { data, error } = await queryBuilder;
+
+  if (error || !data) {
+    return { items: [], lastVisible: null };
+  }
+
+  const items = data.map(mapRowToNotification);
+  // 次のページの取得に使うため、最後のドキュメント（または作成日時）を返す
+  const lastVisible = data.length > 0 ? data[data.length - 1].created_at : null;
+
   return { items, lastVisible };
 }
 
@@ -83,10 +90,14 @@ export async function getNotifications(
  * 特定の通知を既読にする
  */
 export async function markAsRead(notificationId: string): Promise<void> {
-  const docRef = doc(notificationsCollection, notificationId);
-  await updateDoc(docRef, {
-    isRead: true
-  });
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('id', notificationId);
+
+  if (error) {
+    throw new Error(`通知の既読処理に失敗しました: ${error.message}`);
+  }
 }
 
 // 後方互換性用の別名
@@ -98,44 +109,55 @@ export { markAsRead as markNotificationAsRead };
 export async function createNotification(
   notificationData: Omit<Notification, 'id' | 'createdAt' | 'isRead'>
 ): Promise<string> {
-  const payload: Omit<Notification, 'id'> = {
-    ...notificationData,
-    isRead: false,
-    createdAt: new Date(),
-  };
+  const { data, error } = await supabase
+    .from('notifications')
+    .insert({
+      user_id: notificationData.userId,
+      type: notificationData.type,
+      sender_id: notificationData.senderId,
+      sender_name: notificationData.senderName,
+      sender_avatar: notificationData.senderAvatar,
+      target_id: notificationData.targetId ?? null,
+      target_title: notificationData.targetTitle ?? null,
+      is_read: false,
+      created_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
 
-  const docRef = await addDoc(notificationsCollection, payload);
-  return docRef.id;
+  if (error || !data) {
+    throw new Error(`通知の作成に失敗しました: ${error?.message}`);
+  }
+  return data.id;
 }
 
 /**
  * ユーザーの未読通知件数を取得
  */
 export async function getUnreadNotificationsCount(userId: string): Promise<number> {
-  const q = query(
-    notificationsCollection,
-    where('userId', '==', userId),
-    where('isRead', '==', false)
-  );
-  const snap = await getCountFromServer(q);
-  return snap.data().count;
+  const { count, error } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_read', false);
+
+  if (error) {
+    throw new Error(`未読通知件数の取得に失敗しました: ${error.message}`);
+  }
+  return count ?? 0;
 }
 
 /**
  * ユーザーのすべての未読通知を一括で既読にする
  */
 export async function markAllNotificationsAsRead(userId: string): Promise<void> {
-  const q = query(
-    notificationsCollection,
-    where('userId', '==', userId),
-    where('isRead', '==', false)
-  );
-  const snap = await getDocs(q);
-  if (snap.docs.length === 0) return;
-  
-  const batch = writeBatch(db);
-  snap.docs.forEach(docSnap => {
-    batch.update(docSnap.ref, { isRead: true });
-  });
-  await batch.commit();
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('user_id', userId)
+    .eq('is_read', false);
+
+  if (error) {
+    throw new Error(`通知の一括既読処理に失敗しました: ${error.message}`);
+  }
 }

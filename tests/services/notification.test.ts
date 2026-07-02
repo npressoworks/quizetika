@@ -5,41 +5,60 @@ import {
   getUnreadNotificationsCount,
   markAllNotificationsAsRead
 } from '../../src/services/notification';
-import { getDocs, updateDoc, addDoc, getCountFromServer, writeBatch } from 'firebase/firestore';
 
-const mockBatch = {
-  update: jest.fn(),
-  commit: jest.fn().mockResolvedValue(undefined),
-};
-
-// Firebase Firestore モック
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
+// Supabase クライアントのモックを作成
+jest.mock('@/lib/supabase/client', () => {
+  const mock = {
+    from: jest.fn(() => mock),
+    select: jest.fn(() => mock),
+    eq: jest.fn(() => mock),
+    order: jest.fn(() => mock),
+    limit: jest.fn(() => mock),
+    lt: jest.fn(() => mock),
+    update: jest.fn(() => mock),
+    insert: jest.fn(() => mock),
+    maybeSingle: jest.fn(),
+    single: jest.fn(),
+    then: jest.fn((onFulfilled) => Promise.resolve({ data: null, error: null }).then(onFulfilled)),
+  };
   return {
-    ...original,
-    collection: jest.fn(),
-    query: jest.fn(),
-    where: jest.fn(),
-    orderBy: jest.fn(),
-    limit: jest.fn(),
-    getDocs: jest.fn(),
-    doc: jest.fn((ref, ...paths) => ({ id: paths[paths.length - 1] || 'mock-notif-id' })),
-    addDoc: jest.fn(),
-    updateDoc: jest.fn(),
-    startAfter: jest.fn(),
-    count: jest.fn(),
-    getCountFromServer: jest.fn(),
-    writeBatch: jest.fn(() => mockBatch),
+    createClient: () => mock,
   };
 });
+
+import { createClient } from '@/lib/supabase/client';
+const mockSupabase = createClient() as any;
+
+function makeNotificationRow(id: string, userId: string, type: string, senderName: string, isRead = false) {
+  return {
+    id,
+    user_id: userId,
+    type,
+    sender_id: 'sender-uid',
+    sender_name: senderName,
+    sender_avatar: 'https://example.com/avatar.png',
+    target_id: 'target-1',
+    target_title: 'Target Title',
+    is_read: isRead,
+    created_at: new Date('2026-05-29T10:00:00Z').toISOString(),
+  };
+}
 
 describe('NotificationService', () => {
   const userId = 'user-uid';
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockBatch.update.mockClear();
-    mockBatch.commit.mockClear();
+    mockSupabase.from.mockReturnValue(mockSupabase);
+    mockSupabase.select.mockReturnValue(mockSupabase);
+    mockSupabase.eq.mockReturnValue(mockSupabase);
+    mockSupabase.order.mockReturnValue(mockSupabase);
+    mockSupabase.limit.mockReturnValue(mockSupabase);
+    mockSupabase.lt.mockReturnValue(mockSupabase);
+    mockSupabase.update.mockReturnValue(mockSupabase);
+    mockSupabase.insert.mockReturnValue(mockSupabase);
+    mockSupabase.maybeSingle.mockResolvedValue({ data: null, error: null });
+    mockSupabase.single.mockResolvedValue({ data: null, error: null });
   });
 
   describe('createNotification', () => {
@@ -53,97 +72,94 @@ describe('NotificationService', () => {
         targetId: 'sender-uid',
       };
 
-      (addDoc as jest.Mock).mockResolvedValue({ id: 'new-notif-id' });
+      mockSupabase.single.mockResolvedValueOnce({
+        data: { id: 'new-notif-id' },
+        error: null,
+      });
 
       const newId = await createNotification(mockNotifData);
 
-      expect(addDoc).toHaveBeenCalled();
+      expect(mockSupabase.from).toHaveBeenCalledWith('notifications');
+      expect(mockSupabase.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: userId,
+          type: 'follow',
+          sender_name: '山田太郎',
+        })
+      );
       expect(newId).toBe('new-notif-id');
     });
   });
 
   describe('getNotifications', () => {
     test('ユーザー宛ての通知一覧を降順で取得できること（ページング対応）', async () => {
-      const mockDocs = [
-        {
-          id: 'notif-1',
-          data: () => ({
-            userId,
-            type: 'follow',
-            senderId: 'sender-1',
-            senderName: 'ユーザー1',
-            senderAvatar: 'avatar-1',
-            isRead: false,
-            createdAt: { toDate: () => new Date('2026-05-29T10:00:00Z') },
-          }),
-        },
-      ];
+      const mockRow = makeNotificationRow('notif-1', userId, 'follow', 'ユーザー1');
 
-      (getDocs as jest.Mock).mockResolvedValue({
-        docs: mockDocs,
+      // Thenable mock
+      mockSupabase.then.mockImplementationOnce((onFulfilled: any) => {
+        return Promise.resolve({ data: [mockRow], error: null }).then(onFulfilled);
       });
 
       const res = await getNotifications(userId, 10);
 
-      expect(getDocs).toHaveBeenCalled();
+      expect(mockSupabase.from).toHaveBeenCalledWith('notifications');
       expect(res.items).toHaveLength(1);
       expect(res.items[0]).toEqual({
         id: 'notif-1',
         userId,
         type: 'follow',
-        senderId: 'sender-1',
+        senderId: 'sender-uid',
         senderName: 'ユーザー1',
-        senderAvatar: 'avatar-1',
+        senderAvatar: 'https://example.com/avatar.png',
+        targetId: 'target-1',
+        targetTitle: 'Target Title',
         isRead: false,
         createdAt: new Date('2026-05-29T10:00:00Z'),
       });
-      expect(res.lastVisible).toBeDefined();
+      expect(res.lastVisible).toBe(mockRow.created_at);
     });
   });
 
   describe('getUnreadNotificationsCount', () => {
     test('未読の通知件数を正しくカウントできること', async () => {
-      (getCountFromServer as jest.Mock).mockResolvedValue({
-        data: () => ({ count: 5 })
+      mockSupabase.then.mockImplementationOnce((onFulfilled: any) => {
+        return Promise.resolve({ count: 5, error: null }).then(onFulfilled);
       });
 
       const count = await getUnreadNotificationsCount(userId);
 
-      expect(getCountFromServer).toHaveBeenCalled();
+      expect(mockSupabase.from).toHaveBeenCalledWith('notifications');
+      expect(mockSupabase.select).toHaveBeenCalledWith('*', { count: 'exact', head: true });
       expect(count).toBe(5);
     });
   });
 
   describe('markAllNotificationsAsRead', () => {
     test('すべての未読通知を一括で既読にできること', async () => {
-      const mockDocs = [
-        { id: 'notif-1', ref: 'doc-ref-1' },
-        { id: 'notif-2', ref: 'doc-ref-2' },
-      ];
-
-      (getDocs as jest.Mock).mockResolvedValue({
-        docs: mockDocs,
+      mockSupabase.then.mockImplementationOnce((onFulfilled: any) => {
+        return Promise.resolve({ data: [], error: null }).then(onFulfilled);
       });
 
       await markAllNotificationsAsRead(userId);
 
-      expect(getDocs).toHaveBeenCalled();
-      expect(writeBatch).toHaveBeenCalled();
-      expect(mockBatch.update).toHaveBeenCalledTimes(2);
-      expect(mockBatch.commit).toHaveBeenCalled();
+      expect(mockSupabase.from).toHaveBeenCalledWith('notifications');
+      expect(mockSupabase.update).toHaveBeenCalledWith({ is_read: true });
+      expect(mockSupabase.eq).toHaveBeenCalledWith('user_id', userId);
+      expect(mockSupabase.eq).toHaveBeenCalledWith('is_read', false);
     });
   });
 
   describe('markAsRead', () => {
     test('指定された通知を既読に更新できること', async () => {
-      (updateDoc as jest.Mock).mockResolvedValue(undefined);
+      mockSupabase.then.mockImplementationOnce((onFulfilled: any) => {
+        return Promise.resolve({ error: null }).then(onFulfilled);
+      });
 
       await markAsRead('notif-1');
 
-      expect(updateDoc).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'notif-1' }),
-        { isRead: true }
-      );
+      expect(mockSupabase.from).toHaveBeenCalledWith('notifications');
+      expect(mockSupabase.update).toHaveBeenCalledWith({ is_read: true });
+      expect(mockSupabase.eq).toHaveBeenCalledWith('id', 'notif-1');
     });
   });
 });
