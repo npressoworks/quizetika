@@ -1,4 +1,6 @@
-import { supabaseClient } from './client';
+import { createClient } from './client';
+
+const supabaseClient = createClient();
 
 /**
  * Google ログインを開始する (OAuth)

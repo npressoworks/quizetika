@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '../../../src/lib/supabase/auth-verify';
-import { createSupabaseServerClient } from '../../../src/lib/supabase/server';
+import { createClient } from '../../../src/lib/supabase/server';
 
-// createSupabaseServerClient をモック化
+// createClient をモック化
 jest.mock('../../../src/lib/supabase/server', () => ({
-  createSupabaseServerClient: jest.fn(),
+  createClient: jest.fn(),
 }));
 
 describe('Supabase Auth-Verify Tests', () => {
@@ -17,7 +17,7 @@ describe('Supabase Auth-Verify Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (createSupabaseServerClient as jest.Mock).mockResolvedValue(mockSupabaseClient);
+    (createClient as jest.Mock).mockResolvedValue(mockSupabaseClient);
   });
 
   describe('extractBearerToken', () => {

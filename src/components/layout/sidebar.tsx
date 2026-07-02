@@ -4,8 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { auth } from '@/lib/firebase/config';
-import { signOut } from '@/lib/firebase/auth';
+import { signOut } from '@/lib/supabase/auth';
 import {
   Home,
   HomeOutlined,
@@ -92,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await signOut();
       setPopupOpen(false);
       router.push('/');
     } catch (error) {

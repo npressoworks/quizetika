@@ -51,15 +51,15 @@
   - _Boundary: src/app/api/_
   - _Depends: 1.2_
 
-- [ ] 5. Cleanup & Verification
-- [ ] 5.1 未使用の Firebase Auth 関連ファイルの削除
+- [x] 5. Cleanup & Verification
+- [x] 5.1 未使用の Firebase Auth 関連ファイルの削除
   - `src/lib/firebase/auth.ts`、`src/lib/firebase/auth-verify.ts`、および不要となった Cookie 管理ファイルを削除する。
   - 成果物確認: 不要ファイルが物理的に削除され、該当ファイルをインポートしていた箇所から型エラーやインポートエラーが残っていないこと。
   - _Requirements: 1.1, 4.1_
   - _Boundary: src/lib/firebase/_
 
-- [ ] 5.2 統合テストおよび Next.js ビルド検証
-  - ローカル Supabase 環境を使用して、ログイン、ログアウト、セッション自動更新、および API 通信の統合検証テストを実行する。
+- [x] 5.2 統合テストおよび Next.js ビルド検証
+  - ローカル Supabase 環境を使用して、ログイン、ログアウト、セッション自動更新、および API 通信 of 統合検証テストを実行する。
   - 全体のテストスイートおよび Next.js ビルドを実行し、型解決エラーや例外が発生しないことを確認する。
   - 成果物確認: `npm run build` がエラーなく完了し、既存および新規のテストスイートがすべて通過すること。
   - _Requirements: 1.1, 2.1, 3.1, 4.1_

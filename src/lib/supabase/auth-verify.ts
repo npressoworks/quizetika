@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createSupabaseServerClient } from './server';
+import { createClient } from './server';
 
 /**
  * HTTPリクエストの Authorization ヘッダーから Bearer トークンを抽出するヘルパー
@@ -27,7 +27,7 @@ export async function verifySupabaseAccessToken(token: string | null): Promise<s
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error) {
