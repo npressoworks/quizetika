@@ -260,6 +260,49 @@ CREATE TABLE leaderboard_entries (
     UNIQUE(quiz_id, user_id, type)
 );
 
+-- 17. metadata_genres
+CREATE TABLE metadata_genres (
+    id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    description TEXT,
+    icon_image_url TEXT,
+    canonical_id TEXT,
+    merged_genre_ids TEXT[] DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- 18. metadata_tags
+CREATE TABLE metadata_tags (
+    id TEXT PRIMARY KEY,
+    tag_name TEXT,
+    canonical_id TEXT,
+    merged_tag_ids TEXT[] DEFAULT '{}',
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- 19. merge_requests
+CREATE TABLE merge_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status TEXT DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_by UUID REFERENCES users(id) ON DELETE CASCADE,
+    details JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+-- 20. genre_requests
+CREATE TABLE genre_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    status TEXT DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_by UUID REFERENCES users(id) ON DELETE CASCADE,
+    details JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
 -- ==========================================
 -- インデックスの定義
 -- ==========================================
@@ -296,6 +339,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 特権フィールド更新防止用のトリガー関数定義
+CREATE OR REPLACE FUNCTION check_users_immutable_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 特権管理者やサーバーサイド操作（service_role）でない場合のみチェックを実行する
+    IF (auth.role() = 'authenticated') THEN
+        IF (NEW.moderation_tier IS DISTINCT FROM OLD.moderation_tier OR
+            NEW.reputation_score IS DISTINCT FROM OLD.reputation_score OR
+            NEW.subscription_tier IS DISTINCT FROM OLD.subscription_tier) THEN
+            RAISE EXCEPTION 'Immutable fields modified';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- トリガーの作成
+CREATE OR REPLACE TRIGGER tr_check_users_immutable_fields
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION check_users_immutable_fields();
+
 -- ==========================================
 -- RLSポリシーの定義
 -- ==========================================
@@ -317,17 +382,17 @@ ALTER TABLE flags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quiz_lists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_ai_authoring_counts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE leaderboard_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE metadata_genres ENABLE ROW LEVEL SECURITY;
+ALTER TABLE metadata_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE merge_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE genre_requests ENABLE ROW LEVEL SECURITY;
 
 -- 1. users
 CREATE POLICY users_read ON users FOR SELECT USING (TRUE);
 CREATE POLICY users_update ON users FOR UPDATE 
     USING (auth.uid() = id AND is_not_banned())
-    WITH CHECK (
-        auth.uid() = id 
-        AND moderation_tier = OLD.moderation_tier
-        AND reputation_score = OLD.reputation_score
-        AND subscription_tier = OLD.subscription_tier
-    );
+    WITH CHECK (auth.uid() = id);
+
 
 -- 2. quizzes
 CREATE POLICY quizzes_read ON quizzes FOR SELECT
@@ -412,6 +477,41 @@ CREATE POLICY daily_ai_authoring_counts_read ON daily_ai_authoring_counts FOR SE
 CREATE POLICY leaderboard_entries_read ON leaderboard_entries FOR SELECT USING (TRUE);
 CREATE POLICY leaderboard_entries_write ON leaderboard_entries FOR ALL
     USING (auth.uid() = user_id AND is_not_banned());
+
+-- 17. metadata_genres
+CREATE POLICY metadata_genres_read ON metadata_genres FOR SELECT USING (TRUE);
+CREATE POLICY metadata_genres_write ON metadata_genres FOR ALL
+    USING (
+        is_not_banned()
+        AND EXISTS (
+            SELECT 1 FROM users WHERE id = auth.uid() AND moderation_tier IN ('moderator', 'senior_moderator', 'admin')
+        )
+    );
+
+-- 18. metadata_tags
+CREATE POLICY metadata_tags_read ON metadata_tags FOR SELECT USING (TRUE);
+CREATE POLICY metadata_tags_write ON metadata_tags FOR ALL
+    USING (is_not_banned());
+
+-- 19. merge_requests
+CREATE POLICY merge_requests_read ON merge_requests FOR SELECT USING (TRUE);
+CREATE POLICY merge_requests_write ON merge_requests FOR ALL
+    USING (
+        is_not_banned()
+        AND EXISTS (
+            SELECT 1 FROM users WHERE id = auth.uid() AND moderation_tier IN ('moderator', 'senior_moderator', 'admin')
+        )
+    );
+
+-- 20. genre_requests
+CREATE POLICY genre_requests_read ON genre_requests FOR SELECT USING (TRUE);
+CREATE POLICY genre_requests_write ON genre_requests FOR ALL
+    USING (
+        is_not_banned()
+        AND EXISTS (
+            SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'
+        )
+    );
 
 -- ==========================================
 -- ストレージバケット & ストレージアクセスポリシー定義
