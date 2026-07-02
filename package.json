@@ -20,7 +20,7 @@
     "db:reset:emulator": "node scripts/reset-firestore.mjs --emulator",
     "db:reset-and-seed": "node scripts/reset-firestore.mjs --confirm && node scripts/seed-test-data.mjs",
     "db:reset-and-seed:emulator": "node scripts/reset-firestore.mjs --emulator && node scripts/seed-test-data.mjs --emulator",
-    "gen:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts"
+    "gen:types": "npx supabase gen types typescript --local > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.82",

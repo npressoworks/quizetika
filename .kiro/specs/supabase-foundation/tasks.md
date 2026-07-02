@@ -83,7 +83,7 @@
   - _Boundary: supabase/_
   - _Depends: 1.3, 2.1, 3.1, 3.2_
 
-- [ ] 5.2 TypeScript 型定義の自動生成テスト
+- [x] 5.2 TypeScript 型定義の自動生成テスト
   - `supabase start` で起動したローカルデータベースから、`npm run gen:types` コマンドを実行して `src/lib/supabase/database.types.ts` を自動生成する。
   - 生成されたファイルに、`users` や `quizzes` 等のテーブル型が正しく出力されていること、および `types.ts` ファイルへのインポートに型エラーが発生しないことを検証する。
   - 成果物確認: `database.types.ts` が正常に生成され、クライアント初期化コード（`client.ts`, `server.ts`）に読み込んでも型エラーがないこと。
