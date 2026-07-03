@@ -1,12 +1,12 @@
 {
-  "feature_name": "{{FEATURE_NAME}}",
-  "created_at": "{{TIMESTAMP}}",
-  "updated_at": "{{TIMESTAMP}}",
-  "language": "en",
-  "phase": "initialized",
+  "feature_name": "supabase-gameplay",
+  "created_at": "2026-07-02T15:49:00Z",
+  "updated_at": "2026-07-02T15:49:00Z",
+  "language": "ja",
+  "phase": "requirements-generated",
   "approvals": {
     "requirements": {
-      "generated": false,
+      "generated": true,
       "approved": false
     },
     "design": {
@@ -20,5 +20,3 @@
   },
   "ready_for_implementation": false
 }
-
-
