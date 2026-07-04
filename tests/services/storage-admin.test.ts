@@ -1,24 +1,65 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
+const mockUpload = jest.fn();
+const mockGetPublicUrl = jest.fn();
+const mockMove = jest.fn();
 
-import { getAdminStorage } from '../../src/lib/firebase/admin';
+const mockStorageFrom = jest.fn(() => ({
+  upload: mockUpload,
+  getPublicUrl: mockGetPublicUrl,
+  move: mockMove,
+}));
 
-const mockFile = {
-  save: jest.fn().mockResolvedValue(undefined),
-  makePublic: jest.fn().mockResolvedValue(undefined),
-};
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => ({
+    storage: {
+      from: mockStorageFrom,
+    },
+  }),
+}));
 
-const mockBucket = {
-  name: 'quizetika-test-bucket',
-  file: jest.fn(() => mockFile),
-};
+import {
+  uploadQuizCoverBuffer,
+  uploadTemporaryGenreIconBuffer,
+  moveTemporaryGenreIcon,
+} from '../../src/services/storage-admin';
 
-jest.mock('../../src/lib/firebase/admin', () => {
-  const mockStorage = {
-    bucket: jest.fn(() => mockBucket),
-  };
-  return {
-    getAdminStorage: () => mockStorage,
-  };
+describe('uploadQuizCoverBuffer', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('quizId 指定時は quizzes/{quizId}/ パスへ保存し公開URLを返すこと', async () => {
+    const dummyBuffer = Buffer.from('dummy-image-data');
+    mockUpload.mockResolvedValue({ data: { path: 'quiz-1/cover_1.png' }, error: null });
+    mockGetPublicUrl.mockReturnValue({
+      data: { publicUrl: 'https://project.supabase.co/storage/v1/object/public/quizzes/quiz-1/cover_1.png' },
+    });
+
+    const url = await uploadQuizCoverBuffer(dummyBuffer, { quizId: 'quiz-1', uid: 'user-1' });
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('quizzes');
+    expect(mockUpload).toHaveBeenCalledWith(
+      expect.stringMatching(/^quiz-1\/cover_\d+\.png$/),
+      dummyBuffer,
+      { contentType: 'image/png', upsert: false }
+    );
+    expect(url).toBe('https://project.supabase.co/storage/v1/object/public/quizzes/quiz-1/cover_1.png');
+  });
+
+  test('quizId 未指定時は quizzes/drafts/{uid}/ パスへ保存すること', async () => {
+    const dummyBuffer = Buffer.from('dummy-image-data');
+    mockUpload.mockResolvedValue({ data: { path: 'drafts/user-1/cover_1.png' }, error: null });
+    mockGetPublicUrl.mockReturnValue({
+      data: { publicUrl: 'https://project.supabase.co/storage/v1/object/public/quizzes/drafts/user-1/cover_1.png' },
+    });
+
+    await uploadQuizCoverBuffer(dummyBuffer, { uid: 'user-1' });
+
+    expect(mockUpload).toHaveBeenCalledWith(
+      expect.stringMatching(/^drafts\/user-1\/cover_\d+\.png$/),
+      dummyBuffer,
+      { contentType: 'image/png', upsert: false }
+    );
+  });
 });
 
 describe('uploadTemporaryGenreIconBuffer', () => {
@@ -26,21 +67,58 @@ describe('uploadTemporaryGenreIconBuffer', () => {
     jest.clearAllMocks();
   });
 
-  test('バッファデータを Firebase Storage の genres/temp パスに保存し、公開URLを返すこと', async () => {
-    jest.resetModules();
-    const { uploadTemporaryGenreIconBuffer } = require('../../src/services/storage-admin');
-
+  test('バッファデータを genres/temp パスに保存し、公開URLを返すこと', async () => {
     const dummyBuffer = Buffer.from('dummy-image-data');
-    const uid = 'user-123';
-
-    const url = await uploadTemporaryGenreIconBuffer(dummyBuffer, uid);
-
-    expect(mockBucket.file).toHaveBeenCalledWith(expect.stringMatching(/^genres\/temp\/user-123_\d+\.png$/));
-    expect(mockFile.save).toHaveBeenCalledWith(dummyBuffer, {
-      metadata: { contentType: 'image/png' },
-      resumable: false,
+    mockUpload.mockResolvedValue({ data: { path: 'temp/user-123_1.png' }, error: null });
+    mockGetPublicUrl.mockReturnValue({
+      data: { publicUrl: 'https://project.supabase.co/storage/v1/object/public/genres/temp/user-123_1.png' },
     });
-    expect(mockFile.makePublic).toHaveBeenCalledTimes(1);
-    expect(url).toContain('https://storage.googleapis.com/quizetika-test-bucket/genres/temp/user-123_');
+
+    const url = await uploadTemporaryGenreIconBuffer(dummyBuffer, 'user-123');
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('genres');
+    expect(mockUpload).toHaveBeenCalledWith(
+      expect.stringMatching(/^temp\/user-123_\d+\.png$/),
+      dummyBuffer,
+      { contentType: 'image/png', upsert: false }
+    );
+    expect(url).toBe('https://project.supabase.co/storage/v1/object/public/genres/temp/user-123_1.png');
+  });
+});
+
+describe('moveTemporaryGenreIcon', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('正常系: temp配下の一時アイコンを genres/{genreId}/ 配下へ移動し公開URLを返すこと', async () => {
+    mockMove.mockResolvedValue({ data: {}, error: null });
+    mockGetPublicUrl.mockReturnValue({
+      data: { publicUrl: 'https://project.supabase.co/storage/v1/object/public/genres/genre-1/icon_1.png' },
+    });
+
+    const tempUrl = 'https://project.supabase.co/storage/v1/object/public/genres/temp/user-123_1.png';
+    const url = await moveTemporaryGenreIcon(tempUrl, 'genre-1');
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('genres');
+    expect(mockMove).toHaveBeenCalledWith(
+      'temp/user-123_1.png',
+      expect.stringMatching(/^genre-1\/icon_\d+\.png$/)
+    );
+    expect(url).toBe('https://project.supabase.co/storage/v1/object/public/genres/genre-1/icon_1.png');
+  });
+
+  test('異常系: 移動元URLが genres/temp/ 配下でない場合は例外をスローすること', async () => {
+    const invalidUrl = 'https://project.supabase.co/storage/v1/object/public/quizzes/temp/user-123_1.png';
+
+    await expect(moveTemporaryGenreIcon(invalidUrl, 'genre-1')).rejects.toThrow();
+    expect(mockMove).not.toHaveBeenCalled();
+  });
+
+  test('異常系: Supabase 公開URLパターンに一致しない場合は例外をスローすること', async () => {
+    const invalidUrl = 'https://firebasestorage.googleapis.com/v0/b/quizetika.appspot.com/o/genres%2Ftemp%2Fx.png';
+
+    await expect(moveTemporaryGenreIcon(invalidUrl, 'genre-1')).rejects.toThrow();
+    expect(mockMove).not.toHaveBeenCalled();
   });
 });

@@ -15,8 +15,8 @@
   - 成果物確認: ローカル環境で `select id, public from storage.buckets` を実行し、`quizzes`／`users`／`genres`／`sns-logos` すべてが `public = true` であることを確認する
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-- [ ] 2. コア: ストレージサービス層の実装
-- [ ] 2.1 (P) クライアントサイドストレージサービスの実装
+- [x] 2. コア: ストレージサービス層の実装
+- [x] 2.1 (P) クライアントサイドストレージサービスの実装
   - `uploadImage`／`uploadQuizCover` を、既存の MIME タイプ・サイズ検証を維持したまま、パス解決ユーティリティでバケット/パスを求め Supabase Storage へアップロードし公開URLを返す実装に書き換える
   - `deleteImage` を、URL解析ユーティリティで Supabase 公開URLパターンに一致する場合のみ対象オブジェクトを削除し、一致しない場合（旧 Firebase URL・外部アバター等）は何もせず正常終了する実装に書き換える
   - `getSnsLogoUrl` を `sns-logos` バケットの公開URL取得に書き換える（既存のインメモリキャッシュ挙動は維持する）
@@ -27,7 +27,7 @@
   - _Boundary: storage.ts (Client Storage Service)_
   - _Depends: 1.1_
 
-- [ ] 2.2 (P) サーバーサイド特権ストレージサービスの実装
+- [x] 2.2 (P) サーバーサイド特権ストレージサービスの実装
   - `uploadQuizCoverBuffer`／`uploadTemporaryGenreIconBuffer` を、Service Role Key を用いた Supabase 管理クライアント経由のアップロードに書き換え、公開URLを返す実装にする
   - ジャンルアイコンの一時保存先（`genres/temp/...`）から本パス（`genres/{genreId}/...`）への移動を行う新規関数を追加し、移動元URLの検証（対象バケット・`temp/` 配下であること）を行う
   - 既存の単体テストを Supabase 管理クライアントのモックベースに書き換え、新規移動関数について正常系（移動後の公開URL返却）と異常系（不一致な移動元URL）のテストを追加する

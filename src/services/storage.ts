@@ -1,55 +1,46 @@
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject
-} from 'firebase/storage';
-import { storage } from '../lib/firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import { assertGenreIconFileValid } from '../lib/genre-icon-upload';
+import { resolveBucketAndPath, parseSupabasePublicUrl } from '../lib/storage-path';
 
 /**
  * 画像ファイルをアップロードする
  * @param file アップロードする画像ファイルオブジェクト
- * @param path Storage内の保存パス
- * @returns アップロード後のダウンロードURL
+ * @param path Storage内の保存パス（先頭セグメントがバケットID）
+ * @returns アップロード後の公開URL
  */
 export async function uploadImage(file: File, path: string): Promise<string> {
   assertGenreIconFileValid(file);
 
-  // Storage参照の取得とアップロード
-  const storageRef = ref(storage, path);
-  const metadata = {
-    contentType: file.type,
-  };
+  const { bucket, objectPath } = resolveBucketAndPath(path);
+  const supabase = createClient();
 
-  const snapshot = await uploadBytes(storageRef, file, metadata);
-  return await getDownloadURL(snapshot.ref);
+  const { error } = await supabase.storage.from(bucket).upload(objectPath, file, {
+    contentType: file.type,
+  });
+  if (error) {
+    throw error;
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  return data.publicUrl;
 }
 
 /**
- * 指定されたダウンロードURLの画像を物理削除する (クレンジング用)
- * @param imageUrl 削除対象画像のダウンロードURL
+ * 指定された公開URLの画像を物理削除する (クレンジング用)
+ * @param imageUrl 削除対象画像の公開URL
  */
 export async function deleteImage(imageUrl: string): Promise<void> {
   if (!imageUrl) return;
 
-  // セキュリティガード: システムのデフォルトアバターや外部API画像 (Dicebear等) は削除をスキップする
-  const isStorageUrl = imageUrl.includes('firebasestorage.googleapis.com');
-  if (!isStorageUrl) {
-    // 外部画像やDicebearアバターの場合は何もしない
+  // Supabase Storage の公開URLパターンに一致しない場合（旧 Firebase URL・外部アバター等）は何もしない
+  const parsed = parseSupabasePublicUrl(imageUrl);
+  if (!parsed) {
     return;
   }
 
-  try {
-    // URLから直接Storage参照を取得して削除
-    const imageRef = ref(storage, imageUrl);
-    await deleteObject(imageRef);
-  } catch (error: any) {
-    // ファイルが既に存在しない場合 (404) は正常終了とみなす
-    if (error.code === 'storage/object-not-found') {
-      console.warn(`Storage object not found (already deleted): ${imageUrl}`);
-      return;
-    }
+  const supabase = createClient();
+  const { error } = await supabase.storage.from(parsed.bucket).remove([parsed.objectPath]);
+  if (error) {
     console.error(`Failed to delete storage object: ${imageUrl}`, error);
     throw error;
   }
@@ -95,12 +86,12 @@ export function getGenreIconPath(genreId: string, extension: string = 'png'): st
   return `genres/${genreId}/icon_${timestamp}.${extension}`;
 }
 
-// SNSロゴダウンロードURLのインメモリキャッシュ
+// SNSロゴ公開URLのインメモリキャッシュ
 const snsLogoCache: Record<string, string> = {};
 
 /**
- * 指定されたSNSのロゴ画像のダウンロードURLを取得する
- * キャッシュがあれば即時返却し、なければ Firebase Storage から取得してキャッシュする
+ * 指定されたSNSのロゴ画像の公開URLを取得する
+ * キャッシュがあれば即時返却し、なければ Supabase Storage から取得してキャッシュする
  */
 export async function getSnsLogoUrl(snsName: string): Promise<string> {
   const name = snsName.trim().toLowerCase();
@@ -108,18 +99,17 @@ export async function getSnsLogoUrl(snsName: string): Promise<string> {
     return snsLogoCache[name];
   }
 
-  const logoPath = `/sns-logos/${name}.png`;
-  const logoRef = ref(storage, logoPath);
-  const url = await getDownloadURL(logoRef);
-  snsLogoCache[name] = url;
-  return url;
+  const supabase = createClient();
+  const { data } = supabase.storage.from('sns-logos').getPublicUrl(`${name}.png`);
+  snsLogoCache[name] = data.publicUrl;
+  return data.publicUrl;
 }
 
 /**
- * クイズカバー画像を Firebase Storage にアップロードする
+ * クイズカバー画像を Supabase Storage にアップロードする
  * @param file アップロードする画像データ（File または Blob）
  * @param quizId クイズのドキュメントID
- * @returns アップロード後のダウンロードURL
+ * @returns アップロード後の公開URL
  */
 export async function uploadQuizCover(file: File | Blob, quizId: string): Promise<string> {
   const contentType = file.type || 'image/jpeg';
@@ -135,11 +125,16 @@ export async function uploadQuizCover(file: File | Blob, quizId: string): Promis
 
   const extension = contentType === 'image/jpeg' ? 'jpeg' : contentType === 'image/gif' ? 'gif' : 'png';
   const path = getQuizCoverPath(quizId, extension);
-  const storageRef = ref(storage, path);
-  const metadata = {
-    contentType: contentType,
-  };
+  const { bucket, objectPath } = resolveBucketAndPath(path);
 
-  const snapshot = await uploadBytes(storageRef, file, metadata);
-  return await getDownloadURL(snapshot.ref);
+  const supabase = createClient();
+  const { error } = await supabase.storage.from(bucket).upload(objectPath, file, {
+    contentType,
+  });
+  if (error) {
+    throw error;
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  return data.publicUrl;
 }
