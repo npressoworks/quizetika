@@ -27,7 +27,9 @@ import { CardContent, Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AnnouncementsTab } from './announcements-tab';
-import { QueryDocumentSnapshot } from 'firebase/firestore';
+
+// ページング用カーソル（Supabase では created_at のISO文字列を使用する）
+type NotificationsCursor = string | null;
 
 export function NotificationsClient() {
   const { user: currentUser, loading: authLoading } = useAuth();
@@ -36,7 +38,7 @@ export function NotificationsClient() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot | null>(null);
+  const [lastVisible, setLastVisible] = useState<NotificationsCursor>(null);
   const [hasMore, setHasMore] = useState(false);
 
   // 未読カウント状態

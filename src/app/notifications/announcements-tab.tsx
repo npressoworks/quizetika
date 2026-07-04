@@ -7,8 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { InfoOutlined, WarningAmberOutlined, RefreshOutlined, BugReportOutlined, CheckOutlined, ReportOutlined } from '@mui/icons-material';
-import { QueryDocumentSnapshot } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
+
+// ページング用カーソル（Supabase では published_at のISO文字列を使用する）
+type AnnouncementsCursor = string | null;
 
 // HTMLタグおよび実体参照を除去してプレーンテキストにするヘルパー
 function stripHtml(html: string): string {
@@ -42,7 +44,7 @@ export function AnnouncementsTab({
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot | null>(null);
+  const [lastVisible, setLastVisible] = useState<AnnouncementsCursor>(null);
   const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {

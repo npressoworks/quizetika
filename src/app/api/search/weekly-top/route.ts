@@ -1,41 +1,55 @@
 import { NextResponse } from 'next/server';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const revalidate = 1800; // 30分キャッシュ (1800秒)
 
+interface SearchLogQueryPayload {
+  queryText?: string;
+  tags?: string[];
+}
+
 export async function GET(): Promise<NextResponse> {
   try {
-    const db = getAdminFirestore();
+    const supabase = createAdminClient();
 
     // 7日前の日付を計算
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     // 過去7日間の検索ログを取得
-    const logsRef = db.collection('search_logs');
-    const snapshot = await logsRef
-      .where('loggedAt', '>=', sevenDaysAgo)
-      .get();
+    const { data, error } = await supabase
+      .from('search_logs')
+      .select('query')
+      .gte('created_at', sevenDaysAgo.toISOString());
 
-    if (snapshot.empty) {
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
       return NextResponse.json({ keywords: [], tags: [] });
     }
 
     const keywordCounts: Record<string, number> = {};
     const tagCounts: Record<string, number> = {};
 
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data();
+    for (const row of data) {
+      let payload: SearchLogQueryPayload;
+      try {
+        payload = JSON.parse(row.query) as SearchLogQueryPayload;
+      } catch {
+        continue;
+      }
 
       // キーワードの集計
-      const queryText = data.queryText;
+      const queryText = payload.queryText;
       if (queryText && typeof queryText === 'string' && queryText.trim().length > 0) {
         const cleanQuery = queryText.trim();
         keywordCounts[cleanQuery] = (keywordCounts[cleanQuery] || 0) + 1;
       }
 
       // タグの集計
-      const tags = data.tags;
+      const tags = payload.tags;
       if (tags && Array.isArray(tags)) {
         tags.forEach((tag) => {
           if (tag && typeof tag === 'string' && tag.trim().length > 0) {
@@ -44,7 +58,7 @@ export async function GET(): Promise<NextResponse> {
           }
         });
       }
-    });
+    }
 
     // キーワードを件数降順にソートし、Top5を抽出
     const sortedKeywords = Object.keys(keywordCounts)

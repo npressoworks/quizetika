@@ -73,3 +73,19 @@
   - マイグレーション適用後、`npm run build` と Jest テストスイートを再実行し、削除済みカラムへの参照が残っていないことを確認する
   - _Requirements: 1.4, 2.1, 2.3, 2.4, 2.5, 3.1, 3.2_
   - _Depends: 3.1, 3.2_
+
+- [x] 5. 残存する直接 Firestore 依存の排除
+- [x] 5.1 ユーザー削除・通知UI・検索集計APIのFirestore直接依存を解消する
+  - `src/app/api/user/delete-account/route.ts` の Firestore クライアントSDK直接操作を Supabase サーバークライアントによる削除ステータス更新に書き換える（コメントに残る「Admin SDK 導入時に拡張」の Firebase Auth 物理削除保留分は本タスクの対象外とし、Supabase Auth 側の等価処理へ置き換える）
+  - `src/app/notifications/notifications-client.tsx`、`src/app/notifications/announcements-tab.tsx` の `QueryDocumentSnapshot` 型参照を Supabase のカーソル型に置き換える
+  - `src/app/api/search/weekly-top/route.ts` の `getAdminFirestore` による `search_logs` 集計を Supabase クエリに書き換える
+  - 成果物確認: 対象4ファイルが firebase/firebase-admin パッケージおよび `@/lib/firebase/*` を import しなくなり、アカウント削除・通知一覧・週間人気検索の各機能が既存テストの期待値どおりに動作すること
+  - _Requirements: 5.1, 5.2, 5.3_
+  - _Boundary: delete-account route, notifications-client.tsx, announcements-tab.tsx, search/weekly-top route_
+
+- [x] 5.2 リグレッション確認
+  - 対象機能に関連する単体テスト（`tests/api/search-weekly-top.test.ts` 等）を実行する
+  - `supabase-cleanup` の MigrationCompletionGate（`npm run verify:firebase-removed`）を再実行し、対象4ファイルが残存 Firebase 参照として検出されなくなったことを確認する
+  - 成果物確認: 関連テストが全てパスし、ゲートの再実行結果から対象4ファイルが消えていること
+  - _Requirements: 5.1_
+  - _Depends: 5.1_
