@@ -1,8 +1,8 @@
 /**
- * question service - getQuestionsByQuiz (Supabase 移行版)
+ * question service - getQuestionsByQuiz / updateQuestionOrder (正規化スキーマ版)
  */
 
-import { getQuestionsByQuiz } from '@/services/question';
+import { getQuestionsByQuiz, updateQuestionOrder } from '@/services/question';
 
 // Supabase クライアントのモックを作成
 jest.mock('@/lib/supabase/client', () => {
@@ -11,7 +11,8 @@ jest.mock('@/lib/supabase/client', () => {
     select: jest.fn(() => mock),
     eq: jest.fn(() => mock),
     in: jest.fn(() => mock),
-    maybeSingle: jest.fn(),
+    order: jest.fn(() => mock),
+    rpc: jest.fn(),
   };
   return {
     createClient: () => mock,
@@ -30,33 +31,27 @@ describe('question service - getQuestionsByQuiz', () => {
     mockSupabase.select.mockClear();
     mockSupabase.eq.mockClear();
     mockSupabase.in.mockClear();
-    mockSupabase.maybeSingle.mockReset();
+    mockSupabase.order.mockClear();
+    mockSupabase.rpc.mockReset();
 
     mockSupabase.from.mockReturnValue(mockSupabase);
     mockSupabase.select.mockReturnValue(mockSupabase);
     mockSupabase.eq.mockReturnValue(mockSupabase);
-    mockSupabase.in.mockReturnValue(mockSupabase);
   });
 
-  it('問題の個別ドキュメントがすべて正常に存在する場合はそれらを返す', async () => {
-    // クイズデータのモック（個別問題IDが2つ存在する）
-    mockSupabase.maybeSingle.mockResolvedValueOnce({
-      data: {
-        id: quizId,
-        question_ids: ['q-1', 'q-2'],
-        questions: [
-          { id: 'q-1', questionText: '親ドキュメント内の問題1' },
-          { id: 'q-2', questionText: '親ドキュメント内の問題2' },
-        ],
-      },
+  it('quiz_questions の display_order 順に問題を返す', async () => {
+    mockSupabase.order.mockResolvedValueOnce({
+      data: [
+        { question_id: 'q-2', display_order: 0 },
+        { question_id: 'q-1', display_order: 1 },
+      ],
       error: null,
     });
 
-    // 個別問題ドキュメントが正常に2件返ってくるモック
     mockSupabase.in.mockResolvedValueOnce({
       data: [
-        { id: 'q-1', question_text: '個別問題1', type: 'multiple-choice' },
-        { id: 'q-2', question_text: '個別問題2', type: 'multiple-choice' },
+        { id: 'q-1', question_text: '個別問題1', type: 'multiple-choice', correct_count: 0, incorrect_count: 0 },
+        { id: 'q-2', question_text: '個別問題2', type: 'multiple-choice', correct_count: 0, incorrect_count: 0 },
       ],
       error: null,
     });
@@ -64,37 +59,67 @@ describe('question service - getQuestionsByQuiz', () => {
     const questions = await getQuestionsByQuiz(quizId);
 
     expect(questions).toHaveLength(2);
-    expect(questions[0].questionText).toBe('個別問題1');
-    expect(questions[1].questionText).toBe('個別問題2');
+    expect(questions[0].questionText).toBe('個別問題2');
+    expect(questions[1].questionText).toBe('個別問題1');
+    expect(mockSupabase.from).toHaveBeenCalledWith('quiz_questions');
   });
 
-  it('問題の個別ドキュメントが欠落している（不整合）場合は、親の非正規化コピーをフォールバックとして返す', async () => {
-    // クイズデータのモック
-    mockSupabase.maybeSingle.mockResolvedValueOnce({
-      data: {
-        id: quizId,
-        question_ids: ['q-1', 'q-2'],
-        questions: [
-          { id: 'q-1', questionText: '親ドキュメント内の問題1' },
-          { id: 'q-2', questionText: '親ドキュメント内の問題2' },
-        ],
-      },
+  it('quiz_questions に紐づく問題が存在しない場合は空配列を返す', async () => {
+    mockSupabase.order.mockResolvedValueOnce({ data: [], error: null });
+
+    const questions = await getQuestionsByQuiz(quizId);
+
+    expect(questions).toHaveLength(0);
+  });
+
+  it('questions テーブル側に一部の問題が欠落していても取得できた分のみ返す', async () => {
+    mockSupabase.order.mockResolvedValueOnce({
+      data: [
+        { question_id: 'q-1', display_order: 0 },
+        { question_id: 'q-2', display_order: 1 },
+      ],
       error: null,
     });
 
-    // 個別問題ドキュメントが1件しか返ってこない（q-2が欠落している）モック
     mockSupabase.in.mockResolvedValueOnce({
       data: [
-        { id: 'q-1', question_text: '個別問題1', type: 'multiple-choice' },
+        { id: 'q-1', question_text: '個別問題1', type: 'multiple-choice', correct_count: 0, incorrect_count: 0 },
       ],
       error: null,
     });
 
     const questions = await getQuestionsByQuiz(quizId);
 
-    // フォールバックにより親ドキュメント内の問題コピー（2件）が返ることを確認
-    expect(questions).toHaveLength(2);
-    expect(questions[0].questionText).toBe('親ドキュメント内の問題1');
-    expect(questions[1].questionText).toBe('親ドキュメント内の問題2');
+    expect(questions).toHaveLength(1);
+    expect(questions[0].id).toBe('q-1');
+  });
+});
+
+describe('question service - updateQuestionOrder', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSupabase.rpc.mockReset();
+  });
+
+  it('handle_reorder_questions RPC を正しい引数で呼び出す', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({ data: 2, error: null });
+
+    await updateQuestionOrder('quiz-123', ['q-2', 'q-1']);
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_reorder_questions', {
+      p_quiz_id: 'quiz-123',
+      p_question_ids: ['q-2', 'q-1'],
+    });
+  });
+
+  it('RPCがエラーを返した場合は例外を投げる', async () => {
+    mockSupabase.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Question set does not match quiz_questions membership' },
+    });
+
+    await expect(updateQuestionOrder('quiz-123', ['q-x'])).rejects.toThrow(
+      '問題の並び替えに失敗しました'
+    );
   });
 });

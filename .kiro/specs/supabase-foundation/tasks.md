@@ -2,7 +2,7 @@
 
 ## Major Tasks
 
-- [ ] 1. Foundation: 環境セットアップとパッケージ設定
+- [x] 1. Foundation: 環境セットアップとパッケージ設定
 - [x] 1.1 パッケージのインストールと npm スクリプト追加
   - `package.json` に `@supabase/supabase-js` および `@supabase/ssr` を開発依存関係/通常依存関係として追加する。
   - `package.json` の `scripts` に、ローカル環境用の TypeScript 型自動生成コマンド `gen:types` を追加する。
@@ -57,12 +57,12 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   - _Boundary: supabase/migrations/_
 
-- [ ] 4. Core: Next.js 用 Supabase クライアント初期化
+- [x] 4. Core: Next.js 用 Supabase クライアント初期化
 - [x] 4.1 (P) ブラウザおよびサーバー用クライアント
   - `src/lib/supabase/client.ts` を作成し、ブラウザ環境（Client Components）で動作するクライアントを実装する。
   - `src/lib/supabase/server.ts` を作成し、サーバー環境（Server Components, Actions, API）で動作する Cookie 連携クライアントを実装する。
   - 成果物確認: 各初期化ファイルが正しくエクスポートされ、静的コンパイルをパスすること。
-  - _Requirements: 1.1, 1.2_
+  - _Requirements: 1.1, 1.2, 1.4_
   - _Boundary: src/lib/supabase/_
 
 - [x] 4.2 (P) ミドルウェア用セッション更新および特権クライアント
@@ -73,7 +73,7 @@
   - _Boundary: src/lib/supabase/_
   - _Depends: 4.1_
 
-- [ ] 5. Validation: ローカル検証と型自動生成
+- [x] 5. Validation: ローカル検証と型自動生成
 - [x] 5.1 ローカル Supabase 起動と DDL マイグレーション適用テスト
   - ローカル環境で Docker を起動し、`supabase start` を実行して PostgreSQL, Auth, Storage を起動する。
   - 定義したマイグレーション SQL とシードデータ（`supabase/seed.sql`）が正常に適用され、エラーが発生しないことを確認する。

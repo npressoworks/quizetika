@@ -11,7 +11,7 @@ const supabase = createClient();
 export function mapQuestionRowToQuestion(row: Database['public']['Tables']['questions']['Row']): Question {
   return {
     id: row.id,
-    quizId: row.quiz_id ?? undefined,
+    quizId: row.owner_quiz_id ?? undefined,
     linkKind: (row.link_kind as Question['linkKind']) ?? undefined,
     authorId: row.author_id ?? undefined,
     authorName: row.author_name ?? undefined,
@@ -43,7 +43,7 @@ export function mapQuestionRowToQuestion(row: Database['public']['Tables']['ques
 export function mapQuestionToRow(question: Partial<Question>): Database['public']['Tables']['questions']['Update'] {
   const row: Database['public']['Tables']['questions']['Update'] = {};
   if (question.id !== undefined) row.id = question.id;
-  if (question.quizId !== undefined) row.quiz_id = question.quizId ?? null;
+  if (question.quizId !== undefined) row.owner_quiz_id = question.quizId ?? null;
   if (question.linkKind !== undefined) row.link_kind = question.linkKind ?? null;
   if (question.authorId !== undefined) row.author_id = question.authorId ?? null;
   if (question.authorName !== undefined) row.author_name = question.authorName ?? null;
@@ -85,44 +85,76 @@ export async function getQuestion(id: string): Promise<Question | null> {
 
 /**
  * 指定されたクイズIDに紐づくすべての問題を取得する
- * （順序はクイズの `questionIds` に準拠し、最新の統計情報を含む独立テーブルから取得）
+ * （`quiz_questions` 中間テーブルの `display_order` に準拠して並び替える）
  */
 export async function getQuestionsByQuiz(quizId: string): Promise<Question[]> {
-  const { data: quizData, error: quizError } = await supabase
-    .from('quizzes')
-    .select('*')
-    .eq('id', quizId)
-    .maybeSingle();
+  const { data: linkRows, error: linkError } = await supabase
+    .from('quiz_questions')
+    .select('question_id, display_order')
+    .eq('quiz_id', quizId)
+    .order('display_order', { ascending: true });
 
-  if (quizError || !quizData) return [];
+  if (linkError || !linkRows || linkRows.length === 0) return [];
 
-  const questionIds = quizData.question_ids || [];
-
-  if (questionIds.length === 0) {
-    // 移行期や古いクイズなどで questionIds が空だが questions 非正規化コピーがある場合はそこから解決
-    return (quizData.questions as any as Question[]) || [];
-  }
-
+  const questionIds = linkRows.map((row) => row.question_id);
   const { data: questionsData, error: questionsError } = await supabase
     .from('questions')
     .select('*')
     .in('id', questionIds);
 
-  if (questionsError || !questionsData) {
-    return (quizData.questions as any as Question[]) || [];
+  if (questionsError || !questionsData) return [];
+
+  const questionMap = new Map(questionsData.map((row) => [row.id, mapQuestionRowToQuestion(row)]));
+
+  return linkRows
+    .map((row) => questionMap.get(row.question_id))
+    .filter((q): q is Question => !!q);
+}
+
+/**
+ * 複数クイズ分の問題一覧を一括取得する（N+1 回避用）
+ */
+export async function getQuizQuestionsBulk(quizIds: string[]): Promise<Map<string, Question[]>> {
+  const map = new Map<string, Question[]>();
+  if (quizIds.length === 0) return map;
+
+  const { data: linkRows, error: linkError } = await supabase
+    .from('quiz_questions')
+    .select('quiz_id, question_id, display_order')
+    .in('quiz_id', [...new Set(quizIds)])
+    .order('display_order', { ascending: true });
+
+  if (linkError || !linkRows || linkRows.length === 0) return map;
+
+  const questionIds = [...new Set(linkRows.map((row) => row.question_id))];
+  const { data: questionsData } = await supabase.from('questions').select('*').in('id', questionIds);
+  const questionMap = new Map((questionsData ?? []).map((row) => [row.id, mapQuestionRowToQuestion(row)]));
+
+  for (const link of linkRows) {
+    const question = questionMap.get(link.question_id);
+    if (!question) continue;
+    const arr = map.get(link.quiz_id) ?? [];
+    arr.push(question);
+    map.set(link.quiz_id, arr);
   }
+  return map;
+}
 
-  const questions = questionsData.map((row) => mapQuestionRowToQuestion(row));
+/**
+ * クイズ内の問題の表示順序を並び替える（要件 2.3）
+ */
+export async function updateQuestionOrder(
+  quizId: string,
+  orderedQuestionIds: string[]
+): Promise<void> {
+  const { error } = await supabase.rpc('handle_reorder_questions', {
+    p_quiz_id: quizId,
+    p_question_ids: orderedQuestionIds,
+  });
 
-  // 個別ドキュメントの取得数が questionIds と一致しない（不整合がある）場合、親ドキュメントの非正規化コピーをフォールバックとして使用
-  if (questions.length < questionIds.length && quizData.questions) {
-    const fallback = quizData.questions as any as Question[];
-    if (fallback.length > 0) return fallback;
+  if (error) {
+    throw new Error(`問題の並び替えに失敗しました: ${error.message}`);
   }
-
-  // クイズが保持する本来の順序（questionIds配列のインデックス）通りにソートして返す
-  const idToIndex = new Map(questionIds.map((id, index) => [id, index]));
-  return questions.sort((a, b) => (idToIndex.get(a.id) ?? 0) - (idToIndex.get(b.id) ?? 0));
 }
 
 /**

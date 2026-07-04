@@ -8,6 +8,8 @@ jest.mock('@/lib/supabase/client', () => {
     insert: jest.fn(() => mock),
     delete: jest.fn(() => mock),
     in: jest.fn(() => mock),
+    eq: jest.fn(() => mock),
+    upsert: jest.fn(() => mock),
     select: jest.fn(() => mock),
     maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
     then: jest.fn((onFulfilled) => Promise.resolve({ data: null, error: null }).then(onFulfilled)),
@@ -90,6 +92,8 @@ describe('saveQuiz metadata integration', () => {
     mockSupabase.insert.mockClear();
     mockSupabase.delete.mockClear();
     mockSupabase.in.mockClear();
+    mockSupabase.eq.mockClear();
+    mockSupabase.upsert.mockClear();
     mockSupabase.select.mockClear();
     mockSupabase.maybeSingle.mockReset();
 
@@ -97,6 +101,8 @@ describe('saveQuiz metadata integration', () => {
     mockSupabase.insert.mockReturnValue(mockSupabase);
     mockSupabase.delete.mockReturnValue(mockSupabase);
     mockSupabase.in.mockReturnValue(mockSupabase);
+    mockSupabase.eq.mockReturnValue(mockSupabase);
+    mockSupabase.upsert.mockReturnValue(mockSupabase);
     mockSupabase.select.mockReturnValue(mockSupabase);
   });
 
@@ -119,13 +125,19 @@ describe('saveQuiz metadata integration', () => {
       'author-1'
     );
 
-    // quizzes への insert 引数を検証
+    // quizzes への insert 引数を検証（canonical_genre_id のみ。タグは quiz_tags へ分離）
     expect(mockSupabase.from).toHaveBeenCalledWith('quizzes');
-    expect(mockSupabase.insert).toHaveBeenLastCalledWith(
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         canonical_genre_id: 'programming',
-        canonical_tag_ids: ['react'],
       })
+    );
+
+    // quiz_tags への upsert 引数を検証
+    expect(mockSupabase.from).toHaveBeenCalledWith('quiz_tags');
+    expect(mockSupabase.upsert).toHaveBeenCalledWith(
+      [expect.objectContaining({ tag_id: 'react', original_label: 'React' })],
+      { onConflict: 'quiz_id,tag_id' }
     );
   });
 

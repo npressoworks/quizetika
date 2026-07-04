@@ -29,23 +29,32 @@ export interface ProfileValidationError {
 }
 
 /**
- * データベースレコードからUser型オブジェクトへマッピングする
+ * user_badges / user_genre_follows の JOIN 結果（正規化テーブル由来のユーザー関連データ）
  */
-export function mapRowToUser(row: Database['public']['Tables']['users']['Row']): User {
+export interface UserRelations {
+  badges: Badge[];
+  followedGenres: string[];
+}
+
+const EMPTY_USER_RELATIONS: UserRelations = { badges: [], followedGenres: [] };
+
+/**
+ * データベースレコードからUser型オブジェクトへマッピングする
+ * `badges` / `followedGenres` は正規化テーブル (`user_badges`, `user_genre_follows`) から
+ * 別途取得した `relations` を注入する（black-box: 呼び出し元の型・形状は変更しない）
+ */
+export function mapRowToUser(
+  row: Database['public']['Tables']['users']['Row'],
+  relations: UserRelations = EMPTY_USER_RELATIONS
+): User {
   return {
     id: row.id,
     email: row.email,
     displayName: row.display_name,
     avatarUrl: row.avatar_url ?? '',
     bio: row.bio ?? '',
-    followedGenres: row.followed_genres ?? [],
-    badges: (row.badges as any[])?.map((b) => ({
-      id: b.id,
-      title: b.title,
-      description: b.description,
-      iconName: b.iconName,
-      unlockedAt: new Date(b.unlockedAt),
-    })) ?? [],
+    followedGenres: relations.followedGenres,
+    badges: relations.badges,
     createdQuizzesCount: row.created_quizzes_count ?? 0,
     totalPlayCount: row.total_play_count ?? 0,
     followersCount: row.followers_count ?? 0,
@@ -87,8 +96,6 @@ export function mapUserToRow(user: Partial<User>): Database['public']['Tables'][
   if (user.displayName !== undefined) row.display_name = user.displayName;
   if (user.avatarUrl !== undefined) row.avatar_url = user.avatarUrl;
   if (user.bio !== undefined) row.bio = user.bio;
-  if (user.followedGenres !== undefined) row.followed_genres = user.followedGenres;
-  if (user.badges !== undefined) row.badges = user.badges as any;
   if (user.createdQuizzesCount !== undefined) row.created_quizzes_count = user.createdQuizzesCount;
   if (user.totalPlayCount !== undefined) row.total_play_count = user.totalPlayCount;
   if (user.followersCount !== undefined) row.followers_count = user.followersCount;
@@ -125,6 +132,65 @@ export function normalizeUserRecord(user: User): User {
   };
 }
 
+interface UserBadgeJoinRow {
+  user_id?: string;
+  badge_id: string;
+  unlocked_at: string;
+  badges: { title: string; description: string; icon_name: string } | null;
+}
+
+function mapBadgeJoinRow(row: UserBadgeJoinRow): Badge {
+  return {
+    id: row.badge_id,
+    title: row.badges?.title ?? row.badge_id,
+    description: row.badges?.description ?? '',
+    iconName: row.badges?.icon_name ?? '',
+    unlockedAt: new Date(row.unlocked_at),
+  };
+}
+
+/** 単一ユーザーの user_badges / user_genre_follows を取得する */
+async function fetchUserRelations(userId: string): Promise<UserRelations> {
+  const [badgesResult, genresResult] = await Promise.all([
+    supabase
+      .from('user_badges')
+      .select('badge_id, unlocked_at, badges(title, description, icon_name)')
+      .eq('user_id', userId),
+    supabase.from('user_genre_follows').select('genre_id').eq('user_id', userId),
+  ]);
+
+  const badges = ((badgesResult.data ?? []) as unknown as UserBadgeJoinRow[]).map(mapBadgeJoinRow);
+  const followedGenres = (genresResult.data ?? []).map((row) => row.genre_id);
+  return { badges, followedGenres };
+}
+
+/** 複数ユーザー分の user_badges / user_genre_follows を一括取得する（N+1 回避） */
+async function fetchUserRelationsBulk(userIds: string[]): Promise<Map<string, UserRelations>> {
+  const map = new Map<string, UserRelations>();
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return map;
+
+  for (const id of uniqueIds) map.set(id, { badges: [], followedGenres: [] });
+
+  const [badgesResult, genresResult] = await Promise.all([
+    supabase
+      .from('user_badges')
+      .select('user_id, badge_id, unlocked_at, badges(title, description, icon_name)')
+      .in('user_id', uniqueIds),
+    supabase.from('user_genre_follows').select('user_id, genre_id').in('user_id', uniqueIds),
+  ]);
+
+  for (const row of (badgesResult.data ?? []) as unknown as UserBadgeJoinRow[]) {
+    const entry = map.get(row.user_id!);
+    entry?.badges.push(mapBadgeJoinRow(row));
+  }
+  for (const row of genresResult.data ?? []) {
+    const entry = map.get(row.user_id);
+    entry?.followedGenres.push(row.genre_id);
+  }
+  return map;
+}
+
 /**
  * ユーザープロフィール情報を取得
  * @param uid Auth UID
@@ -137,7 +203,8 @@ export async function getUserProfile(uid: string): Promise<User | null> {
     .single();
 
   if (error || !data) return null;
-  return normalizeUserRecord(mapRowToUser(data));
+  const relations = await fetchUserRelations(uid);
+  return normalizeUserRecord(mapRowToUser(data, relations));
 }
 
 /**
@@ -349,10 +416,6 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
     updatedAt: new Date(),
   };
 
-  if (data.followedGenres !== undefined) {
-    updates.followedGenres = data.followedGenres;
-  }
-
   if (data.snsLinks !== undefined) {
     const snsLinks: Record<string, string> = {};
     for (const [key, value] of Object.entries(data.snsLinks)) {
@@ -364,6 +427,10 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
   }
 
   await updateUserProfile(uid, updates);
+
+  if (data.followedGenres !== undefined) {
+    await syncFollowedGenres(uid, data.followedGenres);
+  }
 }
 
 /* ==========================================================================
@@ -378,7 +445,7 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
 
   const existingBadgeIds = new Set(user.badges.map((b) => b.id));
   const now = new Date();
-  const badgesToAward: Badge[] = BADGE_DEFINITIONS.filter(
+  const candidateBadges: Badge[] = BADGE_DEFINITIONS.filter(
     (def) => def.condition(user) && !existingBadgeIds.has(def.id)
   ).map((def) => ({
     id: def.id,
@@ -388,19 +455,23 @@ export async function checkAndAwardBadges(uid: string): Promise<Badge[]> {
     unlockedAt: now,
   }));
 
-  if (badgesToAward.length === 0) {
+  if (candidateBadges.length === 0) {
     return [];
   }
 
-  // RPC関数の実行
-  const { error } = await supabase.rpc('handle_check_and_award_badges', {
+  // RPC関数の実行（user_badges への冪等な INSERT ... ON CONFLICT DO NOTHING）
+  const { data: awardedIds, error } = await supabase.rpc('handle_check_and_award_badges', {
     p_user_id: uid,
-    p_badges: badgesToAward as any,
+    p_badge_ids: candidateBadges.map((b) => b.id),
   });
 
   if (error) {
     throw new Error(`バッジ獲得処理のRPC実行に失敗しました: ${error.message}`);
   }
+
+  // RPC が実際に新規挿入したバッジIDのみを対象とする（同時実行時の二重付与を防ぐ）
+  const awardedIdSet = new Set((awardedIds ?? []) as string[]);
+  const badgesToAward = candidateBadges.filter((badge) => awardedIdSet.has(badge.id));
 
   // 新規バッジ獲得通知の作成
   for (const badge of badgesToAward) {
@@ -508,13 +579,20 @@ export async function unfollowUser(followerId: string, followingId: string): Pro
 export async function isFollowing(followerId: string, followingId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('follows')
-    .select('id')
+    .select('follower_id')
     .eq('follower_id', followerId)
     .eq('following_id', followingId)
     .maybeSingle();
 
   if (error || !data) return false;
   return true;
+}
+
+async function hydrateUsers(rows: Database['public']['Tables']['users']['Row'][]): Promise<User[]> {
+  const relationsMap = await fetchUserRelationsBulk(rows.map((row) => row.id));
+  return rows.map((row) =>
+    normalizeUserRecord(mapRowToUser(row, relationsMap.get(row.id)))
+  );
 }
 
 export async function getFollowingUsers(userId: string): Promise<User[]> {
@@ -534,7 +612,7 @@ export async function getFollowingUsers(userId: string): Promise<User[]> {
 
   if (usersError || !usersData) return [];
 
-  return usersData.map((row) => normalizeUserRecord(mapRowToUser(row)));
+  return hydrateUsers(usersData);
 }
 
 export async function getFollowerUsers(userId: string): Promise<User[]> {
@@ -554,29 +632,71 @@ export async function getFollowerUsers(userId: string): Promise<User[]> {
 
   if (usersError || !usersData) return [];
 
-  return usersData.map((row) => normalizeUserRecord(mapRowToUser(row)));
+  return hydrateUsers(usersData);
 }
 
 /* ==========================================================================
-   ジャンルフォロー機能
+   ジャンルフォロー機能（正規化テーブル: user_genre_follows への単一行操作）
    ========================================================================== */
 
-export async function followGenre(userId: string, genreName: string): Promise<void> {
-  const user = await getUserProfile(userId);
-  if (!user) return;
+export async function followGenre(userId: string, genreId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_genre_follows')
+    .upsert({ user_id: userId, genre_id: genreId }, { onConflict: 'user_id,genre_id' });
 
-  const genres = user.followedGenres.includes(genreName)
-    ? user.followedGenres
-    : [...user.followedGenres, genreName];
-
-  await updateUserProfile(userId, { followedGenres: genres });
+  if (error) {
+    throw new Error(`ジャンルのフォローに失敗しました: ${error.message}`);
+  }
 }
 
-export async function unfollowGenre(userId: string, genreName: string): Promise<void> {
-  const user = await getUserProfile(userId);
-  if (!user) return;
+export async function unfollowGenre(userId: string, genreId: string): Promise<void> {
+  const { error } = await supabase
+    .from('user_genre_follows')
+    .delete()
+    .eq('user_id', userId)
+    .eq('genre_id', genreId);
 
-  const genres = user.followedGenres.filter((g) => g !== genreName);
+  if (error) {
+    throw new Error(`ジャンルのフォロー解除に失敗しました: ${error.message}`);
+  }
+}
 
-  await updateUserProfile(userId, { followedGenres: genres });
+/** プロフィール編集画面からの一括フォロージャンル置換（追加分 upsert・除去分 delete） */
+async function syncFollowedGenres(userId: string, genreIds: string[]): Promise<void> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('user_genre_follows')
+    .select('genre_id')
+    .eq('user_id', userId);
+
+  if (fetchError) {
+    throw new Error(`フォロー中ジャンルの取得に失敗しました: ${fetchError.message}`);
+  }
+
+  const existingIds = new Set((existing ?? []).map((row) => row.genre_id));
+  const nextIds = [...new Set(genreIds.filter(Boolean))];
+  const nextIdSet = new Set(nextIds);
+  const toDelete = [...existingIds].filter((id) => !nextIdSet.has(id));
+
+  if (toDelete.length > 0) {
+    const { error } = await supabase
+      .from('user_genre_follows')
+      .delete()
+      .eq('user_id', userId)
+      .in('genre_id', toDelete);
+    if (error) {
+      throw new Error(`フォロー中ジャンルの削除に失敗しました: ${error.message}`);
+    }
+  }
+
+  if (nextIds.length > 0) {
+    const { error } = await supabase
+      .from('user_genre_follows')
+      .upsert(
+        nextIds.map((genreId) => ({ user_id: userId, genre_id: genreId })),
+        { onConflict: 'user_id,genre_id' }
+      );
+    if (error) {
+      throw new Error(`フォロー中ジャンルの更新に失敗しました: ${error.message}`);
+    }
+  }
 }

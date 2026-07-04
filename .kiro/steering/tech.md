@@ -2,7 +2,7 @@
 
 ## アーキテクチャ (Architecture)
 
-Next.js（App Router）によるフルスタックフロントエンドと、Firebase（Auth, Firestore, Storage）のBaaS構成を密に統合したサーバーレスアーキテクチャを採用しています。
+Next.js（App Router）によるフルスタックフロントエンドで、Firebase（Auth, Firestore, Storage）から Supabase（PostgreSQL, Auth, Storage）への移行を **ドメイン単位で段階的に** 進行中です（`.kiro/steering/roadmap.md` Phase 35、実体は `.kiro/specs/supabase-*`）。認証（`supabase-auth-migration`）とコアデータ（`supabase-core-data`）は Supabase へ移行済み、ゲームプレイ・ガバナンス・ストレージは Firebase のまま未移行です。移行完了の最終判定と本ドキュメントの Supabase 全面更新は `supabase-cleanup` スペックが担当するため、それまでは両 SDK が併存する過渡状態を正として扱ってください。
 一部の重い処理や機密処理は、Next.jsのAPI RoutesやServer Actionsを利用して安全に実行します。
 
 ## コア技術 (Core Technologies)
@@ -11,7 +11,7 @@ Next.js（App Router）によるフルスタックフロントエンドと、Fir
 - **Framework**: Next.js 16.2.6 (App Router)
 - **UI Library**: React 19.2.4
 - **Runtime**: Node.js 20+
-- **Database / Auth**: Firebase 12.13.0 (Firestore, Authentication, Cloud Storage)
+- **Database / Auth**: 移行中 — Supabase（PostgreSQL + `@supabase/supabase-js` 2.x / `@supabase/ssr`）が認証とコアデータ（ユーザー/クイズ/問題/フォロー/ブックマーク/通知/お知らせ）を担当。Firebase 12.13.0（Firestore, Cloud Storage）がゲームプレイ・ガバナンス・ストレージ操作に残存。ドメイン別の正確な移行状況は `.kiro/specs/supabase-*/spec.json` の `phase` を参照
 - **AI**: Gemini API (`@google/generative-ai` 0.24.1)
 - **Payments**: Stripe (`stripe` ^22 / `@stripe/stripe-js` ^9) — サーバー側 Webhook + クライアント側 Checkout
 - **Analytics**: PostHog (`posthog-js` ^1) — プロダクト分析・イベントトラッキング
@@ -37,9 +37,9 @@ Next.js（App Router）によるフルスタックフロントエンドと、Fir
 - テストコードにおけるモックやテストプレイ用コードが本番ビルド（Production）に混入しないよう、静的フラグを用いたTree Shakingが機能するように実装します。
 
 ### テスト (Testing)
-- **サービス・ロジック**: Jest（`tests/**/*.test.ts(x)`）を用いた単体テスト・結合テスト。
+- **サービス・ロジック**: Jest（`tests/**/*.test.ts(x)`）を用いた単体テスト・結合テスト。Supabase 移行済みサービスは `@/lib/supabase/client` を `jest.mock()` したチェーンモック（`from().select().eq()...` 形式）で検証し、未移行サービスは `tests/__mocks__/firebase/` を利用する。
 - **UI・インタラクション**: Playwright（`e2e/*.spec.ts`）によるE2Eテスト。
-- **ローカル BaaS**: Firebase Emulator（`npm run emulators`）で Auth / Firestore / Storage を起動可能。
+- **ローカル BaaS**: 未移行ドメイン用に Firebase Emulator（`npm run emulators`）、移行済みドメイン用に Supabase CLI（`supabase start` / `npm run gen:types` で型再生成）を併用。
 
 ## 開発環境 (Development Environment)
 
@@ -62,6 +62,9 @@ npm run emulators
 
 # Firestore セキュリティルールのみデプロイ
 npm run deploy:rules
+
+# Supabase 型定義の再生成（ローカル Supabase 起動中に実行）
+npm run gen:types
 ```
 
 ## 主要な技術決定 (Key Technical Decisions)
@@ -74,8 +77,10 @@ npm run deploy:rules
 - **Stripe課金フロー**: Stripe Checkout Session（サーバー生成）+ Webhook（`/api/webhooks/stripe`）でサブスクリプション状態を Firestore に同期。`src/lib/stripe/server.ts` にサーバー側クライアントを集約し、クライアントバンドルへの秘密鍵漏洩を防止する。
 - **広告の動的ロードと制御（Quizetika Ads）**: 有料プラン（Pro/Premium）のアクティブな状態で広告スクリプト（Google AdSense）のロードを動的にスキップし、パフォーマンスおよび不要なネットワークリクエストを排除する。一時的広告非表示フラグ環境変数 `NEXT_PUBLIC_DISABLE_ADS` が `'true'` の場合、すべての広告コンポーネントおよびフックで非表示処理にフォールバックする。
 - **ハイブリッド無限スクロール設計**: クイズ一覧等におけるページング体験向上のため、初期状態は「もっと見る」ボタンで開始し、クリック後はスクロール交差監視による自動追加ロード（無限スクロール）に移行するハイブリッド方式を採用。データフェッチには Firestore のカーソルベース `startAfter` を用いたページング処理（`getQuizzesByAuthorPage` やクイズフィードのカーソル仕様拡張）を適用し、不要な全件フェッチによる読み取りコストを削減する。
+- **Firebase → Supabase 段階移行（ドメイン単位カットオーバー）**: 一括移行ではなく `.kiro/specs/supabase-*`（foundation → auth-migration → core-data → gameplay/governance/storage-migration → cleanup の順）でドメインごとに移行する。`firebase`/`firebase-admin` と `@supabase/*` が `package.json` に共存し、同一サービスファイル内で両方の呼び出しが一時的に混在するのは意図した過渡状態である。各ドメインの正確な移行状況は steering ではなく `.kiro/specs/supabase-*/spec.json` の `phase` を正とする。
+- **RDB 正規化の徹底（core-data）**: Firestore ドキュメント構造をそのまま PostgreSQL に転写しない。文字列連結の疑似ドキュメントID（例: `follower_id + '_' + following_id`）は複合主キーに、配列/JSONB による埋め込み（バッジ・フォロー中ジャンル・タグ・問題構成）は中間テーブル（`user_badges`, `user_genre_follows`, `quiz_tags`, `quiz_questions` 等）に正規化する。サービス層の TypeScript インターフェースは変更せず、内部クエリのみを差し替えるブラックボックス置換を徹底する。
 
 ---
-_updated_at: 2026-06-24 — 広告表示・制御機能およびハイブリッド無限スクロール機能を反映_
+_updated_at: 2026-07-03 — Firebase→Supabase移行状況（Phase 35 / supabase-core-data 実装完了）を反映_
 
 _Document standards and patterns, not every dependency_

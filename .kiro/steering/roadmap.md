@@ -1502,15 +1502,30 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
   - テストインフラ（Firebase モック → Supabase ローカルまたはモック）
 
 ## Specs (dependency order)
-- [ ] supabase-foundation -- Supabase プロジェクト初期化、クライアント構成（ブラウザ/サーバー/ミドルウェア）、全テーブル DDL、RLS ポリシー、型生成、ローカル開発環境セットアップ。Dependencies: none
-- [ ] supabase-auth-migration -- Firebase Auth → Supabase Auth 完全移行。OAuth プロバイダ (Google/Twitter/Microsoft)、Email/Password、`auth-context.tsx`、ミドルウェア、BAN検知、ログインUI。Dependencies: supabase-foundation
-- [ ] supabase-core-data -- 主要サービス層（user, quiz, question, bookmark, notification, announcement）の Firestore → Supabase 移行。Dependencies: supabase-auth-migration
-- [ ] supabase-gameplay -- ゲームプレイ関連サービス（attempt, review, rating, reaction, leaderboard, play-history）の移行。Dependencies: supabase-core-data
-- [ ] supabase-storage-migration -- Firebase Storage → Supabase Storage 移行。クライアント/サーバー両方のアップロード・ダウンロード・削除処理。Dependencies: supabase-foundation
-- [ ] supabase-governance -- モデレーション・ガバナンス関連サービス（moderation, tagMerge, reputation, entitlement, subscription）の移行。Dependencies: supabase-core-data
-- [ ] supabase-cleanup -- Firebase パッケージ・設定ファイルの完全削除、テストインフラ更新、Steering ドキュメント更新。Dependencies: supabase-auth-migration, supabase-core-data, supabase-gameplay, supabase-storage-migration, supabase-governance
+- [x][impl] supabase-foundation -- Supabase プロジェクト初期化、クライアント構成（ブラウザ/サーバー/ミドルウェア）、全テーブル DDL、RLS ポリシー、型生成、ローカル開発環境セットアップ。Dependencies: none
+- [x] supabase-auth-migration -- Firebase Auth → Supabase Auth 完全移行。OAuth プロバイダ (Google/Twitter/Microsoft)、Email/Password、`auth-context.tsx`、ミドルウェア、BAN検知、ログインUI。`auth-context.tsx` / `middleware.ts` は Supabase 移行済み。Dependencies: supabase-foundation
+- [x][impl] supabase-core-data -- 主要サービス層（user, quiz, question, bookmark, notification, announcement）の Firestore → Supabase 移行。2026-07-03 に RDB 完全正規化（`badges`/`user_badges`/`user_genre_follows`/`quiz_tags`/`quiz_questions` 中間テーブル化、複合主キー化）を含めて実装完了。Dependencies: supabase-auth-migration
+- [ ] supabase-gameplay -- ゲームプレイ関連サービス（attempt, review, rating, reaction, leaderboard, play-history）の移行。要件定義のみ完了、未着手。Dependencies: supabase-core-data
+- [ ] supabase-storage-migration -- Firebase Storage → Supabase Storage 移行。クライアント/サーバー両方のアップロード・ダウンロード・削除処理。brief のみ、spec 未初期化。Dependencies: supabase-foundation
+- [ ] supabase-governance -- モデレーション・ガバナンス関連サービス（moderation, tagMerge, reputation, entitlement, subscription）の移行。要件定義のみ完了、未着手。Dependencies: supabase-core-data
+- [ ] supabase-cleanup -- Firebase パッケージ・設定ファイルの完全削除、テストインフラ更新、Steering ドキュメント（`tech.md`/`structure.md`/`security.md`）の Supabase ベース全面更新。brief のみ、spec 未初期化。全依存スペック完了が前提。Dependencies: supabase-auth-migration, supabase-core-data, supabase-gameplay, supabase-storage-migration, supabase-governance
 
 ## Direct Implementation Candidates（Phase 35）
 - [ ] docs-sync-supabase -- `docs/` 配下の全仕様書（db_design.md, api_specification.md, detailed_design.md, security_architecture.md）を Supabase/PostgreSQL ベースに全面更新
-- [ ] steering-update -- `.kiro/steering/tech.md`, `structure.md`, `security.md` を Supabase ベースに更新
+- [ ] steering-update -- `.kiro/steering/tech.md`, `structure.md`, `security.md` を Supabase ベースに更新（`supabase-cleanup` 完了時に実施。それまでは steering 側で移行中の実態を軽量な注記として反映）
+
+### 進捗更新（2026-07-03）
+`.kiro/specs/supabase-*/spec.json` の `phase` を正とした最新状況:
+
+| Spec | phase |
+|------|-------|
+| supabase-foundation | implementation-complete（2026-07-03 に spec.json ドリフトを修正済み） |
+| supabase-auth-migration | implementation（`auth-context.tsx`/`middleware.ts` は Supabase 移行済み） |
+| supabase-core-data | implementation-complete |
+| supabase-gameplay | requirements-generated |
+| supabase-governance | requirements-generated |
+| supabase-storage-migration | 未初期化（brief のみ） |
+| supabase-cleanup | 未初期化（brief のみ） |
+
+正確な最新状態は本表ではなく `/kiro:spec-status <feature>` または各 `spec.json` を直接参照すること。
 

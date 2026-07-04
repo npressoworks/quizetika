@@ -71,7 +71,7 @@ describe('user connections service', () => {
         });
         return chain;
       }
-      return mockSupabase;
+      return createChainMock({ data: [], error: null });
     });
 
     const users = await getFollowerUsers('target-1');
@@ -99,7 +99,7 @@ describe('user connections service', () => {
         });
         return chain;
       }
-      return mockSupabase;
+      return createChainMock({ data: [], error: null });
     });
 
     const users = await getFollowingUsers('target-1');
@@ -120,7 +120,7 @@ describe('user connections service', () => {
         });
         return chain;
       }
-      return mockSupabase;
+      return createChainMock({ data: [], error: null });
     });
 
     await expect(getFollowerUsers('target-1')).resolves.toEqual([]);

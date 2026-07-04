@@ -13,6 +13,8 @@ import {
   getFollowingUsers,
   getFollowerUsers,
   checkAndAwardBadges,
+  followGenre,
+  unfollowGenre,
 } from '../../src/services/user';
 import { User, Badge } from '../../src/types';
 jest.mock('@/lib/supabase/client', () => {
@@ -25,6 +27,8 @@ jest.mock('@/lib/supabase/client', () => {
     maybeSingle: jest.fn(),
     update: jest.fn().mockReturnThis(),
     insert: jest.fn().mockReturnThis(),
+    upsert: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
     rpc: jest.fn(),
     auth: {
       getSession: jest.fn(),
@@ -48,9 +52,11 @@ beforeEach(() => {
   mockSupabase.maybeSingle.mockReset();
   mockSupabase.update.mockClear();
   mockSupabase.insert.mockClear();
+  mockSupabase.upsert.mockClear();
+  mockSupabase.delete.mockClear();
   mockSupabase.rpc.mockReset();
   mockSupabase.auth.getSession.mockReset();
-  
+
   // mockReturnThis を設定し直す
   mockSupabase.from.mockReturnValue(mockSupabase);
   mockSupabase.select.mockReturnValue(mockSupabase);
@@ -58,6 +64,8 @@ beforeEach(() => {
   mockSupabase.in.mockReturnValue(mockSupabase);
   mockSupabase.update.mockReturnValue(mockSupabase);
   mockSupabase.insert.mockReturnValue(mockSupabase);
+  mockSupabase.upsert.mockReturnValue(mockSupabase);
+  mockSupabase.delete.mockReturnValue(mockSupabase);
 });
 
 /* ============================================================
@@ -410,7 +418,7 @@ describe('UserService - checkAndAwardBadges', () => {
     });
 
     mockSupabase.single.mockResolvedValueOnce({ data: userRow, error: null });
-    mockSupabase.rpc.mockResolvedValueOnce({ data: true, error: null });
+    mockSupabase.rpc.mockResolvedValueOnce({ data: ['play_10'], error: null });
 
     const badges = await checkAndAwardBadges(uid);
     expect(badges).toHaveLength(1);
@@ -420,12 +428,7 @@ describe('UserService - checkAndAwardBadges', () => {
       'handle_check_and_award_badges',
       expect.objectContaining({
         p_user_id: uid,
-        p_badges: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'play_10',
-            title: '初挑戦者',
-          })
-        ])
+        p_badge_ids: expect.arrayContaining(['play_10']),
       })
     );
 
@@ -440,5 +443,40 @@ describe('UserService - checkAndAwardBadges', () => {
         target_title: '初挑戦者',
       })
     );
+  });
+
+  test('RPCが同時実行で既に付与済み（空配列）を返した場合、重複通知を作成しないこと', async () => {
+    const userRow = makeUserRow({ id: uid, total_play_count: 10, badges: [] });
+
+    mockSupabase.single.mockResolvedValueOnce({ data: userRow, error: null });
+    mockSupabase.rpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const badges = await checkAndAwardBadges(uid);
+
+    expect(badges).toHaveLength(0);
+    expect(mockSupabase.from).not.toHaveBeenCalledWith('notifications');
+  });
+});
+
+describe('UserService - followGenre / unfollowGenre', () => {
+  test('followGenre は user_genre_follows へ単一行を upsert すること', async () => {
+    mockSupabase.upsert.mockResolvedValueOnce({ data: null, error: null });
+
+    await followGenre('user-1', 'programming');
+
+    expect(mockSupabase.from).toHaveBeenCalledWith('user_genre_follows');
+    expect(mockSupabase.upsert).toHaveBeenCalledWith(
+      { user_id: 'user-1', genre_id: 'programming' },
+      { onConflict: 'user_id,genre_id' }
+    );
+  });
+
+  test('unfollowGenre は user_genre_follows から単一行を delete すること', async () => {
+    await unfollowGenre('user-1', 'programming');
+
+    expect(mockSupabase.from).toHaveBeenCalledWith('user_genre_follows');
+    expect(mockSupabase.delete).toHaveBeenCalled();
+    expect(mockSupabase.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(mockSupabase.eq).toHaveBeenCalledWith('genre_id', 'programming');
   });
 });

@@ -10,7 +10,7 @@ import { assertParentQuizPublished, assertQuizBookmarkable } from '../lib/bookma
 import { createNotification } from './notification';
 import { Database } from '../lib/supabase/database.types';
 import { mapRowToQuiz } from './quiz';
-import { mapQuestionRowToQuestion, mapQuestionToRow } from './question';
+import { mapQuestionRowToQuestion } from './question';
 
 const supabase = createClient();
 
@@ -29,16 +29,8 @@ export class InvalidBookmarkTargetError extends Error {
   }
 }
 
-/**
- * ブックマークのユニークなドキュメントIDを生成
- */
-function getBookmarkDocId(userId: string, targetId: string): string {
-  return `${userId}_${targetId}`;
-}
-
 function mapRowToBookmark(row: Database['public']['Tables']['bookmarks']['Row']): Bookmark {
   return {
-    id: row.id,
     userId: row.user_id,
     targetId: row.target_id,
     targetType: row.target_type as 'quiz' | 'question',
@@ -79,80 +71,55 @@ async function assertQuestionBookmarkable(
     .eq('id', questionId)
     .maybeSingle();
 
-  let question: Question;
-
   if (!questionRow) {
-    // クイズ内の question_ids 配列にこの問題 ID が含まれているクイズを探す
-    const { data: parentQuizzes } = await supabase
-      .from('quizzes')
-      .select('*')
-      .contains('question_ids', [questionId]);
-
-    if (!parentQuizzes || parentQuizzes.length === 0) {
-      throw new Error('Target document does not exist.');
-    }
-
-    const quizRow = parentQuizzes[0];
-    const quiz = mapRowToQuiz(quizRow);
-
-    assertParentQuizPublished(quiz.status);
-    await assertQuizBookmarkable(quiz, viewerUid);
-
-    const foundQuestion = quiz.questions?.find((q) => q.id === questionId);
-    if (!foundQuestion) {
-      throw new Error('Target document does not exist.');
-    }
-
-    const restoredQuestion: Question = {
-      ...foundQuestion,
-      id: questionId,
-      quizId: quiz.id,
-      authorId: quiz.authorId,
-      authorName: quiz.authorName,
-      authorAvatar: quiz.authorAvatar || '',
-      bookmarksCount: foundQuestion.bookmarksCount || 0,
-      correctCount: foundQuestion.correctCount || 0,
-      incorrectCount: foundQuestion.incorrectCount || 0,
-    };
-
-    // データベースの questions テーブルへ保存
-    await supabase.from('questions').insert(mapQuestionToRow(restoredQuestion as any) as any);
-    question = restoredQuestion;
-  } else {
-    question = mapQuestionRowToQuestion(questionRow);
-    if (!question.quizId) {
-      throw new Error('Target document does not exist.');
-    }
-    const { data: quizRow } = await supabase
-      .from('quizzes')
-      .select('*')
-      .eq('id', question.quizId)
-      .maybeSingle();
-    if (!quizRow) {
-      throw new Error('Target document does not exist.');
-    }
-    const quiz = mapRowToQuiz(quizRow);
-    assertParentQuizPublished(quiz.status);
-    await assertQuizBookmarkable(quiz, viewerUid);
+    throw new Error('Target document does not exist.');
   }
+
+  const question = mapQuestionRowToQuestion(questionRow);
+  if (!question.quizId) {
+    throw new Error('Target document does not exist.');
+  }
+
+  const { data: quizRow } = await supabase
+    .from('quizzes')
+    .select('*')
+    .eq('id', question.quizId)
+    .maybeSingle();
+  if (!quizRow) {
+    throw new Error('Target document does not exist.');
+  }
+  const quiz = mapRowToQuiz(quizRow);
+  assertParentQuizPublished(quiz.status);
+  await assertQuizBookmarkable(quiz, viewerUid);
 
   return question;
 }
 
 /**
  * ブックマーク状態を判定する
+ * `targetType` は省略可能（既存呼び出し元との互換性のため）。省略時は `target_id` のみで検索する。
  */
-export async function isBookmarked(userId: string, targetId: string): Promise<boolean> {
+export async function isBookmarked(
+  userId: string,
+  targetId: string,
+  targetType?: 'quiz' | 'question'
+): Promise<boolean> {
   if (isTestEnv) {
     const list = JSON.parse(localStorage.getItem(MOCK_BOOKMARKS_KEY) || '[]');
     return list.some((b: { userId: string; targetId: string }) => b.userId === userId && b.targetId === targetId);
   }
-  const docId = getBookmarkDocId(userId, targetId);
-  const { data, error } = await supabase
+
+  let query = supabase
     .from('bookmarks')
-    .select('id')
-    .eq('id', docId)
-    .maybeSingle();
+    .select('user_id')
+    .eq('user_id', userId)
+    .eq('target_id', targetId);
+
+  if (targetType) {
+    query = query.eq('target_type', targetType);
+  }
+
+  const { data, error } = await query.maybeSingle();
   return !!data && !error;
 }
 

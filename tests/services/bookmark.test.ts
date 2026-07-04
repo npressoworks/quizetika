@@ -1,6 +1,7 @@
 import {
   getBookmarkedQuizzes,
   toggleBookmark,
+  isBookmarked,
   InvalidBookmarkTargetError,
 } from '@/services/bookmark';
 import { createNotification } from '@/services/notification';
@@ -163,5 +164,25 @@ describe('bookmark service', () => {
       targetId: 'quiz-a',
       targetTitle: 'テストクイズ',
     });
+  });
+
+  it('isBookmarked は複合キー (user_id, target_id) で検索し、targetType 省略時はフィルタしない', async () => {
+    mockSupabase.maybeSingle.mockResolvedValueOnce({ data: { user_id: userId }, error: null });
+
+    const result = await isBookmarked(userId, 'quiz-a');
+
+    expect(result).toBe(true);
+    expect(mockSupabase.from).toHaveBeenCalledWith('bookmarks');
+    expect(mockSupabase.eq).toHaveBeenCalledWith('user_id', userId);
+    expect(mockSupabase.eq).toHaveBeenCalledWith('target_id', 'quiz-a');
+  });
+
+  it('isBookmarked は targetType 指定時、target_type も条件に含める', async () => {
+    mockSupabase.maybeSingle.mockResolvedValueOnce({ data: { user_id: userId }, error: null });
+
+    const result = await isBookmarked(userId, 'question-a', 'question');
+
+    expect(result).toBe(true);
+    expect(mockSupabase.eq).toHaveBeenCalledWith('target_type', 'question');
   });
 });

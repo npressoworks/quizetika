@@ -24,8 +24,8 @@
 
 ### サービス・ビジネスロジック (Services)
 **Location**: `/src/services/`  
-**Purpose**: Firebase（Firestore、Storage、Auth）とのやり取りや、共通のビジネスロジック。  
-**Example**: `/src/services/reputation.ts` (信頼スコアリセットやモデレータティアー処理)。
+**Purpose**: バックエンド（Supabase または Firebase）とのやり取りや、共通のビジネスロジック。ドメイン別に段階移行中のため、ファイルによって片方または両方の SDK を参照する（`.kiro/specs/supabase-*` の `phase` が正）。  
+**Example**: `/src/services/user.ts`, `quiz.ts`（Supabase 移行済み）、`/src/services/reputation.ts`（信頼スコアリセットやモデレータティアー処理、Firebase のまま未移行）。
 
 ### 型定義 (Types)
 **Location**: `/src/types/`  
@@ -34,8 +34,8 @@
 
 ### 純関数ライブラリ (Pure Logic Libraries)
 **Location**: `/src/lib/`  
-**Purpose**: UIに依存しない表示ヘルパー、セッション状態、検証・フィルタ等の純関数。サービス層のビジネスロジックとは分離し、コンポーネントやフックから呼び出す。Firebase 初期化は `/src/lib/firebase/` に集約（クライアント `config.ts` / `auth.ts`、サーバー `admin.ts` / `auth-verify.ts`）。XSS サニタイズは `/src/lib/security/`。Stripe サーバークライアントは `/src/lib/stripe/server.ts` に集約（クライアントバンドルへの秘密鍵漏洩を防止）。  
-**Example**: `/src/lib/profile-list-display.ts`（リスト種別ラベル）、`/src/lib/question-list-session.ts`（問題リストプレイ進行）、`/src/lib/firebase/firestore.ts`、`/src/lib/billing-client.ts`（Stripe Checkout局扭クライアント）。
+**Purpose**: UIに依存しない表示ヘルパー、セッション状態、検証・フィルタ等の純関数。サービス層のビジネスロジックとは分離し、コンポーネントやフックから呼び出す。バックエンド初期化は移行中で `/src/lib/firebase/`（クライアント `config.ts` / `auth.ts`、サーバー `admin.ts` / `auth-verify.ts`、未移行ドメイン用）と `/src/lib/supabase/`（クライアント `client.ts`、サーバー `server.ts`、ミドルウェア `middleware.ts`、認証 `auth.ts` / `auth-verify.ts`、生成型 `database.types.ts`、移行済みドメイン用）が併存する。XSS サニタイズは `/src/lib/security/`。Stripe サーバークライアントは `/src/lib/stripe/server.ts` に集約（クライアントバンドルへの秘密鍵漏洩を防止）。  
+**Example**: `/src/lib/profile-list-display.ts`（リスト種別ラベル）、`/src/lib/question-list-session.ts`（問題リストプレイ進行）、`/src/lib/metadata-resolution.ts`（Supabase 移行済みのジャンル/タグ正規化）、`/src/lib/billing-client.ts`（Stripe Checkout クライアント）。
 
 ### React コンテキスト (Context)
 **Location**: `/src/context/`  
@@ -106,6 +106,6 @@ import { LocalComponent } from './LocalComponent';
 - **UIとの境界分離**: コンポーネント側はUI表現とユーザーインタラクションに徹し、ビジネスロジックやデータフェッチの詳細は `services` 側のAPIやフックを呼び出す形に疎結合化します。
 
 ---
-_updated_at: 2026-06-24 — 広告コンポーネント・フック、共通無限スクロールローダーパターンを追加_
+_updated_at: 2026-07-03 — Supabase移行に伴う /src/lib/supabase/ の併存とサービス層の移行状況注記を追加_
 
 _Document patterns, not file trees. New files following patterns shouldn't require updates_

@@ -72,10 +72,17 @@
 
 ---
 
+## 9. Supabase RLS と Firestore Security Rules の並存（移行期）
+
+### 9.1 ドメイン別の認可基盤
+- **原則:** 認証（Supabase Auth）およびコアデータ（`users`, `quizzes`, `questions`, `follows`, `bookmarks`, `notifications`, `announcements` 等）は Supabase の Row Level Security (RLS) ポリシーが認可の正となる。ゲームプレイ・ガバナンス・ストレージは Firebase Security Rules（`firestore.rules` / `storage.rules`）のまま未移行。
+- **実装要件:** どちらの認可層が有効かはテーブル／コレクション単位で異なるため、新規実装時は対象ドメインの `.kiro/specs/supabase-*/spec.json` の `phase` を確認し、移行済みなら RLS ポリシー（`supabase/migrations/*.sql`）、未移行なら Firestore Rules を正として設計・レビューすること。
+- **二重検証の原則は不変:** 移行後も「フロントエンドはUX目的のみ、実データ保護はサーバー/DB側」という Defense-in-Depth の方針は Supabase RLS + `supabase.auth.getUser()` によるサーバーサイド検証に引き継がれる。
+
+---
+
 ## 8. 広告配信とユーザープライバシー（AdSense）の制御
 
 ### 8.1 有料会員状態に基づく動的なスクリプト読み込み排除
 - **パフォーマンスとプライバシー:** 有料プラン（Pro/Premium）のアクティブなユーザーに対しては、Google AdSense の広告スクリプト（`next/script`）自体のロードを動的にスキップし、不要な広告トラッキング・ネットワーク帯域の消費を完全に防いでください。
 - **実装要件:** クライアント側で認証されたユーザー状態（`useAuth` 等）を監視し、アクティブな有料サブスクリプションを検出した場合はスクリプトのロード自体を実行しない構造を保証してください。
-
-

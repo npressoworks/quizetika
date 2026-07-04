@@ -90,7 +90,9 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
   };
 }
 
+/** `quiz_tags` / `quiz_questions` の埋め込みを含む Row を生成する（QUIZ_SELECT_WITH_RELATIONS 相当） */
 function makeQuizRow(quiz: Quiz) {
+  const tagIds = quiz.canonicalTagIds?.length ? quiz.canonicalTagIds : quiz.tags ?? [];
   return {
     id: quiz.id,
     author_id: quiz.authorId,
@@ -101,10 +103,6 @@ function makeQuizRow(quiz: Quiz) {
     thumbnail_url: quiz.thumbnailUrl,
     difficulty: quiz.difficulty,
     genre: quiz.genre,
-    tags: quiz.tags,
-    original_tags: quiz.originalTags,
-    question_ids: quiz.questionIds,
-    questions: quiz.questions as any,
     question_count: quiz.questionCount,
     status: quiz.status,
     visibility: quiz.visibility ?? 'public',
@@ -117,45 +115,44 @@ function makeQuizRow(quiz: Quiz) {
     temp_negative_count: quiz.tempNegativeCount,
     review_score: quiz.reviewScore,
     canonical_genre_id: quiz.canonicalGenreId ?? null,
-    canonical_tag_ids: quiz.canonicalTagIds ?? null,
     created_at: quiz.createdAt.toISOString(),
     updated_at: quiz.updatedAt.toISOString(),
+    quiz_tags: tagIds.map((tagId, i) => ({ tag_id: tagId, original_label: quiz.originalTags?.[i] ?? tagId })),
+    quiz_questions: [],
   };
 }
 
+/** quiz_tags テーブルへの tag_id 検索、および quizzes テーブルへの id 一括取得をエミュレートする */
 function mockTagQueryResults(quizzes: Quiz[]) {
   mockSupabase.from.mockImplementation((table: string) => {
-    if (table === 'quizzes') {
+    if (table === 'quiz_tags') {
       const chain = createChainMock({ data: [], error: null });
+      chain.eq.mockImplementation((field: string, val: string) => {
+        if (field !== 'tag_id') return chain;
+        const matched = quizzes.filter(
+          (q) => q.canonicalTagIds?.includes(val) || q.tags?.includes(val)
+        );
+        return createChainMock({ data: matched.map((q) => ({ quiz_id: q.id })), error: null });
+      });
+      return chain;
+    }
 
-      // contains() (tag用) などの実装
-      chain.contains.mockImplementation((field: string, val: string[]) => {
-        const tagValue = val[0];
-        const matched = quizzes.filter((quiz) => {
-          const inCanonical = quiz.canonicalTagIds?.includes(tagValue);
-          const inTags = quiz.tags?.includes(tagValue);
-          return inCanonical || inTags;
-        });
-        const matchedRows = matched.map(makeQuizRow);
-        const nextChain = createChainMock({
-          data: matchedRows,
-          error: null,
-        });
-        return nextChain;
+    if (table === 'quizzes') {
+      const chain = createChainMock({ data: quizzes.map(makeQuizRow), error: null });
+
+      chain.in.mockImplementation((_field: string, ids: string[]) => {
+        const matched = quizzes.filter((q) => ids.includes(q.id));
+        return createChainMock({ data: matched.map(makeQuizRow), error: null });
       });
 
-      // limit() (最新一覧用など)
-      chain.limit.mockImplementation(() => {
-        const nextChain = createChainMock({
-          data: quizzes.map(makeQuizRow),
-          error: null,
-        });
-        return nextChain;
-      });
+      chain.limit.mockImplementation(() =>
+        createChainMock({ data: quizzes.map(makeQuizRow), error: null })
+      );
 
       return chain;
     }
-    return mockSupabase as any;
+
+    return createChainMock({ data: [], error: null });
   });
 }
 
@@ -208,53 +205,11 @@ describe('searchQuizzes (タグ AND 複合検索)', () => {
     });
 
     const pool = [match, wrongTag];
-
-    mockSupabase.from.mockImplementation((table: string) => {
-      if (table === 'quizzes') {
-        const chain = createChainMock({ data: pool.map(makeQuizRow), error: null });
-
-        chain.contains.mockImplementation(() => {
-          return createChainMock({
-            data: pool.map(makeQuizRow),
-            error: null,
-          });
-        });
-
-        chain.eq.mockImplementation(() => {
-          return createChainMock({
-            data: pool.map(makeQuizRow),
-            error: null,
-          });
-        });
-
-        chain.limit.mockImplementation(() => {
-          return createChainMock({
-            data: pool.map(makeQuizRow),
-            error: null,
-          });
-        });
-
-        return chain;
-      }
-      return mockSupabase as any;
-    });
+    mockTagQueryResults(pool);
 
     const results = await searchQuizzes('javascript', { tags: ['js'] });
 
     expect(results.map((r) => r.id)).toEqual(['match']);
-  });
-
-  test('legacy tags フォールバックでタグ一致する', async () => {
-    const quiz = makeQuiz({
-      id: 'legacy',
-      tags: ['ウミガメのスープ'],
-      canonicalTagIds: [],
-    });
-    mockTagQueryResults([quiz]);
-
-    const results = await searchQuizzes('', { tags: ['ウミガメのスープ'] });
-
-    expect(results.map((r) => r.id)).toEqual(['legacy']);
   });
 
   test('tags 未指定時は従来挙動（空キーワード + genreId）', async () => {
@@ -263,7 +218,7 @@ describe('searchQuizzes (タグ AND 複合検索)', () => {
     mockSupabase.from.mockImplementation((table: string) => {
       if (table === 'quizzes') {
         const chain = createChainMock({ data: [], error: null });
-        
+
         chain.eq.mockImplementation((field: string, val: string) => {
           if (field === 'canonical_genre_id' && val === 'science') {
             return createChainMock({
@@ -284,7 +239,7 @@ describe('searchQuizzes (タグ AND 複合検索)', () => {
 
         return chain;
       }
-      return mockSupabase as any;
+      return createChainMock({ data: [], error: null });
     });
 
     const results = await searchQuizzes('', { genreId: 'science' });

@@ -22,6 +22,7 @@ import {
   resolveCanonicalGenreId,
   resolveCanonicalTagIds,
   sortQuizzesForList,
+  syncQuizTags,
   type QuizListSort,
 } from '../lib/metadata-resolution';
 import type { GenreMetadata, TagMetadata } from '../types';
@@ -71,10 +72,42 @@ function generateUUID(): string {
   });
 }
 
+/** `quiz_tags` の PostgREST 埋め込み結果 */
+interface QuizTagEmbed {
+  tag_id: string;
+  original_label: string;
+}
+
+/** `quiz_questions` (+ 埋め込み `questions`) の PostgREST 埋め込み結果 */
+interface QuizQuestionEmbed {
+  display_order: number;
+  question: Database['public']['Tables']['questions']['Row'] | null;
+}
+
+/** `quizzes` 取得時に正規化テーブルを JOIN 埋め込みするための共通 select 句 */
+export const QUIZ_SELECT_WITH_RELATIONS =
+  '*, quiz_tags(tag_id, original_label), quiz_questions(display_order, question:questions(*))';
+
+export type QuizRowWithRelations = Database['public']['Tables']['quizzes']['Row'] & {
+  quiz_tags?: QuizTagEmbed[] | null;
+  quiz_questions?: QuizQuestionEmbed[] | null;
+};
+
 /**
  * データベースRowからQuizオブジェクトへマッピング
+ * `tags` / `originalTags` / `canonicalTagIds` は `quiz_tags`、`questionIds` / `questions` は
+ * `quiz_questions`（+ 埋め込み `questions`）の JOIN 結果から再構成する（black-box: 型・形状は不変）
  */
-export function mapRowToQuiz(row: Database['public']['Tables']['quizzes']['Row']): Quiz {
+export function mapRowToQuiz(row: QuizRowWithRelations): Quiz {
+  const tagRows = row.quiz_tags ?? [];
+  const questionLinks = [...(row.quiz_questions ?? [])].sort(
+    (a, b) => a.display_order - b.display_order
+  );
+  const questions = questionLinks
+    .map((link) => link.question)
+    .filter((q): q is Database['public']['Tables']['questions']['Row'] => !!q)
+    .map(mapQuestionRowToQuestion);
+
   return {
     id: row.id,
     authorId: row.author_id,
@@ -85,11 +118,11 @@ export function mapRowToQuiz(row: Database['public']['Tables']['quizzes']['Row']
     thumbnailUrl: row.thumbnail_url,
     difficulty: row.difficulty,
     genre: row.genre,
-    tags: row.tags ?? [],
-    originalTags: row.original_tags ?? [],
-    questionIds: row.question_ids ?? [],
-    questions: (row.questions as any) ?? [],
-    questionCount: row.question_count ?? 0,
+    tags: tagRows.map((t) => t.tag_id),
+    originalTags: tagRows.map((t) => t.original_label),
+    questionIds: questions.map((q) => q.id),
+    questions,
+    questionCount: row.question_count ?? questions.length,
     status: row.status as Quiz['status'],
     visibility: row.visibility as Quiz['visibility'],
     leaderboardFirstPlay: (row as any).leaderboard_first_play ?? [],
@@ -103,7 +136,7 @@ export function mapRowToQuiz(row: Database['public']['Tables']['quizzes']['Row']
     tempNegativeCount: row.temp_negative_count ?? 0,
     reviewScore: row.review_score,
     canonicalGenreId: row.canonical_genre_id ?? '',
-    canonicalTagIds: row.canonical_tag_ids ?? [],
+    canonicalTagIds: tagRows.map((t) => t.tag_id),
     format: (row.format as Quiz['format']) ?? undefined,
     isReviewMasked: row.is_review_masked ?? false,
     reviewBadge: (row.review_badge as Quiz['reviewBadge']) ?? null,
@@ -127,10 +160,6 @@ export function mapQuizToRow(quiz: Partial<Quiz>): Database['public']['Tables'][
   if (quiz.thumbnailUrl !== undefined) row.thumbnail_url = quiz.thumbnailUrl ?? null;
   if (quiz.difficulty !== undefined) row.difficulty = quiz.difficulty;
   if (quiz.genre !== undefined) row.genre = quiz.genre;
-  if (quiz.tags !== undefined) row.tags = quiz.tags;
-  if (quiz.originalTags !== undefined) row.original_tags = quiz.originalTags;
-  if (quiz.questionIds !== undefined) row.question_ids = quiz.questionIds;
-  if (quiz.questions !== undefined) row.questions = quiz.questions as any;
   if (quiz.questionCount !== undefined) row.question_count = quiz.questionCount;
   if (quiz.status !== undefined) row.status = quiz.status;
   if (quiz.visibility !== undefined) row.visibility = quiz.visibility;
@@ -143,7 +172,6 @@ export function mapQuizToRow(quiz: Partial<Quiz>): Database['public']['Tables'][
   if (quiz.tempNegativeCount !== undefined) row.temp_negative_count = quiz.tempNegativeCount;
   if (quiz.reviewScore !== undefined) row.review_score = quiz.reviewScore;
   if (quiz.canonicalGenreId !== undefined) row.canonical_genre_id = quiz.canonicalGenreId ?? null;
-  if (quiz.canonicalTagIds !== undefined) row.canonical_tag_ids = quiz.canonicalTagIds;
   if (quiz.format !== undefined) row.format = quiz.format ?? null;
   if (quiz.isReviewMasked !== undefined) row.is_review_masked = quiz.isReviewMasked ?? null;
   if (quiz.reviewBadge !== undefined) row.review_badge = quiz.reviewBadge ?? null;
@@ -285,7 +313,7 @@ async function queryPublishedByCanonicalGenre(
 
   const { data, error } = await supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('status', 'published')
     .eq('visibility', 'public')
     .eq('canonical_genre_id', canonicalGenreId)
@@ -293,7 +321,7 @@ async function queryPublishedByCanonicalGenre(
     .limit(limitCount);
 
   if (error || !data) return [];
-  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
+  return filterDiscoveryQuizzes((data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz));
 }
 
 async function queryPublishedByGenreIn(genreIds: string[], limitCount: number): Promise<Quiz[]> {
@@ -301,48 +329,68 @@ async function queryPublishedByGenreIn(genreIds: string[], limitCount: number): 
 
   const { data, error } = await supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('status', 'published')
     .eq('visibility', 'public')
     .in('genre', genreIds)
     .limit(limitCount);
 
   if (error || !data) return [];
-  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
+  return filterDiscoveryQuizzes((data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz));
 }
 
+/** `quiz_tags` を JOIN してタグ (canonical) に紐づく公開クイズを取得する */
 async function queryPublishedByCanonicalTag(
   tagId: string,
   sort: QuizListSort,
   limitCount: number
 ): Promise<Quiz[]> {
+  const { data: tagLinks, error: tagError } = await supabase
+    .from('quiz_tags')
+    .select('quiz_id')
+    .eq('tag_id', tagId);
+
+  if (tagError || !tagLinks || tagLinks.length === 0) return [];
+
   const orderField =
     sort === 'popular' ? 'play_count' : sort === 'trending' ? 'bookmarks_count' : 'created_at';
 
   const { data, error } = await supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('status', 'published')
     .eq('visibility', 'public')
-    .contains('canonical_tag_ids', [tagId])
+    .in('id', tagLinks.map((row) => row.quiz_id))
     .order(orderField, { ascending: false })
     .limit(limitCount);
 
   if (error || !data) return [];
-  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
+  return filterDiscoveryQuizzes((data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz));
 }
 
-async function queryPublishedByLegacyTag(tag: string, limitCount: number): Promise<Quiz[]> {
-  const { data, error } = await supabase
-    .from('quizzes')
-    .select('*')
-    .eq('status', 'published')
-    .eq('visibility', 'public')
-    .contains('tags', [tag])
-    .limit(limitCount);
+/** クイズが保持する問題の表示順序を quiz_questions へ全置換で反映する */
+async function syncQuizQuestions(quizId: string, orderedQuestionIds: string[]): Promise<void> {
+  const { error: deleteError } = await supabase.from('quiz_questions').delete().eq('quiz_id', quizId);
+  if (deleteError) {
+    throw new Error(`クイズの問題構成の更新に失敗しました: ${deleteError.message}`);
+  }
+  if (orderedQuestionIds.length === 0) return;
 
-  if (error || !data) return [];
-  return filterDiscoveryQuizzes(data.map(mapRowToQuiz));
+  const rows = orderedQuestionIds.map((questionId, index) => ({
+    quiz_id: quizId,
+    question_id: questionId,
+    display_order: index,
+  }));
+  const { error: insertError } = await supabase.from('quiz_questions').insert(rows);
+  if (insertError) {
+    throw new Error(`クイズの問題構成の更新に失敗しました: ${insertError.message}`);
+  }
+}
+
+/** canonicalTagIds と同じ長さ・順序の原文タグラベルを解決する（不一致時は canonicalTagIds 自体を表示ラベルとする） */
+function resolveOriginalLabels(canonicalTagIds: string[], originalTags?: string[]): string[] {
+  if (originalTags && originalTags.length === canonicalTagIds.length) return originalTags;
+  return canonicalTagIds;
 }
 
 /**
@@ -435,6 +483,18 @@ export async function createQuiz(
     throw new Error(`クイズの作成に失敗しました: ${quizError.message}`);
   }
 
+  try {
+    await syncQuizQuestions(quizId, questionIds);
+    await syncQuizTags(quizId, canonicalTagIds, resolveOriginalLabels(canonicalTagIds, quiz.originalTags));
+  } catch (syncError) {
+    // ロールバック: クイズ本体と挿入した問題を削除
+    await supabase.from('quizzes').delete().eq('id', quizId);
+    if (questionIds.length > 0) {
+      await supabase.from('questions').delete().in('id', questionIds);
+    }
+    throw syncError;
+  }
+
   return quizId;
 }
 
@@ -444,12 +504,12 @@ export async function createQuiz(
 export async function getQuiz(quizId: string): Promise<Quiz | null> {
   const { data, error } = await supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('id', quizId)
     .maybeSingle();
 
   if (error || !data) return null;
-  return mapRowToQuiz(data);
+  return mapRowToQuiz(data as unknown as QuizRowWithRelations);
 }
 
 /**
@@ -470,6 +530,9 @@ export async function updateQuiz(
     ...data,
     updatedAt: now,
   };
+
+  let questionIdsToSync: string[] | undefined;
+  let tagSyncPayload: { canonicalTagIds: string[]; originalLabels: string[] } | undefined;
 
   if (data.questions) {
     const normalizedQuestions = normalizeQuizQuestionsForSave(data.questions);
@@ -584,14 +647,12 @@ export async function updateQuiz(
       if (delError) console.error('問題の削除に失敗しました:', delError.message);
     }
 
-    updatePayload.question_ids = newQuestionIds;
-    updatePayload.questions = processedQuestions;
-    updatePayload.question_count = processedQuestions.length;
-
-    // クリーズオブジェクトへの逆インポート用フィールドもセット
+    // 検証（validateQuizForDraft/Publish）用に Quiz 形状のフィールドをセット
     updatePayload.questionIds = newQuestionIds;
     updatePayload.questions = processedQuestions;
     updatePayload.questionCount = processedQuestions.length;
+
+    questionIdsToSync = newQuestionIds;
   }
 
   const mergedGenre = data.genre ?? currentQuiz.genre;
@@ -613,25 +674,22 @@ export async function updateQuiz(
   }
 
   if (data.genre !== undefined || data.tags !== undefined) {
-    try {
-      const { canonicalGenreId, canonicalTagIds } = await applyQuizMetadataFields(
-        mergedGenre,
-        mergedTags.map(normalizeTag).filter(Boolean),
-        currentQuiz.authorId
-      );
-      updatePayload.tags = mergedTags.map(normalizeTag).filter(Boolean);
-      updatePayload.canonical_genre_id = canonicalGenreId;
-      updatePayload.canonical_tag_ids = canonicalTagIds;
+    const normalizedTags = mergedTags.map(normalizeTag).filter(Boolean);
+    const { canonicalGenreId, canonicalTagIds } = await applyQuizMetadataFields(
+      mergedGenre,
+      normalizedTags,
+      currentQuiz.authorId
+    );
 
-      // 逆インポート用
-      updatePayload.canonicalGenreId = canonicalGenreId;
-      updatePayload.canonicalTagIds = canonicalTagIds;
-    } catch (err) {
-      if (err instanceof MetadataValidationError) {
-        throw err;
-      }
-      throw err;
-    }
+    // 検証（validateQuizForDraft/Publish）用に Quiz 形状のフィールドをセット
+    updatePayload.tags = normalizedTags;
+    updatePayload.canonicalGenreId = canonicalGenreId;
+    updatePayload.canonicalTagIds = canonicalTagIds;
+
+    tagSyncPayload = {
+      canonicalTagIds,
+      originalLabels: resolveOriginalLabels(canonicalTagIds, data.originalTags ?? normalizedTags),
+    };
   }
 
   if (effectiveStatus === 'published') {
@@ -668,15 +726,31 @@ export async function updateQuiz(
   if (quizError) {
     throw new Error(`クイズの更新に失敗しました: ${quizError.message}`);
   }
+
+  if (questionIdsToSync !== undefined) {
+    await syncQuizQuestions(quizId, questionIdsToSync);
+  }
+  if (tagSyncPayload !== undefined) {
+    await syncQuizTags(quizId, tagSyncPayload.canonicalTagIds, tagSyncPayload.originalLabels);
+  }
 }
 
 /**
  * クイズを削除する
+ * `questions.owner_quiz_id` は ON DELETE SET NULL のため、削除されるクイズが所有していた問題のうち
+ * 他クイズから `quiz_questions` 経由で参照共有されていないものだけを明示的に削除する
+ * （参照共有されている問題を巻き添えで削除しないための対応）
  */
 export async function deleteQuiz(quizId: string): Promise<void> {
+  const { data: ownedLinks } = await supabase
+    .from('quiz_questions')
+    .select('question_id')
+    .eq('quiz_id', quizId);
+  const ownedQuestionIds = (ownedLinks ?? []).map((row) => row.question_id);
+
   // RLS に準拠し、子テーブルから安全に削除します
   await supabase.from('bookmarks').delete().eq('target_id', quizId);
-  
+
   const { error } = await supabase
     .from('quizzes')
     .delete()
@@ -684,6 +758,18 @@ export async function deleteQuiz(quizId: string): Promise<void> {
 
   if (error) {
     throw new Error(`クイズの削除に失敗しました: ${error.message}`);
+  }
+
+  if (ownedQuestionIds.length > 0) {
+    const { data: stillReferenced } = await supabase
+      .from('quiz_questions')
+      .select('question_id')
+      .in('question_id', ownedQuestionIds);
+    const stillReferencedIds = new Set((stillReferenced ?? []).map((row) => row.question_id));
+    const orphanIds = ownedQuestionIds.filter((id) => !stillReferencedIds.has(id));
+    if (orphanIds.length > 0) {
+      await supabase.from('questions').delete().in('id', orphanIds);
+    }
   }
 }
 
@@ -710,12 +796,12 @@ async function loadQuestionsByIds(ids: string[]): Promise<Map<string, Question>>
 
 async function findQuizIdsContainingQuestion(questionId: string): Promise<string[]> {
   const { data, error } = await supabase
-    .from('quizzes')
-    .select('id')
-    .contains('question_ids', [questionId]);
+    .from('quiz_questions')
+    .select('quiz_id')
+    .eq('question_id', questionId);
 
   if (error || !data) return [];
-  return data.map((d) => d.id);
+  return data.map((d) => d.quiz_id);
 }
 
 function stripEditorOnlyFields(question: Question): Question {
@@ -887,6 +973,18 @@ export async function saveQuiz(
     throw new Error(`クイズの作成に失敗しました: ${quizError.message}`);
   }
 
+  try {
+    await syncQuizQuestions(quizId, questionIds);
+    await syncQuizTags(quizId, canonicalTagIds, resolveOriginalLabels(canonicalTagIds, quizData.originalTags));
+  } catch (syncError) {
+    // ロールバック: クイズ本体と挿入した問題を削除
+    await supabase.from('quizzes').delete().eq('id', quizId);
+    if (questionIds.length > 0) {
+      await supabase.from('questions').delete().in('id', questionIds);
+    }
+    throw syncError;
+  }
+
   return quizId;
 }
 
@@ -896,7 +994,7 @@ export async function saveQuiz(
 export async function exportQuizzes(uid: string): Promise<QuizExportPackage> {
   const { data, error } = await supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('author_id', uid)
     .order('created_at', { ascending: false });
 
@@ -906,7 +1004,7 @@ export async function exportQuizzes(uid: string): Promise<QuizExportPackage> {
 
   return {
     exportedAt: new Date().toISOString(),
-    quizzes: data.map(mapRowToQuiz),
+    quizzes: (data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz),
   };
 }
 
@@ -1004,7 +1102,7 @@ async function fetchPublishedTabPage(
 
   let q = supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('status', 'published')
     .eq('visibility', 'public');
 
@@ -1020,7 +1118,7 @@ async function fetchPublishedTabPage(
   if (error || !data) return { items: [], nextCursor: null };
 
   return paginateQuizRows(
-    filterDiscoveryQuizzes(data.map(mapRowToQuiz)),
+    filterDiscoveryQuizzes((data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz)),
     pageSize,
     kind
   );
@@ -1074,7 +1172,7 @@ export async function getTrendingQuizzes(limitCount: number = 10): Promise<Quiz[
 export async function getQuizzesByAuthor(authorId: string, includeUnpublished: boolean = false): Promise<Quiz[]> {
   let q = supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('author_id', authorId);
 
   if (!includeUnpublished) {
@@ -1084,7 +1182,7 @@ export async function getQuizzesByAuthor(authorId: string, includeUnpublished: b
   const { data, error } = await q.order('created_at', { ascending: false });
 
   if (error || !data) return [];
-  const rows = data.map(mapRowToQuiz);
+  const rows = (data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz);
 
   if (!includeUnpublished) {
     return filterDiscoveryQuizzes(rows);
@@ -1110,7 +1208,7 @@ export async function getQuizzesByAuthorPage(
 
   let q = supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('author_id', authorId);
 
   if (!includeUnpublished) {
@@ -1128,7 +1226,7 @@ export async function getQuizzesByAuthorPage(
 
   if (error || !data) return { items: [], nextCursor: null };
 
-  const rows = data.map(mapRowToQuiz);
+  const rows = (data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz);
   const filteredRows = includeUnpublished ? rows : filterDiscoveryQuizzes(rows);
 
   return paginateQuizRows(filteredRows, pageSize, 'author');
@@ -1168,17 +1266,8 @@ export async function getQuizzesByTag(
   const canonicalTagId = await resolveCanonicalTagIds([normalized]).then((ids) => ids[0] ?? normalized);
 
   const canonicalRows = await queryPublishedByCanonicalTag(canonicalTagId, sort, limitCount);
-  const merged = new Map(canonicalRows.map((q) => [q.id, q]));
 
-  const legacyRows = await queryPublishedByLegacyTag(normalized, limitCount);
-  legacyRows.forEach((q) => merged.set(q.id, q));
-
-  if (normalized !== canonicalTagId) {
-    const legacyCanonical = await queryPublishedByLegacyTag(canonicalTagId, limitCount);
-    legacyCanonical.forEach((q) => merged.set(q.id, q));
-  }
-
-  return sortQuizzesForList(dedupeQuizzesById([...merged.values()]), sort).slice(0, limitCount);
+  return sortQuizzesForList(dedupeQuizzesById(canonicalRows), sort).slice(0, limitCount);
 }
 
 /**
@@ -1197,17 +1286,26 @@ export async function materializeSearchQuizzes(
   if (hasQuery) {
     const normalizedQuery = normalizeTag(queryText);
 
-    // タグ検索、作成者検索、ジャンル検索、最新新着
-    const { data: tagData } = await supabase
-      .from('quizzes')
-      .select('*')
-      .eq('status', 'published')
-      .contains('tags', [normalizedQuery])
-      .limit(SEARCH_POOL_SIZE);
+    // タグ検索 (quiz_tags JOIN)、作成者検索、ジャンル検索、最新新着
+    const { data: tagLinks } = await supabase
+      .from('quiz_tags')
+      .select('quiz_id')
+      .eq('tag_id', normalizedQuery);
+
+    const tagQuizIds = (tagLinks ?? []).map((row) => row.quiz_id);
+    const { data: tagData } =
+      tagQuizIds.length > 0
+        ? await supabase
+            .from('quizzes')
+            .select(QUIZ_SELECT_WITH_RELATIONS)
+            .eq('status', 'published')
+            .in('id', tagQuizIds)
+            .limit(SEARCH_POOL_SIZE)
+        : { data: [] as QuizRowWithRelations[] };
 
     const { data: authorData } = await supabase
       .from('quizzes')
-      .select('*')
+      .select(QUIZ_SELECT_WITH_RELATIONS)
       .eq('status', 'published')
       .eq('author_name', queryText)
       .limit(SEARCH_POOL_SIZE);
@@ -1215,8 +1313,8 @@ export async function materializeSearchQuizzes(
     const genreQuizzes = await getQuizzesByGenre(queryText, SEARCH_POOL_SIZE).catch(() => []);
     const latestQuizzes = await getLatestQuizzes(SEARCH_POOL_SIZE);
 
-    const tagQuizzes = tagData ? tagData.map(mapRowToQuiz) : [];
-    const authorQuizzes = authorData ? authorData.map(mapRowToQuiz) : [];
+    const tagQuizzes = tagData ? (tagData as unknown as QuizRowWithRelations[]).map(mapRowToQuiz) : [];
+    const authorQuizzes = authorData ? (authorData as unknown as QuizRowWithRelations[]).map(mapRowToQuiz) : [];
 
     const rawMerged = [...tagQuizzes, ...authorQuizzes, ...genreQuizzes, ...latestQuizzes];
     base = dedupeQuizzesById(rawMerged);
@@ -1357,7 +1455,7 @@ export async function getFollowedTimelinePage(
 
   let q = supabase
     .from('quizzes')
-    .select('*')
+    .select(QUIZ_SELECT_WITH_RELATIONS)
     .eq('status', 'published')
     .in('author_id', targetIds);
 
@@ -1373,7 +1471,7 @@ export async function getFollowedTimelinePage(
   if (error || !data) return { items: [], nextCursor: null };
 
   return paginateQuizRows(
-    filterFollowTimelineQuizzes(data.map(mapRowToQuiz)),
+    filterFollowTimelineQuizzes((data as unknown as QuizRowWithRelations[]).map(mapRowToQuiz)),
     pageSize,
     kind
   );

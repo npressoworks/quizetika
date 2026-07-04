@@ -297,3 +297,78 @@ export async function applyQuizMetadataFields(
   const canonicalTagIds = await resolveCanonicalTagIds(tags);
   return { canonicalGenreId, canonicalTagIds };
 }
+
+/**
+ * クイズが保持するタグ一覧を `quiz_tags` 中間テーブルへ同期する（追加分を upsert、除去分を delete）
+ * @param originalLabels canonicalTagIds と同じ順序・長さの入力生タグ文字列
+ */
+export async function syncQuizTags(
+  quizId: string,
+  canonicalTagIds: string[],
+  originalLabels: string[]
+): Promise<void> {
+  const { data: existing } = await supabase
+    .from('quiz_tags')
+    .select('tag_id')
+    .eq('quiz_id', quizId);
+
+  const nextIds = [...new Set(canonicalTagIds.filter(Boolean))];
+  const nextIdSet = new Set(nextIds);
+  const existingIds = (existing ?? []).map((row) => row.tag_id);
+  const toDelete = existingIds.filter((id) => !nextIdSet.has(id));
+
+  if (toDelete.length > 0) {
+    await supabase.from('quiz_tags').delete().eq('quiz_id', quizId).in('tag_id', toDelete);
+  }
+
+  if (nextIds.length > 0) {
+    const rows = nextIds.map((tagId, index) => ({
+      quiz_id: quizId,
+      tag_id: tagId,
+      original_label: originalLabels[index] ?? tagId,
+    }));
+    await supabase.from('quiz_tags').upsert(rows, { onConflict: 'quiz_id,tag_id' });
+  }
+}
+
+export interface QuizTagsResult {
+  tags: string[];
+  originalTags: string[];
+}
+
+/** 単一クイズのタグ一覧（quiz_tags JOIN）を取得する */
+export async function getQuizTags(quizId: string): Promise<QuizTagsResult> {
+  const { data, error } = await supabase
+    .from('quiz_tags')
+    .select('tag_id, original_label')
+    .eq('quiz_id', quizId);
+
+  if (error || !data) return { tags: [], originalTags: [] };
+  return {
+    tags: data.map((row) => row.tag_id),
+    originalTags: data.map((row) => row.original_label),
+  };
+}
+
+/** 複数クイズのタグ一覧を一括取得し、quizId をキーとした Map で返す（N+1 回避） */
+export async function getQuizTagsBulk(
+  quizIds: string[]
+): Promise<Map<string, QuizTagsResult>> {
+  const map = new Map<string, QuizTagsResult>();
+  if (quizIds.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from('quiz_tags')
+    .select('quiz_id, tag_id, original_label')
+    .in('quiz_id', [...new Set(quizIds)]);
+
+  if (error || !data) return map;
+
+  for (const row of data) {
+    const entry = map.get(row.quiz_id) ?? { tags: [], originalTags: [] };
+    entry.tags.push(row.tag_id);
+    entry.originalTags.push(row.original_label);
+    map.set(row.quiz_id, entry);
+  }
+  return map;
+}

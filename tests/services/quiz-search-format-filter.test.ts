@@ -104,7 +104,38 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
   };
 }
 
+function makeQuestionRow(q: Question) {
+  return {
+    id: q.id,
+    owner_quiz_id: null,
+    link_kind: q.linkKind ?? null,
+    author_id: q.authorId ?? null,
+    author_name: q.authorName ?? null,
+    author_avatar: q.authorAvatar ?? null,
+    type: q.type,
+    question_text: q.questionText,
+    explanation: q.explanation,
+    image_url: q.imageUrl,
+    hint: q.hint,
+    limit_time: q.limitTime,
+    correct_text_answer_list: q.correctTextAnswerList ?? null,
+    text_input_mode: q.textInputMode ?? null,
+    text_input_char_count: q.textInputCharCount ?? null,
+    choices: q.choices ?? null,
+    sorting_items: q.sortingItems ?? null,
+    association_hints: q.associationHints ?? null,
+    ai_context_details: q.aiContextDetails ?? null,
+    truth_keywords: q.truthKeywords ?? null,
+    source_url: q.sourceUrl ?? null,
+    correct_count: q.correctCount,
+    incorrect_count: q.incorrectCount,
+    bookmarks_count: q.bookmarksCount ?? null,
+  };
+}
+
+/** `quiz_tags` / `quiz_questions` の埋め込みを含む Row を生成する（QUIZ_SELECT_WITH_RELATIONS 相当） */
 function makeQuizRow(quiz: Quiz) {
+  const tagIds = quiz.canonicalTagIds?.length ? quiz.canonicalTagIds : quiz.tags ?? [];
   return {
     id: quiz.id,
     author_id: quiz.authorId,
@@ -115,10 +146,6 @@ function makeQuizRow(quiz: Quiz) {
     thumbnail_url: quiz.thumbnailUrl,
     difficulty: quiz.difficulty,
     genre: quiz.genre,
-    tags: quiz.tags,
-    original_tags: quiz.originalTags,
-    question_ids: quiz.questionIds,
-    questions: quiz.questions as any,
     question_count: quiz.questionCount,
     status: quiz.status,
     visibility: quiz.visibility ?? 'public',
@@ -132,9 +159,10 @@ function makeQuizRow(quiz: Quiz) {
     review_score: quiz.reviewScore,
     format: quiz.format ?? null,
     canonical_genre_id: quiz.canonicalGenreId ?? null,
-    canonical_tag_ids: quiz.canonicalTagIds ?? null,
     created_at: quiz.createdAt.toISOString(),
     updated_at: quiz.updatedAt.toISOString(),
+    quiz_tags: tagIds.map((tagId, i) => ({ tag_id: tagId, original_label: quiz.originalTags?.[i] ?? tagId })),
+    quiz_questions: (quiz.questions ?? []).map((q, i) => ({ display_order: i, question: makeQuestionRow(q) })),
   };
 }
 
@@ -175,7 +203,18 @@ function mockLatestQuizzes(quizzes: Quiz[]) {
 
       return chain;
     }
-    return mockSupabase as any;
+    if (table === 'quiz_tags') {
+      const chain = createChainMock({ data: [], error: null });
+      chain.eq.mockImplementation((field: string, val: string) => {
+        if (field !== 'tag_id') return chain;
+        const matched = quizzes.filter(
+          (quiz) => quiz.canonicalTagIds?.includes(val) || quiz.tags?.includes(val)
+        );
+        return createChainMock({ data: matched.map((q) => ({ quiz_id: q.id })), error: null });
+      });
+      return chain;
+    }
+    return createChainMock({ data: [], error: null });
   });
 }
 
@@ -280,7 +319,7 @@ describe('searchQuizzes (出題形式フィルタ)', () => {
 
         return chain;
       }
-      return mockSupabase as any;
+      return createChainMock({ data: [], error: null });
     });
 
     const results = await searchQuizzes('javascript', {

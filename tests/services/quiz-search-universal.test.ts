@@ -97,7 +97,9 @@ function makeQuiz(overrides: Partial<Quiz> = {}): Quiz {
   };
 }
 
+/** `quiz_tags` / `quiz_questions` の埋め込みを含む Row を生成する（QUIZ_SELECT_WITH_RELATIONS 相当） */
 function makeQuizRow(quiz: Quiz) {
+  const tagIds = quiz.tags ?? [];
   return {
     id: quiz.id,
     author_id: quiz.authorId,
@@ -108,10 +110,6 @@ function makeQuizRow(quiz: Quiz) {
     thumbnail_url: quiz.thumbnailUrl,
     difficulty: quiz.difficulty,
     genre: quiz.genre,
-    tags: quiz.tags,
-    original_tags: quiz.originalTags,
-    question_ids: quiz.questionIds,
-    questions: quiz.questions as any,
     question_count: quiz.questionCount,
     status: quiz.status,
     visibility: quiz.visibility ?? 'public',
@@ -125,6 +123,8 @@ function makeQuizRow(quiz: Quiz) {
     review_score: quiz.reviewScore,
     created_at: quiz.createdAt.toISOString(),
     updated_at: quiz.updatedAt.toISOString(),
+    quiz_tags: tagIds.map((tagId, i) => ({ tag_id: tagId, original_label: quiz.originalTags?.[i] ?? tagId })),
+    quiz_questions: [],
   };
 }
 
@@ -145,16 +145,30 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
     let queryCallCount = 0;
 
     mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'quiz_tags') {
+        // quiz_tags 経由のタグ検索（tag_id = 'js'）
+        const chain = createChainMock({ data: [], error: null });
+        chain.eq.mockImplementation((field: string, val: string) => {
+          if (field === 'tag_id' && val === 'js') {
+            queryCallCount++;
+            const matched = mockQuizzes.filter((q) => q.tags.includes('js'));
+            return createChainMock({ data: matched.map((q) => ({ quiz_id: q.id })), error: null });
+          }
+          return createChainMock({ data: [], error: null });
+        });
+        return chain;
+      }
+
       if (table === 'quizzes') {
         const chain = createChainMock({ data: [], error: null });
-        
-        // contains() が呼ばれたら tags 検索用の結果
-        chain.contains.mockImplementation(() => {
-          queryCallCount++;
-          return createChainMock({
-            data: mockQuizzes.filter(q => q.tags.includes('js')).map(makeQuizRow),
-            error: null,
-          });
+
+        // in('id', tagQuizIds) が呼ばれたら quiz_tags 検索結果に対応するクイズ本体
+        chain.in.mockImplementation((field: string, ids: string[]) => {
+          if (field === 'id') {
+            const matched = mockQuizzes.filter((q) => ids.includes(q.id));
+            return createChainMock({ data: matched.map(makeQuizRow), error: null });
+          }
+          return chain;
         });
 
         // eq('author_name', 'js') が呼ばれたら作者検索用の結果
@@ -180,7 +194,7 @@ describe('searchQuizzes (統合検索 - ユニバーサル検索)', () => {
 
         return chain;
       }
-      return mockSupabase as any;
+      return createChainMock({ data: [], error: null });
     });
 
     const results = await searchQuizzes('js');
