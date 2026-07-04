@@ -70,14 +70,14 @@
   - _Boundary: AI Dialogue Routes_
   - _Depends: 1.2_
 
-- [ ] 3. 統合と検証
-- [ ] 3.1 サービス層移行の全体結合と型チェックのパス
+- [x] 3. 統合と検証
+- [x] 3.1 サービス層移行の全体結合と型チェックのパス
   - すべてのゲームプレイサービス・APIルートが正規化テーブルへ切り替わった状態で `npm run build` を実行する
   - TypeScript コンパイラが一切の型エラーを報告せず、Next.js プロジェクトのビルドが100%成功することを確認する
   - _Requirements: 1.1, 2.1, 3.1, 4.1_
   - _Depends: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [ ] 3.2 テストスイート全体の確認とマイグレーション整合性検証
+- [x] 3.2 テストスイート全体の確認とマイグレーション整合性検証
   - Jest テストスイート全体を実行し、全テストがパスすることを確認する
   - ローカル Supabase 環境で、`attempts.completed_at` のNULL許容化と `quiz_reviews` の複合主キー化が既存の RLS ポリシー・インデックスと矛盾なく機能することを確認する
   - `handle_save_attempt` と `handle_complete_lateral_attempt` の双方から呼び出された `record_leaderboard_entry` が、`leaderboard_entries` の `UNIQUE(quiz_id, user_id, type)` 制約下で自己ベストのみを保持することを確認する
