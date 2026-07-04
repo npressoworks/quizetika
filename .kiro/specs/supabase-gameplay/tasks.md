@@ -1,6 +1,6 @@
 # Implementation Tasks - supabase-gameplay
 
-- [ ] 1. 基礎: ゲームプレイ系スキーマとRPCのマイグレーション
+- [x] 1. 基礎: ゲームプレイ系スキーマとRPCのマイグレーション
 - [x] 1.1 既存テーブルのALTERと新規テーブル作成、RLSポリシー定義
   - `attempts.completed_at` を NULL 許容へ ALTER し、`gave_up_lateral BOOLEAN` 列を新設する
   - `quiz_reviews` を `id TEXT` 主キー + `rating`/`comment` 列から、複合主キー `(reviewer_id, quiz_id)` + `type`/`reason`/`updated_at` 列へ ALTER する
@@ -27,7 +27,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 3.1, 3.2_
   - _Depends: 1.1_
 
-- [ ] 2. コア: ゲームプレイサービス層の正規化対応
+- [x] 2. コア: ゲームプレイサービス層の正規化対応
 - [x] 2.1 (P) 解答履歴・リーダーボードサービスの正規化対応
   - `attempt.ts` の `saveAttempt`／`createLateralAttemptSession`／`listUserPlayHistory`／`listUserPlayedQuizIds` を Supabase RPC/クエリ呼び出しに書き換える（`getLeaderboard` を新設し `leaderboard_entries` から上位5件を取得する）
   - `attempt-server.ts` の `getAttemptByIdForUser` を Firebase Admin から Supabase サーバークライアントに書き換える
