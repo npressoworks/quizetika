@@ -50,27 +50,6 @@ const mockDb = {
   runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
 };
 
-const mockExists = jest.fn();
-const mockCopy = jest.fn();
-const mockMakePublic = jest.fn();
-const mockDelete = jest.fn();
-
-const mockFile = {
-  exists: () => mockExists(),
-  copy: (dest: any) => mockCopy(dest),
-  makePublic: () => mockMakePublic(),
-  delete: () => mockDelete(),
-};
-
-const mockBucket = {
-  name: 'quizetika-test-bucket',
-  file: jest.fn(() => mockFile),
-};
-
-const mockStorage = {
-  bucket: jest.fn(() => mockBucket),
-};
-
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'valid-token',
   verifySupabaseAccessToken: (token: any) => mockVerify(token),
@@ -86,7 +65,6 @@ jest.mock('@google/genai', () => ({
 
 jest.mock('@/lib/firebase/admin', () => ({
   getAdminFirestore: () => mockDb,
-  getAdminStorage: () => mockStorage,
 }));
 
 const mockUploadTemporaryGenreIconBuffer = jest.fn();
@@ -105,8 +83,6 @@ jest.mock('@/services/ai-authoring-utils', () => {
 // モック定義の後にインポートする
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { POST: generateIconPOST } = require('@/app/api/genres/generate-icon/route');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { POST: migrateIconPOST } = require('@/app/api/genres/migrate-icon/route');
 
 describe('AI Genre Icon API Suite', () => {
   beforeEach(() => {
@@ -189,75 +165,6 @@ describe('AI Genre Icon API Suite', () => {
         })
       );
       expect(res.status).toBe(429);
-    });
-  });
-
-  describe('POST /api/genres/migrate-icon', () => {
-    function makeRequest(body: Record<string, any>) {
-      return new NextRequest('http://localhost/api/genres/migrate-icon', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-    }
-
-    test('正常系: コピー元が存在する場合にコピーが走り、正式なパスのURLを返すこと', async () => {
-      mockExists.mockResolvedValue([true]);
-      mockCopy.mockResolvedValue(undefined);
-      mockMakePublic.mockResolvedValue(undefined);
-      mockDelete.mockResolvedValue(undefined);
-
-      const tempFileName = 'uid-user_12345.png';
-      const tempUrl = `https://storage.googleapis.com/quizetika-test-bucket/genres/temp/${tempFileName}`;
-
-      const res = await migrateIconPOST(
-        makeRequest({
-          tempUrl,
-          genreId: 'japanese-history',
-          userId: 'uid-user',
-        })
-      );
-
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.success).toBe(true);
-      expect(body.iconImageUrl).toContain('https://storage.googleapis.com/quizetika-test-bucket/genres/japanese-history/icon_');
-
-      expect(mockBucket.file).toHaveBeenCalledWith(`genres/temp/${tempFileName}`);
-      expect(mockExists).toHaveBeenCalledTimes(1);
-      expect(mockCopy).toHaveBeenCalledTimes(1);
-      expect(mockMakePublic).toHaveBeenCalledTimes(1);
-      expect(mockDelete).toHaveBeenCalledTimes(1);
-    });
-
-    test('異常系: コピー元ファイルが見つからない場合は404', async () => {
-      mockExists.mockResolvedValue([false]);
-
-      const tempFileName = 'non-existent-file.png';
-      const tempUrl = `https://storage.googleapis.com/quizetika-test-bucket/genres/temp/${tempFileName}`;
-
-      const res = await migrateIconPOST(
-        makeRequest({
-          tempUrl,
-          genreId: 'japanese-history',
-          userId: 'uid-user',
-        })
-      );
-
-      expect(res.status).toBe(404);
-      const body = await res.json();
-      expect(body.error).toBe('not-found');
-    });
-
-    test('異常系: 一時保存パスではないURLの場合は400', async () => {
-      const res = await migrateIconPOST(
-        makeRequest({
-          tempUrl: 'https://storage.googleapis.com/quizetika-test-bucket/genres/other-dir/test.png',
-          genreId: 'japanese-history',
-          userId: 'uid-user',
-        })
-      );
-
-      expect(res.status).toBe(400);
     });
   });
 });
