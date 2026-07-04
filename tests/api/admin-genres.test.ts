@@ -1,60 +1,59 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
-
 import { NextRequest } from 'next/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
-import { getDoc } from 'firebase/firestore';
-import { getAdminFirestore } from '@/lib/firebase/admin';
-
-jest.mock('@/lib/firebase/config', () => require('../__mocks__/firebase-config'));
-jest.mock('@/lib/firebase/firestore', () => ({
-  usersRef: { path: 'users' },
-}));
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: jest.fn(),
   verifySupabaseAccessToken: jest.fn(),
 }));
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((ref, id) => ({ ref, id })),
-    getDoc: jest.fn(),
-  };
-});
+const mockMoveTemporaryGenreIcon = jest.fn();
+jest.mock('@/services/storage-admin', () => ({
+  moveTemporaryGenreIcon: (...args: unknown[]) => mockMoveTemporaryGenreIcon(...args),
+}));
 
-const mockBucket = {
-  name: 'quizetika-test-bucket',
-  file: jest.fn((path: string) => ({
-    copy: jest.fn().mockResolvedValue(undefined),
-    makePublic: jest.fn().mockResolvedValue(undefined),
-    delete: jest.fn().mockResolvedValue(undefined),
-    exists: jest.fn().mockResolvedValue([true]),
-  })),
-};
+let usersRow: { moderation_tier?: string; role?: string } | null = null;
+let genresTable: Record<string, any> = {};
+let insertError: { message: string } | null = null;
 
-// firebase-admin/firestore および storage のモック
-jest.mock('@/lib/firebase/admin', () => {
-  const mockFirestore = {
-    collection: jest.fn(),
-  };
-  const mockStorage = {
-    bucket: jest.fn(() => mockBucket),
-  };
-  return {
-    getAdminFirestore: () => mockFirestore,
-    getAdminStorage: () => mockStorage,
-  };
-});
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => ({
+    from: (table: string) => {
+      if (table === 'users') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: usersRow, error: null }),
+            }),
+          }),
+        };
+      }
+      // metadata_genres
+      return {
+        select: (cols: string) => {
+          if (cols === '*') {
+            return Promise.resolve({ data: Object.values(genresTable), error: null });
+          }
+          return {
+            eq: (_col: string, id: string) => ({
+              maybeSingle: async () => ({ data: genresTable[id] ?? null, error: null }),
+            }),
+          };
+        },
+        insert: async (payload: any) => {
+          if (insertError) return { error: insertError };
+          genresTable[payload.id] = payload;
+          return { error: null };
+        },
+      };
+    },
+  }),
+}));
 
 const mockExtractBearerToken = extractBearerToken as jest.MockedFunction<typeof extractBearerToken>;
 const mockVerifyFirebaseIdToken = verifySupabaseAccessToken as jest.MockedFunction<
   typeof verifySupabaseAccessToken
 >;
-const mockGetDoc = getDoc as jest.MockedFunction<typeof getDoc>;
 
-// route は実装後にインポートされるが、TDDのためrequireで遅延ロード
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { GET, POST } = require('@/app/api/admin/genres/route') as typeof import('@/app/api/admin/genres/route');
 
@@ -67,23 +66,12 @@ function buildRequest(method: 'GET' | 'POST', body?: any): NextRequest {
 }
 
 describe('Admin Genres API', () => {
-  let mockFirestore: any;
-  let mockGenresCollection: any;
-
   beforeEach(() => {
     jest.clearAllMocks();
     mockExtractBearerToken.mockReturnValue('test-token');
-    mockFirestore = getAdminFirestore();
-
-    mockGenresCollection = {
-      get: jest.fn(),
-      doc: jest.fn(),
-    };
-
-    mockFirestore.collection.mockImplementation((name: string) => {
-      if (name === 'metadata_genres') return mockGenresCollection;
-      return {};
-    });
+    usersRow = null;
+    genresTable = {};
+    insertError = null;
   });
 
   describe('GET /api/admin/genres', () => {
@@ -99,10 +87,7 @@ describe('Admin Genres API', () => {
 
     test('管理者以外は 403 を返すこと', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('user-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'senior_moderator' }),
-      } as never);
+      usersRow = { moderation_tier: 'senior_moderator' };
 
       const res = await GET(buildRequest('GET'));
       const body = await res.json();
@@ -113,28 +98,20 @@ describe('Admin Genres API', () => {
 
     test('管理者は 200 と全ジャンルデータを返すこと', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'admin', role: 'admin' }),
-      } as never);
-
-      const mockGenres = [
-        { id: 'genre-1', displayName: 'Genre 1', isActive: true },
-        { id: 'genre-2', displayName: 'Genre 2', isActive: false },
-      ];
-
-      mockGenresCollection.get.mockResolvedValue({
-        docs: mockGenres.map(data => ({
-          id: data.id,
-          data: () => data,
-        })),
-      });
+      usersRow = { moderation_tier: 'admin', role: 'admin' };
+      genresTable = {
+        'genre-1': { id: 'genre-1', display_name: 'Genre 1', is_active: true },
+        'genre-2': { id: 'genre-2', display_name: 'Genre 2', is_active: false },
+      };
 
       const res = await GET(buildRequest('GET'));
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(body).toEqual(mockGenres);
+      expect(body).toEqual([
+        expect.objectContaining({ id: 'genre-1', displayName: 'Genre 1', isActive: true }),
+        expect.objectContaining({ id: 'genre-2', displayName: 'Genre 2', isActive: false }),
+      ]);
     });
   });
 
@@ -158,10 +135,7 @@ describe('Admin Genres API', () => {
 
     test('管理者以外は 403 を返すこと', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('user-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'moderator' }),
-      } as never);
+      usersRow = { moderation_tier: 'moderator' };
 
       const res = await POST(buildRequest('POST', validPayload));
       const body = await res.json();
@@ -172,12 +146,8 @@ describe('Admin Genres API', () => {
 
     test('リクエストボディが不正な場合は 400 を返すこと', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'admin' }),
-      } as never);
+      usersRow = { moderation_tier: 'admin' };
 
-      // ID が不正（空文字）
       const invalidPayload = { ...validPayload, id: '' };
       const res = await POST(buildRequest('POST', invalidPayload));
       const body = await res.json();
@@ -188,12 +158,8 @@ describe('Admin Genres API', () => {
 
     test('IDの形式が不正な場合は 400 を返すこと', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'admin' }),
-      } as never);
+      usersRow = { moderation_tier: 'admin' };
 
-      // ID が不正（大文字や記号）
       const invalidPayload = { ...validPayload, id: 'New_Genre!' };
       const res = await POST(buildRequest('POST', invalidPayload));
       const body = await res.json();
@@ -204,15 +170,8 @@ describe('Admin Genres API', () => {
 
     test('すでにIDが存在する場合は 409 を返すこと', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'admin' }),
-      } as never);
-
-      const mockDoc = {
-        get: jest.fn().mockResolvedValue({ exists: true }),
-      };
-      mockGenresCollection.doc.mockReturnValue(mockDoc);
+      usersRow = { moderation_tier: 'admin' };
+      genresTable[validPayload.id] = { id: validPayload.id };
 
       const res = await POST(buildRequest('POST', validPayload));
       const body = await res.json();
@@ -221,54 +180,39 @@ describe('Admin Genres API', () => {
       expect(body.error).toBe('duplicate-id');
     });
 
-    test('有効なデータで管理者が POST した場合、200 を返し Firestore に登録されること', async () => {
+    test('有効なデータで管理者が POST した場合、200 を返し metadata_genres に登録されること', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'admin' }),
-      } as never);
-
-      const mockDoc = {
-        get: jest.fn().mockResolvedValue({ exists: false }),
-        set: jest.fn().mockResolvedValue(undefined),
-      };
-      mockGenresCollection.doc.mockReturnValue(mockDoc);
+      usersRow = { moderation_tier: 'admin' };
 
       const res = await POST(buildRequest('POST', validPayload));
       const body = await res.json();
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(mockDoc.set).toHaveBeenCalledTimes(1);
+      expect(genresTable[validPayload.id]).toBeDefined();
 
-      const setArg = mockDoc.set.mock.calls[0][0];
-      expect(setArg.id).toBe(validPayload.id);
-      expect(setArg.displayName).toBe(validPayload.displayName);
-      expect(setArg.description).toBe(validPayload.description);
-      expect(setArg.iconImageUrl).toBe(validPayload.iconImageUrl);
-      expect(setArg.canonicalId).toBeNull();
-      expect(setArg.mergedGenreIds).toEqual([]);
-      expect(setArg.isActive).toBe(true);
-      expect(setArg.createdAt).toBeDefined();
-      expect(setArg.updatedAt).toBeDefined();
+      const stored = genresTable[validPayload.id];
+      expect(stored.id).toBe(validPayload.id);
+      expect(stored.display_name).toBe(validPayload.displayName);
+      expect(stored.description).toBe(validPayload.description);
+      expect(stored.icon_image_url).toBe(validPayload.iconImageUrl);
+      expect(stored.canonical_id).toBeNull();
+      expect(stored.merged_genre_ids).toEqual([]);
+      expect(stored.is_active).toBe(true);
+      expect(stored.created_at).toBeDefined();
+      expect(stored.updated_at).toBeDefined();
     });
 
     test('一時アイコン画像（AI生成/アップロード）のパスを正式なパスに移行して保存すること', async () => {
       mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
-      mockGetDoc.mockResolvedValue({
-        exists: () => true,
-        data: () => ({ moderationTier: 'admin' }),
-      } as never);
-
-      const mockDoc = {
-        get: jest.fn().mockResolvedValue({ exists: false }),
-        set: jest.fn().mockResolvedValue(undefined),
-      };
-      mockGenresCollection.doc.mockReturnValue(mockDoc);
+      usersRow = { moderation_tier: 'admin' };
+      mockMoveTemporaryGenreIcon.mockResolvedValue(
+        'https://project.supabase.co/storage/v1/object/public/genres/new-genre/icon_12345.png'
+      );
 
       const tempPayload = {
         ...validPayload,
-        iconImageUrl: 'https://storage.googleapis.com/quizetika-test-bucket/genres/temp/temp_icon_admin_12345.png',
+        iconImageUrl: 'https://project.supabase.co/storage/v1/object/public/genres/temp/temp_icon_admin.png',
       };
 
       const res = await POST(buildRequest('POST', tempPayload));
@@ -276,14 +220,10 @@ describe('Admin Genres API', () => {
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(mockDoc.set).toHaveBeenCalledTimes(1);
-
-      const setArg = mockDoc.set.mock.calls[0][0];
-      expect(setArg.iconImageUrl).toContain('https://storage.googleapis.com/quizetika-test-bucket/genres/new-genre/icon_');
-
-      // Storage操作のアサーション
-      expect(mockBucket.file).toHaveBeenCalledWith('genres/temp/temp_icon_admin_12345.png');
-      expect(mockBucket.file).toHaveBeenCalledWith(expect.stringMatching(/^genres\/new-genre\/icon_\d+\.png$/));
+      expect(mockMoveTemporaryGenreIcon).toHaveBeenCalledWith(tempPayload.iconImageUrl, 'new-genre');
+      expect(genresTable[validPayload.id].icon_image_url).toContain(
+        'https://project.supabase.co/storage/v1/object/public/genres/new-genre/icon_'
+      );
     });
   });
 });

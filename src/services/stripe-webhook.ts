@@ -1,6 +1,5 @@
-import { FieldValue } from 'firebase-admin/firestore';
 import type Stripe from 'stripe';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import { getStripeClient } from '@/lib/stripe/server';
 import { priceIdToTier } from '@/lib/subscription-plans';
 import {
@@ -66,21 +65,27 @@ export function buildSnapshotFromSubscription(
 }
 
 export async function isStripeEventProcessed(eventId: string): Promise<boolean> {
-  const db = getAdminFirestore();
-  const snap = await db.collection('stripe_processed_events').doc(eventId).get();
-  return snap.exists;
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from('stripe_processed_events')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  return !!data;
 }
 
 export async function markStripeEventProcessed(
   eventId: string,
   type: string
 ): Promise<void> {
-  const db = getAdminFirestore();
-  await db.collection('stripe_processed_events').doc(eventId).set({
-    eventId,
-    type,
-    processedAt: FieldValue.serverTimestamp(),
-  });
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('stripe_processed_events')
+    .insert({ event_id: eventId, type });
+
+  if (error) {
+    throw new Error(`Webhookイベント冪等性記録の保存に失敗しました: ${error.message}`);
+  }
 }
 
 async function resolveUidFromCustomer(customerId: string): Promise<string | null> {

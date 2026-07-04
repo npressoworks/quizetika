@@ -1,5 +1,4 @@
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import { getAppBaseUrl, getStripeClient } from '@/lib/stripe/server';
 import { getPriceIdForInterval } from '@/lib/subscription-plans';
 import { resolveUserEntitlements } from '@/services/entitlement';
@@ -44,17 +43,19 @@ export interface CreatePortalSessionInput {
  * Firebase UID とメールから Stripe Customer を取得または新規作成する
  */
 export async function getOrCreateStripeCustomer(uid: string, email: string): Promise<string> {
-  const db = getAdminFirestore();
-  const userRef = db.collection('users').doc(uid);
-  const userSnap = await userRef.get();
+  const supabase = createAdminClient();
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('stripe_customer_id')
+    .eq('id', uid)
+    .maybeSingle();
 
-  if (!userSnap.exists) {
+  if (!userRow) {
     throw new UserNotFoundError();
   }
 
-  const userData = userSnap.data() as { stripeCustomerId?: string };
-  if (userData.stripeCustomerId) {
-    return userData.stripeCustomerId;
+  if (userRow.stripe_customer_id) {
+    return userRow.stripe_customer_id;
   }
 
   const stripe = getStripeClient();
@@ -63,13 +64,14 @@ export async function getOrCreateStripeCustomer(uid: string, email: string): Pro
     metadata: { firebaseUid: uid },
   });
 
-  await userRef.set(
-    {
-      stripeCustomerId: customer.id,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const { error } = await supabase
+    .from('users')
+    .update({ stripe_customer_id: customer.id, updated_at: new Date().toISOString() })
+    .eq('id', uid);
+
+  if (error) {
+    throw new Error(`Stripe Customer IDの保存に失敗しました: ${error.message}`);
+  }
 
   return customer.id;
 }
@@ -117,13 +119,18 @@ export async function createPortalSession(
     throw new NoActiveSubscriptionError();
   }
 
-  const db = getAdminFirestore();
-  const userSnap = await db.collection('users').doc(input.uid).get();
-  if (!userSnap.exists) {
+  const supabase = createAdminClient();
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('stripe_customer_id')
+    .eq('id', input.uid)
+    .maybeSingle();
+
+  if (!userRow) {
     throw new UserNotFoundError();
   }
 
-  const stripeCustomerId = userSnap.data()?.stripeCustomerId as string | undefined;
+  const stripeCustomerId = userRow.stripe_customer_id;
   if (!stripeCustomerId) {
     throw new NoActiveSubscriptionError();
   }

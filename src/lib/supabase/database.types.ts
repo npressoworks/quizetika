@@ -530,35 +530,95 @@ export type Database = {
           },
         ]
       }
+      genre_request_votes: {
+        Row: {
+          opinion: string
+          request_id: string
+          voted_at: string
+          voter_id: string
+          weight: number
+        }
+        Insert: {
+          opinion: string
+          request_id: string
+          voted_at?: string
+          voter_id: string
+          weight: number
+        }
+        Update: {
+          opinion?: string
+          request_id?: string
+          voted_at?: string
+          voter_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "genre_request_votes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "genre_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "genre_request_votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       genre_requests: {
         Row: {
           created_at: string
-          created_by: string | null
-          details: Json | null
+          description: string
+          display_name: string
+          genre_id: string
+          icon_image_url: string | null
           id: string
+          requester_id: string | null
           status: string
           updated_at: string
+          votes_against_count: number
+          votes_for_count: number
+          weighted_votes_against: number
+          weighted_votes_for: number
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
-          details?: Json | null
+          description?: string
+          display_name: string
+          genre_id: string
+          icon_image_url?: string | null
           id?: string
+          requester_id?: string | null
           status?: string
           updated_at?: string
+          votes_against_count?: number
+          votes_for_count?: number
+          weighted_votes_against?: number
+          weighted_votes_for?: number
         }
         Update: {
           created_at?: string
-          created_by?: string | null
-          details?: Json | null
+          description?: string
+          display_name?: string
+          genre_id?: string
+          icon_image_url?: string | null
           id?: string
+          requester_id?: string | null
           status?: string
           updated_at?: string
+          votes_against_count?: number
+          votes_for_count?: number
+          weighted_votes_against?: number
+          weighted_votes_for?: number
         }
         Relationships: [
           {
             foreignKeyName: "genre_requests_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -613,35 +673,95 @@ export type Database = {
           },
         ]
       }
+      merge_request_votes: {
+        Row: {
+          opinion: string
+          request_id: string
+          voted_at: string
+          voter_id: string
+          weight: number
+        }
+        Insert: {
+          opinion: string
+          request_id: string
+          voted_at?: string
+          voter_id: string
+          weight: number
+        }
+        Update: {
+          opinion?: string
+          request_id?: string
+          voted_at?: string
+          voter_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merge_request_votes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "merge_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merge_request_votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       merge_requests: {
         Row: {
           created_at: string
-          created_by: string | null
-          details: Json | null
           id: string
+          reason: string
+          requester_id: string | null
+          source_id: string
           status: string
+          target_id: string
+          target_type: string
           updated_at: string
+          votes_against_count: number
+          votes_for_count: number
+          weighted_votes_against: number
+          weighted_votes_for: number
         }
         Insert: {
           created_at?: string
-          created_by?: string | null
-          details?: Json | null
           id?: string
+          reason?: string
+          requester_id?: string | null
+          source_id: string
           status?: string
+          target_id: string
+          target_type: string
           updated_at?: string
+          votes_against_count?: number
+          votes_for_count?: number
+          weighted_votes_against?: number
+          weighted_votes_for?: number
         }
         Update: {
           created_at?: string
-          created_by?: string | null
-          details?: Json | null
           id?: string
+          reason?: string
+          requester_id?: string | null
+          source_id?: string
           status?: string
+          target_id?: string
+          target_type?: string
           updated_at?: string
+          votes_against_count?: number
+          votes_for_count?: number
+          weighted_votes_against?: number
+          weighted_votes_for?: number
         }
         Relationships: [
           {
             foreignKeyName: "merge_requests_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -658,6 +778,7 @@ export type Database = {
           id: string
           is_active: boolean
           merged_genre_ids: string[] | null
+          updated_at: string
         }
         Insert: {
           canonical_id?: string | null
@@ -668,6 +789,7 @@ export type Database = {
           id: string
           is_active?: boolean
           merged_genre_ids?: string[] | null
+          updated_at?: string
         }
         Update: {
           canonical_id?: string | null
@@ -678,6 +800,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           merged_genre_ids?: string[] | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1155,6 +1278,39 @@ export type Database = {
           },
         ]
       }
+      reputation_limits: {
+        Row: {
+          author_id: string
+          sender_id: string
+          total_delta: number
+        }
+        Insert: {
+          author_id: string
+          sender_id: string
+          total_delta?: number
+        }
+        Update: {
+          author_id?: string
+          sender_id?: string
+          total_delta?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reputation_limits_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reputation_limits_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       search_logs: {
         Row: {
           created_at: string
@@ -1183,6 +1339,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stripe_processed_events: {
+        Row: {
+          event_id: string
+          processed_at: string
+          type: string
+        }
+        Insert: {
+          event_id: string
+          processed_at?: string
+          type: string
+        }
+        Update: {
+          event_id?: string
+          processed_at?: string
+          type?: string
+        }
+        Relationships: []
       }
       user_badges: {
         Row: {
@@ -1357,6 +1531,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      handle_ban_user: {
+        Args: { p_reason: string; p_target_uid: string }
+        Returns: undefined
+      }
       handle_bookmark_toggle: {
         Args: { p_target_id: string; p_target_type: string; p_user_id: string }
         Returns: boolean
@@ -1375,6 +1553,19 @@ export type Database = {
           p_truth_attempt: Json
           p_user_id: string
         }
+        Returns: undefined
+      }
+      handle_create_merge_request: {
+        Args: {
+          p_reason: string
+          p_source_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: string
+      }
+      handle_flag_content: {
+        Args: { p_quiz_id: string; p_reason: string }
         Returns: undefined
       }
       handle_follow_user: {
@@ -1407,6 +1598,14 @@ export type Database = {
         Args: { p_question_ids: string[]; p_quiz_id: string }
         Returns: number
       }
+      handle_reset_user_reputation: {
+        Args: { p_reason: string; p_target_uid: string }
+        Returns: undefined
+      }
+      handle_resolve_flag: {
+        Args: { p_action: string; p_quiz_id: string }
+        Returns: undefined
+      }
       handle_retract_review: {
         Args: { p_quiz_id: string; p_reviewer_id: string }
         Returns: undefined
@@ -1438,6 +1637,15 @@ export type Database = {
         Args: { p_quiz_id: string; p_user_id: string; p_vote: number }
         Returns: undefined
       }
+      handle_submit_genre_request: {
+        Args: {
+          p_description: string
+          p_display_name: string
+          p_genre_id: string
+          p_icon_image_url: string
+        }
+        Returns: string
+      }
       handle_submit_review: {
         Args: {
           p_quiz_id: string
@@ -1451,10 +1659,21 @@ export type Database = {
         Args: { p_quiz_id: string; p_sender_id: string }
         Returns: boolean
       }
+      handle_unban_user: { Args: { p_target_uid: string }; Returns: undefined }
       handle_unfollow_user: {
         Args: { p_follower_id: string; p_following_id: string }
         Returns: boolean
       }
+      handle_vote_genre_request: {
+        Args: { p_opinion: string; p_request_id: string }
+        Returns: undefined
+      }
+      handle_vote_merge_request: {
+        Args: { p_opinion: string; p_request_id: string }
+        Returns: undefined
+      }
+      is_admin: { Args: never; Returns: boolean }
+      is_moderator_or_admin: { Args: never; Returns: boolean }
       is_not_banned: { Args: never; Returns: boolean }
       record_leaderboard_entry: {
         Args: {
@@ -1467,6 +1686,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      resolve_vote_weight: { Args: { p_user_id: string }; Returns: number }
     }
     Enums: {
       admin_log_action_enum: "reputation_reset" | "ban" | "unban"

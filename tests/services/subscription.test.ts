@@ -4,6 +4,7 @@ import {
   createPortalSession,
   getOrCreateStripeCustomer,
   NoActiveSubscriptionError,
+  UserNotFoundError,
 } from '@/services/subscription';
 
 const mockCheckoutCreate = jest.fn();
@@ -24,40 +25,47 @@ jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (...args: unknown[]) => mockResolveEntitlements(...args),
 }));
 
-jest.mock('@/lib/firebase/admin', () => {
-  const userDocs: Record<string, object> = {};
-  const mockSet = jest.fn(async (data: object) => {
-    const uid = mockDoc.mock.lastCall?.[0];
-    if (uid) userDocs[uid] = { ...userDocs[uid], ...data };
-  });
-  const mockGet = jest.fn(async () => {
-    const key = mockDoc.mock.lastCall?.[0];
-    return {
-      exists: true,
-      data: () => (key ? userDocs[key] : {}) ?? {},
+const userRows: Record<string, { stripe_customer_id: string | null }> = {};
+
+jest.mock('@/lib/supabase/server', () => {
+  const createChain = () => {
+    let pendingUid: string | null = null;
+    const chain: any = {
+      select: jest.fn(() => chain),
+      eq: jest.fn((_col: string, value: string) => {
+        pendingUid = value;
+        return chain;
+      }),
+      update: jest.fn((payload: Record<string, unknown>) => {
+        chain.__updatePayload = payload;
+        return chain;
+      }),
+      maybeSingle: jest.fn(() =>
+        Promise.resolve({ data: pendingUid ? userRows[pendingUid] ?? null : null, error: null })
+      ),
+      then: jest.fn((onFulfilled: any) => {
+        if (chain.__updatePayload && pendingUid) {
+          userRows[pendingUid] = { ...userRows[pendingUid], ...chain.__updatePayload } as any;
+        }
+        return Promise.resolve({ error: null }).then(onFulfilled);
+      }),
     };
-  });
-  const mockDoc = jest.fn((uid: string) => {
-    if (!userDocs[uid]) userDocs[uid] = { email: 'user@example.com' };
-    return { get: mockGet, set: mockSet };
-  });
-  const mockCollection = jest.fn(() => ({ doc: mockDoc }));
+    return chain;
+  };
+
   return {
-    getAdminFirestore: () => ({ collection: mockCollection }),
-    __userDocs: userDocs,
-    __mockDoc: mockDoc,
+    createAdminClient: () => ({
+      from: jest.fn(() => createChain()),
+    }),
   };
 });
 
 describe('SubscriptionService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    const admin = jest.requireMock('@/lib/firebase/admin');
-    admin.__userDocs['uid-free'] = { email: 'free@example.com' };
-    admin.__userDocs['uid-pro'] = {
-      email: 'pro@example.com',
-      stripeCustomerId: 'cus_existing',
-    };
+    Object.keys(userRows).forEach((k) => delete userRows[k]);
+    userRows['uid-free'] = { stripe_customer_id: null };
+    userRows['uid-pro'] = { stripe_customer_id: 'cus_existing' };
 
     process.env.STRIPE_PRICE_PRO_MONTHLY = 'price_monthly_test';
     process.env.STRIPE_PRICE_PRO_YEARLY = 'price_yearly_test';
@@ -120,6 +128,12 @@ describe('SubscriptionService', () => {
     );
   });
 
+  it('存在しないユーザーは UserNotFoundError', async () => {
+    await expect(getOrCreateStripeCustomer('uid-missing', 'x@example.com')).rejects.toBeInstanceOf(
+      UserNotFoundError
+    );
+  });
+
   it('Stripe Customer を新規作成して永続化する', async () => {
     const customerId = await getOrCreateStripeCustomer('uid-free', 'free@example.com');
     expect(customerId).toBe('cus_new');
@@ -129,5 +143,6 @@ describe('SubscriptionService', () => {
         metadata: { firebaseUid: 'uid-free' },
       })
     );
+    expect(userRows['uid-free'].stripe_customer_id).toBe('cus_new');
   });
 });

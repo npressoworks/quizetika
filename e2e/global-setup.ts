@@ -2,7 +2,7 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import initialGenresData from '../src/data/initial_genres.json';
-import type { InitialGenreSeed } from '../src/services/tagMerge';
+import type { InitialGenreSeed } from '../src/services/seedInitialGenresAdmin';
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6';
 

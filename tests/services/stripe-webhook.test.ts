@@ -26,18 +26,38 @@ jest.mock('@/lib/stripe/server', () => ({
   }),
 }));
 
-jest.mock('@/lib/firebase/admin', () => {
-  const processed = new Set<string>();
-  return {
-    getAdminFirestore: () => ({
-      collection: (name: string) => ({
-        doc: (id: string) => ({
-          get: async () => ({ exists: name === 'stripe_processed_events' && processed.has(id) }),
-          set: async () => {
-            if (name === 'stripe_processed_events') processed.add(id);
-          },
-        }),
+const processed = new Set<string>();
+
+jest.mock('@/lib/supabase/server', () => {
+  const createChain = () => {
+    let pendingEventId: string | null = null;
+    const chain: any = {
+      select: jest.fn(() => chain),
+      eq: jest.fn((_col: string, value: string) => {
+        pendingEventId = value;
+        return chain;
       }),
+      insert: jest.fn((payload: { event_id: string }) => {
+        chain.__insertId = payload.event_id;
+        return chain;
+      }),
+      maybeSingle: jest.fn(() =>
+        Promise.resolve({
+          data: pendingEventId && processed.has(pendingEventId) ? { event_id: pendingEventId } : null,
+          error: null,
+        })
+      ),
+      then: jest.fn((onFulfilled: any) => {
+        if (chain.__insertId) processed.add(chain.__insertId);
+        return Promise.resolve({ error: null }).then(onFulfilled);
+      }),
+    };
+    return chain;
+  };
+
+  return {
+    createAdminClient: () => ({
+      from: jest.fn(() => createChain()),
     }),
   };
 });
@@ -45,6 +65,7 @@ jest.mock('@/lib/firebase/admin', () => {
 describe('stripe-webhook service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    processed.clear();
     process.env.STRIPE_PRICE_PRO_MONTHLY = 'price_monthly_test';
     process.env.STRIPE_PRICE_PRO_YEARLY = 'price_yearly_test';
   });

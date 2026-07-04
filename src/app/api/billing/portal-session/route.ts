@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import {
   createPortalSession,
   NoActiveSubscriptionError,
@@ -23,17 +23,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const userSnap = await db.collection('users').doc(uid).get();
-    if (!userSnap.exists) {
+    const supabase = createAdminClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('is_banned')
+      .eq('id', uid)
+      .maybeSingle();
+
+    if (!userData) {
       return NextResponse.json(
         { error: 'not-found', message: 'ユーザーが見つかりません。' },
         { status: 404 }
       );
     }
 
-    const userData = userSnap.data() as { isBanned?: boolean };
-    if (userData.isBanned === true) {
+    if (userData.is_banned === true) {
       return NextResponse.json(
         { error: 'forbidden', message: 'アカウントが制限されているため契約管理にアクセスできません。' },
         { status: 403 }

@@ -1,37 +1,63 @@
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import initialGenresData from '../data/initial_genres.json';
-import type { InitialGenreSeed, SeedInitialGenresResult } from './tagMerge';
+
+/** `initial_genres.json` の1件分 */
+export interface InitialGenreSeed {
+  id: string;
+  displayName: string;
+  description?: string;
+  iconImageUrl: string | null;
+  canonicalId: string | null;
+  mergedGenreIds: string[];
+  isActive: boolean;
+}
+
+export interface SeedInitialGenresResult {
+  added: number;
+  updated: number;
+}
 
 /**
- * Firebase Admin SDK で metadata_genres へ初期ジャンルを投入（Security Rules をバイパス）
+ * Supabase Admin クライアント（サービスロール、RLSバイパス）で metadata_genres へ初期ジャンルを冪等に投入する
  */
 export async function seedInitialGenresWithAdmin(): Promise<SeedInitialGenresResult> {
-  const db = getAdminFirestore();
+  const supabase = createAdminClient();
   const genres = initialGenresData as InitialGenreSeed[];
   let added = 0;
   let updated = 0;
-  const now = new Date();
+  const now = new Date().toISOString();
 
   for (const genre of genres) {
-    const ref = db.collection('metadata_genres').doc(genre.id);
-    const snap = await ref.get();
+    const { data: existing } = await supabase
+      .from('metadata_genres')
+      .select('id')
+      .eq('id', genre.id)
+      .maybeSingle();
 
     const payload = {
       id: genre.id,
-      displayName: genre.displayName,
+      display_name: genre.displayName,
       description: genre.description ?? '',
-      iconImageUrl: genre.iconImageUrl,
-      canonicalId: genre.canonicalId,
-      mergedGenreIds: genre.mergedGenreIds ?? [],
-      isActive: genre.isActive,
-      updatedAt: now,
+      icon_image_url: genre.iconImageUrl,
+      canonical_id: genre.canonicalId,
+      merged_genre_ids: genre.mergedGenreIds ?? [],
+      is_active: genre.isActive,
+      updated_at: now,
     };
 
-    if (snap.exists) {
-      await ref.update(payload);
+    if (existing) {
+      const { error } = await supabase.from('metadata_genres').update(payload).eq('id', genre.id);
+      if (error) {
+        throw new Error(`ジャンル「${genre.id}」の更新に失敗しました: ${error.message}`);
+      }
       updated += 1;
     } else {
-      await ref.set({ ...payload, createdAt: now });
+      const { error } = await supabase
+        .from('metadata_genres')
+        .insert({ ...payload, created_at: now });
+      if (error) {
+        throw new Error(`ジャンル「${genre.id}」の新規作成に失敗しました: ${error.message}`);
+      }
       added += 1;
     }
   }

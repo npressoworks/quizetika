@@ -19,13 +19,15 @@ jest.mock('@/services/subscription', () => ({
   },
 }));
 
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => ({
-    collection: () => ({
-      doc: () => ({
-        get: async () => ({
-          exists: true,
-          data: () => ({ email: 'user@example.com', isBanned: false }),
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: { email: 'user@example.com', is_banned: false },
+            error: null,
+          }),
         }),
       }),
     }),

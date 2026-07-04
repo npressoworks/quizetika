@@ -1,0 +1,93 @@
+# Implementation Tasks - supabase-governance
+
+- [x] 1. 基礎: ガバナンス系スキーマとRPCのマイグレーション
+- [x] 1.1 既存プレースホルダーテーブルのALTERと新規テーブル作成、RLSポリシー是正
+  - `flags` に `(quiz_id, reporter_id)` の複合ユニーク制約を追加する
+  - `metadata_genres` に `metadata_tags` と非対称だった `updated_at` 列を追加する
+  - `merge_requests`／`genre_requests` の `details JSONB` を削除し、`target_type`／`source_id`／`target_id`／`requester_id`／集計列（`votes_for_count` 等）へ明示列化する。`merge_requests` には `(source_id, target_id) WHERE status='pending'` の部分ユニークインデックスを新設する
+  - `merge_request_votes`／`genre_request_votes`（`(request_id, voter_id)` 複合主キー）、`stripe_processed_events`、`reputation_limits` の各テーブルを新規作成し、RLSを有効化する
+  - 既存の `merge_requests_write`／`genre_requests_write` ポリシー（モデレータ以上のみ書き込み可、業務規則と不整合）を削除し、直接書き込みを禁止する
+  - マイグレーションをローカル Supabase に適用し、全ALTER・新規テーブルがエラーなく反映されることを確認する
+  - _Requirements: 2.1, 2.2, 2.3, 5.1, 6.1, 6.2, 6.3_
+
+- [x] 1.2 共有認可・重みヘルパーとコンテンツ通報RPCの定義
+  - `role='admin' OR moderation_tier='admin'` を判定する `is_admin()`、`senior_moderator` 以上または管理者を判定する `is_moderator_or_admin()`、モデレーションティアから投票重みを解決する `resolve_vote_weight()` を定義する
+  - `handle_flag_content`（同一報告者の重複通報を `ON CONFLICT DO NOTHING` で冪等に無視し、新規通報時のみ `flags_count` を加算、閾値5件到達で `status='suspended'`）を定義する
+  - `handle_resolve_flag`（`is_moderator_or_admin()` 検証、`restore` で公開復帰・通報数リセット、`delete` で作成者への通知作成後にクイズを削除）を定義する
+  - 成果物確認: 各RPCがマイグレーション適用後にエラーなくデータベースへロードされること
+  - _Requirements: 5.1, 5.2, 5.3, 5.4_
+  - _Depends: 1.1_
+
+- [x] 1.3 マージ・ジャンル新設投票RPCの定義(可決時のクイズ一括書き換えを同期実行)
+  - `handle_create_merge_request`（target側の `canonical_id` チェーンを辿る循環マージ検知、起案者の自動賛成票登録）を定義する
+  - `handle_vote_merge_request`（複合主キーによる重複投票の原子的拒否、賛成/反対集計、重み付き賛成が閾値5・賛成率70%以上で可決した時点で `quiz_tags` の一括置換または `quizzes.genre`／`canonical_genre_id` の一括UPDATEを同一トランザクション内で同期実行）を定義する
+  - `handle_submit_genre_request`／`handle_vote_genre_request`（重み付き賛成が閾値5・賛成率80%以上で可決した時点で `metadata_genres` へ新規登録するまで同期実行）を定義する
+  - 成果物確認: 各RPCがマイグレーション適用後にエラーなくデータベースへロードされ、`migrationStatus` のような非同期ライフサイクル列が不要であることを確認する
+  - _Requirements: 2.1, 2.2, 2.3, 6.1, 6.2, 6.3_
+  - _Depends: 1.1, 1.2_
+
+- [x] 1.4 BAN・UNBAN・レピュテーションリセットRPCの定義
+  - `handle_ban_user`（`is_admin()` 検証、理由10文字未満は拒否、`users.is_banned` 更新と `admin_logs` への `auth.uid()` を実行者とした監査ログ記録）を定義する
+  - `handle_unban_user`（`is_admin()` 検証、BAN解除と監査ログ記録）を定義する
+  - `handle_reset_user_reputation`（`is_admin()` 検証、`reputation_score`/`moderation_tier` の初期化と監査ログ記録）を定義する
+  - 成果物確認: 権限のない呼び出しが `permission-denied` で拒否され、各RPCがマイグレーション適用後にエラーなくデータベースへロードされること
+  - _Requirements: 1.1, 1.2, 3.2_
+  - _Depends: 1.1, 1.2_
+
+- [x] 2. コア: ガバナンスサービス層の正規化対応
+- [x] 2.1 (P) コンテンツ通報・審査サービスの正規化対応
+  - `moderation.ts` の `flagContent`／`resolveFlag` を `handle_flag_content`／`handle_resolve_flag` RPC呼び出しに書き換える
+  - 単体テストを実行し、重複通報の冪等な無視、閾値到達時の自動保留、権限不足時のエラー拒否が期待どおりに動作することを確認する
+  - _Requirements: 5.1, 5.2, 5.3, 5.4_
+  - _Boundary: ModerationService_
+  - _Depends: 1.2_
+
+- [x] 2.2 (P) タグ・ジャンル統合およびジャンル新設投票サービスの正規化対応
+  - `tagMerge.ts` の `createMergeRequest`／`voteMergeRequest`／`submitGenreRequest`／`voteGenreRequest` を対応するRPC呼び出しに書き換える
+  - 呼び出し元が存在しない旧 `runMigration`（非同期バックグラウンドジョブ）および重複実装の `seedInitialGenres`（ブラウザクライアント版）を削除する
+  - 単体テストを実行し、循環マージ拒否・重複投票拒否・可決閾値判定（マージ70%/ジャンル新設80%）が既存テストの期待値どおりに動作し、可決直後にクイズ側の書き換えが完了していることを確認する
+  - _Requirements: 2.1, 2.2, 2.3, 6.1, 6.2, 6.3_
+  - _Boundary: TagMergeService_
+  - _Depends: 1.3_
+
+- [x] 2.3 (P) レピュテーション・BAN管理サービスの正規化対応
+  - `reputation.ts` の `banUser`／`unbanUser`／`resetUserReputation` を対応するRPC呼び出しに書き換え、`getReputationScore`／`checkModeratorEligibility`／`getReputationLimit` を `users`／`reputation_limits` への直接クエリに書き換える
+  - `resolveModerationTier`（純関数）は変更せず既存の判定規則を維持する
+  - 単体テストを実行し、管理者判定が `role='admin'` のみ／`moderation_tier='admin'` のみ／両方いずれの場合も許可され、非管理者は拒否されることを確認する
+  - _Requirements: 1.1, 1.2, 3.1, 3.2_
+  - _Boundary: ReputationService_
+  - _Depends: 1.4_
+
+- [x] 2.4 (P) エンタイトルメント・サブスクリプション・Stripe Webhookサービスの正規化対応
+  - `entitlement.ts`（`resolveUserEntitlements`／`applySubscriptionFromStripe`／`clearPaidEntitlements`）と `subscription.ts`（`getOrCreateStripeCustomer`／`createCheckoutSession`／`createPortalSession`）を Firebase Admin から Supabase Admin クライアント（サービスロール）に書き換える
+  - `stripe-webhook.ts` の `isStripeEventProcessed`／`markStripeEventProcessed` を新設 `stripe_processed_events` テーブル参照に書き換える
+  - `billing/checkout-session`／`billing/portal-session` API ルート内のBANステータス・メールアドレス確認箇所を Supabase クライアントへ書き換える
+  - `entitlement-shared.ts`（純関数）は変更せず維持する
+  - 単体テストを実行し、Webhookイベントの冪等性判定・サブスクリプション同期・Checkout/Portal Session発行が既存テストの期待値どおりに動作することを確認する
+  - _Requirements: 4.1, 4.2, 4.3_
+  - _Boundary: EntitlementService, SubscriptionService, StripeWebhookService_
+  - _Depends: 1.1_
+
+- [x] 2.5 (P) 初期ジャンルシードおよびジャンル直接管理の正規化対応
+  - `seedInitialGenresAdmin.ts` の `seedInitialGenresWithAdmin` を Supabase Admin クライアントによる冪等な upsert に書き換える
+  - `admin/seed-genres` ルートの管理者権限チェックを Firestore ベースから統一済みの Supabase `is_admin()` 判定へ切り替える
+  - `admin/genres` ルートの GET/POST を Supabase の `metadata_genres` 読み書きに書き換え、管理者権限チェックを `is_admin()` 判定へ切り替え、アイコン一時ファイルの本パス移行処理を既存の `moveTemporaryGenreIcon()` 呼び出しへ置き換える
+  - 単体テストを実行し、初期ジャンルの冪等投入（既存ID更新・未存在ID新規作成）とジャンル直接登録の重複ID拒否が期待どおりに動作することを確認する
+  - _Requirements: 7.1_
+  - _Boundary: SeedGenresService, GenreAdminRoutes_
+  - _Depends: 1.2_
+
+- [ ] 3. 統合と検証
+- [ ] 3.1 サービス層移行の全体結合と型チェックのパス
+  - すべてのガバナンスサービス・APIルートがSupabaseベースへ切り替わった状態で `npm run build` を実行する
+  - TypeScript コンパイラが一切の型エラーを報告せず、Next.js プロジェクトのビルドが100%成功することを確認する
+  - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1_
+  - _Depends: 2.1, 2.2, 2.3, 2.4, 2.5_
+
+- [ ] 3.2 テストスイート全体の確認とマイグレーション整合性検証
+  - Jest テストスイート全体を実行し、全テストがパスすることを確認する
+  - ローカル Supabase 環境で、マージ提案・ジャンル新設申請の可決時にクイズ側の書き換え（`quiz_tags`／`quizzes.genre`）が非同期ジョブなしで同一トランザクション内に完結していることを確認する
+  - `is_admin()` が `role='admin'` のみ／`moderation_tier='admin'` のみ／両方／どちらもなし の4パターンで正しく判定することを確認する
+  - BANユーザーからのAPIリクエスト・ログインアクセスが既存の `is_not_banned()` ベースの多重防御により引き続き拒否されることを確認する
+  - _Requirements: 1.3, 3.1_
+  - _Depends: 3.1_

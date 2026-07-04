@@ -1,11 +1,5 @@
 import { NextRequest } from 'next/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
-import { getDoc } from 'firebase/firestore';
-
-jest.mock('@/lib/firebase/config', () => require('../__mocks__/firebase-config'));
-jest.mock('@/lib/firebase/firestore', () => ({
-  usersRef: { path: 'users' },
-}));
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: jest.fn(),
@@ -16,25 +10,28 @@ jest.mock('@/services/seedInitialGenresAdmin', () => ({
   seedInitialGenresWithAdmin: jest.fn(),
 }));
 
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((ref, id) => ({ ref, id })),
-    getDoc: jest.fn(),
-  };
-});
+let usersRow: { moderation_tier?: string; role?: string } | null = null;
+
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({ data: usersRow, error: null }),
+        }),
+      }),
+    }),
+  }),
+}));
 
 const mockExtractBearerToken = extractBearerToken as jest.MockedFunction<typeof extractBearerToken>;
 const mockVerifyFirebaseIdToken = verifySupabaseAccessToken as jest.MockedFunction<
   typeof verifySupabaseAccessToken
 >;
-const mockGetDoc = getDoc as jest.MockedFunction<typeof getDoc>;
 const { seedInitialGenresWithAdmin } = jest.requireMock('@/services/seedInitialGenresAdmin') as {
   seedInitialGenresWithAdmin: jest.Mock;
 };
 
-// route は firestore 依存のため、モック設定後に読み込む
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { POST } = require('@/app/api/admin/seed-genres/route') as typeof import('@/app/api/admin/seed-genres/route');
 
@@ -50,6 +47,7 @@ describe('POST /api/admin/seed-genres', () => {
     jest.clearAllMocks();
     mockExtractBearerToken.mockReturnValue('test-token');
     seedInitialGenresWithAdmin.mockResolvedValue({ added: 3, updated: 2 });
+    usersRow = null;
   });
 
   test('トークンが無効な場合は 401 を返すこと', async () => {
@@ -64,10 +62,7 @@ describe('POST /api/admin/seed-genres', () => {
 
   test('管理者以外は 403 を返すこと', async () => {
     mockVerifyFirebaseIdToken.mockResolvedValue('user-1');
-    mockGetDoc.mockResolvedValue({
-      exists: () => true,
-      data: () => ({ moderationTier: 'senior_moderator' }),
-    } as never);
+    usersRow = { moderation_tier: 'senior_moderator' };
 
     const res = await POST(buildRequest());
     const body = await res.json();
@@ -78,10 +73,7 @@ describe('POST /api/admin/seed-genres', () => {
 
   test('管理者は 200 と投入件数を返すこと', async () => {
     mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
-    mockGetDoc.mockResolvedValue({
-      exists: () => true,
-      data: () => ({ moderationTier: 'admin', displayName: 'Admin' }),
-    } as never);
+    usersRow = { moderation_tier: 'admin' };
 
     const res = await POST(buildRequest());
     const body = await res.json();
@@ -95,10 +87,7 @@ describe('POST /api/admin/seed-genres', () => {
 
   test('role が admin のユーザーも 200 を返すこと', async () => {
     mockVerifyFirebaseIdToken.mockResolvedValue('admin-2');
-    mockGetDoc.mockResolvedValue({
-      exists: () => true,
-      data: () => ({ moderationTier: 'moderator', role: 'admin' }),
-    } as never);
+    usersRow = { moderation_tier: 'moderator', role: 'admin' };
 
     const res = await POST(buildRequest());
     const body = await res.json();

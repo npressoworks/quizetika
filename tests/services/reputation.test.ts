@@ -1,4 +1,3 @@
-import { getDoc, doc, runTransaction } from 'firebase/firestore';
 import {
   resolveModerationTier,
   getReputationScore,
@@ -9,27 +8,25 @@ import {
   unbanUser,
 } from '../../src/services/reputation';
 
-// Firebase Firestore モック
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((ref, ...paths) => {
-      const basePath = typeof ref === 'object' && ref && 'path' in ref ? ref.path : '';
-      const id = paths.length > 0 ? paths[paths.length - 1] : 'auto-generated-id';
-      const fullPath = paths.length > 0 
-        ? (basePath ? `${basePath}/${paths.join('/')}` : paths.join('/'))
-        : (basePath ? `${basePath}/${id}` : '');
-      return { id, path: fullPath };
-    }),
-    collection: jest.fn((db, path) => ({ path })),
-    getDoc: jest.fn(),
-    runTransaction: jest.fn(),
-    serverTimestamp: jest.fn(() => new Date()),
-    deleteField: jest.fn(() => 'delete-field-mock'),
+const createChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    maybeSingle: jest.fn(() => Promise.resolve(resolveValue)),
   };
+  return chain;
+};
+
+jest.mock('../../src/lib/supabase/client', () => {
+  const mock: any = {
+    from: jest.fn(() => mock),
+    rpc: jest.fn(),
+  };
+  return { createClient: () => mock };
 });
 
+import { createClient } from '../../src/lib/supabase/client';
+const supabase = createClient() as any;
 
 describe('ReputationService - resolveModerationTier', () => {
   test('0 〜 49 点は newcomer', () => {
@@ -54,10 +51,10 @@ describe('ReputationService - resolveModerationTier', () => {
 });
 
 describe('ReputationService - getReputationScore', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   test('ユーザーが存在しない場合は、初期値（0点、newcomer、空履歴）を返す', async () => {
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => false,
-    });
+    supabase.from.mockReturnValue(createChainMock({ data: null, error: null }));
 
     const result = await getReputationScore('none-uid');
     expect(result).toEqual({
@@ -68,48 +65,48 @@ describe('ReputationService - getReputationScore', () => {
   });
 
   test('ユーザーが存在する場合は、設定されたデータを取得する', async () => {
-    const mockUserData = {
-      reputationScore: 180,
-      moderationTier: 'moderator',
-      reputationHistory: [{ eventId: '1', delta: 10, reason: 'test', createdAt: new Date() }],
-    };
-
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => mockUserData,
-    });
+    supabase.from.mockReturnValue(
+      createChainMock({
+        data: {
+          reputation_score: 180,
+          moderation_tier: 'moderator',
+          reputation_history: [{ eventId: '1', delta: 10, reason: 'test', createdAt: new Date() }],
+        },
+        error: null,
+      })
+    );
 
     const result = await getReputationScore('test-uid');
-    expect(result).toEqual(mockUserData);
+    expect(result.reputationScore).toBe(180);
+    expect(result.moderationTier).toBe('moderator');
+    expect(result.reputationHistory).toHaveLength(1);
   });
 });
 
 describe('ReputationService - checkModeratorEligibility', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   test('newcomer と contributor は eligibility が false', async () => {
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({ reputationScore: 40, moderationTier: 'newcomer' }),
-    });
+    supabase.from.mockReturnValue(
+      createChainMock({ data: { reputation_score: 40, moderation_tier: 'newcomer' }, error: null })
+    );
     expect(await checkModeratorEligibility('uid')).toBe(false);
 
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({ reputationScore: 80, moderationTier: 'contributor' }),
-    });
+    supabase.from.mockReturnValue(
+      createChainMock({ data: { reputation_score: 80, moderation_tier: 'contributor' }, error: null })
+    );
     expect(await checkModeratorEligibility('uid')).toBe(false);
   });
 
   test('moderator と senior_moderator は eligibility が true', async () => {
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({ reputationScore: 200, moderationTier: 'moderator' }),
-    });
+    supabase.from.mockReturnValue(
+      createChainMock({ data: { reputation_score: 200, moderation_tier: 'moderator' }, error: null })
+    );
     expect(await checkModeratorEligibility('uid')).toBe(true);
 
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({ reputationScore: 600, moderationTier: 'senior_moderator' }),
-    });
+    supabase.from.mockReturnValue(
+      createChainMock({ data: { reputation_score: 600, moderation_tier: 'senior_moderator' }, error: null })
+    );
     expect(await checkModeratorEligibility('uid')).toBe(true);
   });
 });
@@ -118,20 +115,17 @@ describe('ReputationService - getReputationLimit', () => {
   const authorId = 'author-uid';
   const senderId = 'sender-uid';
 
+  beforeEach(() => jest.clearAllMocks());
+
   test('加算制限データが存在しない場合は、累計 0 pt を返す', async () => {
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => false,
-    });
+    supabase.from.mockReturnValue(createChainMock({ data: null, error: null }));
 
     const result = await getReputationLimit(authorId, senderId);
     expect(result).toEqual({ totalDelta: 0 });
   });
 
   test('加算制限データが存在する場合は、設定された totalDelta を返す', async () => {
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({ id: senderId, totalDelta: 3 }),
-    });
+    supabase.from.mockReturnValue(createChainMock({ data: { total_delta: 3 }, error: null }));
 
     const result = await getReputationLimit(authorId, senderId);
     expect(result).toEqual({ totalDelta: 3 });
@@ -143,106 +137,32 @@ describe('ReputationService - resetUserReputation', () => {
   const executorId = 'admin-executor-uid';
   const reason = 'コミュニティ荒らし行為のためリセット';
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  beforeEach(() => jest.clearAllMocks());
 
-  test('管理者が実行した場合、対象ユーザーのスコアとティアーがリセットされ、adminLogsに監査ログが書き込まれること', async () => {
-    const mockTargetUserSnap = {
-      exists: () => true,
-      data: () => ({
-        displayName: '荒らしユーザー',
-        reputationScore: 250,
-        moderationTier: 'moderator',
-      }),
-    };
-
-    const mockExecutorSnap = {
-      exists: () => true,
-      data: () => ({
-        displayName: 'システム管理者',
-        moderationTier: 'admin', // 管理者権限
-      }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === targetUid) return mockTargetUserSnap;
-        return mockExecutorSnap;
-      }),
-      update: jest.fn(),
-      set: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
+  test('管理者が実行した場合、RPCが正しい引数で呼び出されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
 
     await resetUserReputation(targetUid, executorId, reason);
 
-    expect(mockTransaction.get).toHaveBeenCalledTimes(2);
-    expect(mockTransaction.update).toHaveBeenCalledTimes(1);
-    expect(mockTransaction.set).toHaveBeenCalledTimes(1);
-
-    // ユーザー情報のリセット確認
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: targetUid }),
-      {
-        reputationScore: 0,
-        moderationTier: 'newcomer',
-        updatedAt: expect.any(Date),
-      }
-    );
-
-    // 監査ログの書き込み確認
-    expect(mockTransaction.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: expect.stringContaining('adminLogs') }),
-      {
-        targetUid,
-        executorId,
-        action: 'reputation_reset',
-        reason,
-        createdAt: expect.any(Date),
-      }
-    );
-  });
-
-  test('非管理者が実行した場合、Permission Deniedで処理が拒否されること', async () => {
-    const mockTargetUserSnap = {
-      exists: () => true,
-      data: () => ({ reputationScore: 100 }),
-    };
-
-    const mockExecutorSnap = {
-      exists: () => true,
-      data: () => ({
-        displayName: '一般モデレータ',
-        moderationTier: 'moderator', // 管理者でない
-      }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === targetUid) return mockTargetUserSnap;
-        return mockExecutorSnap;
-      }),
-      update: jest.fn(),
-      set: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
+    expect(supabase.rpc).toHaveBeenCalledWith('handle_reset_user_reputation', {
+      p_target_uid: targetUid,
+      p_reason: reason,
     });
-
-    await expect(
-      resetUserReputation(targetUid, 'non-admin-uid', reason)
-    ).rejects.toThrow('この操作を実行する権限がありません');
   });
 
-  test('理由が10文字未満の場合、バリデーションエラーになること', async () => {
-    await expect(
-      resetUserReputation(targetUid, executorId, '短すぎ')
-    ).rejects.toThrow('リセット理由は10文字以上で入力してください。');
+  test('非管理者が実行した場合、権限エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
+
+    await expect(resetUserReputation(targetUid, 'non-admin-uid', reason)).rejects.toThrow(
+      'この操作を実行する権限がありません'
+    );
+  });
+
+  test('理由が10文字未満の場合、RPCを呼ばずバリデーションエラーになること', async () => {
+    await expect(resetUserReputation(targetUid, executorId, '短すぎ')).rejects.toThrow(
+      'リセット理由は10文字以上で入力してください。'
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 });
 
@@ -251,83 +171,32 @@ describe('ReputationService - banUser', () => {
   const executorId = 'admin-executor-uid';
   const reason = 'スパムメッセージ連投のルール違反行為のため';
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  beforeEach(() => jest.clearAllMocks());
 
-  test('管理者が実行した場合、対象ユーザーがBANされ、adminLogsに監査ログが書き込まれること', async () => {
-    const mockTargetUserSnap = {
-      exists: () => true,
-      data: () => ({ displayName: '迷惑ユーザー' }),
-    };
-
-    const mockExecutorSnap = {
-      exists: () => true,
-      data: () => ({ moderationTier: 'admin' }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === targetUid) return mockTargetUserSnap;
-        return mockExecutorSnap;
-      }),
-      update: jest.fn(),
-      set: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
+  test('管理者が実行した場合、RPCが正しい引数で呼び出されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
 
     await banUser(targetUid, executorId, reason);
 
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: targetUid }),
-      expect.objectContaining({
-        isBanned: true,
-        bannedReason: reason,
-        bannedAt: expect.any(Date),
-        updatedAt: expect.any(Date),
-      })
-    );
-
-    expect(mockTransaction.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: expect.stringContaining('adminLogs') }),
-      {
-        targetUid,
-        executorId,
-        action: 'ban',
-        reason,
-        createdAt: expect.any(Date),
-      }
-    );
+    expect(supabase.rpc).toHaveBeenCalledWith('handle_ban_user', {
+      p_target_uid: targetUid,
+      p_reason: reason,
+    });
   });
 
-  test('理由が10文字未満の場合、バリデーションエラーになること', async () => {
-    await expect(
-      banUser(targetUid, executorId, '短すぎ')
-    ).rejects.toThrow('BAN理由は10文字以上で入力してください。');
+  test('理由が10文字未満の場合、RPCを呼ばずバリデーションエラーになること', async () => {
+    await expect(banUser(targetUid, executorId, '短すぎ')).rejects.toThrow(
+      'BAN理由は10文字以上で入力してください。'
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   test('非管理者が実行した場合、拒否されること', async () => {
-    const mockExecutorSnap = {
-      exists: () => true,
-      data: () => ({ moderationTier: 'moderator' }),
-    };
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
 
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockExecutorSnap),
-      update: jest.fn(),
-      set: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
-
-    await expect(
-      banUser(targetUid, 'non-admin', reason)
-    ).rejects.toThrow('この操作を実行する権限がありません');
+    await expect(banUser(targetUid, 'non-admin', reason)).rejects.toThrow(
+      'この操作を実行する権限がありません'
+    );
   });
 });
 
@@ -335,53 +204,15 @@ describe('ReputationService - unbanUser', () => {
   const targetUid = 'target-user-uid';
   const executorId = 'admin-executor-uid';
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  beforeEach(() => jest.clearAllMocks());
 
-  test('管理者が実行した場合、対象ユーザーのBANが解除され、adminLogsに監査ログが書き込まれること', async () => {
-    const mockTargetUserSnap = {
-      exists: () => true,
-      data: () => ({ isBanned: true }),
-    };
-
-    const mockExecutorSnap = {
-      exists: () => true,
-      data: () => ({ moderationTier: 'admin' }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === targetUid) return mockTargetUserSnap;
-        return mockExecutorSnap;
-      }),
-      update: jest.fn(),
-      set: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
+  test('管理者が実行した場合、RPCが正しい引数で呼び出されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
 
     await unbanUser(targetUid, executorId);
 
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: targetUid }),
-      expect.objectContaining({
-        isBanned: false,
-        updatedAt: expect.any(Date),
-      })
-    );
-
-    expect(mockTransaction.set).toHaveBeenCalledWith(
-      expect.objectContaining({ path: expect.stringContaining('adminLogs') }),
-      {
-        targetUid,
-        executorId,
-        action: 'unban',
-        createdAt: expect.any(Date),
-      }
-    );
+    expect(supabase.rpc).toHaveBeenCalledWith('handle_unban_user', {
+      p_target_uid: targetUid,
+    });
   });
 });
-

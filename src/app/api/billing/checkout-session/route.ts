@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import {
   AlreadySubscribedError,
   createCheckoutSession,
@@ -24,17 +24,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const userSnap = await db.collection('users').doc(uid).get();
-    if (!userSnap.exists) {
+    const supabase = createAdminClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('is_banned, email')
+      .eq('id', uid)
+      .maybeSingle();
+
+    if (!userData) {
       return NextResponse.json(
         { error: 'not-found', message: 'ユーザーが見つかりません。' },
         { status: 404 }
       );
     }
 
-    const userData = userSnap.data() as { isBanned?: boolean; email?: string };
-    if (userData.isBanned === true) {
+    if (userData.is_banned === true) {
       return NextResponse.json(
         { error: 'forbidden', message: 'アカウントが制限されているため購読を開始できません。' },
         { status: 403 }
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const email = userData.email?.trim();
+    const email = userData.email?.trim?.() ?? undefined;
     if (!email) {
       return NextResponse.json(
         { error: 'invalid-params', message: 'ユーザーのメールアドレスが設定されていません。' },

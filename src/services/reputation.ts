@@ -1,14 +1,7 @@
-import {
-  doc,
-  getDoc,
-  collection,
-  runTransaction,
-  serverTimestamp,
-  deleteField,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
-import { usersRef } from '../lib/firebase/firestore';
-import { User, ReputationEventLog } from '../types';
+import { createClient } from '../lib/supabase/client';
+import { ReputationEventLog } from '../types';
+
+const supabase = createClient();
 
 /**
  * 権限ティアーの定数定義
@@ -19,7 +12,6 @@ export type ModerationTier = 'newcomer' | 'contributor' | 'moderator' | 'senior_
  * 信頼スコア加算制限の型定義
  */
 export interface ReputationLimit {
-  id: string; // senderId
   totalDelta: number; // 加算累計値（上限5）
 }
 
@@ -46,10 +38,13 @@ export function resolveModerationTier(reputationScore: number): ModerationTier {
 export async function getReputationScore(
   uid: string
 ): Promise<{ reputationScore: number; moderationTier: ModerationTier; reputationHistory: ReputationEventLog[] }> {
-  const userDocRef = doc(usersRef, uid);
-  const snap = await getDoc(userDocRef);
+  const { data, error } = await supabase
+    .from('users')
+    .select('reputation_score, moderation_tier, reputation_history')
+    .eq('id', uid)
+    .maybeSingle();
 
-  if (!snap.exists()) {
+  if (error || !data) {
     return {
       reputationScore: 0,
       moderationTier: 'newcomer',
@@ -57,11 +52,10 @@ export async function getReputationScore(
     };
   }
 
-  const userData = snap.data() as User;
   return {
-    reputationScore: userData.reputationScore ?? 0,
-    moderationTier: (userData.moderationTier as ModerationTier) ?? 'newcomer',
-    reputationHistory: userData.reputationHistory ?? [],
+    reputationScore: data.reputation_score ?? 0,
+    moderationTier: (data.moderation_tier as ModerationTier) ?? 'newcomer',
+    reputationHistory: (data.reputation_history as unknown as ReputationEventLog[]) ?? [],
   };
 }
 
@@ -77,7 +71,6 @@ export async function checkModeratorEligibility(uid: string): Promise<boolean> {
 
 /**
  * 特定の評価者（senderId）からクリエイター（authorId）への累計スコア加算上限（最大 +5 pt）を確認・取得する。
- * アトミックなトランザクション内でサブコレクション users/{uid}/reputationLimits/{senderId} を参照する。
  *
  * @param authorId クリエイター（作家）のUID
  * @param senderId 評価者のUID
@@ -86,25 +79,26 @@ export async function checkModeratorEligibility(uid: string): Promise<boolean> {
 export async function getReputationLimit(
   authorId: string,
   senderId: string
-): Promise<{ totalDelta: number }> {
-  const limitDocRef = doc(db, 'users', authorId, 'reputationLimits', senderId);
-  const snap = await getDoc(limitDocRef);
+): Promise<ReputationLimit> {
+  const { data, error } = await supabase
+    .from('reputation_limits')
+    .select('total_delta')
+    .eq('author_id', authorId)
+    .eq('sender_id', senderId)
+    .maybeSingle();
 
-  if (!snap.exists()) {
+  if (error || !data) {
     return { totalDelta: 0 };
   }
 
-  const limitData = snap.data() as ReputationLimit;
-  return {
-    totalDelta: limitData.totalDelta ?? 0,
-  };
+  return { totalDelta: data.total_delta ?? 0 };
 }
 
 /**
  * 指定ユーザーの信頼スコアとティアーを手動で強制リセットし、監査ログに保存する
  *
  * @param targetUid リセット対象ユーザーのUID
- * @param executorId 実行者（管理者）のUID
+ * @param executorId 実行者（管理者）のUID（RPC側で `auth.uid()` から権限検証されるため実際の認可には使用されない）
  * @param reason リセット理由（10文字以上）
  */
 export async function resetUserReputation(
@@ -112,52 +106,31 @@ export async function resetUserReputation(
   executorId: string,
   reason: string
 ): Promise<void> {
-  // リセット理由は10文字以上で入力してください。
   if (reason.length < 10) {
     throw new Error('リセット理由は10文字以上で入力してください。');
   }
 
-  await runTransaction(db, async (transaction) => {
-    // 実行者の権限確認
-    const executorRef = doc(usersRef, executorId);
-    const executorSnap = await transaction.get(executorRef);
+  const { error } = await (supabase as any).rpc('handle_reset_user_reputation', {
+    p_target_uid: targetUid,
+    p_reason: reason,
+  });
 
-    if (!executorSnap.exists() || (executorSnap.data()?.moderationTier as string) !== 'admin') {
+  if (error) {
+    if (error.message === 'permission-denied') {
       throw new Error('この操作を実行する権限がありません');
     }
-
-    // 対象ユーザーの存在確認
-    const targetUserRef = doc(usersRef, targetUid);
-    const targetUserSnap = await transaction.get(targetUserRef);
-
-    if (!targetUserSnap.exists()) {
+    if (error.message === 'target-not-found') {
       throw new Error('対象のユーザーが見つかりません');
     }
-
-    // スコアとティアーのリセット
-    transaction.update(targetUserRef, {
-      reputationScore: 0,
-      moderationTier: 'newcomer',
-      updatedAt: serverTimestamp(),
-    });
-
-    // 監査ログの記録
-    const logRef = doc(collection(db, 'adminLogs'));
-    transaction.set(logRef, {
-      targetUid,
-      executorId,
-      action: 'reputation_reset',
-      reason,
-      createdAt: serverTimestamp(),
-    });
-  });
+    throw new Error(`信頼スコアのリセットに失敗しました: ${error.message}`);
+  }
 }
 
 /**
  * 指定ユーザーのアカウントを停止（BAN）し、監査ログに保存する
  *
- * @param targetUid リセット対象ユーザー의 UID
- * @param executorId 実行者（管理者）のUID
+ * @param targetUid 対象ユーザーのUID
+ * @param executorId 実行者（管理者）のUID（RPC側で `auth.uid()` から権限検証されるため実際の認可には使用されない）
  * @param reason BAN理由（10文字以上）
  */
 export async function banUser(
@@ -169,86 +142,43 @@ export async function banUser(
     throw new Error('BAN理由は10文字以上で入力してください。');
   }
 
-  await runTransaction(db, async (transaction) => {
-    // 実行者の権限確認
-    const executorRef = doc(usersRef, executorId);
-    const executorSnap = await transaction.get(executorRef);
+  const { error } = await (supabase as any).rpc('handle_ban_user', {
+    p_target_uid: targetUid,
+    p_reason: reason,
+  });
 
-    if (!executorSnap.exists() || (executorSnap.data()?.moderationTier as string) !== 'admin') {
+  if (error) {
+    if (error.message === 'permission-denied') {
       throw new Error('この操作を実行する権限がありません');
     }
-
-    // 対象ユーザーの存在確認
-    const targetUserRef = doc(usersRef, targetUid);
-    const targetUserSnap = await transaction.get(targetUserRef);
-
-    if (!targetUserSnap.exists()) {
+    if (error.message === 'target-not-found') {
       throw new Error('対象のユーザーが見つかりません');
     }
-
-    // アカウント停止
-    transaction.update(targetUserRef, {
-      isBanned: true,
-      bannedReason: reason,
-      bannedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    // 監査ログの記録
-    const logRef = doc(collection(db, 'adminLogs'));
-    transaction.set(logRef, {
-      targetUid,
-      executorId,
-      action: 'ban',
-      reason,
-      createdAt: serverTimestamp(),
-    });
-  });
+    throw new Error(`BAN処理に失敗しました: ${error.message}`);
+  }
 }
 
 /**
  * 指定ユーザーのアカウント停止を解除（UNBAN）し、監査ログに保存する
  *
  * @param targetUid 対象ユーザーのUID
- * @param executorId 実行者（管理者）のUID
+ * @param executorId 実行者（管理者）のUID（RPC側で `auth.uid()` から権限検証されるため実際の認可には使用されない）
  */
 export async function unbanUser(
   targetUid: string,
   executorId: string
 ): Promise<void> {
-  await runTransaction(db, async (transaction) => {
-    // 実行者の権限確認
-    const executorRef = doc(usersRef, executorId);
-    const executorSnap = await transaction.get(executorRef);
+  const { error } = await (supabase as any).rpc('handle_unban_user', {
+    p_target_uid: targetUid,
+  });
 
-    if (!executorSnap.exists() || (executorSnap.data()?.moderationTier as string) !== 'admin') {
+  if (error) {
+    if (error.message === 'permission-denied') {
       throw new Error('この操作を実行する権限がありません');
     }
-
-    // 対象ユーザーの存在確認
-    const targetUserRef = doc(usersRef, targetUid);
-    const targetUserSnap = await transaction.get(targetUserRef);
-
-    if (!targetUserSnap.exists()) {
+    if (error.message === 'target-not-found') {
       throw new Error('対象のユーザーが見つかりません');
     }
-
-    // アカウント停止解除
-    transaction.update(targetUserRef, {
-      isBanned: false,
-      bannedReason: deleteField(),
-      bannedAt: deleteField(),
-      updatedAt: serverTimestamp(),
-    });
-
-    // 監査ログの記録
-    const logRef = doc(collection(db, 'adminLogs'));
-    transaction.set(logRef, {
-      targetUid,
-      executorId,
-      action: 'unban',
-      createdAt: serverTimestamp(),
-    });
-  });
+    throw new Error(`UNBAN処理に失敗しました: ${error.message}`);
+  }
 }
-

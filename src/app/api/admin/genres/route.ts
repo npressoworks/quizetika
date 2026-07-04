@@ -1,25 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
-import { usersRef } from '@/lib/firebase/firestore';
+import { createAdminClient } from '@/lib/supabase/server';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
-import { getAdminFirestore, getAdminStorage } from '@/lib/firebase/admin';
+import { moveTemporaryGenreIcon } from '@/services/storage-admin';
 import { User } from '@/types';
-
-const DEFAULT_BUCKET =
-  process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ??
-  process.env.FIREBASE_STORAGE_BUCKET;
-
-function resolveBucketName(): string {
-  if (DEFAULT_BUCKET) {
-    return DEFAULT_BUCKET.replace(/^gs:\/\//, '');
-  }
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  if (projectId) {
-    return `${projectId}.appspot.com`;
-  }
-  throw new Error('Firebase Storage バケット名が設定されていません');
-}
 
 /**
  * 管理者チェック用の共通ヘルパー
@@ -34,12 +18,21 @@ async function authorizeAdmin(request: NextRequest): Promise<string | null> {
       return null;
     }
 
-    const executorSnap = await getDoc(doc(usersRef, executorId));
-    if (!executorSnap.exists()) {
+    const supabase = createAdminClient();
+    const { data: executorRow } = await supabase
+      .from('users')
+      .select('moderation_tier, role')
+      .eq('id', executorId)
+      .maybeSingle();
+
+    if (!executorRow) {
       return null;
     }
 
-    const executor = { ...executorSnap.data(), id: executorId } as User;
+    const executor = {
+      moderationTier: executorRow.moderation_tier,
+      role: executorRow.role,
+    } as User;
     if (!isAdminUser(executor)) {
       return null;
     }
@@ -74,20 +67,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const snap = await db.collection('metadata_genres').get();
-    const genres = snap.docs.map((d) => {
-      const data = d.data();
-      // Date型に変換してシリアライズ可能な形にする
-      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt;
-      const updatedAt = data.updatedAt?.toDate ? data.updatedAt.toDate() : data.updatedAt;
-      return {
-        ...data,
-        id: d.id,
-        createdAt,
-        updatedAt,
-      };
-    });
+    const supabase = createAdminClient();
+    const { data: rows, error } = await supabase.from('metadata_genres').select('*');
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const genres = (rows ?? []).map((row) => ({
+      id: row.id,
+      displayName: row.display_name,
+      description: row.description ?? '',
+      iconImageUrl: row.icon_image_url,
+      canonicalId: row.canonical_id,
+      mergedGenreIds: row.merged_genre_ids ?? [],
+      isActive: row.is_active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
 
     return NextResponse.json(genres, { status: 200 });
   } catch (error) {
@@ -148,77 +145,64 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const docRef = db.collection('metadata_genres').doc(id);
-    const docSnap = await docRef.get();
+    const supabase = createAdminClient();
 
     // 重複チェック
-    if (docSnap.exists) {
+    const { data: existing } = await supabase
+      .from('metadata_genres')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (existing) {
       return NextResponse.json(
         { error: 'duplicate-id', message: 'このジャンルIDはすでに登録されています。' },
         { status: 409 }
       );
     }
 
-    let finalIconImageUrl = iconImageUrl || null;
+    let finalIconImageUrl: string | null = iconImageUrl || null;
 
     // 一時保存されたアイコン画像（AI生成/手動アップロード）を正式なパスに移行する
     if (finalIconImageUrl && finalIconImageUrl.includes('/genres/temp/')) {
       try {
-        const path = await import('path');
-        const bucketName = resolveBucketName();
-
-        // URLからファイル名を抽出
-        const urlParts = finalIconImageUrl.split('/');
-        const tempFilename = urlParts[urlParts.length - 1];
-
-        const bucket = getAdminStorage().bucket(bucketName);
-        const tempFile = bucket.file(`genres/temp/${tempFilename}`);
-
-        const [exists] = await tempFile.exists().catch(() => [false]);
-        if (exists) {
-          const timestamp = Date.now();
-          const ext = path.extname(tempFilename).toLowerCase() || '.png';
-          const destFilename = `icon_${timestamp}${ext}`;
-          const destFile = bucket.file(`genres/${id}/${destFilename}`);
-
-          // コピーの実行
-          await tempFile.copy(destFile);
-          await destFile.makePublic();
-
-          finalIconImageUrl = `https://storage.googleapis.com/${bucketName}/genres/${id}/${destFilename}`;
-
-          // 元のファイルを削除
-          try {
-            await tempFile.delete();
-          } catch (unlinkErr) {
-            console.error('[API/admin/genres] 一時ファイルの削除に失敗しました:', unlinkErr);
-          }
-        }
-      } catch (copyError) {
-        console.error('[API/admin/genres] アイコン画像移行処理エラー:', copyError);
+        finalIconImageUrl = await moveTemporaryGenreIcon(finalIconImageUrl, id);
+      } catch (moveError) {
+        console.error('[API/admin/genres] アイコン画像移行処理エラー:', moveError);
       }
     }
 
-    const now = new Date();
-    const payload = {
+    const now = new Date().toISOString();
+    const { error: insertError } = await supabase.from('metadata_genres').insert({
       id,
-      displayName,
+      display_name: displayName,
       description: description || '',
-      iconImageUrl: finalIconImageUrl,
-      canonicalId: null,
-      mergedGenreIds: [],
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    };
+      icon_image_url: finalIconImageUrl,
+      canonical_id: null,
+      merged_genre_ids: [],
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    });
 
-    await docRef.set(payload);
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
 
     return NextResponse.json(
       {
         success: true,
-        data: payload,
+        data: {
+          id,
+          displayName,
+          description: description || '',
+          iconImageUrl: finalIconImageUrl,
+          canonicalId: null,
+          mergedGenreIds: [],
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+        },
       },
       { status: 200 }
     );

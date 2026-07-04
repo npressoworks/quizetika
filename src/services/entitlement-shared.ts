@@ -15,7 +15,7 @@ import type { User } from '@/types';
 export interface EntitlementUserFields {
   subscriptionTier?: SubscriptionTier | null;
   subscriptionStatus?: SubscriptionStatus | null;
-  currentPeriodEnd?: Date | { toDate(): Date } | null;
+  currentPeriodEnd?: Date | { toDate(): Date } | string | null;
   isPremium?: boolean | null;
   moderationTier?: User['moderationTier'];
 }
@@ -23,6 +23,10 @@ export interface EntitlementUserFields {
 function toDate(value: EntitlementUserFields['currentPeriodEnd']): Date | null {
   if (!value) return null;
   if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
   if (typeof (value as { toDate?: () => Date }).toDate === 'function') {
     return (value as { toDate: () => Date }).toDate();
   }
