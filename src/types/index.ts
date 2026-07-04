@@ -166,18 +166,16 @@ export interface Quiz {
 
 // 5. フォロー関係 (Follow)
 export interface Follow {
-  id: string;             // followerId_followingId の形式
-  followerId: string;     // フォローした側 (ログイン中ユーザー)
-  followingId: string;    // フォローされた側 (ターゲット)
+  followerId: string;     // フォローした側 (ログイン中ユーザー、複合主キーの一部)
+  followingId: string;    // フォローされた側 (ターゲット、複合主キーの一部)
   createdAt: Date;
 }
 
 // 7. ブックマーク (Bookmark)
 export interface Bookmark {
-  id: string;             // userId_targetId の形式
-  userId: string;         // ブックマークしたユーザー
-  targetId: string;       // クイズID、リストID、または問題ID
-  targetType: 'quiz' | 'question'; // 対象のタイプ
+  userId: string;         // ブックマークしたユーザー (複合主キーの一部)
+  targetId: string;       // クイズID、リストID、または問題ID (複合主キーの一部)
+  targetType: 'quiz' | 'question'; // 対象のタイプ (複合主キーの一部)
   createdAt: Date;
 }
 
@@ -266,7 +264,10 @@ export interface Attempt {
   aiTruthAttempts?: AiTruthAttempt[]; // 真相提出履歴（水平思考用）
   aiTurnCount: number;    // 質問ターン数
   aiTurnLimit: number | null; // 質問制限数
-  completedAt: Date;
+  /** 水平思考クイズの進行中セッションでは未完了のため null を取り得る */
+  completedAt: Date | null;
+  /** 水平思考クイズを諦めて終了した場合 true */
+  gaveUpLateral?: boolean;
 }
 
 export interface PlayHistoryEntry {

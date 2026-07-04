@@ -2,64 +2,42 @@ import { POST } from '@/app/api/attempt/give-up-lateral/route';
 import { NextRequest } from 'next/server';
 
 const mockVerify = jest.fn();
-const mockRunTransaction = jest.fn();
-const mockTxUpdate = jest.fn();
+const mockRpc = jest.fn();
 
-const quizData = {
-  questions: [
-    {
-      id: 'q-1',
-      type: 'lateral-thinking',
-      explanation: 'プレイヤー向けの解説',
-      aiContextDetails: '裏設定の真相',
-    },
-  ],
-};
+let attemptResolveValue: { data: unknown; error: unknown } = { data: null, error: null };
 
-const attemptData = {
-  userId: 'uid-1',
-  quizId: 'quiz-1',
-  totalQuestions: 1,
-  elapsedSeconds: 60,
-  failedQuestionIds: ['q-1'],
-  mode: 'normal',
-};
+function createSelectChain(resolveValue: { data: unknown; error: unknown }) {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    maybeSingle: jest.fn(() => Promise.resolve(resolveValue)),
+  };
+  return chain;
+}
 
-const mockAttemptRef = {
-  get: jest.fn(async () => ({ exists: true, data: () => attemptData, id: 'att-1' })),
-};
-
-const mockQuizRef = {
-  get: jest.fn(async () => ({ exists: true, data: () => quizData, id: 'quiz-1' })),
-};
-
-const mockDb = {
-  collection: jest.fn((name: string) => {
-    if (name === 'attempts') {
-      return { doc: jest.fn(() => mockAttemptRef) };
-    }
-    if (name === 'quizzes') {
-      return { doc: jest.fn(() => mockQuizRef) };
-    }
-    return { doc: jest.fn() };
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => ({
+    from: jest.fn((table: string) => {
+      if (table === 'attempts') return createSelectChain(attemptResolveValue);
+      return createSelectChain({ data: null, error: null });
+    }),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   }),
-  runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
-};
+}));
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'token',
   verifySupabaseAccessToken: (...args: unknown[]) => mockVerify(...args),
 }));
 
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => mockDb,
-}));
-
-jest.mock('firebase-admin/firestore', () => ({
-  FieldValue: {
-    increment: jest.fn((v: number) => ({ __increment: v })),
-  },
-}));
+const attemptData = {
+  id: 'att-1',
+  user_id: 'uid-1',
+  quiz_id: 'quiz-1',
+  total_questions: 1,
+  elapsed_seconds: 60,
+  completed_at: null,
+};
 
 function buildRequest(body: Record<string, unknown>): NextRequest {
   return new NextRequest('http://localhost/api/attempt/give-up-lateral', {
@@ -73,59 +51,59 @@ describe('POST /api/attempt/give-up-lateral', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockVerify.mockResolvedValue('uid-1');
-    mockTxUpdate.mockClear();
-    mockRunTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => {
-      const tx = {
-        get: async () => ({ exists: true, data: () => quizData }),
-        update: mockTxUpdate,
-      };
-      await fn(tx);
-    });
-    mockAttemptRef.get.mockResolvedValue({ exists: true, data: () => attemptData, id: 'att-1' });
+    attemptResolveValue = { data: attemptData, error: null };
   });
 
-  it('諦め時に completed のみ返し revealText を含まない', async () => {
-    const res = await POST(buildRequest({ attemptId: 'att-1', userId: 'uid-1' }));
+  it('諦め時に completed のみ返し、RPCへ経過秒数を渡す', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: null });
+
+    const res = await POST(buildRequest({ attemptId: 'att-1', userId: 'uid-1', elapsedSeconds: 90 }));
 
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.completed).toBe(true);
     expect(body.revealText).toBeUndefined();
-    expect(mockRunTransaction).toHaveBeenCalled();
-    expect(mockTxUpdate).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        questionAnswerDetails: [
-          expect.objectContaining({
-            questionId: 'q-1',
-            questionType: 'lateral-thinking',
-            isCorrect: false,
-            lateralPlayEndedStatus: 'gave_up',
-          })
-        ]
-      })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('handle_give_up_lateral_attempt', {
+      p_attempt_id: 'att-1',
+      p_quiz_id: 'quiz-1',
+      p_elapsed_seconds: 90,
+    });
   });
 
-  it('既に完了済みの attempt は 409 を返す', async () => {
-    mockAttemptRef.get.mockResolvedValue({
-      exists: true,
-      data: () => ({ ...attemptData, completedAt: new Date() }),
-      id: 'att-1',
-    });
+  it('既に完了済みの attempt は RPC の already-completed 例外を 409 に変換する', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'already-completed' } });
 
     const res = await POST(buildRequest({ attemptId: 'att-1', userId: 'uid-1' }));
 
     expect(res.status).toBe(409);
-    expect(mockRunTransaction).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.error).toBe('already-completed');
   });
 
-  it('認証失敗時は 401 を返す', async () => {
+  it('認証失敗時は 401 を返し RPC を呼び出さない', async () => {
     mockVerify.mockResolvedValue(null);
 
     const res = await POST(buildRequest({ attemptId: 'att-1', userId: 'uid-1' }));
 
     expect(res.status).toBe(401);
-    expect(mockRunTransaction).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('他ユーザーの attempt は 403 を返し RPC を呼び出さない', async () => {
+    attemptResolveValue = { data: { ...attemptData, user_id: 'other-uid' }, error: null };
+
+    const res = await POST(buildRequest({ attemptId: 'att-1', userId: 'uid-1' }));
+
+    expect(res.status).toBe(403);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('attempt が見つからない場合は 404 を返す', async () => {
+    attemptResolveValue = { data: null, error: null };
+
+    const res = await POST(buildRequest({ attemptId: 'missing', userId: 'uid-1' }));
+
+    expect(res.status).toBe(404);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });

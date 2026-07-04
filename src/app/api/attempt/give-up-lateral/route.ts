@@ -3,13 +3,12 @@
  * POST /api/attempt/give-up-lateral
  *
  * Phase 17: attempt を不合格完了として記録する（真相・解説は返却しない）
+ * Supabase 正規化対応: handle_give_up_lateral_attempt RPC を呼び出す
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import { normalizeElapsedSeconds } from '@/lib/format-play-elapsed';
-import { Attempt, Quiz, QuestionAnswerDetail } from '@/types';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -38,75 +37,42 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const attemptRef = db.collection('attempts').doc(attemptId);
-    const attemptSnap = await attemptRef.get();
+    const supabase = createAdminClient();
 
-    if (!attemptSnap.exists) {
+    const { data: attempt, error: attemptError } = await supabase
+      .from('attempts')
+      .select('*')
+      .eq('id', attemptId)
+      .maybeSingle();
+
+    if (attemptError || !attempt) {
       return NextResponse.json({ error: 'attempt-not-found' }, { status: 404 });
     }
 
-    const attempt = attemptSnap.data() as Attempt;
-
-    if (attempt.userId !== verifiedUid) {
+    if (attempt.user_id !== verifiedUid) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 403 });
     }
 
-    if (attempt.completedAt != null) {
-      return NextResponse.json(
-        { error: 'already-completed', message: 'このプレイは既に完了しています' },
-        { status: 409 }
-      );
-    }
-
-    const quizRef = db.collection('quizzes').doc(attempt.quizId);
-    const quizSnap = await quizRef.get();
-
-    if (!quizSnap.exists) {
-      return NextResponse.json({ error: 'quiz-not-found' }, { status: 404 });
-    }
-
-    const quiz = quizSnap.data() as Quiz;
-    const lateralQuestion = quiz.questions.find((q) => q.type === 'lateral-thinking');
-
-    if (!lateralQuestion) {
-      return NextResponse.json({ error: 'no-lateral-question' }, { status: 400 });
-    }
-
-    const now = new Date();
     const savedElapsedSeconds = normalizeElapsedSeconds(
       elapsedSeconds,
-      attempt.elapsedSeconds ?? 0
+      attempt.elapsed_seconds ?? 0
     );
 
-    await db.runTransaction(async (transaction) => {
-      const quizTransactionSnap = await transaction.get(quizRef);
-      if (!quizTransactionSnap.exists) throw new Error('クイズが見つかりません。');
-
-      const detailRecord: QuestionAnswerDetail = {
-        questionId: lateralQuestion.id,
-        questionType: 'lateral-thinking',
-        isCorrect: false,
-        elapsedSeconds: savedElapsedSeconds,
-        hintsUsedCount: 0,
-        aiTurnCount: attempt.aiTruthAttempts?.length ?? 0,
-        truthSummary: null,
-        lateralPlayEndedStatus: 'gave_up',
-      };
-
-      transaction.update(attemptRef, {
-        completedAt: now,
-        score: 0,
-        gaveUpLateral: true,
-        elapsedSeconds: savedElapsedSeconds,
-        questionAnswerDetails: [detailRecord],
-      });
-
-      transaction.update(quizRef, {
-        playCount: FieldValue.increment(1),
-        updatedAt: now,
-      });
+    const { error: rpcError } = await supabase.rpc('handle_give_up_lateral_attempt', {
+      p_attempt_id: attemptId,
+      p_quiz_id: attempt.quiz_id,
+      p_elapsed_seconds: savedElapsedSeconds,
     });
+
+    if (rpcError) {
+      if (rpcError.message?.includes('already-completed')) {
+        return NextResponse.json(
+          { error: 'already-completed', message: 'このプレイは既に完了しています' },
+          { status: 409 }
+        );
+      }
+      throw new Error(rpcError.message);
+    }
 
     return NextResponse.json({ completed: true });
   } catch (error) {

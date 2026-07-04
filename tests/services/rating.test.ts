@@ -1,165 +1,75 @@
-import { runTransaction, doc } from 'firebase/firestore';
 import { submitDifficultyVote } from '../../src/services/rating';
 
-// Firebase Firestore モック
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((ref, id) => ({ id, path: `${id}` })),
-    collection: jest.fn((db, path) => ({ path })),
-    increment: jest.fn((n) => n),
-    runTransaction: jest.fn(),
-    Timestamp: {
-      fromDate: jest.fn((date) => date),
-    },
+// Supabase クライアントのチェーンモック
+jest.mock('../../src/lib/supabase/client', () => {
+  const mock: any = {
+    from: jest.fn(() => mock),
+    select: jest.fn(() => mock),
+    eq: jest.fn(() => mock),
+    maybeSingle: jest.fn(() => mock),
+    rpc: jest.fn(),
   };
+  return { createClient: () => mock };
 });
+
+import { createClient } from '../../src/lib/supabase/client';
 
 describe('RatingService - submitDifficultyVote', () => {
   const quizId = 'test-quiz-id';
   const userId = 'test-user-id';
+  const supabase = createClient() as any;
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   // ── 異常系バリデーション ──────────────────────────────────────
-  test('投票値が1未満の場合はエラーをスローする', async () => {
+  test('投票値が1未満の場合はエラーをスローし、RPCは呼ばれない', async () => {
     await expect(submitDifficultyVote(quizId, userId, 0)).rejects.toThrow(
       '難易度投票は1から5の範囲で指定してください。'
     );
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  test('投票値が5を超える場合はエラーをスローする', async () => {
+  test('投票値が5を超える場合はエラーをスローし、RPCは呼ばれない', async () => {
     await expect(submitDifficultyVote(quizId, userId, 6)).rejects.toThrow(
       '難易度投票は1から5の範囲で指定してください。'
     );
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
-  // ── 正常系: ログインユーザー（新規投票） ─────────────────────────────
-  test('ログインユーザーが新規に投票した場合、新規作成とカウンタインクリメントをアトミックに行う', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({ difficulty: 5 }),
-    };
-
-    const mockVoteSnap = {
-      exists: () => false,
-    };
-
-    // runTransaction のモック
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === quizId) return mockQuizSnap;
-        return mockVoteSnap;
-      }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
+  // ── 正常系: ログインユーザー ─────────────────────────────
+  test('ログインユーザーの投票はhandle_submit_difficulty_vote RPCに正しいパラメータで渡される', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
 
     await submitDifficultyVote(quizId, userId, 4);
 
-    expect(mockTransaction.get).toHaveBeenCalledTimes(2);
-    expect(mockTransaction.set).toHaveBeenCalledTimes(1);
-    expect(mockTransaction.update).toHaveBeenCalledTimes(1);
-
-    // quizzes への更新内容の検証
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: quizId }),
-      expect.objectContaining({
-        difficultyVotesSum: 4,
-        difficultyVotesCount: 1,
-      })
-    );
-  });
-
-  // ── 正常系: ログインユーザー（上書き投票） ───────────────────────────
-  test('ログインユーザーが上書き投票した場合、投票データを更新し、差分のみをクイズに加算する', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({ difficulty: 5 }),
-    };
-
-    // 前回の投票は 2 点
-    const mockVoteSnap = {
-      exists: () => true,
-      data: () => ({ userId, quizId, vote: 2 }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === quizId) return mockQuizSnap;
-        return mockVoteSnap;
-      }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith('handle_submit_difficulty_vote', {
+      p_quiz_id: quizId,
+      p_user_id: userId,
+      p_vote: 4,
     });
-
-    // 新たに 4 点を投票（差分 +2 点）
-    await submitDifficultyVote(quizId, userId, 4);
-
-    expect(mockTransaction.get).toHaveBeenCalledTimes(2);
-    expect(mockTransaction.set).not.toHaveBeenCalled();
-    expect(mockTransaction.update).toHaveBeenCalledTimes(2);
-
-    // voteDoc に対する更新の検証
-    expect(mockTransaction.update).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ id: `${userId}_${quizId}` }),
-      expect.objectContaining({ vote: 4 })
-    );
-
-    // quizDoc に対する差分更新の検証
-    expect(mockTransaction.update).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ id: quizId }),
-      expect.objectContaining({
-        difficultyVotesSum: 2, // 4 - 2 = 2
-      })
-    );
   });
 
   // ── 正常系: 匿名ユーザー投票 ────────────────────────────────────
-  test('匿名ユーザーが投票した場合、上書きチェックなしでアトミックに加算する', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({ difficulty: 5 }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockQuizSnap),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
+  test('匿名投票（userId = null）はp_user_id: nullでRPCに渡される', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
 
     await submitDifficultyVote(quizId, null, 4);
 
-    // 匿名投票は quizSnap のみ get
-    expect(mockTransaction.get).toHaveBeenCalledTimes(1);
-    expect(mockTransaction.get).toHaveBeenCalledWith(expect.objectContaining({ id: quizId }));
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith('handle_submit_difficulty_vote', {
+      p_quiz_id: quizId,
+      p_user_id: null,
+      p_vote: 4,
+    });
+  });
 
-    expect(mockTransaction.set).toHaveBeenCalledTimes(1); // 匿名レコード新規作成
-    expect(mockTransaction.update).toHaveBeenCalledTimes(1); // カウンタ更新
+  // ── 異常系: RPCがエラーを返す場合 ────────────────────────────────
+  test('RPCがエラーを返した場合は例外をスローする', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'boom' } });
 
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: quizId }),
-      expect.objectContaining({
-        difficultyVotesSum: 4,
-        difficultyVotesCount: 1,
-      })
-    );
+    await expect(submitDifficultyVote(quizId, userId, 3)).rejects.toThrow();
   });
 });

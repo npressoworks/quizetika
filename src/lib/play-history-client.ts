@@ -1,6 +1,8 @@
-import { auth } from '@/lib/firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import { listUserPlayHistory } from '@/services/attempt';
 import type { Attempt, PlayHistoryPage } from '@/types';
+
+const supabase = createClient();
 
 export class PlayHistoryApiError extends Error {
   constructor(
@@ -36,7 +38,10 @@ export async function fetchPlayHistoryPage(params: {
   cursor?: string | null;
   limit?: number;
 }): Promise<PlayHistoryPage> {
-  const uid = auth.currentUser?.uid;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const uid = session?.user?.id;
   if (!uid) {
     throw new PlayHistoryApiError('ログインが必要です', 401);
   }

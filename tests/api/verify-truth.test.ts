@@ -3,63 +3,73 @@ import { NextRequest } from 'next/server';
 
 const mockVerify = jest.fn();
 const mockGenerateContent = jest.fn();
-const mockAttemptUpdate = jest.fn();
-const mockRunTransaction = jest.fn();
-const mockTxUpdate = jest.fn();
-
-const quizData = {
-  questions: [
-    {
-      id: 'q-1',
-      type: 'lateral-thinking',
-      aiContextDetails: '男は遭難しウミガメのスープを飲んだ',
-      truthKeywords: ['ウミガメ', '遭難', 'スープ'],
-    },
-  ],
-};
+const mockRpc = jest.fn();
 
 const attemptData = {
-  userId: 'uid-1',
-  quizId: 'quiz-1',
-  totalQuestions: 1,
-  elapsedSeconds: 120,
-  mode: 'normal',
+  id: 'att-1',
+  user_id: 'uid-1',
+  quiz_id: 'quiz-1',
+  total_questions: 1,
+  elapsed_seconds: 120,
+  completed_at: null,
 };
 
-const mockAttemptRef = {
-  get: jest.fn(async () => ({ exists: true, data: () => attemptData, id: 'att-1' })),
-  update: (data: any) => mockAttemptUpdate(data),
+const lateralQuestionRow = {
+  id: 'q-1',
+  type: 'lateral-thinking',
+  question_text: '',
+  explanation: '',
+  image_url: null,
+  hint: null,
+  limit_time: null,
+  correct_text_answer_list: null,
+  text_input_mode: null,
+  text_input_char_count: null,
+  choices: null,
+  sorting_items: null,
+  association_hints: null,
+  ai_context_details: '男は遭難しウミガメのスープを飲んだ',
+  truth_keywords: ['ウミガメ', '遭難', 'スープ'],
+  source_url: null,
+  correct_count: 0,
+  incorrect_count: 0,
+  bookmarks_count: 0,
+  author_id: null,
+  author_name: null,
+  author_avatar: null,
+  link_kind: null,
+  owner_quiz_id: 'quiz-1',
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
 };
 
-const mockQuizRef = {
-  get: jest.fn(async () => ({ exists: true, data: () => quizData, id: 'quiz-1' })),
+let attemptResolveValue: { data: unknown; error: unknown } = { data: attemptData, error: null };
+let quizQuestionsResolveValue: { data: unknown; error: unknown } = {
+  data: [{ question: lateralQuestionRow }],
+  error: null,
 };
 
-const mockAttemptsQueryGet = jest.fn(async () => ({ docs: [] }));
-
-function createAttemptsCollection() {
-  const queryBuilder: any = {
-    where: jest.fn(() => queryBuilder),
-    get: mockAttemptsQueryGet,
+function createChain(resolveValue: { data: unknown; error: unknown }) {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    maybeSingle: jest.fn(() => Promise.resolve(resolveValue)),
+    then: (onFulfilled: any, onRejected: any) =>
+      Promise.resolve(resolveValue).then(onFulfilled, onRejected),
   };
-  return {
-    doc: jest.fn(() => mockAttemptRef),
-    where: jest.fn(() => queryBuilder),
-  };
+  return chain;
 }
 
-const mockDb = {
-  collection: jest.fn((name: string) => {
-    if (name === 'attempts') {
-      return createAttemptsCollection();
-    }
-    if (name === 'quizzes') {
-      return { doc: jest.fn(() => mockQuizRef) };
-    }
-    return { doc: jest.fn() };
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => ({
+    from: jest.fn((table: string) => {
+      if (table === 'attempts') return createChain(attemptResolveValue);
+      if (table === 'quiz_questions') return createChain(quizQuestionsResolveValue);
+      return createChain({ data: null, error: null });
+    }),
+    rpc: (...args: unknown[]) => mockRpc(...args),
   }),
-  runTransaction: (...args: unknown[]) => mockRunTransaction(...args),
-};
+}));
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'token',
@@ -74,21 +84,6 @@ jest.mock('@google/generative-ai', () => ({
   })),
 }));
 
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => mockDb,
-}));
-
-jest.mock('firebase-admin/firestore', () => ({
-  FieldValue: {
-    arrayUnion: jest.fn((v: unknown) => ({ __arrayUnion: v })),
-    increment: jest.fn((v: number) => ({ __increment: v })),
-  },
-}));
-
-jest.mock('@/lib/leaderboard-update', () => ({
-  buildLeaderboardUpdatesForQuiz: () => null,
-}));
-
 function buildRequest(body: Record<string, unknown>): NextRequest {
   return new NextRequest('http://localhost/api/attempt/verify-truth', {
     method: 'POST',
@@ -101,15 +96,9 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockVerify.mockResolvedValue('uid-1');
-    mockAttemptUpdate.mockResolvedValue(undefined);
-    mockTxUpdate.mockClear();
-    mockRunTransaction.mockImplementation(async (_fn: (tx: unknown) => Promise<void>) => {
-      const tx = {
-        get: async () => ({ exists: true, data: () => ({}) }),
-        update: mockTxUpdate,
-      };
-      await _fn(tx);
-    });
+    attemptResolveValue = { data: attemptData, error: null };
+    quizQuestionsResolveValue = { data: [{ question: lateralQuestionRow }], error: null };
+    mockRpc.mockResolvedValue({ data: null, error: null });
   });
 
   it('常に Gemini を呼び出し、プロンプトにエッセンスキーワードを含める', async () => {
@@ -131,6 +120,10 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
     const body = await res.json();
     expect(body.isCorrect).toBe(false);
     expect(body.advice).toBe('必須要素が足りていません。');
+    expect(mockRpc).toHaveBeenCalledWith(
+      'handle_complete_lateral_attempt',
+      expect.objectContaining({ p_attempt_id: 'att-1', p_is_correct: false })
+    );
   });
 
   it('キーワードが要約に全て含まれていても AI 判定結果に従う（バイパスなし）', async () => {
@@ -146,10 +139,10 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
     const body = await res.json();
     expect(body.isCorrect).toBe(false);
-    expect(mockAttemptUpdate).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalled();
   });
 
-  it('AI が CORRECT のとき合格レスポンスを返す', async () => {
+  it('AI が CORRECT のとき合格レスポンスを返し、RPCへ経過秒数と総問題数を渡す', async () => {
     mockGenerateContent.mockResolvedValue({
       response: { text: () => 'VERDICT: CORRECT\nお見事！' },
     });
@@ -159,7 +152,7 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
         attemptId: 'att-1',
         userId: 'uid-1',
         truthSummary: '真相の要約',
-        displayName: 'Player',
+        elapsedSeconds: 150,
       })
     );
 
@@ -167,21 +160,18 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
     expect(res.status).toBe(200);
     expect(body.isCorrect).toBe(true);
     expect(body.advice).toBeNull();
-    expect(mockRunTransaction).toHaveBeenCalled();
-    expect(mockTxUpdate).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({
-        questionAnswerDetails: [
-          expect.objectContaining({
-            questionId: 'q-1',
-            questionType: 'lateral-thinking',
-            isCorrect: true,
-            lateralPlayEndedStatus: 'passed',
-            truthSummary: '真相の要約',
-          })
-        ]
-      })
-    );
+    expect(mockRpc).toHaveBeenCalledWith('handle_complete_lateral_attempt', {
+      p_attempt_id: 'att-1',
+      p_user_id: 'uid-1',
+      p_quiz_id: 'quiz-1',
+      p_is_correct: true,
+      p_truth_attempt: expect.objectContaining({
+        truthText: '真相の要約',
+        isCorrect: true,
+      }),
+      p_elapsed_seconds: 150,
+      p_total_questions: 1,
+    });
   });
 
   it('Gemini 例外時は 503 を返し代替合格しない', async () => {
@@ -195,6 +185,28 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.error).toBe('ai-error');
-    expect(mockRunTransaction).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('認証失敗時は 401 を返す', async () => {
+    mockVerify.mockResolvedValue(null);
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', truthSummary: 'x' })
+    );
+
+    expect(res.status).toBe(401);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('他ユーザーの attempt は 403 を返す', async () => {
+    attemptResolveValue = { data: { ...attemptData, user_id: 'other-uid' }, error: null };
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', truthSummary: 'x' })
+    );
+
+    expect(res.status).toBe(403);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });

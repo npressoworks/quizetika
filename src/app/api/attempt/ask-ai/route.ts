@@ -3,30 +3,35 @@
  * POST /api/attempt/ask-ai
  *
  * Phase 17: 二層日次制限（30/クイズ・150/日横断）、正規化キャッシュ、limitType 付き 429
+ * Supabase 正規化対応: 日次カウンタは ai_turn_counts_per_quiz / ai_turn_counts_global を
+ * 事前参照して fail-fast し、実際の加算・上限判定・履歴追記は handle_record_ai_turn RPC が
+ * アトミックに行う（事前参照とRPC呼び出しの間のレースはRPC側の再判定で閉じられる）。
  *
  * Boundary: AskAiQuestionAPI
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import {
   findCachedAnswer,
   checkAiTurnLimits,
   parseAiResponse,
   mapHistoryToGeminiContents,
   buildAiSystemInstruction,
-  DAILY_AI_TURN_GLOBAL_DOC_ID,
   FREE_TIER_PER_QUIZ_LIMIT,
   FREE_TIER_GLOBAL_DAILY_LIMIT,
   type AiTurnLimitType,
 } from '@/services/ask-ai-utils';
-import { AiQuestion, Attempt, Quiz } from '@/types';
+import { mapQuestionRowToQuestion } from '@/services/question';
+import { AiQuestion } from '@/types';
+import type { Database } from '@/lib/supabase/database.types';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { resolveUserEntitlements } from '@/services/entitlement';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+
+type QuestionRow = Database['public']['Tables']['questions']['Row'];
 
 function getTodayString(): string {
   const d = new Date();
@@ -39,10 +44,10 @@ function getTodayString(): string {
 }
 
 function readDailyCount(
-  data: { count?: number; lastUpdatedDate?: string } | undefined,
+  data: { count?: number; count_date?: string } | null | undefined,
   todayStr: string
 ): number {
-  if (!data || data.lastUpdatedDate !== todayStr) return 0;
+  if (!data || data.count_date !== todayStr) return 0;
   return data.count ?? 0;
 }
 
@@ -51,6 +56,26 @@ function limitExceededMessage(limitType: AiTurnLimitType): string {
     return `本日のこのクイズに対する質問上限（${FREE_TIER_PER_QUIZ_LIMIT}回）に達しました。Pro プランで制限を解除できます。`;
   }
   return `本日の全クイズ横断の質問上限（${FREE_TIER_GLOBAL_DAILY_LIMIT}回）に達しました。Pro プランで制限を解除できます。`;
+}
+
+/** 対象クイズの水平思考問題の裏設定（aiContextDetails）を quiz_questions 経由で取得する */
+async function findLateralAiContextDetails(
+  supabase: ReturnType<typeof createAdminClient>,
+  quizId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('quiz_questions')
+    .select('question:questions(*)')
+    .eq('quiz_id', quizId);
+
+  if (error || !data) return null;
+
+  const row = (data as unknown as { question: QuestionRow | null }[])
+    .map((link) => link.question)
+    .find((q) => q?.type === 'lateral-thinking');
+
+  if (!row) return null;
+  return mapQuestionRowToQuestion(row).aiContextDetails ?? null;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -87,7 +112,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
+    const supabase = createAdminClient();
 
     let hasUnlimitedAiQuestions = false;
     try {
@@ -97,52 +122,45 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.error('[ask-ai] ユーザーエンタイトルメント解決エラー (非致命的):', dbErr);
     }
 
-    const attemptRef = db.collection('attempts').doc(attemptId);
-    const attemptSnap = await attemptRef.get();
+    const { data: attempt, error: attemptError } = await supabase
+      .from('attempts')
+      .select('*')
+      .eq('id', attemptId)
+      .maybeSingle();
 
-    if (!attemptSnap.exists) {
+    if (attemptError || !attempt) {
       return NextResponse.json(
-        { error: 'attempt-not-found', message: '対象 of プレイ記録が見つかりません' },
+        { error: 'attempt-not-found', message: '対象のプレイ記録が見つかりません' },
         { status: 404 }
       );
     }
 
-    const attempt = attemptSnap.data() as Attempt;
-
-    if (attempt.userId !== verifiedUid) {
+    if (attempt.user_id !== verifiedUid) {
       return NextResponse.json(
         { error: 'unauthorized', message: '他のユーザーのプレイ記録は操作できません' },
         { status: 403 }
       );
     }
 
-    const history: AiQuestion[] = attempt.aiQuestionsHistory ?? [];
+    const history: AiQuestion[] = (attempt.ai_questions_history as unknown as AiQuestion[]) ?? [];
     const todayStr = getTodayString();
 
-    const perQuizCountRef = db
-      .collection('users')
-      .doc(userId)
-      .collection('dailyAiTurnCounts')
-      .doc(attempt.quizId);
-    const globalCountRef = db
-      .collection('users')
-      .doc(userId)
-      .collection('dailyAiTurnCounts')
-      .doc(DAILY_AI_TURN_GLOBAL_DOC_ID);
-
-    const [perQuizSnap, globalSnap] = await Promise.all([
-      perQuizCountRef.get(),
-      globalCountRef.get(),
+    const [{ data: perQuizRow }, { data: globalRow }] = await Promise.all([
+      supabase
+        .from('ai_turn_counts_per_quiz')
+        .select('count, count_date')
+        .eq('user_id', verifiedUid)
+        .eq('quiz_id', attempt.quiz_id)
+        .maybeSingle(),
+      supabase
+        .from('ai_turn_counts_global')
+        .select('count, count_date')
+        .eq('user_id', verifiedUid)
+        .maybeSingle(),
     ]);
 
-    const perQuizCount = readDailyCount(
-      perQuizSnap.data() as { count?: number; lastUpdatedDate?: string },
-      todayStr
-    );
-    const globalDailyCount = readDailyCount(
-      globalSnap.data() as { count?: number; lastUpdatedDate?: string },
-      todayStr
-    );
+    const perQuizCount = readDailyCount(perQuizRow, todayStr);
+    const globalDailyCount = readDailyCount(globalRow, todayStr);
 
     const limitCheck = checkAiTurnLimits({
       perQuizCount,
@@ -160,6 +178,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // Gemini呼び出し前にフェイルファスト（無駄なAPI呼び出しを避ける）。
+    // 最終的な整合性は handle_record_ai_turn RPC のアトミックな加算直後の再判定に委ねる。
     if (limitCheck.exceeded && limitCheck.limitType) {
       return NextResponse.json(
         {
@@ -171,19 +191,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const quizRef = db.collection('quizzes').doc(attempt.quizId);
-    const quizSnap = await quizRef.get();
-
-    if (!quizSnap.exists) {
-      return NextResponse.json(
-        { error: 'quiz-not-found', message: 'クイズが見つかりません' },
-        { status: 404 }
-      );
-    }
-
-    const quiz = quizSnap.data() as Quiz;
-    const lateralQuestion = quiz.questions.find((q) => q.type === 'lateral-thinking');
-    const aiContextDetails = lateralQuestion?.aiContextDetails;
+    const aiContextDetails = await findLateralAiContextDetails(supabase, attempt.quiz_id);
 
     if (!aiContextDetails) {
       return NextResponse.json(
@@ -233,27 +241,45 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       createdAt: new Date(),
     };
 
-    const nextPerQuizCount = perQuizCount + 1;
-    const nextGlobalCount = globalDailyCount + 1;
-
-    await db.runTransaction(async (transaction) => {
-      transaction.update(attemptRef, {
-        aiQuestionsHistory: FieldValue.arrayUnion(newEntry),
-        aiTurnCount: FieldValue.increment(1),
-      });
-
-      transaction.set(
-        perQuizCountRef,
-        { count: nextPerQuizCount, lastUpdatedDate: todayStr },
-        { merge: true }
-      );
-
-      transaction.set(
-        globalCountRef,
-        { count: nextGlobalCount, lastUpdatedDate: todayStr },
-        { merge: true }
-      );
+    const { data: rpcData, error: rpcError } = await supabase.rpc('handle_record_ai_turn', {
+      p_attempt_id: attemptId,
+      p_user_id: verifiedUid,
+      p_quiz_id: attempt.quiz_id,
+      p_history_entry: newEntry as unknown as Database['public']['Functions']['handle_record_ai_turn']['Args']['p_history_entry'],
+      // RPC は NULL を「無制限」として扱う。生成された Args 型は非 null 前提のため、
+      // Postgres 側の実際のシグネチャ（NULL 許容 INTEGER）に合わせてキャストする。
+      p_per_quiz_limit: (hasUnlimitedAiQuestions ? null : FREE_TIER_PER_QUIZ_LIMIT) as unknown as number,
+      p_global_limit: (hasUnlimitedAiQuestions ? null : FREE_TIER_GLOBAL_DAILY_LIMIT) as unknown as number,
     });
+
+    if (rpcError) {
+      const message = rpcError.message ?? '';
+      if (message.includes('per-quiz-limit-exceeded')) {
+        return NextResponse.json(
+          {
+            error: 'limit-exceeded',
+            limitType: 'per-quiz',
+            message: limitExceededMessage('per-quiz'),
+          },
+          { status: 429 }
+        );
+      }
+      if (message.includes('global-limit-exceeded')) {
+        return NextResponse.json(
+          {
+            error: 'limit-exceeded',
+            limitType: 'global-daily',
+            message: limitExceededMessage('global-daily'),
+          },
+          { status: 429 }
+        );
+      }
+      throw new Error(message);
+    }
+
+    const resultRow = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+    const nextPerQuizCount = resultRow?.per_quiz_count ?? perQuizCount + 1;
+    const nextGlobalCount = resultRow?.global_count ?? globalDailyCount + 1;
 
     const afterLimit = checkAiTurnLimits({
       perQuizCount: nextPerQuizCount,

@@ -1,14 +1,19 @@
-import { auth } from '@/lib/firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import { listUserPlayedQuizIds } from '@/services/attempt';
 
+const supabase = createClient();
+
 /**
- * ログイン中ユーザーのプレイ済みクイズ ID 一覧（Firestore クライアント + セキュリティルール）
+ * ログイン中ユーザーのプレイ済みクイズ ID 一覧（Supabase セッションベース）
  */
 export async function fetchPlayedQuizIds(): Promise<string[]> {
-  const user = auth.currentUser;
-  if (!user) {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const uid = session?.user?.id;
+  if (!uid) {
     return [];
   }
 
-  return listUserPlayedQuizIds(user.uid);
+  return listUserPlayedQuizIds(uid);
 }

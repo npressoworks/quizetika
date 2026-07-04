@@ -1,68 +1,39 @@
 import {
   collection,
   doc,
-  getDoc,
   getDocs,
   updateDoc,
-  setDoc,
   query,
   where,
-  orderBy,
-  limit,
-  startAfter,
   runTransaction,
   increment,
-  arrayUnion,
   arrayRemove,
-  Timestamp,
   documentId,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
 import { expandGenreIdsForQuery, quizMatchesGenreFilter } from '../lib/metadata-resolution';
 import { assertCanViewQuizAsync } from '../lib/quiz-access';
 import { quizzesRef, usersRef } from '../lib/firebase/firestore';
+import { createClient } from '../lib/supabase/client';
+import { Database, Json } from '../lib/supabase/database.types';
+import { getQuiz } from './quiz';
 import {
   Attempt,
   Quiz,
   Question,
   PlayHistoryPage,
   PlayHistoryEntry,
+  LeaderboardRecord,
   assertPlayModeAllowedForSave,
   satisfiesMyQuizAttemptContract,
-  QuestionAnswerDetail,
 } from '../types';
-import {
-  buildLeaderboardUpdatesForQuiz,
-  isLeaderboardEligibleAttempt,
-} from '../lib/leaderboard-update';
-
-/** 新規 attempt 保存前: 同一 user+quiz の完了済み件数 */
-async function countPriorCompletedAttempts(
-  userId: string,
-  quizId: string,
-  excludeAttemptId?: string
-): Promise<number> {
-  const snap = await getDocs(
-    query(
-      attemptsCollection,
-      where('userId', '==', userId),
-      where('quizId', '==', quizId),
-      limit(excludeAttemptId ? 2 : 1)
-    )
-  );
-
-  return snap.docs.filter((d) => {
-    if (excludeAttemptId && d.id === excludeAttemptId) return false;
-    const data = d.data() as Attempt;
-    return data.completedAt != null;
-  }).length;
-}
-
 import {
   getPendingSyncAttempts,
   clearPendingSyncAttempt,
   PendingSyncAttempt,
 } from './attempt-session';
+
+const supabase = createClient();
 
 const attemptsCollection = collection(db, 'attempts');
 
@@ -70,157 +41,139 @@ function isSingleQuestionAttemptMode(mode: Attempt['mode']): boolean {
   return mode === 'my-quiz';
 }
 
+/** ウミガメのスープ用セッション開始時のデフォルト質問ターン上限 */
+const LATERAL_DEFAULT_AI_TURN_LIMIT = 30;
+
+/** attempts テーブルの Row を Attempt 型オブジェクトへマッピングする */
+export function mapRowToAttempt(row: Database['public']['Tables']['attempts']['Row']): Attempt {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    quizId: row.quiz_id,
+    listId: row.list_id,
+    mode: row.mode as Attempt['mode'],
+    sessionId: row.session_id ?? undefined,
+    score: row.score,
+    totalQuestions: row.total_questions,
+    elapsedSeconds: row.elapsed_seconds,
+    failedQuestionIds: row.failed_question_ids ?? [],
+    questionAnswers: (row.question_answers as any) ?? undefined,
+    questionAnswerDetails: (row.question_answer_details as any) ?? undefined,
+    difficultyVote: row.difficulty_vote,
+    aiQuestionsHistory: (row.ai_questions_history as any) ?? undefined,
+    aiTruthAttempts: (row.ai_truth_attempts as any) ?? undefined,
+    aiTurnCount: row.ai_turn_count ?? 0,
+    aiTurnLimit: row.ai_turn_limit,
+    completedAt: row.completed_at ? new Date(row.completed_at) : null,
+    gaveUpLateral: row.gave_up_lateral ?? undefined,
+  };
+}
+
 /* ==========================================================================
    Attempt 保存
    ========================================================================== */
 
 /**
- * プレイ結果を Firestore に保存する。
- * アトミックなトランザクション内で、attemptsへのレコード追加、
- * プレイ回数加算、初回／リプレイリーダーボード更新をすべて行う。
+ * プレイ結果を保存する。
+ * クライアント側では対不正検証のうち RPC 側でカバーされない項目
+ * （1問プレイ契約・解答詳細の整合性）のみを事前検証し、
+ * 実際のレコード追加・プレイ回数加算・初回／リプレイリーダーボード更新は
+ * `handle_save_attempt` RPC がアトミックに行う。
  */
 export async function saveAttempt(
   attemptData: Omit<Attempt, 'id' | 'completedAt'>
 ): Promise<string> {
   assertPlayModeAllowedForSave(attemptData.mode);
 
-  const quizPreview = await getDoc(doc(quizzesRef, attemptData.quizId));
-  if (!quizPreview.exists()) {
+  const quiz = await getQuiz(attemptData.quizId);
+  if (!quiz) {
     throw new Error(`クイズが見つかりません: ${attemptData.quizId}`);
   }
+
   const viewerUid =
     attemptData.userId && attemptData.userId !== 'guest' ? attemptData.userId : null;
-  await assertCanViewQuizAsync(quizPreview.data() as Quiz, viewerUid);
+  await assertCanViewQuizAsync(quiz, viewerUid);
 
-  const completedAt = new Date();
-  const attemptDocRef = doc(attemptsCollection);
+  const actualTotalQuestions = quiz.questions?.length ?? 0;
+  const quizQuestionIds = new Set((quiz.questions ?? []).map((q: Question) => q.id));
 
-  const priorCompletedCount = isLeaderboardEligibleAttempt(attemptData)
-    ? await countPriorCompletedAttempts(attemptData.userId, attemptData.quizId)
-    : 0;
-
-  const payload: Omit<Attempt, 'id'> = {
-    ...attemptData,
-    listId: attemptData.listId ?? null, // undefined は Firestore がエラーを吐くため、ここで null に変換
-    sessionId: attemptData.sessionId ?? null,
-    completedAt,
-  };
-
-  const quizDocRef = doc(quizzesRef, attemptData.quizId);
-
-  await runTransaction(db, async (transaction) => {
-    const quizSnap = await transaction.get(quizDocRef);
-    if (!quizSnap.exists()) {
-      throw new Error(`クイズが見つかりません: ${attemptData.quizId}`);
-    }
-
-    const quiz = quizSnap.data() as Quiz;
-
-    // ── セキュリティ対策（チート防止のためのサーバーサイド二重検証） ──
-    const actualTotalQuestions = quiz.questions?.length ?? 0;
-    const quizQuestionIds = new Set((quiz.questions ?? []).map((q) => q.id));
-
-    if (isSingleQuestionAttemptMode(attemptData.mode)) {
-      if (attemptData.totalQuestions !== 1) {
-        throw new Error(
-          `1問プレイモードでは totalQuestions は 1 である必要があります。送信値: ${attemptData.totalQuestions}`
-        );
-      }
-      if (
-        attemptData.mode === 'my-quiz' &&
-        !satisfiesMyQuizAttemptContract(attemptData)
-      ) {
-        throw new Error('my-quiz モードの attempt 契約を満たしていません');
-      }
-      if (attemptData.failedQuestionIds.length > 1) {
-        throw new Error('1問プレイモードでは failedQuestionIds は最大1件です');
-      }
-    } else if (attemptData.totalQuestions !== actualTotalQuestions) {
+  // ── セキュリティ対策（チート防止のためのクライアント側事前検証。RPC 側でも再検証される） ──
+  if (isSingleQuestionAttemptMode(attemptData.mode)) {
+    if (attemptData.totalQuestions !== 1) {
       throw new Error(
-        `問題数の不整合が検知されました。期待される問題数: ${actualTotalQuestions}, 送信された問題数: ${attemptData.totalQuestions}`
+        `1問プレイモードでは totalQuestions は 1 である必要があります。送信値: ${attemptData.totalQuestions}`
       );
     }
-
-    // 送信された間違えた問題IDがすべて該当クイズに存在するか検証
-    for (const failedId of attemptData.failedQuestionIds) {
-      if (!quizQuestionIds.has(failedId)) {
-        throw new Error(`該当クイズに存在しない不正な問題IDが解答履歴に含まれています: ${failedId}`);
-      }
+    if (
+      attemptData.mode === 'my-quiz' &&
+      !satisfiesMyQuizAttemptContract(attemptData)
+    ) {
+      throw new Error('my-quiz モードの attempt 契約を満たしていません');
     }
-
-    // 計算上の正解数と送信されたスコア（score）が合致するか検証
-    const calculatedScore = isSingleQuestionAttemptMode(attemptData.mode)
-      ? 1 - attemptData.failedQuestionIds.length
-      : actualTotalQuestions - attemptData.failedQuestionIds.length;
-    if (attemptData.score !== calculatedScore) {
-      throw new Error(`スコアデータの不整合が検知されました。計算スコア: ${calculatedScore}, 送信スコア: ${attemptData.score}`);
+    if (attemptData.failedQuestionIds.length > 1) {
+      throw new Error('1問プレイモードでは failedQuestionIds は最大1件です');
     }
+  } else if (attemptData.totalQuestions !== actualTotalQuestions) {
+    throw new Error(
+      `問題数の不整合が検知されました。期待される問題数: ${actualTotalQuestions}, 送信された問題数: ${attemptData.totalQuestions}`
+    );
+  }
 
-    if (attemptData.questionAnswerDetails && attemptData.questionAnswerDetails.length > 0) {
-      const details = attemptData.questionAnswerDetails;
-      if (details.length !== attemptData.totalQuestions) {
-        throw new Error(
-          `解答詳細の件数が不整合です。期待される問題数: ${attemptData.totalQuestions}, 送信された詳細件数: ${details.length}`
-        );
-      }
-      const detailsCorrectCount = details.filter((d) => d.isCorrect).length;
-      if (detailsCorrectCount !== attemptData.score) {
-        throw new Error(
-          `解答詳細の正解数 (${detailsCorrectCount}) が送信されたスコア (${attemptData.score}) と一致しません`
-        );
-      }
-      for (const detail of details) {
-        if (!quizQuestionIds.has(detail.questionId)) {
-          throw new Error(
-            `該当クイズに存在しない不正な問題IDが解答詳細に含まれています: ${detail.questionId}`
-          );
-        }
-      }
+  // 送信された間違えた問題IDがすべて該当クイズに存在するか検証
+  for (const failedId of attemptData.failedQuestionIds) {
+    if (!quizQuestionIds.has(failedId)) {
+      throw new Error(`該当クイズに存在しない不正な問題IDが解答履歴に含まれています: ${failedId}`);
     }
-    // ───────────────────────────────────────────────────────────────
+  }
 
-    // トランザクション内で最新のユーザーのdisplayNameを取得 (ゲストでない場合)
-    let displayName = 'ゲストプレイヤー';
-    if (attemptData.userId && attemptData.userId !== 'guest') {
-      const userDocRef = doc(usersRef, attemptData.userId);
-      const userSnap = await transaction.get(userDocRef);
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        displayName = userData.displayName || '名無しさん';
-      }
-    }
+  // 計算上の正解数と送信されたスコア（score）が合致するか検証
+  const calculatedScore = isSingleQuestionAttemptMode(attemptData.mode)
+    ? 1 - attemptData.failedQuestionIds.length
+    : actualTotalQuestions - attemptData.failedQuestionIds.length;
+  if (attemptData.score !== calculatedScore) {
+    throw new Error(`スコアデータの不整合が検知されました。計算スコア: ${calculatedScore}, 送信スコア: ${attemptData.score}`);
+  }
 
-    // attempt の追加
-    transaction.set(attemptDocRef, payload);
-
-    const quizUpdates: Record<string, unknown> = {
-      playCount: increment(1),
-      updatedAt: completedAt,
-    };
-
-    if (isLeaderboardEligibleAttempt(attemptData)) {
-      const leaderboardEntry = {
-        userId: attemptData.userId,
-        displayName,
-        score: attemptData.score,
-        elapsedSeconds: attemptData.elapsedSeconds,
-        completedAt,
-      };
-      const lbResult = buildLeaderboardUpdatesForQuiz(
-        quiz,
-        priorCompletedCount,
-        leaderboardEntry,
-        attemptData.mode
+  if (attemptData.questionAnswerDetails && attemptData.questionAnswerDetails.length > 0) {
+    const details = attemptData.questionAnswerDetails;
+    if (details.length !== attemptData.totalQuestions) {
+      throw new Error(
+        `解答詳細の件数が不整合です。期待される問題数: ${attemptData.totalQuestions}, 送信された詳細件数: ${details.length}`
       );
-      if (lbResult) {
-        Object.assign(quizUpdates, lbResult.updates);
+    }
+    const detailsCorrectCount = details.filter((d) => d.isCorrect).length;
+    if (detailsCorrectCount !== attemptData.score) {
+      throw new Error(
+        `解答詳細の正解数 (${detailsCorrectCount}) が送信されたスコア (${attemptData.score}) と一致しません`
+      );
+    }
+    for (const detail of details) {
+      if (!quizQuestionIds.has(detail.questionId)) {
+        throw new Error(
+          `該当クイズに存在しない不正な問題IDが解答詳細に含まれています: ${detail.questionId}`
+        );
       }
     }
+  }
+  // ───────────────────────────────────────────────────────────────
 
-    transaction.update(quizDocRef, quizUpdates);
+  const { data: attemptId, error } = await supabase.rpc('handle_save_attempt', {
+    p_user_id: attemptData.userId,
+    p_quiz_id: attemptData.quizId,
+    p_mode: attemptData.mode,
+    p_score: attemptData.score,
+    p_total_questions: attemptData.totalQuestions,
+    p_elapsed_seconds: attemptData.elapsedSeconds,
+    p_failed_question_ids: attemptData.failedQuestionIds,
+    p_question_answers: (attemptData.questionAnswers ?? []) as unknown as Json,
+    p_question_answer_details: (attemptData.questionAnswerDetails ?? []) as unknown as Json,
   });
 
-  return attemptDocRef.id;
+  if (error || !attemptId) {
+    throw new Error(`プレイ結果の保存に失敗しました: ${error?.message ?? '不明なエラー'}`);
+  }
+
+  return attemptId;
 }
 
 /**
@@ -232,24 +185,50 @@ export async function createLateralAttemptSession(
   quizId: string,
   questionIds: string[]
 ): Promise<string> {
-  const attemptDocRef = doc(attemptsCollection);
-  const totalQuestions = questionIds.length;
-
-  await setDoc(attemptDocRef, {
-    userId,
-    quizId,
-    listId: null,
-    mode: 'normal',
-    score: 0,
-    totalQuestions,
-    elapsedSeconds: 0,
-    failedQuestionIds: questionIds,
-    aiQuestionsHistory: [],
-    aiTurnCount: 0,
-    aiTurnLimit: 30,
+  const { data: attemptId, error } = await supabase.rpc('handle_start_lateral_attempt', {
+    p_user_id: userId,
+    p_quiz_id: quizId,
+    p_total_questions: questionIds.length,
+    p_ai_turn_limit: LATERAL_DEFAULT_AI_TURN_LIMIT,
   });
 
-  return attemptDocRef.id;
+  if (error || !attemptId) {
+    throw new Error(`水平思考クイズセッションの開始に失敗しました: ${error?.message ?? '不明なエラー'}`);
+  }
+
+  return attemptId;
+}
+
+/* ==========================================================================
+   リーダーボード読み取り
+   ========================================================================== */
+
+/**
+ * クイズの初回プレイ／リプレイ別リーダーボードを上位N件取得する。
+ */
+export async function getLeaderboard(
+  quizId: string,
+  board: 'first_play' | 'replay',
+  limit: number = 5
+): Promise<LeaderboardRecord[]> {
+  const { data, error } = await supabase
+    .from('leaderboard_entries')
+    .select('*')
+    .eq('quiz_id', quizId)
+    .eq('type', board)
+    .order('score', { ascending: false })
+    .order('elapsed_seconds', { ascending: true })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    userId: row.user_id,
+    displayName: row.display_name,
+    score: row.score,
+    elapsedSeconds: row.elapsed_seconds,
+    completedAt: new Date(row.completed_at),
+  }));
 }
 
 /* ==========================================================================
@@ -395,15 +374,6 @@ export async function updateFailedQuestionsCount(uid: string, delta: number): Pr
 const PLAY_HISTORY_PAGE_SIZE = 20;
 const NON_PERSISTED_PLAY_MODES = new Set<Attempt['mode']>(['test-play']);
 
-function toDate(value: unknown): Date {
-  if (value instanceof Date) return value;
-  if (value instanceof Timestamp) return value.toDate();
-  if (typeof value === 'string' || typeof value === 'number') {
-    return new Date(value);
-  }
-  return new Date(0);
-}
-
 function encodePlayHistoryCursor(completedAt: Date, attemptId: string): string {
   const str = JSON.stringify({ completedAt: completedAt.toISOString(), attemptId });
   return Buffer.from(str, 'utf8')
@@ -443,74 +413,59 @@ export async function listUserPlayHistory(params: {
   const pageSize = params.limit ?? PLAY_HISTORY_PAGE_SIZE;
   const decoded = params.cursor ? decodePlayHistoryCursor(params.cursor) : null;
 
-  let attemptsQuery = query(
-    attemptsCollection,
-    where('userId', '==', params.uid),
-    orderBy('completedAt', 'desc'),
-    limit(pageSize + 1)
-  );
+  let attemptsQuery = supabase
+    .from('attempts')
+    .select('*')
+    .eq('user_id', params.uid)
+    .not('completed_at', 'is', null)
+    .not('mode', 'in', `(${[...NON_PERSISTED_PLAY_MODES].join(',')})`)
+    .order('completed_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(pageSize + 1);
 
   if (decoded) {
-    const cursorSnap = await getDoc(doc(attemptsCollection, decoded.attemptId));
-    if (cursorSnap.exists()) {
-      attemptsQuery = query(
-        attemptsCollection,
-        where('userId', '==', params.uid),
-        orderBy('completedAt', 'desc'),
-        startAfter(cursorSnap),
-        limit(pageSize + 1)
-      );
-    }
+    const isoCursor = decoded.completedAt.toISOString();
+    attemptsQuery = attemptsQuery.or(
+      `completed_at.lt.${isoCursor},and(completed_at.eq.${isoCursor},id.lt.${decoded.attemptId})`
+    );
   }
 
-  const snap = await getDocs(attemptsQuery);
-  const docs = snap.docs.filter((d) => {
-    const mode = (d.data() as Attempt).mode;
-    return !NON_PERSISTED_PLAY_MODES.has(mode);
-  });
+  const { data, error } = await attemptsQuery;
+  if (error) {
+    throw new Error(`プレイ履歴の取得に失敗しました: ${error.message}`);
+  }
 
-  const hasMore = docs.length > pageSize;
-  const pageDocs = hasMore ? docs.slice(0, pageSize) : docs;
+  const rows = (data ?? []) as Database['public']['Tables']['attempts']['Row'][];
+  const hasMore = rows.length > pageSize;
+  const pageRows = hasMore ? rows.slice(0, pageSize) : rows;
 
   // クイズIDをユニーク化して一括取得する
-  const quizIds = [...new Set(pageDocs.map((d) => (d.data() as Attempt).quizId).filter(Boolean))];
+  const quizIds = [...new Set(pageRows.map((r) => r.quiz_id).filter(Boolean))];
   const quizTitleCache = new Map<string, string>();
 
   if (quizIds.length > 0) {
-    // pageSize はデフォルト 20 なので、quizIds も最大 21 件となり、単一の in クエリ（上限30）で取得可能
-    const quizSnaps = await getDocs(query(quizzesRef, where(documentId(), 'in', quizIds)));
-    quizSnaps.forEach((d) => {
-      quizTitleCache.set(d.id, (d.data() as Quiz).title);
-    });
+    const { data: quizRows } = await supabase
+      .from('quizzes')
+      .select('id, title')
+      .in('id', quizIds);
+    (quizRows ?? []).forEach((q) => quizTitleCache.set(q.id, q.title));
   }
 
-  const items: PlayHistoryEntry[] = [];
+  const items: PlayHistoryEntry[] = pageRows.map((row) => ({
+    attemptId: row.id,
+    quizId: row.quiz_id,
+    quizTitle: quizTitleCache.get(row.quiz_id) ?? '（削除されたクイズ）',
+    score: row.score,
+    totalQuestions: row.total_questions,
+    mode: row.mode as Attempt['mode'],
+    completedAt: new Date(row.completed_at as string),
+    elapsedSeconds: row.elapsed_seconds,
+  }));
 
-  for (const docSnap of pageDocs) {
-    const data = docSnap.data() as Attempt;
-    if (!data.completedAt) continue;
-
-    const quizTitle = quizTitleCache.get(data.quizId) ?? '（削除されたクイズ）';
-
-    items.push({
-      attemptId: docSnap.id,
-      quizId: data.quizId,
-      quizTitle,
-      score: data.score,
-      totalQuestions: data.totalQuestions,
-      mode: data.mode,
-      completedAt: toDate(data.completedAt),
-      elapsedSeconds: data.elapsedSeconds,
-    });
-  }
-
-  const last = pageDocs[pageDocs.length - 1];
+  const last = pageRows[pageRows.length - 1];
   const nextCursor =
     hasMore && last
-      ? encodePlayHistoryCursor(
-        toDate((last.data() as Attempt).completedAt),
-        last.id
-      )
+      ? encodePlayHistoryCursor(new Date(last.completed_at as string), last.id)
       : null;
 
   return { items, nextCursor };
@@ -520,27 +475,27 @@ export async function listUserPlayHistory(params: {
  * 本人が完了済みプレイしたクイズ ID の一覧（重複除去）。ホームのプレイ状況フィルタ用。
  */
 export async function listUserPlayedQuizIds(uid: string): Promise<string[]> {
-  const attemptsQuery = query(
-    attemptsCollection,
-    where('userId', '==', uid),
-    orderBy('completedAt', 'desc'),
-    limit(500)
-  );
-  const snap = await getDocs(attemptsQuery);
-  const ids = new Set<string>();
+  const { data, error } = await supabase
+    .from('attempts')
+    .select('quiz_id, mode, completed_at')
+    .eq('user_id', uid)
+    .not('completed_at', 'is', null)
+    .order('completed_at', { ascending: false })
+    .limit(500);
 
-  for (const docSnap of snap.docs) {
-    const data = docSnap.data() as Attempt;
-    if (!data.completedAt) continue;
-    if (NON_PERSISTED_PLAY_MODES.has(data.mode)) continue;
-    ids.add(data.quizId);
+  if (error || !data) return [];
+
+  const ids = new Set<string>();
+  for (const row of data) {
+    if (NON_PERSISTED_PLAY_MODES.has(row.mode as Attempt['mode'])) continue;
+    ids.add(row.quiz_id);
   }
 
   return [...ids];
 }
 
 /* ==========================================================================
-   オフライン未同期データの Firestore バッチ同期
+   オフライン未同期データのバッチ同期
    ========================================================================== */
 
 export async function syncPendingAttempts(): Promise<number> {
@@ -552,7 +507,7 @@ export async function syncPendingAttempts(): Promise<number> {
   for (const pendingAttempt of pending) {
     try {
       const attempt = pendingSyncToAttempt(pendingAttempt);
-      await saveAttempt(attempt); // トランザクション版を呼び出して同期
+      await saveAttempt(attempt); // RPC版を呼び出して同期
       clearPendingSyncAttempt(pendingAttempt.localId);
       successCount++;
     } catch (e) {

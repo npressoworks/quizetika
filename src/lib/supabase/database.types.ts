@@ -76,6 +76,68 @@ export type Database = {
           },
         ]
       }
+      ai_turn_counts_global: {
+        Row: {
+          count: number
+          count_date: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          count_date: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          count_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_turn_counts_global_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_turn_counts_per_quiz: {
+        Row: {
+          count: number
+          count_date: string
+          quiz_id: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          count_date: string
+          quiz_id: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          count_date?: string
+          quiz_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_turn_counts_per_quiz_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_turn_counts_per_quiz_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           author_id: string | null
@@ -126,10 +188,11 @@ export type Database = {
           ai_truth_attempts: Json | null
           ai_turn_count: number | null
           ai_turn_limit: number | null
-          completed_at: string
+          completed_at: string | null
           difficulty_vote: number | null
           elapsed_seconds: number
           failed_question_ids: string[] | null
+          gave_up_lateral: boolean | null
           id: string
           list_id: string | null
           mode: string
@@ -146,10 +209,11 @@ export type Database = {
           ai_truth_attempts?: Json | null
           ai_turn_count?: number | null
           ai_turn_limit?: number | null
-          completed_at?: string
+          completed_at?: string | null
           difficulty_vote?: number | null
           elapsed_seconds: number
           failed_question_ids?: string[] | null
+          gave_up_lateral?: boolean | null
           id?: string
           list_id?: string | null
           mode: string
@@ -166,10 +230,11 @@ export type Database = {
           ai_truth_attempts?: Json | null
           ai_turn_count?: number | null
           ai_turn_limit?: number | null
-          completed_at?: string
+          completed_at?: string | null
           difficulty_vote?: number | null
           elapsed_seconds?: number
           failed_question_ids?: string[] | null
+          gave_up_lateral?: boolean | null
           id?: string
           list_id?: string | null
           mode?: string
@@ -198,24 +263,42 @@ export type Database = {
           },
         ]
       }
+      badges: {
+        Row: {
+          description: string
+          icon_name: string
+          id: string
+          title: string
+        }
+        Insert: {
+          description: string
+          icon_name: string
+          id: string
+          title: string
+        }
+        Update: {
+          description?: string
+          icon_name?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       bookmarks: {
         Row: {
           created_at: string
-          id: string
           target_id: string
           target_type: Database["public"]["Enums"]["bookmark_target_type_enum"]
           user_id: string
         }
         Insert: {
           created_at?: string
-          id: string
           target_id: string
           target_type: Database["public"]["Enums"]["bookmark_target_type_enum"]
           user_id: string
         }
         Update: {
           created_at?: string
-          id?: string
           target_id?: string
           target_type?: Database["public"]["Enums"]["bookmark_target_type_enum"]
           user_id?: string
@@ -252,6 +335,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "daily_ai_authoring_counts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      difficulty_votes: {
+        Row: {
+          created_at: string
+          id: string
+          quiz_id: string
+          updated_at: string
+          user_id: string | null
+          vote: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          quiz_id: string
+          updated_at?: string
+          user_id?: string | null
+          vote: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          quiz_id?: string
+          updated_at?: string
+          user_id?: string | null
+          vote?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "difficulty_votes_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "difficulty_votes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -377,19 +502,16 @@ export type Database = {
           created_at: string
           follower_id: string
           following_id: string
-          id: string
         }
         Insert: {
           created_at?: string
           follower_id: string
           following_id: string
-          id: string
         }
         Update: {
           created_at?: string
           follower_id?: string
           following_id?: string
-          id?: string
         }
         Relationships: [
           {
@@ -651,8 +773,8 @@ export type Database = {
           incorrect_count: number | null
           limit_time: number | null
           link_kind: string | null
+          owner_quiz_id: string | null
           question_text: string
-          quiz_id: string | null
           sorting_items: Json | null
           source_url: string | null
           text_input_char_count: number | null
@@ -679,8 +801,8 @@ export type Database = {
           incorrect_count?: number | null
           limit_time?: number | null
           link_kind?: string | null
+          owner_quiz_id?: string | null
           question_text: string
-          quiz_id?: string | null
           sorting_items?: Json | null
           source_url?: string | null
           text_input_char_count?: number | null
@@ -707,8 +829,8 @@ export type Database = {
           incorrect_count?: number | null
           limit_time?: number | null
           link_kind?: string | null
+          owner_quiz_id?: string | null
           question_text?: string
-          quiz_id?: string | null
           sorting_items?: Json | null
           source_url?: string | null
           text_input_char_count?: number | null
@@ -726,8 +848,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "questions_quiz_id_fkey"
-            columns: ["quiz_id"]
+            foreignKeyName: "questions_owner_quiz_id_fkey"
+            columns: ["owner_quiz_id"]
             isOneToOne: false
             referencedRelation: "quizzes"
             referencedColumns: ["id"]
@@ -772,30 +894,63 @@ export type Database = {
           },
         ]
       }
-      quiz_reviews: {
+      quiz_questions: {
         Row: {
-          comment: string | null
-          created_at: string
-          id: string
+          display_order: number
+          question_id: string
           quiz_id: string
-          rating: number | null
-          reviewer_id: string
         }
         Insert: {
-          comment?: string | null
-          created_at?: string
-          id: string
+          display_order: number
+          question_id: string
           quiz_id: string
-          rating?: number | null
-          reviewer_id: string
         }
         Update: {
-          comment?: string | null
-          created_at?: string
-          id?: string
+          display_order?: number
+          question_id?: string
           quiz_id?: string
-          rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_reviews: {
+        Row: {
+          created_at: string
+          quiz_id: string
+          reason: string | null
+          reviewer_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          quiz_id: string
+          reason?: string | null
+          reviewer_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          quiz_id?: string
+          reason?: string | null
           reviewer_id?: string
+          type?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -814,6 +969,39 @@ export type Database = {
           },
         ]
       }
+      quiz_tags: {
+        Row: {
+          original_label: string
+          quiz_id: string
+          tag_id: string
+        }
+        Insert: {
+          original_label: string
+          quiz_id: string
+          tag_id: string
+        }
+        Update: {
+          original_label?: string
+          quiz_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_tags_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "metadata_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quizzes: {
         Row: {
           active_reset_request_id: string | null
@@ -822,26 +1010,24 @@ export type Database = {
           author_name: string
           bookmarks_count: number | null
           canonical_genre_id: string
-          canonical_tag_ids: string[] | null
           created_at: string
           description: string
           difficulty: number
+          difficulty_votes_count: number
+          difficulty_votes_sum: number
           flags_count: number | null
           format: string | null
           genre: string
           id: string
           is_review_masked: boolean | null
+          likes_count: number
           negative_count: number | null
-          original_tags: string[] | null
           play_count: number | null
           positive_count: number | null
           question_count: number | null
-          question_ids: string[] | null
-          questions: Json | null
           review_badge: string | null
           review_score: number | null
           status: Database["public"]["Enums"]["quiz_status_enum"]
-          tags: string[] | null
           temp_negative_count: number | null
           temp_positive_count: number | null
           thumbnail_url: string | null
@@ -856,26 +1042,24 @@ export type Database = {
           author_name: string
           bookmarks_count?: number | null
           canonical_genre_id: string
-          canonical_tag_ids?: string[] | null
           created_at?: string
           description: string
           difficulty: number
+          difficulty_votes_count?: number
+          difficulty_votes_sum?: number
           flags_count?: number | null
           format?: string | null
           genre: string
           id?: string
           is_review_masked?: boolean | null
+          likes_count?: number
           negative_count?: number | null
-          original_tags?: string[] | null
           play_count?: number | null
           positive_count?: number | null
           question_count?: number | null
-          question_ids?: string[] | null
-          questions?: Json | null
           review_badge?: string | null
           review_score?: number | null
           status?: Database["public"]["Enums"]["quiz_status_enum"]
-          tags?: string[] | null
           temp_negative_count?: number | null
           temp_positive_count?: number | null
           thumbnail_url?: string | null
@@ -890,26 +1074,24 @@ export type Database = {
           author_name?: string
           bookmarks_count?: number | null
           canonical_genre_id?: string
-          canonical_tag_ids?: string[] | null
           created_at?: string
           description?: string
           difficulty?: number
+          difficulty_votes_count?: number
+          difficulty_votes_sum?: number
           flags_count?: number | null
           format?: string | null
           genre?: string
           id?: string
           is_review_masked?: boolean | null
+          likes_count?: number
           negative_count?: number | null
-          original_tags?: string[] | null
           play_count?: number | null
           positive_count?: number | null
           question_count?: number | null
-          question_ids?: string[] | null
-          questions?: Json | null
           review_badge?: string | null
           review_score?: number | null
           status?: Database["public"]["Enums"]["quiz_status_enum"]
-          tags?: string[] | null
           temp_negative_count?: number | null
           temp_positive_count?: number | null
           thumbnail_url?: string | null
@@ -921,6 +1103,52 @@ export type Database = {
           {
             foreignKeyName: "quizzes_author_id_fkey"
             columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reactions: {
+        Row: {
+          created_at: string
+          quiz_id: string
+          receiver_id: string
+          sender_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          quiz_id: string
+          receiver_id: string
+          sender_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          quiz_id?: string
+          receiver_id?: string
+          sender_id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reactions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reactions_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reactions_sender_id_fkey"
+            columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -956,10 +1184,75 @@ export type Database = {
           },
         ]
       }
+      user_badges: {
+        Row: {
+          badge_id: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_badges_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_genre_follows: {
+        Row: {
+          created_at: string
+          genre_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          genre_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          genre_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_genre_follows_genre_id_fkey"
+            columns: ["genre_id"]
+            isOneToOne: false
+            referencedRelation: "metadata_genres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_genre_follows_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
-          badges: Json | null
           banned_at: string | null
           banned_reason: string | null
           bio: string | null
@@ -969,7 +1262,6 @@ export type Database = {
           delete_status: string | null
           display_name: string
           email: string
-          followed_genres: string[] | null
           followers_count: number | null
           following_count: number | null
           id: string
@@ -994,7 +1286,6 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
-          badges?: Json | null
           banned_at?: string | null
           banned_reason?: string | null
           bio?: string | null
@@ -1004,7 +1295,6 @@ export type Database = {
           delete_status?: string | null
           display_name: string
           email: string
-          followed_genres?: string[] | null
           followers_count?: number | null
           following_count?: number | null
           id: string
@@ -1029,7 +1319,6 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
-          badges?: Json | null
           banned_at?: string | null
           banned_reason?: string | null
           bio?: string | null
@@ -1039,7 +1328,6 @@ export type Database = {
           delete_status?: string | null
           display_name?: string
           email?: string
-          followed_genres?: string[] | null
           followers_count?: number | null
           following_count?: number | null
           id?: string
@@ -1069,12 +1357,98 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      handle_bookmark_toggle: {
+        Args: { p_target_id: string; p_target_type: string; p_user_id: string }
+        Returns: boolean
+      }
       handle_check_and_award_badges: {
-        Args: { p_badges: Json; p_user_id: string }
-        Returns: Json
+        Args: { p_badge_ids: string[]; p_user_id: string }
+        Returns: string[]
+      }
+      handle_complete_lateral_attempt: {
+        Args: {
+          p_attempt_id: string
+          p_elapsed_seconds: number
+          p_is_correct: boolean
+          p_quiz_id: string
+          p_total_questions: number
+          p_truth_attempt: Json
+          p_user_id: string
+        }
+        Returns: undefined
       }
       handle_follow_user: {
         Args: { p_follower_id: string; p_following_id: string }
+        Returns: boolean
+      }
+      handle_give_up_lateral_attempt: {
+        Args: {
+          p_attempt_id: string
+          p_elapsed_seconds: number
+          p_quiz_id: string
+        }
+        Returns: undefined
+      }
+      handle_record_ai_turn: {
+        Args: {
+          p_attempt_id: string
+          p_global_limit: number
+          p_history_entry: Json
+          p_per_quiz_limit: number
+          p_quiz_id: string
+          p_user_id: string
+        }
+        Returns: {
+          global_count: number
+          per_quiz_count: number
+        }[]
+      }
+      handle_reorder_questions: {
+        Args: { p_question_ids: string[]; p_quiz_id: string }
+        Returns: number
+      }
+      handle_retract_review: {
+        Args: { p_quiz_id: string; p_reviewer_id: string }
+        Returns: undefined
+      }
+      handle_save_attempt: {
+        Args: {
+          p_elapsed_seconds: number
+          p_failed_question_ids: string[]
+          p_mode: string
+          p_question_answer_details: Json
+          p_question_answers: Json
+          p_quiz_id: string
+          p_score: number
+          p_total_questions: number
+          p_user_id: string
+        }
+        Returns: string
+      }
+      handle_start_lateral_attempt: {
+        Args: {
+          p_ai_turn_limit: number
+          p_quiz_id: string
+          p_total_questions: number
+          p_user_id: string
+        }
+        Returns: string
+      }
+      handle_submit_difficulty_vote: {
+        Args: { p_quiz_id: string; p_user_id: string; p_vote: number }
+        Returns: undefined
+      }
+      handle_submit_review: {
+        Args: {
+          p_quiz_id: string
+          p_reason: string
+          p_reviewer_id: string
+          p_type: string
+        }
+        Returns: undefined
+      }
+      handle_toggle_reaction: {
+        Args: { p_quiz_id: string; p_sender_id: string }
         Returns: boolean
       }
       handle_unfollow_user: {
@@ -1082,6 +1456,17 @@ export type Database = {
         Returns: boolean
       }
       is_not_banned: { Args: never; Returns: boolean }
+      record_leaderboard_entry: {
+        Args: {
+          p_board: string
+          p_display_name: string
+          p_elapsed_seconds: number
+          p_quiz_id: string
+          p_score: number
+          p_user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       admin_log_action_enum: "reputation_reset" | "ban" | "unban"

@@ -1,17 +1,9 @@
-import {
-  doc,
-  collection,
-  setDoc,
-  addDoc,
-  runTransaction,
-  increment,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
-import { quizzesRef } from '../lib/firebase/firestore';
+import { createClient } from '../lib/supabase/client';
+
+const supabase = createClient();
 
 /**
- * 難易度投票ドキュメントの型定義
+ * 難易度投票の型定義
  */
 export interface DifficultyVote {
   id?: string;
@@ -23,7 +15,8 @@ export interface DifficultyVote {
 
 /**
  * 体感難易度（1〜5）をアトミックに保存する。
- * 同一ユーザーは最新値で上書き保存され、クイズの難易度分布データにアトミック反映される。
+ * ログイン済みユーザーは最新値で上書き保存され、上書き時は差分のみがクイズの難易度分布データに反映される。
+ * 匿名投票は常に新規行として加算される。
  *
  * @param quizId 投票対象のクイズID
  * @param userId 投票ユーザーのID（nullの場合は匿名投票）
@@ -38,79 +31,13 @@ export async function submitDifficultyVote(
     throw new Error('難易度投票は1から5の範囲で指定してください。');
   }
 
-  const quizDocRef = doc(quizzesRef, quizId);
-  const difficultyVotesCollection = collection(db, 'difficultyVotes');
+  const { error } = await (supabase as any).rpc('handle_submit_difficulty_vote', {
+    p_quiz_id: quizId,
+    p_user_id: userId,
+    p_vote: difficultyVote,
+  });
 
-  if (userId) {
-    // ユーザーIDがある場合は上書きチェックとトランザクション
-    const voteDocId = `${userId}_${quizId}`;
-    const voteDocRef = doc(difficultyVotesCollection, voteDocId);
-
-    await runTransaction(db, async (transaction) => {
-      const quizSnap = await transaction.get(quizDocRef);
-      if (!quizSnap.exists()) {
-        throw new Error(`クイズが見つかりません: ${quizId}`);
-      }
-
-      const voteSnap = await transaction.get(voteDocRef);
-      const now = new Date();
-
-      if (voteSnap.exists()) {
-        // 上書き投票
-        const oldVoteData = voteSnap.data() as DifficultyVote;
-        const oldVote = oldVoteData.vote;
-        const diff = difficultyVote - oldVote;
-
-        transaction.update(voteDocRef, {
-          vote: difficultyVote,
-          updatedAt: Timestamp.fromDate(now),
-        });
-
-        transaction.update(quizDocRef, {
-          difficultyVotesSum: increment(diff),
-          updatedAt: Timestamp.fromDate(now),
-        });
-      } else {
-        // 新規投票
-        const newVoteData: Omit<DifficultyVote, 'id'> = {
-          userId,
-          quizId,
-          vote: difficultyVote,
-          createdAt: now,
-        };
-
-        transaction.set(voteDocRef, newVoteData);
-        transaction.update(quizDocRef, {
-          difficultyVotesSum: increment(difficultyVote),
-          difficultyVotesCount: increment(1),
-          updatedAt: Timestamp.fromDate(now),
-        });
-      }
-    });
-  } else {
-    // 匿名投票の場合は上書きチェックなしでアトミック加算のみ
-    await runTransaction(db, async (transaction) => {
-      const quizSnap = await transaction.get(quizDocRef);
-      if (!quizSnap.exists()) {
-        throw new Error(`クイズが見つかりません: ${quizId}`);
-      }
-
-      const now = new Date();
-      const newVoteData: Omit<DifficultyVote, 'id'> = {
-        userId: null,
-        quizId,
-        vote: difficultyVote,
-        createdAt: now,
-      };
-
-      // ID自動生成で匿名レコードを作成
-      const newVoteDocRef = doc(difficultyVotesCollection);
-      transaction.set(newVoteDocRef, newVoteData);
-      transaction.update(quizDocRef, {
-        difficultyVotesSum: increment(difficultyVote),
-        difficultyVotesCount: increment(1),
-        updatedAt: Timestamp.fromDate(now),
-      });
-    });
+  if (error) {
+    throw new Error(`難易度投票の保存に失敗しました: ${error.message}`);
   }
 }

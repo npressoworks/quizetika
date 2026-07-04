@@ -5,28 +5,36 @@ jest.mock('../../src/lib/quiz-access', () => ({
 
 jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
 
-import { runTransaction, getDoc } from 'firebase/firestore';
-import { saveAttempt } from '../../src/services/attempt';
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
+jest.mock('../../src/services/quiz', () => ({
+  getQuiz: jest.fn(),
+}));
+
+// チェーン用のモックヘルパー（bookmark.test.ts と同様）
+const createChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    order: jest.fn(() => chain),
+    limit: jest.fn(() => Promise.resolve(resolveValue)),
+  };
+  return chain;
+};
+
+jest.mock('../../src/lib/supabase/client', () => {
+  const mock: any = {
+    from: jest.fn(),
+    rpc: jest.fn(),
+  };
   return {
-    ...original,
-    doc: jest.fn((ref, ...paths) => {
-      const id = paths.length > 0 ? paths[paths.length - 1] : 'auto-generated-id';
-      return { id, path: paths.join('/') };
-    }),
-    collection: jest.fn((db, path) => ({ path })),
-    query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    getDoc: jest.fn(),
-    getDocs: jest.fn().mockResolvedValue({ docs: [] }),
-    runTransaction: jest.fn(),
-    increment: jest.fn((n) => n),
+    createClient: () => mock,
   };
 });
 
-const quizId = 'test-quiz-id';
-const userId = 'user-uid';
+import { saveAttempt, getLeaderboard } from '../../src/services/attempt';
+import { getQuiz } from '../../src/services/quiz';
+import { createClient } from '../../src/lib/supabase/client';
+
+const mockSupabase = createClient() as any;
 
 const baseQuestions = [
   { id: 'q1' },
@@ -38,48 +46,26 @@ const baseQuestions = [
 
 function mockQuiz(overrides: Record<string, unknown> = {}) {
   return {
-    playCount: 10,
-    leaderboard: [],
-    leaderboardFirstPlay: [],
-    leaderboardReplay: [],
+    id: 'test-quiz-id',
+    authorId: 'author-1',
+    status: 'published',
+    visibility: 'public',
     questions: baseQuestions,
     ...overrides,
   };
 }
 
-describe('saveAttempt - Phase 5 leaderboards', () => {
+const quizId = 'test-quiz-id';
+const userId = 'user-uid';
+
+describe('saveAttempt - RPC へのモード委譲（初回/リプレイ判定はRPC側で実施）', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({
-        status: 'published',
-        authorId: 'author-1',
-        visibility: 'public',
-        questions: baseQuestions,
-      }),
-    });
+    (getQuiz as jest.Mock).mockResolvedValue(mockQuiz());
+    mockSupabase.rpc.mockResolvedValue({ data: 'attempt-id', error: null });
   });
 
-  test('非全問正解でも初回プレイLBに反映されること', async () => {
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === quizId) {
-          return { exists: () => true, data: () => mockQuiz() };
-        }
-        return {
-          exists: () => true,
-          data: () => ({ displayName: 'Tester' }),
-        };
-      }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
-      callback(mockTransaction)
-    );
-
+  test('normal モードは p_mode: normal で RPC に委譲されること', async () => {
     await saveAttempt({
       userId,
       quizId,
@@ -92,100 +78,13 @@ describe('saveAttempt - Phase 5 leaderboards', () => {
       aiTurnLimit: null,
     });
 
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: quizId }),
-      expect.objectContaining({
-        leaderboardFirstPlay: expect.arrayContaining([
-          expect.objectContaining({ userId, score: 3, elapsedSeconds: 45 }),
-        ]),
-      })
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'handle_save_attempt',
+      expect.objectContaining({ p_mode: 'normal', p_user_id: userId, p_quiz_id: quizId })
     );
-    const updateArg = mockTransaction.update.mock.calls.find(
-      (c: unknown[]) => (c[0] as { id: string }).id === quizId
-    )?.[1];
-    expect(updateArg.leaderboardReplay).toBeUndefined();
   });
 
-  test('2回目以降はリプレイLBのみ更新されること', async () => {
-    const { getDocs } = require('firebase/firestore');
-    (getDocs as jest.Mock).mockResolvedValueOnce({
-      docs: [{ id: 'prior-1', data: () => ({ completedAt: new Date() }) }],
-    });
-
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === quizId) {
-          return {
-            exists: () => true,
-            data: () =>
-              mockQuiz({
-                leaderboardFirstPlay: [
-                  {
-                    userId,
-                    displayName: 'Tester',
-                    score: 3,
-                    elapsedSeconds: 50,
-                    completedAt: new Date(),
-                  },
-                ],
-              }),
-          };
-        }
-        return {
-          exists: () => true,
-          data: () => ({ displayName: 'Tester' }),
-        };
-      }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
-      callback(mockTransaction)
-    );
-
-    await saveAttempt({
-      userId,
-      quizId,
-      mode: 'normal',
-      score: 4,
-      totalQuestions: 5,
-      elapsedSeconds: 40,
-      failedQuestionIds: ['q5'],
-      aiTurnCount: 0,
-      aiTurnLimit: null,
-    });
-
-    const updateArg = mockTransaction.update.mock.calls.find(
-      (c: unknown[]) => (c[0] as { id: string }).id === quizId
-    )?.[1];
-    expect(updateArg.leaderboardReplay).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ userId, score: 4 }),
-      ])
-    );
-    expect(updateArg.leaderboardFirstPlay).toBeUndefined();
-  });
-
-  test('模擬試験モード完了時は両LBを更新せず playCount のみ増加すること', async () => {
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === quizId) {
-          return { exists: () => true, data: () => mockQuiz() };
-        }
-        return {
-          exists: () => true,
-          data: () => ({ displayName: 'Tester' }),
-        };
-      }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
-      callback(mockTransaction)
-    );
-
+  test('exam（模擬試験）モードも p_mode: exam のまま RPC に委譲されること（除外判定はRPC側）', async () => {
     await saveAttempt({
       userId,
       quizId,
@@ -198,85 +97,13 @@ describe('saveAttempt - Phase 5 leaderboards', () => {
       aiTurnLimit: null,
     });
 
-    const updateArg = mockTransaction.update.mock.calls.find(
-      (c: unknown[]) => (c[0] as { id: string }).id === quizId
-    )?.[1];
-    expect(updateArg.playCount).toBe(1);
-    expect(updateArg.leaderboardFirstPlay).toBeUndefined();
-    expect(updateArg.leaderboardReplay).toBeUndefined();
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'handle_save_attempt',
+      expect.objectContaining({ p_mode: 'exam' })
+    );
   });
 
-  test('exam 先プレイ後の通常モードはリプレイLBのみ更新されること', async () => {
-    const { getDocs } = require('firebase/firestore');
-    (getDocs as jest.Mock).mockResolvedValueOnce({
-      docs: [
-        {
-          id: 'prior-exam',
-          data: () => ({ completedAt: new Date(), mode: 'exam' }),
-        },
-      ],
-    });
-
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === quizId) {
-          return { exists: () => true, data: () => mockQuiz() };
-        }
-        return {
-          exists: () => true,
-          data: () => ({ displayName: 'Tester' }),
-        };
-      }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
-      callback(mockTransaction)
-    );
-
-    await saveAttempt({
-      userId,
-      quizId,
-      mode: 'normal',
-      score: 5,
-      totalQuestions: 5,
-      elapsedSeconds: 60,
-      failedQuestionIds: [],
-      aiTurnCount: 0,
-      aiTurnLimit: null,
-    });
-
-    const updateArg = mockTransaction.update.mock.calls.find(
-      (c: unknown[]) => (c[0] as { id: string }).id === quizId
-    )?.[1];
-    expect(updateArg.leaderboardReplay).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ userId, score: 5 }),
-      ])
-    );
-    expect(updateArg.leaderboardFirstPlay).toBeUndefined();
-  });
-
-  test('弱点克服モードは引き続き初回プレイLBに反映されること', async () => {
-    const mockTransaction = {
-      get: jest.fn().mockImplementation((ref) => {
-        if (ref.id === quizId) {
-          return { exists: () => true, data: () => mockQuiz() };
-        }
-        return {
-          exists: () => true,
-          data: () => ({ displayName: 'Tester' }),
-        };
-      }),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((_db, callback) =>
-      callback(mockTransaction)
-    );
-
+  test('review（弱点克服）モードも p_mode: review のまま RPC に委譲されること', async () => {
     await saveAttempt({
       userId,
       quizId,
@@ -289,13 +116,70 @@ describe('saveAttempt - Phase 5 leaderboards', () => {
       aiTurnLimit: null,
     });
 
-    const updateArg = mockTransaction.update.mock.calls.find(
-      (c: unknown[]) => (c[0] as { id: string }).id === quizId
-    )?.[1];
-    expect(updateArg.leaderboardFirstPlay).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ userId, score: 2 }),
-      ])
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'handle_save_attempt',
+      expect.objectContaining({ p_mode: 'review' })
     );
+  });
+});
+
+describe('getLeaderboard - leaderboard_entries からの上位N件取得', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('first_play ボードを score 降順・elapsed_seconds 昇順で上位5件取得すること', async () => {
+    const rows = [
+      {
+        quiz_id: quizId,
+        user_id: 'u1',
+        display_name: 'Alice',
+        score: 5,
+        elapsed_seconds: 30,
+        type: 'first_play',
+        completed_at: new Date('2026-01-01').toISOString(),
+      },
+    ];
+    mockSupabase.from.mockImplementation((table: string) => {
+      expect(table).toBe('leaderboard_entries');
+      return createChainMock({ data: rows, error: null });
+    });
+
+    const result = await getLeaderboard(quizId, 'first_play');
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        userId: 'u1',
+        displayName: 'Alice',
+        score: 5,
+        elapsedSeconds: 30,
+      }),
+    ]);
+
+    const chain = mockSupabase.from.mock.results[0].value;
+    expect(chain.eq).toHaveBeenCalledWith('quiz_id', quizId);
+    expect(chain.eq).toHaveBeenCalledWith('type', 'first_play');
+    expect(chain.order).toHaveBeenCalledWith('score', { ascending: false });
+    expect(chain.order).toHaveBeenCalledWith('elapsed_seconds', { ascending: true });
+    expect(chain.limit).toHaveBeenCalledWith(5);
+  });
+
+  test('replay ボードを指定した場合は type=replay で絞り込むこと', async () => {
+    mockSupabase.from.mockImplementation(() => createChainMock({ data: [], error: null }));
+
+    await getLeaderboard(quizId, 'replay', 3);
+
+    const chain = mockSupabase.from.mock.results[0].value;
+    expect(chain.eq).toHaveBeenCalledWith('type', 'replay');
+    expect(chain.limit).toHaveBeenCalledWith(3);
+  });
+
+  test('取得エラー時は空配列を返すこと', async () => {
+    mockSupabase.from.mockImplementation(() =>
+      createChainMock({ data: null, error: { message: 'boom' } })
+    );
+
+    const result = await getLeaderboard(quizId, 'first_play');
+    expect(result).toEqual([]);
   });
 });

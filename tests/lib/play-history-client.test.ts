@@ -5,11 +5,14 @@ import {
 } from '../../src/lib/play-history-client';
 
 const mockListUserPlayHistory = jest.fn();
+const mockGetSession = jest.fn();
 
-jest.mock('@/lib/firebase/config', () => ({
-  auth: {
-    currentUser: null as { uid: string } | null,
-  },
+jest.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      getSession: (...args: unknown[]) => mockGetSession(...args),
+    },
+  }),
 }));
 
 jest.mock('@/services/attempt', () => ({
@@ -17,13 +20,9 @@ jest.mock('@/services/attempt', () => ({
 }));
 
 describe('play-history-client', () => {
-  const { auth } = jest.requireMock('@/lib/firebase/config') as {
-    auth: { currentUser: { uid: string } | null };
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
-    auth.currentUser = { uid: 'user-1' };
+    mockGetSession.mockResolvedValue({ data: { session: { user: { id: 'user-1' } } } });
   });
 
   test('getAttemptModeLabel: 各モードの日本語ラベル', () => {
@@ -36,7 +35,7 @@ describe('play-history-client', () => {
   });
 
   test('fetchPlayHistoryPage: 未ログインで PlayHistoryApiError', async () => {
-    auth.currentUser = null;
+    mockGetSession.mockResolvedValue({ data: { session: null } });
 
     await expect(fetchPlayHistoryPage({})).rejects.toMatchObject({
       name: 'PlayHistoryApiError',

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
-import { quizzesRef } from '@/lib/firebase/firestore';
+import { createAdminClient } from '@/lib/supabase/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { assertCanViewQuizAsync, QuizAccessDeniedError } from '@/lib/quiz-access';
+import { mapQuestionRowToQuestion } from '@/services/question';
 import {
   parseMarkdownToQuickPressTokens,
   serializeQuickPressStreamLayout,
@@ -30,17 +29,28 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   try {
-    const quizSnap = await getDoc(doc(quizzesRef, quizId));
-    if (!quizSnap.exists()) {
+    const supabase = createAdminClient();
+
+    const { data: quizRow, error: quizError } = await supabase
+      .from('quizzes')
+      .select('author_id, status, visibility')
+      .eq('id', quizId)
+      .maybeSingle();
+
+    if (quizError || !quizRow) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
 
-    const quiz = quizSnap.data() as Quiz;
+    const quizForAccess: Pick<Quiz, 'authorId' | 'status' | 'visibility'> = {
+      authorId: quizRow.author_id,
+      status: quizRow.status as Quiz['status'],
+      visibility: quizRow.visibility as Quiz['visibility'],
+    };
 
     const token = extractBearerToken(request);
     const viewerUid = token ? await verifySupabaseAccessToken(token) : null;
     try {
-      await assertCanViewQuizAsync(quiz, viewerUid);
+      await assertCanViewQuizAsync(quizForAccess, viewerUid);
     } catch (err) {
       if (err instanceof QuizAccessDeniedError) {
         return NextResponse.json({ error: 'QUIZ_ACCESS_DENIED' }, { status: 403 });
@@ -48,8 +58,19 @@ export async function GET(request: NextRequest): Promise<Response> {
       throw err;
     }
 
-    const question = quiz.questions?.find((q) => q.id === questionId);
-    if (!question || question.type !== 'quick-press') {
+    const { data: linkRow, error: linkError } = await supabase
+      .from('quiz_questions')
+      .select('question:questions(*)')
+      .eq('quiz_id', quizId)
+      .eq('question_id', questionId)
+      .maybeSingle();
+
+    if (linkError || !linkRow?.question) {
+      return NextResponse.json({ error: 'invalid-question' }, { status: 400 });
+    }
+
+    const question = mapQuestionRowToQuestion(linkRow.question);
+    if (question.type !== 'quick-press') {
       return NextResponse.json({ error: 'invalid-question' }, { status: 400 });
     }
 

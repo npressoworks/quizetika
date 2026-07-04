@@ -1,0 +1,224 @@
+import { POST } from '@/app/api/attempt/ask-ai/route';
+import { NextRequest } from 'next/server';
+
+const mockVerify = jest.fn();
+const mockSendMessage = jest.fn();
+const mockRpc = jest.fn();
+const mockResolveUserEntitlements = jest.fn();
+
+function todayJstString(): string {
+  const d = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstDate = new Date(d.getTime() + jstOffset);
+  const yyyy = jstDate.getUTCFullYear();
+  const mm = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(jstDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+const TODAY = todayJstString();
+
+const attemptData = {
+  id: 'att-1',
+  user_id: 'uid-1',
+  quiz_id: 'quiz-1',
+  ai_questions_history: [] as unknown[],
+};
+
+const lateralQuestionRow = {
+  id: 'q-1',
+  type: 'lateral-thinking',
+  question_text: '',
+  explanation: '',
+  image_url: null,
+  hint: null,
+  limit_time: null,
+  correct_text_answer_list: null,
+  text_input_mode: null,
+  text_input_char_count: null,
+  choices: null,
+  sorting_items: null,
+  association_hints: null,
+  ai_context_details: '男は遭難しウミガメのスープを飲んだ',
+  truth_keywords: ['ウミガメ'],
+  source_url: null,
+  correct_count: 0,
+  incorrect_count: 0,
+  bookmarks_count: 0,
+  author_id: null,
+  author_name: null,
+  author_avatar: null,
+  link_kind: null,
+  owner_quiz_id: 'quiz-1',
+  created_at: '2026-01-01T00:00:00.000Z',
+  updated_at: '2026-01-01T00:00:00.000Z',
+};
+
+let attemptResolveValue: { data: unknown; error: unknown } = { data: attemptData, error: null };
+let perQuizResolveValue: { data: unknown; error: unknown } = { data: null, error: null };
+let globalResolveValue: { data: unknown; error: unknown } = { data: null, error: null };
+let quizQuestionsResolveValue: { data: unknown; error: unknown } = {
+  data: [{ question: lateralQuestionRow }],
+  error: null,
+};
+
+function createChain(resolveValue: { data: unknown; error: unknown }) {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    maybeSingle: jest.fn(() => Promise.resolve(resolveValue)),
+    then: (onFulfilled: any, onRejected: any) =>
+      Promise.resolve(resolveValue).then(onFulfilled, onRejected),
+  };
+  return chain;
+}
+
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => ({
+    from: jest.fn((table: string) => {
+      if (table === 'attempts') return createChain(attemptResolveValue);
+      if (table === 'ai_turn_counts_per_quiz') return createChain(perQuizResolveValue);
+      if (table === 'ai_turn_counts_global') return createChain(globalResolveValue);
+      if (table === 'quiz_questions') return createChain(quizQuestionsResolveValue);
+      return createChain({ data: null, error: null });
+    }),
+    rpc: (...args: unknown[]) => mockRpc(...args),
+  }),
+}));
+
+jest.mock('@/lib/supabase/auth-verify', () => ({
+  extractBearerToken: () => 'token',
+  verifySupabaseAccessToken: (...args: unknown[]) => mockVerify(...args),
+}));
+
+jest.mock('@/services/entitlement', () => ({
+  resolveUserEntitlements: (...args: unknown[]) => mockResolveUserEntitlements(...args),
+}));
+
+jest.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
+    getGenerativeModel: () => ({
+      startChat: () => ({
+        sendMessage: (...args: unknown[]) => mockSendMessage(...args),
+      }),
+    }),
+  })),
+}));
+
+function buildRequest(body: Record<string, unknown>): NextRequest {
+  return new NextRequest('http://localhost/api/attempt/ask-ai', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { Authorization: 'Bearer token', 'Content-Type': 'application/json' },
+  });
+}
+
+describe('POST /api/attempt/ask-ai', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockVerify.mockResolvedValue('uid-1');
+    mockResolveUserEntitlements.mockResolvedValue({ hasUnlimitedAiQuestions: false });
+    attemptResolveValue = { data: { ...attemptData, ai_questions_history: [] }, error: null };
+    perQuizResolveValue = { data: null, error: null };
+    globalResolveValue = { data: null, error: null };
+    quizQuestionsResolveValue = { data: [{ question: lateralQuestionRow }], error: null };
+    mockRpc.mockResolvedValue({ data: [{ per_quiz_count: 1, global_count: 1 }], error: null });
+  });
+
+  it('キャッシュヒット時はターンを消費せず、キャッシュ済み回答を返す', async () => {
+    attemptResolveValue = {
+      data: {
+        ...attemptData,
+        ai_questions_history: [
+          {
+            id: 'h-1',
+            questionText: '犯人は男ですか',
+            answerType: 'yes',
+            aiComment: 'はい',
+            isFromCache: false,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+      error: null,
+    };
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', questionText: '犯人は男ですか' })
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.isFromCache).toBe(true);
+    expect(body.answerType).toBe('yes');
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('新規質問時は Gemini を呼び出し、RPCで記録して残りターン数を返す', async () => {
+    mockSendMessage.mockResolvedValue({
+      response: { text: () => 'はい\n男は遭難していました' },
+    });
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', questionText: '新しい質問' })
+    );
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.isFromCache).toBe(false);
+    expect(body.answerType).toBe('yes');
+    expect(mockRpc).toHaveBeenCalledWith(
+      'handle_record_ai_turn',
+      expect.objectContaining({
+        p_attempt_id: 'att-1',
+        p_user_id: 'uid-1',
+        p_quiz_id: 'quiz-1',
+        p_per_quiz_limit: 30,
+        p_global_limit: 150,
+      })
+    );
+    expect(body.turnsRemaining).toEqual({ perQuiz: 29, globalDaily: 149 });
+  });
+
+  it('クイズ単位の日次上限に達している場合は Gemini を呼ばず 429 (limitType: per-quiz) を返す', async () => {
+    perQuizResolveValue = { data: { count: 30, count_date: TODAY }, error: null };
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', questionText: '新しい質問' })
+    );
+
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toBe('limit-exceeded');
+    expect(body.limitType).toBe('per-quiz');
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('全体横断の日次上限に達している場合は Gemini を呼ばず 429 (limitType: global-daily) を返す', async () => {
+    globalResolveValue = { data: { count: 150, count_date: TODAY }, error: null };
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', questionText: '新しい質問' })
+    );
+
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toBe('limit-exceeded');
+    expect(body.limitType).toBe('global-daily');
+    expect(mockSendMessage).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('認証失敗時は 401 を返す', async () => {
+    mockVerify.mockResolvedValue(null);
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', questionText: '質問' })
+    );
+
+    expect(res.status).toBe(401);
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+});

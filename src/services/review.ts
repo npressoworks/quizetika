@@ -2,7 +2,6 @@ import {
   doc,
   getDoc,
   setDoc,
-  addDoc,
   updateDoc,
   collection,
   query,
@@ -11,18 +10,40 @@ import {
   getDocs,
   writeBatch,
   runTransaction,
-  increment,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase/config';
-import { quizzesRef, usersRef } from '../lib/firebase/firestore';
+import { quizzesRef } from '../lib/firebase/firestore';
+import { createClient } from '../lib/supabase/client';
+import { Database } from '../lib/supabase/database.types';
 import { FeedbackReport, Quiz } from '../types';
 import { calculateReviewScore, getReviewBadge, canVote } from './review-utils';
+import { createNotification } from './notification';
+
+const supabase = createClient();
 
 const feedbackReportsCollection = collection(db, 'feedbackReports');
-const notificationsCollection = collection(db, 'notifications');
 const quizReviewsCollection = collection(db, 'quizReviews');
 const reviewResetRequestsCollection = collection(db, 'reviewResetRequests');
+
+type FeedbackReportRow = Database['public']['Tables']['feedback_reports']['Row'];
+
+function mapRowToFeedbackReport(row: FeedbackReportRow): FeedbackReport {
+  return {
+    id: row.id,
+    quizId: row.quiz_id,
+    quizTitle: row.quiz_title,
+    questionId: row.question_id,
+    questionText: row.question_text,
+    selectedChoiceText: row.selected_choice_text ?? undefined,
+    reporterId: row.reporter_id,
+    creatorId: row.creator_id,
+    category: row.category as FeedbackReport['category'],
+    content: row.content,
+    status: row.status as FeedbackReport['status'],
+    createdAt: new Date(row.created_at),
+  };
+}
 
 export interface QuizReview {
   id?: string; // ${reviewerId}_${quizId}
@@ -47,23 +68,52 @@ export interface ReviewResetRequest {
 
 export async function submitFeedbackReport(
   report: Omit<FeedbackReport, 'id' | 'status' | 'createdAt'>
-): Promise<string> {
-  const payload: Omit<FeedbackReport, 'id'> = {
-    ...report,
+): Promise<void> {
+  // 事前のEXISTS判定で冪等に振る舞う（部分ユニークインデックス違反を例外として扱わない）
+  const { data: existingOpenReport } = await supabase
+    .from('feedback_reports')
+    .select('id')
+    .eq('quiz_id', report.quizId)
+    .eq('question_id', report.questionId)
+    .eq('reporter_id', report.reporterId)
+    .eq('status', 'open')
+    .maybeSingle();
+
+  if (existingOpenReport) {
+    // 同一 (quiz_id, question_id, reporter_id) の未解決報告が既にあるため、重複登録しない
+    return;
+  }
+
+  const { error } = await supabase.from('feedback_reports').insert({
+    quiz_id: report.quizId,
+    quiz_title: report.quizTitle,
+    question_id: report.questionId,
+    question_text: report.questionText,
+    selected_choice_text: report.selectedChoiceText ?? null,
+    reporter_id: report.reporterId,
+    creator_id: report.creatorId,
+    category: report.category,
+    content: report.content,
     status: 'open',
-    createdAt: new Date(),
-  };
-  const docRef = await addDoc(feedbackReportsCollection, payload);
+  } as any);
+
+  if (error) {
+    throw new Error(`指摘レポートの送信に失敗しました: ${error.message}`);
+  }
 
   // クイズ作成者に間違い指摘が届いたことを通知する
   if (report.reporterId !== report.creatorId) {
     try {
-      const senderSnap = await getDoc(doc(usersRef, report.reporterId));
-      const sender = senderSnap.exists() ? senderSnap.data() : null;
-      const senderName = (sender as { displayName?: string })?.displayName ?? 'ユーザー';
-      const senderAvatar = (sender as { avatarUrl?: string })?.avatarUrl ?? '';
+      const { data: sender } = await supabase
+        .from('users')
+        .select('display_name, avatar_url')
+        .eq('id', report.reporterId)
+        .maybeSingle();
 
-      await addDoc(notificationsCollection, {
+      const senderName = sender?.display_name ?? 'ユーザー';
+      const senderAvatar = sender?.avatar_url ?? '';
+
+      await createNotification({
         userId: report.creatorId,
         type: 'correction_reported',
         senderId: report.reporterId,
@@ -71,16 +121,12 @@ export async function submitFeedbackReport(
         senderAvatar,
         targetId: report.quizId,
         targetTitle: report.quizTitle,
-        isRead: false,
-        createdAt: new Date(),
       });
     } catch (err) {
       console.error('指摘送信時の通知作成に失敗しました:', err);
       // 指摘自体の送信は成功しているため、通知作成エラーで全体の処理を失敗させない
     }
   }
-
-  return docRef.id;
 }
 
 /** 作家ダッシュボード用: 未解決（open）の指摘一覧を取得 */
@@ -128,26 +174,34 @@ export async function updateFeedbackReport(
   });
 }
 
-export async function resolveReport(reportId: string, resolverNote?: string): Promise<void> {
-  const reportRef = doc(feedbackReportsCollection, reportId);
-  const reportSnap = await getDoc(reportRef);
-  if (!reportSnap.exists()) throw new Error(`レポートが見つかりません: ${reportId}`);
+export async function resolveReport(reportId: string): Promise<void> {
+  const { data: reportRow, error: fetchError } = await supabase
+    .from('feedback_reports')
+    .select('*')
+    .eq('id', reportId)
+    .maybeSingle();
 
-  const report = reportSnap.data() as FeedbackReport;
+  if (fetchError || !reportRow) {
+    throw new Error(`レポートが見つかりません: ${reportId}`);
+  }
 
-  await updateDoc(reportRef, { status: 'resolved' });
+  const { error: updateError } = await supabase
+    .from('feedback_reports')
+    .update({ status: 'resolved' })
+    .eq('id', reportId);
 
-  await addDoc(notificationsCollection, {
-    userId: report.reporterId,
+  if (updateError) {
+    throw new Error(`指摘レポートの解決処理に失敗しました: ${updateError.message}`);
+  }
+
+  await createNotification({
+    userId: reportRow.reporter_id,
     type: 'correction_resolved',
-    targetId: report.quizId,
-    targetTitle: report.quizTitle,
-    resolverNote: resolverNote ?? null,
     senderId: 'system',
     senderName: '運営',
     senderAvatar: '',
-    isRead: false,
-    createdAt: new Date(),
+    targetId: reportRow.quiz_id,
+    targetTitle: reportRow.quiz_title,
   });
 }
 
@@ -156,8 +210,10 @@ export async function resolveReport(reportId: string, resolverNote?: string): Pr
    ========================================================================== */
 
 /**
- * 良問/悪問投票を送信し、クイズのカウンタをアトミックに更新する。
- * 二重投票防止のため、ドキュメントIDは `${reviewerId}_${quizId}` を使用する。
+ * 良問/悪問投票を送信する。
+ * `handle_submit_review` RPC がアトミックに quiz_reviews のupsertと
+ * quizzes.positive_count/negative_count/review_score の差分更新を行う。
+ * 同一投票者が同じtypeを再送信した場合はRPC側で無視（no-op）される。
  */
 export async function submitReview(
   quizId: string,
@@ -165,166 +221,50 @@ export async function submitReview(
   type: 'positive' | 'negative',
   reason?: string | null
 ): Promise<void> {
-  const quizDocRef = doc(quizzesRef, quizId);
-  const voteDocId = `${reviewerId}_${quizId}`;
-  const voteDocRef = doc(quizReviewsCollection, voteDocId);
+  const { data: quizRow, error: quizError } = await supabase
+    .from('quizzes')
+    .select('author_id')
+    .eq('id', quizId)
+    .maybeSingle();
 
-  const warningInfo = await runTransaction(db, async (transaction) => {
-    const quizSnap = await transaction.get(quizDocRef);
-    if (!quizSnap.exists()) throw new Error(`クイズが見つかりません: ${quizId}`);
-    const quiz = quizSnap.data() as Quiz;
+  if (quizError || !quizRow) {
+    throw new Error(`クイズが見つかりません: ${quizId}`);
+  }
 
-    if (!canVote(reviewerId, quiz.authorId)) {
-      throw new Error('クイズの作成者は評価できません');
-    }
+  if (!canVote(reviewerId, quizRow.author_id)) {
+    throw new Error('クイズの作成者は評価できません');
+  }
 
-    const voteSnap = await transaction.get(voteDocRef);
-    const isResetPeriod = quiz.isReviewMasked;
-    const now = new Date();
-
-    const updates: Record<string, any> = {
-      updatedAt: now,
-    };
-
-    if (voteSnap.exists()) {
-      // 投票の変更
-      const oldVote = voteSnap.data() as QuizReview;
-      if (oldVote.type !== type) {
-        const positiveField = isResetPeriod ? 'tempPositiveCount' : 'positiveCount';
-        const negativeField = isResetPeriod ? 'tempNegativeCount' : 'negativeCount';
-
-        if (type === 'positive') {
-          updates[positiveField] = increment(1);
-          updates[negativeField] = increment(-1);
-        } else {
-          updates[positiveField] = increment(-1);
-          updates[negativeField] = increment(1);
-        }
-
-        // スコアとバッジを更新 (非マスク期間のみ)
-        if (!isResetPeriod) {
-          const newPositive = (quiz.positiveCount ?? 0) + (type === 'positive' ? 1 : -1);
-          const newNegative = (quiz.negativeCount ?? 0) + (type === 'negative' ? 1 : -1);
-          const newScore = calculateReviewScore(newPositive, newNegative);
-          updates.reviewScore = newScore;
-          updates.reviewBadge = getReviewBadge(newScore);
-        }
-
-        transaction.update(voteDocRef, {
-          type,
-          reason: reason ?? null,
-          updatedAt: Timestamp.fromDate(now),
-        });
-      }
-    } else {
-      // 新規投票
-      const positiveField = isResetPeriod ? 'tempPositiveCount' : 'positiveCount';
-      const negativeField = isResetPeriod ? 'tempNegativeCount' : 'negativeCount';
-
-      updates[type === 'positive' ? positiveField : negativeField] = increment(1);
-
-      if (!isResetPeriod) {
-        const newPositive = (quiz.positiveCount ?? 0) + (type === 'positive' ? 1 : 0);
-        const newNegative = (quiz.negativeCount ?? 0) + (type === 'negative' ? 1 : 0);
-        const newScore = calculateReviewScore(newPositive, newNegative);
-        updates.reviewScore = newScore;
-        updates.reviewBadge = getReviewBadge(newScore);
-      }
-
-      const newReview: QuizReview = {
-        quizId,
-        reviewerId,
-        type,
-        reason: reason ?? null,
-        createdAt: now,
-      };
-
-      transaction.set(voteDocRef, newReview);
-    }
-
-    transaction.update(quizDocRef, updates);
-
-    // 評価が低下した（要改善・悪問バッジに低下した）か判定
-    const oldBadge = quiz.reviewBadge;
-    const newBadge = updates.reviewBadge || oldBadge;
-    const isWarningBadge = newBadge === '要改善' || newBadge === '悪問';
-    const wasWarningBadge = oldBadge === '要改善' || oldBadge === '悪問';
-    const shouldWarn = isWarningBadge && !wasWarningBadge && !isResetPeriod;
-
-    return { shouldWarn, creatorId: quiz.authorId, quizTitle: quiz.title };
+  const { error } = await (supabase as any).rpc('handle_submit_review', {
+    p_reviewer_id: reviewerId,
+    p_quiz_id: quizId,
+    p_type: type,
+    p_reason: reason ?? null,
   });
 
-  if (warningInfo && warningInfo.shouldWarn) {
-    try {
-      await addDoc(notificationsCollection, {
-        userId: warningInfo.creatorId,
-        type: 'quiz_review_warning',
-        senderId: 'system',
-        senderName: '運営',
-        senderAvatar: '',
-        targetId: quizId,
-        targetTitle: warningInfo.quizTitle,
-        isRead: false,
-        createdAt: new Date(),
-      });
-    } catch (err) {
-      console.error('評価警告通知の作成に失敗しました:', err);
-    }
+  if (error) {
+    throw new Error(`レビューの投稿に失敗しました: ${error.message}`);
   }
 }
 
 /**
- * ユーザーの良問/悪問投票を取り消し、クイズのカウンタをアトミックに減算する。
- * 取り消し後は `quizReviews` のドキュメントを物理削除する。
+ * ユーザーの良問/悪問投票を取り消す。
+ * `handle_retract_review` RPC が quiz_reviews の物理削除と
+ * quizzes.positive_count/negative_count/review_score の差分更新をアトミックに行う。
+ * 投票が存在しない場合はRPC側で無視（no-op）される。
  */
 export async function retractReview(
   quizId: string,
   reviewerId: string,
 ): Promise<void> {
-  const quizDocRef = doc(quizzesRef, quizId);
-  const voteDocId = `${reviewerId}_${quizId}`;
-  const voteDocRef = doc(quizReviewsCollection, voteDocId);
-
-  await runTransaction(db, async (transaction) => {
-    const quizSnap = await transaction.get(quizDocRef);
-    if (!quizSnap.exists()) throw new Error(`クイズが見つかりません: ${quizId}`);
-    const quiz = quizSnap.data() as Quiz;
-
-    const voteSnap = await transaction.get(voteDocRef);
-    if (!voteSnap.exists()) {
-      // すでに取り消し済みの場合は何もしない
-      return;
-    }
-
-    const oldVote = voteSnap.data() as QuizReview;
-    const isResetPeriod = quiz.isReviewMasked;
-    const now = new Date();
-
-    const positiveField = isResetPeriod ? 'tempPositiveCount' : 'positiveCount';
-    const negativeField = isResetPeriod ? 'tempNegativeCount' : 'negativeCount';
-
-    const updates: Record<string, any> = { updatedAt: now };
-
-    // 削除する投票の分だけカウンタを減算
-    if (oldVote.type === 'positive') {
-      updates[positiveField] = increment(-1);
-    } else {
-      updates[negativeField] = increment(-1);
-    }
-
-    // スコアとバッジを再計算 (非マスク期間のみ)
-    if (!isResetPeriod) {
-      const newPositive = (quiz.positiveCount ?? 0) - (oldVote.type === 'positive' ? 1 : 0);
-      const newNegative = (quiz.negativeCount ?? 0) - (oldVote.type === 'negative' ? 1 : 0);
-      const newScore = calculateReviewScore(Math.max(0, newPositive), Math.max(0, newNegative));
-      updates.reviewScore = newScore;
-      updates.reviewBadge = getReviewBadge(newScore);
-    }
-
-    // 投票ドキュメントを物理削除
-    transaction.delete(voteDocRef);
-    transaction.update(quizDocRef, updates);
+  const { error } = await (supabase as any).rpc('handle_retract_review', {
+    p_reviewer_id: reviewerId,
+    p_quiz_id: quizId,
   });
+
+  if (error) {
+    throw new Error(`レビューの取り消しに失敗しました: ${error.message}`);
+  }
 }
 
 /**
@@ -481,14 +421,15 @@ export async function resetReviews(quizId: string): Promise<void> {
  * 指定されたクイズIDに関連する未解決（open）の指摘一覧を取得する。
  */
 export async function getOpenReportsByQuizId(quizId: string, creatorId: string): Promise<FeedbackReport[]> {
-  const q = query(
-    feedbackReportsCollection,
-    where('quizId', '==', quizId),
-    where('creatorId', '==', creatorId),
-    where('status', '==', 'open')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedbackReport));
+  const { data, error } = await supabase
+    .from('feedback_reports')
+    .select('*')
+    .eq('quiz_id', quizId)
+    .eq('creator_id', creatorId)
+    .eq('status', 'open');
+
+  if (error || !data) return [];
+  return data.map(mapRowToFeedbackReport);
 }
 
 /**
@@ -496,11 +437,16 @@ export async function getOpenReportsByQuizId(quizId: string, creatorId: string):
  * 却下時は報告者への通知は行わない。
  */
 export async function rejectReport(reportId: string): Promise<void> {
-  const reportRef = doc(feedbackReportsCollection, reportId);
-  const reportSnap = await getDoc(reportRef);
-  if (!reportSnap.exists()) throw new Error(`レポートが見つかりません: ${reportId}`);
+  const { data, error } = await supabase
+    .from('feedback_reports')
+    .update({ status: 'rejected' })
+    .eq('id', reportId)
+    .select('id')
+    .maybeSingle();
 
-  await updateDoc(reportRef, { status: 'rejected' });
+  if (error || !data) {
+    throw new Error(`レポートが見つかりません: ${reportId}`);
+  }
 }
 
 /**
@@ -510,12 +456,15 @@ export async function getUserReviewForQuiz(
   quizId: string,
   reviewerId: string
 ): Promise<'positive' | 'negative' | null> {
-  const voteDocId = `${reviewerId}_${quizId}`;
-  const voteDocRef = doc(quizReviewsCollection, voteDocId);
-  const snap = await getDoc(voteDocRef);
-  if (!snap.exists()) return null;
-  const data = snap.data() as QuizReview;
-  return data.type;
+  const { data, error } = await supabase
+    .from('quiz_reviews')
+    .select('type')
+    .eq('reviewer_id', reviewerId)
+    .eq('quiz_id', quizId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data.type as 'positive' | 'negative';
 }
 
 

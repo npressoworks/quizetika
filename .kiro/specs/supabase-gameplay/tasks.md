@@ -28,7 +28,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. コア: ゲームプレイサービス層の正規化対応
-- [ ] 2.1 (P) 解答履歴・リーダーボードサービスの正規化対応
+- [x] 2.1 (P) 解答履歴・リーダーボードサービスの正規化対応
   - `attempt.ts` の `saveAttempt`／`createLateralAttemptSession`／`listUserPlayHistory`／`listUserPlayedQuizIds` を Supabase RPC/クエリ呼び出しに書き換える（`getLeaderboard` を新設し `leaderboard_entries` から上位5件を取得する）
   - `attempt-server.ts` の `getAttemptByIdForUser` を Firebase Admin から Supabase サーバークライアントに書き換える
   - `play-history-client.ts`／`played-quiz-ids-client.ts` の現在ユーザー取得を Supabase セッションベースへ更新する
@@ -37,7 +37,7 @@
   - _Boundary: AttemptService_
   - _Depends: 1.2_
 
-- [ ] 2.2 (P) レビュー・指摘報告サービスの正規化対応
+- [x] 2.2 (P) レビュー・指摘報告サービスの正規化対応
   - `review.ts` の `submitReview`／`retractReview`／`getUserReviewForQuiz` を `handle_submit_review`／`handle_retract_review` RPC呼び出しに書き換える
   - `submitFeedbackReport`／`getOpenReportsByQuizId`／`resolveReport`／`rejectReport` を Supabase クライアントAPIに書き換える
   - 単体テストを実行し、レビューの新規投票・変更・同一票再送信の無視、指摘報告の重複防止（部分ユニークインデックス起因）が正しく動作することを確認する
@@ -45,14 +45,14 @@
   - _Boundary: ReviewService_
   - _Depends: 1.3_
 
-- [ ] 2.3 (P) 難易度評価サービスの正規化対応
+- [x] 2.3 (P) 難易度評価サービスの正規化対応
   - `rating.ts` の `submitDifficultyVote` を `handle_submit_difficulty_vote` RPC呼び出しに書き換える
   - 単体テストを実行し、範囲外投票の拒否、ログイン済みユーザーの上書き差分反映、匿名投票の新規加算が正しく動作することを確認する
   - _Requirements: 2.1_
   - _Boundary: RatingService_
   - _Depends: 1.3_
 
-- [ ] 2.4 (P) リアクションサービスのトグル化対応
+- [x] 2.4 (P) リアクションサービスのトグル化対応
   - `reaction.ts` の `sendReaction` を `toggleReaction`（`handle_toggle_reaction` RPC呼び出し）に書き換え、追加/解除の両方に対応する
   - `getSentReactions`／`getReceivedReactions` を Supabase クライアントAPIに書き換える
   - 単体テストに解除（トグルオフ）ケースを新規追加し、追加・解除の両方で `quizzes.likes_count` と `users.total_reactions_count` が正しく増減することを検証する
@@ -60,7 +60,7 @@
   - _Boundary: ReactionService_
   - _Depends: 1.3_
 
-- [ ] 2.5 (P) AI対話・合格判定APIルートの正規化対応
+- [x] 2.5 (P) AI対話・合格判定APIルートの正規化対応
   - `/api/attempt/ask-ai` を Firebase Admin から Supabase サーバークライアントに書き換え、`handle_record_ai_turn` RPCを呼び出すようにする
   - `/api/attempt/verify-truth` を Supabase サーバークライアントに書き換え、`handle_complete_lateral_attempt` RPCを呼び出すようにする（判定失敗時は完了させない）
   - `/api/attempt/give-up-lateral` を Supabase サーバークライアントに書き換え、`handle_give_up_lateral_attempt` RPCを呼び出すようにする（既に完了済みの場合は409を返す）

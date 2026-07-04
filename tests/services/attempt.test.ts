@@ -10,7 +10,21 @@ jest.mock('../../src/services/attempt-session', () => ({
   clearPendingSyncAttempt: jest.fn(),
 }));
 
-import { runTransaction, doc, getDocs, setDoc, getDoc } from 'firebase/firestore';
+jest.mock('../../src/services/quiz', () => ({
+  getQuiz: jest.fn(),
+}));
+
+// Supabase クライアントのモックを作成（bookmark.test.ts と同様のチェーン + rpc パターン）
+jest.mock('../../src/lib/supabase/client', () => {
+  const mock: any = {
+    rpc: jest.fn(),
+  };
+  return {
+    createClient: () => mock,
+  };
+});
+
+import { runTransaction, getDocs } from 'firebase/firestore';
 import {
   saveAttempt,
   createLateralAttemptSession,
@@ -19,6 +33,9 @@ import {
   syncPendingAttempts,
 } from '../../src/services/attempt';
 import { getPendingSyncAttempts, clearPendingSyncAttempt } from '../../src/services/attempt-session';
+import { getQuiz } from '../../src/services/quiz';
+import { createClient } from '../../src/lib/supabase/client';
+
 jest.mock('firebase/firestore', () => {
   const original = jest.requireActual('firebase/firestore');
   return {
@@ -46,52 +63,30 @@ jest.mock('firebase/firestore', () => {
   };
 });
 
+const mockSupabase = createClient() as any;
+
+function mockQuiz(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'test-quiz-id',
+    authorId: 'author-1',
+    status: 'published',
+    visibility: 'public',
+    questions: [{ id: 'q1' }, { id: 'q2' }, { id: 'q3' }, { id: 'q4' }, { id: 'q5' }],
+    ...overrides,
+  };
+}
+
 describe('AttemptService - saveAttempt', () => {
   const quizId = 'test-quiz-id';
   const userId = 'user-uid';
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (getDocs as jest.Mock).mockResolvedValue({ docs: [] });
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({
-        status: 'published',
-        authorId: 'author-1',
-        visibility: 'public',
-        questions: [{ id: 'q1' }, { id: 'q2' }, { id: 'q3' }, { id: 'q4' }, { id: 'q5' }],
-      }),
-    });
+    (getQuiz as jest.Mock).mockResolvedValue(mockQuiz());
+    mockSupabase.rpc.mockResolvedValue({ data: 'new-attempt-id', error: null });
   });
 
-  test('通常スコアでも初回LBに記録しプレイ回数をインクリメントすること', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({
-        playCount: 10,
-        leaderboard: [],
-        leaderboardFirstPlay: [],
-        leaderboardReplay: [],
-        questions: [
-          { id: 'q1' },
-          { id: 'q2' },
-          { id: 'q3' },
-          { id: 'q4' },
-          { id: 'q5' },
-        ],
-      }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockQuizSnap),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
-
+  test('RPC 呼び出しでプレイ結果を保存し attempt id を返すこと', async () => {
     const attemptData = {
       userId,
       quizId,
@@ -105,51 +100,22 @@ describe('AttemptService - saveAttempt', () => {
     };
 
     const attemptId = await saveAttempt(attemptData);
-    expect(attemptId).toBeDefined();
+    expect(attemptId).toBe('new-attempt-id');
 
-    expect(mockTransaction.get).toHaveBeenCalledTimes(2); // クイズとユーザー情報の2回取得するため
-    expect(mockTransaction.set).toHaveBeenCalledTimes(1); // attempt レコード登録
-    expect(mockTransaction.update).toHaveBeenCalledTimes(1); // playCount インクリメント
-
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: quizId }),
-      expect.objectContaining({
-        playCount: 1,
-        leaderboardFirstPlay: expect.arrayContaining([
-          expect.objectContaining({ userId, score: 3 }),
-        ]),
-      })
-    );
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_save_attempt', {
+      p_user_id: userId,
+      p_quiz_id: quizId,
+      p_mode: 'normal',
+      p_score: 3,
+      p_total_questions: 5,
+      p_elapsed_seconds: 45,
+      p_failed_question_ids: ['q2', 'q4'],
+      p_question_answers: [],
+      p_question_answer_details: [],
+    });
   });
 
-  test('全問正解でも初回LBに記録すること', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({
-        playCount: 10,
-        leaderboard: [],
-        leaderboardFirstPlay: [],
-        leaderboardReplay: [],
-        questions: [
-          { id: 'q1' },
-          { id: 'q2' },
-          { id: 'q3' },
-          { id: 'q4' },
-          { id: 'q5' },
-        ],
-      }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockQuizSnap),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
-
+  test('全問正解でも RPC 呼び出しで保存できること', async () => {
     const attemptData = {
       userId,
       quizId,
@@ -164,36 +130,54 @@ describe('AttemptService - saveAttempt', () => {
 
     await saveAttempt(attemptData);
 
-    expect(mockTransaction.update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: quizId }),
-      expect.objectContaining({
-        playCount: 1,
-        leaderboardFirstPlay: expect.arrayContaining([
-          expect.objectContaining({
-            userId,
-            score: 5,
-          }),
-        ]),
-      })
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'handle_save_attempt',
+      expect.objectContaining({ p_score: 5, p_failed_question_ids: [] })
     );
   });
 
+  test('クイズが見つからない場合エラーを投げRPCは呼び出さないこと', async () => {
+    (getQuiz as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      saveAttempt({
+        userId,
+        quizId,
+        mode: 'normal',
+        score: 5,
+        totalQuestions: 5,
+        elapsedSeconds: 30,
+        failedQuestionIds: [],
+        aiTurnCount: 0,
+        aiTurnLimit: null,
+      })
+    ).rejects.toThrow(`クイズが見つかりません: ${quizId}`);
+
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  test('RPC がエラーを返した場合、エラーメッセージを含めて例外を投げること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ data: null, error: { message: '問題数が一致しません' } });
+
+    await expect(
+      saveAttempt({
+        userId,
+        quizId,
+        mode: 'normal',
+        score: 5,
+        totalQuestions: 5,
+        elapsedSeconds: 30,
+        failedQuestionIds: [],
+        aiTurnCount: 0,
+        aiTurnLimit: null,
+      })
+    ).rejects.toThrow('問題数が一致しません');
+  });
+
   test('questionAnswerDetails の件数が不整合な場合にエラーを投げること', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({
-        playCount: 10,
-        questions: [{ id: 'q1' }, { id: 'q2' }],
-      }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockQuizSnap),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+    (getQuiz as jest.Mock).mockResolvedValue(
+      mockQuiz({ questions: [{ id: 'q1' }, { id: 'q2' }] })
+    );
 
     const attemptData = {
       userId,
@@ -217,24 +201,13 @@ describe('AttemptService - saveAttempt', () => {
     };
 
     await expect(saveAttempt(attemptData)).rejects.toThrow('解答詳細の件数が不整合です');
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
 
   test('questionAnswerDetails の正解数とスコアが不整合な場合にエラーを投げること', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({
-        playCount: 10,
-        questions: [{ id: 'q1' }, { id: 'q2' }],
-      }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockQuizSnap),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+    (getQuiz as jest.Mock).mockResolvedValue(
+      mockQuiz({ questions: [{ id: 'q1' }, { id: 'q2' }] })
+    );
 
     const attemptData = {
       userId,
@@ -265,24 +238,13 @@ describe('AttemptService - saveAttempt', () => {
     };
 
     await expect(saveAttempt(attemptData)).rejects.toThrow('解答詳細の正解数 (2) が送信されたスコア (1) と一致しません');
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
 
   test('questionAnswerDetails にクイズに存在しない不正な問題IDがある場合にエラーを投げること', async () => {
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({
-        playCount: 10,
-        questions: [{ id: 'q1' }, { id: 'q2' }],
-      }),
-    };
-
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockQuizSnap),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
+    (getQuiz as jest.Mock).mockResolvedValue(
+      mockQuiz({ questions: [{ id: 'q1' }, { id: 'q2' }] })
+    );
 
     const attemptData = {
       userId,
@@ -313,10 +275,11 @@ describe('AttemptService - saveAttempt', () => {
     };
 
     await expect(saveAttempt(attemptData)).rejects.toThrow('該当クイズに存在しない不正な問題IDが解答詳細に含まれています: q_hack');
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
 });
 
-describe('AttemptService - getFailedQuestions', () => {
+describe('AttemptService - getFailedQuestions (Firestore, out of scope)', () => {
   const userId = 'user-uid';
 
   test('過去に間違えた問題がない場合は、空配列を返すこと', async () => {
@@ -329,7 +292,7 @@ describe('AttemptService - getFailedQuestions', () => {
   });
 });
 
-describe('AttemptService - updateFailedQuestions', () => {
+describe('AttemptService - updateFailedQuestions (Firestore, out of scope)', () => {
   const userId = 'user-uid';
   const quizId = 'quiz-id';
 
@@ -380,47 +343,37 @@ describe('AttemptService - updateFailedQuestions', () => {
 describe('AttemptService - createLateralAttemptSession', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.rpc.mockResolvedValue({ data: 'lateral-attempt-id', error: null });
   });
 
-  test('未完了 attempt を作成し completedAt や playCount 更新は行わない', async () => {
+  test('未完了 attempt を作成する RPC を正しい引数で呼び出すこと', async () => {
     const attemptId = await createLateralAttemptSession('user-1', 'quiz-lateral-1', ['q-lt-1']);
 
-    expect(attemptId).toBe('auto-generated-id');
-    expect(setDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'auto-generated-id' }),
-      expect.objectContaining({
-        userId: 'user-1',
-        quizId: 'quiz-lateral-1',
-        score: 0,
-        totalQuestions: 1,
-        failedQuestionIds: ['q-lt-1'],
-        aiTurnCount: 0,
-        aiTurnLimit: 30,
-        listId: null,
-        mode: 'normal',
-      })
-    );
-    expect((setDoc as jest.Mock).mock.calls[0][1]).not.toHaveProperty('completedAt');
-    expect(runTransaction).not.toHaveBeenCalled();
+    expect(attemptId).toBe('lateral-attempt-id');
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_start_lateral_attempt', {
+      p_user_id: 'user-1',
+      p_quiz_id: 'quiz-lateral-1',
+      p_total_questions: 1,
+      p_ai_turn_limit: 30,
+    });
   });
 
-  test('リスト廃止後は常に mode=normal・listId=null で保存する', async () => {
-    await createLateralAttemptSession('user-1', 'quiz-lateral-1', ['q-lt-1']);
+  test('RPC がエラーを返した場合は例外を投げること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ data: null, error: { message: 'DB error' } });
 
-    expect(setDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'auto-generated-id' }),
-      expect.objectContaining({
-        listId: null,
-        mode: 'normal',
-        aiTurnLimit: 30,
-      })
-    );
+    await expect(
+      createLateralAttemptSession('user-1', 'quiz-lateral-1', ['q-lt-1'])
+    ).rejects.toThrow('DB error');
   });
 });
 
 describe('AttemptService - syncPendingAttempts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getQuiz as jest.Mock).mockResolvedValue(
+      mockQuiz({ questions: [{ id: 'q1' }, { id: 'q2' }] })
+    );
+    mockSupabase.rpc.mockResolvedValue({ data: 'synced-attempt-id', error: null });
   });
 
   test('保留中の attempt がある場合、詳細データも含めて saveAttempt が呼び出され成功時にローカルからクリアされること', async () => {
@@ -458,27 +411,6 @@ describe('AttemptService - syncPendingAttempts', () => {
 
     (getPendingSyncAttempts as jest.Mock).mockReturnValue([mockPending]);
 
-    const mockQuizSnap = {
-      exists: () => true,
-      data: () => ({
-        playCount: 10,
-        questions: [{ id: 'q1' }, { id: 'q2' }],
-      }),
-    };
-    const mockTransaction = {
-      get: jest.fn().mockReturnValue(mockQuizSnap),
-      set: jest.fn(),
-      update: jest.fn(),
-    };
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => callback(mockTransaction));
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => true,
-      data: () => ({
-        status: 'published',
-        questions: [{ id: 'q1' }, { id: 'q2' }],
-      }),
-    });
-
     const successCount = await syncPendingAttempts();
 
     expect(successCount).toBe(1);
@@ -504,10 +436,7 @@ describe('AttemptService - syncPendingAttempts', () => {
     };
 
     (getPendingSyncAttempts as jest.Mock).mockReturnValue([mockPending]);
-
-    (getDoc as jest.Mock).mockResolvedValue({
-      exists: () => false,
-    });
+    (getQuiz as jest.Mock).mockResolvedValue(null);
 
     const successCount = await syncPendingAttempts();
 

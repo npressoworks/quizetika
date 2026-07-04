@@ -1,14 +1,7 @@
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs,
-  doc,
-  runTransaction,
-  increment
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
+import { createClient } from '../lib/supabase/client';
+import { Database } from '../lib/supabase/database.types';
+
+const supabase = createClient();
 
 export interface Reaction {
   id: string;
@@ -16,112 +9,81 @@ export interface Reaction {
   receiverId: string; // クイズ作成者
   quizId: string;
   quizTitle: string;
-  type: 'like' | 'thank'; // リアクションのタイプ (いいね、感謝)
+  type: 'like';
   createdAt: Date;
 }
 
-const reactionsCollection = collection(db, 'reactions');
+type ReactionRow = Database['public']['Tables']['reactions']['Row'];
+
+function mapRowToReaction(row: ReactionRow, quizTitle: string): Reaction {
+  return {
+    id: `${row.sender_id}_${row.quiz_id}_${row.type}`,
+    senderId: row.sender_id,
+    receiverId: row.receiver_id,
+    quizId: row.quiz_id,
+    quizTitle,
+    type: row.type as 'like',
+    createdAt: new Date(row.created_at),
+  };
+}
+
+/** リアクション対象のクイズタイトルを一括取得し、行データへ付与する */
+async function attachQuizTitles(rows: ReactionRow[]): Promise<Reaction[]> {
+  if (rows.length === 0) return [];
+
+  const quizIds = [...new Set(rows.map((row) => row.quiz_id))];
+  const { data: quizzes } = await supabase
+    .from('quizzes')
+    .select('id, title')
+    .in('id', quizIds);
+
+  const titleMap = new Map<string, string>();
+  (quizzes ?? []).forEach((q) => titleMap.set(q.id, q.title));
+
+  return rows.map((row) => mapRowToReaction(row, titleMap.get(row.quiz_id) ?? ''));
+}
 
 /**
- * 作家へお礼のリアクション（いいね・感謝）をアトミックに送信
+ * 作家へのいいねリアクションをアトミックにトグル（追加/解除）する
+ * receiverId はクライアントから受け取らず、RPC側でクイズの作成者から導出する
  */
-export async function sendReaction(
-  senderId: string,
-  receiverId: string,
-  quizId: string,
-  type: 'like' | 'thank'
-): Promise<void> {
-  if (senderId === receiverId) return; // 自分自身には送信不可
-  
-  const reactionId = `${senderId}_${quizId}_${type}`;
-  const reactionDocRef = doc(db, 'reactions', reactionId);
-  const quizDocRef = doc(db, 'quizzes', quizId);
-  const userDocRef = doc(db, 'users', receiverId);
-  
-  await runTransaction(db, async (transaction) => {
-    // 1. リアクション存在確認 (READ)
-    const reactionSnap = await transaction.get(reactionDocRef);
-
-    // 既に送信済みの場合は何もしない (冪等性維持)
-    if (reactionSnap.exists()) {
-      return;
-    }
-
-    // 残りの読み取り (READ)
-    const quizSnap = await transaction.get(quizDocRef);
-    const userSnap = await transaction.get(userDocRef);
-    
-    if (!quizSnap.exists()) {
-      throw new Error(`Quiz with ID ${quizId} not found`);
-    }
-    const quizData = quizSnap.data();
-    const quizTitle = quizData.title || '無題のクイズ';
-    
-    // 2. すべての書き込み (WRITE) を実行
-    transaction.set(reactionDocRef, {
-      senderId,
-      receiverId,
-      quizId,
-      quizTitle,
-      type,
-      createdAt: new Date()
-    });
-    
-    // 作家の累計リアクション数をインクリメント
-    if (userSnap.exists()) {
-      transaction.update(userDocRef, {
-        totalReactionsCount: increment(1)
-      });
-    }
+export async function toggleReaction(senderId: string, quizId: string): Promise<boolean> {
+  const { data, error } = await (supabase as any).rpc('handle_toggle_reaction', {
+    p_sender_id: senderId,
+    p_quiz_id: quizId,
   });
+
+  if (error) {
+    throw new Error(`リアクション処理のRPC実行に失敗しました: ${error.message}`);
+  }
+
+  return !!data;
 }
 
 /**
  * 自分が送ったリアクション履歴を取得 (降順)
  */
 export async function getSentReactions(userId: string): Promise<Reaction[]> {
-  const q = query(
-    reactionsCollection,
-    where('senderId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  
-  const snap = await getDocs(q);
-  return snap.docs.map(docSnap => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      senderId: data.senderId,
-      receiverId: data.receiverId,
-      quizId: data.quizId,
-      quizTitle: data.quizTitle,
-      type: data.type,
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
-    } as Reaction;
-  });
+  const { data, error } = await supabase
+    .from('reactions')
+    .select('*')
+    .eq('sender_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return attachQuizTitles(data);
 }
 
 /**
  * 自作クイズに貰ったリアクション履歴を取得 (降順)
  */
 export async function getReceivedReactions(userId: string): Promise<Reaction[]> {
-  const q = query(
-    reactionsCollection,
-    where('receiverId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  
-  const snap = await getDocs(q);
-  return snap.docs.map(docSnap => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      senderId: data.senderId,
-      receiverId: data.receiverId,
-      quizId: data.quizId,
-      quizTitle: data.quizTitle,
-      type: data.type,
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
-    } as Reaction;
-  });
+  const { data, error } = await supabase
+    .from('reactions')
+    .select('*')
+    .eq('receiver_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+  return attachQuizTitles(data);
 }

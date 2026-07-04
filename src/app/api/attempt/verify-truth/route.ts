@@ -4,10 +4,9 @@
  *
  * 処理フロー:
  * 1. リクエストバリデーション（真相要約は最大1000文字）
- * 2. Attempt と Quiz の裏設定を Firestore から取得
+ * 2. Attempt を Supabase から取得し、水平思考問題の裏設定/エッセンスを取得
  * 3. Gemini API に真相要約を送信して合否を判定
- * 4. 合格時: attempt を completed にマーク、履歴の追加、リーダーボード・プレイ数のトランザクション更新
- * 5. 不合格時: 履歴の追加、AIアドバイスをレスポンスとして返す
+ * 4. handle_complete_lateral_attempt RPC を呼び出す（合格時のみ完了・リーダーボード反映はRPC内部で実施）
  *
  * Requirements: 4.7, 4.8, 4.9, 4.10, 4.11, 4.12
  * Boundary: VerifyTruthAPI (Phase 15: AI 意味判定)
@@ -15,24 +14,44 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminFirestore } from '@/lib/firebase/admin';
-import { buildLeaderboardUpdatesForQuiz } from '@/lib/leaderboard-update';
+import { createAdminClient } from '@/lib/supabase/server';
 import { normalizeElapsedSeconds } from '@/lib/format-play-elapsed';
 import { buildVerifyTruthPrompt, parseTruthVerifyResponse } from '@/services/verify-truth-utils';
-import { Attempt, Quiz, QuestionAnswerDetail } from '@/types';
+import { mapQuestionRowToQuestion } from '@/services/question';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
+import type { Question } from '@/types';
+import type { Database } from '@/lib/supabase/database.types';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+
+type QuestionRow = Database['public']['Tables']['questions']['Row'];
+
+/** 対象クイズの水平思考問題（裏設定/必須エッセンス）を quiz_questions 経由で取得する */
+async function findLateralThinkingQuestion(
+  supabase: ReturnType<typeof createAdminClient>,
+  quizId: string
+): Promise<Question | null> {
+  const { data, error } = await supabase
+    .from('quiz_questions')
+    .select('question:questions(*)')
+    .eq('quiz_id', quizId);
+
+  if (error || !data) return null;
+
+  const row = (data as unknown as { question: QuestionRow | null }[])
+    .map((link) => link.question)
+    .find((q) => q?.type === 'lateral-thinking');
+
+  return row ? mapQuestionRowToQuestion(row) : null;
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { attemptId, userId, truthSummary, displayName, elapsedSeconds } = body as {
+    const { attemptId, userId, truthSummary, elapsedSeconds } = body as {
       attemptId: string;
       userId: string;
       truthSummary: string;
-      displayName?: string;
       elapsedSeconds?: number;
     };
 
@@ -61,28 +80,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const attemptRef = db.collection('attempts').doc(attemptId);
-    const attemptSnap = await attemptRef.get();
+    const supabase = createAdminClient();
 
-    if (!attemptSnap.exists) {
+    const { data: attempt, error: attemptError } = await supabase
+      .from('attempts')
+      .select('*')
+      .eq('id', attemptId)
+      .maybeSingle();
+
+    if (attemptError || !attempt) {
       return NextResponse.json({ error: 'attempt-not-found' }, { status: 404 });
     }
-    const attempt = attemptSnap.data() as Attempt;
 
-    if (attempt.userId !== verifiedUid) {
+    if (attempt.user_id !== verifiedUid) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 403 });
     }
 
-    const quizRef = db.collection('quizzes').doc(attempt.quizId);
-    const quizSnap = await quizRef.get();
-
-    if (!quizSnap.exists) {
-      return NextResponse.json({ error: 'quiz-not-found' }, { status: 404 });
-    }
-    const quiz = quizSnap.data() as Quiz;
-
-    const lateralQuestion = quiz.questions.find((q) => q.type === 'lateral-thinking');
+    const lateralQuestion = await findLateralThinkingQuestion(supabase, attempt.quiz_id);
     if (!lateralQuestion?.aiContextDetails) {
       return NextResponse.json({ error: 'no-context' }, { status: 400 });
     }
@@ -110,91 +124,34 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const now = new Date();
     const newTruthAttempt = {
       id: `${attemptId}_truth_${Date.now()}`,
       truthText: truthSummary,
       isCorrect,
       aiFeedback: advice ?? '',
-      createdAt: now,
+      createdAt: new Date().toISOString(),
     };
 
-    if (isCorrect) {
-      const savedElapsedSeconds = normalizeElapsedSeconds(
-        elapsedSeconds,
-        attempt.elapsedSeconds ?? 0
-      );
-      const priorSnap = await db
-        .collection('attempts')
-        .where('userId', '==', userId)
-        .where('quizId', '==', attempt.quizId)
-        .get();
+    const savedElapsedSeconds = normalizeElapsedSeconds(
+      elapsedSeconds,
+      attempt.elapsed_seconds ?? 0
+    );
 
-      const priorCompletedCount = priorSnap.docs.filter((d) => {
-        if (d.id === attemptId) return false;
-        const data = d.data() as Attempt;
-        return data.completedAt != null;
-      }).length;
-
-      await db.runTransaction(async (transaction) => {
-        const quizTransactionSnap = await transaction.get(quizRef);
-        if (!quizTransactionSnap.exists) throw new Error('クイズが見つかりません。');
-        const currentQuiz = quizTransactionSnap.data() as Quiz;
-
-        const detailRecord: QuestionAnswerDetail = {
-          questionId: lateralQuestion.id,
-          questionType: 'lateral-thinking',
-          isCorrect: true,
-          elapsedSeconds: savedElapsedSeconds,
-          hintsUsedCount: 0,
-          aiTurnCount: (attempt.aiTruthAttempts?.length ?? 0) + 1,
-          truthSummary: truthSummary,
-          lateralPlayEndedStatus: 'passed',
-        };
-
-        transaction.update(attemptRef, {
-          completedAt: now,
-          score: attempt.totalQuestions,
-          failedQuestionIds: [],
-          elapsedSeconds: savedElapsedSeconds,
-          aiTruthAttempts: FieldValue.arrayUnion(newTruthAttempt),
-          questionAnswerDetails: [detailRecord],
-        });
-
-        const quizUpdates: Record<string, unknown> = {
-          playCount: FieldValue.increment(1),
-          updatedAt: now,
-        };
-
-        const leaderboardEntry = {
-          userId,
-          displayName: displayName ?? '',
-          score: attempt.totalQuestions,
-          elapsedSeconds: savedElapsedSeconds,
-          completedAt: now,
-        };
-
-        const lbResult = buildLeaderboardUpdatesForQuiz(
-          currentQuiz,
-          priorCompletedCount,
-          leaderboardEntry,
-          attempt.mode
-        );
-        if (lbResult) {
-          Object.assign(quizUpdates, lbResult.updates);
-        }
-
-        transaction.update(quizRef, quizUpdates);
-      });
-
-      return NextResponse.json({ isCorrect: true, advice: null });
-    }
-
-    await attemptRef.update({
-      aiTruthAttempts: FieldValue.arrayUnion(newTruthAttempt),
+    const { error: rpcError } = await supabase.rpc('handle_complete_lateral_attempt', {
+      p_attempt_id: attemptId,
+      p_user_id: verifiedUid,
+      p_quiz_id: attempt.quiz_id,
+      p_is_correct: isCorrect,
+      p_truth_attempt: newTruthAttempt,
+      p_elapsed_seconds: savedElapsedSeconds,
+      p_total_questions: attempt.total_questions,
     });
 
-    return NextResponse.json({ isCorrect: false, advice });
+    if (rpcError) {
+      throw new Error(rpcError.message);
+    }
+
+    return NextResponse.json({ isCorrect, advice: isCorrect ? null : advice });
   } catch (error) {
     console.error('[verify-truth] 予期しないエラー:', error);
     return NextResponse.json({ error: 'internal-error' }, { status: 500 });
