@@ -26,8 +26,7 @@ import { useAuth } from '@/context/auth-context';
 import { getDifficultyColor } from '@/lib/difficulty-color';
 import { submitReview, retractReview, submitFeedbackReport, getOpenReportsForQuiz, updateFeedbackReport, getUserReviewForQuiz } from '@/services/review';
 import { isFollowing, followUser, unfollowUser } from '@/services/user';
-import { db } from '@/lib/firebase/config';
-import { doc, updateDoc } from 'firebase/firestore';
+import { getAttemptById, updateAttemptDifficultyVote } from '@/services/attempt';
 import { formatCorrectAnswer, formatUserAnswer, getUserAnswerRaw } from '@/services/attempt-answer-display';
 import { Quiz, Attempt, FeedbackReport, Question } from '@/types';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
@@ -127,14 +126,8 @@ export function QuizResultClient({
       setAttemptError(null);
       try {
         if (attemptId) {
-          const { doc, getDoc } = await import('firebase/firestore');
-          const { db } = await import('@/lib/firebase/config');
-          const attRef = doc(db, 'attempts', attemptId);
-          const attSnap = await getDoc(attRef);
-          if (attSnap.exists()) {
-            const data = attSnap.data();
-            const completedAt = data.completedAt?.toDate ? data.completedAt.toDate() : new Date(data.completedAt);
-            const att = { ...data, id: attSnap.id, completedAt } as Attempt;
+          const att = await getAttemptById(attemptId);
+          if (att) {
             setAttempt(att);
             if (att.difficultyVote !== undefined) {
               setDifficultyVote(att.difficultyVote ?? null);
@@ -535,8 +528,7 @@ export function QuizResultClient({
     setDifficultyVote(level);
     try {
       if (attemptId) {
-        const attRef = doc(db, 'attempts', attemptId);
-        await updateDoc(attRef, { difficultyVote: level });
+        await updateAttemptDifficultyVote(attemptId, level);
       }
     } catch (e: any) {
       console.error('[QuizResultClient] 難易度投票失敗:', e);
@@ -573,7 +565,7 @@ export function QuizResultClient({
       const existingReport = openReports.find((r) => r.questionId === targetQuestionId);
 
       if (existingReport && existingReport.id) {
-        await updateFeedbackReport(existingReport.id, feedbackCategory, feedbackContent);
+        await updateFeedbackReport(existingReport.id, user.id, feedbackCategory, feedbackContent);
       } else {
         const report: Omit<FeedbackReport, 'id' | 'status' | 'createdAt'> = {
           quizId: quiz.id,

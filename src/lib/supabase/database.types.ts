@@ -1531,6 +1531,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      handle_adjust_failed_questions_count: {
+        Args: { p_delta: number; p_user_id: string }
+        Returns: undefined
+      }
       handle_ban_user: {
         Args: { p_reason: string; p_target_uid: string }
         Returns: undefined
@@ -1593,6 +1597,14 @@ export type Database = {
           global_count: number
           per_quiz_count: number
         }[]
+      }
+      handle_remove_failed_questions: {
+        Args: {
+          p_quiz_id: string
+          p_solved_question_ids: string[]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       handle_reorder_questions: {
         Args: { p_question_ids: string[]; p_quiz_id: string }
@@ -1663,6 +1675,15 @@ export type Database = {
       handle_unfollow_user: {
         Args: { p_follower_id: string; p_following_id: string }
         Returns: boolean
+      }
+      handle_update_feedback_report: {
+        Args: {
+          p_category: string
+          p_content: string
+          p_report_id: string
+          p_reporter_id: string
+        }
+        Returns: undefined
       }
       handle_vote_genre_request: {
         Args: { p_opinion: string; p_request_id: string }

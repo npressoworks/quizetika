@@ -1,30 +1,10 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  limit,
-  getDocs,
-  writeBatch,
-  runTransaction,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
-import { quizzesRef } from '../lib/firebase/firestore';
 import { createClient } from '../lib/supabase/client';
 import { Database } from '../lib/supabase/database.types';
-import { FeedbackReport, Quiz } from '../types';
-import { calculateReviewScore, getReviewBadge, canVote } from './review-utils';
+import { FeedbackReport } from '../types';
+import { canVote } from './review-utils';
 import { createNotification } from './notification';
 
 const supabase = createClient();
-
-const feedbackReportsCollection = collection(db, 'feedbackReports');
-const quizReviewsCollection = collection(db, 'quizReviews');
-const reviewResetRequestsCollection = collection(db, 'reviewResetRequests');
 
 type FeedbackReportRow = Database['public']['Tables']['feedback_reports']['Row'];
 
@@ -51,14 +31,6 @@ export interface QuizReview {
   reviewerId: string;
   type: 'positive' | 'negative';
   reason?: string | null;
-  createdAt: Date;
-}
-
-export interface ReviewResetRequest {
-  id?: string;
-  quizId: string;
-  requesterId: string;
-  status: 'pending' | 'approved' | 'rejected';
   createdAt: Date;
 }
 
@@ -131,13 +103,14 @@ export async function submitFeedbackReport(
 
 /** 作家ダッシュボード用: 未解決（open）の指摘一覧を取得 */
 export async function getReportsForCreator(creatorId: string): Promise<FeedbackReport[]> {
-  const q = query(
-    feedbackReportsCollection,
-    where('creatorId', '==', creatorId),
-    where('status', '==', 'open')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedbackReport));
+  const { data, error } = await supabase
+    .from('feedback_reports')
+    .select('*')
+    .eq('creator_id', creatorId)
+    .eq('status', 'open');
+
+  if (error || !data) return [];
+  return data.map(mapRowToFeedbackReport);
 }
 
 /**
@@ -148,30 +121,38 @@ export async function getOpenReportsForQuiz(
   quizId: string,
   reporterId: string
 ): Promise<FeedbackReport[]> {
-  const q = query(
-    feedbackReportsCollection,
-    where('quizId', '==', quizId),
-    where('reporterId', '==', reporterId),
-    where('status', '==', 'open')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as FeedbackReport));
+  const { data, error } = await supabase
+    .from('feedback_reports')
+    .select('*')
+    .eq('quiz_id', quizId)
+    .eq('reporter_id', reporterId)
+    .eq('status', 'open');
+
+  if (error || !data) return [];
+  return data.map(mapRowToFeedbackReport);
 }
 
 /**
  * 指摘レポートの内容を更新する。
+ * RLSの `feedback_reports_update` ポリシーは creator_id のみ許可するため、
+ * 報告者本人による編集は `handle_update_feedback_report` RPC（SECURITY DEFINER）で行う。
  */
 export async function updateFeedbackReport(
   reportId: string,
+  reporterId: string,
   category: 'typo' | 'fact' | 'alternative',
   content: string
 ): Promise<void> {
-  const reportRef = doc(feedbackReportsCollection, reportId);
-  await updateDoc(reportRef, {
-    category,
-    content,
-    updatedAt: new Date(),
+  const { error } = await supabase.rpc('handle_update_feedback_report', {
+    p_report_id: reportId,
+    p_reporter_id: reporterId,
+    p_category: category,
+    p_content: content,
   });
+
+  if (error) {
+    throw new Error(`指摘レポートの更新に失敗しました: ${error.message}`);
+  }
 }
 
 export async function resolveReport(reportId: string): Promise<void> {
@@ -264,156 +245,6 @@ export async function retractReview(
 
   if (error) {
     throw new Error(`レビューの取り消しに失敗しました: ${error.message}`);
-  }
-}
-
-/**
- * 指定クイズの良問率・良問数・悪問数・バッジ指定を取得。
- * 仮リセット期間中の場合は temp カウンタを返し、過去の評価をマスクする。
- */
-export async function getReviewStats(
-  quizId: string
-): Promise<{
-  reviewScore: number | null;
-  positiveCount: number;
-  negativeCount: number;
-  reviewBadge: string | null;
-  tempPositiveCount?: number;
-  tempNegativeCount?: number;
-}> {
-  const quizDocRef = doc(quizzesRef, quizId);
-  const snap = await getDoc(quizDocRef);
-
-  if (!snap.exists()) {
-    return {
-      reviewScore: null,
-      positiveCount: 0,
-      negativeCount: 0,
-      reviewBadge: null,
-    };
-  }
-
-  const quiz = snap.data() as Quiz;
-
-  if (quiz.isReviewMasked) {
-    // マスク期間中: temp を正規カウンタとみなして表示し、過去の評価をマスク
-    const score = calculateReviewScore(quiz.tempPositiveCount, quiz.tempNegativeCount);
-    return {
-      reviewScore: score,
-      positiveCount: quiz.tempPositiveCount,
-      negativeCount: quiz.tempNegativeCount,
-      reviewBadge: getReviewBadge(score),
-      tempPositiveCount: quiz.tempPositiveCount,
-      tempNegativeCount: quiz.tempNegativeCount,
-    };
-  }
-
-  return {
-    reviewScore: quiz.reviewScore ?? null,
-    positiveCount: quiz.positiveCount ?? 0,
-    negativeCount: quiz.negativeCount ?? 0,
-    reviewBadge: quiz.reviewBadge ?? null,
-  };
-}
-
-/* ==========================================================================
-   評価リセット申請
-   ========================================================================== */
-
-/**
- * 「要改善」バッジのクイズの評価リセット申請を登録し、仮リセット期間（マスク）に入る
- */
-export async function submitReviewResetRequest(
-  quizId: string,
-  requesterId: string
-): Promise<string> {
-  const quizDocRef = doc(quizzesRef, quizId);
-
-  return await runTransaction(db, async (transaction) => {
-    const quizSnap = await transaction.get(quizDocRef);
-    if (!quizSnap.exists()) throw new Error(`クイズが見つかりません: ${quizId}`);
-    const quiz = quizSnap.data() as Quiz;
-
-    if (quiz.authorId !== requesterId) {
-      throw new Error('クイズの作成者のみがリセット申請を起案できます。');
-    }
-
-    const now = new Date();
-    const requestPayload: Omit<ReviewResetRequest, 'id'> = {
-      quizId,
-      requesterId,
-      status: 'pending',
-      createdAt: now,
-    };
-
-    const newReqRef = doc(reviewResetRequestsCollection);
-    transaction.set(newReqRef, requestPayload);
-
-    // クイズを仮リセット期間に移行
-    transaction.update(quizDocRef, {
-      isReviewMasked: true,
-      activeResetRequestId: newReqRef.id,
-      tempPositiveCount: 0,
-      tempNegativeCount: 0,
-      updatedAt: Timestamp.fromDate(now),
-    });
-
-    return newReqRef.id;
-  });
-}
-
-/**
- * 評価リセット承認時に過去の quizReviews レコードを100件チャンクで物理削除する。
- * その後、tempカウンターの値を正規カウンターに昇格しマスクを解除する。
- */
-export async function resetReviews(quizId: string): Promise<void> {
-  const q = query(quizReviewsCollection, where('quizId', '==', quizId));
-  let hasMore = true;
-  const CHUNK_SIZE = 100;
-
-  try {
-    while (hasMore) {
-      const snap = await getDocs(query(q, limit(CHUNK_SIZE)));
-      if (snap.empty) {
-        hasMore = false;
-        break;
-      }
-
-      const batch = writeBatch(db);
-      snap.docs.forEach((docSnap) => batch.delete(docSnap.ref));
-      await batch.commit();
-
-      if (snap.docs.length < CHUNK_SIZE) {
-        hasMore = false;
-      }
-    }
-
-    // temp カウンタを正式カウンタに昇格し、マスクを解除
-    const quizDocRef = doc(quizzesRef, quizId);
-    await runTransaction(db, async (transaction) => {
-      const quizSnap = await transaction.get(quizDocRef);
-      if (!quizSnap.exists()) return;
-
-      const quiz = quizSnap.data() as Quiz;
-      const newPositive = quiz.tempPositiveCount ?? 0;
-      const newNegative = quiz.tempNegativeCount ?? 0;
-      const newScore = calculateReviewScore(newPositive, newNegative);
-
-      transaction.update(quizDocRef, {
-        positiveCount: newPositive,
-        negativeCount: newNegative,
-        tempPositiveCount: 0,
-        tempNegativeCount: 0,
-        reviewScore: newScore,
-        reviewBadge: getReviewBadge(newScore),
-        isReviewMasked: false,
-        activeResetRequestId: null,
-        updatedAt: Timestamp.fromDate(new Date()),
-      });
-    });
-  } catch (err) {
-    console.error('[ReviewReset] リセット過去データ削除エラー:', err);
-    throw err;
   }
 }
 

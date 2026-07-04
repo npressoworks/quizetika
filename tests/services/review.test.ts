@@ -6,6 +6,9 @@ import {
   getOpenReportsByQuizId,
   resolveReport,
   rejectReport,
+  getReportsForCreator,
+  getOpenReportsForQuiz,
+  updateFeedbackReport,
 } from '../../src/services/review';
 
 // チェーン用のモックヘルパー（bookmark.test.ts と同様のパターン）
@@ -425,6 +428,125 @@ describe('ReviewService - resolveReport', () => {
     await expect(resolveReport('missing-id')).rejects.toThrow(
       'レポートが見つかりません: missing-id'
     );
+  });
+});
+
+describe('ReviewService - getReportsForCreator', () => {
+  const creatorId = 'creator-uid-123';
+  const mockReports = [
+    {
+      id: 'report-1',
+      quiz_id: 'quiz-a',
+      quiz_title: 'クイズA',
+      question_id: 'q-1',
+      question_text: '問題1',
+      reporter_id: 'reporter-1',
+      creator_id: creatorId,
+      category: 'typo',
+      content: '指摘1',
+      status: 'open',
+      created_at: new Date('2026-06-01').toISOString(),
+    },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('作成者宛ての未解決の指摘一覧を取得できること', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        return createChainMock({ data: mockReports, error: null });
+      }
+      return mockSupabase;
+    });
+
+    const result = await getReportsForCreator(creatorId);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('report-1');
+    expect(mockSupabase.from).toHaveBeenCalledWith('feedback_reports');
+  });
+
+  test('取得に失敗した場合は空配列を返すこと', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        return createChainMock({ data: null, error: { message: 'DB error' } });
+      }
+      return mockSupabase;
+    });
+
+    const result = await getReportsForCreator(creatorId);
+    expect(result).toEqual([]);
+  });
+});
+
+describe('ReviewService - getOpenReportsForQuiz', () => {
+  const quizId = 'quiz-a';
+  const reporterId = 'reporter-uid';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('報告者本人が送信した未解決の指摘一覧を取得できること', async () => {
+    const mockReports = [
+      {
+        id: 'report-1',
+        quiz_id: quizId,
+        quiz_title: 'クイズA',
+        question_id: 'q-1',
+        question_text: '問題1',
+        reporter_id: reporterId,
+        creator_id: 'creator-uid',
+        category: 'typo',
+        content: '指摘1',
+        status: 'open',
+        created_at: new Date('2026-06-01').toISOString(),
+      },
+    ];
+
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        return createChainMock({ data: mockReports, error: null });
+      }
+      return mockSupabase;
+    });
+
+    const result = await getOpenReportsForQuiz(quizId, reporterId);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].questionId).toBe('q-1');
+  });
+});
+
+describe('ReviewService - updateFeedbackReport', () => {
+  const reportId = 'report-1';
+  const reporterId = 'reporter-uid';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('handle_update_feedback_report RPCが正しい引数で呼び出されること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: null });
+
+    await updateFeedbackReport(reportId, reporterId, 'fact', '修正後の内容');
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_update_feedback_report', {
+      p_report_id: reportId,
+      p_reporter_id: reporterId,
+      p_category: 'fact',
+      p_content: '修正後の内容',
+    });
+  });
+
+  test('RPCがエラーを返した場合、例外を投げること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: { message: 'レポートが見つかりません' } });
+
+    await expect(
+      updateFeedbackReport(reportId, reporterId, 'typo', '内容')
+    ).rejects.toThrow('指摘レポートの更新に失敗しました');
   });
 });
 

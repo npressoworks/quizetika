@@ -48,27 +48,6 @@ jest.mock('@/services/attempt', () => ({
   }),
 }));
 
-// firebase のモック
-jest.mock('@/lib/firebase/config', () => ({
-  db: {},
-}));
-
-// firestore のモック
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(() => ({})),
-  query: jest.fn(() => ({})),
-  where: jest.fn(() => ({})),
-  documentId: jest.fn(() => 'documentId'),
-  getDocs: jest.fn().mockResolvedValue({
-    docs: [
-      {
-        id: 'q1',
-        data: () => ({ genre: 'genre-1', tags: ['js', 'ts'] }),
-      },
-    ],
-  }),
-}));
-
 // useActiveGenres のモック
 jest.mock('@/hooks/useActiveGenres', () => ({
   useActiveGenres: () => ({
@@ -83,6 +62,11 @@ jest.mock('@/hooks/useActiveGenres', () => ({
 // quiz および review サービスのモック (作家ダッシュボード用)
 jest.mock('@/services/quiz', () => ({
   getQuizzesByAuthor: jest.fn().mockResolvedValue([]),
+  getQuiz: jest.fn().mockResolvedValue({
+    id: 'q1',
+    genre: 'genre-1',
+    tags: ['js', 'ts'],
+  }),
 }));
 jest.mock('@/services/review', () => ({
   getReportsForCreator: jest.fn().mockResolvedValue([]),

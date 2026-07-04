@@ -207,6 +207,29 @@ export async function getUserProfile(uid: string): Promise<User | null> {
   return normalizeUserRecord(mapRowToUser(data, relations));
 }
 
+const USER_LEADERBOARD_SORT_COLUMNS = {
+  reputationScore: 'reputation_score',
+  totalPlayCount: 'total_play_count',
+  createdQuizzesCount: 'created_quizzes_count',
+} as const;
+
+/**
+ * プラットフォーム全体のユーザーランキングを指定した指標の降順で取得する。
+ */
+export async function getUserLeaderboard(
+  sortBy: keyof typeof USER_LEADERBOARD_SORT_COLUMNS,
+  limitCount: number = 10
+): Promise<User[]> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .order(USER_LEADERBOARD_SORT_COLUMNS[sortBy], { ascending: false })
+    .limit(limitCount);
+
+  if (error || !data) return [];
+  return data.map((row) => mapRowToUser(row));
+}
+
 /**
  * ユーザープロフィールを更新する
  */

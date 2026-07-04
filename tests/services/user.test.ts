@@ -15,6 +15,7 @@ import {
   checkAndAwardBadges,
   followGenre,
   unfollowGenre,
+  getUserLeaderboard,
 } from '../../src/services/user';
 import { User, Badge } from '../../src/types';
 jest.mock('@/lib/supabase/client', () => {
@@ -29,6 +30,8 @@ jest.mock('@/lib/supabase/client', () => {
     insert: jest.fn().mockReturnThis(),
     upsert: jest.fn().mockReturnThis(),
     delete: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    limit: jest.fn(),
     rpc: jest.fn(),
     auth: {
       getSession: jest.fn(),
@@ -54,6 +57,8 @@ beforeEach(() => {
   mockSupabase.insert.mockClear();
   mockSupabase.upsert.mockClear();
   mockSupabase.delete.mockClear();
+  mockSupabase.order.mockClear();
+  mockSupabase.limit.mockReset();
   mockSupabase.rpc.mockReset();
   mockSupabase.auth.getSession.mockReset();
 
@@ -66,6 +71,7 @@ beforeEach(() => {
   mockSupabase.insert.mockReturnValue(mockSupabase);
   mockSupabase.upsert.mockReturnValue(mockSupabase);
   mockSupabase.delete.mockReturnValue(mockSupabase);
+  mockSupabase.order.mockReturnValue(mockSupabase);
 });
 
 /* ============================================================
@@ -478,5 +484,45 @@ describe('UserService - followGenre / unfollowGenre', () => {
     expect(mockSupabase.delete).toHaveBeenCalled();
     expect(mockSupabase.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(mockSupabase.eq).toHaveBeenCalledWith('genre_id', 'programming');
+  });
+});
+
+describe('UserService - getUserLeaderboard', () => {
+  test('reputationScore指定時、reputation_score降順で取得すること', async () => {
+    const rows = [makeUserRow({ id: 'u-1', reputation_score: 100 })];
+    mockSupabase.limit.mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await getUserLeaderboard('reputationScore', 10);
+
+    expect(mockSupabase.from).toHaveBeenCalledWith('users');
+    expect(mockSupabase.order).toHaveBeenCalledWith('reputation_score', { ascending: false });
+    expect(mockSupabase.limit).toHaveBeenCalledWith(10);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('u-1');
+  });
+
+  test('totalPlayCount指定時、total_play_count降順で取得すること', async () => {
+    mockSupabase.limit.mockResolvedValueOnce({ data: [], error: null });
+
+    await getUserLeaderboard('totalPlayCount', 5);
+
+    expect(mockSupabase.order).toHaveBeenCalledWith('total_play_count', { ascending: false });
+    expect(mockSupabase.limit).toHaveBeenCalledWith(5);
+  });
+
+  test('createdQuizzesCount指定時、created_quizzes_count降順で取得すること', async () => {
+    mockSupabase.limit.mockResolvedValueOnce({ data: [], error: null });
+
+    await getUserLeaderboard('createdQuizzesCount');
+
+    expect(mockSupabase.order).toHaveBeenCalledWith('created_quizzes_count', { ascending: false });
+    expect(mockSupabase.limit).toHaveBeenCalledWith(10);
+  });
+
+  test('エラー発生時は空配列を返すこと', async () => {
+    mockSupabase.limit.mockResolvedValueOnce({ data: null, error: { message: 'DB error' } });
+
+    const result = await getUserLeaderboard('reputationScore');
+    expect(result).toEqual([]);
   });
 });

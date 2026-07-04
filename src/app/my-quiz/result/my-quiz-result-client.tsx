@@ -154,7 +154,7 @@ export function MyQuizResultClient() {
       const parentQuizId = (detail as any)?.parentQuizId || 'unknown';
 
       if (existingReport && existingReport.id) {
-        await updateFeedbackReport(existingReport.id, feedbackCategory, feedbackContent);
+        await updateFeedbackReport(existingReport.id, user.id, feedbackCategory, feedbackContent);
       } else {
         const report: Omit<FeedbackReport, 'id' | 'status' | 'createdAt'> = {
           quizId: parentQuizId,

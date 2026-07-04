@@ -1,7 +1,5 @@
 import React, { Suspense } from 'react';
-import { db } from '@/lib/firebase/config';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { User as DBUser } from '@/types';
+import { getUserLeaderboard } from '@/services/user';
 import { LeaderboardClient } from './leaderboard-client';
 import { LeaderboardSkeleton } from '@/components/quiz/leaderboard-skeleton';
 import { leaderboardClasses as styles } from './leaderboard-classes';
@@ -18,18 +16,13 @@ export default async function LeaderboardPage() {
 
 async function LeaderboardDataLoader() {
   try {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, orderBy('reputationScore', 'desc'), limit(10));
-    const snap = await getDocs(q);
-    const initialRankings = snap.docs.map((docSnap) => {
-      const u = docSnap.data() as DBUser;
-      return {
-        id: docSnap.id,
-        displayName: u.displayName || 'ユーザー',
-        avatarUrl: u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg',
-        score: u.reputationScore,
-      };
-    });
+    const users = await getUserLeaderboard('reputationScore', 10);
+    const initialRankings = users.map((u) => ({
+      id: u.id,
+      displayName: u.displayName || 'ユーザー',
+      avatarUrl: u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg',
+      score: u.reputationScore,
+    }));
 
     return <LeaderboardClient initialRankings={initialRankings} />;
   } catch (e) {

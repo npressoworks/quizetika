@@ -4,10 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { listUserPlayHistory } from '@/services/attempt';
+import { getQuiz } from '@/services/quiz';
 import { computePlayerStats, type PlayerStats } from '@/lib/player-stats';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
-import { db } from '@/lib/firebase/config';
-import { collection, query, where, documentId, getDocs } from 'firebase/firestore';
 import { PlayHistoryEntry } from '@/types';
 import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
@@ -51,28 +50,16 @@ export function PlayerDashboardClient() {
         const quizMap = new Map<string, { genre: string; tags: string[] }>();
 
         if (quizIds.length > 0) {
-          // Firestore 'in' クエリ制限（30件）を回避するためにチャンク分割
-          const chunks: string[][] = [];
-          for (let i = 0; i < quizIds.length; i += 30) {
-            chunks.push(quizIds.slice(i, i + 30));
-          }
-
-          const qCollection = collection(db, 'quizzes');
-          const promises = chunks.map((chunk) =>
-            getDocs(query(qCollection, where(documentId(), 'in', chunk)))
-          );
-
-          const snapshots = await Promise.all(promises);
+          const quizzes = await Promise.all(quizIds.map((id) => getQuiz(id)));
           if (cancelled) return;
 
-          snapshots.forEach((snap) => {
-            snap.docs.forEach((docSnap) => {
-              const data = docSnap.data();
-              quizMap.set(docSnap.id, {
-                genre: data.genre || '',
-                tags: data.tags || [],
+          quizzes.forEach((quiz, idx) => {
+            if (quiz) {
+              quizMap.set(quizIds[idx], {
+                genre: quiz.genre || '',
+                tags: quiz.tags || [],
               });
-            });
+            }
           });
         }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const revalidate = 1800; // 30分キャッシュ (1800秒)
 
@@ -10,19 +10,21 @@ export interface GenreWeeklyEntry {
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const db = getAdminFirestore();
+    const supabase = createAdminClient();
 
     // 7日前の日付を計算
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     // 過去7日間の全プレイ完了（attempts）を取得
-    const attemptsRef = db.collection('attempts');
-    const snapshot = await attemptsRef
-      .where('completedAt', '>=', sevenDaysAgo)
-      .get();
+    const { data: attempts, error: attemptsError } = await supabase
+      .from('attempts')
+      .select('quiz_id')
+      .gte('completed_at', sevenDaysAgo.toISOString());
 
-    if (snapshot.empty) {
+    if (attemptsError) throw attemptsError;
+
+    if (!attempts || attempts.length === 0) {
       return NextResponse.json({ genres: [] });
     }
 
@@ -30,9 +32,8 @@ export async function GET(): Promise<NextResponse> {
     const quizPlayCounts: Record<string, number> = {};
     const quizIdsSet = new Set<string>();
 
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      const quizId = data.quizId;
+    attempts.forEach((row) => {
+      const quizId = row.quiz_id;
       if (quizId) {
         quizPlayCounts[quizId] = (quizPlayCounts[quizId] || 0) + 1;
         quizIdsSet.add(quizId);
@@ -41,23 +42,22 @@ export async function GET(): Promise<NextResponse> {
 
     const uniqueQuizIds = Array.from(quizIdsSet);
 
-    // 一意の quizId に対応するクイズ情報を並行してロード
-    const quizzesRef = db.collection('quizzes');
-    const quizDocs = await Promise.all(
-      uniqueQuizIds.map((id) => quizzesRef.doc(id).get())
-    );
+    // 一意の quizId に対応するクイズ情報をまとめてロード
+    const { data: quizzes, error: quizzesError } = await supabase
+      .from('quizzes')
+      .select('id, genre, canonical_genre_id, status')
+      .in('id', uniqueQuizIds);
+
+    if (quizzesError) throw quizzesError;
 
     // クイズIDからジャンルIDへのマッピングを作成 (status === 'published' のみ対象)
     const quizIdToGenre: Record<string, string> = {};
-    quizDocs.forEach((doc) => {
-      if (doc.exists) {
-        const data = doc.data();
-        if (data && data.status === 'published') {
-          // canonicalGenreId を優先し、なければ genre を使用する
-          const genreId = data.canonicalGenreId || data.genre;
-          if (genreId) {
-            quizIdToGenre[doc.id] = genreId;
-          }
+    (quizzes ?? []).forEach((row) => {
+      if (row.status === 'published') {
+        // canonicalGenreId を優先し、なければ genre を使用する
+        const genreId = row.canonical_genre_id || row.genre;
+        if (genreId) {
+          quizIdToGenre[row.id] = genreId;
         }
       }
     });

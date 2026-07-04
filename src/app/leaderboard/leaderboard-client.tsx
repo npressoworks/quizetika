@@ -2,9 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { EmojiEventsOutlined, LocalFireDepartmentOutlined } from '@mui/icons-material';
-import { db } from '@/lib/firebase/config';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { User as DBUser } from '@/types';
+import { getUserLeaderboard } from '@/services/user';
 import { leaderboardClasses as styles } from './leaderboard-classes';
 
 interface LeaderboardUser {
@@ -33,46 +31,24 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
     async function fetchRankings() {
       setLoading(true);
       try {
-        const usersRef = collection(db, 'users');
-        let fetched: LeaderboardUser[] = [];
-
-        if (activeTab === 'score') {
-          const q = query(usersRef, orderBy('reputationScore', 'desc'), limit(10));
-          const snap = await getDocs(q);
-          fetched = snap.docs.map((docSnap) => {
-            const u = docSnap.data() as DBUser;
-            return {
-              id: docSnap.id,
-              displayName: u.displayName || 'ユーザー',
-              avatarUrl: u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg',
-              score: u.reputationScore,
-            };
-          });
-        } else if (activeTab === 'plays') {
-          const q = query(usersRef, orderBy('totalPlayCount', 'desc'), limit(10));
-          const snap = await getDocs(q);
-          fetched = snap.docs.map((docSnap) => {
-            const u = docSnap.data() as DBUser;
-            return {
-              id: docSnap.id,
-              displayName: u.displayName || 'ユーザー',
-              avatarUrl: u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg',
-              score: u.totalPlayCount,
-            };
-          });
-        } else if (activeTab === 'creators') {
-          const q = query(usersRef, orderBy('createdQuizzesCount', 'desc'), limit(10));
-          const snap = await getDocs(q);
-          fetched = snap.docs.map((docSnap) => {
-            const u = docSnap.data() as DBUser;
-            return {
-              id: docSnap.id,
-              displayName: u.displayName || 'ユーザー',
-              avatarUrl: u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg',
-              score: u.createdQuizzesCount,
-            };
-          });
-        }
+        const sortBy =
+          activeTab === 'score'
+            ? 'reputationScore'
+            : activeTab === 'plays'
+              ? 'totalPlayCount'
+              : 'createdQuizzesCount';
+        const users = await getUserLeaderboard(sortBy, 10);
+        const fetched: LeaderboardUser[] = users.map((u) => ({
+          id: u.id,
+          displayName: u.displayName || 'ユーザー',
+          avatarUrl: u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg',
+          score:
+            activeTab === 'score'
+              ? u.reputationScore
+              : activeTab === 'plays'
+                ? u.totalPlayCount
+                : u.createdQuizzesCount,
+        }));
 
         setRankings(fetched);
       } catch (e) {

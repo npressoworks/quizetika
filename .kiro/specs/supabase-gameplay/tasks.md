@@ -83,3 +83,29 @@
   - `handle_save_attempt` と `handle_complete_lateral_attempt` の双方から呼び出された `record_leaderboard_entry` が、`leaderboard_entries` の `UNIQUE(quiz_id, user_id, type)` 制約下で自己ベストのみを保持することを確認する
   - _Requirements: 1.2, 1.3, 1.4_
   - _Depends: 3.1_
+
+- [x] 4. 残存する直接 Firestore 依存の排除
+- [x] 4.1 アテンプト・レビューサービスの残存 Firestore 依存を解消する
+  - `src/services/attempt.ts`、`src/services/review.ts` に残る `firebase/firestore` および `../lib/firebase/config`／`../lib/firebase/firestore` への直接参照を洗い出し、既存のタスク2.1／2.2で移行済みの Supabase RPC/クエリ呼び出しに統一する（当時見落とされた関数・コードパスが対象）
+  - 成果物確認: 両ファイルが firebase パッケージおよび `@/lib/firebase/*`（相対パス含む）を import しなくなり、既存の単体テストが引き続きパスすること
+  - _Requirements: 5.1_
+  - _Boundary: AttemptService, ReviewService_
+
+- [x] 4.2 (P) リーダーボード・結果画面・ダッシュボードUIの残存 Firestore 依存を解消する
+  - `src/app/leaderboard/leaderboard-client.tsx`、`src/app/leaderboard/page.tsx`、`src/app/quiz/[id]/result/quiz-result-client.tsx`、`src/app/creator/dashboard/player-dashboard-client.tsx` の Firestore クライアントSDK直接呼び出しを、`attempt.ts`／`user.ts` 等の既存 Supabase 移行済みサービス経由の呼び出しに書き換える
+  - 成果物確認: 対象4ファイルが firebase パッケージおよび `@/lib/firebase/*` を import しなくなり、リーダーボード表示・結果画面の解答更新・ダッシュボード統計が既存の期待値どおりに動作すること
+  - _Requirements: 5.1_
+  - _Boundary: leaderboard-client.tsx, leaderboard/page.tsx, quiz-result-client.tsx, player-dashboard-client.tsx_
+
+- [x] 4.3 (P) 週間人気ジャンル集計APIの残存 Firestore 依存を解消する
+  - `src/app/api/genres/weekly-top/route.ts` の `getAdminFirestore` による `attempts` 集計を Supabase クエリに書き換える
+  - 成果物確認: `src/app/api/genres/weekly-top/route.ts` が firebase-admin パッケージおよび `@/lib/firebase/admin` を import しなくなり、`tests/api/genres-weekly-top.test.ts` がパスすること
+  - _Requirements: 5.2_
+  - _Boundary: genres/weekly-top route_
+
+- [x] 4.4 リグレッション確認
+  - Jest テストスイート全体および関連 E2E テストを実行する
+  - `supabase-cleanup` の MigrationCompletionGate（`npm run verify:firebase-removed`）を再実行し、本タスクで対応した全ファイルが残存 Firebase 参照として検出されなくなったことを確認する
+  - 成果物確認: 全テストがパスし、ゲートの再実行結果から対象ファイルが消えていること
+  - _Requirements: 5.1, 5.2_
+  - _Depends: 4.1, 4.2, 4.3_

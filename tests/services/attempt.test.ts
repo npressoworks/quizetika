@@ -3,8 +3,6 @@ jest.mock('../../src/lib/quiz-access', () => ({
   assertCanViewQuizAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
-
 jest.mock('../../src/services/attempt-session', () => ({
   getPendingSyncAttempts: jest.fn(),
   clearPendingSyncAttempt: jest.fn(),
@@ -15,8 +13,20 @@ jest.mock('../../src/services/quiz', () => ({
 }));
 
 // Supabase クライアントのモックを作成（bookmark.test.ts と同様のチェーン + rpc パターン）
+const createChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    then: jest.fn((onFulfilled: any) => Promise.resolve(resolveValue).then(onFulfilled)),
+  };
+  return chain;
+};
+
 jest.mock('../../src/lib/supabase/client', () => {
   const mock: any = {
+    from: jest.fn(() => mock),
+    select: jest.fn(() => mock),
+    eq: jest.fn(() => mock),
     rpc: jest.fn(),
   };
   return {
@@ -24,44 +34,17 @@ jest.mock('../../src/lib/supabase/client', () => {
   };
 });
 
-import { runTransaction, getDocs } from 'firebase/firestore';
 import {
   saveAttempt,
   createLateralAttemptSession,
   getFailedQuestions,
   updateFailedQuestions,
+  updateFailedQuestionsCount,
   syncPendingAttempts,
 } from '../../src/services/attempt';
 import { getPendingSyncAttempts, clearPendingSyncAttempt } from '../../src/services/attempt-session';
 import { getQuiz } from '../../src/services/quiz';
 import { createClient } from '../../src/lib/supabase/client';
-
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((ref, ...paths) => {
-      const id = paths.length > 0 ? paths[paths.length - 1] : 'auto-generated-id';
-      return { id, path: paths.join('/') };
-    }),
-    collection: jest.fn((db, path) => ({ path })),
-    query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    limit: jest.fn((n) => ({ limit: n })),
-    getDoc: jest.fn(),
-    getDocs: jest.fn(),
-    updateDoc: jest.fn(),
-    setDoc: jest.fn(),
-    writeBatch: jest.fn(),
-    increment: jest.fn((n) => n),
-    arrayUnion: jest.fn((...items) => items),
-    arrayRemove: jest.fn((...items) => items),
-    runTransaction: jest.fn(),
-    Timestamp: {
-      fromDate: jest.fn((date) => date),
-    },
-  };
-});
 
 const mockSupabase = createClient() as any;
 
@@ -279,63 +262,115 @@ describe('AttemptService - saveAttempt', () => {
   });
 });
 
-describe('AttemptService - getFailedQuestions (Firestore, out of scope)', () => {
+describe('AttemptService - getFailedQuestions', () => {
   const userId = 'user-uid';
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   test('過去に間違えた問題がない場合は、空配列を返すこと', async () => {
-    (getDocs as jest.Mock).mockResolvedValue({
-      docs: [],
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'attempts') {
+        return createChainMock({ data: [], error: null });
+      }
+      return mockSupabase;
     });
 
     const result = await getFailedQuestions(userId);
     expect(result).toEqual([]);
   });
+
+  test('過去の間違い問題を、該当クイズの問題一覧から抽出して返すこと', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'attempts') {
+        return createChainMock({
+          data: [{ quiz_id: 'quiz-1', failed_question_ids: ['q1', 'q2'] }],
+          error: null,
+        });
+      }
+      return mockSupabase;
+    });
+
+    (getQuiz as jest.Mock).mockResolvedValue({
+      id: 'quiz-1',
+      questions: [
+        { id: 'q1', questionText: '問題1' },
+        { id: 'q2', questionText: '問題2' },
+        { id: 'q3', questionText: '問題3' },
+      ],
+    });
+
+    const result = await getFailedQuestions(userId);
+
+    expect(getQuiz).toHaveBeenCalledWith('quiz-1');
+    expect(result).toHaveLength(2);
+    expect(result.map((q) => q.id)).toEqual(['q1', 'q2']);
+  });
 });
 
-describe('AttemptService - updateFailedQuestions (Firestore, out of scope)', () => {
+describe('AttemptService - updateFailedQuestions', () => {
   const userId = 'user-uid';
   const quizId = 'quiz-id';
 
-  test('正解した間違い問題のID配列をアトミックに除去し、トータル間違い数をアトミック減算すること', async () => {
-    const mockAttemptDoc = {
-      ref: { id: 'attempt-1' },
-      data: () => ({
-        failedQuestionIds: ['q1', 'q2'],
-      }),
-    };
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
-    (getDocs as jest.Mock).mockResolvedValue({
-      docs: [mockAttemptDoc],
-    });
-
-    const mockTransaction = {
-      update: jest.fn(),
-    };
-
-    (runTransaction as jest.Mock).mockImplementation((db, callback) => {
-      return callback(mockTransaction);
-    });
+  test('handle_remove_failed_questions RPCが正しい引数で呼び出されること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: null });
 
     await updateFailedQuestions(userId, quizId, ['q1']);
 
-    expect(mockTransaction.update).toHaveBeenCalledTimes(2);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_remove_failed_questions', {
+      p_user_id: userId,
+      p_quiz_id: quizId,
+      p_solved_question_ids: ['q1'],
+    });
+  });
 
-    // attempt の failedQuestionIds から q1 を削除
-    expect(mockTransaction.update).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ id: 'attempt-1' }),
-      expect.objectContaining({
-        failedQuestionIds: ['q1'], // arrayRemove('q1')
-      })
+  test('solvedQuestionIdsが空の場合はRPCを呼び出さないこと', async () => {
+    await updateFailedQuestions(userId, quizId, []);
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  test('RPCがエラーを返した場合、例外を投げること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: { message: 'DB error' } });
+
+    await expect(updateFailedQuestions(userId, quizId, ['q1'])).rejects.toThrow(
+      '間違い問題リストの更新に失敗しました'
     );
+  });
+});
 
-    // ユーザーの totalFailedQuestionsCount を -1
-    expect(mockTransaction.update).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ id: userId }),
-      expect.objectContaining({
-        totalFailedQuestionsCount: -1, // increment(-1) のダミー
-      })
+describe('AttemptService - updateFailedQuestionsCount', () => {
+  const userId = 'user-uid';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('handle_adjust_failed_questions_count RPCが正しい引数で呼び出されること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: null });
+
+    await updateFailedQuestionsCount(userId, 2);
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_adjust_failed_questions_count', {
+      p_user_id: userId,
+      p_delta: 2,
+    });
+  });
+
+  test('deltaが0の場合はRPCを呼び出さないこと', async () => {
+    await updateFailedQuestionsCount(userId, 0);
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  test('RPCがエラーを返した場合、例外を投げること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: { message: 'DB error' } });
+
+    await expect(updateFailedQuestionsCount(userId, -1)).rejects.toThrow(
+      '間違い問題数の更新に失敗しました'
     );
   });
 });

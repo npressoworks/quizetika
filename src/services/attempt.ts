@@ -1,19 +1,5 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  updateDoc,
-  query,
-  where,
-  runTransaction,
-  increment,
-  arrayRemove,
-  documentId,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase/config';
 import { expandGenreIdsForQuery, quizMatchesGenreFilter } from '../lib/metadata-resolution';
 import { assertCanViewQuizAsync } from '../lib/quiz-access';
-import { quizzesRef, usersRef } from '../lib/firebase/firestore';
 import { createClient } from '../lib/supabase/client';
 import { Database, Json } from '../lib/supabase/database.types';
 import { getQuiz } from './quiz';
@@ -34,8 +20,6 @@ import {
 } from './attempt-session';
 
 const supabase = createClient();
-
-const attemptsCollection = collection(db, 'attempts');
 
 function isSingleQuestionAttemptMode(mode: Attempt['mode']): boolean {
   return mode === 'my-quiz';
@@ -231,6 +215,36 @@ export async function getLeaderboard(
   }));
 }
 
+/**
+ * クライアント（RLS経由）で本人の attempt を1件取得する。
+ * `attempts_all` RLSポリシー（auth.uid() = user_id）により、他人の attempt は取得できない。
+ */
+export async function getAttemptById(attemptId: string): Promise<Attempt | null> {
+  const { data, error } = await supabase
+    .from('attempts')
+    .select('*')
+    .eq('id', attemptId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapRowToAttempt(data);
+}
+
+/**
+ * 体感難易度投票を、当該attemptの `difficulty_vote` 列にも反映する（結果画面のUI状態保持用）。
+ * クイズ全体の難易度分布集計への反映は `submitDifficultyVote`（rating.ts）が別途担う。
+ */
+export async function updateAttemptDifficultyVote(attemptId: string, vote: number): Promise<void> {
+  const { error } = await supabase
+    .from('attempts')
+    .update({ difficulty_vote: vote })
+    .eq('id', attemptId);
+
+  if (error) {
+    throw new Error(`難易度投票の保存に失敗しました: ${error.message}`);
+  }
+}
+
 /* ==========================================================================
    弱点克服プレイ (復習) 用メソッド
    ========================================================================== */
@@ -248,26 +262,30 @@ export async function getFailedQuestions(
   genreFilter?: string | null
 ): Promise<Question[]> {
   // 1. ユーザーの過去の attempts を取得
-  let attemptsQuery = query(attemptsCollection, where('userId', '==', userId));
+  let attemptsQuery = supabase
+    .from('attempts')
+    .select('quiz_id, failed_question_ids')
+    .eq('user_id', userId);
   if (quizId) {
-    attemptsQuery = query(attemptsQuery, where('quizId', '==', quizId));
+    attemptsQuery = attemptsQuery.eq('quiz_id', quizId);
   }
-  const attemptsSnap = await getDocs(attemptsQuery);
+  const { data: attemptsRows, error: attemptsError } = await attemptsQuery;
+  if (attemptsError || !attemptsRows) return [];
 
   // 間違えた問題IDの重複排除セットを作成
   const failedIds = new Set<string>();
   const quizIdToFailedIds: Record<string, string[]> = {};
 
-  attemptsSnap.docs.forEach((docSnap) => {
-    const data = docSnap.data() as Attempt;
-    if (data.failedQuestionIds && data.failedQuestionIds.length > 0) {
-      if (!quizIdToFailedIds[data.quizId]) {
-        quizIdToFailedIds[data.quizId] = [];
+  attemptsRows.forEach((row) => {
+    const rowFailedIds = (row.failed_question_ids ?? []) as string[];
+    if (rowFailedIds.length > 0) {
+      if (!quizIdToFailedIds[row.quiz_id]) {
+        quizIdToFailedIds[row.quiz_id] = [];
       }
-      data.failedQuestionIds.forEach((qId) => {
+      rowFailedIds.forEach((qId) => {
         failedIds.add(qId);
-        if (!quizIdToFailedIds[data.quizId].includes(qId)) {
-          quizIdToFailedIds[data.quizId].push(qId);
+        if (!quizIdToFailedIds[row.quiz_id].includes(qId)) {
+          quizIdToFailedIds[row.quiz_id].push(qId);
         }
       });
     }
@@ -284,22 +302,12 @@ export async function getFailedQuestions(
   // 2. 対象となるクイズデータをまとめてフェッチし、問題オブジェクトを抽出する
   const failedQuestions: Question[] = [];
   const targetQuizIds = Object.keys(quizIdToFailedIds);
+  const quizzes = await Promise.all(targetQuizIds.map((id) => getQuiz(id)));
   const quizMap = new Map<string, Quiz>();
-
-  if (targetQuizIds.length > 0) {
-    const chunks = [];
-    for (let i = 0; i < targetQuizIds.length; i += 30) {
-      chunks.push(targetQuizIds.slice(i, i + 30));
-    }
-    const snaps = await Promise.all(
-      chunks.map((chunk) => getDocs(query(quizzesRef, where(documentId(), 'in', chunk))))
-    );
-    snaps.forEach((snap) => {
-      snap.forEach((d) => {
-        quizMap.set(d.id, d.data() as Quiz);
-      });
-    });
-  }
+  targetQuizIds.forEach((qId, idx) => {
+    const quiz = quizzes[idx];
+    if (quiz) quizMap.set(qId, quiz);
+  });
 
   for (const qId of targetQuizIds) {
     const quiz = quizMap.get(qId);
@@ -325,6 +333,8 @@ export async function getFailedQuestions(
 /**
  * 復習プレイで正解した問題を、ユーザーの過去の間違いリストからアトミックに削除する。
  * 同時に、users.totalFailedQuestionsCount もアトミックに減算する。
+ * `handle_remove_failed_questions` RPC が該当クイズの全 attempts の failed_question_ids から
+ * 正解した問題IDをアトミックに除去し、ユーザーの合計間違い数を減算する。
  */
 export async function updateFailedQuestions(
   userId: string,
@@ -333,42 +343,31 @@ export async function updateFailedQuestions(
 ): Promise<void> {
   if (solvedQuestionIds.length === 0) return;
 
-  const userDocRef = doc(usersRef, userId);
-
-  // 過去の該当クイズの attempts をすべて走査して、failedQuestionIds からアトミックに正解した問題を除去
-  const attemptsQuery = query(
-    attemptsCollection,
-    where('userId', '==', userId),
-    where('quizId', '==', quizId)
-  );
-  const attemptsSnap = await getDocs(attemptsQuery);
-
-  await runTransaction(db, async (transaction) => {
-    // 1. 各 attempts の failedQuestionIds から solvedQuestionIds を除去
-    attemptsSnap.docs.forEach((docSnap) => {
-      transaction.update(docSnap.ref, {
-        failedQuestionIds: arrayRemove(...solvedQuestionIds),
-      });
-    });
-
-    // 2. ユーザーの totalFailedQuestionsCount を減算
-    transaction.update(userDocRef, {
-      totalFailedQuestionsCount: increment(-solvedQuestionIds.length),
-      updatedAt: new Date(),
-    });
+  const { error } = await supabase.rpc('handle_remove_failed_questions', {
+    p_user_id: userId,
+    p_quiz_id: quizId,
+    p_solved_question_ids: solvedQuestionIds,
   });
+
+  if (error) {
+    throw new Error(`間違い問題リストの更新に失敗しました: ${error.message}`);
+  }
 }
 
 /**
- * ユーザーの totalFailedQuestionsCount を更新する（既存スタブ）
+ * ユーザーの totalFailedQuestionsCount をアトミックに加減算する（既存スタブ）
  */
 export async function updateFailedQuestionsCount(uid: string, delta: number): Promise<void> {
   if (delta === 0) return;
-  const userDocRef = doc(usersRef, uid);
-  await updateDoc(userDocRef, {
-    totalFailedQuestionsCount: increment(delta),
-    updatedAt: new Date(),
+
+  const { error } = await supabase.rpc('handle_adjust_failed_questions_count', {
+    p_user_id: uid,
+    p_delta: delta,
   });
+
+  if (error) {
+    throw new Error(`間違い問題数の更新に失敗しました: ${error.message}`);
+  }
 }
 
 const PLAY_HISTORY_PAGE_SIZE = 20;
