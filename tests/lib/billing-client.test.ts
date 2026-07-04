@@ -1,38 +1,34 @@
 import {
   BillingClientError,
   fetchProPrices,
-  getFirebaseIdToken,
   redirectToExternalUrl,
   startCheckoutSession,
   startPortalSession,
 } from '@/lib/billing-client';
 
-const mockGetIdToken = jest.fn();
+const mockGetSupabaseAccessToken = jest.fn();
 const mockFetch = jest.fn();
 
-jest.mock('@/lib/firebase/config', () => ({
-  auth: {
-    currentUser: null as { getIdToken: () => Promise<string> } | null,
-  },
+jest.mock('@/lib/supabase/auth', () => ({
+  getSupabaseAccessToken: (...args: unknown[]) => mockGetSupabaseAccessToken(...args),
 }));
 
 describe('billing-client', () => {
-  const { auth } = jest.requireMock('@/lib/firebase/config') as {
-    auth: { currentUser: { getIdToken: () => Promise<string> } | null };
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
     global.fetch = mockFetch;
-    auth.currentUser = {
-      getIdToken: mockGetIdToken,
-    };
-    mockGetIdToken.mockResolvedValue('token-abc');
+    mockGetSupabaseAccessToken.mockResolvedValue('token-abc');
   });
 
-  test('getFirebaseIdToken: 未ログイン時は null', async () => {
-    auth.currentUser = null;
-    await expect(getFirebaseIdToken()).resolves.toBeNull();
+  test('startCheckoutSession: 未ログイン時は unauthorized エラー', async () => {
+    mockGetSupabaseAccessToken.mockResolvedValue(null);
+
+    await expect(startCheckoutSession('monthly')).rejects.toMatchObject({
+      apiError: {
+        code: 'unauthorized',
+        message: 'ログインが必要です',
+      },
+    });
   });
 
   test('startCheckoutSession: 成功時に sessionUrl を返す', async () => {

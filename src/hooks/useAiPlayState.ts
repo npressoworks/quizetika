@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { AiQuestion } from '@/types';
-import { auth } from '@/lib/firebase/config';
+import { getSupabaseAccessToken } from '@/lib/supabase/auth';
 import {
   findCachedAnswer,
   FREE_TIER_PER_QUIZ_LIMIT,
@@ -69,7 +69,7 @@ export function useAiPlayState({
     setPending(true);
 
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getSupabaseAccessToken();
       const res = await fetch('/api/attempt/ask-ai', {
         method: 'POST',
         headers: {

@@ -17,7 +17,7 @@ import { setOptimisticAttempt, clearOptimisticAttempt } from '@/lib/optimistic-a
 import { PostAnswerFeedback } from '@/components/quiz/post-answer-feedback';
 import { toQuestionAnswerRecords } from '@/services/attempt-answer-display';
 import { Quiz, Attempt, Question } from '@/types';
-import { auth } from '@/lib/firebase/config';
+import { getSupabaseAccessToken } from '@/lib/supabase/auth';
 import { playClasses as styles } from './play-classes';
 import { ChoiceAnswerPanel } from '@/components/quiz/choice-answer-panel';
 import { TrueFalseAnswerPanel } from '@/components/quiz/true-false-answer-panel';
@@ -587,7 +587,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     setIsTruthChecking(true);
     setTruthAdvice(null);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getSupabaseAccessToken();
       const res = await fetch('/api/attempt/verify-truth', {
         method: 'POST',
         headers: {
@@ -633,7 +633,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
 
     setIsGivingUp(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getSupabaseAccessToken();
       const res = await fetch('/api/attempt/give-up-lateral', {
         method: 'POST',
         headers: {
@@ -677,7 +677,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       : undefined;
 
   const getQuickPressIdToken = useCallback(
-    async () => (await auth.currentUser?.getIdToken()) ?? null,
+    async () => await getSupabaseAccessToken(),
     []
   );
 

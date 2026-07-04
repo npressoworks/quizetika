@@ -71,3 +71,11 @@ export async function signOut() {
   const { error } = await supabaseClient.auth.signOut();
   return { error };
 }
+
+/**
+ * 現在の Supabase セッションから API リクエスト用のアクセストークンを取得する
+ */
+export async function getSupabaseAccessToken(): Promise<string | null> {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  return session?.access_token ?? null;
+}

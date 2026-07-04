@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { auth } from '@/lib/firebase/config';
+import { getSupabaseAccessToken } from '@/lib/supabase/auth';
 import type { Question } from '@/types';
 import type { QuizFormat } from '@/lib/quiz-format';
 import type { AiAuthoringUsage } from '@/services/ai-authoring-types';
@@ -37,7 +37,7 @@ export function useAiQuizAuthoring({
 
     setIsUsageLoading(true);
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getSupabaseAccessToken();
       const res = await fetch(
         `/api/quiz/ai-authoring-usage?userId=${encodeURIComponent(userId)}`,
         {
@@ -89,7 +89,7 @@ export function useAiQuizAuthoring({
     }, 5500);
 
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getSupabaseAccessToken();
       const res = await fetch('/api/quiz/ai-generate-questions', {
         method: 'POST',
         headers: {
@@ -157,7 +157,7 @@ export function useAiQuizAuthoring({
     setIsGeneratingThumbnail(true);
 
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await getSupabaseAccessToken();
       const res = await fetch('/api/quiz/ai-generate-thumbnail', {
         method: 'POST',
         headers: {

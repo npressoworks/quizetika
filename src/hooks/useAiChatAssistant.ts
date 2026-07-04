@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { z } from 'zod';
-import { auth } from '@/lib/firebase/config';
+import { getSupabaseAccessToken } from '@/lib/supabase/auth';
 import type { Question } from '@/types';
 
 export interface UseAiChatAssistantProps {
@@ -130,7 +130,7 @@ export function useAiChatAssistant({
         };
       },
       fetch: async (input, init) => {
-        const token = await auth.currentUser?.getIdToken();
+        const token = await getSupabaseAccessToken();
         const headers = new Headers(init?.headers);
         if (token) {
           headers.set('Authorization', `Bearer ${token}`);

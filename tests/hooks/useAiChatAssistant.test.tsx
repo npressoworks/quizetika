@@ -18,13 +18,9 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useAiChatAssistant } from '@/hooks/useAiChatAssistant';
 
-// Firebase config のモック
-jest.mock('@/lib/firebase/config', () => ({
-  auth: {
-    currentUser: {
-      getIdToken: jest.fn().mockResolvedValue('mock-token'),
-    },
-  },
+// Supabase 認証トークン取得のモック
+jest.mock('@/lib/supabase/auth', () => ({
+  getSupabaseAccessToken: jest.fn().mockResolvedValue('mock-token'),
 }));
 
 // useChat のモック

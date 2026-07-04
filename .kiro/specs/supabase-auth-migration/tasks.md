@@ -64,3 +64,17 @@
   - 成果物確認: `npm run build` がエラーなく完了し、既存および新規のテストスイートがすべて通過すること。
   - _Requirements: 1.1, 2.1, 3.1, 4.1_
   - _Depends: 1.3, 2.1, 3.1, 4.1, 4.2, 5.1_
+
+- [x] 6. フロントエンド認証トークン取得の残存 Firebase 依存排除
+- [x] 6.1 API 呼び出し箇所のトークン取得を Supabase セッションベースに置き換える
+  - `src/lib/billing-client.ts`, `src/hooks/useAiChatAssistant.ts`, `src/hooks/useAiPlayState.ts`, `src/hooks/useAiQuizAuthoring.ts`, `src/app/quiz/[id]/play/quiz-play-client.tsx` の `auth.currentUser.getIdToken()`（`@/lib/firebase/config` の `auth`）呼び出しを、Supabase セッションからアクセストークンを取得する処理に置き換える。
+  - 成果物確認: 対象5ファイルが `firebase/auth` および `@/lib/firebase/config` の `auth` を import しなくなり、既存のAPI呼び出しが引き続き正しい Authorization ヘッダーを付与すること。
+  - _Requirements: 5.1, 5.2_
+  - _Boundary: billing-client.ts, useAiChatAssistant.ts, useAiPlayState.ts, useAiQuizAuthoring.ts, quiz-play-client.tsx_
+
+- [x] 6.2 リグレッション確認
+  - 対象5ファイルに関連する単体テストおよび E2E テスト（AI対話、AI作問、Stripe決済導線、プレイ画面）を実行する。
+  - `supabase-cleanup` の MigrationCompletionGate（`npm run verify:firebase-removed`）を再実行し、上記5ファイルが残存 Firebase 参照として検出されなくなったことを確認する。
+  - 成果物確認: 関連テストが全てパスし、ゲートの再実行結果から対象5ファイルが消えていること。
+  - _Requirements: 5.1, 5.2_
+  - _Depends: 6.1_

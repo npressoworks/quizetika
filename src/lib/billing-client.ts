@@ -1,4 +1,4 @@
-import { auth } from '@/lib/firebase/config';
+import { getSupabaseAccessToken } from '@/lib/supabase/auth';
 import type { ProPricesResult } from '@/services/billing-prices';
 import type { PriceInterval } from '@/types/subscription';
 
@@ -23,11 +23,6 @@ export class BillingClientError extends Error {
     super(apiError.message);
     this.name = 'BillingClientError';
   }
-}
-
-export async function getFirebaseIdToken(): Promise<string | null> {
-  if (!auth.currentUser) return null;
-  return auth.currentUser.getIdToken();
 }
 
 function mapErrorResponse(
@@ -64,7 +59,7 @@ async function postBillingApi(
   path: string,
   body?: Record<string, unknown>
 ): Promise<{ sessionUrl: string }> {
-  const token = await getFirebaseIdToken();
+  const token = await getSupabaseAccessToken();
   if (!token) {
     throw new BillingClientError({
       code: 'unauthorized',
