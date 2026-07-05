@@ -1,4 +1,65 @@
 import { test, expect } from '@playwright/test';
+import { createDbClient } from './db-client';
+
+// 「他人が作成したクイズ」を検証するテスト専用のフィクスチャ。
+// 本E2E環境ではホーム画面のクイズは（広告ダミー含め）全て共有E2Eテストユーザーが著者であるため、
+// 「ホーム最初のカード = 他人のクイズ」という前提は成立しない。そのため別著者を明示的に用意する。
+const OTHER_AUTHOR_ID = '00000000-0000-4000-8000-000000000001';
+let otherUserQuizId: string | null = null;
+
+async function ensureOtherUsersQuiz(): Promise<string> {
+  if (otherUserQuizId) return otherUserQuizId;
+
+  const db = createDbClient();
+  await db.connect();
+  try {
+    await db.query(
+      `INSERT INTO users (id, email, display_name, bio)
+       VALUES ($1, 'other-e2e-user@example.com', '別のE2Eユーザー', '')
+       ON CONFLICT (id) DO NOTHING`,
+      [OTHER_AUTHOR_ID]
+    );
+
+    const existing = await db.query<{ id: string }>(
+      `SELECT id FROM quizzes WHERE author_id = $1 AND title = '[OTHER_USER_TEST] 他人のクイズ' LIMIT 1`,
+      [OTHER_AUTHOR_ID]
+    );
+    if (existing.rows.length > 0) {
+      otherUserQuizId = existing.rows[0].id;
+      return otherUserQuizId;
+    }
+
+    const inserted = await db.query<{ id: string }>(
+      `INSERT INTO quizzes (
+         author_id, author_name, title, description, difficulty, genre,
+         canonical_genre_id, status, visibility, question_count, format
+       ) VALUES ($1, $2, $3, $4, 3, '趣味・カルチャー', 'hobby-culture', 'published', 'public', 1, 'multiple-choice')
+       RETURNING id`,
+      [OTHER_AUTHOR_ID, '別のE2Eユーザー', '[OTHER_USER_TEST] 他人のクイズ', 'E2Eテスト用の他人のクイズです。']
+    );
+    otherUserQuizId = inserted.rows[0].id;
+
+    await db.query(
+      `INSERT INTO questions (
+         owner_quiz_id, author_id, author_name, type, question_text, explanation, choices
+       ) VALUES ($1, $2, $3, 'multiple-choice', $4, '解説です。', $5::jsonb)`,
+      [
+        otherUserQuizId,
+        OTHER_AUTHOR_ID,
+        '別のE2Eユーザー',
+        '他人のクイズの問題文です。',
+        JSON.stringify([
+          { id: '1', choiceText: '選択肢1', isCorrect: true, selectedCount: 0 },
+          { id: '2', choiceText: '選択肢2', isCorrect: false, selectedCount: 0 },
+        ]),
+      ]
+    );
+
+    return otherUserQuizId;
+  } finally {
+    await db.end();
+  }
+}
 
 test.describe('追加機能・複合テスト E2Eテスト', () => {
   
@@ -107,11 +168,8 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
     const viewport = page.viewportSize();
     const isDesktop = viewport ? viewport.width >= 768 : true;
     if (isDesktop) {
-      const profileBtn = page.locator('[data-testid="sidebar-profile-btn"]').first();
-      await expect(profileBtn).toBeVisible({ timeout: 10000 });
-      await profileBtn.click({ force: true });
-      const myPageLink = page.locator('text=マイページ');
-      await expect(myPageLink).toBeVisible();
+      const myPageLink = page.getByTestId('nav-profile');
+      await expect(myPageLink).toBeVisible({ timeout: 10000 });
       await myPageLink.click();
     } else {
       const avatarLink = page.locator('header img').first();
@@ -182,11 +240,8 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
     const viewport = page.viewportSize();
     const isDesktop = viewport ? viewport.width >= 768 : true;
     if (isDesktop) {
-      const profileBtn = page.locator('[data-testid="sidebar-profile-btn"]').first();
-      await expect(profileBtn).toBeVisible({ timeout: 10000 });
-      await profileBtn.click({ force: true });
-      const myPageLink = page.locator('text=マイページ');
-      await expect(myPageLink).toBeVisible();
+      const myPageLink = page.getByTestId('nav-profile');
+      await expect(myPageLink).toBeVisible({ timeout: 10000 });
       await myPageLink.click();
     } else {
       const avatarLink = page.locator('header img').first();
@@ -236,8 +291,8 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
   });
 
   test('複合テスト: 検索 → フィルタ → 詳細 → プレイ の完全フロー', async ({ page }) => {
-    // 1. ホームページへアクセス
-    await page.goto('/');
+    // 1. 検索画面へアクセス（検索入力欄は/searchにのみ存在する）
+    await page.goto('/search');
 
     // 2. キーワード検索
     const searchInput = page.locator('input[placeholder*="検索"]').first();
@@ -295,16 +350,33 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
         const quizTitle = `[複合テスト] ${Date.now()}`;
         await titleInput.fill(quizTitle);
 
+        // ジャンルの選択（下書き保存時にも必須）
+        const genreInput = page.getByTestId('genre-editor-search-input');
+        if (await genreInput.isVisible().catch(() => false)) {
+          await genreInput.click();
+          const genreOption = page.getByTestId('genre-editor-search-option-science-technology');
+          if (await genreOption.isVisible().catch(() => false)) {
+            await genreOption.click();
+          }
+        }
+
+        // 第1問の問題文を入力（下書き保存時にも必須）
+        const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
+        if (await qTextarea.isVisible().catch(() => false)) {
+          await qTextarea.fill('複合テスト用の問題文です。');
+        }
+
         // 4. 下書き保存
         const saveDraftBtn = page.locator('text=下書き保存').first();
         if (await saveDraftBtn.isVisible()) {
           await saveDraftBtn.click();
 
-          // ダッシュボードに遷移することを確認
+          // ダッシュボードに遷移することを確認（デフォルトは「プレイヤー」タブのため「作家」タブへ切替える）
           await expect(page).toHaveURL(/\/creator\/dashboard/);
+          await page.getByTestId('dashboard-tab-creator').click();
 
           // 5. 作成したクイズを確認
-          const newQuizLink = page.locator(`text=${quizTitle}`).first();
+          const newQuizLink = page.getByTestId('creator-quiz-list').getByText(quizTitle).first();
           if (await newQuizLink.isVisible()) {
             // 統計情報を確認できることを確認
             const quizRow = newQuizLink.locator('..');
@@ -343,46 +415,26 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
   });
 
   test('他人が作成したクイズの詳細画面に「クイズを編集」ボタンが表示されないこと', async ({ page }) => {
-    // 1. ホーム（探索）へアクセスし、自分以外のクイズを探す
-    await page.goto('/');
-    
-    // タイムラインなどのクイズ一覧からクイズ詳細へ
-    const firstQuizCard = page.locator('article').first()
-      .or(page.locator('[data-testid="quiz-card"]').first());
-      
-    if (await firstQuizCard.isVisible()) {
-      await firstQuizCard.click();
-      await page.waitForTimeout(500);
-      
-      // 2. 他人のクイズであることを想定し、「クイズを編集」ボタンが表示されないことを確認
-      const editBtn = page.locator('text=クイズを編集');
-      await expect(editBtn).not.toBeVisible();
-    }
+    // 本E2E環境ではホーム画面上のクイズ（広告ダミー含め）が全て共有E2Eテストユーザーの著者であるため、
+    // 「ホーム最初のカード = 他人のクイズ」という前提は成り立たない。別著者のクイズを直接用意して検証する。
+    const otherQuizId = await ensureOtherUsersQuiz();
+    await page.goto(`/quiz/${otherQuizId}`);
+
+    // 他人のクイズであるため、「クイズを編集」ボタンが表示されないことを確認
+    const editBtn = page.locator('text=クイズを編集');
+    await expect(editBtn).not.toBeVisible();
   });
 
   test('他人が作成したクイズの編集画面に直接アクセスした際、認可エラーUIで保護されること', async ({ page }) => {
-    // 1. 他人が作成したクイズのURLを特定するためにホームへ遷移
-    await page.goto('/');
-    
-    const firstQuizCard = page.locator('article').first()
-      .or(page.locator('[data-testid="quiz-card"]').first());
-      
-    if (await firstQuizCard.isVisible()) {
-      await firstQuizCard.click();
-      await page.waitForTimeout(500);
-      
-      const currentUrl = page.url();
-      const quizId = currentUrl.split('/').pop();
-      
-      if (quizId) {
-        // 2. 直接他人のクイズの編集URL（/quiz/[id]/edit）へ遷移
-        await page.goto(`/quiz/${quizId}/edit`);
-        await page.waitForTimeout(1000);
-        
-        // 3. 認可エラーUI（アクセス権限がありません）が表示されることを確認
-        await expect(page.locator('h2').filter({ hasText: 'アクセス権限がありません' })).toBeVisible();
-        await expect(page.locator('text=このクイズは他のユーザーが作成したものであるため')).toBeVisible();
-      }
-    }
+    // 上記と同様、別著者のクイズを直接用意して検証する
+    const otherQuizId = await ensureOtherUsersQuiz();
+
+    // 直接他人のクイズの編集URL（/quiz/[id]/edit）へ遷移
+    await page.goto(`/quiz/${otherQuizId}/edit`);
+    await page.waitForTimeout(1000);
+
+    // 認可エラーUI（アクセス権限がありません）が表示されることを確認
+    await expect(page.locator('h2').filter({ hasText: 'アクセス権限がありません' })).toBeVisible();
+    await expect(page.locator('text=このクイズは他のユーザーが作成したものであるため')).toBeVisible();
   });
 });

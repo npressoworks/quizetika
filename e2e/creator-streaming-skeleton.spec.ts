@@ -5,13 +5,16 @@ test.describe('クリエイター画面 Streaming / Suspense スケルトン E2E
   test('作家ダッシュボードで各スケルトンが消えコンテンツが表示されること', async ({ page }) => {
     await page.goto('/creator/dashboard');
     await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('h1').filter({ hasText: 'ダッシュボード' })).toBeVisible();
+
+    // 「作家」タブへ切替えると各セクションがマウントされ、スケルトン表示を経てコンテンツが表示される
+    await page.getByTestId('dashboard-tab-creator').click();
 
     await expect(page.getByTestId('stats-skeleton')).toBeHidden({ timeout: 15000 });
     await expect(page.getByTestId('charts-skeleton')).toBeHidden({ timeout: 15000 });
     await expect(page.getByTestId('quiz-list-skeleton')).toBeHidden({ timeout: 15000 });
     await expect(page.getByTestId('feedback-list-skeleton')).toBeHidden({ timeout: 15000 });
 
-    await expect(page.locator('h1').filter({ hasText: '作家ダッシュボード' })).toBeVisible();
     await expect(page.getByTestId('stats-section')).toBeVisible({ timeout: 15000 });
     await expect(page.getByTestId('creator-quiz-list')).toBeVisible({ timeout: 15000 });
   });

@@ -198,13 +198,8 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await ensureLoggedIn(page);
     await page.goto('/');
 
-    // アバターボタンをクリックしてドロップダウンを開く
-    const userMenuBtn = page.getByRole('button', { name: /e2e-test-user/ }).first();
-    await expect(userMenuBtn).toBeVisible();
-    await userMenuBtn.click();
-
-    // ドロップダウン内の「マイページ」メニューアイテムをクリック
-    const myPageLink = page.getByRole('menuitem', { name: 'マイページ' }).first();
+    // サイドバーの「マイページ」リンクをクリックする
+    const myPageLink = page.getByTestId('nav-profile');
     await expect(myPageLink).toBeVisible();
     await myPageLink.click();
 

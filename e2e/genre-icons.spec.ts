@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', () => {
+test.describe('ジャンルアイコン Supabase Storage E2Eテスト', () => {
 
   test('コミュニティジャンル申請での手動アップロード & 申請 & 投票可決フロー', async ({ page }) => {
     // 1. ログイン画面に遷移して、E2Eテストログインボタンでログイン
@@ -38,7 +38,7 @@ test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', (
     const previewImg = page.locator('img[alt="アイコンプレビュー"]');
     await expect(previewImg).toBeVisible({ timeout: 10000 });
     const previewSrc = await previewImg.getAttribute('src');
-    expect(previewSrc).toContain('storage.googleapis.com');
+    expect(previewSrc).toContain('/storage/v1/object/public/');
     expect(previewSrc).toContain('/genres/temp/');
 
     // 6. 「ジャンルを申請する」をクリック
@@ -49,7 +49,9 @@ test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', (
     // 7. 申請完了メッセージの確認
     await expect(page.locator('text=ジャンル申請を送信しました')).toBeVisible({ timeout: 10000 });
 
-    // 8. 投票タブへ移動し、申請中のジャンルに投票できることを確認
+    // 8. 投票タブへ移動し、申請中のジャンルが表示され、申請者自身の賛成票が自動登録されていることを確認する
+    // (handle_submit_genre_request RPCが申請と同時に申請者自身の賛成票を登録する仕様のため、
+    //  申請者=投票者となる本E2Eユーザーが重ねて投票すると重複投票エラーになるのが正しい挙動)
     const voteTab = page.locator('#tab-vote');
     if (await voteTab.isVisible()) {
       await voteTab.click();
@@ -57,16 +59,20 @@ test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', (
       // 申請したジャンルが表示されていることを確認
       await expect(page.locator(`text=${genreId}`)).toBeVisible({ timeout: 5000 });
 
-      // ジャンルID (genreId) が含まれる code 要素から、親のカード要素を特定し、その中にある「賛成」ボタンを取得する
+      // ジャンルID (genreId) が含まれる code 要素から、親のカード要素を特定する
       const codeTag = page.locator('code', { hasText: genreId });
-      const requestCard = page.locator('div').filter({ has: codeTag }).first();
-      const approveBtn = requestCard.locator('button:has-text("賛成")');
+      const requestCard = page.locator('[data-slot="card"]').filter({ has: codeTag });
 
+      // 申請者自身の暗黙の賛成票が自動登録され、賛成率が反映されていることを確認
+      await expect(requestCard.locator('text=賛成率')).toBeVisible();
+      await expect(requestCard.locator('text=100%')).toBeVisible();
+
+      const approveBtn = requestCard.locator('button:has-text("賛成")');
       if (await approveBtn.isVisible()) {
         await approveBtn.click();
 
-        // 投票完了のメッセージを確認
-        await expect(page.locator('text=賛成票を投じました').or(page.locator('text=可決され、ジャンルが追加されました'))).toBeVisible({ timeout: 10000 });
+        // 申請者自身は既に暗黙の賛成票を投じているため、重複投票エラーになることを確認
+        await expect(page.locator('text=既にこの申請に投票済みです')).toBeVisible({ timeout: 10000 });
       }
     }
   });
@@ -78,7 +84,7 @@ test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', (
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          iconImageUrl: 'https://storage.googleapis.com/quizetika-77bc6.appspot.com/genres/temp/e2e-ai-temp.png',
+          iconImageUrl: 'http://127.0.0.1:54321/storage/v1/object/public/genres/temp/e2e-ai-temp.png',
           usage: { limit: null, usedToday: 0, remainingToday: null }
         })
       });
@@ -122,7 +128,7 @@ test.describe('ジャンルアイコン Firebase Storage 移行 E2Eテスト', (
       const addedIcon = page.locator(`tr:has-text("${genreId}") img`);
       await expect(addedIcon).toBeVisible();
       const iconSrc = await addedIcon.getAttribute('src');
-      expect(iconSrc).toContain('storage.googleapis.com');
+      expect(iconSrc).toContain('/storage/v1/object/public/');
       expect(iconSrc).toContain(`/genres/${genreId}/`);
     }
   });

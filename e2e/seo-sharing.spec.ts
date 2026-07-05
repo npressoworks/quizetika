@@ -215,6 +215,9 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
   test('動的SEOメタデータ: クイズタイトルがページタイトルに反映されていること', async ({ page }) => {
     await ensureQuizAndNavigate(page);
 
+    // クライアントサイド遷移直後は document.title の更新が非同期のため、反映を待つ
+    await page.waitForFunction(() => document.title.length > 0, { timeout: 10000 });
+
     // 2. ページタイトルがOGPメタデータと一致することを確認
     const pageTitle = await page.title();
     expect(pageTitle.length).toBeGreaterThan(0);
@@ -229,7 +232,7 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
 
   test('複合テスト: クイズ作成 → OGPメタデータ検証 → SNS共有確認 の完全フロー', async ({ page }) => {
     // 1. クイズ作成
-    const createQuizBtn = page.locator('text=作問する');
+    const createQuizBtn = page.locator('[data-analytics="nav-create-quiz"]:visible');
     if (await createQuizBtn.isVisible()) {
       await createQuizBtn.click();
     } else {
@@ -252,18 +255,40 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
       const quizTitle = `[SEO TEST] ${Date.now()}`;
       await titleInput.fill(quizTitle);
 
+      // ジャンルの選択（下書き保存時にも必須）
+      const genreInput = page.getByTestId('genre-editor-search-input');
+      if (await genreInput.isVisible().catch(() => false)) {
+        await genreInput.click();
+        const genreOption = page.getByTestId('genre-editor-search-option-science-technology');
+        if (await genreOption.isVisible().catch(() => false)) {
+          await genreOption.click();
+        }
+      }
+
+      // 第1問の問題文を入力（下書き保存時にも必須）
+      const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
+      if (await qTextarea.isVisible().catch(() => false)) {
+        await qTextarea.fill('SEOテスト用の問題文です。');
+      }
+
       // 4. 下書き保存
       const saveDraftBtn = page.locator('text=下書き保存').first();
       if (await saveDraftBtn.isVisible()) {
         await saveDraftBtn.click();
 
-        // ダッシュボードに遷移
+        // ダッシュボードに遷移（デフォルトは「プレイヤー」タブのため「作家」タブへ切替える）
         await expect(page).toHaveURL(/\/creator\/dashboard/);
+        await page.getByTestId('dashboard-tab-creator').click();
 
         // 5. 作成したクイズの詳細ページへアクセス
-        const newQuizLink = page.locator(`text=${quizTitle}`).first();
-        if (await newQuizLink.isVisible()) {
-          await newQuizLink.click();
+        // (一覧項目のクリックはダッシュボード内インラインアナリティクスを開くだけのため、
+        //  「編集」ボタンで編集画面URLからクイズIDを取得し、詳細ページへ直接遷移する)
+        const newQuizItem = page.getByTestId('creator-quiz-list').locator('[data-testid="quiz-card"]').filter({ hasText: quizTitle }).first();
+        if (await newQuizItem.isVisible()) {
+          await newQuizItem.getByRole('button', { name: '編集' }).click();
+          await page.waitForURL(/\/quiz\/[\w-]+\/edit$/);
+          const quizId = page.url().match(/\/quiz\/([\w-]+)\/edit$/)?.[1];
+          await page.goto(`/quiz/${quizId}`);
 
           // クイズ詳細ページへ遷移することを確認
           await expect(page).toHaveURL(/\/quiz\/[\w-]+$/);

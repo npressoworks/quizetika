@@ -28,7 +28,11 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2Eテストプレイ検証用の自動生成クイズです。');
     
     // ジャンルの選択
-    await page.locator('select').first().selectOption({ label: 'ノンジャンル・総合' });
+    const genreInput = page.getByTestId('genre-editor-search-input');
+    await genreInput.click();
+    const genreOption = page.getByTestId('genre-editor-search-option-science-technology');
+    await expect(genreOption).toBeVisible();
+    await genreOption.click();
 
     // 第1問目の問題入力
     const qTextarea = page.locator('textarea[placeholder="例: Reactにおいて、**useState** で管理するのは？"]').first();
@@ -53,18 +57,18 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     // 公開完了画面への遷移を待つ
     await expect(page).toHaveURL(/\/quiz\/[a-zA-Z0-9_-]+\/success/);
 
-    // 3. ホームに戻って公開したクイズを検索する
-    await page.goto('/');
-    
+    // 3. 検索画面へ移動して公開したクイズを検索する
+    await page.goto('/search');
+
     // 検索入力欄に作成したクイズのユニークタイトルを入力
     const searchInput = page.locator('input[placeholder="タイトル、説明文、作成者、タグでクイズを検索..."]');
     await expect(searchInput).toBeVisible();
     await searchInput.fill(uniqueTitle);
     
     // 検索結果に該当のクイズカードが表示されるのを待つ
-    const quizCard = page.locator(`text=${uniqueTitle}`).first();
+    const quizCard = page.getByTestId('quiz-card').filter({ hasText: uniqueTitle });
     await expect(quizCard).toBeVisible();
-    await quizCard.click();
+    await quizCard.getByTestId('play-btn').click();
 
     // 4. クイズ詳細画面からプレイを開始する
     await expect(page).toHaveURL(/\/quiz\//);
@@ -85,11 +89,14 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     await expect(confirmBtn).toBeVisible();
     await confirmBtn.click();
 
-    // 6. 全問終了（今回は1問）後のリザルト自動遷移の待機
+    // 6. 全問終了（今回は1問）後、「結果を見る」ボタンで結果画面へ遷移する
+    const seeResultBtn = page.getByRole('button', { name: '結果を見る ➔' });
+    await expect(seeResultBtn).toBeVisible();
+    await seeResultBtn.click();
 
     // 7. 結果画面の表示検証
     await expect(page).toHaveURL(/\/result/);
-    
+
     // スコアが 1 / 1 正解 であることを確認（要素が分割されているため、コンテナに対して検証）
     const scoreCircle = page.getByTestId('quiz-result-score-circle');
     await expect(scoreCircle).toBeVisible();
@@ -114,11 +121,11 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
       await expect(thumbsUpBtn).toHaveClass(/voteActive/);
     }
 
-    // 9. 難易度投票の送信 (CSSモジュールのハッシュ化回避のため、テキストで厳密に「5」のボタンを指定)
-    const difficultyVoteBtn = page.getByRole('button', { name: '5', exact: true });
+    // 9. 難易度投票の送信 (星評価UIの5段階目を指定)
+    const difficultyVoteBtn = page.getByTestId('difficulty-vote-star-5');
     await expect(difficultyVoteBtn).toBeVisible();
     await difficultyVoteBtn.click();
-    await expect(difficultyVoteBtn).toHaveClass(/.*diffCellSelected.*/);
+    await expect(difficultyVoteBtn).toHaveText('★');
 
     // 10. 作家感謝リアクションの送信
     const reactionBtn = page.locator('button').filter({ hasText: 'お礼リアクションを送る' }).first();

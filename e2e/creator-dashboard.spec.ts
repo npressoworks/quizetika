@@ -265,8 +265,8 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
         const genreInput = page.getByTestId('genre-editor-search-input');
         if (await genreInput.isVisible()) {
           await genreInput.click();
-          await genreInput.fill('雑学');
-          const option = page.getByTestId('genre-editor-search-option-trivia');
+          await genreInput.fill('趣味');
+          const option = page.getByTestId('genre-editor-search-option-hobby-culture');
           await expect(option).toBeVisible();
           await option.click();
         }
@@ -287,7 +287,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
           await page.getByTestId('dashboard-tab-creator').click();
 
           // 4. 新しく作成したクイズが一覧に表示されることを確認
-          await expect(page.locator(`text=${quizTitle}`)).toBeVisible();
+          await expect(page.getByTestId('creator-quiz-list').getByText(quizTitle)).toBeVisible();
         }
       }
     }

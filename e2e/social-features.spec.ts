@@ -3,6 +3,11 @@ import { test, expect } from '@playwright/test';
 // クイズ詳細ページに遷移するためのヘルパー（クイズがなければ自動作成する）
 async function ensureQuizAndNavigate(page: any) {
   await page.goto('/');
+  // このテストは広告表示自体の検証対象ではないため、動画広告モーダルによる
+  // クリック干渉（1/3確率でのランダム表示）を避けるために広告を無効化する
+  await page.evaluate(() => {
+    window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+  });
   const firstCard = page.locator('[data-testid="quiz-card"]').first();
   await firstCard.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
 
@@ -130,37 +135,33 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     const firstCard = page.locator('[data-testid="quiz-card"]').first();
     await expect(firstCard).toBeVisible({ timeout: 10000 });
 
-    // クイズカード内のお気に入り（星）ボタンを特定
-    const bookmarkBtn = firstCard.locator('button[aria-label="ブックマーク"]').first();
+    // クイズカード内のブックマークボタンを特定
+    const bookmarkBtn = firstCard.getByTestId('quiz-card-bookmark-btn');
     await expect(bookmarkBtn).toBeVisible();
 
-    const starIcon = bookmarkBtn.locator('svg').first();
-    await expect(starIcon).toBeVisible();
+    const filledIcon = bookmarkBtn.getByTestId('bookmark-icon-filled');
+    const outlinedIcon = bookmarkBtn.getByTestId('bookmark-icon-outlined');
 
-    // 既にブックマークされている場合は一旦解除して白星スタートにする
-    let fillAttr = await starIcon.getAttribute('fill');
-    if (fillAttr === '#ff007f') {
+    // 既にブックマークされている場合は一旦解除して未ブックマーク状態にする
+    if (await filledIcon.isVisible().catch(() => false)) {
       await bookmarkBtn.click();
       await page.waitForTimeout(500);
-      fillAttr = await starIcon.getAttribute('fill');
     }
-    expect(fillAttr).toBe('none');
+    await expect(outlinedIcon).toBeVisible();
 
     // ブックマークボタンをクリック
     await bookmarkBtn.click();
 
-    // 即座に星の色がネオンピンク (#ff007f) に変化することを確認
+    // 即座に塗りつぶしアイコン（#00ff66）に変化することを確認
     await page.waitForTimeout(500);
-    const starFill = await starIcon.getAttribute('fill');
-    expect(starFill).toBe('#ff007f');
+    await expect(filledIcon).toBeVisible();
 
     // 再度クリックしてブックマーク解除
     await bookmarkBtn.click();
 
-    // 即座に元の白抜き（none）に戻ることを確認
+    // 即座に元の輪郭アイコンに戻ることを確認
     await page.waitForTimeout(500);
-    const starFillAfter = await starIcon.getAttribute('fill');
-    expect(starFillAfter).toBe('none');
+    await expect(outlinedIcon).toBeVisible();
   });
 
   test('F-404: 通知機能が正常に動作すること', async ({ page }) => {
@@ -168,9 +169,8 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     await page.goto('/');
 
     // 2. 通知アイコンをクリック（ハンバーガーメニュー等から）
-    const notificationBtn = page.locator('[data-testid="notifications-btn"]').first()
-      .or(page.locator('button').filter({ hasText: /通知|ベル/ }).first());
-    
+    const notificationBtn = page.locator('a[href="/notifications"]').first();
+
     if (await notificationBtn.isVisible()) {
       await notificationBtn.click();
       
@@ -178,9 +178,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
       await expect(page).toHaveURL(/\/notifications/);
       
       // 通知一覧が表示されることを確認
-      const notificationList = page.locator('[data-testid="notification-list"]').first()
-        .or(page.locator('div').filter({ hasText: /通知/ }).first());
-      await expect(notificationList).toBeVisible();
+      await expect(page.getByTestId('notifications-page-container')).toBeVisible();
     }
   });
 
@@ -203,22 +201,23 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
       if (page.url().includes('/result')) {
         break;
       }
-      
-      const resultBtn = page.locator('button').filter({ hasText: /結果を確認する/ }).first();
-      if (await resultBtn.isVisible()) {
-        await resultBtn.click();
-        break;
-      }
 
-      const option = page.locator('button[class*="optionBtn"]').first();
-      if (await option.isVisible()) {
+      const option = page.locator('label').first();
+      if (await option.isVisible().catch(() => false)) {
         await option.click();
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(300);
       }
 
-      const submitBtn = page.locator('button').filter({ hasText: /次へ|提出|完了/ }).first();
-      if (await submitBtn.isVisible()) {
-        await submitBtn.click();
+      const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
+      if (await confirmBtn.isVisible().catch(() => false)) {
+        await confirmBtn.click();
+        await page.waitForTimeout(300);
+      }
+
+      const nextOrResultBtn = page.getByTestId('play-next-question')
+        .or(page.getByTestId('play-view-results'));
+      if (await nextOrResultBtn.isVisible().catch(() => false)) {
+        await nextOrResultBtn.click();
         await page.waitForTimeout(500);
       }
     }
@@ -341,22 +340,23 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
       if (page.url().includes('/result')) {
         break;
       }
-      
-      const resultBtn = page.locator('button').filter({ hasText: /結果を確認する/ }).first();
-      if (await resultBtn.isVisible()) {
-        await resultBtn.click();
-        break;
-      }
 
-      const option = page.locator('button[class*="optionBtn"]').first();
-      if (await option.isVisible()) {
+      const option = page.locator('label').first();
+      if (await option.isVisible().catch(() => false)) {
         await option.click();
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(300);
       }
 
-      const submitBtn = page.locator('button').filter({ hasText: /次へ|提出|完了/ }).first();
-      if (await submitBtn.isVisible()) {
-        await submitBtn.click();
+      const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
+      if (await confirmBtn.isVisible().catch(() => false)) {
+        await confirmBtn.click();
+        await page.waitForTimeout(300);
+      }
+
+      const nextOrResultBtn = page.getByTestId('play-next-question')
+        .or(page.getByTestId('play-view-results'));
+      if (await nextOrResultBtn.isVisible().catch(() => false)) {
+        await nextOrResultBtn.click();
         await page.waitForTimeout(500);
       }
     }

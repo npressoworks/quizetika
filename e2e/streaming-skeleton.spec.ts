@@ -90,17 +90,25 @@ test.describe('Streaming / Suspense スケルトン E2E', () => {
     await expect(page.getByTestId('notifications-page-container')).toBeVisible({ timeout: 15000 });
   });
 
-  test('未認証時に /bookmarks および /notifications へのアクセスがログインへリダイレクトされること', async ({ browser }) => {
+  test('未認証時に /bookmarks へのアクセスがログインへリダイレクトされ、/notifications はログイン誘導UIを表示すること', async ({ browser }) => {
     const context = await browser.newContext({ storageState: undefined });
     const page = await context.newPage();
 
-    for (const path of ['/bookmarks', '/notifications']) {
+    for (const path of ['/bookmarks']) {
       const response = await page.goto(path);
       expect(response?.status()).toBeLessThan(400);
       await expect(page).toHaveURL(/\/login/);
       const redirect = new URL(page.url()).searchParams.get('redirect');
       expect(redirect).toBe(path);
     }
+
+    // /notifications は middleware によるハードリダイレクトではなく、
+    // ページ内でログイン誘導UIを表示する仕様（announcements.spec.ts でも同様に検証済み）
+    const notificationsResponse = await page.goto('/notifications');
+    expect(notificationsResponse?.status()).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/notifications/);
+    await expect(page.locator('text=通知機能を利用するにはログインが必要です')).toBeVisible();
+    await expect(page.getByTestId('login-redirect-btn')).toBeVisible();
 
     await context.close();
   });

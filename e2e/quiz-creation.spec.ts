@@ -11,7 +11,9 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
     });
 
     // 2. ヘッダーの「作問する」をクリック
-    const createQuizBtn = page.locator('text=作問する');
+    // (PCサイドバー用とモバイルヘッダー用の2つのリンクが同時にDOMへ存在するため、
+    //  現在のビューポートで実際に表示されている要素に :visible で絞り込む)
+    const createQuizBtn = page.locator('[data-analytics="nav-create-quiz"]:visible');
     await expect(createQuizBtn).toBeVisible();
     await createQuizBtn.click();
 
@@ -23,6 +25,14 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
     const quizTitle = `[TEST] E2E自動クイズ_${Date.now().toString().slice(-4)}`;
     await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('これはPlaywrightのE2Eテストによって自動作成されたクイズです。');
+
+    // 4.5 ジャンルの選択（下書き保存時にも必須のため選択する）
+    const genreSearchInput = page.getByTestId('genre-editor-search-input');
+    await expect(genreSearchInput).toBeVisible();
+    await genreSearchInput.click();
+    const genreOption = page.getByTestId('genre-editor-search-option-history-geography');
+    await expect(genreOption).toBeVisible();
+    await genreOption.click();
 
     // 5. タグ追加と正規化・サジェストの動作確認
     const tagInput = page.locator('input[placeholder="タグを入力してEnter"]');
@@ -61,7 +71,8 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
     await expect.poll(() => dialogMessage).toContain('下書きを保存しました');
     await expect(page).toHaveURL(/\/creator\/dashboard/);
 
-    // ダッシュボード内に保存した下書きクイズが表示されていることを確認
-    await expect(page.locator(`text=${quizTitle}`)).toBeVisible();
+    // ダッシュボード内に保存した下書きクイズが表示されていることを確認（デフォルトは「プレイヤー」タブのため「作家」タブへ切り替える）
+    await page.getByTestId('dashboard-tab-creator').click();
+    await expect(page.getByTestId('creator-quiz-list').getByText(quizTitle)).toBeVisible();
   });
 });

@@ -3,7 +3,7 @@
  */
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/auth-context';
@@ -123,30 +123,28 @@ export default function CommunityGenresPage() {
     }
   }, [user, loading, router]);
 
+  const fetchPendingRequests = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('genre_requests')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (!error) {
+      setPendingRequests((data ?? []).map(mapGenreRequestRow));
+    }
+  }, []);
+
   useEffect(() => {
     if (!user) return;
 
-    let cancelled = false;
-    const fetchPending = async () => {
-      const { data, error } = await supabase
-        .from('genre_requests')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (!error && !cancelled) {
-        setPendingRequests((data ?? []).map(mapGenreRequestRow));
-      }
-    };
-
-    void fetchPending();
-    const intervalId = setInterval(fetchPending, GENRE_REQUESTS_POLL_INTERVAL_MS);
+    void fetchPendingRequests();
+    const intervalId = setInterval(fetchPendingRequests, GENRE_REQUESTS_POLL_INTERVAL_MS);
 
     return () => {
-      cancelled = true;
       clearInterval(intervalId);
     };
-  }, [user]);
+  }, [user, fetchPendingRequests]);
 
   useEffect(() => {
     if (activeTab !== 'history' || !user) return;
@@ -319,6 +317,7 @@ export default function CommunityGenresPage() {
       }
 
       await submitGenreRequest(formGenreId, formDisplayName, formDescription, iconUrl, user.id);
+      await fetchPendingRequests();
 
       setSuccessMessage(`「${formDisplayName}」のジャンル申請を送信しました。`);
       setFormGenreId('');

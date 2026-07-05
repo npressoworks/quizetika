@@ -130,18 +130,24 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
 
       // 4. 簡単なクイズをプレイ（選択肢をクリック）
-      const options = page.locator('button').filter({ hasText: /選択肢/ }).first()
-        .or(page.locator('label').first());
+      const options = page.locator('label').first();
 
       if (await options.isVisible()) {
         // 最初の選択肢をクリック（正解かどうかは不問）
         await options.click();
       }
 
-      // 次へボタン
-      const nextBtn = page.locator('button').filter({ hasText: /次へ|次の問題|提出|完了/ }).first();
-      if (await nextBtn.isVisible()) {
-        await nextBtn.click();
+      // 解答を確定する
+      const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
+      if (await confirmBtn.isVisible()) {
+        await confirmBtn.click();
+      }
+
+      // 次へ、または結果を見るボタン（最終問題かどうかで表示が切り替わる）
+      const nextOrResultBtn = page.getByTestId('play-next-question')
+        .or(page.getByTestId('play-view-results'));
+      if (await nextOrResultBtn.isVisible()) {
+        await nextOrResultBtn.click();
       }
 
       // 5. 結果画面へ遷移することを確認
@@ -171,7 +177,10 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
     await expect(quizLb).toBeVisible();
 
     await expect(page.locator('[data-testid="quiz-leaderboard-tab-first"]').first()).toBeVisible();
-    await expect(page.locator('[data-testid="highscore-leaderboard"]').first()).toBeVisible();
+    // ランキングが0件の場合は表(highscore-leaderboard)ではなく「まだ記録がありません。」の空状態メッセージが表示される
+    const firstPlaySection = page.locator('[data-testid="highscore-leaderboard"]')
+      .or(page.locator('text=まだ記録がありません'));
+    await expect(firstPlaySection.first()).toBeVisible();
 
     const entryCount = await page.locator('[data-testid="leaderboard-entry"]').count();
     if (entryCount > 0) {
@@ -193,7 +202,10 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
     await expect(replayTab).toBeVisible();
     await replayTab.click();
 
-    await expect(page.locator('[data-testid="replay-leaderboard"]').first()).toBeVisible();
+    // ランキングが0件の場合は表(replay-leaderboard)ではなく「まだ記録がありません。」の空状態メッセージが表示される
+    const replaySection = page.locator('[data-testid="replay-leaderboard"]')
+      .or(page.locator('text=まだ記録がありません'));
+    await expect(replaySection.first()).toBeVisible();
   });
 
   test('F-803: 短答式問題が正常に機能すること', async ({ page }) => {
@@ -209,15 +221,12 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       }
     } catch (e) {}
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
-    const textInputTypeBtn = page.locator('text=短答文字入力式').first()
-      .or(page.locator('button').filter({ hasText: /短答|text-input/ }).first());
+    const textInputTypeBtn = page.locator('#question-card-0').getByRole('button', { name: '記述式', exact: true });
     await expect(textInputTypeBtn).toBeVisible({ timeout: 5000 });
     await textInputTypeBtn.click();
 
     // 4. 正解パターンを入力
-    const correctAnswerInput = page.locator('input[placeholder*="正解"]')
-      .or(page.locator('input[placeholder*="useState"]'))
-      .first();
+    const correctAnswerInput = page.locator('input[placeholder="例: useState"]').first();
     if (await correctAnswerInput.isVisible()) {
       await correctAnswerInput.fill('React,React.js,react');
     }
@@ -241,20 +250,16 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
     // 3. カバー画像のアップロード UI を確認
+    // (ドロップゾーンUIの背後に隠されたinput[type="file"]のため、可視性ではなくDOM存在を確認する)
     const coverImageUpload = page.locator('input[type="file"]').first();
-    if (await coverImageUpload.isVisible()) {
-      // ファイルアップロード可能なことを確認
-      await expect(coverImageUpload).toBeVisible();
-    }
+    await expect(coverImageUpload).toBeAttached();
 
     // 4. 問題画像アップロード UI を確認
     const problemImageUploads = page.locator('input[type="file"]');
     const uploadCount = await problemImageUploads.count();
 
     // 複数のアップロード UI が存在することを確認
-    if (uploadCount > 0) {
-      await expect(problemImageUploads.first()).toBeVisible();
-    }
+    expect(uploadCount).toBeGreaterThan(0);
   });
 
   test('F-805: 解答制限タイマーが正常に機能すること', async ({ page }) => {
@@ -355,14 +360,21 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       // プレイページへ遷移することを確認
       await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
       // 5. クイズをプレイ（最初の選択肢をクリック）
-      const firstOption = page.locator('button[class*="optionBtn"]').first()
-        .or(page.locator('button').filter({ hasText: /選択肢|答え|useState/ }).first());
+      const firstOption = page.locator('label').first();
       await expect(firstOption).toBeVisible({ timeout: 5000 });
       await firstOption.click();
-      // 次へボタン
-      const nextBtn = page.locator('button').filter({ hasText: /次へ|提出|完了/ }).first();
-      if (await nextBtn.isVisible()) {
-        await nextBtn.click();
+
+      // 解答を確定する
+      const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
+      if (await confirmBtn.isVisible()) {
+        await confirmBtn.click();
+      }
+
+      // 次へ、または結果を見るボタン（最終問題かどうかで表示が切り替わる）
+      const nextOrResultBtn = page.getByTestId('play-next-question')
+        .or(page.getByTestId('play-view-results'));
+      if (await nextOrResultBtn.isVisible()) {
+        await nextOrResultBtn.click();
       }
 
       // 6. 結果画面へ遷移することを確認
