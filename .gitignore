@@ -45,6 +45,7 @@ next-env.d.ts
 /test-results
 /blob-report
 /playwright/.auth
+/e2e/.e2e-fixture-ids.json
 
 *.log
 .env.local

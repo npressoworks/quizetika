@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
+import { readE2eFixtureIds } from './fixture-ids';
 
-const E2E_USER_UID = 'e2e-test-uid-123456';
+const E2E_USER_UID = readE2eFixtureIds().userId;
 
 test.describe('認証・プロフィール画面 Streaming / Suspense スケルトン E2E', () => {
 

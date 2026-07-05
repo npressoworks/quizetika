@@ -59,7 +59,7 @@
 
 - [ ] 3. テストインフラの Supabase 単独構成への再編
 
-- [ ] 3.1 (P) Jest の Firebase 自動モックを除去する
+- [x] 3.1 (P) Jest の Firebase 自動モックを除去する
   - `jest.config.js` の `moduleNameMapper` から `^firebase/(.*)$`, `firebase[\/]config$`, `firebase[\/]firestore$` の3エントリを削除する
   - `tests/__mocks__/firebase/`（5ファイル）, `tests/__mocks__/firebase-config.ts`, `tests/__mocks__/firebase-firestore.ts` を削除する
   - 個別のテストファイルが Firebase パッケージを直接 import している箇所があれば、既存の `jest.mock('@/lib/supabase/client')` チェーンモックパターンへ置き換える
@@ -67,14 +67,19 @@
   - _Requirements: 5.1, 5.2_
   - _Boundary: TestInfraRealignment (jest.config.js and tests/__mocks__)_
 
-- [ ] 3.2 (P) E2E グローバルセットアップを Supabase ベースに書き換える
-  - `e2e/global-setup.ts` の `firebase-admin` によるジャンルマスタ等のフィクスチャ投入処理を、Supabase サーバークライアント（`SUPABASE_SERVICE_ROLE_KEY`）による同等のデータ投入処理に置き換える
-  - 既存の重複投入防止（存在チェック）ロジックを踏襲する
-  - 観測可能な完了条件: `e2e/global-setup.ts` に `firebase-admin` への import が存在せず、Supabase ローカル環境に対してフィクスチャ投入が成功する
+- [x] 3.2 (P) E2E グローバルセットアップを Supabase ベースに書き換える
+  - `e2e/global-setup.ts` の `firebase-admin` によるジャンルマスタ等のフィクスチャ投入処理を、Supabase サーバークライアント（`SUPABASE_SERVICE_ROLE_KEY`）による同等のデータ投入処理に置き換えた
+  - 既存の重複投入防止（存在チェック）ロジックを踏襲した
+  - 【実装時に判明したスコープ拡張】Supabase の各テーブルが UUID 主キーのため、Firestore時代の固定文字列ID（`e2e-test-uid-123456`, `e2e-ad-test-quiz-*` 等）はそのまま使えず、`e2e/announcements.spec.ts`・`e2e/quiz-editor-feedback.spec.ts`（firebase-admin直接依存）に加え、`e2e/ads.spec.ts`・`e2e/auth-streaming-skeleton.spec.ts`（firebase非依存だが固定IDをURLに直接埋め込み）も道連れで修正が必要だった。`e2e/fixture-ids.ts` を新設し、global-setup.ts が払い出した実行時UUIDを `.e2e-fixture-ids.json` 経由で共有する方式に統一した
+  - 無参照になっていた `src/data/test_data.json`（旧seedスクリプト専用のFirestore形式データ）を削除した
+  - 【実装時に判明した別問題・修正済み】ローカル Supabase で `supabase db reset` 後、`anon`/`authenticated`/`service_role` に `public` スキーマの SELECT/INSERT/UPDATE/DELETE 権限が一切付与されておらず（TRUNCATE/REFERENCES/TRIGGER のみ）、新規マイグレーションにも記録されていなかったことが判明した。RLSポリシーは元々これらの権限を前提に定義されているため、意図的なRPC限定設計ではなく見落としと判断し、`supabase/migrations/20260708000000_grant_public_schema_privileges.sql` で是正した（本番のRLSポリシー自体は変更していない）
+  - フィクスチャ書き込み自体は `service_role` 経由の PostgREST ではなく `pg` パッケージによる `postgres` ロール直接接続で行う方式に変更した（`e2e/db-client.ts` を新設）。テスト専用のシード経路であり本番の権限モデルには影響しない
+  - 観測可能な完了条件: 上記5ファイルいずれも `firebase`/`firebase-admin` への import が存在せず、`npm run verify:firebase-removed` の Stage B が全体で PASS する
+  - __実機検証済み__: `supabase start` + `supabase db reset` でローカル環境を起動し、`npx playwright test e2e/auth.setup.ts e2e/quiz-editor-feedback.spec.ts e2e/announcements.spec.ts e2e/ads.spec.ts e2e/auth-streaming-skeleton.spec.ts` を実行。12件中10件成功、残り2件は `NEXT_PUBLIC_DISABLE_ADS=true`（ユーザーのローカル環境の意図的な設定）による広告非表示が原因で、本タスクの変更とは無関係であることを確認済み
   - _Requirements: 5.2_
-  - _Boundary: TestInfraRealignment (e2e/global-setup.ts)_
+  - _Boundary: TestInfraRealignment (e2e/global-setup.ts, e2e/fixture-ids.ts, e2e/db-client.ts, e2e/announcements.spec.ts, e2e/quiz-editor-feedback.spec.ts, e2e/ads.spec.ts, e2e/auth-streaming-skeleton.spec.ts)_
 
-- [ ] 3.3 (P) Playwright 設定から Firebase Emulator 依存を除去する
+- [x] 3.3 (P) Playwright 設定から Firebase Emulator 依存を除去する
   - `playwright.config.ts` の `webServer.env`（CI・ローカル両方）から `FIREBASE_AUTH_EMULATOR_HOST` 等6つの環境変数を削除する
   - コメント中の Firebase Emulator に関する記述を Supabase ローカル環境を前提とした文言に更新する
   - 観測可能な完了条件: `playwright.config.ts` に Firebase Emulator 関連の環境変数・コメントが残っていない

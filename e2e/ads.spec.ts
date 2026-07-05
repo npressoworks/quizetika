@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { readE2eFixtureIds } from './fixture-ids';
+
+const { quizIds } = readE2eFixtureIds();
+const adTestQuizId = quizIds[0];
 
 test.describe('広告機能 E2Eテスト', () => {
 
@@ -80,7 +84,7 @@ test.describe('広告機能 E2Eテスト', () => {
     } catch (e) {}
 
     // 2. シード済みのクイズ詳細ページへ遷移
-    await page.goto('/quiz/e2e-ad-test-quiz-1');
+    await page.goto(`/quiz/${adTestQuizId}`);
 
     // 動画広告の強制フラグを設定
     await page.evaluate(() => {
@@ -151,7 +155,7 @@ test.describe('広告機能 E2Eテスト', () => {
     });
 
     // 3. シード済みのクイズ詳細ページへ遷移
-    await page.goto('/quiz/e2e-ad-test-quiz-1');
+    await page.goto(`/quiz/${adTestQuizId}`);
 
     // 4. クイズをプレイ開始
     const startPlayBtn = page.locator('text=プレイを開始する');

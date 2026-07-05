@@ -19,18 +19,12 @@ module.exports = {
     ],
   },
 
-  // モジュール解決のエイリアスと Firebase SDK のモック化
+  // モジュール解決のエイリアス
   moduleNameMapper: {
     '\\.(css|less)$': '<rootDir>/tests/__mocks__/styleMock.ts',
     // Next.js の @ エイリアス
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Firebase SDK は純粋関数テストでは不要なためモック化
-    '^firebase/(.*)$': '<rootDir>/tests/__mocks__/firebase/$1.ts',
-    // src/lib/firebase/* へのインポートをモックに置き換え (Windows対応、相対・絶対パス不問)
-    'firebase[\\/]config$': '<rootDir>/tests/__mocks__/firebase-config.ts',
-    'firebase[\\/]firestore$': '<rootDir>/tests/__mocks__/firebase-firestore.ts',
   },
 
-  // Firebase SDK が使用するグローバル環境を定義
   globals: {},
 };

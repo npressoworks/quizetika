@@ -1,78 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+import { createDbClient } from './db-client';
+import { readE2eFixtureIds } from './fixture-ids';
 
 test.describe('運営からのお知らせ機能 E2Eテスト', () => {
 
   test.beforeAll(async () => {
-    // E2Eテスト用のエミュレータホストの設定
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizetika-77bc6';
-    process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
-    process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST ?? '127.0.0.1:9099';
-
-    if (getApps().length === 0) {
-      initializeApp({ projectId });
-    }
-
-    const e2eUid = 'e2e-test-uid-123456';
-    const email = 'e2e-test-user@example.com';
-
-    // 1. Authエミュレータ上の競合アカウントをクリーンアップして特定のUIDでユーザーを作成
-    const adminAuth = getAuth();
+    // global-setup.ts が作成済みの E2Eテストユーザーを admin ロールで再確認する
+    // （このファイル単体で実行された場合も admin 権限を保証するための防御的な再upsert）
+    const db = createDbClient();
+    await db.connect();
     try {
-      // メールアドレスが一致するユーザーを検索
-      const existingUser = await adminAuth.getUserByEmail(email);
-      if (existingUser.uid !== e2eUid) {
-        // UIDが異なる競合アカウントが存在する場合は削除して作り直す
-        await adminAuth.deleteUser(existingUser.uid);
-        await adminAuth.createUser({
-          uid: e2eUid,
-          email: email,
-          password: 'e2e-test-password-999',
-          displayName: 'e2e-test-user',
-        });
-      }
-    } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        // ユーザーが存在しない場合は指定UIDで作成を試みる
-        try {
-          await adminAuth.createUser({
-            uid: e2eUid,
-            email: email,
-            password: 'e2e-test-password-999',
-            displayName: 'e2e-test-user',
-          });
-        } catch (createError: any) {
-          // UIDが既に存在しているが別メールアドレスだった場合のフォールバック
-          if (createError.code === 'auth/uid-already-exists') {
-            await adminAuth.deleteUser(e2eUid);
-            await adminAuth.createUser({
-              uid: e2eUid,
-              email: email,
-              password: 'e2e-test-password-999',
-              displayName: 'e2e-test-user',
-            });
-          } else {
-            throw createError;
-          }
-        }
-      } else {
-        throw error;
-      }
+      const { userId } = readE2eFixtureIds();
+      await db.query(`UPDATE users SET role = 'admin' WHERE id = $1`, [userId]);
+    } finally {
+      await db.end();
     }
-
-    // 2. Firestoreエミュレータ上で、そのユーザーを admin ロール（管理者）に設定する
-    const db = getFirestore();
-    await db.collection('users').doc(e2eUid).set(
-      {
-        id: e2eUid,
-        email: email,
-        displayName: 'e2e-test-user',
-        moderationTier: 'admin',
-      },
-      { merge: true }
-    );
   });
 
   test('未ログインユーザー：お知らせ一覧の閲覧とログイン誘導', async ({ browser }) => {

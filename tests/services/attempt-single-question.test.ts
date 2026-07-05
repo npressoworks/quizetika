@@ -3,8 +3,6 @@ jest.mock('../../src/lib/quiz-access', () => ({
   assertCanViewQuizAsync: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
-
 jest.mock('../../src/services/quiz', () => ({
   getQuiz: jest.fn(),
 }));

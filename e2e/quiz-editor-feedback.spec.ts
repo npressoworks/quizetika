@@ -1,47 +1,42 @@
 import { test, expect } from '@playwright/test';
-import { initializeApp, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? 'quizeum-77bc6';
+import { createDbClient } from './db-client';
+import { readE2eFixtureIds } from './fixture-ids';
 
 test.describe('クイズ編集画面指摘機能 E2Eテスト', () => {
-  let db: any;
+  const db = createDbClient();
+  const { userId, quizIds, questionIds } = readE2eFixtureIds();
+  const quizId = quizIds[0];
+  const questionId = questionIds[0];
+  let reportId: string;
 
   test.beforeAll(async () => {
-    // Firebase Admin の初期化
-    process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST ?? '127.0.0.1:8080';
-    if (getApps().length === 0) {
-      initializeApp({ projectId: PROJECT_ID });
-    }
-    db = getFirestore();
+    await db.connect();
+  });
+
+  test.afterAll(async () => {
+    await db.end();
   });
 
   test.beforeEach(async () => {
-    // クイズのジャンルを有効なものにアップデート
-    await db.collection('quizzes').doc('e2e-ad-test-quiz-1').update({
-      genre: 'trivia',
-      canonicalGenreId: 'trivia',
-    });
+    // クイズのジャンルを有効なものにアップデート ('game' は src/data/initial_genres.json に実在するID)
+    await db.query(`UPDATE quizzes SET genre = 'game', canonical_genre_id = 'game' WHERE id = $1`, [
+      quizId,
+    ]);
 
     // 指摘のテストデータをシード
-    await db.collection('feedbackReports').doc('e2e-test-report-1').set({
-      id: 'e2e-test-report-1',
-      quizId: 'e2e-ad-test-quiz-1',
-      quizTitle: '[AD_TEST] クイズ_1',
-      questionId: 'e2e-ad-test-q-1',
-      questionText: '問題_1 の本文',
-      reporterId: 'reporter-uid-999',
-      creatorId: 'e2e-test-uid-123456',
-      category: 'typo',
-      content: '誤字があります。「正解」ではなく「正しい」にしてください。',
-      status: 'open',
-      createdAt: new Date(),
-    });
+    const result = await db.query<{ id: string }>(
+      `INSERT INTO feedback_reports (
+         quiz_id, quiz_title, question_id, question_text, reporter_id, creator_id, category, content, status
+       ) VALUES ($1, '[AD_TEST] クイズ_1', $2, '問題_1 の本文', $3, $3, 'typo', $4, 'open')
+       RETURNING id`,
+      [quizId, questionId, userId, '誤字があります。「正解」ではなく「正しい」にしてください。']
+    );
+    reportId = result.rows[0].id;
   });
 
   test.afterEach(async () => {
     // テストデータのクリーンアップ
-    await db.collection('feedbackReports').doc('e2e-test-report-1').delete();
+    await db.query(`DELETE FROM feedback_reports WHERE id = $1`, [reportId]);
   });
 
   test('編集画面に指摘内容が正しく表示され、解決・却下・モーダル連携が行えること', async ({ page }) => {
@@ -49,7 +44,7 @@ test.describe('クイズ編集画面指摘機能 E2Eテスト', () => {
       console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`);
     });
     // 1. クイズの編集画面へアクセス
-    await page.goto('/quiz/e2e-ad-test-quiz-1/edit');
+    await page.goto(`/quiz/${quizId}/edit`);
     await page.waitForLoadState('domcontentloaded');
 
     // 2. 公開ボタンの表記が「更新」になっていることを確認
@@ -96,6 +91,6 @@ test.describe('クイズ編集画面指摘機能 E2Eテスト', () => {
     await forcePublishBtn.click();
 
     // 更新完了後に詳細画面またはダッシュボードなどへ遷移することを確認
-    await expect(page).toHaveURL(/\/quiz\/e2e-ad-test-quiz-1\/success/);
+    await expect(page).toHaveURL(new RegExp(`/quiz/${quizId}/success`));
   });
 });

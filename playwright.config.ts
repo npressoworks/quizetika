@@ -1,19 +1,25 @@
 import { defineConfig, devices } from '@playwright/test';
+import { loadEnvConfig } from '@next/env';
 
 /**
  * Playwrightの設定ファイル
  * 詳細はこちら: https://playwright.dev/docs/test-configuration
  */
+
+// Next.js の開発サーバーとは別プロセスで globalSetup 等が実行されるため、
+// .env.local 等を明示的に読み込む (Next.js 本体と同じ @next/env を使用)
+loadEnvConfig(process.cwd());
+
 const PORT = process.env.PORT || '3000';
 
 export default defineConfig({
   // テストファイルが配置されるディレクトリ
   testDir: './e2e',
 
-  // Firestore Emulator にジャンルマスタを投入
+  // Supabase ローカル環境にジャンルマスタ等のフィクスチャを投入
   globalSetup: './e2e/global-setup.ts',
-  
-  // 各テストの最大実行時間 (ミリ秒) - Firebaseの初期化時間を考慮して60秒に設定
+
+  // 各テストの最大実行時間 (ミリ秒)
   timeout: 60 * 1000,
   
   // アサーションの最大待ち時間 (ミリ秒) - 10秒に延長
@@ -41,7 +47,7 @@ export default defineConfig({
     // 操作対象のベースURL。Next.jsの開発サーバーに合わせる
     baseURL: `http://localhost:${PORT}`,
     
-    // アクションごとのデフォルトタイムアウト - Firebase認証完了を考慮して15秒
+    // アクションごとのデフォルトタイムアウト - 認証完了を考慮して15秒
     actionTimeout: 15000,
     
     // ページナビゲーションのデフォルトタイムアウト - 30秒に設定
@@ -86,12 +92,6 @@ export default defineConfig({
         timeout: 180 * 1000,
         env: {
           NEXT_PUBLIC_ENV: 'test',
-          FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-          FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-          FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
-          NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-          NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-          NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
         },
       }
     : {
@@ -102,12 +102,6 @@ export default defineConfig({
         timeout: 60 * 1000,
         env: {
           NEXT_PUBLIC_ENV: 'test',
-          FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-          FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-          FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
-          NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST: '127.0.0.1:9099',
-          NEXT_PUBLIC_FIREBASE_FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080',
-          NEXT_PUBLIC_FIREBASE_STORAGE_EMULATOR_HOST: '127.0.0.1:9199',
         },
       },
 });

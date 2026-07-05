@@ -110,15 +110,9 @@ describe('scanForFirebaseReferences', () => {
     expect(findings).toEqual([]);
   });
 
-  it('実際のリポジトリ内の既知ファイルに対して正しく検出・非検出を判定する', () => {
-    // e2e/global-setup.ts はテストインフラ再編（Task 3）が完了するまで firebase-admin に依存し続ける想定の実ファイル
-    const findings = scanForFirebaseReferences([
-      join(process.cwd(), 'e2e', 'global-setup.ts'),
-    ]);
-    expect(findings.map((f) => f.file)).toEqual([
-      join(process.cwd(), 'e2e', 'global-setup.ts'),
-    ]);
-
+  it('実際のリポジトリ内の既知ファイル（firebaseUser 識別子名のみ）を誤検知しない', () => {
+    // Firebase 完全削除後は実リポジトリ内に正例（生きた firebase import）が存在しないため、
+    // 負例（識別子名のみで誤検知しないこと）のみを実ファイルで検証する。正例は他テストの合成フィクスチャで検証済み。
     const noFindings = scanForFirebaseReferences([
       join(process.cwd(), 'src', 'context', 'auth-context.tsx'),
     ]);

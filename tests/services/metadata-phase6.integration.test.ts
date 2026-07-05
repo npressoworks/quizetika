@@ -1,5 +1,3 @@
-jest.mock('../../src/lib/firebase/config', () => ({ db: {} }));
-
 import {
   MERGE_MIN_APPROVE_RATE,
   MERGE_MIN_APPROVE_WEIGHT,
@@ -11,24 +9,6 @@ import {
   dedupeQuizzesById,
   quizMatchesGenreFilter,
 } from '../../src/lib/metadata-resolution';
-
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((_db, _path, id) => ({ id })),
-    collection: jest.fn((_db, path) => ({ path })),
-    query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    orderBy: jest.fn((field, dir) => ({ field, dir })),
-    limit: jest.fn((n) => ({ limit: n })),
-    getDoc: jest.fn(),
-    getDocs: jest.fn(),
-    setDoc: jest.fn(),
-    writeBatch: jest.fn(),
-    runTransaction: jest.fn(),
-  };
-});
 
 describe('Phase 6 governance thresholds', () => {
   test('マージ可決: 重み5以上かつ賛成率70%以上', () => {
