@@ -1,3 +1,7 @@
+
+# 基本設定
+常に日本語で思考し回答してください
+
 # Agentic SDLC and Spec-Driven Development
 
 Kiro-style Spec-Driven Development on an agentic SDLC

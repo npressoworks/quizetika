@@ -20,8 +20,8 @@
 
 ### 2.1 プレフィックスによる露出制御
 - **NEXT_PUBLIC_ の使用制限:** `NEXT_PUBLIC_` プレフィックスを付与した環境変数は、すべてビルド時にブラウザ用JavaScriptにインライン化されます。
-  - **公開して良い情報:** Firebaseのクライアント用初期化オブジェクト（`apiKey`, `authDomain` 等）、一般公開されているAPIエンドポイントのベースURL、および公開しても問題のない動的動作フラグやパブリックID（例: `NEXT_PUBLIC_ADSENSE_CLIENT_ID` や `NEXT_PUBLIC_DISABLE_ADS`）。
-  - **公開してはならない機密情報:** Firebaseの管理者用サービスアカウントキー（JSON）、サードパーティ製APIの秘密鍵（Secret Key）、Stripeの秘密鍵やWebhookの署名シークレット（Stripe Webhook Secret）。これらには絶対に `NEXT_PUBLIC_` を付与せず、サーバーサイド（Next.js API Routes, Server Actions, Server Components）でのみ参照されるように設計してください。
+  - **公開して良い情報:** Supabaseのクライアント用公開情報（`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`）、一般公開されているAPIエンドポイントのベースURL、および公開しても問題のない動的動作フラグやパブリックID（例: `NEXT_PUBLIC_ADSENSE_CLIENT_ID` や `NEXT_PUBLIC_DISABLE_ADS`）。
+  - **公開してはならない機密情報:** Supabaseのサービスロールキー（`SUPABASE_SERVICE_ROLE_KEY`）、サードパーティ製APIの秘密鍵（Secret Key）、Stripeの秘密鍵やWebhookの署名シークレット（Stripe Webhook Secret）。これらには絶対に `NEXT_PUBLIC_` を付与せず、サーバーサイド（Next.js API Routes, Server Actions, Server Components）でのみ参照されるように設計してください。
 
 ### 2.2 ソースコード管理（Git）からの除外
 - シークレット情報を含むすべての `.env`、`.env.local`、`.env.development.local` 等のファイルは、必ず `.gitignore` に登録し、誤ってGitリポジトリにコミットされないように保護してください。
@@ -34,7 +34,7 @@
 - **Cookie偽装への対策:** `middleware.ts` などの Next.js ミドルウェアでCookie（例: `quizetika_tier`, `quizetika_role`）を読み取って特定のルーティングを保護する場合、このCookie情報はブラウザ側で容易に改ざんされる可能性があることを前提として設計してください。
 - **役割の分離（二重検証）:**
   - **一次防御 (UX/ルーティング制御):** ミドルウェアによるCookieチェックは、非権限ユーザーが誤って管理画面等にアクセスするのを防ぐUX向上および一次フィルタリングとして機能させます。
-  - **二次防御 (データ/アクション保護):** 実際のデータ取得（Firestoreリクエスト）や操作（サーバー側関数・APIの実行）においては、フロントエンド側の値やCookieを一切信用せず、Firebaseの「セキュリティルール」や、サーバーサイドでの「IDトークンのデコード・署名検証」を用いて厳格な認可を行ってください。
+  - **二次防御 (データ/アクション保護):** 実際のデータ取得・操作（サーバー側関数・APIの実行）においては、フロントエンド側の値やCookieを一切信用せず、Supabase の Row Level Security（RLS）ポリシーおよびサーバーサイドでの `supabase.auth.getUser()` によるセッション検証を用いて厳格な認可を行ってください。RLS ポリシーが全テーブルの認可における唯一の正です。
 
 ---
 
@@ -64,20 +64,12 @@
 
 ---
 
-## 7. Firebase Storage のアップロード制限（セキュリティルール強制）
+## 7. Supabase Storage のアップロード制限（RLSポリシー強制）
 
 ### 7.1 容量および拡張子・MIMEタイプの強制
-- クライアント側での画像バリデーション（2MB以下、SVG画像の除外）に加え、データベースの入り口である `storage.rules` で容量およびMIMEタイプの完全な一致を強制してください。
-- 危険なスクリプト埋め込み（SVG等を通じたXSS）を防ぐため、画像アップロード機能では `PNG`, `JPEG`, `GIF` などの非実行可能かつ安全な画像フォーマットのみを許可するようにルール設計を義務付けます。
-
----
-
-## 9. Supabase RLS と Firestore Security Rules の並存（移行期）
-
-### 9.1 ドメイン別の認可基盤
-- **原則:** 認証（Supabase Auth）およびコアデータ（`users`, `quizzes`, `questions`, `follows`, `bookmarks`, `notifications`, `announcements` 等）は Supabase の Row Level Security (RLS) ポリシーが認可の正となる。ゲームプレイ・ガバナンス・ストレージは Firebase Security Rules（`firestore.rules` / `storage.rules`）のまま未移行。
-- **実装要件:** どちらの認可層が有効かはテーブル／コレクション単位で異なるため、新規実装時は対象ドメインの `.kiro/specs/supabase-*/spec.json` の `phase` を確認し、移行済みなら RLS ポリシー（`supabase/migrations/*.sql`）、未移行なら Firestore Rules を正として設計・レビューすること。
-- **二重検証の原則は不変:** 移行後も「フロントエンドはUX目的のみ、実データ保護はサーバー/DB側」という Defense-in-Depth の方針は Supabase RLS + `supabase.auth.getUser()` によるサーバーサイド検証に引き継がれる。
+- クライアント側での画像バリデーション（2MB以下、SVG画像の除外）に加え、データベースの入り口である Supabase Storage の RLS ポリシーで容量およびMIMEタイプの完全な一致を強制してください。
+- 危険なスクリプト埋め込み（SVG等を通じたXSS）を防ぐため、画像アップロード機能では `PNG`, `JPEG`, `GIF` などの非実行可能かつ安全な画像フォーマットのみを許可するようにポリシー設計を義務付けます。
+- 認証・コアデータ・ゲームプレイ・ガバナンス・ストレージの全ドメインにおいて、Supabase の Row Level Security（RLS）ポリシーが認可の唯一の正です。テーブル／バケット単位のポリシー定義は `supabase/migrations/*.sql` を参照してください。
 
 ---
 

@@ -12,6 +12,9 @@ import {
 } from '../../src/lib/quiz-feed-cursor';
 
 jest.mock('@/lib/supabase/client', () => {
+  // 実際の supabase-js の PostgrestFilterBuilder は thenable であり、
+  // チェーンの途中段階でも await すると即座にクエリが実行されてしまう。
+  // このモックも同様に thenable にすることで、その挙動を再現する。
   const mock: any = {
     from: jest.fn(() => mock),
     select: jest.fn(() => mock),
@@ -23,6 +26,9 @@ jest.mock('@/lib/supabase/client', () => {
     or: jest.fn(() => mock),
     is: jest.fn(() => mock),
     contains: jest.fn(() => mock),
+    then: jest.fn((onFulfilled: any) =>
+      Promise.resolve({ data: [], error: null }).then(onFulfilled)
+    ),
   };
   return {
     createClient: () => mock,

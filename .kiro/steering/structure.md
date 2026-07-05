@@ -3,7 +3,7 @@
 ## 構成の基本方針 (Organization Philosophy)
 
 ドメインおよび機能ごとの「機能別垂直分割（Vertical Feature Slicing）」アプローチを採用しています。
-共通のインフラやロジック（Firebaseや共通型）は `src/services` や `src/types` に集約し、各画面やUIモジュールは `src/app` および `src/components` に配置します。
+共通のインフラやロジック（Supabaseクライアントや共通型）は `src/services` や `src/types` に集約し、各画面やUIモジュールは `src/app` および `src/components` に配置します。
 
 ## ディレクトリパターン (Directory Patterns)
 
@@ -24,8 +24,8 @@
 
 ### サービス・ビジネスロジック (Services)
 **Location**: `/src/services/`  
-**Purpose**: バックエンド（Supabase または Firebase）とのやり取りや、共通のビジネスロジック。ドメイン別に段階移行中のため、ファイルによって片方または両方の SDK を参照する（`.kiro/specs/supabase-*` の `phase` が正）。  
-**Example**: `/src/services/user.ts`, `quiz.ts`（Supabase 移行済み）、`/src/services/reputation.ts`（信頼スコアリセットやモデレータティアー処理、Firebase のまま未移行）。
+**Purpose**: Supabase とのやり取りや、共通のビジネスロジック。  
+**Example**: `/src/services/user.ts`, `quiz.ts`, `/src/services/reputation.ts`（信頼スコアリセットやモデレータティアー処理）。
 
 ### 型定義 (Types)
 **Location**: `/src/types/`  
@@ -34,7 +34,7 @@
 
 ### 純関数ライブラリ (Pure Logic Libraries)
 **Location**: `/src/lib/`  
-**Purpose**: UIに依存しない表示ヘルパー、セッション状態、検証・フィルタ等の純関数。サービス層のビジネスロジックとは分離し、コンポーネントやフックから呼び出す。バックエンド初期化は移行中で `/src/lib/firebase/`（クライアント `config.ts` / `auth.ts`、サーバー `admin.ts` / `auth-verify.ts`、未移行ドメイン用）と `/src/lib/supabase/`（クライアント `client.ts`、サーバー `server.ts`、ミドルウェア `middleware.ts`、認証 `auth.ts` / `auth-verify.ts`、生成型 `database.types.ts`、移行済みドメイン用）が併存する。XSS サニタイズは `/src/lib/security/`。Stripe サーバークライアントは `/src/lib/stripe/server.ts` に集約（クライアントバンドルへの秘密鍵漏洩を防止）。  
+**Purpose**: UIに依存しない表示ヘルパー、セッション状態、検証・フィルタ等の純関数。サービス層のビジネスロジックとは分離し、コンポーネントやフックから呼び出す。バックエンド初期化は `/src/lib/supabase/`（クライアント `client.ts`、サーバー `server.ts`、ミドルウェア `middleware.ts`、認証 `auth.ts` / `auth-verify.ts`、生成型 `database.types.ts`）に集約する。XSS サニタイズは `/src/lib/security/`。Stripe サーバークライアントは `/src/lib/stripe/server.ts` に集約（クライアントバンドルへの秘密鍵漏洩を防止）。  
 **Example**: `/src/lib/profile-list-display.ts`（リスト種別ラベル）、`/src/lib/question-list-session.ts`（問題リストプレイ進行）、`/src/lib/metadata-resolution.ts`（Supabase 移行済みのジャンル/タグ正規化）、`/src/lib/billing-client.ts`（Stripe Checkout クライアント）。
 
 ### React コンテキスト (Context)
@@ -44,7 +44,7 @@
 
 ### ルートガード (Middleware)
 **Location**: `/src/middleware.ts`  
-**Purpose**: 管理者・モデレーター向けルートの一次フィルタ（Cookie ベース）。BAN ユーザーは `quizetika_banned` Cookie により `/banned` へリダイレクト。実際の認可は API Route / Firestore Rules で再検証する。
+**Purpose**: 管理者・モデレーター向けルートの一次フィルタ（Cookie ベース）。BAN ユーザーは `quizetika_banned` Cookie により `/banned` へリダイレクト。実際の認可は API Route / Supabase RLS で再検証する。
 
 ### カスタムフック (Custom Hooks)
 **Location**: `/src/hooks/`  
@@ -58,13 +58,13 @@
 
 ### テスト (Tests)
 **Location**: `/tests/`（Jest）、`/e2e/`（Playwright）  
-**Purpose**: `tests/` は `src/` の構造をミラー（`tests/services/`, `tests/components/` 等）。Firebase は `tests/__mocks__/firebase/` でモック化。E2E は `e2e/*.spec.ts` に機能ドメイン別に配置。  
+**Purpose**: `tests/` は `src/` の構造をミラー（`tests/services/`, `tests/components/` 等）。Supabase は `@/lib/supabase/client` を `jest.mock()` したチェーンモックで検証する。E2E は `e2e/*.spec.ts` に機能ドメイン別に配置。  
 **Example**: `/tests/services/reputation.test.ts`, `/e2e/layout.spec.ts`。
 
 ### 静的テストデータ (Static Test Data)
 **Location**: `/src/data/`  
 **Purpose**: シードスクリプトから参照される要書データ（初期ジャンル・テストデータ）。本番ビルドには含まれず、スクリプトからのみ読み込まれる。  
-**Example**: `/src/data/initial_genres.json`, `/src/data/test_data.json`。
+**Example**: `/src/data/initial_genres.json`。
 
 ### 仕様と記憶 (Kiro Metadata)
 **Location**: `/.kiro/`  
@@ -85,7 +85,7 @@
 ```typescript
 // 外部・システムモジュール
 import { useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import { createClient } from '@/lib/supabase/client';
 
 // サービス・ビジネスロジック (絶対パス)
 import { resetUserReputation } from '@/services/reputation';
@@ -106,6 +106,6 @@ import { LocalComponent } from './LocalComponent';
 - **UIとの境界分離**: コンポーネント側はUI表現とユーザーインタラクションに徹し、ビジネスロジックやデータフェッチの詳細は `services` 側のAPIやフックを呼び出す形に疎結合化します。
 
 ---
-_updated_at: 2026-07-03 — Supabase移行に伴う /src/lib/supabase/ の併存とサービス層の移行状況注記を追加_
+_updated_at: 2026-07-05 — supabase-cleanup 完了に伴い /src/lib/firebase/ 併存記述を除去し Supabase 単独構成に更新_
 
 _Document patterns, not file trees. New files following patterns shouldn't require updates_

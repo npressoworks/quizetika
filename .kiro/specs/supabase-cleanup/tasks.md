@@ -86,22 +86,22 @@
   - _Requirements: 5.3_
   - _Boundary: TestInfraRealignment (playwright.config.ts)_
 
-- [ ] 4. Steering ドキュメントの Supabase 単独構成への更新
+- [x] 4. Steering ドキュメントの Supabase 単独構成への更新
 
-- [ ] 4.1 (P) tech.md を更新する
+- [x] 4.1 (P) tech.md を更新する
   - 技術スタック記述から Firebase・Supabase 併存に関する記述を除去し、Supabase 単独構成の記述に更新する
   - Phase 1-34 で記録済みの既存の意思決定・変更履歴は削除せず保持する
   - 観測可能な完了条件: `tech.md` の「移行中」を示す記述が Supabase 単独構成の記述に置き換わっている
   - _Requirements: 6.1, 6.4_
   - _Boundary: SteeringDocumentationSync (tech.md)_
 
-- [ ] 4.2 (P) structure.md を更新する
+- [x] 4.2 (P) structure.md を更新する
   - ディレクトリパターン記述から `src/lib/firebase/` および Firebase 併存を前提とした記述を除去する
   - 観測可能な完了条件: `structure.md` に `src/lib/firebase/` への言及が残っていない
   - _Requirements: 6.2, 6.4_
   - _Boundary: SteeringDocumentationSync (structure.md)_
 
-- [ ] 4.3 (P) security.md を更新する
+- [x] 4.3 (P) security.md を更新する
   - Firebase Security Rules に関する記述（§7 Firebase Storage のアップロード制限、§9 Supabase RLS と Firestore Security Rules の並存）を Supabase RLS ベースの記述に統一・削除する
   - 観測可能な完了条件: `security.md` に Firestore/Firebase Security Rules 併存を前提とした記述が残っていない
   - _Requirements: 6.3, 6.4_
@@ -109,21 +109,29 @@
 
 - [ ] 5. 最終検証: 残存参照の再確認とビルド・テストゲート
 
-- [ ] 5.1 MigrationCompletionGate を再実行し残存参照ゼロを確認する
+- [x] 5.1 MigrationCompletionGate を再実行し残存参照ゼロを確認する
   - タスク1で実装したツールの Stage B を再実行し、削除・更新作業完了後のソースツリーに Firebase 参照が残っていないことを確認する
   - 検出された場合は該当タスクに差し戻し、ゼロになるまで完了と判定しない
   - 観測可能な完了条件: `npm run verify:firebase-removed` の再実行が Stage A・Stage B ともに終了コード `0` で完了する
+  - __実行結果__: `npm run verify:firebase-removed` を再実行し、Stage A（5スペック全て `implementation-complete`）・Stage B（Firebase パッケージ参照なし）ともに `RESULT: PASS`（終了コード `0`）を確認した
   - _Requirements: 7.1, 7.2_
   - _Depends: 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 4.1, 4.2, 4.3_
 
-- [ ] 5.2 ビルド検証を実行する
+- [x] 5.2 ビルド検証を実行する
   - `npm run build` を実行し、エラーなく成功することを確認する
   - 失敗した場合は `spec.json` の `phase` を `implementation-complete` に更新しない
   - 観測可能な完了条件: `npm run build` が終了コード `0` で完了する
+  - __実行結果__: `npm run build` が終了コード `0` で成功（全52ルートの生成・型チェックともにエラーなし）
   - _Requirements: 3.4, 8.1, 8.3_
 
 - [ ] 5.3 テストスイート検証を実行する
   - `npm run test` および `npm run test:e2e` を実行し、Firebase 依存に起因する失敗なく全テストが成功することを確認する
   - 失敗した場合は `spec.json` の `phase` を `implementation-complete` に更新しない
   - 観測可能な完了条件: `npm run test` と `npm run test:e2e` がいずれも終了コード `0` で完了する
+  - __実行結果__: `npm run test` は 219 スイート / 1222 テスト全て成功（終了コード `0`）。
+  - __実機検証で判明した本タスクスコープ外の既存バグ2件（TDDで修正・検証済み）__:
+    1. `src/services/quiz.ts` の `saveQuiz` で `questions`（`owner_quiz_id` が `quizzes.id` を参照する外部キー）への INSERT が `quizzes` 本体行の INSERT より先に実行されており、`questions_owner_quiz_id_fkey` 違反でクイズ作成が失敗していた。`git log -L` で調査した結果、コミット `14b2f7f`（`supabase-core-data` スペック）由来の既存バグで、タスク3.2で修正した権限不足（`public` スキーマへの GRANT 漏れ）により INSERT 自体がそれ以前は別のエラーで止まっていたため、これまで顕在化していなかったと判明。INSERT 順序を「quizzes 本体行を先に作成 → questions を作成」に修正し、ロールバック処理も順序に合わせて反転した。
+    2. `src/services/quiz.ts` の `applyCursorFilter` が `async function` でありながら thenable な Supabase クエリビルダーをそのまま `return` していたため、呼び出し元の `await` 時に自動的にクエリが実行されてしまい、以降の `.order()` 呼び出しが `TypeError: q.order is not a function` になっていた（`quizeum-infinite-scroll` 機能由来の既存バグ）。戻り値を `{ builder }` でラップし、呼び出し元3箇所で `.builder` を取り出す方式に修正した。
+    - いずれも TDD（RED→GREEN）で再現・修正し、`tests/services/quiz-metadata-save.test.ts`・`tests/services/quiz-feed-pagination.test.ts` にリグレッションテストを追加。`npm run test` 全体で回帰なしを確認済み。
+  - __未解決・タスク外の既知課題__: 上記2件の修正後、`npm run test:e2e` はローカル実行で 50/156 件が失敗する（`supabase db reset` 済みのローカル Supabase + `npx next dev` に対して実行）。失敗はバッジ付与・管理者ポータル・ソーシャル機能・リーダーボード・学習支援・ストリーミングスケルトン・クイズ検索・SEO共有など、Firebase削除やSupabase移行と無関係な機能全般に及ぶ。`.env.local` の `NEXT_PUBLIC_DISABLE_ADS=true`（ユーザーのローカル環境設定）を一時的に無効化して再実行しても失敗件数はほぼ変わらず（52件）、単一原因ではないことを確認した。この残存failureは本スペック（Firebase削除）のスコープ外であり、原因調査・対応は別タスク/スペックとして切り出すことをユーザーに提案し、承認待ちの状態。このため本タスクは未完了のまま残し、`spec.json` の `phase` は `implementation-complete` に更新していない。
   - _Requirements: 5.4, 8.2, 8.3_

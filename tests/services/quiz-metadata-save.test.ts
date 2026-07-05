@@ -151,4 +151,29 @@ describe('saveQuiz metadata integration', () => {
 
     await expect(saveQuiz(baseQuiz as any, 'draft')).rejects.toThrow(MetadataValidationError);
   });
+
+  test('questions.owner_quiz_id の外部キー制約を満たすため、quizzes への insert が questions への insert より先に実行される', async () => {
+    mockSupabase.maybeSingle
+      .mockResolvedValueOnce({ data: { subscription_tier: 'free' }, error: null }) // user
+      .mockResolvedValueOnce({ data: { id: 'react' }, error: null }); // tag checks
+
+    const callOrder: string[] = [];
+    let currentTable = '';
+    mockSupabase.from.mockImplementation((table: string) => {
+      currentTable = table;
+      return mockSupabase;
+    });
+    mockSupabase.insert.mockImplementation(() => {
+      callOrder.push(currentTable);
+      return Promise.resolve({ data: [], error: null });
+    });
+
+    await saveQuiz(baseQuiz as any, 'draft');
+
+    const quizzesInsertIndex = callOrder.indexOf('quizzes');
+    const questionsInsertIndex = callOrder.indexOf('questions');
+    expect(quizzesInsertIndex).toBeGreaterThanOrEqual(0);
+    expect(questionsInsertIndex).toBeGreaterThanOrEqual(0);
+    expect(quizzesInsertIndex).toBeLessThan(questionsInsertIndex);
+  });
 });

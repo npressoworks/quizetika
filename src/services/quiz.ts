@@ -888,32 +888,16 @@ export async function saveQuiz(
     processedQuestions.push(fullQuestion);
   }
 
-  if (questionInserts.length > 0) {
-    const { error: insError } = await supabase.from('questions').insert(questionInserts);
-    if (insError) throw new Error(`問題の作成に失敗しました: ${insError.message}`);
-  }
-
   let canonicalGenreId = '';
   let canonicalTagIds: string[] = [];
 
-  try {
-    const resolved = await applyQuizMetadataFields(
-      quizData.genre,
-      normalizedTags,
-      quizData.authorId
-    );
-    canonicalGenreId = resolved.canonicalGenreId;
-    canonicalTagIds = resolved.canonicalTagIds;
-  } catch (err) {
-    if (err instanceof MetadataValidationError) {
-      throw err;
-    }
-    // ロールバック
-    if (questionIds.length > 0) {
-      await supabase.from('questions').delete().in('id', questionIds);
-    }
-    throw err;
-  }
+  const resolved = await applyQuizMetadataFields(
+    quizData.genre,
+    normalizedTags,
+    quizData.authorId
+  );
+  canonicalGenreId = resolved.canonicalGenreId;
+  canonicalTagIds = resolved.canonicalTagIds;
 
   const payload: Quiz = {
     ...(quizData as any),
@@ -940,10 +924,6 @@ export async function saveQuiz(
   if (status === 'published') {
     const errors = validateQuizForPublish(payload);
     if (errors.length > 0) {
-      // ロールバック
-      if (questionIds.length > 0) {
-        await supabase.from('questions').delete().in('id', questionIds);
-      }
       throw new Error(
         `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`
       );
@@ -951,26 +931,28 @@ export async function saveQuiz(
   } else {
     const draftErrors = validateQuizForDraft(payload);
     if (draftErrors.length > 0) {
-      // ロールバック
-      if (questionIds.length > 0) {
-        await supabase.from('questions').delete().in('id', questionIds);
-      }
       throw new Error(
         `下書き保存に失敗しました: ${draftErrors.map((e) => e.message).join('; ')}`
       );
     }
   }
 
+  // questions.owner_quiz_id が quizzes.id を参照するため、quizzes 行を先に作成する
   const { error: quizError } = await supabase
     .from('quizzes')
     .insert(mapQuizToRow(cleanUndefined(payload)) as Database['public']['Tables']['quizzes']['Insert']);
 
   if (quizError) {
-    // ロールバック
-    if (questionIds.length > 0) {
-      await supabase.from('questions').delete().in('id', questionIds);
-    }
     throw new Error(`クイズの作成に失敗しました: ${quizError.message}`);
+  }
+
+  if (questionInserts.length > 0) {
+    const { error: insError } = await supabase.from('questions').insert(questionInserts);
+    if (insError) {
+      // ロールバック
+      await supabase.from('quizzes').delete().eq('id', quizId);
+      throw new Error(`問題の作成に失敗しました: ${insError.message}`);
+    }
   }
 
   try {
@@ -1069,11 +1051,15 @@ function paginateQuizRows(
 }
 
 /** PostgreSQL 向けのカーソルフィルタ適用 */
+// 戻り値の queryBuilder は Supabase の thenable なクエリビルダーであり、
+// このまま async 関数の戻り値にすると呼び出し元の await 時に自動的に
+// クエリが実行され、以降の .order() 等が呼べなくなってしまう。
+// そのため thenable ではないオブジェクトで包んで返す。
 async function applyCursorFilter(
   queryBuilder: any,
   cursor: string,
   kind: QuizFeedTabKind
-) {
+): Promise<{ builder: any }> {
   const decoded = decodeQuizFeedCursor(cursor, kind);
   const { data: cursorQuiz, error } = await supabase
     .from('quizzes')
@@ -1089,7 +1075,9 @@ async function applyCursorFilter(
   const dbOrderField = orderField === 'playCount' ? 'play_count' : orderField === 'bookmarksCount' ? 'bookmarks_count' : 'created_at';
   const val = cursorQuiz[dbOrderField];
 
-  return queryBuilder.or(`${dbOrderField}.lt."${val}",and(${dbOrderField}.eq."${val}",id.lt."${cursorQuiz.id}")`);
+  return {
+    builder: queryBuilder.or(`${dbOrderField}.lt."${val}",and(${dbOrderField}.eq."${val}",id.lt."${cursorQuiz.id}")`),
+  };
 }
 
 async function fetchPublishedTabPage(
@@ -1107,7 +1095,7 @@ async function fetchPublishedTabPage(
     .eq('visibility', 'public');
 
   if (options.cursor) {
-    q = await applyCursorFilter(q, options.cursor, kind);
+    q = (await applyCursorFilter(q, options.cursor, kind)).builder;
   }
 
   const { data, error } = await q
@@ -1216,7 +1204,7 @@ export async function getQuizzesByAuthorPage(
   }
 
   if (options.cursor) {
-    q = await applyCursorFilter(q, options.cursor, 'author');
+    q = (await applyCursorFilter(q, options.cursor, 'author')).builder;
   }
 
   const { data, error } = await q
@@ -1460,7 +1448,7 @@ export async function getFollowedTimelinePage(
     .in('author_id', targetIds);
 
   if (options.cursor) {
-    q = await applyCursorFilter(q, options.cursor, kind);
+    q = (await applyCursorFilter(q, options.cursor, kind)).builder;
   }
 
   const { data, error } = await q
