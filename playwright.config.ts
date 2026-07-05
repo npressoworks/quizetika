@@ -36,10 +36,11 @@ export default defineConfig({
   // ローカル開発環境では並列実行数を1に制限して競合を防止する
   workers: 1,
   
-  // レポーターの設定 (リスト形式およびHTMLレポートの生成)
+  // レポーターの設定 (リスト形式・HTMLレポート・機械可読なJSONレポートの生成)
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }]
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['json', { outputFile: 'playwright-report/results.json' }]
   ],
   
   // すべてのプロジェクトで共有するグローバルなオプション設定

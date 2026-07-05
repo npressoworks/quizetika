@@ -1,0 +1,55 @@
+{
+  "suites": [
+    {
+      "title": "admin-portal.spec.ts",
+      "file": "e2e/admin-portal.spec.ts",
+      "specs": [
+        {
+          "title": "非管理者ユーザーでのアクセス制限確認",
+          "ok": true,
+          "tests": [{ "status": "expected" }]
+        }
+      ]
+    },
+    {
+      "title": "layout.spec.ts",
+      "file": "e2e/layout.spec.ts",
+      "specs": [
+        {
+          "title": "Admin menu is visible and active",
+          "ok": false,
+          "tests": [{ "status": "unexpected" }]
+        }
+      ],
+      "suites": [
+        {
+          "title": "PC sidebar",
+          "file": "e2e/layout.spec.ts",
+          "specs": [
+            {
+              "title": "PC sidebar collapse toggle is visible",
+              "ok": true,
+              "tests": [{ "status": "expected" }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "ads.spec.ts",
+      "file": "e2e/ads.spec.ts",
+      "specs": [
+        {
+          "title": "検索画面でインライン広告が表示されること",
+          "ok": true,
+          "tests": [{ "status": "skipped" }]
+        },
+        {
+          "title": "動画広告モーダルが表示されること",
+          "ok": false,
+          "tests": [{ "status": "unexpected" }]
+        }
+      ]
+    }
+  ]
+}

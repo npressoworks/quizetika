@@ -13,7 +13,9 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "gen:types": "npx supabase gen types typescript --local > src/lib/supabase/database.types.ts",
-    "verify:firebase-removed": "node scripts/verify-firebase-removed.js"
+    "verify:firebase-removed": "node scripts/verify-firebase-removed.js",
+    "e2e:ledger": "node scripts/e2e-report-to-ledger.mjs",
+    "e2e:diff": "node scripts/e2e-baseline-diff.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.82",
