@@ -65,40 +65,6 @@ jest.mock('@/services/review', () => ({
 
 
 
-// Mock Firebase config
-jest.mock('@/lib/firebase/config', () => ({
-  db: {},
-}));
-
-jest.mock('firebase/firestore', () => {
-  const original = jest.requireActual('firebase/firestore');
-  return {
-    ...original,
-    doc: jest.fn((ref, ...paths) => {
-      const id = paths.length > 0 ? paths[paths.length - 1] : 'auto-generated-id';
-      return { id, path: paths.join('/') };
-    }),
-    collection: jest.fn((db, path) => ({ path })),
-    query: jest.fn((ref, ...clauses) => ({ ref, clauses })),
-    where: jest.fn((field, op, value) => ({ field, op, value })),
-    orderBy: jest.fn((field, dir) => ({ field, dir })),
-    getDocs: jest.fn(),
-    increment: jest.fn((n) => n),
-    runTransaction: jest.fn(),
-    getDoc: jest.fn().mockResolvedValue({
-      exists: () => true,
-      data: () => ({
-        score: 3,
-        totalQuestions: 3,
-        elapsedSeconds: 45,
-        failedQuestionIds: [],
-        questionAnswers: [],
-      }),
-    }),
-    updateDoc: jest.fn(),
-  };
-});
-
 describe('QuizResultPage Component (Phase 12)', () => {
   const quizId = 'test-quiz-123';
   const mockQuiz = {

@@ -8,8 +8,6 @@ import { useAuth } from '@/context/auth-context';
 import { validateGenreIconFile } from '@/lib/genre-icon-upload';
 import { uploadImage } from '@/services/storage';
 
-jest.mock('@/lib/firebase/config', () => require('../../__mocks__/firebase-config'));
-
 const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),

@@ -1507,8 +1507,8 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
 - [x][impl] supabase-core-data -- 主要サービス層（user, quiz, question, bookmark, notification, announcement）の Firestore → Supabase 移行。2026-07-03 に RDB 完全正規化（`badges`/`user_badges`/`user_genre_follows`/`quiz_tags`/`quiz_questions` 中間テーブル化、複合主キー化）を含めて実装完了。Dependencies: supabase-auth-migration
 - [x][impl] supabase-gameplay -- ゲームプレイ関連サービス（attempt, review, rating, reaction, leaderboard, play-history, AI対話/合格判定APIルート）の Firestore → Supabase 移行。スキーマ・RPC定義（1.x）、サービス層正規化対応（2.x）、結合・型チェック・テストスイート整合性検証（3.x）まで全タスク完了。Dependencies: supabase-core-data
 - [x][impl] supabase-storage-migration -- Firebase Storage → Supabase Storage 移行。クライアント/サーバー両方のアップロード・ダウンロード・削除処理。サービス層（`storage.ts`/`storage-admin.ts`/`storage-path.ts`）、バケット公開設定マイグレーション、`migrate-icon` ルート配線、型チェック・テストスイート・匿名アクセス統合検証まで全タスク完了。Dependencies: supabase-foundation
-- [ ] supabase-governance -- モデレーション・ガバナンス関連サービス（moderation, tagMerge, reputation, entitlement, subscription）の移行。要件定義のみ完了、未着手。Dependencies: supabase-core-data
-- [ ] supabase-cleanup -- Firebase パッケージ・設定ファイルの完全削除、テストインフラ更新、Steering ドキュメント（`tech.md`/`structure.md`/`security.md`）の Supabase ベース全面更新。brief のみ、spec 未初期化。全依存スペック完了が前提。Dependencies: supabase-auth-migration, supabase-core-data, supabase-gameplay, supabase-storage-migration, supabase-governance
+- [x] supabase-governance -- モデレーション・ガバナンス関連サービス（moderation, tagMerge, reputation, entitlement, subscription）の移行。RPC定義・サービス層正規化・結合検証まで完了。ただし `supabase-cleanup` の調査で残存 Firestore 依存9ファイル（AI作問日次利用制限機能の引き受け含む）が判明し Requirement 8/Task 4 を追加、完了未達。Dependencies: supabase-core-data
+- [ ] supabase-cleanup -- Firebase パッケージ・設定ファイルの完全削除、テストインフラ更新、Steering ドキュメント（`tech.md`/`structure.md`/`security.md`）の Supabase ベース全面更新。spec化完了（requirements/design/tasks 承認済み）。MigrationCompletionGate 実装済み（Task 1完了）。全依存スペック完了が前提で、現状は各スペックへ差し戻したフォローアップタスクの完了待ち。Dependencies: supabase-auth-migration, supabase-core-data, supabase-gameplay, supabase-storage-migration, supabase-governance
 
 ## Direct Implementation Candidates（Phase 35）
 - [ ] docs-sync-supabase -- `docs/` 配下の全仕様書（db_design.md, api_specification.md, detailed_design.md, security_architecture.md）を Supabase/PostgreSQL ベースに全面更新
@@ -1520,12 +1520,12 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
 | Spec | phase |
 |------|-------|
 | supabase-foundation | implementation-complete（2026-07-03 に spec.json ドリフトを修正済み） |
-| supabase-auth-migration | implementation（`auth-context.tsx`/`middleware.ts` は Supabase 移行済み） |
-| supabase-core-data | implementation-complete |
-| supabase-gameplay | implementation-complete（2026-07-04 に全タスク完了・spec.json ドリフトを修正済み） |
-| supabase-governance | requirements-generated |
+| supabase-auth-migration | implementation（`auth-context.tsx`/`middleware.ts` は Supabase 移行済み。Requirement 5/Task 6 でクライアント側トークン取得の残存 Firebase Auth 依存（5ファイル）が追加判明） |
+| supabase-core-data | implementation（`supabase-cleanup` の調査により Requirement 5/Task 5 で残存 Firestore 直接依存（4ファイル）が判明し、`implementation-complete` から差し戻し） |
+| supabase-gameplay | implementation（`supabase-cleanup` の調査により Requirement 5/Task 4 で残存 Firestore 直接依存（7ファイル、タスク2.1/2.2完了時の見落とし含む）が判明し、`implementation-complete` から差し戻し） |
+| supabase-governance | implementation（要件・設計・タスク定義は完了、実装は全RPC・サービス層まで完了済み。`supabase-cleanup` の調査により Requirement 8/Task 4 で残存 Firestore 直接依存（9ファイル）が判明。オーファンだった AI作問日次利用制限機能（`ai-authoring-route-helpers.ts` 等）を本スペックの拡張として引き受け） |
 | supabase-storage-migration | implementation-complete（全タスク完了） |
-| supabase-cleanup | 未初期化（brief のみ） |
+| supabase-cleanup | requirements-generated → design-generated → tasks-generated（`/kiro:spec-tasks` 完了）。Task 1（MigrationCompletionGate 実装）完了。Stage A（依存5スペック完了確認）・Stage B（残存 Firebase 参照スキャン）とも現状 FAIL のため Task 2 以降は保留中 |
 
 正確な最新状態は本表ではなく `/kiro:spec-status <feature>` または各 `spec.json` を直接参照すること。
 

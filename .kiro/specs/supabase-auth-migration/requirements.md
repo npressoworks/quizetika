@@ -49,3 +49,12 @@
 #### Acceptance Criteria
 1. When API エンドポイントが認証を必要とするリクエストを受信した時、システムは Authorization ヘッダーに含まれる Bearer トークンを検証し、正当なユーザーの UID を特定する。
 2. If トークンが無効、改ざんされている、または期限切れである場合、システムは HTTP 401 Unauthorized エラーを返却してリクエストを却下する。
+
+### 5. フロントエンド認証トークン取得のFirebase依存排除
+**Objective:** 開発者として、クライアント側で API リクエスト用の認証トークンを取得する処理から Firebase Auth SDK への依存を完全に排除したい。それにより、`supabase-cleanup` が Firebase パッケージを安全に削除できるようにしたい。
+
+<!-- supabase-cleanup の MigrationCompletionGate（Stage B）による初回スキャンで、本スペックの完了宣言後も src/lib/firebase/config.ts の auth 経由で Firebase Auth SDK に依存しているファイルが検出されたため追加。 -->
+
+#### Acceptance Criteria
+1. When クライアントコードが API リクエスト用の認証トークンを取得する時、認証モジュールは Supabase Auth のセッションから取得したアクセストークンを返却する。
+2. The `src/lib/billing-client.ts`、`src/hooks/useAiChatAssistant.ts`、`src/hooks/useAiPlayState.ts`、`src/hooks/useAiQuizAuthoring.ts`、`src/app/quiz/[id]/play/quiz-play-client.tsx` は Firebase Auth SDK（`firebase/auth` および `@/lib/firebase/config` の `auth`）への import を持たない。

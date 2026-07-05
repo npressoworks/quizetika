@@ -54,3 +54,14 @@
 2. When ユーザーが未読通知一覧を要求した時, the 通知システム shall 未読フラグが立っている通知の一覧を返却する。
 3. When ユーザーが通知詳細を閲覧するか既読操作を行った時, the 通知システム shall 対象の通知を既読状態に更新する。
 4. When ユーザーが管理システムからのお知らせ一覧を要求した時, the お知らせシステム shall 公開開始日時が現在時刻以前であり、公開終了日時が未設定または未来であるお知らせ一覧を返却する。
+
+### 5. 残存する直接 Firestore 依存の排除
+
+<!-- supabase-cleanup の MigrationCompletionGate（Stage B）による初回スキャンで、本スペックの完了宣言後もユーザー削除・通知・検索集計の一部が Firestore クライアント/管理SDKに直接依存していることが検出されたため追加。 -->
+
+**Objective:** 開発者として、ユーザー・通知・お知らせ・検索ログドメインの API Route と UI コンポーネントが Firestore へ直接依存する箇所を残さないようにしたい。それにより、`supabase-cleanup` が Firebase パッケージを安全に削除できるようにしたい。
+
+#### Acceptance Criteria
+1. The `src/app/api/user/delete-account/route.ts`, `src/app/notifications/announcements-tab.tsx`, `src/app/notifications/notifications-client.tsx`, `src/app/api/search/weekly-top/route.ts` は firebase および firebase-admin パッケージ、`@/lib/firebase/*` への import を持たない。
+2. When アカウント削除リクエストを処理する時, the アカウント削除処理 shall Supabase サーバークライアントを用いて対象ユーザーの削除ステータスを更新する。
+3. When 週間人気検索キーワード・タグの集計 API が呼び出された時, the 集計処理 shall Supabase の `search_logs` テーブルを参照する。

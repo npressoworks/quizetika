@@ -27,16 +27,6 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }));
 
-jest.mock('@/lib/firebase/config', () => ({
-  auth: {
-    currentUser: {
-      getIdToken: jest.fn().mockResolvedValue('mock-token'),
-    },
-  },
-  db: {},
-  storage: {},
-}));
-
 jest.mock('@/context/auth-context', () => ({
   useAuth: () => ({
     user: mockUser,

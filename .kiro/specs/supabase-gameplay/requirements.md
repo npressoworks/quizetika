@@ -49,3 +49,13 @@
 #### Acceptance Criteria
 1. When ユーザーがAIに対して質問を行った時, the AIプレイシステム shall 対話セッションIDに紐づけて質問と回答のテキスト履歴を追加保存する。
 2. When ユーザーが解答（真相）の判定リクエストを送信した時, the AIプレイシステム shall 現在の対話履歴と判定結果（合格/不合格）を対話セッションに記録し、結果を画面に表示する。
+
+### 5. 残存する直接 Firestore 依存の排除
+
+<!-- supabase-cleanup の MigrationCompletionGate（Stage B）による初回スキャンで、本スペックの完了宣言後もアテンプト・レビュー・リーダーボード関連の一部が Firestore クライアント/管理SDKに直接依存していることが検出されたため追加。タスク2.1／2.2で対応済みとされていた範囲の見落としを含む。 -->
+
+**Objective:** 開発者として、アテンプト・レビュー・リーダーボード関連のサービス、UIコンポーネント、API Route が Firestore へ直接依存する箇所を残さないようにしたい。それにより、`supabase-cleanup` が Firebase パッケージを安全に削除できるようにしたい。
+
+#### Acceptance Criteria
+1. The `src/services/attempt.ts`, `src/services/review.ts`, `src/app/leaderboard/leaderboard-client.tsx`, `src/app/leaderboard/page.tsx`, `src/app/quiz/[id]/result/quiz-result-client.tsx`, `src/app/creator/dashboard/player-dashboard-client.tsx`, `src/app/api/genres/weekly-top/route.ts` は firebase および firebase-admin パッケージ、`@/lib/firebase/*` への import を持たない。
+2. When 週間人気ジャンルの集計 API が呼び出された時, the 集計処理 shall Supabase の `attempts` テーブルを参照する。

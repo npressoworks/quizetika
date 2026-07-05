@@ -75,3 +75,14 @@
 
 #### Acceptance Criteria
 1. When 管理者が初期ジャンル投入操作を実行した時, the ジャンル投入システム shall 定義済みの初期ジャンルデータを冪等に（既存IDは更新、未存在IDは新規作成）ジャンルマスタへ反映する。
+
+### 8. 残存する直接 Firestore 依存の排除およびAI作問利用制限機能の移行
+
+<!-- supabase-cleanup の MigrationCompletionGate（Stage B）による初回スキャンで、本スペックの完了宣言後もモデレーションUI・ジャンルアイコン生成・AI作問の日次利用制限機能が Firestore クライアント/管理SDKに直接依存していることが検出されたため追加。AI作問利用制限機能（src/services/ai-authoring-route-helpers.ts 等）はどの既存スペックの Scope にも含まれていなかったオーファンドメインだが、エンタイトルメント（Proプラン判定）と密接に関連するため本スペックの拡張として引き受ける。 -->
+
+**Objective:** 開発者として、モデレーション・ガバナンスUI、ジャンルアイコン生成、AI作問の日次利用制限機能が Firestore へ直接依存する箇所を残さないようにしたい。それにより、`supabase-cleanup` が Firebase パッケージを安全に削除できるようにしたい。
+
+#### Acceptance Criteria
+1. The `src/app/admin/moderation/page.tsx`, `src/app/community/genres/page.tsx`, `src/app/community/merge/page.tsx`, `src/lib/seed-genres-access.ts`, `src/app/api/genres/generate-icon/route.ts` は firebase および firebase-admin パッケージ、`@/lib/firebase/*` への import を持たない。
+2. While ジャンル新設申請・タグ統合申請の一覧を画面に表示している間, the ガバナンスUI shall Supabase を用いたデータ取得手段（Realtime 購読またはポーリングによる再取得）によって最新の申請・投票状況を反映する。
+3. The AI作問（チャット対話・問題生成・サムネイル生成）の日次利用回数管理機能（`src/services/ai-authoring-route-helpers.ts`, `src/app/api/quiz/ai-chat-authoring/route.ts`, `src/app/api/quiz/ai-generate-questions/route.ts`, `src/app/api/quiz/ai-generate-thumbnail/route.ts`）は Supabase のテーブルを用いて日次利用回数を管理し、Firestore（`users/{uid}/dailyAiAuthoringCounts`）への依存を持たない。
