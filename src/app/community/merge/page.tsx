@@ -5,15 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/auth-context';
 import { createMergeRequest, voteMergeRequest } from '@/services/tagMerge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,16 +24,49 @@ interface MergeRequest {
   sourceId: string;
   targetId: string;
   requesterId: string;
-  requesterName: string;
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
   votesForCount: number;
   votesAgainstCount: number;
   weightedVotesFor: number;
   weightedVotesAgainst: number;
-  votedUserIds: string[];
-  createdAt: Date | Timestamp;
+  createdAt: Date;
 }
+
+/** `merge_requests` の投票状況をポーリングで再取得する間隔（ミリ秒） */
+const MERGE_REQUESTS_POLL_INTERVAL_MS = 15000;
+
+function mapMergeRequestRow(row: {
+  id: string;
+  target_type: string;
+  source_id: string;
+  target_id: string;
+  requester_id: string | null;
+  reason: string;
+  status: string;
+  votes_for_count: number;
+  votes_against_count: number;
+  weighted_votes_for: number;
+  weighted_votes_against: number;
+  created_at: string;
+}): MergeRequest {
+  return {
+    id: row.id,
+    targetType: row.target_type as MergeRequest['targetType'],
+    sourceId: row.source_id,
+    targetId: row.target_id,
+    requesterId: row.requester_id ?? '',
+    reason: row.reason,
+    status: row.status as MergeRequest['status'],
+    votesForCount: row.votes_for_count,
+    votesAgainstCount: row.votes_against_count,
+    weightedVotesFor: row.weighted_votes_for,
+    weightedVotesAgainst: row.weighted_votes_against,
+    createdAt: new Date(row.created_at),
+  };
+}
+
+const supabase = createClient();
 
 type TabType = 'propose' | 'votes';
 
@@ -88,35 +113,30 @@ export default function CommunityMergePage() {
     if (!isAuthorized) return;
 
     let cancelled = false;
-    const q = query(
-      collection(db, 'mergeRequests'),
-      where('status', '==', 'open'),
-      orderBy('createdAt', 'desc'),
-    );
+    const fetchMergeRequests = async () => {
+      const { data, error } = await supabase
+        .from('merge_requests')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const requests = snapshot.docs.map(
-          (d) =>
-            ({
-              id: d.id,
-              ...d.data(),
-            }) as MergeRequest,
-        );
-        setMergeRequests(requests);
-        if (!cancelled) setFetchLoading(false);
-      },
-      (err) => {
-        console.error('マージリクエスト取得エラー:', err);
+      if (cancelled) return;
+
+      if (error) {
+        console.error('マージリクエスト取得エラー:', error);
         setErrorMessage('マージリクエストの読み込みに失敗しました。');
-        if (!cancelled) setFetchLoading(false);
-      },
-    );
+      } else {
+        setMergeRequests((data ?? []).map(mapMergeRequestRow));
+      }
+      setFetchLoading(false);
+    };
+
+    void fetchMergeRequests();
+    const intervalId = setInterval(fetchMergeRequests, MERGE_REQUESTS_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      unsubscribe();
+      clearInterval(intervalId);
     };
   }, [isAuthorized]);
 
@@ -182,11 +202,7 @@ export default function CommunityMergePage() {
     return Math.round((req.weightedVotesFor / totalWeighted) * 100);
   };
 
-  const formatDate = (date: Date | Timestamp) => {
-    if (date instanceof Timestamp) return date.toDate().toLocaleDateString('ja-JP');
-    if (date instanceof Date) return date.toLocaleDateString('ja-JP');
-    return '';
-  };
+  const formatDate = (date: Date) => date.toLocaleDateString('ja-JP');
 
   if (loading) {
     return (

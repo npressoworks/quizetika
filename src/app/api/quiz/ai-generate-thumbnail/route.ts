@@ -9,7 +9,8 @@ import {
   checkDailyAuthoringLimit,
 } from '@/services/ai-authoring-utils';
 import { uploadQuizCoverBuffer } from '@/services/storage-admin';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { incrementDailyUsageCount } from '@/lib/daily-usage-counters';
+import { DAILY_AUTHORING_DOC_THUMBNAIL } from '@/services/ai-authoring-utils';
 
 export const maxDuration = 60;
 
@@ -115,16 +116,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       uid: auth.access.uid,
     });
 
-    const db = getAdminFirestore();
-    const nextCount = auth.thumbnailCount + 1;
-
-    await db.runTransaction(async (transaction) => {
-      transaction.set(
-        auth.thumbnailCountRef,
-        { count: nextCount, lastUpdatedDate: auth.todayStr },
-        { merge: true }
-      );
-    });
+    const nextCount = await incrementDailyUsageCount(
+      auth.supabase,
+      auth.access.uid,
+      DAILY_AUTHORING_DOC_THUMBNAIL,
+      auth.todayStr
+    );
 
     const afterLimit = checkDailyAuthoringLimit(
       nextCount,

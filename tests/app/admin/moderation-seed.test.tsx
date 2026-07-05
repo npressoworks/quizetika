@@ -6,8 +6,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useAuth } from '@/context/auth-context';
 
-jest.mock('@/lib/firebase/config', () => require('../../__mocks__/firebase-config'));
-
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn() }),
 }));
@@ -28,13 +26,16 @@ jest.mock('@/context/auth-context', () => ({
   useAuth: jest.fn(),
 }));
 
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(),
-  query: jest.fn(),
-  where: jest.fn(),
-  orderBy: jest.fn(),
-  getDocs: jest.fn().mockResolvedValue({ docs: [] }),
-}));
+jest.mock('@/lib/supabase/client', () => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    in: jest.fn(() => chain),
+    order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+  };
+  const mock = { from: jest.fn(() => chain) };
+  return { createClient: () => mock };
+});
 
 jest.mock('@/services/moderation', () => ({
   resolveFlag: jest.fn(),

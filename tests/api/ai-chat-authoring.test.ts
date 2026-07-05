@@ -3,38 +3,38 @@ import { NextRequest } from 'next/server';
 
 const mockVerify = jest.fn();
 const mockResolveEntitlements = jest.fn();
-const mockRunTransaction = jest.fn(async (fn: (tx: { set: jest.Mock }) => Promise<void>) => {
-  await fn({ set: jest.fn() });
+
+let counterState: Record<string, { count: number; counter_date: string } | undefined> = {};
+
+function createCounterTableMock() {
+  let queriedKey: string | undefined;
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn((column: string, value: string) => {
+      if (column === 'counter_key') queriedKey = value;
+      return chain;
+    }),
+    maybeSingle: jest.fn(() =>
+      Promise.resolve({ data: (queriedKey && counterState[queriedKey]) ?? null, error: null })
+    ),
+  };
+  return chain;
+}
+
+const mockRpc = jest.fn((_fnName: string, params: any) => {
+  const key = params.p_counter_key as string;
+  const current = counterState[key];
+  const next = current && current.counter_date === params.p_today ? current.count + 1 : 1;
+  counterState[key] = { count: next, counter_date: params.p_today };
+  return Promise.resolve({ data: next, error: null });
 });
 
-const mockChatSnap = { data: () => ({ count: 5, lastUpdatedDate: '2026-06-10' }) };
-const mockChatRef = { get: jest.fn(async () => mockChatSnap) };
-const mockQuestionsRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
-const mockThumbnailRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
-
-const mockDb = {
-  collection: jest.fn((name: string) => {
-    if (name === 'users') {
-      return {
-        doc: jest.fn(() => ({
-          collection: jest.fn((sub: string) => {
-            if (sub === 'dailyAiAuthoringCounts') {
-              return {
-                doc: jest.fn((docId: string) => {
-                  if (docId === 'chat') return mockChatRef;
-                  if (docId === 'questions') return mockQuestionsRef;
-                  return mockThumbnailRef;
-                }),
-              };
-            }
-            return { doc: jest.fn() };
-          }),
-        })),
-      };
-    }
-    return { doc: jest.fn() };
+const mockSupabaseAdmin = {
+  from: jest.fn((table: string) => {
+    if (table !== 'daily_usage_counters') throw new Error(`unexpected table: ${table}`);
+    return createCounterTableMock();
   }),
-  runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
+  rpc: mockRpc,
 };
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
@@ -46,8 +46,8 @@ jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (uid: any) => mockResolveEntitlements(uid),
 }));
 
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => mockDb,
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => mockSupabaseAdmin,
 }));
 
 jest.mock('@/services/ai-authoring-utils', () => {
@@ -71,6 +71,11 @@ jest.mock('ai', () => {
 describe('POST /api/quiz/ai-chat-authoring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    counterState = {
+      questions: { count: 0, counter_date: '2026-06-10' },
+      thumbnail: { count: 0, counter_date: '2026-06-10' },
+      chat: { count: 5, counter_date: '2026-06-10' },
+    };
     mockVerify.mockResolvedValue('uid-pro');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
@@ -79,7 +84,6 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     mockStreamText.mockReturnValue({
       toUIMessageStreamResponse: () => new Response('mocked-stream', { status: 200 }),
     });
-    mockChatSnap.data = () => ({ count: 5, lastUpdatedDate: '2026-06-10' });
   });
 
   function makeRequest(body: Record<string, unknown>) {
@@ -118,7 +122,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
   });
 
   test('日次チャット回数超過は 429', async () => {
-    mockChatSnap.data = () => ({ count: 100, lastUpdatedDate: '2026-06-10' });
+    counterState.chat = { count: 100, counter_date: '2026-06-10' };
     const res = await POST(
       makeRequest({
         userId: 'uid-pro',
@@ -127,6 +131,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
       })
     );
     expect(res.status).toBe(429);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   test('Pro ユーザーは 200 とストリームレスポンスを返し、カウンタをインクリメントする', async () => {
@@ -140,7 +145,11 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     expect(res.status).toBe(200);
     const text = await res.text();
     expect(text).toBe('mocked-stream');
-    expect(mockRunTransaction).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith('handle_increment_daily_usage_counter', {
+      p_user_id: 'uid-pro',
+      p_counter_key: 'chat',
+      p_today: '2026-06-10',
+    });
   });
 
   test('googleSearch ツールは指定されたクエリで検索結果を返す', async () => {
@@ -156,7 +165,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     expect(mockStreamText).toHaveBeenCalled();
     const streamTextArgs = mockStreamText.mock.calls[0][0];
     expect(streamTextArgs.tools.googleSearch).toBeDefined();
-    
+
     // googleSearch ツールの execute コールバックを直接実行して検証
     const searchResult = await streamTextArgs.tools.googleSearch.execute({ query: '東京の人口' });
     expect(searchResult).toHaveProperty('query', '東京の人口');
@@ -175,7 +184,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     const streamTextArgs = mockStreamText.mock.calls[0][0];
     expect(streamTextArgs.tools.checkQuestion).toBeDefined();
     expect(streamTextArgs.tools.checkAllQuestions).toBeDefined();
-    
+
     // それぞれの execute を実行して検証
     const singleResult = await streamTextArgs.tools.checkQuestion.execute({
       id: 'q1',
@@ -190,4 +199,3 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     expect(allResult).toHaveProperty('checked', true);
   });
 });
-

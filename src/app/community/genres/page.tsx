@@ -5,16 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, notFound } from 'next/navigation';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  onSnapshot,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/auth-context';
 import { submitGenreRequest, voteGenreRequest } from '@/services/tagMerge';
 import { uploadImage, getGenreIconPath } from '@/services/storage';
@@ -50,10 +41,42 @@ interface GenreRequest {
   votesAgainstCount: number;
   weightedVotesFor: number;
   weightedVotesAgainst: number;
-  votedUserIds: string[];
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: Date | Timestamp;
+  createdAt: Date;
 }
+
+/** `genre_requests` の投票状況をポーリングで再取得する間隔（ミリ秒） */
+const GENRE_REQUESTS_POLL_INTERVAL_MS = 15000;
+
+function mapGenreRequestRow(row: {
+  id: string;
+  genre_id: string;
+  display_name: string;
+  icon_image_url: string | null;
+  requester_id: string | null;
+  votes_for_count: number;
+  votes_against_count: number;
+  weighted_votes_for: number;
+  weighted_votes_against: number;
+  status: string;
+  created_at: string;
+}): GenreRequest {
+  return {
+    id: row.id,
+    genreId: row.genre_id,
+    displayName: row.display_name,
+    iconImageUrl: row.icon_image_url ?? '',
+    requesterId: row.requester_id ?? '',
+    votesForCount: row.votes_for_count,
+    votesAgainstCount: row.votes_against_count,
+    weightedVotesFor: row.weighted_votes_for,
+    weightedVotesAgainst: row.weighted_votes_against,
+    status: row.status as GenreRequest['status'],
+    createdAt: new Date(row.created_at),
+  };
+}
+
+const supabase = createClient();
 
 type TabType = 'request' | 'vote' | 'history';
 
@@ -103,24 +126,26 @@ export default function CommunityGenresPage() {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
-      collection(db, 'genreRequests'),
-      where('status', '==', 'pending'),
-      orderBy('createdAt', 'desc'),
-    );
+    let cancelled = false;
+    const fetchPending = async () => {
+      const { data, error } = await supabase
+        .from('genre_requests')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const requests = snapshot.docs.map(
-        (d) =>
-          ({
-            id: d.id,
-            ...d.data(),
-          }) as GenreRequest,
-      );
-      setPendingRequests(requests);
-    });
+      if (!error && !cancelled) {
+        setPendingRequests((data ?? []).map(mapGenreRequestRow));
+      }
+    };
 
-    return () => unsubscribe();
+    void fetchPending();
+    const intervalId = setInterval(fetchPending, GENRE_REQUESTS_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -130,15 +155,13 @@ export default function CommunityGenresPage() {
     const fetchHistory = async () => {
       setFetchLoading(true);
       try {
-        const q = query(
-          collection(db, 'genreRequests'),
-          where('status', 'in', ['approved', 'rejected']),
-          orderBy('createdAt', 'desc'),
-        );
-        const snap = await getDocs(q);
-        setHistoryRequests(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() }) as GenreRequest),
-        );
+        const { data, error } = await supabase
+          .from('genre_requests')
+          .select('*')
+          .in('status', ['approved', 'rejected'])
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (!cancelled) setHistoryRequests((data ?? []).map(mapGenreRequestRow));
       } catch (err) {
         console.error('履歴取得エラー:', err);
       } finally {
@@ -350,9 +373,8 @@ export default function CommunityGenresPage() {
     }
   };
 
-  const formatDate = (date: Date | Timestamp) => {
-    const d = date instanceof Timestamp ? date.toDate() : date;
-    return d.toLocaleDateString('ja-JP', {
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

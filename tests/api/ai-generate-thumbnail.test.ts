@@ -5,34 +5,38 @@ const mockVerify = jest.fn();
 const mockResolveEntitlements = jest.fn();
 const mockGenerateContent = jest.fn();
 const mockUpload = jest.fn();
-const mockRunTransaction = jest.fn(async (fn: (tx: { set: jest.Mock }) => Promise<void>) => {
-  await fn({ set: jest.fn() });
+
+let counterState: Record<string, { count: number; counter_date: string } | undefined> = {};
+
+function createCounterTableMock() {
+  let queriedKey: string | undefined;
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn((column: string, value: string) => {
+      if (column === 'counter_key') queriedKey = value;
+      return chain;
+    }),
+    maybeSingle: jest.fn(() =>
+      Promise.resolve({ data: (queriedKey && counterState[queriedKey]) ?? null, error: null })
+    ),
+  };
+  return chain;
+}
+
+const mockRpc = jest.fn((_fnName: string, params: any) => {
+  const key = params.p_counter_key as string;
+  const current = counterState[key];
+  const next = current && current.counter_date === params.p_today ? current.count + 1 : 1;
+  counterState[key] = { count: next, counter_date: params.p_today };
+  return Promise.resolve({ data: next, error: null });
 });
 
-const mockQuestionsRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
-const mockThumbnailRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
-
-const mockDb = {
-  collection: jest.fn((name: string) => {
-    if (name === 'users') {
-      return {
-        doc: jest.fn(() => ({
-          collection: jest.fn((sub: string) => {
-            if (sub === 'dailyAiAuthoringCounts') {
-              return {
-                doc: jest.fn((docId: string) =>
-                  docId === 'questions' ? mockQuestionsRef : mockThumbnailRef
-                ),
-              };
-            }
-            return { doc: jest.fn() };
-          }),
-        })),
-      };
-    }
-    return { doc: jest.fn() };
+const mockSupabaseAdmin = {
+  from: jest.fn((table: string) => {
+    if (table !== 'daily_usage_counters') throw new Error(`unexpected table: ${table}`);
+    return createCounterTableMock();
   }),
-  runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
+  rpc: mockRpc,
 };
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
@@ -56,8 +60,8 @@ jest.mock('@/services/storage-admin', () => ({
   uploadQuizCoverBuffer: (...args: unknown[]) => mockUpload(...args),
 }));
 
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => mockDb,
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => mockSupabaseAdmin,
 }));
 
 jest.mock('@/services/ai-authoring-utils', () => {
@@ -71,6 +75,11 @@ jest.mock('@/services/ai-authoring-utils', () => {
 describe('POST /api/quiz/ai-generate-thumbnail', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    counterState = {
+      questions: { count: 0, counter_date: '2026-06-10' },
+      thumbnail: { count: 0, counter_date: '2026-06-10' },
+      chat: { count: 0, counter_date: '2026-06-10' },
+    };
     mockVerify.mockResolvedValue('uid-pro');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
@@ -108,6 +117,11 @@ describe('POST /api/quiz/ai-generate-thumbnail', () => {
     expect(body.thumbnailUrl).toContain('storage.googleapis.com');
     expect(body.usage).toBeDefined();
     expect(mockUpload).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith('handle_increment_daily_usage_counter', {
+      p_user_id: 'uid-pro',
+      p_counter_key: 'thumbnail',
+      p_today: '2026-06-10',
+    });
   });
 
   test('非 Pro は 403', async () => {

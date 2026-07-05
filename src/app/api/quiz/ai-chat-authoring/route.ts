@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { streamText, tool, stepCountIs, convertToModelMessages } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { incrementDailyUsageCount } from '@/lib/daily-usage-counters';
 
 const googleProvider = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY || 'dummy-api-key-for-tests',
@@ -13,6 +13,7 @@ import {
 } from '@/services/ai-authoring-route-helpers';
 import {
   PRO_DAILY_CHAT_LIMIT,
+  DAILY_AUTHORING_DOC_CHAT,
   checkDailyAuthoringLimit,
 } from '@/services/ai-authoring-utils';
 
@@ -111,17 +112,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
     }
 
-    // トランザクションでチャット回数をインクリメント
-    const db = getAdminFirestore();
-    const nextCount = auth.chatCount + 1;
-
-    await db.runTransaction(async (transaction) => {
-      transaction.set(
-        auth.chatCountRef,
-        { count: nextCount, lastUpdatedDate: auth.todayStr },
-        { merge: true }
-      );
-    });
+    // チャット回数をインクリメント
+    await incrementDailyUsageCount(auth.supabase, auth.access.uid, DAILY_AUTHORING_DOC_CHAT, auth.todayStr);
 
     // システムプロンプトの構築
     const systemPrompt = `あなたはクイズ投稿SNS「quizetika」のクイズ作成を支援する優秀なAI作問アシスタントです。

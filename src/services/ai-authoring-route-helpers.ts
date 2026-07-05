@@ -1,18 +1,18 @@
 import type { NextRequest } from 'next/server';
-import type { DocumentReference } from 'firebase-admin/firestore';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/lib/supabase/database.types';
+import { createAdminClient } from '@/lib/supabase/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { resolveUserEntitlements } from '@/services/entitlement';
 import {
   assertAiAuthoringAccess,
   canAccessAiAuthoring,
   getJstTodayString,
-  readDailyAuthoringCount,
   DAILY_AUTHORING_DOC_QUESTIONS,
   DAILY_AUTHORING_DOC_THUMBNAIL,
   DAILY_AUTHORING_DOC_CHAT,
 } from '@/services/ai-authoring-utils';
-import type { DailyAiAuthoringCountDoc } from '@/services/ai-authoring-types';
+import { readDailyUsageCount } from '@/lib/daily-usage-counters';
 import type { AssertAiAuthoringAccessResult } from '@/services/ai-authoring-types';
 
 export type AuthoringAuthFailure = {
@@ -27,9 +27,7 @@ export type AuthoringAuthSuccess = {
   questionsCount: number;
   thumbnailCount: number;
   chatCount: number;
-  questionsCountRef: DocumentReference;
-  thumbnailCountRef: DocumentReference;
-  chatCountRef: DocumentReference;
+  supabase: SupabaseClient<Database>;
 };
 
 export async function authorizeAiAuthoringRequest(
@@ -65,48 +63,21 @@ export async function authorizeAiAuthoringRequest(
   }
 
   const access = assertAiAuthoringAccess(entitlements, verifiedUid);
-  const db = getAdminFirestore();
+  const supabase = createAdminClient();
   const todayStr = getJstTodayString();
 
-  const questionsCountRef = db
-    .collection('users')
-    .doc(verifiedUid)
-    .collection('dailyAiAuthoringCounts')
-    .doc(DAILY_AUTHORING_DOC_QUESTIONS);
-  const thumbnailCountRef = db
-    .collection('users')
-    .doc(verifiedUid)
-    .collection('dailyAiAuthoringCounts')
-    .doc(DAILY_AUTHORING_DOC_THUMBNAIL);
-  const chatCountRef = db
-    .collection('users')
-    .doc(verifiedUid)
-    .collection('dailyAiAuthoringCounts')
-    .doc(DAILY_AUTHORING_DOC_CHAT);
-
-  const [questionsSnap, thumbnailSnap, chatSnap] = await Promise.all([
-    questionsCountRef.get(),
-    thumbnailCountRef.get(),
-    chatCountRef.get(),
+  const [questionsCount, thumbnailCount, chatCount] = await Promise.all([
+    readDailyUsageCount(supabase, verifiedUid, DAILY_AUTHORING_DOC_QUESTIONS, todayStr),
+    readDailyUsageCount(supabase, verifiedUid, DAILY_AUTHORING_DOC_THUMBNAIL, todayStr),
+    readDailyUsageCount(supabase, verifiedUid, DAILY_AUTHORING_DOC_CHAT, todayStr),
   ]);
 
   return {
     access,
     todayStr,
-    questionsCount: readDailyAuthoringCount(
-      questionsSnap.data() as DailyAiAuthoringCountDoc | undefined,
-      todayStr
-    ),
-    thumbnailCount: readDailyAuthoringCount(
-      thumbnailSnap.data() as DailyAiAuthoringCountDoc | undefined,
-      todayStr
-    ),
-    chatCount: readDailyAuthoringCount(
-      chatSnap.data() as DailyAiAuthoringCountDoc | undefined,
-      todayStr
-    ),
-    questionsCountRef,
-    thumbnailCountRef,
-    chatCountRef,
+    questionsCount,
+    thumbnailCount,
+    chatCount,
+    supabase,
   };
 }

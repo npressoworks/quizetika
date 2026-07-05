@@ -12,7 +12,6 @@ import {
   MIXED_ALLOWED_QUESTION_TYPES,
   type AiAuthoringUsage,
   type AssertAiAuthoringAccessResult,
-  type DailyAiAuthoringCountDoc,
   type MixedAllowedQuestionType,
 } from '@/services/ai-authoring-types';
 
@@ -36,14 +35,6 @@ export function getJstTodayString(): string {
   const mm = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(jstDate.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
-}
-
-export function readDailyAuthoringCount(
-  data: DailyAiAuthoringCountDoc | undefined,
-  todayStr: string
-): number {
-  if (!data || data.lastUpdatedDate !== todayStr) return 0;
-  return data.count ?? 0;
 }
 
 export function buildAuthoringUsage(

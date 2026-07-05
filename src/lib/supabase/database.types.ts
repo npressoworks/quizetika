@@ -342,6 +342,35 @@ export type Database = {
           },
         ]
       }
+      daily_usage_counters: {
+        Row: {
+          count: number
+          counter_date: string
+          counter_key: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          counter_date: string
+          counter_key: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          counter_date?: string
+          counter_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_usage_counters_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       difficulty_votes: {
         Row: {
           created_at: string
@@ -1583,6 +1612,10 @@ export type Database = {
           p_quiz_id: string
         }
         Returns: undefined
+      }
+      handle_increment_daily_usage_counter: {
+        Args: { p_counter_key: string; p_today: string; p_user_id: string }
+        Returns: number
       }
       handle_record_ai_turn: {
         Args: {

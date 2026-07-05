@@ -91,3 +91,31 @@
   - BANユーザーからのAPIリクエスト・ログインアクセスが既存の `is_not_banned()` ベースの多重防御により引き続き拒否されることを確認する
   - _Requirements: 1.3, 3.1_
   - _Depends: 3.1_
+
+- [x] 4. 残存する直接 Firestore 依存の排除およびAI作問利用制限機能の移行
+- [x] 4.1 (P) モデレーション・ガバナンスUIの残存 Firestore 依存を解消する
+  - `src/app/admin/moderation/page.tsx`、`src/app/community/genres/page.tsx`、`src/app/community/merge/page.tsx` の Firestore クライアントSDK直接呼び出し（`onSnapshot` リアルタイム購読を含む）を、Supabase クライアント経由のデータ取得・更新に書き換える。`onSnapshot` の即時反映要件は Supabase Realtime 購読またはポーリングのいずれかで満たす
+  - `src/lib/seed-genres-access.ts` の Firestore `getDoc` による管理者権限チェックを、既存の `is_admin()` 判定（Supabase RPC/クエリ）に統一する
+  - 成果物確認: 対象4ファイルが firebase パッケージおよび `@/lib/firebase/*` を import しなくなり、モデレーション一覧・マージ申請・ジャンル新設申請の画面が既存の期待値どおりに動作すること
+  - _Requirements: 8.1, 8.2_
+  - _Boundary: admin/moderation page.tsx, community/genres page.tsx, community/merge page.tsx, seed-genres-access.ts_
+
+- [x] 4.2 (P) ジャンルアイコン生成APIの残存 Firestore 依存を解消する
+  - `src/app/api/genres/generate-icon/route.ts` の `getAdminFirestore` による日次生成回数カウンタを Supabase のテーブルに書き換える
+  - 成果物確認: `src/app/api/genres/generate-icon/route.ts` が firebase-admin パッケージおよび `@/lib/firebase/admin` を import しなくなり、日次上限判定が既存の期待値どおりに動作すること
+  - _Requirements: 8.1_
+  - _Boundary: genres/generate-icon route_
+
+- [x] 4.3 (P) AI作問日次利用制限機能をSupabaseへ移行する
+  - `src/services/ai-authoring-route-helpers.ts` の `users/{uid}/dailyAiAuthoringCounts` サブコレクション参照を、Supabase の新設テーブル（ユーザーごとの日次カウンタ）への読み書きに書き換える。既存の `resolveUserEntitlements`（`entitlement.ts`）呼び出しはそのまま維持する
+  - `src/app/api/quiz/ai-chat-authoring/route.ts`、`src/app/api/quiz/ai-generate-questions/route.ts`、`src/app/api/quiz/ai-generate-thumbnail/route.ts` の `getAdminFirestore` によるカウンタ更新を、書き換え後の Supabase ベースの関数呼び出しに置き換える
+  - 成果物確認: 対象4ファイルが firebase-admin パッケージおよび `@/lib/firebase/admin` を import しなくなり、日次利用制限（チャット・問題生成・サムネイル生成それぞれ）が既存の期待値どおりに動作すること
+  - _Requirements: 8.3_
+  - _Boundary: ai-authoring-route-helpers.ts, ai-chat-authoring route, ai-generate-questions route, ai-generate-thumbnail route_
+
+- [x] 4.4 リグレッション確認
+  - Jest テストスイート全体および関連 E2E テストを実行する
+  - `supabase-cleanup` の MigrationCompletionGate（`npm run verify:firebase-removed`）を再実行し、本タスクで対応した全ファイルが残存 Firebase 参照として検出されなくなったことを確認する
+  - 成果物確認: 全テストがパスし、ゲートの再実行結果から対象ファイルが消えていること
+  - _Requirements: 8.1, 8.2, 8.3_
+  - _Depends: 4.1, 4.2, 4.3_

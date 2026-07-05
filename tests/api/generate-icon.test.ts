@@ -1,58 +1,39 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
-
 import { NextRequest } from 'next/server';
 
 const mockVerify = jest.fn();
 const mockGenerateContent = jest.fn();
+const mockUsersMaybeSingle = jest.fn();
+const mockCounterMaybeSingle = jest.fn();
+const mockRpc = jest.fn();
 
-const mockUserRef = {
-  get: jest.fn(),
-};
-
-const mockLimitRef = {
-  get: jest.fn(),
-};
-
-const mockRunTransaction = jest.fn(async (fn: (tx: any) => Promise<any>) => {
-  const mockTx = {
-    get: jest.fn(async (ref: any) => {
-      return ref.get();
-    }),
-    set: jest.fn(),
-  };
-  return await fn(mockTx);
-});
-
-const mockDb = {
-  collection: jest.fn((name: string) => {
-    if (name === 'users') {
+const mockSupabaseAdmin = {
+  from: jest.fn((table: string) => {
+    if (table === 'users') {
       return {
-        doc: jest.fn((uid: string) => ({
-          get: () => mockUserRef.get(),
-          collection: jest.fn((sub: string) => {
-            if (sub === 'authoring_limits') {
-              return {
-                doc: jest.fn((docId: string) => {
-                  if (docId === 'genre-icon') {
-                    return mockLimitRef;
-                  }
-                  return { get: jest.fn() };
-                }),
-              };
-            }
-            return { doc: jest.fn() };
-          }),
-        })),
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: mockUsersMaybeSingle,
       };
     }
-    return { doc: jest.fn() };
+    if (table === 'daily_usage_counters') {
+      return {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        maybeSingle: mockCounterMaybeSingle,
+      };
+    }
+    throw new Error(`unexpected table: ${table}`);
   }),
-  runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
+  rpc: mockRpc,
 };
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
   extractBearerToken: () => 'valid-token',
   verifySupabaseAccessToken: (token: any) => mockVerify(token),
+}));
+
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => mockSupabaseAdmin,
 }));
 
 jest.mock('@google/genai', () => ({
@@ -61,10 +42,6 @@ jest.mock('@google/genai', () => ({
       generateContent: (options: any) => mockGenerateContent(options),
     },
   })),
-}));
-
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => mockDb,
 }));
 
 const mockUploadTemporaryGenreIconBuffer = jest.fn();
@@ -88,14 +65,15 @@ describe('AI Genre Icon API Suite', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockVerify.mockResolvedValue('uid-user');
-    mockUserRef.get.mockResolvedValue({
-      exists: true,
-      data: () => ({ role: 'user', moderationTier: 'none' }),
+    mockUsersMaybeSingle.mockResolvedValue({
+      data: { role: 'user', moderation_tier: 'newcomer' },
+      error: null,
     });
-    mockLimitRef.get.mockResolvedValue({
-      exists: true,
-      data: () => ({ count: 0, lastUpdatedDate: '2026-06-18' }),
+    mockCounterMaybeSingle.mockResolvedValue({
+      data: { count: 0, counter_date: '2026-06-18' },
+      error: null,
     });
+    mockRpc.mockResolvedValue({ data: 1, error: null });
     mockGenerateContent.mockResolvedValue({
       candidates: [
         {
@@ -136,6 +114,11 @@ describe('AI Genre Icon API Suite', () => {
       });
 
       expect(mockUploadTemporaryGenreIconBuffer).toHaveBeenCalledTimes(1);
+      expect(mockRpc).toHaveBeenCalledWith('handle_increment_daily_usage_counter', {
+        p_user_id: 'uid-user',
+        p_counter_key: 'genre-icon',
+        p_today: '2026-06-18',
+      });
     });
 
     test('バリデーションエラー: displayNameまたはdescriptionがない場合は400', async () => {
@@ -152,9 +135,9 @@ describe('AI Genre Icon API Suite', () => {
     });
 
     test('制限エラー: 1日5回の上限に達した一般ユーザーは429', async () => {
-      mockLimitRef.get.mockResolvedValue({
-        exists: true,
-        data: () => ({ count: 5, lastUpdatedDate: '2026-06-18' }),
+      mockCounterMaybeSingle.mockResolvedValue({
+        data: { count: 5, counter_date: '2026-06-18' },
+        error: null,
       });
 
       const res = await generateIconPOST(
@@ -165,7 +148,32 @@ describe('AI Genre Icon API Suite', () => {
         })
       );
       expect(res.status).toBe(429);
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
+
+    test('管理者は日次上限を超えても画像生成でき、usage.limit は null になる', async () => {
+      mockUsersMaybeSingle.mockResolvedValue({
+        data: { role: 'admin', moderation_tier: 'newcomer' },
+        error: null,
+      });
+      mockCounterMaybeSingle.mockResolvedValue({
+        data: { count: 99, counter_date: '2026-06-18' },
+        error: null,
+      });
+      mockUploadTemporaryGenreIconBuffer.mockResolvedValue('https://example.com/icon.png');
+
+      const res = await generateIconPOST(
+        makeRequest({
+          displayName: '歴史',
+          description: '説明文',
+          userId: 'uid-user',
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.usage.limit).toBeNull();
+      expect(mockRpc).not.toHaveBeenCalled();
     });
   });
 });
-

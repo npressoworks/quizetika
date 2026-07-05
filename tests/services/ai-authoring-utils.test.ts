@@ -3,23 +3,9 @@ import {
   PRO_DAILY_QUESTION_GENERATION_LIMIT,
   checkDailyAuthoringLimit,
   mapAiJsonToQuestions,
-  readDailyAuthoringCount,
   readDailyAuthoringUsage,
-  getJstTodayString,
   MIXED_ALLOWED_QUESTION_TYPES,
 } from '@/services/ai-authoring-utils';
-
-describe('readDailyAuthoringCount', () => {
-  const today = getJstTodayString();
-
-  test('日付不一致時は 0 を返す', () => {
-    expect(readDailyAuthoringCount({ count: 5, lastUpdatedDate: '2000-01-01' }, today)).toBe(0);
-  });
-
-  test('同日の count を返す', () => {
-    expect(readDailyAuthoringCount({ count: 12, lastUpdatedDate: today }, today)).toBe(12);
-  });
-});
 
 describe('checkDailyAuthoringLimit', () => {
   test('免除時は exceeded false で無制限表示', () => {

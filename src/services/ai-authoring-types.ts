@@ -33,11 +33,6 @@ export interface AssertAiAuthoringAccessResult {
   skipDailyLimit: boolean;
 }
 
-export interface DailyAiAuthoringCountDoc {
-  count?: number;
-  lastUpdatedDate?: string;
-}
-
 export interface AiGenerateQuestionsRequest {
   prompt: string;
   format: QuizFormat;

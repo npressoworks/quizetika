@@ -15,7 +15,8 @@ import {
 } from '@/services/ai-authoring-utils';
 import { validateGeneratedQuestions } from '@/services/quiz-validation';
 import type { QuizFormat } from '@/lib/quiz-format';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { incrementDailyUsageCount } from '@/lib/daily-usage-counters';
+import { DAILY_AUTHORING_DOC_QUESTIONS } from '@/services/ai-authoring-utils';
 
 export const maxDuration = 60;
 
@@ -294,16 +295,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const nextCount = auth.questionsCount + 1;
-
-    await db.runTransaction(async (transaction) => {
-      transaction.set(
-        auth.questionsCountRef,
-        { count: nextCount, lastUpdatedDate: auth.todayStr },
-        { merge: true }
-      );
-    });
+    const nextCount = await incrementDailyUsageCount(
+      auth.supabase,
+      auth.access.uid,
+      DAILY_AUTHORING_DOC_QUESTIONS,
+      auth.todayStr
+    );
 
     const afterLimit = checkDailyAuthoringLimit(
       nextCount,

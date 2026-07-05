@@ -17,18 +17,12 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CircularProgress } from '@mui/material';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { resolveFlag } from '@/services/moderation';
 import { assertSeedGenresAccess } from '@/lib/seed-genres-access';
+import { mapRowToQuiz, type QuizRowWithRelations } from '@/services/quiz';
 import { Quiz } from '@/types';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -60,6 +54,8 @@ interface ModerationQueueItem {
 }
 
 type PendingAction = { quizId: string; action: 'restore' | 'delete' } | null;
+
+const supabase = createClient();
 
 export default function AdminModerationPage() {
   const { user, firebaseUser, loading } = useAuth();
@@ -98,33 +94,43 @@ export default function AdminModerationPage() {
     const fetchQueue = async () => {
       setFetchLoading(true);
       try {
-        const quizzesQuery = query(
-          collection(db, 'quizzes'),
-          where('status', '==', 'suspended'),
-          orderBy('flagsCount', 'desc'),
-        );
-        const quizzesSnap = await getDocs(quizzesQuery);
-        const quizzes = quizzesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Quiz));
+        const { data: quizRows, error: quizError } = await supabase
+          .from('quizzes')
+          .select('*')
+          .eq('status', 'suspended')
+          .order('flags_count', { ascending: false });
 
-        const items: ModerationQueueItem[] = await Promise.all(
-          quizzes.map(async (quiz) => {
-            const flagsQuery = query(
-              collection(db, 'flags'),
-              where('quizId', '==', quiz.id),
-            );
-            const flagsSnap = await getDocs(flagsQuery);
-            const flags = flagsSnap.docs.map(
-              (d) =>
-                ({
-                  id: d.id,
-                  ...d.data(),
-                }) as FlagDetail,
-            );
-            return { quiz, flags };
-          }),
-        );
+        if (quizError) throw quizError;
 
-        setQueueItems(items);
+        const quizzes = (quizRows ?? []).map((row) =>
+          mapRowToQuiz(row as QuizRowWithRelations),
+        );
+        const quizIds = quizzes.map((quiz) => quiz.id);
+
+        const { data: flagRows, error: flagError } =
+          quizIds.length > 0
+            ? await supabase.from('flags').select('*').in('quiz_id', quizIds)
+            : { data: [], error: null };
+
+        if (flagError) throw flagError;
+
+        const flagsByQuizId = new Map<string, FlagDetail[]>();
+        for (const row of flagRows ?? []) {
+          const detail: FlagDetail = {
+            id: row.id,
+            quizId: row.quiz_id,
+            reporterId: row.reporter_id,
+            reason: row.reason,
+            createdAt: new Date(row.created_at),
+          };
+          const list = flagsByQuizId.get(row.quiz_id) ?? [];
+          list.push(detail);
+          flagsByQuizId.set(row.quiz_id, list);
+        }
+
+        setQueueItems(
+          quizzes.map((quiz) => ({ quiz, flags: flagsByQuizId.get(quiz.id) ?? [] })),
+        );
       } catch (err) {
         console.error('審査キューの取得に失敗しました:', err);
         setErrorMessage('審査キューの読み込みに失敗しました。');
@@ -191,9 +197,7 @@ export default function AdminModerationPage() {
       if (!res.ok) {
         throw new Error(
           data.message ||
-            (data.error === 'admin-not-configured'
-              ? 'サーバーに Firebase サービスアカウントが未設定です。.env.local に FIREBASE_SERVICE_ACCOUNT_JSON を設定してください。'
-              : data.error) ||
+            data.error ||
             '初期ジャンルの一括投入に失敗しました。',
         );
       }
@@ -290,7 +294,7 @@ export default function AdminModerationPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              `src/data/initial_genres.json` に定義された標準ジャンルを Firestore の
+              `src/data/initial_genres.json` に定義された標準ジャンルを
               metadata_genres へ冪等に登録します。
             </p>
             {seedSuccessMessage && (

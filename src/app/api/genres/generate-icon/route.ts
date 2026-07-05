@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
-import { getAdminFirestore } from '@/lib/firebase/admin';
+import { createAdminClient } from '@/lib/supabase/server';
 import { getJstTodayString, buildAuthoringUsage } from '@/services/ai-authoring-utils';
 import { uploadTemporaryGenreIconBuffer } from '@/services/storage-admin';
+import { readDailyUsageCount, incrementDailyUsageCount } from '@/lib/daily-usage-counters';
 
 export const maxDuration = 60;
 
 const imageModelId =
   process.env.GEMINI_IMAGE_MODEL_ID ?? 'gemini-2.5-flash-image';
 
+const GENRE_ICON_COUNTER_KEY = 'genre-icon';
 const DAILY_LIMIT = 5;
 
 function buildIconPrompt(displayName: string, description: string): string {
@@ -63,58 +65,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const db = getAdminFirestore();
-    const userSnap = await db.collection('users').doc(verifiedUid).get();
-    if (!userSnap.exists) {
+    const supabase = createAdminClient();
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('role, moderation_tier')
+      .eq('id', verifiedUid)
+      .maybeSingle();
+
+    if (!userRow) {
       return NextResponse.json(
         { error: 'unauthorized', message: 'ユーザーが存在しません' },
         { status: 401 }
       );
     }
 
-    const userData = userSnap.data();
-    const role = userData?.role;
-    const moderationTier = userData?.moderationTier;
-    const isAdmin = role === 'admin' || moderationTier === 'admin';
-
+    const isAdmin = userRow.role === 'admin' || userRow.moderation_tier === 'admin';
     const todayStr = getJstTodayString();
-    const limitRef = db
-      .collection('users')
-      .doc(verifiedUid)
-      .collection('authoring_limits')
-      .doc('genre-icon');
 
     let currentCount = 0;
-
     if (!isAdmin) {
-      // 一般ユーザーのみトランザクションで制限チェックと更新を行う
-      const limitExceeded = await db.runTransaction(async (transaction) => {
-        const limitSnap = await transaction.get(limitRef);
-        let count = 0;
-        let lastUpdatedDate = todayStr;
+      currentCount = await readDailyUsageCount(
+        supabase,
+        verifiedUid,
+        GENRE_ICON_COUNTER_KEY,
+        todayStr
+      );
 
-        if (limitSnap.exists) {
-          const data = limitSnap.data();
-          if (data && data.lastUpdatedDate === todayStr) {
-            count = data.count ?? 0;
-          }
-        }
-
-        if (count >= DAILY_LIMIT) {
-          currentCount = count;
-          return true; // 制限超過
-        }
-
-        currentCount = count + 1;
-        transaction.set(
-          limitRef,
-          { count: currentCount, lastUpdatedDate },
-          { merge: true }
-        );
-        return false;
-      });
-
-      if (limitExceeded) {
+      if (currentCount >= DAILY_LIMIT) {
         return NextResponse.json(
           {
             error: 'limit-exceeded',
@@ -142,21 +119,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       imageBuffer = extractImageBuffer(response);
     } catch (aiError) {
       console.error('[generate-icon] GenAI API エラー:', aiError);
-
-      // AIエラー時は、一般ユーザーであれば増やしてしまったカウンターを元に戻す
-      if (!isAdmin) {
-        await db.runTransaction(async (transaction) => {
-          const limitSnap = await transaction.get(limitRef);
-          if (limitSnap.exists) {
-            const data = limitSnap.data();
-            if (data && data.lastUpdatedDate === todayStr) {
-              const count = Math.max(0, (data.count ?? 1) - 1);
-              transaction.set(limitRef, { count }, { merge: true });
-            }
-          }
-        });
-      }
-
       return NextResponse.json(
         { error: 'ai-unavailable', message: '画像の生成に失敗しました。しばらくしてから再度お試しください' },
         { status: 503 }
@@ -164,20 +126,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (!imageBuffer) {
-      // 生成失敗時も同様にカウンターを戻す
-      if (!isAdmin) {
-        await db.runTransaction(async (transaction) => {
-          const limitSnap = await transaction.get(limitRef);
-          if (limitSnap.exists) {
-            const data = limitSnap.data();
-            if (data && data.lastUpdatedDate === todayStr) {
-              const count = Math.max(0, (data.count ?? 1) - 1);
-              transaction.set(limitRef, { count }, { merge: true });
-            }
-          }
-        });
-      }
-
       return NextResponse.json(
         { error: 'ai-unavailable', message: '画像の生成に失敗しました' },
         { status: 503 }
@@ -185,7 +133,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const iconImageUrl = await uploadTemporaryGenreIconBuffer(imageBuffer, verifiedUid);
-    const usage = buildAuthoringUsage(currentCount, DAILY_LIMIT, isAdmin);
+
+    const nextCount = isAdmin
+      ? currentCount
+      : await incrementDailyUsageCount(supabase, verifiedUid, GENRE_ICON_COUNTER_KEY, todayStr);
+    const usage = buildAuthoringUsage(nextCount, DAILY_LIMIT, isAdmin);
 
     return NextResponse.json({
       iconImageUrl,

@@ -4,36 +4,33 @@ import { NextRequest } from 'next/server';
 const mockVerify = jest.fn();
 const mockResolveEntitlements = jest.fn();
 
-const mockQuestionsSnap = { data: () => ({ count: 2, lastUpdatedDate: '2026-06-10' }) };
-const mockThumbnailSnap = { data: () => ({ count: 1, lastUpdatedDate: '2026-06-10' }) };
-const mockChatSnap = { data: () => ({ count: 3, lastUpdatedDate: '2026-06-10' }) };
+const counterState: Record<string, { count: number; counter_date: string }> = {
+  questions: { count: 2, counter_date: '2026-06-10' },
+  thumbnail: { count: 1, counter_date: '2026-06-10' },
+  chat: { count: 3, counter_date: '2026-06-10' },
+};
 
-const mockQuestionsRef = { get: jest.fn(async () => mockQuestionsSnap) };
-const mockThumbnailRef = { get: jest.fn(async () => mockThumbnailSnap) };
-const mockChatRef = { get: jest.fn(async () => mockChatSnap) };
+function createCounterTableMock() {
+  let queriedKey: string | undefined;
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn((column: string, value: string) => {
+      if (column === 'counter_key') queriedKey = value;
+      return chain;
+    }),
+    maybeSingle: jest.fn(() =>
+      Promise.resolve({ data: (queriedKey && counterState[queriedKey]) ?? null, error: null })
+    ),
+  };
+  return chain;
+}
 
-const mockDb = {
-  collection: jest.fn((name: string) => {
-    if (name === 'users') {
-      return {
-        doc: jest.fn(() => ({
-          collection: jest.fn((sub: string) => {
-            if (sub === 'dailyAiAuthoringCounts') {
-              return {
-                doc: jest.fn((docId: string) => {
-                  if (docId === 'questions') return mockQuestionsRef;
-                  if (docId === 'thumbnail') return mockThumbnailRef;
-                  return mockChatRef;
-                }),
-              };
-            }
-            return { doc: jest.fn() };
-          }),
-        })),
-      };
-    }
-    return { doc: jest.fn() };
+const mockSupabaseAdmin = {
+  from: jest.fn((table: string) => {
+    if (table !== 'daily_usage_counters') throw new Error(`unexpected table: ${table}`);
+    return createCounterTableMock();
   }),
+  rpc: jest.fn(),
 };
 
 jest.mock('@/lib/supabase/auth-verify', () => ({
@@ -45,8 +42,8 @@ jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (...args: unknown[]) => mockResolveEntitlements(...args),
 }));
 
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => mockDb,
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => mockSupabaseAdmin,
 }));
 
 jest.mock('@/services/ai-authoring-utils', () => {

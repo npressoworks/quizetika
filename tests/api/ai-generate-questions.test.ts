@@ -5,34 +5,38 @@ import { AI_QUIZ_QUESTION_COUNT } from '@/services/ai-authoring-utils';
 const mockVerify = jest.fn();
 const mockResolveEntitlements = jest.fn();
 const mockGenerateContent = jest.fn();
-const mockRunTransaction = jest.fn(async (fn: (tx: { set: jest.Mock }) => Promise<void>) => {
-  await fn({ set: jest.fn() });
+
+let counterState: Record<string, { count: number; counter_date: string } | undefined> = {};
+
+function createCounterTableMock() {
+  let queriedKey: string | undefined;
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn((column: string, value: string) => {
+      if (column === 'counter_key') queriedKey = value;
+      return chain;
+    }),
+    maybeSingle: jest.fn(() =>
+      Promise.resolve({ data: (queriedKey && counterState[queriedKey]) ?? null, error: null })
+    ),
+  };
+  return chain;
+}
+
+const mockRpc = jest.fn((_fnName: string, params: any) => {
+  const key = params.p_counter_key as string;
+  const current = counterState[key];
+  const next = current && current.counter_date === params.p_today ? current.count + 1 : 1;
+  counterState[key] = { count: next, counter_date: params.p_today };
+  return Promise.resolve({ data: next, error: null });
 });
 
-const mockQuestionsRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
-const mockThumbnailRef = { get: jest.fn(async () => ({ data: () => ({ count: 0, lastUpdatedDate: '2026-06-10' }) })) };
-
-const mockDb = {
-  collection: jest.fn((name: string) => {
-    if (name === 'users') {
-      return {
-        doc: jest.fn(() => ({
-          collection: jest.fn((sub: string) => {
-            if (sub === 'dailyAiAuthoringCounts') {
-              return {
-                doc: jest.fn((docId: string) =>
-                  docId === 'questions' ? mockQuestionsRef : mockThumbnailRef
-                ),
-              };
-            }
-            return { doc: jest.fn() };
-          }),
-        })),
-      };
-    }
-    return { doc: jest.fn() };
+const mockSupabaseAdmin = {
+  from: jest.fn((table: string) => {
+    if (table !== 'daily_usage_counters') throw new Error(`unexpected table: ${table}`);
+    return createCounterTableMock();
   }),
-  runTransaction: (updateFn: any) => mockRunTransaction(updateFn),
+  rpc: mockRpc,
 };
 
 function makeGeminiQuestions() {
@@ -75,8 +79,8 @@ jest.mock('@google/generative-ai', () => ({
   },
 }));
 
-jest.mock('@/lib/firebase/admin', () => ({
-  getAdminFirestore: () => mockDb,
+jest.mock('@/lib/supabase/server', () => ({
+  createAdminClient: () => mockSupabaseAdmin,
 }));
 
 jest.mock('@/services/ai-authoring-utils', () => {
@@ -90,6 +94,11 @@ jest.mock('@/services/ai-authoring-utils', () => {
 describe('POST /api/quiz/ai-generate-questions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    counterState = {
+      questions: { count: 0, counter_date: '2026-06-10' },
+      thumbnail: { count: 0, counter_date: '2026-06-10' },
+      chat: { count: 0, counter_date: '2026-06-10' },
+    };
     mockVerify.mockResolvedValue('uid-pro');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
@@ -119,6 +128,11 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     const body = await res.json();
     expect(body.questions).toHaveLength(AI_QUIZ_QUESTION_COUNT);
     expect(body.usage).toBeDefined();
+    expect(mockRpc).toHaveBeenCalledWith('handle_increment_daily_usage_counter', {
+      p_user_id: 'uid-pro',
+      p_counter_key: 'questions',
+      p_today: '2026-06-10',
+    });
   });
 
   test('非 Pro は 403', async () => {
@@ -142,9 +156,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
       hasPaidEntitlements: true,
       hasUnlimitedAiQuestions: false,
     });
-    mockQuestionsRef.get.mockResolvedValue({
-      data: () => ({ count: 100, lastUpdatedDate: '2026-06-10' }),
-    });
+    counterState.questions = { count: 100, counter_date: '2026-06-10' };
     const res = await POST(
       makeRequest({
         prompt: '歴史クイズ',
@@ -153,6 +165,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
       })
     );
     expect(res.status).toBe(429);
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   test('検証失敗は 422', async () => {
@@ -201,7 +214,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     expect(mockGenerateContent).toHaveBeenCalled();
     const callArgs = mockGenerateContent.mock.calls[0][0];
     const schema = callArgs.generationConfig.responseSchema.items;
-    
+
     // sorting 形式のプロパティから choices と correctTextAnswerList が排除されていることを検証
     expect(schema.properties.sortingItems).toBeDefined();
     expect(schema.properties.choices).toBeUndefined();
@@ -243,7 +256,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     // anyOf が定義されており、各タイプが含まれていることを検証
     expect(schema.anyOf).toBeDefined();
     expect(schema.anyOf).toHaveLength(5);
-    
+
     const types = schema.anyOf.map((sub: any) => sub.properties.type.enum[0]);
     expect(types).toContain('multiple-choice');
     expect(types).toContain('true-false');
