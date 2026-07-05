@@ -420,7 +420,7 @@ export type Database = {
           created_at: string
           creator_id: string
           id: string
-          question_id: string
+          question_id: string | null
           question_text: string
           quiz_id: string
           quiz_title: string
@@ -434,7 +434,7 @@ export type Database = {
           created_at?: string
           creator_id: string
           id?: string
-          question_id: string
+          question_id?: string | null
           question_text: string
           quiz_id: string
           quiz_title: string
@@ -448,7 +448,7 @@ export type Database = {
           created_at?: string
           creator_id?: string
           id?: string
-          question_id?: string
+          question_id?: string | null
           question_text?: string
           quiz_id?: string
           quiz_title?: string

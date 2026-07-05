@@ -1,14 +1,16 @@
 const mockGetSession = jest.fn();
+const mockSignOut = jest.fn();
 
 jest.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: {
       getSession: mockGetSession,
+      signOut: mockSignOut,
     },
   }),
 }));
 
-import { getSupabaseAccessToken } from '@/lib/supabase/auth';
+import { getSupabaseAccessToken, signOut } from '@/lib/supabase/auth';
 
 describe('getSupabaseAccessToken', () => {
   beforeEach(() => {
@@ -27,5 +29,19 @@ describe('getSupabaseAccessToken', () => {
     mockGetSession.mockResolvedValue({ data: { session: null } });
 
     await expect(getSupabaseAccessToken()).resolves.toBeNull();
+  });
+});
+
+describe('signOut', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('scope: local を指定してサインアウトすること（他デバイス・他ブラウザのセッションを巻き込んで失効させないため）', async () => {
+    mockSignOut.mockResolvedValue({ error: null });
+
+    await signOut();
+
+    expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 });

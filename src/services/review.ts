@@ -42,14 +42,18 @@ export async function submitFeedbackReport(
   report: Omit<FeedbackReport, 'id' | 'status' | 'createdAt'>
 ): Promise<void> {
   // 事前のEXISTS判定で冪等に振る舞う（部分ユニークインデックス違反を例外として扱わない）
-  const { data: existingOpenReport } = await supabase
+  // question_id が null（クイズ全体への指摘）の場合、PostgRESTの仕様上 .eq() では
+  // NULL を正しく照合できないため .is() を使用する
+  let existingReportQuery = supabase
     .from('feedback_reports')
     .select('id')
     .eq('quiz_id', report.quizId)
-    .eq('question_id', report.questionId)
     .eq('reporter_id', report.reporterId)
-    .eq('status', 'open')
-    .maybeSingle();
+    .eq('status', 'open');
+  existingReportQuery = report.questionId === null
+    ? existingReportQuery.is('question_id', null)
+    : existingReportQuery.eq('question_id', report.questionId);
+  const { data: existingOpenReport } = await existingReportQuery.maybeSingle();
 
   if (existingOpenReport) {
     // 同一 (quiz_id, question_id, reporter_id) の未解決報告が既にあるため、重複登録しない

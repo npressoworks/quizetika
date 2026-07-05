@@ -473,7 +473,7 @@ export function QuizResultClient({
       return;
     }
     setSelectedQuestion(q);
-    const targetId = q ? q.id : 'unknown';
+    const targetId = q ? q.id : null;
     const existingReport = openReports.find((r) => r.questionId === targetId);
     if (existingReport) {
       setFeedbackCategory(existingReport.category);
@@ -561,7 +561,7 @@ export function QuizResultClient({
 
     setFeedbackLoading(true);
     try {
-      const targetQuestionId = selectedQuestion ? selectedQuestion.id : 'unknown';
+      const targetQuestionId = selectedQuestion ? selectedQuestion.id : null;
       const existingReport = openReports.find((r) => r.questionId === targetQuestionId);
 
       if (existingReport && existingReport.id) {
@@ -844,15 +844,15 @@ export function QuizResultClient({
         {/* 指摘・通報ボタン */}
         <div className={styles.actionBtnRow}>
           <button
-            className={`btn ${openReports.some((r) => r.questionId === 'unknown') ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn ${openReports.some((r) => r.questionId === null) ? 'btn-primary' : 'btn-secondary'}`}
             style={{
               flex: 1,
-              ...(openReports.some((r) => r.questionId === 'unknown') ? { background: '#ffb703', borderColor: '#ffb703', color: '#1a1a2e' } : {})
+              ...(openReports.some((r) => r.questionId === null) ? { background: '#ffb703', borderColor: '#ffb703', color: '#1a1a2e' } : {})
             }}
             onClick={() => openFeedbackModal(null)}
             disabled={!online}
           >
-            <SmsOutlined sx={{ fontSize: 16 }} /> {openReports.some((r) => r.questionId === 'unknown') ? 'クイズ全体の指摘 (指摘済)' : 'クイズ全体の指摘'}
+            <SmsOutlined sx={{ fontSize: 16 }} /> {openReports.some((r) => r.questionId === null) ? 'クイズ全体の指摘 (指摘済)' : 'クイズ全体の指摘'}
           </button>
           <button
             className="btn btn-secondary"

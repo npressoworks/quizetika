@@ -4,7 +4,9 @@ test.describe('特権管理者ユーザー評判管理 E2Eテスト', () => {
 
   test('非管理者ユーザーでのアクセス制限確認', async ({ page }) => {
     // 1. 管理者ユーザー以外の状態でアクセスを試みる
-    // (E2Eテストログインボタンでログインされるデフォルトユーザーがadmin権限を持たない場合を想定)
+    // (chromiumプロジェクトはauth.setup.tsで保存した管理者ユーザーのstorageStateを
+    //  全テストで共有しているため、このテストでは明示的にCookieをクリアして未認証状態を再現する)
+    await page.context().clearCookies();
     await page.goto('/admin/users');
     
     // アクセス拒否されて /not-found に遷移するか、404表示になることを確認

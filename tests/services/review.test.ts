@@ -16,6 +16,7 @@ const createChainMock = (resolveValue: any) => {
   const chain: any = {
     select: jest.fn(() => chain),
     eq: jest.fn(() => chain),
+    is: jest.fn(() => chain),
     in: jest.fn(() => chain),
     order: jest.fn(() => chain),
     insert: jest.fn(() => chain),
@@ -34,6 +35,7 @@ jest.mock('@/lib/supabase/client', () => {
     from: jest.fn(() => mock),
     select: jest.fn(() => mock),
     eq: jest.fn(() => mock),
+    is: jest.fn(() => mock),
     in: jest.fn(() => mock),
     order: jest.fn(() => mock),
     insert: jest.fn(() => mock),
@@ -296,6 +298,31 @@ describe('ReviewService - submitFeedbackReport', () => {
     await submitFeedbackReport(selfReport);
 
     expect(createNotification).not.toHaveBeenCalled();
+  });
+
+  test('questionIdがnull（クイズ全体への指摘）の場合、questionId:nullでinsertされ、既存チェックにis()が使われること（question_idはUUID型のNOT NULL制約が撤廃されnull許容のため）', async () => {
+    const insertMock = jest.fn();
+    let isCallArgs: unknown[] | null = null;
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        const chain: any = createChainMock({ data: null, error: null });
+        chain.insert = insertMock.mockReturnValue(chain);
+        chain.is = jest.fn((...args: unknown[]) => {
+          isCallArgs = args;
+          return chain;
+        });
+        return chain;
+      }
+      return mockSupabase;
+    });
+
+    const wholeQuizReport = { ...mockReport, questionId: null };
+    await submitFeedbackReport(wholeQuizReport);
+
+    expect(isCallArgs).toEqual(['question_id', null]);
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({ question_id: null })
+    );
   });
 
   test('同一 (quiz_id, question_id, reporter_id) で既にopenの指摘が存在する場合、重複登録されないこと（冪等）', async () => {

@@ -358,7 +358,7 @@ export interface FeedbackReport {
   id: string;
   quizId: string;
   quizTitle: string;
-  questionId: string;
+  questionId: string | null; // 特定の問題に紐付かない「クイズ全体の指摘」は null
   questionText: string;
   selectedChoiceText?: string;
   reporterId: string;

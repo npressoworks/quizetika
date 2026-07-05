@@ -66,9 +66,14 @@ export async function signUpWithEmail(email: string, password: string) {
 
 /**
  * ログアウトを実行する
+ *
+ * scope: 'local' を指定し、このブラウザ/デバイスのセッションのみを終了する。
+ * デフォルトの scope: 'global' は同一ユーザーの全セッション（他デバイス）の
+ * リフレッシュトークンを一括失効させてしまうため、通常のログアウトボタンには適さない
+ * （BANによる強制ログアウトなど、全セッション終了が意図的に必要な場合を除く）。
  */
 export async function signOut() {
-  const { error } = await supabaseClient.auth.signOut();
+  const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
   return { error };
 }
 

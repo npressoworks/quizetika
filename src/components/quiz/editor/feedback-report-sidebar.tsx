@@ -69,7 +69,7 @@ export function FeedbackReportSidebar({
   };
 
   // 問題番号と文言の特定
-  const getQuestionInfo = (questionId: string) => {
+  const getQuestionInfo = (questionId: string | null) => {
     const idx = questions.findIndex((q) => q.id === questionId);
     if (idx === -1) return { indexLabel: '不明な問題', text: '' };
     const q = questions[idx];

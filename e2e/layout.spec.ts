@@ -165,7 +165,15 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(page.locator('nav').filter({ has: page.locator('[data-testid="bottom-nav-home"]') })).toBeHidden();
   });
 
-  test('Phase 28: PC sidebar collapse toggle, avatar popup, and profile nav link', async ({ page }) => {
+  test('Phase 28: PC sidebar collapse toggle, avatar popup, and profile nav link', async ({ browser }) => {
+    // このテストは末尾で実際にログアウト操作を行う。共有デフォルトの page
+    // (auth.setup.ts が保存した storageState = 全テスト共有の認証セッション) で
+    // ログアウトすると、そのセッション自体がサーバー側で失効し、同一セッションを
+    // 前提とする後続の全テストが軒並みログアウト状態になってしまう。
+    // そのため独立した未認証コンテキストを作成し、このテスト専用に再ログインする
+    const context = await browser.newContext({ storageState: undefined });
+    const page = await context.newPage();
+
     // PCサイズに設定
     await page.setViewportSize({ width: 1200, height: 800 });
     await page.goto('/');
@@ -190,13 +198,12 @@ test.describe('Responsive Navigation Layout', () => {
     await expect(sidebar).toHaveClass(/lg:w-\[275px\]/);
     await expect(wrapper).toHaveClass(/lg:pl-\[275px\]/);
 
-    // ログイン状態での検証
+    // ログイン状態での検証 (このコンテキストは未認証で開始しているため必ずログインする)
     await page.goto('/login');
     const loginBtn = page.locator('#e2e-test-login-btn');
-    if (await loginBtn.isVisible()) {
-      await loginBtn.click();
-      await page.waitForURL(/\/$/);
-    }
+    await expect(loginBtn).toBeVisible();
+    await loginBtn.click();
+    await page.waitForURL(/\/$/);
 
     // 1. 主要メニューのプロフィールリンクの検証
     const profileNavLink = page.getByTestId('nav-profile');
@@ -222,6 +229,8 @@ test.describe('Responsive Navigation Layout', () => {
     // ログアウト後にホームにリダイレクトされ、ログインボタンが表示されていること
     await page.waitForURL(/\/$/);
     await expect(page.locator('aside a:has-text("ログイン")')).toBeVisible();
+
+    await context.close();
   });
 });
 

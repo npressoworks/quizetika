@@ -4,6 +4,9 @@ test.describe('管理者メニューポータル E2Eテスト', () => {
 
   test('非管理者ユーザーでのアクセス制限確認', async ({ page }) => {
     // 1. 未ログイン状態で /admin へのアクセスを試みる
+    // (chromiumプロジェクトはauth.setup.tsで保存した管理者ユーザーのstorageStateを
+    //  全テストで共有しているため、このテストでは明示的にCookieをクリアして未認証状態を再現する)
+    await page.context().clearCookies();
     await page.goto('/admin');
     
     // アクセスが拒否されて /not-found または /login にリダイレクトされることを確認
