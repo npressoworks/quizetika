@@ -57,7 +57,7 @@
   - _Requirements: 4.1, 4.2_
   - _Boundary: DependencyAndConfigPurge (.env.local.example)_
 
-- [ ] 3. テストインフラの Supabase 単独構成への再編
+- [x] 3. テストインフラの Supabase 単独構成への再編
 
 - [x] 3.1 (P) Jest の Firebase 自動モックを除去する
   - `jest.config.js` の `moduleNameMapper` から `^firebase/(.*)$`, `firebase[\/]config$`, `firebase[\/]firestore$` の3エントリを削除する
@@ -107,7 +107,7 @@
   - _Requirements: 6.3, 6.4_
   - _Boundary: SteeringDocumentationSync (security.md)_
 
-- [ ] 5. 最終検証: 残存参照の再確認とビルド・テストゲート
+- [x] 5. 最終検証: 残存参照の再確認とビルド・テストゲート
 
 - [x] 5.1 MigrationCompletionGate を再実行し残存参照ゼロを確認する
   - タスク1で実装したツールの Stage B を再実行し、削除・更新作業完了後のソースツリーに Firebase 参照が残っていないことを確認する

@@ -27,7 +27,7 @@
 ## Boundary Commitments
 
 ### This Spec Owns
-- 前提条件（依存スペックの完了状態）と実コードの Firebase 参照有無を機械的に検証する `MigrationCompletionGate`（`scripts/verify-firebase-removed.mjs`）
+- 前提条件（依存スペックの完了状態）と実コードの Firebase 参照有無を機械的に検証する `MigrationCompletionGate`（`scripts/verify-firebase-removed.js`）
 - `firebase`/`firebase-admin`/`firebase-tools` パッケージおよび `package-lock.json` の除去
 - `src/lib/firebase/` および Firebase 設定ファイル（`.firebaserc`, `firebase.json`, `firestore.indexes.json`, `firestore.rules`, `storage.rules`）の削除
 - `.env.local.example` の Firebase エントリ除去
@@ -112,7 +112,7 @@ flowchart TD
 ### Directory Structure
 ```
 scripts/
-├── verify-firebase-removed.mjs   # 新規: MigrationCompletionGate 本体
+├── verify-firebase-removed.js    # 新規: MigrationCompletionGate 本体（CJS。Jest から require するため .js とした）
 ├── seed-test-data.mjs            # 削除: Firestore専用シード
 ├── reset-firestore.mjs           # 削除: Firestore専用リセット
 ├── migrate-delete-quizlists.mjs  # 削除: Firestore専用の一回限りデータ移行（実行済み・死んだコード）
@@ -244,7 +244,7 @@ flowchart TD
 - Idempotency & recovery: 読み取り専用のため何度でも安全に再実行できる。Fail 時は原因（未完了スペック名 or 残存ファイル一覧）を提示し、開発者が該当箇所を解消してから再実行する運用とする
 
 **Implementation Notes**
-- Integration: `package.json` に `"verify:firebase-removed": "node scripts/verify-firebase-removed.mjs"` を追加する
+- Integration: `package.json` に `"verify:firebase-removed": "node scripts/verify-firebase-removed.js"` を追加する
 - Validation: Stage B の検出ロジックは正規表現によるソースコード静的解析とし、実行時（require時）の動的解決には依存しない
 - Risks: 動的 import（`await import('firebase/firestore')` のような文字列変数化されたパス）を使うファイルがあると静的解析で見逃す可能性がある。`quiz-result-client.tsx` に動的 import の実例があるため、Stage B の実装では静的 import 文だけでなく `import\(['"]` パターンの動的 import も検出対象に含める
 
