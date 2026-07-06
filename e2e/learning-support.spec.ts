@@ -96,17 +96,14 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await expect(examNavBtn).toBeVisible();
 
     // 5. 正解の選択肢をクリックして回答
-    const correctChoice = page.locator('button[class*="optionBtn"]').filter({ hasText: '4' }).first()
-      .or(page.locator('button').filter({ hasText: '4' }).first())
-      .or(page.locator('text=4').first());
+    const correctChoice = page.locator('label').filter({ hasText: '4' }).first();
     await expect(correctChoice).toBeVisible({ timeout: 5000 });
     await correctChoice.click();
 
     // 解答を確定する
     const confirmBtn = page.getByRole('button', { name: '解答を確定する' }).first();
-    if (await confirmBtn.isVisible()) {
-      await confirmBtn.click();
-    }
+    await expect(confirmBtn).toBeVisible();
+    await confirmBtn.click();
 
     // 結果画面へ直接遷移することを確認
     await expect(page).toHaveURL(/\/result/, { timeout: 15000 });

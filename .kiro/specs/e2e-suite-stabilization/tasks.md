@@ -223,9 +223,9 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3_
   - _Boundary: DomainFixWorkflow (e2e/additional-features.spec.ts, 称号バッジ付与/フォロージャンル管理ロジック)_
 
-- [ ] 6. 最終検証: ベースラインとの差分比較によるゲート判定
+- [x] 6. 最終検証: ベースラインとの差分比較によるゲート判定
 
-- [ ] 6.1 FinalVerificationGateを実行しE2Eベースラインとの差分を確認する
+- [x] 6.1 FinalVerificationGateを実行しE2Eベースラインとの差分を確認する
   - Failure Ledger上の全50レコードが `fixed` または `deferred_out_of_scope` になっていることを確認する
   - ローカルSupabaseを `supabase db reset` した状態で `npm run test:e2e` を再実行し、新しい `playwright-report/results.json` を生成する
   - `npm run e2e:diff` を実行し、ベースライン時の `results.json` と比較して「新規修正」「未修正」「新規デグレード」を判定する
@@ -235,7 +235,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
   - _Depends: 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
 
-- [ ] 6.2 Jestスイート全体の最終確認を行う
+- [x] 6.2 Jestスイート全体の最終確認を行う
   - `npm run test` を実行し、Jestテストスイート全体（既存219スイート/1222テスト規模＋本スペックで追加したリグレッションテスト）が成功することを確認する
   - 観測可能な完了条件: `npm run test` が終了コード `0` で完了する
   - _Requirements: 5.5_
