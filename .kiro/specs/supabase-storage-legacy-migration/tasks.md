@@ -16,7 +16,7 @@
 
 - [ ] 2. 棚卸しと冪等フィルタの実装
 
-- [ ] 2.1 対象カラムの棚卸しクエリと既移行レコード除外ロジックを実装する
+- [x] 2.1 対象カラムの棚卸しクエリと既移行レコード除外ロジックを実装する
   - `src/services/legacy-storage-migration.ts` に `scanLegacyAssets()` を実装し、`LEGACY_STORAGE_TARGETS` の各カラムから `firebasestorage.googleapis.com` を含む値を持つレコードを検出する
   - 検出結果のうち、既存の `parseSupabasePublicUrl()`（`@/lib/storage-path`）でSupabase URL形式と判定できるレコードを除外する（冪等フィルタ）
   - 対象領域（テーブル/カラム）別のレコード件数を集計する機能を実装する
