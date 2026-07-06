@@ -143,7 +143,7 @@
   - __解消済みの旧既知課題__: 上記2件修正後に残存していた50/156件のE2E失敗（バッジ付与・管理者ポータル・ソーシャル機能・リーダーボード・学習支援・ストリーミングスケルトン・クイズ検索・SEO共有等）は、別スペック `e2e-suite-stabilization`（2026-07-05〜2026-07-06完結）で全件根本原因調査・修正・最終ゲート検証済み。本タスクの再実行はその成果を踏まえたものであり、残存は上記1件の既知flakyのみ。
   - _Requirements: 5.4, 8.2, 8.3_
 
-- [ ] 6. 残存する Firebase 由来識別子命名の是正
+- [x] 6. 残存する Firebase 由来識別子命名の是正
 
 - [x] 6.1 (P) AuthContext の firebaseUser を authUser にリネームし、消費コンポーネントとテストモックを追随させる
   - `AuthContextType` の型定義・`useState`・Provider が公開するプロパティ名を `authUser` に変更する
@@ -161,7 +161,7 @@
   - _Requirements: 9.2, 9.4_
   - _Boundary: LegacyIdentifierRename (Billing)_
 
-- [ ] 6.3 最終ビルド・テスト検証ゲートを実行する
+- [x] 6.3 最終ビルド・テスト検証ゲートを実行する
   - リネーム完了後に `npm run build` と `npm run test` を実行し成功することを確認する
   - `src/components/quiz/quiz-editor.tsx` の `CANONICAL_TAGS` 内 `'Firebase'` が変更されず残存していることを確認する
   - 観測可能な完了条件: `npm run build` と `npm run test` がいずれも終了コード `0` で完了し、`CANONICAL_TAGS` の `'Firebase'` タグが変更されていない
