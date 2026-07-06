@@ -41,6 +41,7 @@ import {
 } from '@/lib/true-false-defaults';
 import { getFormatLabel } from '@/lib/quiz-format-labels';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
+import { useActiveTags } from '@/hooks/useActiveTags';
 import { AuthorQuizReferencePanel } from '@/components/quiz/author-quiz-reference-panel';
 import { isReferenceLinkQuestion } from '@/lib/linked-question';
 import { EditorFormSkeleton } from '@/components/quiz/editor-skeleton';
@@ -71,28 +72,10 @@ interface QuizEditorProps {
   initialQuiz?: Quiz | null;
 }
 
-// 類似 canonical タグの定義 (要件 1.3 タグ名寄せ用)
-const CANONICAL_TAGS = [
-  'React',
-  'TypeScript',
-  'Next.js',
-  'JavaScript',
-  'CSS',
-  'HTML',
-  'Firebase',
-  'Python',
-  'Go',
-  'Rust',
-  'Vue',
-  'Flutter',
-  'React Native',
-  'Database',
-  'Git'
-];
-
 export const QuizEditorContent: React.FC<QuizEditorProps> = ({
   quizId,
   initialGenres,
+  initialTags,
   initialQuiz,
 }) => {
   const router = useRouter();
@@ -100,6 +83,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
   const { user, loading: authLoading } = useAuth();
   const { genres: activeGenres, loading: genresLoading, error: genresError, refetch: refetchGenres } =
     useActiveGenres(initialGenres);
+  const { tags: activeTags } = useActiveTags(initialTags);
 
   const [loading, setLoading] = useState(false);
   const [initialFetchLoading, setInitialFetchLoading] = useState(
@@ -932,14 +916,17 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
 
     const normalized = normalizeTag(val);
 
-    // 類似 canonical タグを判定
-    const foundSimilar = CANONICAL_TAGS.find(canonical => {
-      const canonicalNorm = normalizeTag(canonical);
-      // 部分一致、または包含関係にあるかチェック
-      return normalized.length >= 2 &&
-        (normalized.includes(canonicalNorm) || canonicalNorm.includes(normalized)) &&
-        normalized !== canonicalNorm;
-    });
+    // 類似 canonical タグを判定 (存続タグマスタ由来。要件 1.3)
+    const foundSimilar = activeTags
+      .map(t => t.tagName)
+      .filter((name): name is string => !!name)
+      .find(canonical => {
+        const canonicalNorm = normalizeTag(canonical);
+        // 部分一致、または包含関係にあるかチェック
+        return normalized.length >= 2 &&
+          (normalized.includes(canonicalNorm) || canonicalNorm.includes(normalized)) &&
+          normalized !== canonicalNorm;
+      });
 
     if (foundSimilar) {
       setSuggestedTag(foundSimilar);

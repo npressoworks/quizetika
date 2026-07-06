@@ -60,6 +60,10 @@ jest.mock('@/hooks/useActiveGenres', () => ({
   useActiveGenres: () => ({ genres: [{ id: 'history-geography', displayName: '歴史・地理', iconImageUrl: null, canonicalId: null, mergedGenreIds: [], isActive: true }], loading: false, error: null, refetch: jest.fn() }),
 }));
 
+jest.mock('@/hooks/useActiveTags', () => ({
+  useActiveTags: () => ({ tags: [], loading: false, error: null, tagLabelById: new Map(), refetch: jest.fn() }),
+}));
+
 describe('QuizEditor 下書き保存時の難易度デフォルト値', () => {
   it('難易度を選択せずに下書き保存すると、DBのCHECK制約(1〜5)を満たす値(1)で保存されること', async () => {
     window.alert = jest.fn();

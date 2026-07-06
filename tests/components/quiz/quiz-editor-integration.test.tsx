@@ -49,6 +49,10 @@ jest.mock('@/hooks/useActiveGenres', () => ({
   useActiveGenres: () => ({ genres: [], loading: false, error: null, refetch: jest.fn() }),
 }));
 
+jest.mock('@/hooks/useActiveTags', () => ({
+  useActiveTags: () => ({ tags: [], loading: false, error: null, tagLabelById: new Map(), refetch: jest.fn() }),
+}));
+
 describe('QuizEditor AI Chat Integration', () => {
   it('Pro ユーザー向けに「AIで作問開始」と「全問包括チェック」ボタンが表示されること', () => {
     render(
