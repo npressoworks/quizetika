@@ -126,11 +126,12 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
       await expect(thumbsUpBtn).toHaveClass(/voteActive/);
     }
 
-    // 9. 難易度投票の送信 (星評価UIの5段階目を指定)
+    // 9. 難易度投票の送信 (炎評価UIの5段階目を指定)
     const difficultyVoteBtn = page.getByTestId('difficulty-vote-star-5');
     await expect(difficultyVoteBtn).toBeVisible();
     await difficultyVoteBtn.click();
-    await expect(difficultyVoteBtn).toHaveText('★');
+    await expect(difficultyVoteBtn).toHaveText('🔥');
+    await expect(difficultyVoteBtn).not.toHaveClass(/grayscale/);
 
     // 10. 作家感謝リアクションの送信
     const reactionBtn = page.locator('button').filter({ hasText: 'お礼リアクションを送る' }).first();

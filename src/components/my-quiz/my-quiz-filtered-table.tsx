@@ -145,7 +145,7 @@ export function MyQuizFilteredTable({
                     <TableCell className="w-24">{SOURCE_LABELS[row.source]}</TableCell>
                     <TableCell className="w-32">{genreLabelById.get(row.genreId) ?? row.genreId}</TableCell>
                     <TableCell className="w-28">{formatLabel(row.format)}</TableCell>
-                    <TableCell className="w-20 text-center">Lv.{row.difficulty}</TableCell>
+                    <TableCell className="w-20 text-center">🔥{row.difficulty}</TableCell>
                   </TableRow>
                 ))
               )}
