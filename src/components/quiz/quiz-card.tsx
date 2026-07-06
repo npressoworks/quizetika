@@ -85,6 +85,7 @@ export function QuizCard({
             {isBookmarked ? (
               <Bookmark
                 sx={{ fontSize: 18 }}
+                className="fill-primary text-primary"
                 data-testid="bookmark-icon-filled"
               />
             ) : (

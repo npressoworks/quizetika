@@ -161,7 +161,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
             data-analytics="quiz-bookmark-toggle"
           >
             {bookmarked
-              ? <BookmarkRounded sx={{ fontSize: 20 }} className="fill-current" />
+              ? <BookmarkRounded sx={{ fontSize: 20 }} className="fill-primary text-primary" />
               : <BookmarkBorderOutlined sx={{ fontSize: 20 }} />}
           </button>
         </div>

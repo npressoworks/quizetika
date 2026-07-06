@@ -152,7 +152,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     // ブックマークボタンをクリック
     await bookmarkBtn.click();
 
-    // 即座に塗りつぶしアイコン（emerald系のブックマーク色）に変化することを確認
+    // 即座に塗りつぶしアイコン（primary色）に変化することを確認
     await page.waitForTimeout(500);
     await expect(filledIcon).toBeVisible();
 

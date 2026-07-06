@@ -674,7 +674,7 @@ export function QuizResultClient({
             type="button"
           >
             {bookmarkedQuizIds.has(quiz.id) ? (
-              <BookmarkRounded sx={{ fontSize: 24 }} />
+              <BookmarkRounded sx={{ fontSize: 24 }} className="fill-primary text-primary" />
             ) : (
               <BookmarkBorderOutlined sx={{ fontSize: 24 }} />
             )}
