@@ -1,4 +1,8 @@
-import { scanLegacyAssets, summarizeByTarget } from '@/services/legacy-storage-migration';
+import {
+  scanLegacyAssets,
+  summarizeByTarget,
+  checkSampleReadability,
+} from '@/services/legacy-storage-migration';
 import type { LegacyAssetRecord } from '@/services/legacy-storage-migration';
 
 const createChainMock = (resolveValue: unknown) => {
@@ -139,5 +143,81 @@ describe('scanLegacyAssets', () => {
       table: 'quizzes',
       message: 'connection refused',
     });
+  });
+});
+
+describe('checkSampleReadability', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  const makeRecords = (count: number): LegacyAssetRecord[] =>
+    Array.from({ length: count }, (_, i) => ({
+      table: 'users',
+      idColumn: 'id',
+      recordId: `u${i}`,
+      urlColumn: 'avatar_url',
+      legacyUrl: `${FIREBASE_URL}?i=${i}`,
+      bucket: 'users',
+    }));
+
+  it('全件200の場合、ok: true で readableCount がサンプル件数と一致する', async () => {
+    const records = makeRecords(3);
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    const result = await checkSampleReadability(records);
+
+    expect(result).toEqual({ ok: true, readableCount: 3, sampleSize: 3 });
+    expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it('一部200の場合、ok: true で readableCount が部分的な件数になる', async () => {
+    const records = makeRecords(4);
+    let call = 0;
+    global.fetch = jest.fn(() => {
+      call += 1;
+      if (call <= 2) {
+        return Promise.resolve({ ok: true, status: 200 });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    }) as unknown as typeof fetch;
+
+    const result = await checkSampleReadability(records);
+
+    expect(result).toEqual({ ok: true, readableCount: 2, sampleSize: 4 });
+  });
+
+  it('全件失敗（ネットワークエラーとHTTPエラーが混在）の場合、ok: false を返す', async () => {
+    const records = makeRecords(3);
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockRejectedValueOnce(new Error('network error'))
+      .mockResolvedValueOnce({ ok: false, status: 404 }) as unknown as typeof fetch;
+
+    const result = await checkSampleReadability(records);
+
+    expect(result).toEqual({ ok: false, sampleSize: 3 });
+  });
+
+  it('レコードが5件を超える場合、先頭5件のみをサンプルとして fetch する', async () => {
+    const records = makeRecords(8);
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    const result = await checkSampleReadability(records);
+
+    expect(global.fetch).toHaveBeenCalledTimes(5);
+    expect(result).toEqual({ ok: true, readableCount: 5, sampleSize: 5 });
+  });
+
+  it('レコードが5件未満の場合、全件を fetch する', async () => {
+    const records = makeRecords(3);
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    const result = await checkSampleReadability(records);
+
+    expect(global.fetch).toHaveBeenCalledTimes(3);
   });
 });

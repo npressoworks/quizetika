@@ -90,6 +90,48 @@ export async function scanLegacyAssets(): Promise<ScanLegacyAssetsResult> {
   return { ok: true, records };
 }
 
+const SAMPLE_READABILITY_MAX_SAMPLE_SIZE = 5;
+
+export type SampleReadabilityResult =
+  | { ok: true; readableCount: number; sampleSize: number }
+  | { ok: false; sampleSize: number };
+
+/**
+ * 棚卸し結果から最大 {@link SAMPLE_READABILITY_MAX_SAMPLE_SIZE} 件（総数がそれ未満の場合は全件）を
+ * サンプルとして抽出し、各URLへ匿名 `fetch`（GET）を行い読み取り可能かを検証する。
+ *
+ * ネットワークエラーおよび非2xxレスポンスは、いずれも当該レコードを「読み取り不可」として扱い、
+ * 例外は投げない（1レコードの失敗が全体の判定を止めない）。
+ *
+ * サンプル中に読み取り可能なレコードが1件も存在しない場合は `ok: false` を返し、
+ * 呼び出し側（LegacyMigrationVerificationGate の sample モード）が移行処理の開始を止められるようにする。
+ */
+export async function checkSampleReadability(
+  records: readonly LegacyAssetRecord[]
+): Promise<SampleReadabilityResult> {
+  const sample = records.slice(0, SAMPLE_READABILITY_MAX_SAMPLE_SIZE);
+
+  const readabilityChecks = await Promise.all(
+    sample.map(async (record) => {
+      try {
+        const response = await fetch(record.legacyUrl);
+        return response.ok;
+      } catch {
+        return false;
+      }
+    })
+  );
+
+  const readableCount = readabilityChecks.filter(Boolean).length;
+  const sampleSize = sample.length;
+
+  if (readableCount === 0) {
+    return { ok: false, sampleSize };
+  }
+
+  return { ok: true, readableCount, sampleSize };
+}
+
 /**
  * 棚卸し結果を対象領域（テーブル.カラム）別に集計する。
  * 例: `{ 'users.avatar_url': 12, 'quizzes.thumbnail_url': 3 }`
