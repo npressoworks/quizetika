@@ -4,6 +4,7 @@ import {
   handleStripeSubscriptionEvent,
   isStripeEventProcessed,
   markStripeEventProcessed,
+  resolveUidFromSubscription,
 } from '@/services/stripe-webhook';
 
 const mockApply = jest.fn();
@@ -77,12 +78,12 @@ describe('stripe-webhook service', () => {
       status: 'active',
       current_period_end: 1782864000,
       items: { data: [{ price: { id: 'price_monthly_test' } }] },
-      metadata: { firebaseUid: 'uid-1' },
+      metadata: { userId: 'uid-1' },
     } as unknown as Stripe.Subscription;
 
     const snapshot = buildSnapshotFromSubscription(subscription, 'uid-1');
     expect(snapshot).toMatchObject({
-      firebaseUid: 'uid-1',
+      uid: 'uid-1',
       subscriptionTier: 'pro',
       isPremium: true,
       stripeSubscriptionId: 'sub_1',
@@ -96,7 +97,7 @@ describe('stripe-webhook service', () => {
       status: 'active',
       current_period_end: 1782864000,
       items: { data: [{ price: { id: 'price_monthly_test' } }] },
-      metadata: { firebaseUid: 'uid-1' },
+      metadata: { userId: 'uid-1' },
     } as unknown as Stripe.Subscription;
 
     await handleStripeSubscriptionEvent(subscription);
@@ -109,11 +110,44 @@ describe('stripe-webhook service', () => {
       customer: 'cus_1',
       status: 'canceled',
       items: { data: [{ price: { id: 'price_monthly_test' } }] },
-      metadata: { firebaseUid: 'uid-1' },
+      metadata: { userId: 'uid-1' },
     } as unknown as Stripe.Subscription;
 
     await handleStripeSubscriptionEvent(subscription);
     expect(mockClear).toHaveBeenCalledWith('uid-1', 'cus_1');
+  });
+
+  it('resolveUidFromSubscription は metadata.userId を優先する', () => {
+    const subscription = {
+      metadata: { userId: 'uid-new', firebaseUid: 'uid-old' },
+    } as unknown as Stripe.Subscription;
+
+    expect(resolveUidFromSubscription(subscription)).toBe('uid-new');
+  });
+
+  it('resolveUidFromSubscription は metadata.userId が無い既存顧客ケースで metadata.firebaseUid にフォールバックする', () => {
+    const subscription = {
+      metadata: { firebaseUid: 'uid-legacy' },
+    } as unknown as Stripe.Subscription;
+
+    expect(resolveUidFromSubscription(subscription)).toBe('uid-legacy');
+  });
+
+  it('subscription.metadata に UID がない既存顧客は Customer の metadata.firebaseUid フォールバックで解決される', async () => {
+    const subscription = {
+      id: 'sub_legacy',
+      customer: 'cus_legacy',
+      status: 'active',
+      current_period_end: 1782864000,
+      items: { data: [{ price: { id: 'price_monthly_test' } }] },
+      metadata: {},
+    } as unknown as Stripe.Subscription;
+
+    await handleStripeSubscriptionEvent(subscription);
+
+    expect(mockApply).toHaveBeenCalledWith(
+      expect.objectContaining({ uid: 'uid-from-customer' })
+    );
   });
 
   it('stripe_processed_events で冪等を記録する', async () => {

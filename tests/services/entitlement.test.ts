@@ -76,7 +76,7 @@ describe('EntitlementService', () => {
     chain = createChainMock({ error: null });
 
     await applySubscriptionFromStripe({
-      firebaseUid: 'uid-1',
+      uid: 'uid-1',
       stripeCustomerId: 'cus_1',
       stripeSubscriptionId: 'sub_1',
       subscriptionStatus: 'active',

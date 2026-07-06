@@ -26,7 +26,7 @@ export interface UserEntitlements {
 }
 
 export interface StripeSubscriptionSnapshot {
-  firebaseUid: string;
+  uid: string;
   stripeCustomerId: string;
   stripeSubscriptionId: string | null;
   subscriptionStatus: SubscriptionStatus | null;

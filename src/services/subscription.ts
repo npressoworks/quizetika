@@ -61,7 +61,7 @@ export async function getOrCreateStripeCustomer(uid: string, email: string): Pro
   const stripe = getStripeClient();
   const customer = await stripe.customers.create({
     email,
-    metadata: { firebaseUid: uid },
+    metadata: { userId: uid },
   });
 
   const { error } = await supabase

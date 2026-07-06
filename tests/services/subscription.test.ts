@@ -140,7 +140,7 @@ describe('SubscriptionService', () => {
     expect(mockCustomerCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'free@example.com',
-        metadata: { firebaseUid: 'uid-free' },
+        metadata: { userId: 'uid-free' },
       })
     );
     expect(userRows['uid-free'].stripe_customer_id).toBe('cus_new');

@@ -14,17 +14,18 @@ import type {
 
 const PAID_ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'trialing'];
 
-export function resolveFirebaseUidFromSubscription(
+export function resolveUidFromSubscription(
   subscription: Stripe.Subscription
 ): string | null {
-  const metadataUid = subscription.metadata?.firebaseUid?.trim();
+  const metadataUid =
+    subscription.metadata?.userId?.trim() || subscription.metadata?.firebaseUid?.trim();
   if (metadataUid) return metadataUid;
   return null;
 }
 
 export function buildSnapshotFromSubscription(
   subscription: Stripe.Subscription,
-  firebaseUid: string
+  uid: string
 ): StripeSubscriptionSnapshot | null {
   const priceId = subscription.items.data[0]?.price?.id;
   if (!priceId) {
@@ -54,7 +55,7 @@ export function buildSnapshotFromSubscription(
     periodEndUnix != null ? new Date(periodEndUnix * 1000) : null;
 
   return {
-    firebaseUid,
+    uid,
     stripeCustomerId: customerId,
     stripeSubscriptionId: status === 'canceled' ? null : subscription.id,
     subscriptionStatus: status,
@@ -92,27 +93,27 @@ async function resolveUidFromCustomer(customerId: string): Promise<string | null
   const stripe = getStripeClient();
   const customer = await stripe.customers.retrieve(customerId);
   if (customer.deleted) return null;
-  const uid = customer.metadata?.firebaseUid?.trim();
+  const uid = customer.metadata?.userId?.trim() || customer.metadata?.firebaseUid?.trim();
   return uid || null;
 }
 
 export async function handleStripeSubscriptionEvent(
   subscription: Stripe.Subscription,
-  firebaseUid?: string | null
+  uid?: string | null
 ): Promise<void> {
-  let uid = firebaseUid?.trim() || resolveFirebaseUidFromSubscription(subscription);
+  let resolvedUid = uid?.trim() || resolveUidFromSubscription(subscription);
 
-  if (!uid) {
+  if (!resolvedUid) {
     const customerId =
       typeof subscription.customer === 'string'
         ? subscription.customer
         : subscription.customer?.id;
     if (customerId) {
-      uid = await resolveUidFromCustomer(customerId);
+      resolvedUid = await resolveUidFromCustomer(customerId);
     }
   }
 
-  if (!uid) {
+  if (!resolvedUid) {
     console.warn('[stripe-webhook] firebaseUid を解決できません:', subscription.id);
     return;
   }
@@ -122,11 +123,11 @@ export async function handleStripeSubscriptionEvent(
       typeof subscription.customer === 'string'
         ? subscription.customer
         : subscription.customer?.id ?? '';
-    await clearPaidEntitlements(uid, customerId);
+    await clearPaidEntitlements(resolvedUid, customerId);
     return;
   }
 
-  const snapshot = buildSnapshotFromSubscription(subscription, uid);
+  const snapshot = buildSnapshotFromSubscription(subscription, resolvedUid);
   if (!snapshot) return;
 
   await applySubscriptionFromStripe(snapshot);
@@ -135,8 +136,8 @@ export async function handleStripeSubscriptionEvent(
 export async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session
 ): Promise<void> {
-  const firebaseUid = session.client_reference_id?.trim();
-  if (!firebaseUid) {
+  const uid = session.client_reference_id?.trim();
+  if (!uid) {
     console.warn('[stripe-webhook] checkout.session に client_reference_id がありません');
     return;
   }
@@ -153,7 +154,7 @@ export async function handleCheckoutSessionCompleted(
 
   const stripe = getStripeClient();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  await handleStripeSubscriptionEvent(subscription, firebaseUid);
+  await handleStripeSubscriptionEvent(subscription, uid);
 }
 
 function resolveSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {

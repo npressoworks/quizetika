@@ -59,7 +59,7 @@ export async function applySubscriptionFromStripe(
       current_period_end: snapshot.currentPeriodEnd ? snapshot.currentPeriodEnd.toISOString() : null,
       updated_at: new Date().toISOString(),
     })
-    .eq('id', snapshot.firebaseUid);
+    .eq('id', snapshot.uid);
 
   if (error) {
     throw new Error(`サブスクリプション状態の同期に失敗しました: ${error.message}`);
@@ -70,11 +70,11 @@ export async function applySubscriptionFromStripe(
  * 契約失効時に free tier へ戻す
  */
 export async function clearPaidEntitlements(
-  firebaseUid: string,
+  uid: string,
   stripeCustomerId: string
 ): Promise<void> {
   await applySubscriptionFromStripe({
-    firebaseUid,
+    uid,
     stripeCustomerId,
     stripeSubscriptionId: null,
     subscriptionStatus: 'canceled',

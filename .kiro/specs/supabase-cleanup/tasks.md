@@ -153,7 +153,7 @@
   - _Requirements: 9.1_
   - _Boundary: LegacyIdentifierRename (AuthContext)_
 
-- [ ] 6.2 (P) firebaseUid 識別子のリネームと Stripe メタデータキーの新旧デュアルリードを実装する
+- [x] 6.2 (P) firebaseUid 識別子のリネームと Stripe メタデータキーの新旧デュアルリードを実装する
   - `StripeSubscriptionSnapshot.firebaseUid`、`entitlement.ts`/`subscription.ts`/`stripe-webhook.ts` の該当関数引数・変数名を `uid` にリネームする（`resolveFirebaseUidFromSubscription` → `resolveUidFromSubscription` を含む）
   - 新規作成する Stripe Customer のメタデータキーを `userId` に変更し、読み取り時は `metadata.userId` を優先、存在しない場合のみ `metadata.firebaseUid` にフォールバックするロジックを実装する
   - `tests/services/entitlement.test.ts`/`tests/services/subscription.test.ts`/`tests/services/stripe-webhook.test.ts` の既存フィクスチャを新しい命名に更新し、`stripe-webhook.test.ts` に `metadata.firebaseUid` のみが存在する（新キー未設定の）既存顧客ケースを模したフォールバックテストを追加する
