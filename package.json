@@ -15,7 +15,9 @@
     "gen:types": "npx supabase gen types typescript --local > src/lib/supabase/database.types.ts",
     "verify:firebase-removed": "node scripts/verify-firebase-removed.js",
     "e2e:ledger": "node scripts/e2e-report-to-ledger.mjs",
-    "e2e:diff": "node scripts/e2e-baseline-diff.mjs"
+    "e2e:diff": "node scripts/e2e-baseline-diff.mjs",
+    "migrate:legacy-storage": "tsx scripts/migrate-legacy-storage.ts",
+    "verify:legacy-storage-migration": "tsx scripts/verify-legacy-storage-migration.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.82",
@@ -76,6 +78,7 @@
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
     "ts-jest": "^29.4.11",
+    "tsx": "^4.23.0",
     "typescript": "^5"
   },
   "overrides": {

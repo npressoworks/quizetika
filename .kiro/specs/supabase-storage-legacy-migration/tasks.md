@@ -2,7 +2,7 @@
 
 - [ ] 1. Foundation: 移行ツールの実行基盤と対象データ定義
 
-- [ ] 1.1 tsx を devDependency として追加し、npm スクリプトを登録する
+- [x] 1.1 tsx を devDependency として追加し、npm スクリプトを登録する
   - `package.json` の `devDependencies` に `tsx` を追加する
   - `package.json` の `scripts` に `migrate:legacy-storage`（`tsx scripts/migrate-legacy-storage.ts`）と `verify:legacy-storage-migration`（`tsx scripts/verify-legacy-storage-migration.ts`）を追加する
   - 観測可能な完了条件: `npx tsx --version` がエラーなく実行できる
