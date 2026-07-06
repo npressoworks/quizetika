@@ -150,3 +150,50 @@ Boundary Context の Out of scope を見直し、発見された14ファイル +
 
 ### Generalization
 - Req 1（前提条件検証）と Req 7（残存検出）は「宣言された完了状態」と「コード上の実態」を突き合わせる、より一般的な「移行完了検証」という単一の能力の特殊ケースである。`MigrationCompletionGate` はこの一般化された能力として設計し、実装スコープは現行要件（このスペックの削除ゲート）に限定する。
+
+## Phase 36 Discovery: 残存識別子命名の是正（Light Discovery）
+
+### Summary
+- **Feature Type**: Extension（実装完了済みスペックへの追加要件）
+- **Discovery Scope**: 上記 Summary（14行目）で「無害な命名レガシー」として MigrationCompletionGate の誤検知除外対象にした `firebaseUser`/`firebaseUid` そのものを、今度は是正対象として棚卸しする。パッケージ依存ではなく識別子名のみの変更のため、コードベース調査（Grep）のみで十分であり、外部リサーチは不要。
+
+### 対象ファイルの棚卸し（Grep確認済み）
+
+**`firebaseUser`（AuthContext の互換プロパティ名）**:
+| ファイル | 用途 |
+|---|---|
+| `src/context/auth-context.tsx` | `AuthContextType.firebaseUser` の定義・`useState`・Provider value |
+| `src/app/admin/users/page.tsx` | `firebaseUser.getIdToken()` によるAPI認可トークン取得 |
+| `src/app/admin/moderation/page.tsx` | 同上 |
+| `src/app/admin/genres/admin-genres-client.tsx` | 同上 |
+| `src/components/explore/quiz-carousel.tsx` | `firebaseUser?.uid` の参照のみ |
+| `src/app/community/genres/page.tsx` | `firebaseUser.getIdToken()` / `firebaseUser.uid` |
+| `src/app/search/search-client.tsx` | `firebaseUser?.uid` の参照のみ |
+
+**`firebaseUid`（エンタイトルメント/サブスクリプション/Stripe Webhookのフィールド・変数名、および Stripe Customer メタデータキー）**:
+| ファイル | 用途 |
+|---|---|
+| `src/types/subscription.ts` | `StripeSubscriptionSnapshot.firebaseUid` フィールド |
+| `src/services/entitlement.ts` | `applySubscriptionFromStripe`/`clearPaidEntitlements` の引数・`.eq('id', snapshot.firebaseUid)` |
+| `src/services/subscription.ts` | `stripe.customers.create({ metadata: { firebaseUid: uid } })`（Stripe API へ書き込まれる実データのキー名） |
+| `src/services/stripe-webhook.ts` | `resolveFirebaseUidFromSubscription`、`subscription.metadata?.firebaseUid`、`customer.metadata?.firebaseUid`、複数のローカル変数・引数名 |
+
+### 除外確認
+- `src/components/quiz/quiz-editor.tsx:82` の `CANONICAL_TAGS` 配列中 `'Firebase'` はユーザーがクイズに付与する技術タグの値であり、識別子ではないため対象外。
+- `src/services/attempt-server.ts`、`src/services/notification.ts`、`src/middleware.ts`、`src/lib/middleware-auth-cookies.ts` 等のコメント中の「Firebase」への言及は、識別子リネームの対象ではなく、旧Storageデータの文脈（`storage.ts`/`storage-path.ts`）は隣接スペック `supabase-storage-legacy-migration` の責務のため対象外。
+
+### Key Decision: Stripe Customer メタデータキーは新旧デュアルリードで移行する
+- **Context**: `firebaseUid` はコード内部の変数名・型フィールド名であるだけでなく、`stripe.customers.create({ metadata: { firebaseUid: uid } })` として **Stripe 側に実データとして書き込まれているキー名**でもある。既に本番稼働中の Stripe Customer オブジェクトには過去に作成された `metadata.firebaseUid` が存在し、Stripe 側のデータを本スペックが一括更新することはできない（Stripe Update Customer API を全顧客に対して呼ぶ運用コストとリスクを要件が求めていない）。
+- **Alternatives Considered**:
+  1. 内部コードのみリネームし、Stripe に書き込むキー名は `firebaseUid` のまま維持する — 識別子命名の是正という目的を部分的にしか達成できず、Requirement 9 の趣旨（Firebase を含まない命名への是正）に反する。
+  2. 新規 Stripe Customer 作成時のキーを新名称（`userId`）に切り替え、読み取り時は新キー優先・旧キー（`firebaseUid`）フォールバックのデュアルリードにする — 新規作成分は是正され、既存データとの互換性も保たれる。
+  3. 既存 Stripe Customer 全件をバッチ処理で `metadata.userId` に書き換えた上でコードも新キーのみに統一する — Stripe API のレートリミットと対象件数次第でコスト増、本スペックの Boundary（Out of scope: 外部データの物理移行）と矛盾する。
+- **Selected Approach**: Alternative 2（デュアルリード）。新規作成 Stripe Customer には `metadata: { userId: uid }` を書き込み、読み取り時（`resolveUidFromSubscription`/`resolveUidFromCustomer`）は `metadata.userId` を優先し、存在しない場合のみ `metadata.firebaseUid` にフォールバックする。
+- **Rationale**: 挙動を変えずに（Requirement 9.3）既存データとの後方互換を保ちながら（Requirement 9.4）、コード側の命名は是正できる。将来的に全既存顧客のバックフィルが完了すればフォールバック分岐を除去できる（Revalidation Trigger として design.md に記録）。
+- **Trade-offs**: 読み取りロジックに1分岐が増えるが、既存の `??` 演算子で表現可能な軽量な変更に留まる。
+
+### Naming Decisions
+- `AuthContext.firebaseUser` → `authUser`（`user` = DBプロフィール、`authUser` = 認証セッション由来の互換オブジェクト、という対比が明確になる）
+- `StripeSubscriptionSnapshot.firebaseUid` および各サービス関数の同名パラメータ → `uid`（`subscription.ts` の `CreateCheckoutSessionInput.uid` 等、既存コードで既に確立されている命名規則と統一）
+- `resolveFirebaseUidFromSubscription` → `resolveUidFromSubscription`
+- Stripe Customer メタデータの書き込みキー → `userId`（読み取りは `userId` 優先 → `firebaseUid` フォールバック）

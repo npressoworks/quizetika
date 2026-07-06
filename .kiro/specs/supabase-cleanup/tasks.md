@@ -142,3 +142,28 @@
     - いずれも TDD（RED→GREEN）で再現・修正し、`tests/services/quiz-metadata-save.test.ts`・`tests/services/quiz-feed-pagination.test.ts` にリグレッションテストを追加。`npm run test` 全体で回帰なしを確認済み。
   - __解消済みの旧既知課題__: 上記2件修正後に残存していた50/156件のE2E失敗（バッジ付与・管理者ポータル・ソーシャル機能・リーダーボード・学習支援・ストリーミングスケルトン・クイズ検索・SEO共有等）は、別スペック `e2e-suite-stabilization`（2026-07-05〜2026-07-06完結）で全件根本原因調査・修正・最終ゲート検証済み。本タスクの再実行はその成果を踏まえたものであり、残存は上記1件の既知flakyのみ。
   - _Requirements: 5.4, 8.2, 8.3_
+
+- [ ] 6. 残存する Firebase 由来識別子命名の是正
+
+- [ ] 6.1 (P) AuthContext の firebaseUser を authUser にリネームし、消費コンポーネントとテストモックを追随させる
+  - `AuthContextType` の型定義・`useState`・Provider が公開するプロパティ名を `authUser` に変更する
+  - `admin/users`, `admin/moderation`, `admin/genres`, `community/genres`, `quiz-carousel`, `search-client` の各ソースファイルで `firebaseUser` への参照を `authUser` に置換する
+  - `useAuth()` を型付きモックしている全テストファイル（`community/genres`, `admin/portal`, `admin/moderation-seed`, `admin/genres`, `home-discovery-client`, `home-page`, `quiz-carousel`, `quiz-detail-client` の各テスト）の `firebaseUser` フィールドを `authUser` に更新する
+  - 観測可能な完了条件: 上記ソース・テストファイル全体に `firebaseUser` という識別子が一件も残っておらず、`npm run test` が型エラー・アサーション失敗なく成功する
+  - _Requirements: 9.1_
+  - _Boundary: LegacyIdentifierRename (AuthContext)_
+
+- [ ] 6.2 (P) firebaseUid 識別子のリネームと Stripe メタデータキーの新旧デュアルリードを実装する
+  - `StripeSubscriptionSnapshot.firebaseUid`、`entitlement.ts`/`subscription.ts`/`stripe-webhook.ts` の該当関数引数・変数名を `uid` にリネームする（`resolveFirebaseUidFromSubscription` → `resolveUidFromSubscription` を含む）
+  - 新規作成する Stripe Customer のメタデータキーを `userId` に変更し、読み取り時は `metadata.userId` を優先、存在しない場合のみ `metadata.firebaseUid` にフォールバックするロジックを実装する
+  - `tests/services/entitlement.test.ts`/`tests/services/subscription.test.ts`/`tests/services/stripe-webhook.test.ts` の既存フィクスチャを新しい命名に更新し、`stripe-webhook.test.ts` に `metadata.firebaseUid` のみが存在する（新キー未設定の）既存顧客ケースを模したフォールバックテストを追加する
+  - 観測可能な完了条件: 対象4ソースファイルに `firebaseUid` という識別子が残っておらず（Stripeメタデータの読み取りキーとしての文字列 `'firebaseUid'` はフォールバック用に意図的に残存）、追加したフォールバックテストと既存テストが全て green になる
+  - _Requirements: 9.2, 9.4_
+  - _Boundary: LegacyIdentifierRename (Billing)_
+
+- [ ] 6.3 最終ビルド・テスト検証ゲートを実行する
+  - リネーム完了後に `npm run build` と `npm run test` を実行し成功することを確認する
+  - `src/components/quiz/quiz-editor.tsx` の `CANONICAL_TAGS` 内 `'Firebase'` が変更されず残存していることを確認する
+  - 観測可能な完了条件: `npm run build` と `npm run test` がいずれも終了コード `0` で完了し、`CANONICAL_TAGS` の `'Firebase'` タグが変更されていない
+  - _Requirements: 9.3, 9.5, 9.6_
+  - _Depends: 6.1, 6.2_

@@ -16,11 +16,13 @@
   - `npm run build` / `npm run test` / `npm run test:e2e` による最終検証
 - **Out of scope**:
   - サービス層（`src/services/*`）のビジネスロジックそのものの書き換え（`supabase-auth-migration` / `supabase-core-data` / `supabase-gameplay` / `supabase-storage-migration` / `supabase-governance` が既に完了させている前提）
-  - 既存 Firestore / Firebase Storage 上のデータの物理マイグレーション
+  - 既存 Firestore / Firebase Storage 上のデータの物理マイグレーション（`supabase-storage-legacy-migration` の責務）
   - 新規機能の追加や UI の変更
+  - `src/components/quiz/quiz-editor.tsx` の `CANONICAL_TAGS` に含まれる技術タグ文字列 `'Firebase'`（ユーザーがクイズに付与する正当なタグ値であり、命名是正の対象外）
 - **Adjacent expectations**:
   - 本スペックの実行は `supabase-auth-migration`, `supabase-core-data`, `supabase-gameplay`, `supabase-storage-migration`, `supabase-governance` の全てが実装完了していることを前提とする。いずれかが未完了の場合、本スペックの削除作業は開始できない。
   - Steering ドキュメントの更新は、Phase 1-34 で記録された既存の意思決定・変更履歴を破壊しないことを前提とする。
+  - Firebase Storage 上に残存する実データ（画像ファイル）の Supabase Storage への物理移行は、隣接スペック `supabase-storage-legacy-migration` が別途所有する。本スペックは命名（識別子・フィールド名）の是正のみを担当する。
 
 ## Requirements
 
@@ -104,3 +106,16 @@
 1. When Requirement 1-7 の全ての作業が完了した時, the Cleanup Process shall `npm run build` を実行しエラーなく成功することを確認する。
 2. When ビルド検証が成功した時, the Cleanup Process shall `npm run test` および `npm run test:e2e` を実行し、全テストが成功することを確認する。
 3. If ビルドまたはテストのいずれかが失敗する場合, then Cleanup Process shall `supabase-cleanup` を完了状態として報告せず、失敗内容を記録する。
+
+### Requirement 9: 残存する Firebase 由来識別子命名の是正
+
+**Objective:** 開発者として、実体は Supabase / Stripe のデータでありながら `firebase` を含む名前が付けられている識別子（変数名・プロパティ名・型フィールド名）が、実態を反映した名前にリネームされた状態にしたい。それにより、新規参加者がコードを読んだ際に「アプリがまだ Firebase に依存している」と誤解することを防ぎたい。
+
+#### Acceptance Criteria
+
+1. When 識別子リネーム作業が実行される時, the Cleanup Process shall 認証コンテキストが公開する `firebaseUser` プロパティおよびそれを参照する全てのコンポーネント・フックを、Firebase を含まない名前にリネームする。
+2. When 識別子リネーム作業が実行される時, the Cleanup Process shall エンタイトルメント・サブスクリプション・Stripe Webhook 処理で使用される `firebaseUid` という変数名・型フィールド名を、Firebase を含まない名前にリネームする。
+3. While 識別子リネーム作業を行う間, the Cleanup Process shall 認証状態判定・課金プラン判定・Stripe Webhook イベント処理の外部から観測可能な挙動を変更しない。
+4. If 既存の Stripe Customer メタデータに過去のキー名でユーザーIDが保存されている場合, then the Cleanup Process shall リネーム後もそのメタデータから対象ユーザーを正しく解決できる状態を維持する。
+5. The Cleanup Process shall `src/components/quiz/quiz-editor.tsx` の `CANONICAL_TAGS` に含まれる技術タグ文字列 `'Firebase'` をリネーム対象に含めない。
+6. When 識別子リネーム作業が完了した時, the Cleanup Process shall `npm run build` および `npm run test` がリネームに起因するエラーなく成功することを確認する。

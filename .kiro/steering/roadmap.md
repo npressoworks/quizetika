@@ -1534,3 +1534,43 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
 - `e2e-suite-stabilization`（新規スペック、2026-07-05〜2026-07-06 で完結）: `supabase-cleanup` Task 5.3 で発見された残存 E2E 失敗50件を Failure Ledger 化し、ドメイン別（認証・アクセス制御／クリエイター・プレイ・発見系）に根本原因調査・独立修正を実施。最終検証ゲート（Task 6）で Failure Ledger 全件が `fixed` または `deferred_out_of_scope` となり、ベースライン差分比較で新規デグレードなし、`npm run test`（219スイート/1222テスト+回帰テスト）成功を確認し完了。`spec.json` の `phase` は `tasks-generated` のまま。
 - `supabase-cleanup`: 上記完了を受けて Task 5.3（`npm run test:e2e` 全体成功）を再実行したところ、動画広告モーダル（`shouldShowVideoAd()` の1/3確率表示）が `/result` 画面遷移を阻害する別の脆弱性クラスを新規発見。`leaderboard.spec.ts`/`quiz-play.spec.ts`/`moderation-feedback.spec.ts`/`seo-sharing.spec.ts`/`learning-support.spec.ts` へ横断的に `e2e-mock-ads-disabled` を適用し、`social-features.spec.ts` の DOM detach タイミング競合も併せて修正。独立レビュー3回（初回・2回目 REJECTED、3回目 APPROVED）を経て `supabase db reset` 後のクリーン単発実行で `npm run test:e2e` 156件中152 passed/4 skipped/0 failed（終了コード `0`）を確認し、全タスク完了・`spec.json.phase` を `implementation-complete` に更新済み（`/kiro-validate-impl supabase-cleanup` で GO 判定）。Firebase → Supabase 完全移行（Phase 35）は本スペックの完了をもって完結。
 
+---
+
+## Phase 36: Firebase残存痕跡の払拭 — 識別子命名 & 旧Storageデータ実移行（2026-07-06 ディスカバリー）
+
+### Overview（本フェーズ）
+`supabase-cleanup`（Phase 35）完了後も、Firebase SDK 依存としては検出されない2種類の残存が判明した。(1) `auth-context.tsx` を起点に `firebaseUser` / `firebaseUid` という Firebase 由来の識別子名がコード・Stripe メタデータキーとして約15ファイルに残存している（実体は Supabase Auth／DB だが命名のみ旧世代）。(2) `supabase-storage-migration` を含む全 Supabase 移行スペックで「既存 Firebase Storage 上のデータの物理マイグレーション」が明示的に Out of Scope とされたまま誰も着手しておらず、`next.config.ts` の `firebasestorage.googleapis.com` remotePatterns 許可設定と `storage.ts`/`storage-path.ts` の旧URLサイレントスキップ・ロジックがこれを恒久的に温存している。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: 混在分解 — (1) 命名リネームは既存スペック `supabase-cleanup` の拡張として扱う、(2) 旧Storage実データ移行は新規スペック `supabase-storage-legacy-migration` として切り出す
+- **Why**: 命名リネームは `supabase-cleanup` が既に所有する「残存Firebase参照の是正」という責務範囲に自然に収まる機械的な変更。一方、実データ移行はどの既存スペックにも属さず、Firebase Storage への読み取りアクセスやDB一括更新・ドライラン設計など独立した責任境界を要するため、新規スペックとして切り出す方が既存スペックのボリュームを膨張させずに済む。
+- **Rejected alternatives**:
+  - 両方を `supabase-cleanup` の追加タスクとして扱う: 実データ移行はスクリプト実行・本番データ変更を伴う性質上、コード削除のみを責務とする `supabase-cleanup` の Boundary Context（「既存データの物理マイグレーションはOut of scope」と明記済み）と矛盾する。
+  - 両方をまとめて1つの新規スペックにする: 命名リネームは低リスクな機械的変更であり、実データ移行（本番データ操作・ロールバック設計）と同じレビュー重量を課す必要がない。
+
+### Scope（本フェーズ）
+- **In**:
+  - `firebaseUser` / `firebaseUid` 識別子のリネーム（`auth-context.tsx`, 各 admin/community/search クライアントコンポーネント, `entitlement.ts`, `subscription.ts`, `stripe-webhook.ts`, `types/subscription.ts` 等）。Stripe Customer メタデータキー `firebaseUid` の扱い（後方互換のためキー名維持 or 新キーへの移行）は設計時に確定する
+  - Firebase Storage 上に実体が残る画像データ（アバター・クイズカバー・ジャンルアイコン等）の Supabase Storage への移行、DB上URL参照の一括更新
+  - `next.config.ts` の `firebasestorage.googleapis.com` remotePatterns 削除、`storage.ts`/`storage-path.ts` の旧URLフォールバックロジック削除
+- **Out**:
+  - `quiz-editor.tsx` の `CANONICAL_TAGS` 配列にある `'Firebase'`（技術タグとしての正当な文字列であり、リネーム対象外）
+  - Firebase プロジェクト自体の解約操作（実データ移行完了後の運用判断として別途）
+  - 新規 Storage 機能追加やアップロード経路の変更
+
+### Constraints（本フェーズ）
+- 命名リネームは動作を変更しない純粋なリファクタリングとして実施し、`AuthContext` を消費する既存UIスペック（auth-profile / play-flow / admin-users / moderation-governance / creator-dash 等）に機能的な影響を与えない
+- 実データ移行は本番データに対する一括更新のため、ドライラン・対象件数事前確認・ロールバック手順を必須とする
+- 実データ移行スクリプトは Firebase Admin SDK 等を恒久的な `dependencies` として再追加しない（ワンショットツールとして分離）
+
+### Boundary Strategy（本フェーズ）
+- **supabase-cleanup（拡張）**: 識別子命名リネームの一式を所有
+- **supabase-storage-legacy-migration（新規）**: 対象データ棚卸し、移行スクリプト、DB URL一括更新、コード側フォールバック撤去を所有
+- **Shared seam**: `AuthContext` の公開インターフェース変更はリネーム後も型のみの変更に留め、UIスペック側の呼び出し箇所は機械的な追随で完結させる
+
+## Existing Spec Updates（Phase 36・依存順）
+- [ ] supabase-cleanup -- `firebaseUser`/`firebaseUid` 識別子のリネーム（`auth-context.tsx` 起点、約15ファイル）。Dependencies: none
+
+## Specs (dependency order)
+- [ ] supabase-storage-legacy-migration -- Firebase Storage 上の既存画像データを Supabase Storage へ実移行し、DB URL参照を更新、`next.config.ts`/`storage.ts`/`storage-path.ts` の旧URL迂回ロジックを撤去する。Dependencies: supabase-storage-migration, supabase-cleanup
+
