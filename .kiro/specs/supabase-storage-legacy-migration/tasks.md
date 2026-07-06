@@ -90,7 +90,7 @@
   - _Boundary: LegacyAssetMigrator_
   - _Depends: 5.2_
 
-- [ ] 6.2 (P) verify-legacy-storage-migration CLIを実装する
+- [x] 6.2 (P) verify-legacy-storage-migration CLIを実装する
   - `scripts/verify-legacy-storage-migration.ts` を実装し、`sample`/`final` の2モードを引数で切り替える
   - `sample` モードは 3.1 のサンプル読み取り検証関数を呼び出し、結果に応じた終了コード（Pass: 0 / Fail: 非ゼロ）で終了する
   - `final` モードは 3.2 の残存件数検証関数を呼び出し、残存がある場合は残存レコード一覧を出力して非ゼロ終了する。残存ゼロの場合のみ `npm run build` と `npm run test` をサブプロセスとして実行し、両方成功した場合にのみ `legacy-fallback-cleanup.ts`（4.1, 4.2）の関数を使って `next.config.ts`・`src/services/storage.ts`・`src/lib/storage-path.ts` を読み込み・変換・書き戻す
