@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { BookmarkBorderOutlined, Bookmark, ThumbUpAltOutlined } from '@mui/icons-material';
 import type { Quiz } from '../../types';
 import { resolveQuizFormat } from '@/lib/quiz-format';
-import { getDifficultyColor } from '@/lib/difficulty-color';
 import { formatReviewScorePercent } from '@/services/review-utils';
 import { FormatLabel } from '@/components/quiz/format-label';
 import { Card, CardContent } from '@/components/ui/card';
@@ -73,7 +72,10 @@ export function QuizCard({
         </div>
         {mounted && (
           <button
-            className="absolute top-2 right-2 z-10 rounded-full border border-border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted"
+            className={cn(
+              'absolute top-2 right-2 z-10 rounded-full border bg-background/80 p-2 backdrop-blur-sm transition-colors hover:bg-muted',
+              isBookmarked ? 'border-emerald-500/50 text-emerald-500' : 'border-border',
+            )}
             onClick={handleBookmarkClick}
             data-testid="quiz-card-bookmark-btn"
             data-analytics="quiz-bookmark-toggle"
@@ -82,7 +84,7 @@ export function QuizCard({
           >
             {isBookmarked ? (
               <Bookmark
-                sx={{ fontSize: 18, color: '#00ff66' }}
+                sx={{ fontSize: 18 }}
                 data-testid="bookmark-icon-filled"
               />
             ) : (
@@ -117,12 +119,9 @@ export function QuizCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span
-            data-testid="quiz-card-difficulty"
-            className="font-semibold"
-            style={{ color: getDifficultyColor(quiz.difficulty) }}
-          >
-            Lv.{quiz.difficulty}
+          <span data-testid="quiz-card-difficulty" className="tracking-tight">
+            <span>{'🔥'.repeat(quiz.difficulty)}</span>
+            <span className="opacity-30 grayscale">{'🔥'.repeat(Math.max(0, 5 - quiz.difficulty))}</span>
           </span>
           <span className="rounded-md bg-muted px-2 py-0.5 text-muted-foreground" data-testid="quiz-card-genre">
             {genreLabel}

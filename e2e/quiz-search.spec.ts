@@ -68,7 +68,7 @@ test.describe('検索画面（/search）探索 E2E', () => {
     }
   });
 
-  test('クイックサーチチップでタグチップが追加されカードに ★ 難易度が表示されること', async ({ page }) => {
+  test('クイックサーチチップでタグチップが追加されカードに 🔥 難易度が表示されること', async ({ page }) => {
     await page.goto('/search');
     await page.waitForLoadState('domcontentloaded');
 
@@ -88,8 +88,8 @@ test.describe('検索画面（/search）探索 E2E', () => {
     await expect(page.getByTestId('search-feed-skeleton')).toBeHidden({ timeout: 15000 });
     const difficulty = page.locator('[data-testid="quiz-card-difficulty"]').first();
     if (await difficulty.count()) {
-      // 難易度表示は星ではなく "Lv.N" 形式
-      await expect(difficulty).toContainText('Lv.');
+      // 難易度表示は🔥アイコン形式
+      await expect(difficulty).toContainText('🔥');
     }
   });
 

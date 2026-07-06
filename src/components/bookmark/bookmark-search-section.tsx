@@ -214,8 +214,8 @@ export function BookmarkSearchSection({
               <span className="text-sm font-semibold text-muted-foreground">難易度</span>
               <span className="text-sm font-bold text-primary">
                 {filters.difficultyMin === filters.difficultyMax
-                  ? `Lv.${filters.difficultyMin}（${DIFFICULTY_LABELS[filters.difficultyMin]}）`
-                  : `Lv.${filters.difficultyMin} 〜 Lv.${filters.difficultyMax}`}
+                  ? `🔥${filters.difficultyMin}（${DIFFICULTY_LABELS[filters.difficultyMin]}）`
+                  : `🔥${filters.difficultyMin} 〜 🔥${filters.difficultyMax}`}
               </span>
             </div>
 

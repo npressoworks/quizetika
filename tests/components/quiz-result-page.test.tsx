@@ -174,7 +174,7 @@ describe('QuizResultPage Component (Phase 12)', () => {
     expect(screen.getByText(/ヒント.*2:.*ヒントB/)).toBeInTheDocument();
   });
 
-  test('体感難易度投票が ★ UI で表示されクリックできること', async () => {
+  test('体感難易度投票が 🔥 UI で表示されクリックできること', async () => {
     render(<QuizResultPageContent quiz={mockQuiz as any} initialAttempt={mockAttempt as any}
       attemptId="mock-attempt-789" />);
 

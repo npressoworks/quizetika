@@ -23,7 +23,6 @@ import {
 import { parseMarkdownToHtml } from '@/lib/security/sanitize';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { useAuth } from '@/context/auth-context';
-import { getDifficultyColor } from '@/lib/difficulty-color';
 import { submitReview, retractReview, submitFeedbackReport, getOpenReportsForQuiz, updateFeedbackReport, getUserReviewForQuiz } from '@/services/review';
 import { isFollowing, followUser, unfollowUser } from '@/services/user';
 import { getAttemptById, updateAttemptDifficultyVote } from '@/services/attempt';
@@ -661,8 +660,8 @@ export function QuizResultClient({
         <div className={styles.summaryDifficultyBadge} data-testid="quiz-result-difficulty">
           <span>難易度:</span>
           <span className={styles.difficultyStars}>
-            <span style={{ color: getDifficultyColor(diffNum) }}>{'★'.repeat(diffNum)}</span>
-            <span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - diffNum))}</span>
+            <span>{'🔥'.repeat(diffNum)}</span>
+            <span className="opacity-30 grayscale">{'🔥'.repeat(Math.max(0, 5 - diffNum))}</span>
           </span>
         </div>
 
@@ -675,7 +674,7 @@ export function QuizResultClient({
             type="button"
           >
             {bookmarkedQuizIds.has(quiz.id) ? (
-              <BookmarkRounded sx={{ fontSize: 24, color: '#00ff66' }} />
+              <BookmarkRounded sx={{ fontSize: 24 }} />
             ) : (
               <BookmarkBorderOutlined sx={{ fontSize: 24 }} />
             )}
