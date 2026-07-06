@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { SmsOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
+import { SmsOutlined, CloseOutlined } from '@mui/icons-material';
 import styles from './ai-chat-assistant.module.css';
 
 interface AiChatAssistantButtonProps {
@@ -26,10 +26,10 @@ export function AiChatAssistantButton({
       data-testid="ai-chat-assistant-button"
       className={`${styles.floatingButton} ${isChatOpen ? styles.floatingButtonOpen : ''}`}
       onClick={() => (isChatOpen ? onClose() : onOpen())}
-      aria-label="AIアシスタントを開く"
+      aria-label={isChatOpen ? 'AIアシスタントを閉じる' : 'AIアシスタントを開く'}
     >
       {isChatOpen ? (
-        <AutoAwesomeOutlined sx={{ fontSize: 24 }} className={styles.headerIcon} />
+        <CloseOutlined sx={{ fontSize: 26 }} />
       ) : (
         <SmsOutlined sx={{ fontSize: 24 }} />
       )}
