@@ -132,6 +132,59 @@ export async function checkSampleReadability(
   return { ok: true, readableCount, sampleSize };
 }
 
+/** 残存検証（final モード）で報告する1レコード分の識別情報（テーブル・カラム・ID） */
+export interface ResidualLegacyAssetRecord {
+  table: LegacyStorageTarget['table'];
+  idColumn: string;
+  recordId: string;
+  urlColumn: string;
+}
+
+export type CheckResidualLegacyAssetsResult =
+  | { ok: true; residualCount: 0 }
+  | {
+      ok: false;
+      kind: 'residual_found';
+      residualCount: number;
+      residualRecords: ResidualLegacyAssetRecord[];
+    }
+  | { ok: false; kind: 'scan_failed'; error: InventoryError };
+
+/**
+ * LegacyMigrationVerificationGate の `final` モードにおける残存件数検証。
+ *
+ * `scanLegacyAssets()` を再実行し、Firebase Storage 由来の旧URLを保持するレコードが
+ * 一件も残っていないことを確認する（Requirement 9.1）。
+ *
+ * 走査自体が失敗した場合（クエリエラー）は `kind: 'scan_failed'` として返し、
+ * 「残存あり（`kind: 'residual_found'`）」とは明確に区別する。
+ * 残存が検出された場合は、該当レコード（テーブル・カラム・ID）の一覧を結果に含める
+ * （Requirement 9.2）。
+ */
+export async function checkResidualLegacyAssets(): Promise<CheckResidualLegacyAssetsResult> {
+  const scanResult = await scanLegacyAssets();
+
+  if (!scanResult.ok) {
+    return { ok: false, kind: 'scan_failed', error: scanResult.error };
+  }
+
+  if (scanResult.records.length === 0) {
+    return { ok: true, residualCount: 0 };
+  }
+
+  return {
+    ok: false,
+    kind: 'residual_found',
+    residualCount: scanResult.records.length,
+    residualRecords: scanResult.records.map((record) => ({
+      table: record.table,
+      idColumn: record.idColumn,
+      recordId: record.recordId,
+      urlColumn: record.urlColumn,
+    })),
+  };
+}
+
 /**
  * 棚卸し結果を対象領域（テーブル.カラム）別に集計する。
  * 例: `{ 'users.avatar_url': 12, 'quizzes.thumbnail_url': 3 }`

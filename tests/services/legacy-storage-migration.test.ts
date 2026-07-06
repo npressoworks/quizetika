@@ -2,6 +2,7 @@ import {
   scanLegacyAssets,
   summarizeByTarget,
   checkSampleReadability,
+  checkResidualLegacyAssets,
 } from '@/services/legacy-storage-migration';
 import type { LegacyAssetRecord } from '@/services/legacy-storage-migration';
 
@@ -219,5 +220,74 @@ describe('checkSampleReadability', () => {
     const result = await checkSampleReadability(records);
 
     expect(global.fetch).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('checkResidualLegacyAssets', () => {
+  beforeEach(() => {
+    chainsByTable = {
+      users: createChainMock({ data: [], error: null }),
+      quizzes: createChainMock({ data: [], error: null }),
+      questions: createChainMock({ data: [], error: null }),
+      metadata_genres: createChainMock({ data: [], error: null }),
+      genre_requests: createChainMock({ data: [], error: null }),
+    };
+  });
+
+  it('残存レコードが0件の場合、ok: true で residualCount が 0 になる', async () => {
+    const result = await checkResidualLegacyAssets();
+
+    expect(result).toEqual({ ok: true, residualCount: 0 });
+  });
+
+  it('残存レコードが2件以上の場合、ok: false でテーブル・カラム・IDを含むレコード一覧を返す', async () => {
+    chainsByTable.users = createChainMock({
+      data: [{ id: 'u1', avatar_url: FIREBASE_URL }],
+      error: null,
+    });
+    chainsByTable.metadata_genres = createChainMock({
+      data: [{ id: 'g1', icon_image_url: FIREBASE_URL }],
+      error: null,
+    });
+
+    const result = await checkResidualLegacyAssets();
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('expected residual result');
+    }
+    if (result.kind !== 'residual_found') {
+      throw new Error('expected residual_found kind');
+    }
+    expect(result.residualCount).toBe(2);
+    expect(result.residualRecords).toEqual(
+      expect.arrayContaining([
+        { table: 'users', idColumn: 'id', recordId: 'u1', urlColumn: 'avatar_url' },
+        { table: 'metadata_genres', idColumn: 'id', recordId: 'g1', urlColumn: 'icon_image_url' },
+      ])
+    );
+    expect(result.residualRecords).toHaveLength(2);
+  });
+
+  it('走査自体（クエリ）が失敗した場合、残存ありとは区別される scan_failed を返す', async () => {
+    chainsByTable.quizzes = createChainMock({
+      data: null,
+      error: { message: 'connection refused' },
+    });
+
+    const result = await checkResidualLegacyAssets();
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error('expected error result');
+    }
+    if (result.kind !== 'scan_failed') {
+      throw new Error('expected scan_failed kind');
+    }
+    expect(result.error).toEqual({
+      kind: 'query_failed',
+      table: 'quizzes',
+      message: 'connection refused',
+    });
   });
 });
