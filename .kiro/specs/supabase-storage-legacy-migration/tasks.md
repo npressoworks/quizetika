@@ -99,9 +99,9 @@
   - _Boundary: LegacyMigrationVerificationGate_
   - _Depends: 3.1, 3.2, 4.1, 4.2_
 
-- [ ] 7. 最終検証: 全体のビルド・テストゲート
+- [x] 7. 最終検証: 全体のビルド・テストゲート
 
-- [ ] 7.1 リポジトリ全体のビルド・テストを実行する
+- [x] 7.1 リポジトリ全体のビルド・テストを実行する
   - 本スペックで新規追加した全ファイル（`legacy-storage-targets.ts`, `legacy-storage-migration.ts`, `legacy-fallback-cleanup.ts`, 2つのCLIスクリプト、対応するテストファイル）を含めて `npm run build` と `npm run test` を実行する
   - 観測可能な完了条件: `npm run build` と `npm run test` がいずれも終了コード `0` で完了する
   - _Requirements: 9.3_
