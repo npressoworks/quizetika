@@ -62,5 +62,5 @@ export const editorClasses = {
   errorList: 'list-inside list-disc text-sm',
   fieldError: 'mt-1.5 text-[0.82rem] leading-snug text-destructive [&_p]:mb-1 [&_p:last-child]:mb-0',
   actionsBar:
-    'fixed right-0 bottom-0 left-0 z-100 flex justify-end gap-4 border-t border-border bg-background p-5',
+    'fixed right-0 bottom-0 left-0 z-100 flex justify-end gap-4 border-t border-border bg-background p-5 md:left-[70px] lg:left-[275px]',
 } as const;
