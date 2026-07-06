@@ -52,7 +52,7 @@
   - _Requirements: 8.1_
   - _Boundary: LegacyFallbackCodeCleanup_
 
-- [ ] 4.2 storage.ts/storage-path.ts のコメント置換関数を実装する
+- [x] 4.2 storage.ts/storage-path.ts のコメント置換関数を実装する
   - `src/lib/legacy-fallback-cleanup.ts` に `updateLegacyUrlComment(sourceCode: string)` を実装する（ファイルI/Oを行わない純粋関数）
   - 対象2ファイルで実際の文言が異なる点に注意する: `src/services/storage.ts` のコメントは `旧 Firebase URL・外部アバター等`（「Storage」を含まない）、`src/lib/storage-path.ts` のdocstringは `旧 Firebase Storage URL・外部URL等`（「Storage」を含む）。両方の異表記を正しく検出・置換できるよう、正規表現（例: `旧 Firebase (Storage )?URL・外部(アバター|URL)等`）または2つの個別リテラル置換のいずれかで両方に対応する
   - いずれも「Supabase 以外の外部URL（Dicebearデフォルトアバター等）」という表現に統一して置換する。既存の非Supabase URLガードのロジック自体（`if` 文等）は変更しない

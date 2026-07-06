@@ -39,3 +39,31 @@ export function removeFirebaseStorageRemotePattern(
 
   return { changed: true, content };
 }
+
+/**
+ * `src/services/storage.ts` / `src/lib/storage-path.ts` のソース文字列から、
+ * 旧 Firebase 向けフォールバックを示すコメント／docstring文言を検出し、
+ * 「Supabase 以外の外部URL（Dicebearデフォルトアバター等）」という統一表現に置換する。
+ *
+ * 両ファイルで実際の文言が異なる点に対応する:
+ * - `storage.ts`: 「旧 Firebase URL・外部アバター等」（「Storage」を含まない）
+ * - `storage-path.ts`: 「旧 Firebase Storage URL・外部URL等」（「Storage」を含む）
+ *
+ * いずれの異表記も見つからない場合は `changed: false` を返し、
+ * 入力文字列をそのまま返す（冪等・非破壊）。周辺のガード節（`if (!parsed) { ... }` 等）の
+ * ロジック自体は一切変更しない。
+ */
+export function updateLegacyUrlComment(sourceCode: string): FallbackCleanupResult {
+  const legacyPhrasePattern = /旧 Firebase (?:Storage )?URL・外部(?:アバター|URL)等/;
+
+  if (!legacyPhrasePattern.test(sourceCode)) {
+    return { changed: false, content: sourceCode };
+  }
+
+  const content = sourceCode.replace(
+    legacyPhrasePattern,
+    'Supabase 以外の外部URL（Dicebearデフォルトアバター等）'
+  );
+
+  return { changed: true, content };
+}
