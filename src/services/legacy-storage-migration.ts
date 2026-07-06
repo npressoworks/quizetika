@@ -317,3 +317,211 @@ export async function migrateOneRecord(
 
   return { ok: true, record, newUrl };
 }
+
+/** `runLegacyStorageMigration` が実行モードで記録する失敗理由（`migrateOneRecord` の失敗理由に加え、DB更新自体の失敗を含む） */
+export type MigrationFailureReason = MigrateOneRecordFailureReason | 'db_update_failed';
+
+/** 結果レポートに含まれる1件分の失敗情報 */
+export interface MigrationFailureEntry {
+  record: LegacyAssetRecord;
+  reason: MigrationFailureReason;
+  detail?: string;
+}
+
+/** ドライラン結果に含まれる1件分のプレビュー情報（実際の書き込みは行わない） */
+export interface DryRunPreviewEntry {
+  record: LegacyAssetRecord;
+  plannedNewUrl: string;
+}
+
+/** `runLegacyStorageMigration` の集計結果レポート */
+export interface MigrationRunReport {
+  mode: 'dry-run' | 'execute';
+  totalCandidates: number;
+  byTable: Record<string, number>;
+  succeeded: number;
+  failed: number;
+  failures: MigrationFailureEntry[];
+  /** dry-run（`mode: 'dry-run'`）の場合のみ設定される */
+  dryRunPreview?: DryRunPreviewEntry[];
+}
+
+export type RunLegacyStorageMigrationResult =
+  | ({ ok: true } & MigrationRunReport)
+  | { ok: false; kind: 'scan_failed'; error: InventoryError };
+
+/** テーブル別のレコード件数を集計する（`summarizeByTarget` とは異なり、カラム単位ではなくテーブル単位で集計する） */
+function countByTable(records: readonly LegacyAssetRecord[]): Record<string, number> {
+  const byTable: Record<string, number> = {};
+
+  for (const record of records) {
+    byTable[record.table] = (byTable[record.table] ?? 0) + 1;
+  }
+
+  return byTable;
+}
+
+/**
+ * ドライラン用に、実ファイルを取得せず旧URL文字列から拡張子を推測する。
+ *
+ * ドライランは Storage/DB への書き込みは一切行わない仕様のため、実際にファイルを
+ * 取得して Content-Type を確認することはできない（実行モードの `migrateOneRecord` が
+ * 唯一の正しい拡張子確定手段）。そのため、旧URL文字列の末尾に許可対象の拡張子
+ * （png/jpg/jpeg/gif）が含まれていればそれを「想定される新URL」の表示にのみ使い、
+ * 推測できない場合は最も一般的な形式である `png` をプレースホルダとして使用する。
+ * この値は表示目的のみであり、実行モードでの実際のアップロード結果には使用しない。
+ */
+function inferPlannedExtension(legacyUrl: string): string {
+  const match = legacyUrl.match(/\.(png|jpe?g|gif)(?:[?#]|$)/i);
+
+  if (!match) {
+    return 'png';
+  }
+
+  const ext = match[1].toLowerCase();
+  return ext === 'jpg' ? 'jpeg' : ext;
+}
+
+/**
+ * `record.table`/`record.urlColumn` に応じて該当テーブルのURLカラムを新URLへ更新する。
+ *
+ * Supabase の生成型は `.from(table)` に渡すテーブル名がユニオン型のままだと、`.update()` の
+ * 引数を全テーブルの Update 型の積で検証しようとし、動的なカラム名の代入を静的に許可しない
+ * （2カラム以上を持ちうる合併リテラル型を computed property key に使った場合も、TSは
+ * インデックスシグネチャ型に広げてしまい同様に弾かれる）。
+ * そのため `record.table` と `record.urlColumn` の両方を switch でリテラル型まで絞り込み、
+ * 各分岐でハードコードされたキー名を持つオブジェクトリテラルを渡すことで、`any` を使わずに
+ * 型チェックを通す。`LEGACY_STORAGE_TARGETS` に定義された組み合わせ以外は到達しない
+ * （`default` 分岐は防御的にエラーを返す）。
+ */
+async function updateLegacyUrlColumn(
+  supabase: ReturnType<typeof createAdminClient>,
+  record: LegacyAssetRecord,
+  newUrl: string
+): Promise<{ error: { message: string } | null }> {
+  switch (record.table) {
+    case 'users':
+      return supabase
+        .from('users')
+        .update({ avatar_url: newUrl })
+        .eq(record.idColumn, record.recordId);
+    case 'quizzes': {
+      const client = supabase.from('quizzes');
+      if (record.urlColumn === 'thumbnail_url') {
+        return client.update({ thumbnail_url: newUrl }).eq(record.idColumn, record.recordId);
+      }
+      return client.update({ author_avatar: newUrl }).eq(record.idColumn, record.recordId);
+    }
+    case 'questions': {
+      const client = supabase.from('questions');
+      if (record.urlColumn === 'image_url') {
+        return client.update({ image_url: newUrl }).eq(record.idColumn, record.recordId);
+      }
+      return client.update({ author_avatar: newUrl }).eq(record.idColumn, record.recordId);
+    }
+    case 'metadata_genres':
+      return supabase
+        .from('metadata_genres')
+        .update({ icon_image_url: newUrl })
+        .eq(record.idColumn, record.recordId);
+    case 'genre_requests':
+      return supabase
+        .from('genre_requests')
+        .update({ icon_image_url: newUrl })
+        .eq(record.idColumn, record.recordId);
+  }
+}
+
+/**
+ * `scanLegacyAssets()` の結果を入力として、レコードごとに移行（またはドライランプレビュー）を
+ * オーケストレーションし、結果レポートを生成する（Requirement 3, 5, 6, 7.2）。
+ *
+ * - `options.execute === false`（既定・ドライラン）: `migrateOneRecord()` を一切呼び出さず、
+ *   Storage/DBへの書き込みも発生しない。対象レコード一覧と想定される新URLのみを返す（Requirement 3.1-3.3）。
+ * - `options.execute === true`（実行モード）: レコードごとに `migrateOneRecord()` を呼び出し、
+ *   成功したレコードについてのみDBのURLカラムを新URLへ更新する。失敗したレコード（`migrateOneRecord`
+ *   の失敗、および更新自体の失敗）はDB値を変更せず、失敗理由を記録して後続レコードの処理を継続する
+ *   （Requirement 5.1, 5.2, 6.1）。
+ *
+ * `scanLegacyAssets()`自体が失敗した場合は「対象0件」として扱わず、`kind: 'scan_failed'` として
+ * 明確に区別して伝播する。
+ */
+export async function runLegacyStorageMigration(options: {
+  execute: boolean;
+}): Promise<RunLegacyStorageMigrationResult> {
+  const scanResult = await scanLegacyAssets();
+
+  if (!scanResult.ok) {
+    return { ok: false, kind: 'scan_failed', error: scanResult.error };
+  }
+
+  const { records } = scanResult;
+  const byTable = countByTable(records);
+
+  if (!options.execute) {
+    const supabase = createAdminClient();
+
+    const dryRunPreview: DryRunPreviewEntry[] = records.map((record) => {
+      const extension = inferPlannedExtension(record.legacyUrl);
+      const objectPath = `legacy-migrated/${record.table}-${record.recordId}-${record.urlColumn}.${extension}`;
+      const { data } = supabase.storage.from(record.bucket).getPublicUrl(objectPath);
+
+      return { record, plannedNewUrl: data.publicUrl };
+    });
+
+    return {
+      ok: true,
+      mode: 'dry-run',
+      totalCandidates: records.length,
+      byTable,
+      succeeded: 0,
+      failed: 0,
+      failures: [],
+      dryRunPreview,
+    };
+  }
+
+  const supabase = createAdminClient();
+  const failures: MigrationFailureEntry[] = [];
+  let succeeded = 0;
+
+  for (const record of records) {
+    const migrationResult = await migrateOneRecord(record);
+
+    if (!migrationResult.ok) {
+      failures.push({
+        record,
+        reason: migrationResult.reason,
+        detail: migrationResult.detail,
+      });
+      continue;
+    }
+
+    const { error: updateError } = await updateLegacyUrlColumn(
+      supabase,
+      record,
+      migrationResult.newUrl
+    );
+
+    if (updateError) {
+      failures.push({
+        record,
+        reason: 'db_update_failed',
+        detail: updateError.message,
+      });
+      continue;
+    }
+
+    succeeded += 1;
+  }
+
+  return {
+    ok: true,
+    mode: 'execute',
+    totalCandidates: records.length,
+    byTable,
+    succeeded,
+    failed: failures.length,
+    failures,
+  };
+}
