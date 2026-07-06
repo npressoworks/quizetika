@@ -45,7 +45,7 @@
 
 - [ ] 4. フォールバックコード撤去関数の実装
 
-- [ ] 4.1 next.config.ts のエントリ削除関数を実装する
+- [x] 4.1 next.config.ts のエントリ削除関数を実装する
   - `src/lib/legacy-fallback-cleanup.ts` に `removeFirebaseStorageRemotePattern(nextConfigSource: string)` を実装する（ファイルI/Oを行わない純粋関数）
   - `images.remotePatterns` から `hostname: 'firebasestorage.googleapis.com'` を含むエントリを1件削除した文字列を返す
   - 観測可能な完了条件: 対象パターンを含む文字列フィクスチャを与えると `changed: true` かつパターンが除去された文字列が返り、含まないフィクスチャでは `changed: false` かつ内容が変化しないことをテストで確認できる
