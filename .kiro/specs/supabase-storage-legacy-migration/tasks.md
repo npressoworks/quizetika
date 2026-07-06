@@ -82,7 +82,7 @@
 
 - [ ] 6. CLIラッパーの実装
 
-- [ ] 6.1 (P) migrate-legacy-storage CLIを実装する
+- [x] 6.1 (P) migrate-legacy-storage CLIを実装する
   - `scripts/migrate-legacy-storage.ts` を実装し、`--execute` フラグの有無で 5.2 のドライラン/実行モードを切り替えて呼び出す
   - 結果レポート（成功件数・失敗件数・失敗理由一覧、ドライラン時は対象一覧と想定新URL）を標準出力に人間可読な形式で出力する
   - 観測可能な完了条件: `npm run migrate:legacy-storage`（引数なし）がドライラン結果を出力して正常終了し、`npm run migrate:legacy-storage -- --execute` では実行モードの結果レポートを出力することを確認できる
@@ -106,3 +106,7 @@
   - 観測可能な完了条件: `npm run build` と `npm run test` がいずれも終了コード `0` で完了する
   - _Requirements: 9.3_
   - _Depends: 6.1, 6.2_
+
+## Implementation Notes
+
+- Task 6.1（レビュー1回目REJECTED→修正）: `tsx` で直接実行するCLIスクリプト（`scripts/*.ts`）は、Next.js のリクエストライフサイクル外で動くため `.env.local` が自動読み込みされない。`createAdminClient()` 等が `NEXT_PUBLIC_SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` を要求するスクリプトでは、`playwright.config.ts` と同じパターン（`import { loadEnvConfig } from '@next/env'; loadEnvConfig(process.cwd());` をエントリポイント冒頭・`process.env` 参照より前に配置）が必要。Task 6.2（`verify-legacy-storage-migration.ts`）も同じくSupabase接続を行うため、実装時に同じ対応を最初から組み込むこと。
