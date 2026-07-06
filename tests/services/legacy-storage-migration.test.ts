@@ -3,6 +3,7 @@ import {
   summarizeByTarget,
   checkSampleReadability,
   checkResidualLegacyAssets,
+  migrateOneRecord,
 } from '@/services/legacy-storage-migration';
 import type { LegacyAssetRecord } from '@/services/legacy-storage-migration';
 
@@ -22,10 +23,16 @@ const createChainMock = (resolveValue: unknown) => {
 };
 
 let chainsByTable: Record<string, ReturnType<typeof createChainMock>>;
+let mockUpload: jest.Mock;
+let mockGetPublicUrl: jest.Mock;
+let mockStorageFrom: jest.Mock;
 
 jest.mock('@/lib/supabase/server', () => ({
   createAdminClient: () => ({
     from: jest.fn((table: string) => chainsByTable[table]),
+    storage: {
+      from: (bucket: string) => mockStorageFrom(bucket),
+    },
   }),
 }));
 
@@ -289,5 +296,180 @@ describe('checkResidualLegacyAssets', () => {
       table: 'quizzes',
       message: 'connection refused',
     });
+  });
+});
+
+describe('migrateOneRecord', () => {
+  const originalFetch = global.fetch;
+
+  const record: LegacyAssetRecord = {
+    table: 'users',
+    idColumn: 'id',
+    recordId: 'u1',
+    urlColumn: 'avatar_url',
+    legacyUrl: FIREBASE_URL,
+    bucket: 'users',
+  };
+
+  const NEW_URL =
+    'https://project.supabase.co/storage/v1/object/public/users/legacy-migrated/users-u1-avatar_url.png';
+
+  const okFetchResponse = (contentType: string, body: ArrayBuffer) => ({
+    ok: true,
+    status: 200,
+    headers: { get: (key: string) => (key.toLowerCase() === 'content-type' ? contentType : null) },
+    arrayBuffer: async () => body,
+  });
+
+  beforeEach(() => {
+    mockUpload = jest.fn();
+    mockGetPublicUrl = jest.fn();
+    mockStorageFrom = jest.fn(() => ({ upload: mockUpload, getPublicUrl: mockGetPublicUrl }));
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('正常系: 取得成功→検証成功→アップロード成功→公開確認成功で ok:true と newUrl を返す', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(okFetchResponse('image/png', new ArrayBuffer(3)))
+      .mockResolvedValueOnce({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    mockUpload.mockResolvedValue({
+      data: { path: 'legacy-migrated/users-u1-avatar_url.png' },
+      error: null,
+    });
+    mockGetPublicUrl.mockReturnValue({ data: { publicUrl: NEW_URL } });
+
+    const result = await migrateOneRecord(record);
+
+    expect(result).toEqual({ ok: true, record, newUrl: NEW_URL });
+    expect(mockStorageFrom).toHaveBeenCalledWith('users');
+    expect(mockUpload).toHaveBeenCalledWith(
+      'legacy-migrated/users-u1-avatar_url.png',
+      expect.anything(),
+      { contentType: 'image/png', upsert: true }
+    );
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenNthCalledWith(2, NEW_URL);
+  });
+
+  it('決定的パスの形式: {bucket}/legacy-migrated/{table}-{recordId}-{column}.{ext} の objectPath でアップロードされる', async () => {
+    const quizRecord: LegacyAssetRecord = {
+      table: 'quizzes',
+      idColumn: 'id',
+      recordId: 'q42',
+      urlColumn: 'thumbnail_url',
+      legacyUrl: FIREBASE_URL,
+      bucket: 'quizzes',
+    };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(okFetchResponse('image/jpeg', new ArrayBuffer(2)))
+      .mockResolvedValueOnce({ ok: true, status: 200 }) as unknown as typeof fetch;
+
+    mockUpload.mockResolvedValue({ data: { path: 'x' }, error: null });
+    mockGetPublicUrl.mockReturnValue({
+      data: {
+        publicUrl:
+          'https://project.supabase.co/storage/v1/object/public/quizzes/legacy-migrated/quizzes-q42-thumbnail_url.jpeg',
+      },
+    });
+
+    await migrateOneRecord(quizRecord);
+
+    expect(mockStorageFrom).toHaveBeenCalledWith('quizzes');
+    expect(mockUpload).toHaveBeenCalledWith(
+      'legacy-migrated/quizzes-q42-thumbnail_url.jpeg',
+      expect.anything(),
+      { contentType: 'image/jpeg', upsert: true }
+    );
+  });
+
+  it('異常系: 取得失敗（404）の場合、fetch_failed を返しアップロードは呼ばれない', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 }) as unknown as typeof fetch;
+
+    const result = await migrateOneRecord(record);
+
+    expect(result).toEqual({
+      ok: false,
+      record,
+      reason: 'fetch_failed',
+      detail: expect.any(String),
+    });
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('異常系: fetch がネットワークエラーで例外を投げた場合も fetch_failed を返す', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
+
+    const result = await migrateOneRecord(record);
+
+    expect(result).toEqual({
+      ok: false,
+      record,
+      reason: 'fetch_failed',
+      detail: expect.any(String),
+    });
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('異常系: Content-Type が許可されない形式（image/svg+xml）の場合、mime_mismatch を返しアップロードは呼ばれない', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(okFetchResponse('image/svg+xml', new ArrayBuffer(0))) as unknown as typeof fetch;
+
+    const result = await migrateOneRecord(record);
+
+    expect(result).toEqual({
+      ok: false,
+      record,
+      reason: 'mime_mismatch',
+      detail: expect.any(String),
+    });
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('異常系: アップロードが失敗した場合、upload_failed を返し検証fetchは呼ばれない', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(okFetchResponse('image/jpeg', new ArrayBuffer(3))) as unknown as typeof fetch;
+
+    mockUpload.mockResolvedValue({ data: null, error: { message: 'storage quota exceeded' } });
+
+    const result = await migrateOneRecord(record);
+
+    expect(result).toEqual({
+      ok: false,
+      record,
+      reason: 'upload_failed',
+      detail: 'storage quota exceeded',
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('異常系: 公開アクセス確認fetchが失敗した場合、verify_failed を返す', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(okFetchResponse('image/gif', new ArrayBuffer(3)))
+      .mockResolvedValueOnce({ ok: false, status: 403 }) as unknown as typeof fetch;
+
+    mockUpload.mockResolvedValue({
+      data: { path: 'legacy-migrated/users-u1-avatar_url.gif' },
+      error: null,
+    });
+    mockGetPublicUrl.mockReturnValue({ data: { publicUrl: NEW_URL } });
+
+    const result = await migrateOneRecord(record);
+
+    expect(result).toEqual({
+      ok: false,
+      record,
+      reason: 'verify_failed',
+      detail: expect.any(String),
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });

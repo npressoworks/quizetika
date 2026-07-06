@@ -199,3 +199,121 @@ export function summarizeByTarget(records: readonly LegacyAssetRecord[]): Record
 
   return summary;
 }
+
+/** 複製後アップロード時に許可する画像形式（既存アップロード経路と同一の制限。SVG不可） */
+const ALLOWED_MIGRATION_MIME_TYPES: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpeg',
+  'image/gif': 'gif',
+};
+
+/** `migrateOneRecord` が失敗した段階を示す型付きの理由（例外は投げない） */
+export type MigrateOneRecordFailureReason =
+  | 'fetch_failed'
+  | 'mime_mismatch'
+  | 'upload_failed'
+  | 'verify_failed';
+
+export type MigrateOneRecordResult =
+  | { ok: true; record: LegacyAssetRecord; newUrl: string }
+  | {
+      ok: false;
+      record: LegacyAssetRecord;
+      reason: MigrateOneRecordFailureReason;
+      detail: string;
+    };
+
+/**
+ * 1レコード分の「取得→形式検証→複製→公開確認」を順に実行する（Requirement 4.1-4.4）。
+ *
+ * 複製先は決定的パス `{bucket}/legacy-migrated/{table}-{recordId}-{column}.{ext}`
+ * （`research.md` Design Decisions 参照）とし、`upsert: true` で冪等にアップロードする。
+ *
+ * いずれの段階の失敗も例外を投げず、型付きの失敗理由を持つ結果として返す。
+ * DBの更新はここでは行わない（呼び出し側のバッチ処理の責務）。
+ */
+export async function migrateOneRecord(
+  record: LegacyAssetRecord
+): Promise<MigrateOneRecordResult> {
+  // 1. 旧URLへの匿名HTTP GET
+  let response: Response;
+  try {
+    response = await fetch(record.legacyUrl);
+  } catch (error) {
+    return {
+      ok: false,
+      record,
+      reason: 'fetch_failed',
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      record,
+      reason: 'fetch_failed',
+      detail: `HTTP ${response.status}`,
+    };
+  }
+
+  // 2. 取得結果のMIME形式検証（PNG/JPEG/GIFのみ許可）
+  const rawContentType = response.headers.get('content-type') ?? '';
+  const contentType = rawContentType.split(';')[0].trim().toLowerCase();
+  const extension = ALLOWED_MIGRATION_MIME_TYPES[contentType];
+
+  if (!extension) {
+    return {
+      ok: false,
+      record,
+      reason: 'mime_mismatch',
+      detail: `許可されていない画像形式です: ${rawContentType || '(不明)'}`,
+    };
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+
+  // 3. 決定的パスでの Supabase Storage への upsert アップロード
+  const objectPath = `legacy-migrated/${record.table}-${record.recordId}-${record.urlColumn}.${extension}`;
+  const supabase = createAdminClient();
+
+  const { error: uploadError } = await supabase.storage
+    .from(record.bucket)
+    .upload(objectPath, buffer, { contentType, upsert: true });
+
+  if (uploadError) {
+    return {
+      ok: false,
+      record,
+      reason: 'upload_failed',
+      detail: uploadError.message,
+    };
+  }
+
+  // 4. 新URLへのGETによる公開アクセス確認
+  const { data: publicUrlData } = supabase.storage.from(record.bucket).getPublicUrl(objectPath);
+  const newUrl = publicUrlData.publicUrl;
+
+  let verifyResponse: Response;
+  try {
+    verifyResponse = await fetch(newUrl);
+  } catch (error) {
+    return {
+      ok: false,
+      record,
+      reason: 'verify_failed',
+      detail: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  if (!verifyResponse.ok) {
+    return {
+      ok: false,
+      record,
+      reason: 'verify_failed',
+      detail: `HTTP ${verifyResponse.status}`,
+    };
+  }
+
+  return { ok: true, record, newUrl };
+}
