@@ -18,7 +18,7 @@ jest.mock('next/image', () => ({
 
 const mockUseAuth = jest.fn(() => ({
   user: null as { id: string } | null,
-  firebaseUser: null,
+  authUser: null,
   loading: false,
 }));
 
@@ -103,7 +103,7 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({
       user: null,
-      firebaseUser: null,
+      authUser: null,
       loading: false,
     });
     mockUsePlayedQuizIds.mockReturnValue({
@@ -130,7 +130,7 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
   it('プレイ済みクイズでは警告を表示しない', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-1' },
-      firebaseUser: null,
+      authUser: null,
       loading: false,
     });
     mockUsePlayedQuizIds.mockReturnValue({
@@ -189,7 +189,7 @@ describe('QuizDetailClient - play status', () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-1' },
-      firebaseUser: null,
+      authUser: null,
       loading: false,
     });
   });
@@ -219,7 +219,7 @@ describe('QuizDetailClient - play status', () => {
   it('未ログイン時はプレイステータスを表示しない', () => {
     mockUseAuth.mockReturnValue({
       user: null,
-      firebaseUser: null,
+      authUser: null,
       loading: false,
     });
     mockUsePlayedQuizIds.mockReturnValue({

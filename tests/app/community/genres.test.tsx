@@ -55,7 +55,7 @@ describe('CommunityGenresPage - ジャンル申請後のポーリング一覧の
         id: 'moderator-1',
         moderationTier: 'senior_moderator',
       } as any,
-      firebaseUser: { uid: 'moderator-1', getIdToken: jest.fn().mockResolvedValue('token') } as any,
+      authUser: { uid: 'moderator-1', getIdToken: jest.fn().mockResolvedValue('token') } as any,
       loading: false,
       refreshUser: jest.fn(),
     });

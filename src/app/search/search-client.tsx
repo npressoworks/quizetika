@@ -38,7 +38,7 @@ export function SearchClient({
   initialQuizzes,
 }: SearchClientProps = {}) {
   const router = useRouter();
-  const { user, firebaseUser, loading: authLoading } = useAuth();
+  const { user, authUser, loading: authLoading } = useAuth();
   const { showAds } = useAds();
 
   const {
@@ -160,7 +160,7 @@ export function SearchClient({
   useEffect(() => {
     async function loadBookmarks() {
       if (authLoading) return;
-      const uid = firebaseUser?.uid;
+      const uid = authUser?.uid;
       if (uid && user) {
         try {
           const ids = await getBookmarkedQuizIds(uid);
@@ -176,7 +176,7 @@ export function SearchClient({
       }
     }
     loadBookmarks();
-  }, [user, firebaseUser, authLoading, playStatus, setPlayStatus]);
+  }, [user, authUser, authLoading, playStatus, setPlayStatus]);
 
   const handleBookmarkToggle = async (quizId: string) => {
     if (!user) {

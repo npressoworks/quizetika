@@ -81,7 +81,7 @@ const supabase = createClient();
 type TabType = 'request' | 'vote' | 'history';
 
 export default function CommunityGenresPage() {
-  const { user, firebaseUser, loading } = useAuth();
+  const { user, authUser, loading } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<TabType>('request');
@@ -217,7 +217,7 @@ export default function CommunityGenresPage() {
   };
 
   const handleGenerateIconAi = async () => {
-    if (!firebaseUser) {
+    if (!authUser) {
       setIconError('ログインセッションが無効です。');
       return;
     }
@@ -232,7 +232,7 @@ export default function CommunityGenresPage() {
     setErrorMessage(null);
 
     try {
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/genres/generate-icon', {
         method: 'POST',
         headers: {
@@ -242,7 +242,7 @@ export default function CommunityGenresPage() {
         body: JSON.stringify({
           displayName: formDisplayName,
           description: formDescription,
-          userId: firebaseUser.uid,
+          userId: authUser.uid,
         }),
       });
 
@@ -295,7 +295,7 @@ export default function CommunityGenresPage() {
 
       if (tempIconUrl) {
         // 一時保存アイコン画像を正式パスに移行
-        const token = await firebaseUser!.getIdToken();
+        const token = await authUser!.getIdToken();
         const migrateRes = await fetch('/api/genres/migrate-icon', {
           method: 'POST',
           headers: {
@@ -305,7 +305,7 @@ export default function CommunityGenresPage() {
           body: JSON.stringify({
             tempUrl: tempIconUrl,
             genreId: formGenreId,
-            userId: firebaseUser!.uid,
+            userId: authUser!.uid,
           }),
         });
 

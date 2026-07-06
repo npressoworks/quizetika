@@ -58,7 +58,7 @@ type PendingAction = { quizId: string; action: 'restore' | 'delete' } | null;
 const supabase = createClient();
 
 export default function AdminModerationPage() {
-  const { user, firebaseUser, loading } = useAuth();
+  const { user, authUser, loading } = useAuth();
   const router = useRouter();
 
   const [queueItems, setQueueItems] = useState<ModerationQueueItem[]>([]);
@@ -170,7 +170,7 @@ export default function AdminModerationPage() {
   };
 
   const handleSeedGenres = async () => {
-    if (!firebaseUser) {
+    if (!authUser) {
       setSeedErrorMessage('ログインセッションが無効です。再度ログインしてください。');
       return;
     }
@@ -180,9 +180,9 @@ export default function AdminModerationPage() {
     setSeedErrorMessage(null);
 
     try {
-      await assertSeedGenresAccess(firebaseUser.uid);
+      await assertSeedGenresAccess(authUser.uid);
 
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/admin/seed-genres', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },

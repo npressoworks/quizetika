@@ -14,7 +14,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/context/auth-context', () => ({
   useAuth: () => ({
     user: { id: 'user-1' },
-    firebaseUser: { uid: 'user-1' },
+    authUser: { uid: 'user-1' },
     loading: false,
   }),
 }));

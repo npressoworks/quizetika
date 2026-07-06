@@ -12,7 +12,7 @@ import {
 
 const supabaseClient = createClient();
 
-// 既存のフロントエンド・コード（firebaseUser.uid や firebaseUser.getIdToken()）との
+// 既存のフロントエンド・コード（authUser.uid や authUser.getIdToken()）との
 // 互換性を保つためのアダプター型定義
 interface CompatibleUser {
   uid: string;
@@ -24,20 +24,20 @@ interface CompatibleUser {
 
 interface AuthContextType {
   user: User | null; // Firestore 内のユーザー詳細情報
-  firebaseUser: CompatibleUser | null; // 互換性を持たせた Supabase ユーザーオブジェクト
+  authUser: CompatibleUser | null; // 互換性を持たせた Supabase ユーザーオブジェクト
   loading: boolean; // ローディングフラグ
   refreshUser: () => Promise<void>; // プロフィール更新時などの手動リロード用
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  firebaseUser: null,
+  authUser: null,
   loading: true,
   refreshUser: async () => { },
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [firebaseUser, setFirebaseUser] = useState<CompatibleUser | null>(null);
+  const [authUser, setAuthUser] = useState<CompatibleUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,13 +57,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Firestoreから最新のユーザー情報を再取得する
   const refreshUser = async () => {
-    if (firebaseUser) {
-      const dbUser = await getUser(firebaseUser.uid);
+    if (authUser) {
+      const dbUser = await getUser(authUser.uid);
 
       if (dbUser && dbUser.isBanned === true) {
         await supabaseClient.auth.signOut();
         setUser(null);
-        setFirebaseUser(null);
+        setAuthUser(null);
         if (typeof document !== 'undefined') {
           const secure = window.location.protocol === 'https:' ? '; Secure' : '';
           document.cookie = `quizetika_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
@@ -73,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setUser(dbUser);
-      syncMiddlewareAuthCookies(dbUser, firebaseUser.uid);
+      syncMiddlewareAuthCookies(dbUser, authUser.uid);
     }
   };
 
@@ -83,10 +83,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const sUser = session?.user ?? null;
       if (sUser) {
         const compatUser = createCompatibleUser(sUser);
-        setFirebaseUser(compatUser);
+        setAuthUser(compatUser);
         await syncUserProfile(compatUser);
       } else {
-        setFirebaseUser(null);
+        setAuthUser(null);
         setUser(null);
         clearMiddlewareAuthCookies();
         setLoading(false);
@@ -99,10 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const sUser = session?.user ?? null;
         if (sUser) {
           const compatUser = createCompatibleUser(sUser);
-          setFirebaseUser(compatUser);
+          setAuthUser(compatUser);
           await syncUserProfile(compatUser);
         } else {
-          setFirebaseUser(null);
+          setAuthUser(null);
           setUser(null);
           clearMiddlewareAuthCookies();
           setLoading(false);
@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (dbUser && dbUser.isBanned === true) {
         await supabaseClient.auth.signOut();
         setUser(null);
-        setFirebaseUser(null);
+        setAuthUser(null);
         if (typeof document !== 'undefined') {
           const secure = window.location.protocol === 'https:' ? '; Secure' : '';
           document.cookie = `quizetika_banned=true; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
@@ -169,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading, refreshUser }}>
+    <AuthContext.Provider value={{ user, authUser, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

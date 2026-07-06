@@ -43,7 +43,7 @@ describe('AdminPortalPage - 管理者メニューポータルUI', () => {
   test('認証解決のロード中である場合、ローディングインジケータが表示されること', () => {
     mockUseAuth.mockReturnValue({
       user: null,
-      firebaseUser: null,
+      authUser: null,
       loading: true,
       refreshUser: jest.fn(),
     });
@@ -56,7 +56,7 @@ describe('AdminPortalPage - 管理者メニューポータルUI', () => {
   test('未ログインのアクセス時に /login へリダイレクトされること', async () => {
     mockUseAuth.mockReturnValue({
       user: null,
-      firebaseUser: null,
+      authUser: null,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -74,7 +74,7 @@ describe('AdminPortalPage - 管理者メニューポータルUI', () => {
         id: 'user-1',
         moderationTier: 'newcomer',
       } as any,
-      firebaseUser: null,
+      authUser: null,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -92,7 +92,7 @@ describe('AdminPortalPage - 管理者メニューポータルUI', () => {
         id: 'admin-1',
         moderationTier: 'admin',
       } as any,
-      firebaseUser: null,
+      authUser: null,
       loading: false,
       refreshUser: jest.fn(),
     });

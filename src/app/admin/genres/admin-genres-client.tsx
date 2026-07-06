@@ -39,7 +39,7 @@ interface GenreMetadata {
 }
 
 export default function AdminGenresClient() {
-  const { user, firebaseUser, loading } = useAuth();
+  const { user, authUser, loading } = useAuth();
   const router = useRouter();
 
   // 各種ステート定義
@@ -63,7 +63,7 @@ export default function AdminGenresClient() {
 
   // AIアイコン生成処理の実行
   const handleGenerateIconAi = async () => {
-    if (!firebaseUser) {
+    if (!authUser) {
       setIconError('ログインセッションが無効です。');
       return;
     }
@@ -78,7 +78,7 @@ export default function AdminGenresClient() {
     setErrorMessage(null);
 
     try {
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/genres/generate-icon', {
         method: 'POST',
         headers: {
@@ -88,7 +88,7 @@ export default function AdminGenresClient() {
         body: JSON.stringify({
           displayName: formDisplayName,
           description: formDescription,
-          userId: firebaseUser.uid,
+          userId: authUser.uid,
         }),
       });
 
@@ -132,11 +132,11 @@ export default function AdminGenresClient() {
 
   // ジャンル一覧データの取得
   const fetchGenres = async () => {
-    if (!firebaseUser) return;
+    if (!authUser) return;
     setFetchLoading(true);
     setErrorMessage(null);
     try {
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/admin/genres', {
         method: 'GET',
         headers: {
@@ -162,10 +162,10 @@ export default function AdminGenresClient() {
   };
 
   useEffect(() => {
-    if (isAdmin && firebaseUser) {
+    if (isAdmin && authUser) {
       void fetchGenres();
     }
-  }, [isAdmin, firebaseUser]);
+  }, [isAdmin, authUser]);
 
   // アイコンファイル選択時のハンドラ
   const handleIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,7 +216,7 @@ export default function AdminGenresClient() {
   // ジャンルの追加登録送信処理
   const handleSubmitGenre = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firebaseUser) {
+    if (!authUser) {
       setErrorMessage('ログインセッションが無効です。');
       return;
     }
@@ -236,7 +236,7 @@ export default function AdminGenresClient() {
     try {
       const iconImageUrl = tempIconUrl;
 
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/admin/genres', {
         method: 'POST',
         headers: {

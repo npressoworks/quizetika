@@ -74,7 +74,7 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
         id: 'user-1',
         moderationTier: 'newcomer',
       } as any,
-      firebaseUser: null,
+      authUser: null,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -89,7 +89,7 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
   test('未ログイン時にログイン画面へリダイレクトされること', async () => {
     mockUseAuth.mockReturnValue({
       user: null,
-      firebaseUser: null,
+      authUser: null,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -107,7 +107,7 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
         id: 'admin-1',
         moderationTier: 'admin',
       } as any,
-      firebaseUser: { getIdToken: mockGetIdToken } as any,
+      authUser: { getIdToken: mockGetIdToken } as any,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -132,7 +132,7 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
         id: 'admin-1',
         moderationTier: 'admin',
       } as any,
-      firebaseUser: { getIdToken: mockGetIdToken } as any,
+      authUser: { getIdToken: mockGetIdToken } as any,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -165,7 +165,7 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
         id: 'admin-1',
         moderationTier: 'admin',
       } as any,
-      firebaseUser: { getIdToken: mockGetIdToken } as any,
+      authUser: { getIdToken: mockGetIdToken } as any,
       loading: false,
       refreshUser: jest.fn(),
     });

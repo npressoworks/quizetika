@@ -12,7 +12,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/context/auth-context', () => ({
-  useAuth: () => ({ user: null, firebaseUser: null, loading: false }),
+  useAuth: () => ({ user: null, authUser: null, loading: false }),
 }));
 
 jest.mock('@/services/bookmark', () => ({

@@ -145,7 +145,7 @@
 
 - [ ] 6. 残存する Firebase 由来識別子命名の是正
 
-- [ ] 6.1 (P) AuthContext の firebaseUser を authUser にリネームし、消費コンポーネントとテストモックを追随させる
+- [x] 6.1 (P) AuthContext の firebaseUser を authUser にリネームし、消費コンポーネントとテストモックを追随させる
   - `AuthContextType` の型定義・`useState`・Provider が公開するプロパティ名を `authUser` に変更する
   - `admin/users`, `admin/moderation`, `admin/genres`, `community/genres`, `quiz-carousel`, `search-client` の各ソースファイルで `firebaseUser` への参照を `authUser` に置換する
   - `useAuth()` を型付きモックしている全テストファイル（`community/genres`, `admin/portal`, `admin/moderation-seed`, `admin/genres`, `home-discovery-client`, `home-page`, `quiz-carousel`, `quiz-detail-client` の各テスト）の `firebaseUser` フィールドを `authUser` に更新する

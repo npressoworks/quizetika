@@ -35,14 +35,14 @@ export function QuizCarousel({
   genreLabelById,
 }: QuizCarouselProps) {
   const router = useRouter();
-  const { user, firebaseUser, loading: authLoading } = useAuth();
+  const { user, authUser, loading: authLoading } = useAuth();
   const { showAds } = useAds();
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
   React.useEffect(() => {
     async function loadBookmarks() {
       if (authLoading) return;
-      const uid = firebaseUser?.uid;
+      const uid = authUser?.uid;
       if (uid && user) {
         try {
           const ids = await getBookmarkedQuizIds(uid);
@@ -55,7 +55,7 @@ export function QuizCarousel({
       }
     }
     loadBookmarks();
-  }, [user, firebaseUser, authLoading]);
+  }, [user, authUser, authLoading]);
 
   const handleBookmarkToggle = useCallback(
     async (quizId: string) => {

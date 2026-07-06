@@ -67,7 +67,7 @@ describe('AdminModerationPage - seed genres UI', () => {
         id: 'admin-1',
         moderationTier: 'admin',
       } as never,
-      firebaseUser: { getIdToken: mockGetIdToken } as never,
+      authUser: { getIdToken: mockGetIdToken } as never,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -85,7 +85,7 @@ describe('AdminModerationPage - seed genres UI', () => {
         id: 'mod-1',
         moderationTier: 'senior_moderator',
       } as never,
-      firebaseUser: { getIdToken: mockGetIdToken } as never,
+      authUser: { getIdToken: mockGetIdToken } as never,
       loading: false,
       refreshUser: jest.fn(),
     });
@@ -104,7 +104,7 @@ describe('AdminModerationPage - seed genres UI', () => {
         id: 'admin-1',
         moderationTier: 'admin',
       } as never,
-      firebaseUser: { getIdToken: mockGetIdToken } as never,
+      authUser: { getIdToken: mockGetIdToken } as never,
       loading: false,
       refreshUser: jest.fn(),
     });

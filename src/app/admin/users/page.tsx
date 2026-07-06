@@ -30,7 +30,7 @@ import { Textarea } from '@/components/ui/textarea';
 type PendingAction = 'reset' | 'ban' | 'unban' | null;
 
 export default function AdminUsersPage() {
-  const { user, firebaseUser, loading } = useAuth();
+  const { user, authUser, loading } = useAuth();
   const router = useRouter();
 
   const [searchUid, setSearchUid] = useState('');
@@ -84,14 +84,14 @@ export default function AdminUsersPage() {
   };
 
   const executeReset = async () => {
-    if (!searchedUser || !firebaseUser) return;
+    if (!searchedUser || !authUser) return;
 
     setActionLoading(true);
     setSuccessMessage(null);
     setErrorMessage(null);
 
     try {
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/admin/users/reset', {
         method: 'POST',
         headers: {
@@ -126,14 +126,14 @@ export default function AdminUsersPage() {
   };
 
   const executeBan = async () => {
-    if (!searchedUser || !firebaseUser) return;
+    if (!searchedUser || !authUser) return;
 
     setActionLoading(true);
     setSuccessMessage(null);
     setErrorMessage(null);
 
     try {
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/admin/users/ban', {
         method: 'POST',
         headers: {
@@ -168,14 +168,14 @@ export default function AdminUsersPage() {
   };
 
   const executeUnban = async () => {
-    if (!searchedUser || !firebaseUser) return;
+    if (!searchedUser || !authUser) return;
 
     setActionLoading(true);
     setSuccessMessage(null);
     setErrorMessage(null);
 
     try {
-      const token = await firebaseUser.getIdToken();
+      const token = await authUser.getIdToken();
       const res = await fetch('/api/admin/users/unban', {
         method: 'POST',
         headers: {
