@@ -6,7 +6,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { BookmarkBorderOutlined, BookmarkRounded, PlayArrowOutlined, EmojiEventsOutlined, TimerOutlined, LayersOutlined, HelpOutlineOutlined, EditOutlined, WarningAmberOutlined, CheckCircleOutlined } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
-import { getDifficultyColor } from '@/lib/difficulty-color';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { Quiz } from '@/types';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
@@ -162,7 +161,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
             data-analytics="quiz-bookmark-toggle"
           >
             {bookmarked
-              ? <BookmarkRounded sx={{ fontSize: 20, color: '#00ff66' }} className="fill-current" />
+              ? <BookmarkRounded sx={{ fontSize: 20 }} className="fill-current" />
               : <BookmarkBorderOutlined sx={{ fontSize: 20 }} />}
           </button>
         </div>
@@ -180,7 +179,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
             )
           )}
           <div className={styles.difficultyBadge} style={{ fontFamily: 'monospace' }}>
-            難易度: <span style={{ color: getDifficultyColor(diffNum) }}>{'★'.repeat(diffNum)}</span><span style={{ color: 'var(--text-muted)' }}>{'☆'.repeat(Math.max(0, 5 - diffNum))}</span>
+            難易度: <span>{'🔥'.repeat(diffNum)}</span><span className="opacity-30 grayscale">{'🔥'.repeat(Math.max(0, 5 - diffNum))}</span>
           </div>
           <div className={styles.difficultyBadge}>
             形式: <FormatLabel format={formatValue} testId="quiz-detail-format" />

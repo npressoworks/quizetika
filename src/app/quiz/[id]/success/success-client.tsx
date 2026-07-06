@@ -149,7 +149,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
               <h3 className={styles.quizTitle}>{quiz.title}</h3>
               <div className={styles.metaRow}>
                 <span className={styles.genreBadge}>{getGenreLabel(quiz.genre)}</span>
-                <span className={styles.difficultyText}>難易度: ★ {quiz.difficulty}</span>
+                <span className={styles.difficultyText}>難易度: 🔥 {quiz.difficulty}</span>
                 <span className={styles.genreBadge}>{quiz.questionCount} 問</span>
               </div>
             </div>

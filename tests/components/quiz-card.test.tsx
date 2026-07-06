@@ -53,7 +53,7 @@ describe('QuizCard', () => {
     jest.clearAllMocks();
   });
 
-  it('難易度を Lv表記形式で表示しプログレスバーを持たない', () => {
+  it('難易度を🔥表記形式で表示しプログレスバーを持たない', () => {
     const { container } = render(
       <QuizCard
         quiz={makeQuiz()}
@@ -63,7 +63,7 @@ describe('QuizCard', () => {
       />
     );
 
-    expect(screen.getByTestId('quiz-card-difficulty')).toHaveTextContent('Lv.4');
+    expect(screen.getByTestId('quiz-card-difficulty')).toHaveTextContent('🔥🔥🔥🔥🔥');
     expect(container.querySelector('.progressBarBg')).toBeNull();
     expect(container.querySelector('.progressBar')).toBeNull();
   });

@@ -7,7 +7,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { DifficultyVoteStars } from '@/components/quiz/difficulty-vote-stars';
 
 describe('DifficultyVoteStars', () => {
-  it('★クリックで onVote を呼び出す', () => {
+  it('🔥クリックで onVote を呼び出す', () => {
     const onVote = jest.fn();
     render(<DifficultyVoteStars value={null} onVote={onVote} />);
 
@@ -15,24 +15,27 @@ describe('DifficultyVoteStars', () => {
     expect(onVote).toHaveBeenCalledWith(3);
   });
 
-  it('投票済み value=3 のとき ★3 と ☆2 を表示する', () => {
+  it('投票済み value=3 のとき 3個は点灯、残り2個は消灯表示になる', () => {
     render(<DifficultyVoteStars value={3} onVote={jest.fn()} />);
 
     const stars = screen.getAllByRole('button');
-    expect(stars[0]).toHaveTextContent('★');
-    expect(stars[1]).toHaveTextContent('★');
-    expect(stars[2]).toHaveTextContent('★');
-    expect(stars[3]).toHaveTextContent('☆');
-    expect(stars[4]).toHaveTextContent('☆');
+    stars.forEach((star) => {
+      expect(star).toHaveTextContent('🔥');
+    });
+    expect(stars[0]).not.toHaveClass('grayscale');
+    expect(stars[1]).not.toHaveClass('grayscale');
+    expect(stars[2]).not.toHaveClass('grayscale');
+    expect(stars[3]).toHaveClass('grayscale');
+    expect(stars[4]).toHaveClass('grayscale');
   });
 
-  it('未投票時は全て ☆ で色を付けない', () => {
+  it('未投票時は全て消灯表示になる', () => {
     render(<DifficultyVoteStars value={null} onVote={jest.fn()} />);
 
     const stars = screen.getAllByRole('button');
     stars.forEach((star) => {
-      expect(star).toHaveTextContent('☆');
-      expect(star).toHaveClass('text-muted-foreground');
+      expect(star).toHaveTextContent('🔥');
+      expect(star).toHaveClass('grayscale');
     });
   });
 
