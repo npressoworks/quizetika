@@ -40,6 +40,7 @@ Next.js（App Router）によるフルスタックフロントエンドで、バ
 - **サービス・ロジック**: Jest（`tests/**/*.test.ts(x)`）を用いた単体テスト・結合テスト。`@/lib/supabase/client` を `jest.mock()` したチェーンモック（`from().select().eq()...` 形式）で検証する。
 - **UI・インタラクション**: Playwright（`e2e/*.spec.ts`）によるE2Eテスト。
 - **ローカル BaaS**: Supabase CLI（`supabase start` / `npm run gen:types` で型再生成）を使用。
+- **E2Eスイート大量失敗の切り分け**: 多数のE2E失敗が発生した場合はまず Failure Ledger（原因調査用の記録）を作成し、各失敗を「プロダクトコードの不具合」「テストコード自体の不備」「テスト環境・設定の問題」に分類してからドメイン単位で独立修正する。修正完了後は `npm run e2e:diff`（`scripts/e2e-baseline-diff.mjs`）でベースラインとの差分を機械的に比較し、新規デグレードがないことを確認してからゲートを通す（`.kiro/specs/e2e-suite-stabilization` 参照）。
 
 ## 開発環境 (Development Environment)
 
@@ -76,5 +77,6 @@ npm run gen:types
 
 ---
 _updated_at: 2026-07-05 — supabase-cleanup 完了に伴い Supabase 単独構成の記述に更新_
+_updated_at: 2026-07-06 — e2e-suite-stabilization 完了に伴い、Failure Ledger + ベースライン差分検証によるE2Eスイート安定化パターンを追記_
 
 _Document standards and patterns, not every dependency_

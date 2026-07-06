@@ -1508,10 +1508,10 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
 - [x][impl] supabase-gameplay -- ゲームプレイ関連サービス（attempt, review, rating, reaction, leaderboard, play-history, AI対話/合格判定APIルート）の Firestore → Supabase 移行。スキーマ・RPC定義（1.x）、サービス層正規化対応（2.x）、結合・型チェック・テストスイート整合性検証（3.x）まで全タスク完了。Dependencies: supabase-core-data
 - [x][impl] supabase-storage-migration -- Firebase Storage → Supabase Storage 移行。クライアント/サーバー両方のアップロード・ダウンロード・削除処理。サービス層（`storage.ts`/`storage-admin.ts`/`storage-path.ts`）、バケット公開設定マイグレーション、`migrate-icon` ルート配線、型チェック・テストスイート・匿名アクセス統合検証まで全タスク完了。Dependencies: supabase-foundation
 - [x] supabase-governance -- モデレーション・ガバナンス関連サービス（moderation, tagMerge, reputation, entitlement, subscription）の移行。RPC定義・サービス層正規化・結合検証まで完了。ただし `supabase-cleanup` の調査で残存 Firestore 依存9ファイル（AI作問日次利用制限機能の引き受け含む）が判明し Requirement 8/Task 4 を追加、完了未達。Dependencies: supabase-core-data
-- [ ] supabase-cleanup -- Firebase パッケージ・設定ファイルの完全削除、テストインフラ更新、Steering ドキュメント（`tech.md`/`structure.md`/`security.md`）の Supabase ベース全面更新。spec化完了（requirements/design/tasks 承認済み）。MigrationCompletionGate 実装済み（Task 1完了）。全依存スペック完了が前提で、現状は各スペックへ差し戻したフォローアップタスクの完了待ち。Dependencies: supabase-auth-migration, supabase-core-data, supabase-gameplay, supabase-storage-migration, supabase-governance
+- [x][impl] supabase-cleanup -- Firebase パッケージ・設定ファイルの完全削除、テストインフラ更新、Steering ドキュメント（`tech.md`/`structure.md`/`security.md`）の Supabase ベース全面更新。MigrationCompletionGate による Stage A/B 検証、`npm run build`・`npm run test`・`npm run test:e2e` 全成功（2026-07-06、動画広告モーダル起因のE2E脆弱性クラス修正込み）まで全タスク完了。`spec.json.phase` は `implementation-complete`。Dependencies: supabase-auth-migration, supabase-core-data, supabase-gameplay, supabase-storage-migration, supabase-governance
 
 ## Direct Implementation Candidates（Phase 35）
-- [ ] docs-sync-supabase -- `docs/` 配下の全仕様書（db_design.md, api_specification.md, detailed_design.md, security_architecture.md）を Supabase/PostgreSQL ベースに全面更新
+- [x] (廃止) docs-sync-supabase -- `docs/` 配下の全仕様書（db_design.md, api_specification.md, detailed_design.md, security_architecture.md）を Supabase/PostgreSQL ベースに全面更新。**2026-07-06 廃止**: 対象の `docs/` 配下ドキュメント一式は 2026-07-01 のコミット `98b57d6`（クイズカバー画像アップロード機能拡張時の整理）で意図的に削除済みであり、同期対象が存在しないため本タスクは不要と判断。以後 `docs/` を正本とする運用は行わない。
 - [ ] steering-update -- `.kiro/steering/tech.md`, `structure.md`, `security.md` を Supabase ベースに更新（`supabase-cleanup` 完了時に実施。それまでは steering 側で移行中の実態を軽量な注記として反映）
 
 ### 進捗更新（2026-07-04）
@@ -1525,7 +1525,12 @@ UI/UXとして、最初は「もっと見る」ボタンを表示し、クリッ
 | supabase-gameplay | implementation（`supabase-cleanup` の調査により Requirement 5/Task 4 で残存 Firestore 直接依存（7ファイル、タスク2.1/2.2完了時の見落とし含む）が判明し、`implementation-complete` から差し戻し） |
 | supabase-governance | implementation（要件・設計・タスク定義は完了、実装は全RPC・サービス層まで完了済み。`supabase-cleanup` の調査により Requirement 8/Task 4 で残存 Firestore 直接依存（9ファイル）が判明。オーファンだった AI作問日次利用制限機能（`ai-authoring-route-helpers.ts` 等）を本スペックの拡張として引き受け） |
 | supabase-storage-migration | implementation-complete（全タスク完了） |
-| supabase-cleanup | requirements-generated → design-generated → tasks-generated（`/kiro:spec-tasks` 完了）。Task 1（MigrationCompletionGate 実装）完了。Stage A（依存5スペック完了確認）・Stage B（残存 Firebase 参照スキャン）とも現状 FAIL のため Task 2 以降は保留中 |
+| supabase-cleanup | ~~requirements-generated → design-generated → tasks-generated。Task 1完了、Stage A/B とも FAIL のため Task 2 以降保留中~~ → **2026-07-06 時点で `implementation-complete`**（全タスク完了、下記「進捗更新（2026-07-06）」参照） |
 
 正確な最新状態は本表ではなく `/kiro:spec-status <feature>` または各 `spec.json` を直接参照すること。
+
+### 進捗更新（2026-07-06）
+
+- `e2e-suite-stabilization`（新規スペック、2026-07-05〜2026-07-06 で完結）: `supabase-cleanup` Task 5.3 で発見された残存 E2E 失敗50件を Failure Ledger 化し、ドメイン別（認証・アクセス制御／クリエイター・プレイ・発見系）に根本原因調査・独立修正を実施。最終検証ゲート（Task 6）で Failure Ledger 全件が `fixed` または `deferred_out_of_scope` となり、ベースライン差分比較で新規デグレードなし、`npm run test`（219スイート/1222テスト+回帰テスト）成功を確認し完了。`spec.json` の `phase` は `tasks-generated` のまま。
+- `supabase-cleanup`: 上記完了を受けて Task 5.3（`npm run test:e2e` 全体成功）を再実行したところ、動画広告モーダル（`shouldShowVideoAd()` の1/3確率表示）が `/result` 画面遷移を阻害する別の脆弱性クラスを新規発見。`leaderboard.spec.ts`/`quiz-play.spec.ts`/`moderation-feedback.spec.ts`/`seo-sharing.spec.ts`/`learning-support.spec.ts` へ横断的に `e2e-mock-ads-disabled` を適用し、`social-features.spec.ts` の DOM detach タイミング競合も併せて修正。独立レビュー3回（初回・2回目 REJECTED、3回目 APPROVED）を経て `supabase db reset` 後のクリーン単発実行で `npm run test:e2e` 156件中152 passed/4 skipped/0 failed（終了コード `0`）を確認し、全タスク完了・`spec.json.phase` を `implementation-complete` に更新済み（`/kiro-validate-impl supabase-cleanup` で GO 判定）。Firebase → Supabase 完全移行（Phase 35）は本スペックの完了をもって完結。
 
