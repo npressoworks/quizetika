@@ -8,7 +8,7 @@
   - 観測可能な完了条件: `npx tsx --version` がエラーなく実行できる
   - _Requirements: 3.1_
 
-- [ ] 1.2 対象データ定義（LEGACY_STORAGE_TARGETS）を実装する
+- [x] 1.2 対象データ定義（LEGACY_STORAGE_TARGETS）を実装する
   - `src/lib/legacy-storage-targets.ts` に、対象5テーブル×7カラム×バケットの静的定義（`users.avatar_url`, `quizzes.thumbnail_url`, `quizzes.author_avatar`, `questions.image_url`, `questions.author_avatar`, `metadata_genres.icon_image_url`, `genre_requests.icon_image_url`）を実装する
   - 観測可能な完了条件: 定義された配列が7件のカラム定義を含み、テーブル名・IDカラム名・URLカラム名・対応バケット名の組み合わせが正しいことを単体テストで確認できる
   - _Requirements: 2.1_
