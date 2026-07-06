@@ -50,7 +50,7 @@ jest.mock('@/lib/supabase/server', () => ({
 }));
 
 const mockExtractBearerToken = extractBearerToken as jest.MockedFunction<typeof extractBearerToken>;
-const mockVerifyFirebaseIdToken = verifySupabaseAccessToken as jest.MockedFunction<
+const mockVerifySupabaseAccessToken = verifySupabaseAccessToken as jest.MockedFunction<
   typeof verifySupabaseAccessToken
 >;
 
@@ -76,7 +76,7 @@ describe('Admin Genres API', () => {
 
   describe('GET /api/admin/genres', () => {
     test('トークンが無効な場合は 401 を返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue(null);
+      mockVerifySupabaseAccessToken.mockResolvedValue(null);
 
       const res = await GET(buildRequest('GET'));
       const body = await res.json();
@@ -86,7 +86,7 @@ describe('Admin Genres API', () => {
     });
 
     test('管理者以外は 403 を返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('user-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('user-1');
       usersRow = { moderation_tier: 'senior_moderator' };
 
       const res = await GET(buildRequest('GET'));
@@ -97,7 +97,7 @@ describe('Admin Genres API', () => {
     });
 
     test('管理者は 200 と全ジャンルデータを返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('admin-1');
       usersRow = { moderation_tier: 'admin', role: 'admin' };
       genresTable = {
         'genre-1': { id: 'genre-1', display_name: 'Genre 1', is_active: true },
@@ -124,7 +124,7 @@ describe('Admin Genres API', () => {
     };
 
     test('トークンが無効な場合は 401 を返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue(null);
+      mockVerifySupabaseAccessToken.mockResolvedValue(null);
 
       const res = await POST(buildRequest('POST', validPayload));
       const body = await res.json();
@@ -134,7 +134,7 @@ describe('Admin Genres API', () => {
     });
 
     test('管理者以外は 403 を返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('user-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('user-1');
       usersRow = { moderation_tier: 'moderator' };
 
       const res = await POST(buildRequest('POST', validPayload));
@@ -145,7 +145,7 @@ describe('Admin Genres API', () => {
     });
 
     test('リクエストボディが不正な場合は 400 を返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('admin-1');
       usersRow = { moderation_tier: 'admin' };
 
       const invalidPayload = { ...validPayload, id: '' };
@@ -157,7 +157,7 @@ describe('Admin Genres API', () => {
     });
 
     test('IDの形式が不正な場合は 400 を返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('admin-1');
       usersRow = { moderation_tier: 'admin' };
 
       const invalidPayload = { ...validPayload, id: 'New_Genre!' };
@@ -169,7 +169,7 @@ describe('Admin Genres API', () => {
     });
 
     test('すでにIDが存在する場合は 409 を返すこと', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('admin-1');
       usersRow = { moderation_tier: 'admin' };
       genresTable[validPayload.id] = { id: validPayload.id };
 
@@ -181,7 +181,7 @@ describe('Admin Genres API', () => {
     });
 
     test('有効なデータで管理者が POST した場合、200 を返し metadata_genres に登録されること', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('admin-1');
       usersRow = { moderation_tier: 'admin' };
 
       const res = await POST(buildRequest('POST', validPayload));
@@ -204,7 +204,7 @@ describe('Admin Genres API', () => {
     });
 
     test('一時アイコン画像（AI生成/アップロード）のパスを正式なパスに移行して保存すること', async () => {
-      mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+      mockVerifySupabaseAccessToken.mockResolvedValue('admin-1');
       usersRow = { moderation_tier: 'admin' };
       mockMoveTemporaryGenreIcon.mockResolvedValue(
         'https://project.supabase.co/storage/v1/object/public/genres/new-genre/icon_12345.png'

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 /**
  * 検索画面（/search）探索機能 E2Eテスト
  *
- * 注意: FirebaseはWebSocket永続接続を使用するため、
+ * 注意: Supabase RealtimeはWebSocket永続接続を使用するため、
  * page.waitForLoadState('networkidle') は使用不可。
  */
 test.describe('検索画面（/search）探索 E2E', () => {

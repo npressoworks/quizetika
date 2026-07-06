@@ -4,7 +4,7 @@ import { test, expect } from '@playwright/test';
  * Phase 19: Streaming / Suspense スケルトン表示 E2E
  *
  * 各画面でスケルトン testid がロード完了後に非表示となり、実データが表示されることを検証する。
- * Firebase は networkidle 不可のため domcontentloaded + testid 待機を使用する。
+ * Supabase Realtime は networkidle 不可のため domcontentloaded + testid 待機を使用する。
  */
 test.describe('Streaming / Suspense スケルトン E2E', () => {
 

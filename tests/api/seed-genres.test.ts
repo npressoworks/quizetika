@@ -25,7 +25,7 @@ jest.mock('@/lib/supabase/server', () => ({
 }));
 
 const mockExtractBearerToken = extractBearerToken as jest.MockedFunction<typeof extractBearerToken>;
-const mockVerifyFirebaseIdToken = verifySupabaseAccessToken as jest.MockedFunction<
+const mockVerifySupabaseAccessToken = verifySupabaseAccessToken as jest.MockedFunction<
   typeof verifySupabaseAccessToken
 >;
 const { seedInitialGenresWithAdmin } = jest.requireMock('@/services/seedInitialGenresAdmin') as {
@@ -51,7 +51,7 @@ describe('POST /api/admin/seed-genres', () => {
   });
 
   test('トークンが無効な場合は 401 を返すこと', async () => {
-    mockVerifyFirebaseIdToken.mockResolvedValue(null);
+    mockVerifySupabaseAccessToken.mockResolvedValue(null);
 
     const res = await POST(buildRequest());
     const body = await res.json();
@@ -61,7 +61,7 @@ describe('POST /api/admin/seed-genres', () => {
   });
 
   test('管理者以外は 403 を返すこと', async () => {
-    mockVerifyFirebaseIdToken.mockResolvedValue('user-1');
+    mockVerifySupabaseAccessToken.mockResolvedValue('user-1');
     usersRow = { moderation_tier: 'senior_moderator' };
 
     const res = await POST(buildRequest());
@@ -72,7 +72,7 @@ describe('POST /api/admin/seed-genres', () => {
   });
 
   test('管理者は 200 と投入件数を返すこと', async () => {
-    mockVerifyFirebaseIdToken.mockResolvedValue('admin-1');
+    mockVerifySupabaseAccessToken.mockResolvedValue('admin-1');
     usersRow = { moderation_tier: 'admin' };
 
     const res = await POST(buildRequest());
@@ -86,7 +86,7 @@ describe('POST /api/admin/seed-genres', () => {
   });
 
   test('role が admin のユーザーも 200 を返すこと', async () => {
-    mockVerifyFirebaseIdToken.mockResolvedValue('admin-2');
+    mockVerifySupabaseAccessToken.mockResolvedValue('admin-2');
     usersRow = { moderation_tier: 'moderator', role: 'admin' };
 
     const res = await POST(buildRequest());

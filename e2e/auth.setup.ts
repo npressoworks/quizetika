@@ -2,7 +2,7 @@ import { test as setup, expect } from '@playwright/test';
 
 /**
  * 認証状態をセットアップするファイル
- * このファイルは全テストに先立って実行され、Firebase認証後の状態を保存します
+ * このファイルは全テストに先立って実行され、Supabase認証後の状態を保存します
  */
 
 // 認証状態を保存するパス
@@ -24,9 +24,9 @@ setup('authenticate user', async ({ page }) => {
   // ホームページへのリダイレクトを確認
   await expect(page).toHaveURL('/', { timeout: 15000 });
   
-  // ページが完全に読み込まれるまで待機 (Firebaseの永続接続があるため networkidle ではなく domcontentloaded を使用)
+  // ページが完全に読み込まれるまで待機 (Supabase Realtimeの永続接続があるため networkidle ではなく domcontentloaded を使用)
   await page.waitForLoadState('domcontentloaded');
 
-  // 4. Firebase Authのトークン（LocalStorage/Cookie/IndexedDB）を含む状態を保存
+  // 4. Supabase Authのトークン（LocalStorage/Cookie）を含む状態を保存
   await page.context().storageState({ path: authFile });
 });

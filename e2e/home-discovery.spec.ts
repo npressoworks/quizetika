@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 /**
  * Phase 22: ディスカバリーホーム E2E
- * Firebase は networkidle 不可のため domcontentloaded + testid 待機を使用する。
+ * Supabase Realtime は networkidle 不可のため domcontentloaded + testid 待機を使用する。
  */
 test.describe('ディスカバリーホーム E2E', () => {
   test('トップに3セクションが表示され検索 UI はないこと', async ({ page }) => {

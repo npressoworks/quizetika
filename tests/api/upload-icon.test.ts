@@ -1,5 +1,3 @@
-process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET = 'gs://quizetika-test-bucket';
-
 import { NextRequest } from 'next/server';
 
 const mockUploadTemporaryGenreIconBuffer = jest.fn();
