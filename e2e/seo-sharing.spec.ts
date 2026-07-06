@@ -3,6 +3,11 @@ import { test, expect } from '@playwright/test';
 // クイズ詳細ページに遷移するためのヘルパー（クイズがなければ自動作成する）
 async function ensureQuizAndNavigate(page: any) {
   await page.goto('/');
+  // このヘルパーは広告表示自体の検証対象ではないため、動画広告モーダルによる
+  // クリック干渉・結果画面遷移の阻害（1/3確率でのランダム表示）を避けるために広告を無効化する
+  await page.evaluate(() => {
+    window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+  });
   const firstCard = page.locator('[data-testid="quiz-card"]').first();
   await firstCard.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
 

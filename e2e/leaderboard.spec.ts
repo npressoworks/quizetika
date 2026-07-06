@@ -68,6 +68,11 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
   test('F-802: クイズプレイ後にハイスコアが記録されること', async ({ page }) => {
     // 1. ホームページからクイズを選択
     await page.goto('/');
+    // このテストは広告表示自体の検証対象ではないため、動画広告モーダルによる
+    // 結果画面遷移の阻害（1/3確率でのランダム表示）を避けるために広告を無効化する
+    await page.evaluate(() => {
+      window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+    });
     const firstQuizCard = page.locator('[data-testid="quiz-card"]').first();
     await firstQuizCard.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
     
@@ -297,6 +302,11 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
   test('複合テスト: プレイ → ハイスコア記録 → ランキング確認 の完全フロー', async ({ page }) => {
     // 1. ホームページへアクセス
     await page.goto('/');
+    // このテストは広告表示自体の検証対象ではないため、動画広告モーダルによる
+    // 結果画面遷移の阻害（1/3確率でのランダム表示）を避けるために広告を無効化する
+    await page.evaluate(() => {
+      window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+    });
 
     // 2. クイズを選択
     const firstQuizCard = page.locator('[data-testid="quiz-card"]').first();

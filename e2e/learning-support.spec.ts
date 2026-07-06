@@ -25,6 +25,11 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     });
 
     await ensureLoggedIn(page);
+    // このテストは広告表示自体の検証対象ではないため、動画広告モーダルによる
+    // 結果画面遷移の阻害（1/3確率でのランダム表示）を避けるために広告を無効化する
+    await page.evaluate(() => {
+      window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+    });
     await page.goto('/quiz/create');
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
@@ -118,6 +123,11 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     });
 
     await ensureLoggedIn(page);
+    // このテストは広告表示自体の検証対象ではないため、動画広告モーダルによる
+    // 結果画面遷移の阻害（1/3確率でのランダム表示）を避けるために広告を無効化する
+    await page.evaluate(() => {
+      window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+    });
     await page.goto('/quiz/create');
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 

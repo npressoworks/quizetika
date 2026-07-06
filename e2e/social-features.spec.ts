@@ -204,20 +204,22 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
 
       const option = page.locator('label').first();
       if (await option.isVisible().catch(() => false)) {
-        await option.click();
+        // タイマー由来の再描画と競合し要素がDOMから一時的に外れることがあるため、
+        // クリック失敗時は例外を握りつぶし次のループ反復に委ねる
+        await option.click().catch(() => {});
         await page.waitForTimeout(300);
       }
 
       const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
       if (await confirmBtn.isVisible().catch(() => false)) {
-        await confirmBtn.click();
+        await confirmBtn.click().catch(() => {});
         await page.waitForTimeout(300);
       }
 
       const nextOrResultBtn = page.getByTestId('play-next-question')
         .or(page.getByTestId('play-view-results'));
       if (await nextOrResultBtn.isVisible().catch(() => false)) {
-        await nextOrResultBtn.click();
+        await nextOrResultBtn.click().catch(() => {});
         await page.waitForTimeout(500);
       }
     }
@@ -343,20 +345,22 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
 
       const option = page.locator('label').first();
       if (await option.isVisible().catch(() => false)) {
-        await option.click();
+        // タイマー由来の再描画と競合し要素がDOMから一時的に外れることがあるため、
+        // クリック失敗時は例外を握りつぶし次のループ反復に委ねる
+        await option.click().catch(() => {});
         await page.waitForTimeout(300);
       }
 
       const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
       if (await confirmBtn.isVisible().catch(() => false)) {
-        await confirmBtn.click();
+        await confirmBtn.click().catch(() => {});
         await page.waitForTimeout(300);
       }
 
       const nextOrResultBtn = page.getByTestId('play-next-question')
         .or(page.getByTestId('play-view-results'));
       if (await nextOrResultBtn.isVisible().catch(() => false)) {
-        await nextOrResultBtn.click();
+        await nextOrResultBtn.click().catch(() => {});
         await page.waitForTimeout(500);
       }
     }
