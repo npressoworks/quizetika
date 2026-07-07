@@ -1000,4 +1000,32 @@ Phase 11 目標:
 1. **404** — リダイレクトではなくルート削除による既定 404。
 2. **プロフィールリスト** — `profile-client.tsx` のタブ除去は play-flow が軽微実施（auth-profile スペックは別途）。
 
+---
+
+## Phase 37: クイズ詳細画面のプレイモード選択廃止・既プレイ限定の代替導線（2026-07-07）
+
+### Summary
+- **Discovery Type**: Extension（既存 `QuizDetailClient` の簡素化 + 条件分岐追加）。
+- **Key Findings**:
+  - 現状 `quiz-detail-client.tsx` はローカル state `selectedMode`（`normal`/`exam`/`flashcard`）を持つ3択UIを常時表示している。水平思考・早押し形式は既存の分岐（`isLateralThinkingQuiz` / `isQuickPressQuiz`）で単一モード表示済みのため変更不要。
+  - 既プレイ判定は `usePlayedQuizIds(user?.id)` が既に提供しており（ホーム画面のプレイ状況フィルタ、詳細画面の「プレイ済み」バッジで利用中）、新規の判定ロジック・APIは不要。
+  - 結果画面の「もう一度プレイする」ボタン（`quiz-result-client.tsx`）は既に `/quiz/${quiz.id}`（詳細画面）へ戻る実装のため、初回プレイ完了後に代替導線へ自然に到達できる。追加の画面遷移設計は不要。
+  - E2E 3本（`e2e/learning-support.spec.ts`, `e2e/quiz-play.spec.ts`, `e2e/advanced-quiz-features.spec.ts`）が、未プレイの新規クイズに対して模擬試験・フラッシュカードの選択UIや警告を即座にクリック/検証しており、本フェーズのゲーティングで直接壊れる。事前に1周プレイを完了させてから詳細画面に戻る手順への更新が必須。
+  - スタイリングは Phase 24（shadcn/ui + Tailwind 移行）により `page.module.css` ではなく `detail-classes.ts`（Tailwindユーティリティのオブジェクトマップ）で管理されている。design.md Phase 19 節の記述（`page.module.css`）は移行前の記述であり、本フェーズの実装は `detail-classes.ts` を対象とする。
+  - **重要な既存実装との矛盾を発見**: 現行の `showLeaderboardWarning` 条件は `!isLateralThinkingQuiz && !isQuickPressQuiz && !hasPlayedThisQuiz`（**未プレイ時のみ**警告表示）であり、`tests/components/quiz-detail-client.test.tsx` の既存テストもこれに整合している。design.md の Phase 19 記述（`!isLateralThinkingQuiz && !isQuickPressQuiz` のみ）はこの `!hasPlayedThisQuiz` 条件が後から追加された事実を反映しておらず、ドキュメントが実装より古い状態だった。Phase 37 では警告条件を `hasPlayedThisQuiz` 反転（既プレイ時のみ表示、代替導線と同時表示）に変更するため、この既存テストの反転修正が必須タスクとなる。
+
+### Design Decisions
+1. **モード選択 state の削除** — `selectedMode` state と3択UIブロックを完全に削除し、常に `mode=normal` へ遷移する単一ボタンに統一。水平思考・早押し形式の既存分岐は変更しない。
+2. **代替導線は既存コンポーネント内にインライン実装** — 新規の再利用可能コンポーネントとしては切り出さない（利用箇所がクイズ詳細画面のみのため、Simplification原則によりコンポーネント分割を見送り）。
+3. **既プレイ判定の再利用** — 新規 API・フックを作らず、既存 `usePlayedQuizIds` / `hasPlayedThisQuiz` をそのまま再利用する。
+4. **警告表示条件の変更** — `modeLeaderboardWarning` は既存クラスを流用し、表示条件のみ「3択UI表示時」→「代替導線表示時（既プレイ時）」に変更する。
+
+### Risks & Mitigations
+- リスク: 既存 E2E 3本が新規クイズに対して即座に模擬試験・フラッシュカードへ遷移する手順を含むため、変更後に失敗する。
+  - 緩和: 各テストを「まず通常モードで1周完了 → 詳細画面へ戻る → 代替導線から模擬試験/フラッシュカードを開始」という手順に更新する。
+- リスク: `usePlayedQuizIds` は未認証時に `null` を返す設計のため、ゲスト（未認証）ユーザーに代替導線を誤って表示する実装漏れの可能性。
+  - 緩和: 表示条件に `user` の存在チェックを明示的に含める（要件 27.2、`hasPlayedThisQuiz` の既存定義が `Boolean(user && ...)` のため自然に担保される）。
+
+**Document Status（Phase 37 設計）**: `design.md` Phase 37 節に反映済。
+
 **Document Status（Phase 26 設計）**: `design.md` Phase 26 節に反映済。

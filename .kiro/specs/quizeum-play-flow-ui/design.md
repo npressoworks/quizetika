@@ -48,6 +48,8 @@
 
 **Phase 22（2026-06-09）**: IA を再編する。`/` はディスカバリーホーム（3カルーセル）、現行 `HomeClient` の探索 UX は `/search` へ移設。検索画面ではフィルタパネルを閉じてもアクティブ条件チップを常時表示し、URL クエリと探索状態を同期する（`search-url-state.ts` は core、ナビは sidebar-layout）。
 
+**Phase 37（2026-07-07）**: `QuizDetailClient` のプレイモード選択（`selectedMode` state・3択UI）を廃止し、通常形式のクイズでは常に単一の「プレイ」ボタン（`mode=normal`）に統一する。既に `usePlayedQuizIds` で完了済みと判定されるクイズに限り、模擬試験・フラッシュカードへの代替導線を条件付きで表示する。水平思考・早押し形式の既存の専用単一モード分岐は変更しない。ランキング非対象警告（Phase 19）の表示条件をこの代替導線表示時に変更する。
+
 ### Goals
 - 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
 - プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
@@ -56,6 +58,7 @@
 - オフライン時におけるプレイ進行・結果確認のフォールバック処理。
 - クイズ作成者本人に対する編集動線UIの提供、および他ユーザーによる直接編集URLアクセス時の認可保護（ガード）。
 - **Phase 19**: 模擬試験・フラッシュカードのランキング非対象を、プレイ開始前のモード選択画面で明示する。
+- **Phase 37**: クイズ詳細画面のプレイ導線を単一ボタンに簡素化しつつ、既プレイユーザー向けに模擬試験・フラッシュカードへの復習導線を維持する。
 
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizetika-creator-dash-ui` に委ねます）。
@@ -68,6 +71,7 @@
 - **Phase 12**: 指摘フィードバック・通報・ブックマークのFirestoreへの物理的な保存・カウントアップ・自動審査（`quizetika-core` が担当）。
 - **Phase 13**: 既存の難易度 6〜10 を持つクイズの自動マイグレーションスクリプトは UI スペックの対象外とします（読み取り互換/テストデータ修正に委ねます）。
 - **Phase 14**: `difficultyVote` の永続化ロジック・API・スキーマ変更、難易度スケール変更、クイズ詳細／クイズカードの難易度表示変更、探索画面アコーディオンの変更。
+- **Phase 37**: カスタムクイズ機能（`/my-quiz`）のセッション・UI（`quizetika-my-quiz-ui`）。プレイ完了判定ロジック自体の新規実装（既存 `usePlayedQuizIds` を再利用）。模擬試験・フラッシュカードのプレイ進行・結果保存ロジックの変更。
 
 
 ---
@@ -98,7 +102,8 @@
 - **結果画面のアクション強化 (Phase 12)**: 結果サマリーカード上のクイズ全体のブックマークトグル、指摘モーダルの全体指摘時「別解の追加」カテゴリ非表示、指摘ボタン横の通報ボタン表示と通報モーダル連携。
 - **結果画面の回答・解説アコーディオン (Phase 14)**: 各問題行の回答サマリー・解説・ヒント履歴の折りたたみ（初期 closed）、問題ごとの独立開閉状態。
 - **体感難易度投票 ★ UI (Phase 14)**: 数値ボタングリッドの廃止、クリック可能な ★5個、`getDifficultyColor` によるグラデーション表示、オフライン非活性。
-- **模擬試験・フラッシュカード LB 警告（Phase 19）**: プレイモード選択パネル内の静的警告文、`data-testid="play-mode-leaderboard-warning"`、早押し固定・ウミガメ専用 UI では非表示。
+- **模擬試験・フラッシュカード LB 警告（Phase 19、Phase 37 で表示条件改定）**: 代替導線内の静的警告文、`data-testid="play-mode-leaderboard-warning"`、早押し固定・ウミガメ専用 UI では非表示。
+- **クイズ詳細プレイ導線の簡素化・既プレイ限定の代替導線（Phase 37）**: `QuizDetailClient` の単一「プレイ」ボタン化（`selectedMode` state・3択UIの削除）、`usePlayedQuizIds` を用いた既プレイ判定に基づく模擬試験・フラッシュカードへの代替導線（`data-testid="alt-mode-play-panel"`）の条件付き表示。
 
 
 ### Out of Boundary
@@ -106,6 +111,7 @@
 - 認証状態の監視およびユーザープロフィールそのものの編集UI（`quizetika-auth-profile-ui`が担当）。
 - Firestore へのリーダーボード書き込み、`compareLeaderboardRecords` / `mergeUserEntryAndTakeTop5` の呼び出し（`quizetika-core`）。
 - **Phase 19**: LB 登録判定・初回／リプレイ振り分けロジック（`quizetika-core` Phase 18）。プレイ画面・結果画面での追加警告。
+- **Phase 37**: カスタムクイズ機能（`/my-quiz`）のセッション・UI（`quizetika-my-quiz-ui` が担当）。プレイ済み判定ロジック自体の新規実装（既存 `usePlayedQuizIds` / `/api/user/played-quiz-ids` を再利用）。模擬試験・フラッシュカードのプレイ進行・結果保存ロジックの変更。
 
 ### Allowed Dependencies
 - **`quizetika-auth-profile-ui`**: `Header`, `useAuth`
@@ -120,6 +126,7 @@
 - **Phase 8**: `BookmarkFeed` / `BookmarkedQuestionEntry` 形状変更、`QuestionInListEntry` 契約変更、`question-list` attempt フィールド追加、問題リストセッションキー仕様変更。
 - **Phase 10**: `TagMetadata` フィールド変更、`listActiveTags` フィルタ条件変更、`searchQuizzes` の `tags` AND 契約変更、`normalizeTag` 規則変更。
 - **Phase 11**: `SearchFilters.format` 許容値変更、`resolveQuizFormat` / `getFormatLabel` 規則変更（カルーセルラベルと連動）、要件 1.2 / 10.3 のホームジャンル遷移ルール改定（`GenreNav` 非表示）。
+- **Phase 37**: `usePlayedQuizIds` / `/api/user/played-quiz-ids` の判定条件・レスポンス形状変更。
 
 ---
 
@@ -649,9 +656,10 @@ sequenceDiagram
 | 1.5          | クイズカード魅力向上 (サムネイル・プレイボタン・情報整理)                                       | `QuizCard`                                                                          | `Quiz` data representation                       | -                                          |
 | 2.1          | クイズ詳細メタ情報表示                                                                          | `/quiz/[id]` Page                                                                   | `QuizService`                                    | -                                          |
 | 2.2          | 良問評価バッジとマスク制御                                                                      | `/quiz/[id]` Page                                                                   | `ReviewService`                                  | -                                          |
-| 2.3          | 3つのプレイモード選択UI                                                                         | `/quiz/[id]` Page                                                                   | Mode Panel                                       | -                                          |
-| 2.3a         | LB 非対象警告（exam/flashcard）                                                                 | `QuizDetailClient`                                                                  | `play-mode-leaderboard-warning`                  | -                                          |
-| 2.4          | プレイ画面へのリダイレクト遷移                                                                  | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
+| 2.3          | **（Phase 37 改定）** 単一「プレイ」ボタン（3択UIは廃止）                                       | `/quiz/[id]` Page                                                                   | `QuizDetailClient`                               | -                                          |
+| 2.3a         | **（Phase 37 改定）** 「プレイ」ボタン押下時は常に `mode=normal` へ遷移                         | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
+| 2.3b         | 模擬試験・フラッシュカードへのアクセス条件は要件27・19に従う（本画面は3択UIを提供しない）       | `QuizDetailClient`                                                                  | -                                                 | -                                          |
+| 2.4          | プレイパネル（プレイボタン・代替導線）でのプレイ画面へのリダイレクト遷移                        | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
 | 2.5          | 作成者本人用「クイズ編集」ボタンの表示                                                          | `/quiz/[id]` Page                                                                   | `useAuth`                                        | -                                          |
 | 2.6          | 編集ボタンクリック時のクイズ編集画面遷移                                                        | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
 | 3.1          | 個別/全体カウントダウンタイマー                                                                 | `/quiz/[id]/play` Page                                                              | Timer Hook                                       | -                                          |
@@ -737,6 +745,12 @@ sequenceDiagram
 | 5.9          | 同じ作者の他クイズおすすめ表示                                                                  | `QuizResultPage`, `QuizCard`                                                        | `getQuizzesByAuthor`                             | —                                          |
 | 5.10         | 結果「お疲れ様でした」カードのクイズブックマークボタン                                          | `QuizResultPage`                                                                    | `toggleBookmark`                                 | —                                          |
 | 5.11 / 5.11a | 指摘横の通報ボタン表示と通報モーダル連携                                                        | `QuizResultPage`, `ReportModal`                                                     | `flagContent`                                    | コンテンツ通報フロー                       |
+| 27.1–27.3    | 既プレイ限定の代替導線（模擬試験・フラッシュカード）の表示条件                                  | `QuizDetailPage`                                                                    | `usePlayedQuizIds`                               | —                                          |
+| 27.4–27.5    | 代替導線からのモード別プレイ画面遷移                                                            | `QuizDetailPage`                                                                    | `useRouter`                                      | —                                          |
+| 27.6–27.8    | Out of boundary（プレイ進行ロジック・カスタムクイズ・完了判定の新規実装）                       | —                                                                                   | `quizetika-my-quiz-ui`                           | —                                          |
+| 27.9         | testid 契約（`alt-mode-play-panel`）                                                            | `QuizDetailPage`                                                                    | —                                                | —                                          |
+| 19.1–19.3    | **（Phase 37 改定）** 警告表示条件（代替導線表示時のみ）                                        | `QuizDetailPage`                                                                    | `play-mode-leaderboard-warning`                  | —                                          |
+| 19.5–19.6    | **（Phase 37 改定）** 警告文言の再確認（初回喪失リスクの記述整理）                              | `QuizDetailPage`                                                                    | —                                                | —                                          |
 
 ---
 
@@ -760,7 +774,7 @@ sequenceDiagram
 | `SkeletonCard`           | UI / Component | 検索ロード中の骨組みアニメーション                                        | 1.4                                              | —                                                                                                                       | State      |
 | `useHomeQuizFeed`        | Hook           | タブ取得 / `searchQuizzes` 切替・デバウンス（tags AND 含む）              | 1.3, 10.4, 12.12–12.15                           | `searchQuizzes`, tab APIs                                                                                               | State      |
 | `usePlayedQuizIds`       | Hook           | プレイ済み quizId 集合                                                    | 1.3                                              | `/api/user/played-quiz-ids`                                                                                             | State      |
-| `QuizDetailPage`         | UI / Page      | クイズのメタデータおよび良問評価、プレイモード選択、作成者編集動線        | 2.1–2.6                                          | `QuizService`, `ReviewService`, `useAuth`                                                                               | State      |
+| `QuizDetailPage`         | UI / Page      | クイズのメタデータおよび良問評価、単一プレイボタン、既プレイ限定の代替モード導線、作成者編集動線 | 2.1–2.6, 19.1–19.9, 27.1–27.9                    | `QuizService`, `ReviewService`, `useAuth`, `usePlayedQuizIds`                                                           | State      |
 | `QuizDualLeaderboard`    | UI / Component | 初回／リプレイLBのタブ表示（読み取り専用）                                | 9.1–9.8                                          | `getLeaderboardFirstPlay`, `getLeaderboardReplay` (P0)                                                                  | State      |
 | `QuizPlayPage`           | UI / Page      | クイズ解答画面（通常タイマー、ヒント、ウミガメスープチャット）            | 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6 | `usePlayState`, `useAiPlayState`                                                                                        | State, API |
 | `QuizEditor`             | UI / Component | クイズ編集の認可ガード処理およびエディタUIの保護                          | 8.1, 8.2                                         | `useAuth`, `QuizService`, `useRouter`                                                                                   | State      |
@@ -3044,3 +3058,129 @@ export type BookmarkTab = 'quiz' | 'question'; // 'list' 削除
 **Effort**: **M**（2日、Core 完了後）
 
 **Document Status（Phase 26 設計）**: 本節に反映。要件 11（Phase 8 リストプレイ）は **廃止**。
+
+---
+
+## Phase 37: クイズ詳細画面のプレイモード選択廃止・既プレイ限定の代替導線（2026-07-07）
+
+### 1. Overview
+
+`QuizDetailClient`（`src/app/quiz/[id]/quiz-detail-client.tsx`）の `selectedMode` state と3択プレイパネル（通常・模擬試験・フラッシュカード）を廃止し、通常形式のクイズでは常に単一の「プレイ」ボタン（`mode=normal` 固定）を表示する。模擬試験・フラッシュカードは、既存の `usePlayedQuizIds` によって当該クイズを完了済みと判定された認証済みユーザーに対してのみ、単一ボタンの下に追加表示される代替導線（`data-testid="alt-mode-play-panel"`）から開始できる。水平思考（ウミガメのスープ）・早押し形式向けの既存の単一モード分岐（`isLateralThinkingQuiz` / `isQuickPressQuiz`）は変更しない。
+
+**プレイパネル見出しの修正**: 現行 `<h2>{styles.playPanelTitle}>プレイモード選択</h2>` は水平思考・早押し・通常の全分岐で共通表示されているが、「モード選択」という文言は本フェーズの簡素化方針と矛盾する。見出しテキストを「プレイ」に変更する（`playPanelTitle` クラス自体は変更しない）。
+
+**既存スタイルクラスの扱い（重要）**: `modeOption` / `modeSelected` / `modeHeader` / `modeDesc` の4クラスは、3択UIだけでなく水平思考・早押し形式の既存の単一モード表示カード（`isLateralThinkingQuiz` / `isQuickPressQuiz` 分岐）でも共用されている。これらの分岐は変更しないため、4クラスは**削除せず維持**する。3択UIブロック（通常形式の3分岐）のみを削除し、水平思考・早押し分岐のマークアップ・クラス適用はそのまま残す。
+
+結果画面（`quiz-result-client.tsx`）の「もう一度プレイする」ボタンは既に `/quiz/${quiz.id}`（詳細画面）へ遷移する実装のため、初回の通常プレイ完了後、ユーザーは自然に代替導線へ到達できる。この画面遷移パスに変更は不要。
+
+**重要な既存実装との差分**: 現行の `showLeaderboardWarning` は `!isLateralThinkingQuiz && !isQuickPressQuiz && !hasPlayedThisQuiz`（**未プレイ時のみ**警告表示）であり、`tests/components/quiz-detail-client.test.tsx` の既存テスト「プレイ済みクイズでは警告を表示しない」もこれに整合している。これは旧UI（常時3択表示）において「先に模擬試験/フラッシュカードで遊ぶと初回プレイ権を失う」リスクを事前告知する目的だった。Phase 37 では模擬試験・フラッシュカード自体が既プレイユーザーにしか表示されなくなるため、この事前告知の意味が消滅する。したがって警告の表示条件は `hasPlayedThisQuiz` を反転し、代替導線と同時（＝**既プレイ時のみ**）に表示するよう変更する。既存テストは新条件に合わせて反転修正が必要（4. File Structure Plan 参照）。
+
+### 2. Boundary Commitments（Phase 37）
+
+| Owns                                                              | Out of Boundary                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `QuizDetailClient` の単一プレイボタン化（`selectedMode` state 削除） | プレイ完了判定ロジック自体（`usePlayedQuizIds` を再利用のみ） |
+| 既プレイ限定の代替導線表示条件・スタイル・testid                   | 模擬試験・フラッシュカードのプレイ進行・結果保存ロジック      |
+| ランキング非対象警告（要件19）の表示条件変更                       | カスタムクイズ（`/my-quiz`）のセッション・UI（my-quiz-ui）    |
+| 関連 E2E（learning-support / quiz-play / advanced-quiz-features）  | `quizetika-core` の LB 登録判定・初回/リプレイ振り分け        |
+
+### 3. Architecture / UI Design
+
+```mermaid
+flowchart TD
+  Start[クイズ詳細画面表示] --> IsLateral{水平思考形式か}
+  IsLateral -->|Yes| SingleChat[単一チャットモード表示]
+  IsLateral -->|No| IsQuick{早押し形式か}
+  IsQuick -->|Yes| SingleQuick[単一早押しモード表示]
+  IsQuick -->|No| SingleNormal[単一プレイボタン表示 mode normal]
+  SingleNormal --> Played{usePlayedQuizIds で完了済みか}
+  Played -->|No| End1[代替導線を表示しない]
+  Played -->|Yes| AltPanel[代替導線を表示 exam flashcard]
+```
+
+**表示条件（既存フックの再利用）**:
+```typescript
+const showAltModePanel =
+  !isLateralThinkingQuiz && !isQuickPressQuiz && hasPlayedThisQuiz;
+```
+`hasPlayedThisQuiz` は既存の `Boolean(user && playedQuizIds?.has(quiz.id))`（要件1のプレイ状況フィルタ・既存のプレイ済みバッジと同一判定根拠）をそのまま用いる。新規の判定ロジック・APIは追加しない。
+
+**単一プレイボタンの遷移**:
+```typescript
+const handlePlayStart = () => {
+  if (isLateralThinkingQuiz) { /* 既存分岐を維持 */ }
+  else if (isQuickPressQuiz) { /* 既存分岐を維持 */ }
+  else router.push(`/quiz/${quiz.id}/play?mode=normal`);
+};
+
+const handleAltModeStart = (mode: 'exam' | 'flashcard') => {
+  router.push(`/quiz/${quiz.id}/play?mode=${mode}`);
+};
+```
+
+**代替導線 Markup（既存 `modeLeaderboardWarning` クラスを再利用、新規 `altMode*` クラスを追加）**:
+```tsx
+{showAltModePanel && (
+  <div className={styles.altModeSection} data-testid="alt-mode-play-panel">
+    <p className={styles.altModeLabel}>プレイ済み: 復習用モードも利用できます</p>
+    <div className={styles.modeLeaderboardWarning} data-testid="play-mode-leaderboard-warning">
+      <WarningAmberOutlined sx={{ fontSize: 16 }} aria-hidden />
+      <p>模擬試験モード・フラッシュカードモードの記録は、プレイ回数や順序にかかわらず、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。</p>
+    </div>
+    <div className={styles.altModeButtons}>
+      <button onClick={() => handleAltModeStart('exam')}>模擬試験で復習する</button>
+      <button onClick={() => handleAltModeStart('flashcard')}>フラッシュカードで復習する</button>
+    </div>
+  </div>
+)}
+```
+
+**警告文言の変更（要件19.5改定への対応）**: 現行文言には「先にこれらのモードでプレイした場合、のちに通常モードでプレイしても初回プレイランキングには掲載されません」という**プレイ順序依存**の一文が含まれるが、代替導線は既プレイ限定になるためこの懸念は構造的に発生しなくなる。文言は上記のとおり「プレイ回数や順序にかかわらず...いずれにも掲載されません」という**順序非依存**の表現に置き換える（表示条件だけでなく文言自体の修正が必須）。`altModeSection`/`altModeLabel`/`altModeButtons` クラスの新規追加はタスク29.2が担当する。
+
+### 4. File Structure Plan（Phase 37）
+
+| ファイル                                              | 操作       | 責務                                                                                  |
+| ------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------- |
+| `src/app/quiz/[id]/quiz-detail-client.tsx`            | **Modify** | `selectedMode` state・3択UIブロック（通常形式の3分岐のみ）削除、単一プレイボタン化、代替導線の条件付き追加、プレイパネル見出しを「プレイ」に変更。水平思考・早押し分岐のマークアップは変更しない |
+| `src/app/quiz/[id]/detail-classes.ts`                 | **Modify** | `altModeSection`/`altModeLabel`/`altModeButtons` を新規追加。`modeOption`/`modeSelected`/`modeHeader`/`modeDesc`/`modeLeaderboardWarning` は水平思考・早押し分岐（および代替導線）で引き続き使用するため**削除しない** |
+| `tests/components/quiz-detail-client.test.tsx`        | **Modify** | 既存の `describe('QuizDetailClient - Phase 19 LB warning')` を反転修正。現行実装は `!hasPlayedThisQuiz` 時のみ警告表示（未プレイ時警告・既プレイ時非表示）だが、Phase 37 では警告は代替導線と同時（`hasPlayedThisQuiz` 時のみ）表示に変わるため、「プレイ済みクイズでは警告を表示しない」テストを「プレイ済みクイズで警告と代替導線を表示する」に、「通常クイズで警告を表示する」テストを「未プレイクイズでは警告を表示しない」に更新する |
+| `e2e/learning-support.spec.ts`                        | **Modify** | 「3モード表示」テストを、初回プレイ完了 → 詳細画面再訪問 → 代替導線からモード選択、の手順に更新 |
+| `e2e/quiz-play.spec.ts`                                | **Modify** | 新規クイズ初回訪問時に警告非表示・単一「プレイ」ボタンのみであることを検証するテストへ更新 |
+| `e2e/advanced-quiz-features.spec.ts`                  | **Modify** | 模擬試験・フラッシュカードE2Eの開始手順を、既プレイ状態を経由する手順へ更新              |
+
+### 5. Requirements Traceability（Phase 37）
+
+| Req        | Summary                                          | Component                                  |
+| ---------- | ------------------------------------------------- | ------------------------------------------- |
+| 2.3        | 3択UI廃止・単一プレイボタン                       | `QuizDetailClient`                          |
+| 2.3a       | プレイボタン押下時は常に `mode=normal`            | `QuizDetailClient`                          |
+| 2.3b       | 模擬試験・フラッシュカードは要件27・19に従う      | `QuizDetailClient`                          |
+| 2.4        | プレイパネルからのプレイ画面遷移                  | `useRouter`                                 |
+| 19.1–19.2  | 警告の表示条件（代替導線表示時のみ）              | `QuizDetailClient`                          |
+| 19.3       | 水平思考・早押し形式では非表示                    | `QuizDetailClient`                          |
+| 19.4–19.6  | 警告文言・配置                                    | `styles.modeLeaderboardWarning`             |
+| 19.7–19.8  | 境界（LB判定はcoreに依存、追加警告は対象外）      | —                                            |
+| 19.9       | testid 契約                                       | `play-mode-leaderboard-warning`             |
+| 27.1       | 既プレイ・通常形式クイズでの代替導線表示          | `QuizDetailClient`, `usePlayedQuizIds`      |
+| 27.2       | 未完了・未認証では非表示                          | `QuizDetailClient`                          |
+| 27.3       | 水平思考・早押し形式では非表示                    | `QuizDetailClient`                          |
+| 27.4–27.5  | モード別プレイ画面遷移                            | `handleAltModeStart`                        |
+| 27.6       | プレイ進行・結果保存ロジックは変更しない          | Out of boundary                             |
+| 27.7       | カスタムクイズ（my-quiz）は対象外                 | Out of boundary                             |
+| 27.8       | 完了判定ロジックの再利用（新規実装しない）        | `usePlayedQuizIds`                          |
+| 27.9       | testid 契約                                       | `alt-mode-play-panel`                       |
+
+### 6. Testing Strategy（Phase 37）
+
+| 種別          | 検証                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------- |
+| **Component** | 未プレイ・通常形式クイズで単一「プレイ」ボタンのみ表示され、代替導線・警告が表示されないこと         |
+| **Component** | 既プレイ・通常形式クイズで代替導線と警告が表示され、模擬試験・フラッシュカードへそれぞれ正しく遷移すること |
+| **Component** | 水平思考・早押し形式クイズでは、完了状況にかかわらず代替導線・警告が表示されないこと                 |
+| **E2E**       | `e2e/learning-support.spec.ts` — 初回プレイ完了 → 詳細画面再訪問 → 代替導線から模擬試験/フラッシュカード開始 |
+| **E2E**       | `e2e/quiz-play.spec.ts` — 新規クイズ初回訪問時は警告非表示・単一ボタンのみ                            |
+| **Regression**| 水平思考・早押し形式の既存の単一モード遷移・結果保存フローに影響がないこと                           |
+
+**Effort**: **S**（1日程度、既存フック・クラスの再利用のためロジック新規実装は僅少。E2E更新3本が主要工数）
+
+**Document Status（Phase 37 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。
