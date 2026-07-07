@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // テスト全体で共有する通常クイズ（選択肢形式）のID
 let sharedNormalQuizId: string | null = null;
@@ -64,6 +64,57 @@ async function ensureSharedNormalQuiz(page: any, dialogMessages: string[]) {
     sharedNormalQuizId = match[1];
   }
   return sharedNormalQuizId;
+}
+
+// Phase 37: 模擬試験・フラッシュカードへの代替導線（alt-mode-play-panel）は
+// 「認証済み・かつ当該クイズを既にプレイ済み」の場合にのみ表示される。
+// 対象クイズ詳細画面に遷移済みの状態で呼び出し、未プレイであれば通常モードで
+// 1周プレイを完了させたうえで詳細画面に戻り、代替導線が表示されることを確認する。
+// 既にプレイ済みの場合は何もしない（べき等）。
+async function ensureQuizPlayedOnce(page: Page, quizId: string) {
+  await page.goto(`/quiz/${quizId}`);
+
+  // プレイ済み判定（usePlayedQuizIds）は非同期フェッチのため、
+  // ナビゲーション直後に isVisible() を同期チェックすると
+  // フェッチ未完了の false negative を拾ってしまう。
+  // 表示されるまで少し待った上で、既プレイかどうかを判定する。
+  const altPanel = page.getByTestId('alt-mode-play-panel');
+  const alreadyPlayed = await altPanel
+    .waitFor({ state: 'visible', timeout: 8000 })
+    .then(() => true)
+    .catch(() => false);
+  if (alreadyPlayed) {
+    return;
+  }
+
+  // このテストは広告表示自体の検証対象ではないため、動画広告モーダルによる
+  // 結果画面遷移の阻害（1/3確率でのランダム表示）を避けるために広告を無効化する
+  await page.evaluate(() => {
+    window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+  });
+
+  const playBtn = page.getByRole('button', { name: 'プレイ', exact: true });
+  await expect(playBtn).toBeVisible();
+  await playBtn.click();
+
+  await expect(page).toHaveURL(/\/play\?mode=normal/);
+
+  const optionLabel = page.locator('label').filter({ hasText: 'useState' }).first();
+  await expect(optionLabel).toBeVisible({ timeout: 5000 });
+  await optionLabel.click();
+
+  const confirmBtn = page.getByRole('button', { name: '解答を確定する' }).first();
+  await expect(confirmBtn).toBeVisible();
+  await confirmBtn.click();
+
+  const seeResultBtn = page.getByRole('button', { name: '結果を見る ➔' });
+  await expect(seeResultBtn).toBeVisible();
+  await seeResultBtn.click();
+
+  await expect(page).toHaveURL(/\/result/, { timeout: 15000 });
+
+  await page.goto(`/quiz/${quizId}`);
+  await expect(page.getByTestId('alt-mode-play-panel')).toBeVisible({ timeout: 10000 });
 }
 
 test.describe('高度なクイズ機能 E2Eテスト', () => {
@@ -206,33 +257,31 @@ test.describe('高度なクイズ機能 E2Eテスト', () => {
 
     // 共通のテストクイズが存在することを確認
     const quizId = await ensureSharedNormalQuiz(page, dialogMessages);
-    
-    // クイズ詳細ページに直接遷移
-    await page.goto(`/quiz/${quizId}`);
 
-    // 2. プレイモード選択で「模擬試験モード」を選択
-    const mockExamBtn = page.locator('button').filter({ hasText: /模擬試験|試験/ }).first();
-    
-    if (await mockExamBtn.isVisible()) {
-      await mockExamBtn.click();
+    // Phase 37: 模擬試験モードへの代替導線は既プレイ限定のため、まず通常モードで1周完了させる
+    await ensureQuizPlayedOnce(page, quizId!);
 
-      // 模擬試験プレイページへ遷移することを確認
-      await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
+    // 2. 代替導線（alt-mode-play-panel）から「模擬試験で復習する」を選択
+    const mockExamBtn = page.getByRole('button', { name: '模擬試験で復習する' });
+    await expect(mockExamBtn).toBeVisible();
+    await mockExamBtn.click();
 
-      // 3. 模擬試験モードの特徴を確認
-      // 最初の問題で選択肢をクリック
-      const option = page.locator('button[class*="optionBtn"], button').filter({ hasText: /useState/ }).first();
-      if (await option.isVisible()) {
-        await option.click();
+    // 模擬試験プレイページへ遷移することを確認
+    await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play\?mode=exam/);
 
-        // 次へボタンをクリック
-        const nextBtn = page.locator('button').filter({ hasText: /次へ|次の問題|結果を確認する/ }).first();
-        if (await nextBtn.isVisible()) {
-          await nextBtn.click();
-        }
+    // 3. 模擬試験モードの特徴を確認
+    // 最初の問題で選択肢をクリック
+    const option = page.locator('button[class*="optionBtn"], button').filter({ hasText: /useState/ }).first();
+    if (await option.isVisible()) {
+      await option.click();
+
+      // 次へボタンをクリック
+      const nextBtn = page.locator('button').filter({ hasText: /次へ|次の問題|結果を確認する/ }).first();
+      if (await nextBtn.isVisible()) {
+        await nextBtn.click();
       }
-      await page.waitForTimeout(500);
     }
+    await page.waitForTimeout(500);
   });
 
   test('F-1002: シャッフル出題が正常に機能すること', async ({ page }) => {
@@ -324,43 +373,41 @@ test.describe('高度なクイズ機能 E2Eテスト', () => {
 
     // 共通のテストクイズが存在することを確認
     const quizId = await ensureSharedNormalQuiz(page, dialogMessages);
-    
-    // クイズ詳細ページに直接遷移
-    await page.goto(`/quiz/${quizId}`);
 
-    // 2. プレイモード選択で「フラッシュカード」を選択
-    const flashcardBtn = page.locator('button').filter({ hasText: /フラッシュ|暗記|カード/ }).first();
-    
-    if (await flashcardBtn.isVisible()) {
-      await flashcardBtn.click();
+    // Phase 37: フラッシュカードモードへの代替導線は既プレイ限定のため、まず通常モードで1周完了させる
+    await ensureQuizPlayedOnce(page, quizId!);
 
-      // フラッシュカードプレイページへ遷移することを確認
-      await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
+    // 2. 代替導線（alt-mode-play-panel）から「フラッシュカードで復習する」を選択
+    const flashcardBtn = page.getByRole('button', { name: 'フラッシュカードで復習する' });
+    await expect(flashcardBtn).toBeVisible();
+    await flashcardBtn.click();
 
-      // 3. フラッシュカード UI を確認
-      const card = page.locator('[data-testid="flashcard"]').first()
-        .or(page.locator('div').filter({ hasText: /問題|答え/ }).first());
+    // フラッシュカードプレイページへ遷移することを確認
+    await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play\?mode=flashcard/);
 
-      if (await card.isVisible()) {
-        await expect(card).toBeVisible();
+    // 3. フラッシュカード UI を確認
+    const card = page.locator('[data-testid="flashcard"]').first()
+      .or(page.locator('div').filter({ hasText: /問題|答え/ }).first());
 
-        // 4. 「答えを見る」ボタンをクリック
-        const revealBtn = page.locator('button').filter({ hasText: /答え|見る|裏/ }).first();
-        if (await revealBtn.isVisible()) {
-          await revealBtn.click();
+    if (await card.isVisible()) {
+      await expect(card).toBeVisible();
 
-          // 答えが表示されることを確認
-          await page.waitForTimeout(300);
-        }
+      // 4. 「答えを見る」ボタンをクリック
+      const revealBtn = page.locator('button').filter({ hasText: /答え|見る|裏/ }).first();
+      if (await revealBtn.isVisible()) {
+        await revealBtn.click();
 
-        // 5. 次のカードボタンをクリック
-        const nextCardBtn = page.locator('button').filter({ hasText: /次|→|進む/ }).first();
-        if (await nextCardBtn.isVisible()) {
-          await nextCardBtn.click();
+        // 答えが表示されることを確認
+        await page.waitForTimeout(300);
+      }
 
-          // 次のカードが表示されることを確認
-          await page.waitForTimeout(300);
-        }
+      // 5. 次のカードボタンをクリック
+      const nextCardBtn = page.locator('button').filter({ hasText: /次|→|進む/ }).first();
+      if (await nextCardBtn.isVisible()) {
+        await nextCardBtn.click();
+
+        // 次のカードが表示されることを確認
+        await page.waitForTimeout(300);
       }
     }
   });

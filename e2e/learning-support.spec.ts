@@ -14,9 +14,35 @@ async function ensureLoggedIn(page: Page) {
   }
 }
 
+// Phase 37: 模擬試験・フラッシュカードへの代替導線（alt-mode-play-panel）は
+// 既プレイユーザーにのみ表示されるため、代替導線へたどり着く前に
+// 通常モード（単一「プレイ」ボタン）で1周プレイを完了させておく必要がある。
+// クイズ詳細画面が表示された状態から呼び出すこと。
+async function playNormalModeToCompletion(page: Page, correctChoiceText: string) {
+  const playBtn = page.getByRole('button', { name: 'プレイ', exact: true });
+  await expect(playBtn).toBeVisible();
+  await playBtn.click();
+
+  await expect(page).toHaveURL(/\/play\?mode=normal/);
+
+  const correctChoice = page.locator('label').filter({ hasText: correctChoiceText }).first();
+  await expect(correctChoice).toBeVisible({ timeout: 5000 });
+  await correctChoice.click();
+
+  const confirmBtn = page.getByRole('button', { name: '解答を確定する' }).first();
+  await expect(confirmBtn).toBeVisible();
+  await confirmBtn.click();
+
+  const seeResultBtn = page.getByRole('button', { name: '結果を見る ➔' });
+  await expect(seeResultBtn).toBeVisible();
+  await seeResultBtn.click();
+
+  await expect(page).toHaveURL(/\/result/, { timeout: 15000 });
+}
+
 test.describe('学習・資格対策支援 E2Eテスト', () => {
 
-  test('クイズ詳細画面でプレイモード選択UIが正しく表示されること（通常・模擬試験・フラッシュカード）', async ({ page }) => {
+  test('通常モード1周完了後、既プレイ限定の代替導線から模擬試験モードを開始できること', async ({ page }) => {
     // 1. テスト用クイズを作成して公開する
     let dialogMessages: string[] = [];
     page.on('dialog', async dialog => {
@@ -76,21 +102,23 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     // 2. 作成したクイズの詳細画面に直接遷移する
     await page.goto(`/quiz/${quizId}`);
 
-    // 3. クイズ詳細画面でプレイモード選択UIを確認
+    // 3. クイズ詳細画面: 未プレイ時は単一「プレイ」ボタンのみで、代替導線は表示されないことを確認
     await expect(page).toHaveURL(/\/quiz\//);
+    await expect(page.getByTestId('alt-mode-play-panel')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'プレイ', exact: true })).toBeVisible();
 
-    // 3つのプレイモードが表示されることを確認
-    await expect(page.getByText('通常モード', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('模擬試験モード', { exact: true }).first()).toBeVisible();
-    await expect(page.getByText('フラッシュカードモード', { exact: true }).first()).toBeVisible();
+    // 4. 通常モードで1周プレイを完了させる（模擬試験・フラッシュカードへの代替導線は既プレイ限定のため）
+    await playNormalModeToCompletion(page, '4');
 
-    // 4. 模擬試験モードを選択してプレイ開始
-    const examMode = page.getByText('模擬試験モード', { exact: true }).first();
-    await examMode.click();
+    // 5. 詳細画面に戻り、既プレイ状態で表示される代替導線から模擬試験モードを選択する
+    await page.goto(`/quiz/${quizId}`);
+    const altModePanel = page.getByTestId('alt-mode-play-panel');
+    await expect(altModePanel).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('play-mode-leaderboard-warning')).toBeVisible();
 
-    const startPlayBtn = page.locator('text=プレイを開始する');
-    await expect(startPlayBtn).toBeVisible();
-    await startPlayBtn.click();
+    const examModeBtn = page.getByRole('button', { name: '模擬試験で復習する' });
+    await expect(examModeBtn).toBeVisible();
+    await examModeBtn.click();
 
     // 模擬試験モードのプレイ画面に遷移することを確認
     await expect(page).toHaveURL(/\/play\?mode=exam/);
@@ -173,9 +201,21 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     // 2. クイズ詳細画面へ直接アクセス
     await page.goto(`/quiz/${quizId}`);
 
-    // 3. フラッシュカードモードを選択してプレイ開始
-    await page.getByText('フラッシュカードモード', { exact: true }).first().click();
-    await page.locator('text=プレイを開始する').click();
+    // 3. 未プレイ時は単一「プレイ」ボタンのみで、代替導線は表示されないことを確認
+    await expect(page.getByTestId('alt-mode-play-panel')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'プレイ', exact: true })).toBeVisible();
+
+    // 4. 通常モードで1周プレイを完了させる（フラッシュカードへの代替導線は既プレイ限定のため）
+    await playNormalModeToCompletion(page, 'length');
+
+    // 5. 詳細画面に戻り、既プレイ状態で表示される代替導線からフラッシュカードモードを選択する
+    await page.goto(`/quiz/${quizId}`);
+    const altModePanel = page.getByTestId('alt-mode-play-panel');
+    await expect(altModePanel).toBeVisible({ timeout: 10000 });
+
+    const flashcardModeBtn = page.getByRole('button', { name: 'フラッシュカードで復習する' });
+    await expect(flashcardModeBtn).toBeVisible();
+    await flashcardModeBtn.click();
 
     // フラッシュカードモードのプレイ画面に遷移することを確認
     await expect(page).toHaveURL(/\/play\?mode=flashcard/);
