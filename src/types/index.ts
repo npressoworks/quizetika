@@ -118,6 +118,11 @@ export interface LeaderboardRecord {
   completedAt: Date;
 }
 
+/** ログインユーザー自身のリーダーボード記録1件（順位付き。Phase 38） */
+export interface LeaderboardSelfEntry extends LeaderboardRecord {
+  rank: number;
+}
+
 /** 公開済みクイズの閲覧範囲（未設定は public として後方互換） */
 export type QuizVisibility = 'public' | 'private' | 'followers';
 
