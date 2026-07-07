@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { EmojiEventsOutlined } from '@mui/icons-material';
-import { getLeaderboardFirstPlay, getLeaderboardReplay } from '@/lib/leaderboard-ranking';
-import type { LeaderboardRecord, Quiz } from '@/types';
+import type { LeaderboardRecord, LeaderboardSelfEntry } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -15,12 +14,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-
-import { getQuiz } from '@/services/quiz';
+import { useAuth } from '@/context/auth-context';
+import { useQuizLeaderboard } from '@/hooks/useQuizLeaderboard';
 
 export interface QuizDualLeaderboardProps {
-  quiz?: Quiz;
-  quizId?: string;
+  quizId: string;
 }
 
 function formatCompletedAt(value: Date): string {
@@ -36,15 +34,37 @@ function rankClass(index: number): string {
   return '';
 }
 
+/**
+ * 順位・ユーザー表示名・正解数・合計解答時間・達成日の列定義。
+ * TOP5表・自分の順位行の両方から再利用する（design.md Phase 38 Implementation Notes）。
+ */
+function LeaderboardRowCells({ rank, record }: { rank: number; record: LeaderboardRecord }) {
+  return (
+    <>
+      <TableCell className={cn(rankClass(rank - 1))}>#{rank}</TableCell>
+      <TableCell>{record.displayName || '名無しさん'}</TableCell>
+      <TableCell>{record.score}</TableCell>
+      <TableCell>{record.elapsedSeconds} 秒</TableCell>
+      <TableCell>{formatCompletedAt(record.completedAt)}</TableCell>
+    </>
+  );
+}
+
 function LeaderboardTable({
   entries,
+  loading,
   tableTestId,
   rowKeyPrefix,
 }: {
   entries: LeaderboardRecord[];
+  loading: boolean;
   tableTestId: string;
   rowKeyPrefix: string;
 }) {
+  if (loading) {
+    return <p className="py-6 text-center text-sm text-muted-foreground">読み込み中...</p>;
+  }
+
   if (entries.length === 0) {
     return <p className="py-6 text-center text-sm text-muted-foreground">まだ記録がありません。</p>;
   }
@@ -67,11 +87,7 @@ function LeaderboardTable({
               key={`${rowKeyPrefix}-${record.userId}-${index}`}
               data-testid="leaderboard-entry"
             >
-              <TableCell className={cn(rankClass(index))}>#{index + 1}</TableCell>
-              <TableCell>{record.displayName || '名無しさん'}</TableCell>
-              <TableCell>{record.score}</TableCell>
-              <TableCell>{record.elapsedSeconds} 秒</TableCell>
-              <TableCell>{formatCompletedAt(record.completedAt)}</TableCell>
+              <LeaderboardRowCells rank={index + 1} record={record} />
             </TableRow>
           ))}
         </TableBody>
@@ -80,47 +96,34 @@ function LeaderboardTable({
   );
 }
 
-export function QuizDualLeaderboard({ quiz: initialQuiz, quizId }: QuizDualLeaderboardProps) {
-  const [quiz, setQuiz] = React.useState<Quiz | null>(initialQuiz || null);
-  const [loading, setLoading] = React.useState<boolean>(!initialQuiz && !!quizId);
-
-  React.useEffect(() => {
-    if (initialQuiz) {
-      setQuiz(initialQuiz);
-      setLoading(false);
-      return;
-    }
-    if (quizId) {
-      async function loadQuiz() {
-        try {
-          const data = await getQuiz(quizId!);
-          setQuiz(data);
-        } catch (e) {
-          console.error('[QuizDualLeaderboard] ロード失敗:', e);
-        } finally {
-          setLoading(false);
-        }
-      }
-      loadQuiz();
-    }
-  }, [initialQuiz, quizId]);
-
-  const firstPlayEntries = useMemo(
-    () => (quiz ? getLeaderboardFirstPlay(quiz).slice(0, 5) : []),
-    [quiz]
+/**
+ * TOP5表とは別枠で、ログインユーザー自身の順位を常に1行表示する（TOP5圏内・圏外を問わない）。
+ * TOP5行と同一の列定義（LeaderboardRowCells）を再利用する（要件9.9、design.md Implementation Notes）。
+ */
+function MyRankRow({
+  self,
+  rowTestId,
+}: {
+  self: LeaderboardSelfEntry;
+  rowTestId: string;
+}) {
+  return (
+    <div className="mt-4 border-t pt-4">
+      <p className="mb-2 text-sm font-medium text-muted-foreground">あなたの順位</p>
+      <Table>
+        <TableBody>
+          <TableRow data-testid={rowTestId}>
+            <LeaderboardRowCells rank={self.rank} record={self} />
+          </TableRow>
+        </TableBody>
+      </Table>
+    </div>
   );
-  const replayEntries = useMemo(
-    () => (quiz ? getLeaderboardReplay(quiz).slice(0, 5) : []),
-    [quiz]
-  );
+}
 
-  if (loading) {
-    return <p className="py-6 text-center text-sm text-muted-foreground">読み込み中...</p>;
-  }
-
-  if (!quiz) {
-    return null;
-  }
+export function QuizDualLeaderboard({ quizId }: QuizDualLeaderboardProps) {
+  const { user } = useAuth();
+  const { firstPlay, replay } = useQuizLeaderboard(quizId, user?.id ?? null);
 
   return (
     <Card data-testid="quiz-leaderboard">
@@ -142,17 +145,25 @@ export function QuizDualLeaderboard({ quiz: initialQuiz, quizId }: QuizDualLeade
           </TabsList>
           <TabsContent value="firstPlay">
             <LeaderboardTable
-              entries={firstPlayEntries}
+              entries={firstPlay.top}
+              loading={firstPlay.loading}
               tableTestId="highscore-leaderboard"
               rowKeyPrefix="first"
             />
+            {!firstPlay.loading && firstPlay.self && (
+              <MyRankRow self={firstPlay.self} rowTestId="leaderboard-my-rank-first" />
+            )}
           </TabsContent>
           <TabsContent value="replay">
             <LeaderboardTable
-              entries={replayEntries}
+              entries={replay.top}
+              loading={replay.loading}
               tableTestId="replay-leaderboard"
               rowKeyPrefix="replay"
             />
+            {!replay.loading && replay.self && (
+              <MyRankRow self={replay.self} rowTestId="leaderboard-my-rank-replay" />
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
