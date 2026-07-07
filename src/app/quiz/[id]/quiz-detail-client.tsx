@@ -119,6 +119,10 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
     }
   };
 
+  const handleAltModeStart = (mode: 'exam' | 'flashcard') => {
+    router.push(`/quiz/${quiz.id}/play?mode=${mode}`);
+  };
+
   const genreMeta = activeGenres.find((g) => g.id === quiz.genre);
 
   const diffVal = typeof quiz.difficulty === 'number' ? quiz.difficulty : parseInt(quiz.difficulty as any || '0', 10);
@@ -128,8 +132,8 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
   const isQuickPressQuiz = quiz.format === 'quick-press' || (quiz.questions?.some((q) => q.type === 'quick-press') ?? false);
   const hasPlayedThisQuiz = Boolean(user && playedQuizIds?.has(quiz.id));
   const showPlayStatus = Boolean(user && !playedStatusLoading && playedQuizIds !== null);
-  const showLeaderboardWarning =
-    !isLateralThinkingQuiz && !isQuickPressQuiz && !hasPlayedThisQuiz;
+  const showAltModePanel =
+    !isLateralThinkingQuiz && !isQuickPressQuiz && hasPlayedThisQuiz;
   const formatValue = resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] });
 
   return (
@@ -322,15 +326,36 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
               : 'プレイ'}
         </button>
 
-        {showLeaderboardWarning && (
-          <div
-            className={styles.modeLeaderboardWarning}
-            data-testid="play-mode-leaderboard-warning"
-          >
-            <WarningAmberOutlined sx={{ fontSize: 16 }} aria-hidden />
-            <p>
-              模擬試験モード・フラッシュカードモードの記録は、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。先にこれらのモードでプレイした場合、のちに通常モードでプレイしても初回プレイランキングには掲載されません（リプレイランキングのみ対象となります）。
-            </p>
+        {showAltModePanel && (
+          <div className={styles.altModeSection} data-testid="alt-mode-play-panel">
+            <p className={styles.altModeLabel}>プレイ済み: 復習用モードも利用できます</p>
+            <div
+              className={styles.modeLeaderboardWarning}
+              data-testid="play-mode-leaderboard-warning"
+            >
+              <WarningAmberOutlined sx={{ fontSize: 16 }} aria-hidden />
+              <p>
+                模擬試験モード・フラッシュカードモードの記録は、プレイ回数や順序にかかわらず、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。
+              </p>
+            </div>
+            <div className={styles.altModeButtons}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => handleAltModeStart('exam')}
+                data-analytics="quiz-alt-mode-exam-start"
+              >
+                模擬試験で復習する
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => handleAltModeStart('flashcard')}
+                data-analytics="quiz-alt-mode-flashcard-start"
+              >
+                フラッシュカードで復習する
+              </button>
+            </div>
           </div>
         )}
       </div>

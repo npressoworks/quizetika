@@ -38,6 +38,10 @@ export const detailClasses = {
   playPanelTitle: 'text-lg font-bold text-foreground',
   modeLeaderboardWarning:
     'flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200',
+  altModeSection:
+    'flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-4',
+  altModeLabel: 'text-sm font-semibold text-foreground',
+  altModeButtons: 'flex flex-col gap-2 sm:flex-row',
   modeOption:
     'cursor-pointer rounded-lg border border-border p-4 transition-colors hover:border-primary/50 hover:bg-muted/50',
   modeSelected: 'border-primary bg-primary/5',
