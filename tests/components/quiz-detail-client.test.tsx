@@ -170,6 +170,7 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
     );
 
     expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
   });
 
   it('早押しクイズでは警告を表示しない', () => {
@@ -191,6 +192,104 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
     );
 
     expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('認証済み・未プレイクイズでは警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1' },
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set<string>(),
+      loading: false,
+    });
+
+    render(<QuizDetailClient quiz={makeQuiz()} />);
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('未認証時はplayedQuizIdsに該当エントリがあっても警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set(['quiz-1']),
+      loading: false,
+    });
+
+    render(<QuizDetailClient quiz={makeQuiz()} />);
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('プレイ済みのウミガメ専用クイズでも警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1' },
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set(['quiz-1']),
+      loading: false,
+    });
+
+    render(
+      <QuizDetailClient
+        quiz={makeQuiz({
+          questions: [
+            {
+              id: 'q1',
+              type: 'lateral-thinking',
+              text: 'ウミガメ',
+              truthKeywords: ['真相'],
+              explanation: '',
+            },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('プレイ済みの早押しクイズでも警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1' },
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set(['quiz-1']),
+      loading: false,
+    });
+
+    render(
+      <QuizDetailClient
+        quiz={makeQuiz({
+          format: 'quick-press',
+          questions: [
+            {
+              id: 'q1',
+              type: 'quick-press',
+              text: '早押し',
+              correctAnswer: '答え',
+              explanation: '',
+            },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
   });
 });
 
