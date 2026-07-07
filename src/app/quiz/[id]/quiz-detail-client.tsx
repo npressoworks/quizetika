@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { BookmarkBorderOutlined, BookmarkRounded, PlayArrowOutlined, EmojiEventsOutlined, TimerOutlined, LayersOutlined, HelpOutlineOutlined, EditOutlined, WarningAmberOutlined, CheckCircleOutlined } from '@mui/icons-material';
+import { BookmarkBorderOutlined, BookmarkRounded, EmojiEventsOutlined, TimerOutlined, HelpOutlineOutlined, EditOutlined, WarningAmberOutlined, CheckCircleOutlined } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
 import { toggleBookmark, isBookmarked } from '@/services/bookmark';
 import { Quiz } from '@/types';
@@ -31,7 +31,6 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
   const [quiz, setQuiz] = useState<Quiz | null>(quizProp ?? null);
   const [quizLoading, setQuizLoading] = useState<boolean>(!quizProp);
   const [bookmarked, setBookmarked] = useState<boolean>(false);
-  const [selectedMode, setSelectedMode] = useState<'normal' | 'exam' | 'flashcard'>('normal');
   const [bookmarkLoading, setBookmarkLoading] = useState<boolean>(false);
 
   // クライアントサイドでクイズをロード（quizプロップスがない場合のみ）
@@ -116,7 +115,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
     } else if (isQuick) {
       router.push(`/quiz/${quiz.id}/play?mode=normal`);
     } else {
-      router.push(`/quiz/${quiz.id}/play?mode=${selectedMode}`);
+      router.push(`/quiz/${quiz.id}/play?mode=normal`);
     }
   };
 
@@ -287,7 +286,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
 
       {/* サイドバー: プレイパネル */}
       <div className={styles.playPanel}>
-        <h2 className={styles.playPanelTitle}>プレイモード選択</h2>
+        <h2 className={styles.playPanelTitle}>プレイ</h2>
 
         {isLateralThinkingQuiz ? (
           <div className={`${styles.modeOption} ${styles.modeSelected}`}>
@@ -311,48 +310,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
               問題が読めた瞬間にボタンを押し、回答を記述しましょう！
             </p>
           </div>
-        ) : (
-          <>
-            <div
-              className={`${styles.modeOption} ${selectedMode === 'normal' ? styles.modeSelected : ''}`}
-              onClick={() => setSelectedMode('normal')}
-            >
-              <div className={styles.modeHeader}>
-                <PlayArrowOutlined sx={{ fontSize: 16 }} />
-                <span>通常モード</span>
-              </div>
-              <p className={styles.modeDesc}>
-                1問ずつ解答し、タイマー制限とヒントを活用しながらクリアを目指す標準モードです。
-              </p>
-            </div>
-
-            <div
-              className={`${styles.modeOption} ${selectedMode === 'exam' ? styles.modeSelected : ''}`}
-              onClick={() => setSelectedMode('exam')}
-            >
-              <div className={styles.modeHeader}>
-                <TimerOutlined sx={{ fontSize: 16 }} />
-                <span>模擬試験モード</span>
-              </div>
-              <p className={styles.modeDesc}>
-                個別の時間制限はなく、全体制限時間内で自由に問題を往復して見直しができる本番形式モードです。
-              </p>
-            </div>
-
-            <div
-              className={`${styles.modeOption} ${selectedMode === 'flashcard' ? styles.modeSelected : ''}`}
-              onClick={() => setSelectedMode('flashcard')}
-            >
-              <div className={styles.modeHeader}>
-                <LayersOutlined sx={{ fontSize: 16 }} />
-                <span>フラッシュカードモード</span>
-              </div>
-              <p className={styles.modeDesc}>
-                正解を確認しながら、暗記カード感覚でサクサク学習できる復習・学習特化モードです。
-              </p>
-            </div>
-          </>
-        )}
+        ) : null}
 
         <button className={`btn btn-primary ${styles.playBtn}`} onClick={handlePlayStart} style={{ width: '100%', marginTop: '10px' }} data-analytics="quiz-play-start-detail">
           {isLateralThinkingQuiz
@@ -361,7 +319,7 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
               : '会員登録してプレイする'
             : isQuickPressQuiz
               ? '早押しを開始する'
-              : 'プレイを開始する'}
+              : 'プレイ'}
         </button>
 
         {showLeaderboardWarning && (
