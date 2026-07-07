@@ -29,11 +29,11 @@ export default async function QuizDetailPage({ params }: PageProps) {
         <Suspense fallback={<DetailSkeleton data-testid="quiz-detail-skeleton" />}>
           <QuizDetailLoader quizId={quizId} />
         </Suspense>
-      </div>
 
-      <Suspense fallback={<LeaderboardSkeleton data-testid="leaderboard-skeleton" />}>
-        <QuizLeaderboardLoader quizId={quizId} />
-      </Suspense>
+        <Suspense fallback={<LeaderboardSkeleton data-testid="leaderboard-skeleton" />}>
+          <QuizLeaderboardLoader quizId={quizId} />
+        </Suspense>
+      </div>
     </div>
   );
 }

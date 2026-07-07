@@ -137,37 +137,35 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
   const formatValue = resolveQuizFormat({ format: quiz.format, questions: quiz.questions ?? [] });
 
   return (
-    <>
-      {/* メイン詳細カード */}
-      <div className={styles.detailCard}>
-        <div className={styles.header}>
-          <div className={styles.titleArea}>
-            <span className={styles.genre}>
-              {genreMeta?.iconImageUrl ? (
-                <img
-                  src={genreMeta.iconImageUrl}
-                  alt=""
-                  className={styles.genreIconMini}
-                />
-              ) : (
-                <span className={styles.genreIconMiniFallback}>📚</span>
-              )}
-              {genreMeta ? genreMeta.displayName : quiz.genre}
-            </span>
-            <h1 className={styles.title}>{quiz.title}</h1>
-          </div>
-          <button
-            className={`${styles.bookmarkBtn} ${bookmarked ? styles.bookmarked : ''}`}
-            onClick={handleBookmarkToggle}
-            disabled={bookmarkLoading}
-            title="ブックマーク"
-            data-analytics="quiz-bookmark-toggle"
-          >
-            {bookmarked
-              ? <BookmarkRounded sx={{ fontSize: 20 }} className="fill-primary text-primary" />
-              : <BookmarkBorderOutlined sx={{ fontSize: 20 }} />}
-          </button>
+    <div className={styles.detailCard}>
+      <div className={styles.header}>
+        <div className={styles.titleArea}>
+          <span className={styles.genre}>
+            {genreMeta?.iconImageUrl ? (
+              <img
+                src={genreMeta.iconImageUrl}
+                alt=""
+                className={styles.genreIconMini}
+              />
+            ) : (
+              <span className={styles.genreIconMiniFallback}>📚</span>
+            )}
+            {genreMeta ? genreMeta.displayName : quiz.genre}
+          </span>
+          <h1 className={styles.title}>{quiz.title}</h1>
         </div>
+        <button
+          className={`${styles.bookmarkBtn} ${bookmarked ? styles.bookmarked : ''}`}
+          onClick={handleBookmarkToggle}
+          disabled={bookmarkLoading}
+          title="ブックマーク"
+          data-analytics="quiz-bookmark-toggle"
+        >
+          {bookmarked
+            ? <BookmarkRounded sx={{ fontSize: 20 }} className="fill-primary text-primary" />
+            : <BookmarkBorderOutlined sx={{ fontSize: 20 }} />}
+        </button>
+      </div>
 
         {/* バッジ・メタ情報 */}
         <div className={styles.badgesSection}>
@@ -276,6 +274,78 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
           <p>{quiz.description}</p>
         </div>
 
+        {/* プレイ */}
+        <div className={styles.playSection}>
+          <h2 className={styles.playPanelTitle}>プレイ</h2>
+
+          {isLateralThinkingQuiz ? (
+            <div className={`${styles.modeOption} ${styles.modeSelected}`}>
+              <div className={styles.modeHeader}>
+                <HelpOutlineOutlined sx={{ fontSize: 18 }} className="text-neon-accent" />
+                <span>水平思考チャットモード</span>
+              </div>
+              <p className={styles.modeDesc}>
+                ウミガメのスープ問題専用のAIチャット対話モードです。
+                「はい」「いいえ」で答えられる質問をAIに投げ、真相を解き明かしましょう！
+              </p>
+            </div>
+          ) : isQuickPressQuiz ? (
+            <div className={`${styles.modeOption} ${styles.modeSelected}`} style={{ cursor: 'default' }}>
+              <div className={styles.modeHeader}>
+                <TimerOutlined sx={{ fontSize: 18 }} className="text-neon-accent" />
+                <span>早押し通常プレイ</span>
+              </div>
+              <p className={styles.modeDesc}>
+                1文字ずつ表示される早押し問題に対応した専用プレイモードです。
+                問題が読めた瞬間にボタンを押し、回答を記述しましょう！
+              </p>
+            </div>
+          ) : null}
+
+          <button className={`btn btn-primary ${styles.playBtn}`} onClick={handlePlayStart} style={{ width: '100%', marginTop: '10px' }} data-analytics="quiz-play-start-detail">
+            {isLateralThinkingQuiz
+              ? user
+                ? 'チャットを開始する'
+                : '会員登録してプレイする'
+              : isQuickPressQuiz
+                ? '早押しを開始する'
+                : 'プレイ'}
+          </button>
+
+          {showAltModePanel && (
+            <div className={styles.altModeSection} data-testid="alt-mode-play-panel">
+              <p className={styles.altModeLabel}>プレイ済み: 復習用モードも利用できます</p>
+              <div
+                className={styles.modeLeaderboardWarning}
+                data-testid="play-mode-leaderboard-warning"
+              >
+                <WarningAmberOutlined sx={{ fontSize: 16 }} aria-hidden />
+                <p>
+                  模擬試験モード・フラッシュカードモードの記録は、プレイ回数や順序にかかわらず、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。
+                </p>
+              </div>
+              <div className={styles.altModeButtons}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleAltModeStart('exam')}
+                  data-analytics="quiz-alt-mode-exam-start"
+                >
+                  模擬試験で復習する
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleAltModeStart('flashcard')}
+                  data-analytics="quiz-alt-mode-flashcard-start"
+                >
+                  フラッシュカードで復習する
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* タグ */}
         {quiz.tags && quiz.tags.length > 0 && (
           <div className={styles.tags}>
@@ -287,78 +357,5 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
           </div>
         )}
       </div>
-
-      {/* サイドバー: プレイパネル */}
-      <div className={styles.playPanel}>
-        <h2 className={styles.playPanelTitle}>プレイ</h2>
-
-        {isLateralThinkingQuiz ? (
-          <div className={`${styles.modeOption} ${styles.modeSelected}`}>
-            <div className={styles.modeHeader}>
-              <HelpOutlineOutlined sx={{ fontSize: 18 }} className="text-neon-accent" />
-              <span>水平思考チャットモード</span>
-            </div>
-            <p className={styles.modeDesc}>
-              ウミガメのスープ問題専用のAIチャット対話モードです。
-              「はい」「いいえ」で答えられる質問をAIに投げ、真相を解き明かしましょう！
-            </p>
-          </div>
-        ) : isQuickPressQuiz ? (
-          <div className={`${styles.modeOption} ${styles.modeSelected}`} style={{ cursor: 'default' }}>
-            <div className={styles.modeHeader}>
-              <TimerOutlined sx={{ fontSize: 18 }} className="text-neon-accent" />
-              <span>早押し通常プレイ</span>
-            </div>
-            <p className={styles.modeDesc}>
-              1文字ずつ表示される早押し問題に対応した専用プレイモードです。
-              問題が読めた瞬間にボタンを押し、回答を記述しましょう！
-            </p>
-          </div>
-        ) : null}
-
-        <button className={`btn btn-primary ${styles.playBtn}`} onClick={handlePlayStart} style={{ width: '100%', marginTop: '10px' }} data-analytics="quiz-play-start-detail">
-          {isLateralThinkingQuiz
-            ? user
-              ? 'チャットを開始する'
-              : '会員登録してプレイする'
-            : isQuickPressQuiz
-              ? '早押しを開始する'
-              : 'プレイ'}
-        </button>
-
-        {showAltModePanel && (
-          <div className={styles.altModeSection} data-testid="alt-mode-play-panel">
-            <p className={styles.altModeLabel}>プレイ済み: 復習用モードも利用できます</p>
-            <div
-              className={styles.modeLeaderboardWarning}
-              data-testid="play-mode-leaderboard-warning"
-            >
-              <WarningAmberOutlined sx={{ fontSize: 16 }} aria-hidden />
-              <p>
-                模擬試験モード・フラッシュカードモードの記録は、プレイ回数や順序にかかわらず、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。
-              </p>
-            </div>
-            <div className={styles.altModeButtons}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => handleAltModeStart('exam')}
-                data-analytics="quiz-alt-mode-exam-start"
-              >
-                模擬試験で復習する
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => handleAltModeStart('flashcard')}
-                data-analytics="quiz-alt-mode-flashcard-start"
-              >
-                フラッシュカードで復習する
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </>
   );
 }
