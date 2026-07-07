@@ -134,10 +134,10 @@ export function QuizDualLeaderboard({ quiz: initialQuiz, quizId }: QuizDualLeade
         <Tabs defaultValue="firstPlay">
           <TabsList className="mb-4 h-auto w-full">
             <TabsTrigger value="firstPlay" data-testid="quiz-leaderboard-tab-first" className="flex-1 whitespace-normal">
-              初回プレイランキング（上位5名）
+              初回プレイ
             </TabsTrigger>
             <TabsTrigger value="replay" data-testid="quiz-leaderboard-tab-replay" className="flex-1 whitespace-normal">
-              リプレイランキング（上位5名）
+              2回目以降
             </TabsTrigger>
           </TabsList>
           <TabsContent value="firstPlay">
