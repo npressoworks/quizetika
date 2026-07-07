@@ -306,10 +306,10 @@ describe('QuizDetailClient - Phase 37 単一プレイボタン化', () => {
     });
   });
 
-  it('通常形式クイズでは3択のプレイモード選択UIを表示せず、見出しが「プレイ」になる', () => {
+  it('通常形式クイズでは3択のプレイモード選択UIを表示せず、見出しも表示しない（ボタン自体が「プレイ」のため）', () => {
     render(<QuizDetailClient quiz={makeQuiz()} />);
 
-    expect(screen.getByRole('heading', { name: 'プレイ', level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'プレイ' })).not.toBeInTheDocument();
     expect(screen.queryByText('プレイモード選択')).not.toBeInTheDocument();
     expect(screen.queryByText('通常モード')).not.toBeInTheDocument();
     expect(screen.queryByText('模擬試験モード')).not.toBeInTheDocument();
@@ -330,7 +330,7 @@ describe('QuizDetailClient - Phase 37 単一プレイボタン化', () => {
     expect(pushMock).toHaveBeenCalledWith('/quiz/quiz-1/play?mode=normal');
   });
 
-  it('水平思考形式クイズの単一モード表示・見出しは維持される', () => {
+  it('水平思考形式クイズの単一モード表示は維持される', () => {
     render(
       <QuizDetailClient
         quiz={makeQuiz({
@@ -347,12 +347,11 @@ describe('QuizDetailClient - Phase 37 単一プレイボタン化', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: 'プレイ', level: 2 })).toBeInTheDocument();
     expect(screen.getByText('水平思考チャットモード')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '会員登録してプレイする' })).toBeInTheDocument();
   });
 
-  it('早押し形式クイズの単一モード表示・見出しは維持される', () => {
+  it('早押し形式クイズの単一モード表示は維持される', () => {
     render(
       <QuizDetailClient
         quiz={makeQuiz({
@@ -370,7 +369,6 @@ describe('QuizDetailClient - Phase 37 単一プレイボタン化', () => {
       />
     );
 
-    expect(screen.getByRole('heading', { name: 'プレイ', level: 2 })).toBeInTheDocument();
     expect(screen.getByText('早押し通常プレイ')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '早押しを開始する' })).toBeInTheDocument();
   });

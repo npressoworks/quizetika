@@ -276,8 +276,6 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
 
         {/* プレイ */}
         <div className={styles.playSection}>
-          <h2 className={styles.playPanelTitle}>プレイ</h2>
-
           {isLateralThinkingQuiz ? (
             <div className={`${styles.modeOption} ${styles.modeSelected}`}>
               <div className={styles.modeHeader}>

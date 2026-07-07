@@ -132,11 +132,11 @@ export function QuizDualLeaderboard({ quiz: initialQuiz, quizId }: QuizDualLeade
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="firstPlay">
-          <TabsList className="mb-4 h-auto w-full flex-wrap">
-            <TabsTrigger value="firstPlay" data-testid="quiz-leaderboard-tab-first" className="flex-1">
+          <TabsList className="mb-4 h-auto w-full">
+            <TabsTrigger value="firstPlay" data-testid="quiz-leaderboard-tab-first" className="flex-1 whitespace-normal">
               初回プレイランキング（上位5名）
             </TabsTrigger>
-            <TabsTrigger value="replay" data-testid="quiz-leaderboard-tab-replay" className="flex-1">
+            <TabsTrigger value="replay" data-testid="quiz-leaderboard-tab-replay" className="flex-1 whitespace-normal">
               リプレイランキング（上位5名）
             </TabsTrigger>
           </TabsList>

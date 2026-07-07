@@ -34,7 +34,6 @@ export const detailClasses = {
   tags: 'flex flex-wrap gap-2',
   tag: 'rounded-full border border-border bg-muted/50 px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary',
   playSection: 'flex flex-col gap-4 border-t border-border pt-6',
-  playPanelTitle: 'text-lg font-bold text-foreground',
   modeLeaderboardWarning:
     'flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-800 dark:text-amber-200',
   altModeSection:
