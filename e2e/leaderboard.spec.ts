@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createDbClient } from './db-client';
+import { readE2eFixtureIds } from './fixture-ids';
 
 /**
  * リーダーボード実データ検証専用の「別著者」フィクスチャ。
@@ -38,7 +39,7 @@ async function seedOtherAuthorQuiz(title: string): Promise<string> {
         LEADERBOARD_OTHER_AUTHOR_ID,
         '別のE2Eユーザー（LB検証用）',
         title,
-        'E2E自動生成データです（リーダーボード実データ検証用・他ユーザー著者）。',
+        'E2E自動生成データです（LB実データ検証用・他ユーザー著者）。',
       ]
     );
     const quizId = quizResult.rows[0].id;
@@ -67,6 +68,73 @@ async function seedOtherAuthorQuiz(title: string): Promise<string> {
     );
 
     return quizId;
+  } finally {
+    await db.end();
+  }
+}
+
+/**
+ * 指定クイズ・ボードに、複数の合成テストアカウント（`users` テーブルへの直接シード）による
+ * リーダーボード記録を直接投入する。実際にブラウザで複数回ログイン・プレイする代わりに、
+ * `leaderboard_entries` へ直接複数ユーザー分の記録を挿入することで、e2e-test-user（実プレイ）が
+ * TOP5圏外になる状況を再現し、自分の順位行（要件9.9 圏外ケース）を実データで検証できるようにする。
+ * 全員 `score: 1`（本テスト用クイズは1問構成のため満点固定）とし、`elapsedSeconds` のみを変えて
+ * 順位を決定する。2件は完全に同じ `elapsedSeconds` にして同順位判定（要件9.13）も併せて確認する。
+ */
+async function seedLeaderboardCompetitors(
+  quizId: string,
+  board: 'first_play' | 'replay',
+  count: number
+): Promise<void> {
+  const db = createDbClient();
+  await db.connect();
+  try {
+    for (let i = 0; i < count; i++) {
+      const competitorId = `00000000-0000-4000-9000-${String(i).padStart(12, '0')}`;
+      // 0番目と1番目を同じ経過時間（3秒）にして同順位ケースを作る。以降は1秒刻みで確定的に順位付けする。
+      const elapsedSeconds = i <= 1 ? 3 : i + 2;
+      await db.query(
+        `INSERT INTO users (id, email, display_name, bio)
+         VALUES ($1, $2, $3, '')
+         ON CONFLICT (id) DO NOTHING`,
+        [competitorId, `lb-competitor-${i}@example.com`, `競合ユーザー${i}`]
+      );
+      await db.query(
+        `INSERT INTO leaderboard_entries (quiz_id, user_id, display_name, score, elapsed_seconds, type, completed_at)
+         VALUES ($1, $2, $3, 1, $4, $5, now())
+         ON CONFLICT (quiz_id, user_id, type) DO UPDATE SET
+           score = EXCLUDED.score,
+           elapsed_seconds = EXCLUDED.elapsed_seconds,
+           completed_at = EXCLUDED.completed_at`,
+        [quizId, competitorId, `競合ユーザー${i}`, elapsedSeconds, board]
+      );
+    }
+  } finally {
+    await db.end();
+  }
+}
+
+/**
+ * e2e-test-user自身の記録（実プレイで作成済み）の合計解答時間を、DB直接更新で確定的に上書きする。
+ * 自動化されたブラウザ操作は実測経過時間がほぼ0秒になり、合成競合（`seedLeaderboardCompetitors`）
+ * より必ず速くなってしまうため、「自分の記録がTOP5圏外になる」状況を安定的に再現するために用いる。
+ * 記録自体は実際の `saveAttempt` 経路（本物のプレイ・認証・RLS）を通して作成済みのものであり、
+ * この関数は検証したい順位シナリオを確定させるための経過時間の調整のみを行う。
+ */
+async function forceOwnElapsedSeconds(
+  quizId: string,
+  board: 'first_play' | 'replay',
+  elapsedSeconds: number
+): Promise<void> {
+  const { userId } = readE2eFixtureIds();
+  const db = createDbClient();
+  await db.connect();
+  try {
+    await db.query(
+      `UPDATE leaderboard_entries SET elapsed_seconds = $1
+       WHERE quiz_id = $2 AND user_id = $3 AND type = $4`,
+      [elapsedSeconds, quizId, userId, board]
+    );
   } finally {
     await db.end();
   }
@@ -388,6 +456,47 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
     // 6. リプレイ実施後も初回プレイ側の自分の順位表示が引き続き独立して表示されること（要件9.10）
     await waitForLeaderboardData(page, quizDetailUrl, 'first');
     await expect(page.locator('[data-testid="leaderboard-my-rank-first"]')).toBeVisible({ timeout: 15000 });
+  });
+
+  test('複合テスト（複数アカウント・実データ）: 自分の記録がTOP5圏外のとき、圏外の正しい順位がTOP5表とは別枠で表示されること', async ({ page }) => {
+    test.setTimeout(90 * 1000);
+
+    // 1. このテスト専用の「他人のクイズ」を用意する（著者本人プレイはLB対象外のため）。
+    const quizTitle = `[TEST] LB複数アカウント検証_${Date.now().toString().slice(-6)}`;
+    const quizId = await seedOtherAuthorQuiz(quizTitle);
+    const quizDetailUrl = `/quiz/${quizId}`;
+
+    // 2. 6件の合成競合アカウントを直接シードする（経過時間3,3,4,5,6,7秒。先頭2件は同順位ケース）。
+    //    実プレイ（e2e-test-user）はUI操作を伴うため、この全員より確実に遅くなる想定で、
+    //    e2e-test-userがTOP5（上位5件）から必ず溢れる状況を作る。
+    await seedLeaderboardCompetitors(quizId, 'first_play', 6);
+
+    // 3. e2e-test-user自身が実際にプレイする（本物の saveAttempt 経路で記録が作成される）。
+    //    自動化ブラウザ操作は実測経過時間がほぼ0秒になり合成競合より速くなってしまうため、
+    //    直後に合成競合6件（3〜7秒）より確実に遅い値へ経過時間を調整し、
+    //    「自分の記録がTOP5圏外になる」シナリオを確定的に再現する。
+    await playQuizOnce(page, quizId);
+    await forceOwnElapsedSeconds(quizId, 'first_play', 30);
+    await waitForLeaderboardData(page, quizDetailUrl, 'first');
+
+    // 4. TOP5表は合成競合6件中の上位5件のみで、e2e-test-user自身は含まれないこと
+    const top5Entries = page.locator('[data-testid="highscore-leaderboard"] [data-testid="leaderboard-entry"]');
+    await expect(top5Entries.first()).toBeVisible();
+    await expect(top5Entries).toHaveCount(5);
+    const top5Text = await page.locator('[data-testid="highscore-leaderboard"]').textContent();
+    expect(top5Text).not.toContain('e2e-test-user');
+    // 同順位ケース（競合ユーザー0・競合ユーザー1が3秒で同着）が両方ともTOP5内に現れること
+    expect(top5Text).toContain('競合ユーザー0');
+    expect(top5Text).toContain('競合ユーザー1');
+
+    // 5. TOP5表とは別枠で、e2e-test-user自身の順位行が「#6位以下」として表示されること（要件9.9 圏外ケース）
+    const myRankFirst = page.locator('[data-testid="leaderboard-my-rank-first"]');
+    await expect(myRankFirst).toBeVisible({ timeout: 15000 });
+    const myRankText = await myRankFirst.textContent();
+    const rankMatch = myRankText?.match(/#(\d+)/);
+    expect(rankMatch).not.toBeNull();
+    const myRank = Number(rankMatch?.[1]);
+    expect(myRank).toBeGreaterThan(5); // 6件の合成競合すべてより遅いため、必ず6位以下になる
   });
 
   test('F-803: 短答式問題が正常に機能すること', async ({ page }) => {
