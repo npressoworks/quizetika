@@ -3,10 +3,11 @@
 /**
  * 管理者メニューポータル画面
  *
- * 各種管理者用サブ画面（モデレーション審査、ユーザー評判管理、ジャンル直接管理）への
+ * 各種管理者用サブ画面（モデレーション審査、ユーザー評判管理、ジャンル直接管理、
+ * 運営からのお知らせ管理、NGワード管理）への
  * ナビゲーションを提供するポータル画面です。
  *
- * Requirements: 8.1, 8.2, 8.3
+ * Requirements: 8.1, 8.2, 8.3, 10.10
  */
 
 import React, { useEffect } from 'react';
@@ -18,6 +19,7 @@ import {
   LayersOutlined as LayersIcon,
   ArrowForwardOutlined as ArrowRightIcon,
   NotificationsOutlined as BellIcon,
+  BlockOutlined as BlockIcon,
 } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
@@ -92,6 +94,14 @@ export default function AdminPortalPage() {
       icon: BellIcon,
       color: 'from-purple-500/20 to-pink-500/20 text-purple-500 border-purple-500/30',
       iconBg: 'bg-purple-500/10',
+    },
+    {
+      title: 'NGワード管理',
+      description: '不適切な語句をNGワードマスタへ登録・編集し、有効/無効を切り替えてコンテンツ検閲に反映します。',
+      href: '/admin/ng-words',
+      icon: BlockIcon,
+      color: 'from-rose-500/20 to-red-500/20 text-rose-500 border-rose-500/30',
+      iconBg: 'bg-rose-500/10',
     },
   ];
 

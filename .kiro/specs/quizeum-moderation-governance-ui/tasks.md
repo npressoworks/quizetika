@@ -209,7 +209,7 @@
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.6, 10.9_
   - _Boundary: AdminNgWords_
 
-- [ ] 14.3 (P) 管理者ポータルへのナビゲーション導線追加
+- [x] 14.3 (P) 管理者ポータルへのナビゲーション導線追加
   - `src/app/admin/page.tsx` に「NGワード管理」のナビゲーションカードを追加し、`/admin/ng-words` へのリンクを設置する
   - **完了状態**: `/admin` へアクセスした際、「NGワード管理」カードが表示され、クリックで `/admin/ng-words` へ遷移すること
   - _Requirements: 10.10_

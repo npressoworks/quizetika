@@ -86,7 +86,7 @@ describe('AdminPortalPage - 管理者メニューポータルUI', () => {
     });
   });
 
-  test('管理者のアクセス時に4つの管理機能カード（モデレーション審査、ユーザー評判管理、ジャンル直接管理、運営からのお知らせ管理）が表示されること', async () => {
+  test('管理者のアクセス時に5つの管理機能カード（モデレーション審査、ユーザー評判管理、ジャンル直接管理、運営からのお知らせ管理、NGワード管理）が表示されること', async () => {
     mockUseAuth.mockReturnValue({
       user: {
         id: 'admin-1',
@@ -102,11 +102,12 @@ describe('AdminPortalPage - 管理者メニューポータルUI', () => {
     // 画面タイトルが表示されること
     expect(screen.getByText('管理者コントロールセンター')).toBeInTheDocument();
 
-    // 4つの機能カードが表示されること
+    // 5つの機能カードが表示されること
     expect(screen.getByText('モデレーション審査')).toBeInTheDocument();
     expect(screen.getByText('ユーザー評判管理')).toBeInTheDocument();
     expect(screen.getByText('ジャンル直接管理')).toBeInTheDocument();
     expect(screen.getByText('運営からのお知らせ管理')).toBeInTheDocument();
+    expect(screen.getByText('NGワード管理')).toBeInTheDocument();
 
     // 各遷移用リンクが正しいhrefを持っていること
     expect(screen.getByRole('link', { name: /モデレーション審査/ })).toHaveAttribute(
@@ -124,6 +125,10 @@ describe('AdminPortalPage - 管理者メニューポータルUI', () => {
     expect(screen.getByRole('link', { name: /運営からのお知らせ管理/ })).toHaveAttribute(
       'href',
       '/admin/announcements'
+    );
+    expect(screen.getByRole('link', { name: /NGワード管理/ })).toHaveAttribute(
+      'href',
+      '/admin/ng-words'
     );
   });
 });
