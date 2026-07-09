@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 
 /**
  * POST /api/webhooks/stripe
- * Stripe 契約イベントを冪等に Firestore へ同期する
+ * Stripe 契約イベントを冪等に Supabase へ同期する
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const signature = request.headers.get('stripe-signature');

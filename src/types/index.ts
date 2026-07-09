@@ -22,7 +22,7 @@ export interface User {
   reputationScore: number; // 信頼スコア
   totalReactionsCount?: number; // 累計獲得リアクション数
   moderationTier: 'newcomer' | 'contributor' | 'moderator' | 'senior_moderator'; // 権限ティアー（管理者は role または tier の 'admin'）
-  role?: string; // システム管理者など特権ロール（Firestore 上の任意フィールド）
+  role?: string; // システム管理者など特権ロール（Supabase 上の任意フィールド）
   reputationHistory: ReputationEventLog[]; // スコア変動履歴 (直近30件)
   lastReputationCalculatedAt: Date | null; // 変動バッチ計算日時
   totalFailedQuestionsCount: number; // 未復習の間違い問題の総数
@@ -79,7 +79,7 @@ export interface SortingItem {
 /** 記述式問題の入力タイプ */
 export type TextInputMode = 'text' | 'numeric' | 'char-count';
 
-/** エディタ送信用: 参照リンク問題か新規/所有問題か（Firestore 永続化フィールドは必須ではない） */
+/** エディタ送信用: 参照リンク問題か新規/所有問題か（Supabase 永続化フィールドは必須ではない） */
 export type QuestionLinkKind = 'owned' | 'reference';
 
 // 3. 問題 (Question)
@@ -128,7 +128,7 @@ export type QuizVisibility = 'public' | 'private' | 'followers';
 
 // 4. クイズ (Quiz)
 export interface Quiz {
-  id: string;             // クイズID (FirestoreドキュメントID)
+  id: string;             // クイズID (Supabase の id カラム)
   authorId: string;       // 作成者のユーザーID
   authorName: string;     // 作成者の表示名 (非正規化)
   authorAvatar: string;   // 作成者のアバターURL (非正規化)
@@ -198,7 +198,7 @@ export interface AiTruthAttempt {
   truthText: string;
   isCorrect: boolean;
   aiFeedback: string;
-  createdAt: Date | any; // Firestore の FieldValue.arrayUnion を考慮
+  createdAt: Date | any; // Supabase の jsonb 配列格納を考慮
 }
 
 // クイズ挑戦結果 (APIやローカル再生の記録用)

@@ -36,7 +36,7 @@ function toDate(value: EntitlementUserFields['currentPeriodEnd']): Date | null {
 const PAID_ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'trialing'];
 
 /**
- * Firestore ユーザーフィールドからエンタイトルメントを解釈する（純粋関数）
+ * Supabase ユーザーフィールドからエンタイトルメントを解釈する（純粋関数）
  * ブラウザ・サーバー両方から呼び出し可能です。
  */
 export function computeUserEntitlements(

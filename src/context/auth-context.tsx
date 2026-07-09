@@ -23,7 +23,7 @@ interface CompatibleUser {
 }
 
 interface AuthContextType {
-  user: User | null; // Firestore 内のユーザー詳細情報
+  user: User | null; // Supabase 内のユーザー詳細情報
   authUser: CompatibleUser | null; // 互換性を持たせた Supabase ユーザーオブジェクト
   loading: boolean; // ローディングフラグ
   refreshUser: () => Promise<void>; // プロフィール更新時などの手動リロード用
@@ -55,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
-  // Firestoreから最新のユーザー情報を再取得する
+  // Supabaseから最新のユーザー情報を再取得する
   const refreshUser = async () => {
     if (authUser) {
       const dbUser = await getUser(authUser.uid);
@@ -161,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(dbUser);
       syncMiddlewareAuthCookies(dbUser, compatUser.uid);
     } catch (error) {
-      console.error('Failed to sync user to Firestore:', error);
+      console.error('Failed to sync user to Supabase:', error);
       syncMiddlewareAuthCookies(null, compatUser.uid);
     } finally {
       setLoading(false);
