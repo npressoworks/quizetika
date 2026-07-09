@@ -146,9 +146,14 @@
   - _Boundary: NgWordsAdminRoutes_
   - _Depends: 5.2_
 
-- [ ] 5.4 統合検証
+- [x] 5.4 統合検証
   - `npm run build` を実行し、型エラーが発生しないことを確認する
   - Jest テストスイート全体を実行し、既存テストを含めて全てパスすることを確認する
   - 大文字・小文字表記のみが異なる語句（例: `Spam` と `spam`）を連続登録した場合に2件目が重複として拒否されることを手動確認する
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
   - _Depends: 5.3_
+
+## Implementation Notes (Phase 39)
+
+- 管理者権限チェックは `is_admin()` RPC（DB層）に加え、`/api/admin/*` の慣例に倣い Route 層でも `authorizeAdmin()` による401/403判定を明示的に実装（`listNgWords` 自体はRLS SELECT公開のため権限ゲートを持たないため）。
+- エラー種別のHTTPステータス変換は既存の `admin/users/ban` 等と同様、サービス層が投げるエラーメッセージの部分文字列一致で判定するパターンを踏襲（`ngWords.ts` のエラーメッセージ文言と `route.ts` のマッピングが暗黙的に結合している点に注意）。
