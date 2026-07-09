@@ -216,7 +216,7 @@
   - _Boundary: AdminPortal_
   - _Depends: 14.2_
 
-- [ ] 14.4 (P) NGワード管理画面の非同期ローディングとスケルトン実装
+- [x] 14.4 (P) NGワード管理画面の非同期ローディングとスケルトン実装
   - `src/app/admin/ng-words/page.tsx` を React Server Component と Suspense に対応させ、認証確認中はローディングインジケータを、一覧データロード中は `data-testid="ng-words-management-skeleton"` を付与したスケルトンプレースホルダーを表示する
   - **完了状態**: 一覧データロード中はスケルトン表示となり、ロード完了後に実際のNGワード一覧コンテンツへ切り替わること
   - _Requirements: 10.2, 10.3_

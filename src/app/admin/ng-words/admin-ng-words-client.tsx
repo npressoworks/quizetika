@@ -342,7 +342,7 @@ export default function AdminNgWordsClient() {
         </CardHeader>
         <CardContent>
           {fetchLoading ? (
-            <div data-testid="ng-words-list-skeleton" className="space-y-3">
+            <div data-testid="ng-words-management-skeleton" className="space-y-3">
               <div className="h-10 w-full animate-pulse rounded bg-muted" />
               <div className="h-12 w-full animate-pulse rounded bg-muted" />
               <div className="h-12 w-full animate-pulse rounded bg-muted" />

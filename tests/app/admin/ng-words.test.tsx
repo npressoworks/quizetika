@@ -342,6 +342,38 @@ describe('AdminNgWordsPage - NGワードマスタ管理UI', () => {
     });
   });
 
+  test('NGワード一覧データロード中はスケルトンが表示され、ロード完了後に一覧コンテンツへ切り替わること', async () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'admin-1', moderationTier: 'admin' } as any,
+      authUser: { getIdToken: mockGetIdToken } as any,
+      loading: false,
+      refreshUser: jest.fn(),
+    });
+
+    let resolveFetch: (value: unknown) => void = () => {};
+    const pendingFetch = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    global.fetch = jest.fn().mockReturnValue(pendingFetch);
+
+    render(<AdminNgWordsPage />);
+
+    // 一覧データロード中は data-testid="ng-words-management-skeleton" のスケルトンが表示される
+    expect(screen.getByTestId('ng-words-management-skeleton')).toBeInTheDocument();
+    expect(screen.queryByText('禁止語句A')).not.toBeInTheDocument();
+
+    resolveFetch({
+      ok: true,
+      json: async () => initialNgWords,
+    });
+
+    // ロード完了後はスケルトンが消え、実際の一覧コンテンツへ切り替わる
+    await waitFor(() => {
+      expect(screen.queryByTestId('ng-words-management-skeleton')).not.toBeInTheDocument();
+    });
+    expect(await screen.findByText('禁止語句A')).toBeInTheDocument();
+  });
+
   test('編集操作が失敗した場合エラーアラートが表示されること', async () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'admin-1', moderationTier: 'admin' } as any,

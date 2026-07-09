@@ -29,10 +29,18 @@ export default function AdminNgWordsPage() {
         </div>
       </header>
 
-      {/* 非同期データロード中のプレースホルダー (スケルトン) */}
+      {/*
+        非同期データロード中のプレースホルダー (スケルトン)
+        AdminNgWordsClient は 'use client' コンポーネントであり、認証確認中の
+        ローディングインジケータ表示、および一覧データ取得中のスケルトン表示
+        （data-testid="ng-words-management-skeleton"）はクライアント側の状態管理
+        （fetchLoading）によって実際に到達可能な形で実装されている。
+        Suspense はサーバー側の静的フレーム（ヘッダー等）を即座にストリーミングし、
+        ジャンル管理画面（/admin/genres）と構造上の一貫性を保つために維持する。
+      */}
       <Suspense
         fallback={
-          <div data-testid="ng-words-management-skeleton" className="space-y-6">
+          <div className="space-y-6">
             <div className="h-40 w-full animate-pulse rounded-xl bg-muted" />
             <div className="space-y-3">
               <div className="h-10 w-full animate-pulse rounded bg-muted" />
