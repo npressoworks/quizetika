@@ -288,4 +288,25 @@ describe('quiz publish flow: NGワードマスタ参照統合 (要件32.1-32.4)'
       expect(mockSupabase.from).not.toHaveBeenCalledWith('ng_words');
     });
   });
+
+  describe('NGワードマスタ更新の反映 (要件32.3)', () => {
+    test('published: マスタに新規登録された語句は、次回の saveQuiz 呼び出しから検証対象に反映される（キャッシュされず、都度取得されること）', async () => {
+      // 1回目の公開時点では、当該語句はまだマスタに登録されていない（listActiveNgWords が空配列を返す）
+      ngWordsState.ngWordsResponse = { data: [], error: null };
+      const firstQuizId = await saveQuiz(
+        { ...baseSaveQuiz, title: 'newlybanned Quiz' } as any,
+        'published'
+      );
+      expect(firstQuizId).toBeTruthy();
+
+      // マスタに新規語句が登録された状態を模す（次回呼び出し用に listActiveNgWords の返り値を切り替える）
+      ngWordsState.ngWordsResponse = { data: [{ word: 'newlybanned' }], error: null };
+
+      // 2回目: 同一語句を含むクイズの公開が、更新後のマスタ内容に基づいて拒否される
+      // （1回目の結果がキャッシュされ続けていれば本テストは失敗するはず）
+      await expect(
+        saveQuiz({ ...baseSaveQuiz, title: 'newlybanned Quiz' } as any, 'published')
+      ).rejects.toThrow(/不適切なワード/);
+    });
+  });
 });
