@@ -137,7 +137,7 @@
   - _Boundary: NgWordsService_
   - _Depends: 5.1_
 
-- [ ] 5.3 NGワード管理APIルートの実装
+- [x] 5.3 NGワード管理APIルートの実装
   - `/api/admin/ng-words` に GET（一覧取得）と POST（新規登録）を実装し、`ngWords.ts` の `listNgWords`／`createNgWord` を呼び出す
   - `/api/admin/ng-words/[id]` に PATCH（表記編集・有効/無効切替）を実装し、`ngWords.ts` の `updateNgWord`／`setNgWordActive` を呼び出す
   - 重複エラーを `409`、空文字エラーを `400`、対象ID不在を `404` として返却するエラーハンドリングを実装する
