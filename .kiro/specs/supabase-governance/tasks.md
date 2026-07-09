@@ -121,7 +121,7 @@
   - _Depends: 4.1, 4.2, 4.3_
 
 - [ ] 5. NGワードマスタ管理機能の追加（Phase 39）
-- [ ] 5.1 NGワードマスタのスキーマとCRUD RPCのマイグレーション
+- [x] 5.1 NGワードマスタのスキーマとCRUD RPCのマイグレーション
   - `ng_words` テーブル（`word`／`normalized_word`／`is_active`／`created_at`／`updated_at`）を新規作成し、`normalized_word`（`lower(trim(word))`）への一意インデックスで大文字・小文字を区別しない重複登録をDB制約レベルで防止する
   - RLSを有効化し、SELECTは全員に許可、書き込みはRPC限定とするポリシーを定義する
   - `handle_create_ng_word`（`is_admin()` 検証、空文字拒否、`normalized_word` の一意制約違反時は例外）、`handle_update_ng_word`（表記編集）、`handle_set_ng_word_active`（有効/無効切替）の3RPCを定義する
