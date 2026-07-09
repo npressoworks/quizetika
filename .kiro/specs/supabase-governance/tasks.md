@@ -128,7 +128,7 @@
   - 成果物確認: マイグレーションをローカル Supabase に適用し、テーブル・インデックス・3RPCがエラーなくデータベースへロードされること
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.8_
 
-- [ ] 5.2 NGワードマスタ読み書きサービスの実装
+- [x] 5.2 NGワードマスタ読み書きサービスの実装
   - `ngWords.ts` に `listNgWords`（RLS経由のSELECT）、`createNgWord`、`updateNgWord`、`setNgWordActive`（いずれも対応RPC呼び出し）を実装する
   - `createNgWord`／`updateNgWord` はサービス層でも空文字・空白のみの入力を事前検証し、RPC呼び出し前に早期リターンする
   - 重複エラー（`23505` unique_violation）を「この語句はすでに登録されています」というドメインエラーへ変換する
