@@ -54,7 +54,7 @@ function LoginPageContent() {
   const handleGoogleLogin = async () => {
     setErrorMsg('');
     setSubmitting(true);
-    const { error } = await signInWithGoogle();
+    const { error } = await signInWithGoogle(redirectPath);
     if (error) {
       console.error('Google auth error:', error);
       setErrorMsg(error.message);
@@ -65,7 +65,7 @@ function LoginPageContent() {
   const handleXLogin = async () => {
     setErrorMsg('');
     setSubmitting(true);
-    const { error } = await signInWithTwitter();
+    const { error } = await signInWithTwitter(redirectPath);
     if (error) {
       console.error('X auth error:', error);
       setErrorMsg(error.message);
@@ -76,7 +76,7 @@ function LoginPageContent() {
   const handleAzureAdLogin = async () => {
     setErrorMsg('');
     setSubmitting(true);
-    const { error } = await signInWithMicrosoft();
+    const { error } = await signInWithMicrosoft(redirectPath);
     if (error) {
       console.error('Azure AD auth error:', error);
       setErrorMsg(error.message);
