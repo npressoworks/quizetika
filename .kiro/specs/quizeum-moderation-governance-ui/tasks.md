@@ -200,7 +200,7 @@
   - _Boundary: admin-ng-words API_
   - **注記（設計上の境界重複）**: `src/app/api/admin/ng-words/route.ts` と `[id]/route.ts` は `supabase-governance` タスク5.3（commit `9981059`）で既に実装済みであり、本タスクの契約（要件10.1, 10.3-10.8、design.mdのAPI Contract）を byte-for-byte 満たしていることを確認した。両specのdesign.md File Structure Planが同一ファイルを重複して`[NEW]`と記載していたための設計上のギャップ。新規コード変更は行わず、既存実装（`tests/api/admin-ng-words.test.ts`／`admin-ng-words-id.test.ts`、21テスト）を証跡として本タスクを完了とする。
 
-- [ ] 14.2 (P) NGワード管理画面のUI実装
+- [x] 14.2 (P) NGワード管理画面のUI実装
   - `src/app/admin/ng-words/page.tsx` と `admin-ng-words-client.tsx` を新規作成し、Tailwind CSS + shadcn/ui を使用して登録済みNGワード一覧テーブルと新規登録フォームを構築する
   - `isAdminUser` ガードにより管理者以外のアクセスを遮断し `/not-found` へ遷移する
   - 登録フォームは空文字・空白のみの入力をインライン検証でブロックし、`/api/admin/ng-words` への POST 時の重複エラー（`409`）を「この語句はすでに登録されています」として表示する
