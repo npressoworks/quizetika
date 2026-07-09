@@ -65,6 +65,7 @@
   - ログインユーザー本人向けプレイ履歴の取得API（ページネーション、プロフィールUIは別スペック）。
   - 管理者によるユーザーのアカウント停止（BAN）処理および監査ログへの記録。
   - **Phase 13**: サブスクリプション契約状態（`free` / `pro` / `premium`）の保持と更新、Pro プラン購読開始・契約管理のための認証済み API、外部決済サービスからの契約イベントに基づくエンタイトルメント同期、水平思考 AI 質問の日次制限に対する tier ベース判定、課金関連ユーザーフィールドのクライアント書き込み遮断。
+  - **Phase 39**: クイズ公開時の NGワード自動チェックを、ハードコードされた語句リストではなく、管理者が随時更新可能な NGワードマスタ（`supabase-governance` が管理）の最新の有効な内容に基づいて実行する。
 - **対象外（Out of scope）**:
   - 外部システムからのクイズリストやクイズのJSONインポート機能（エクスポートは対象範囲内）。
   - リアルタイムマルチプレイヤー対戦プレイ。
@@ -86,6 +87,7 @@
   - **Phase 22**: 新ディスカバリーホーム UI、検索画面 UI、フィルタ条件チップの常時表示、Sidebar／BottomNav の項目追加（`quizetika-play-flow-ui` / `quizetika-sidebar-layout`）。パーソナライズドおすすめエンジン。ジャンル別・タグ別一覧への URL クエリフィルタ共通化。
   - **Phase 23**: カスタムクイズ画面 UI、フィルタパネル、出題数設定、プレイクライアントの `mode=my-quiz` 分岐 UI（`quizetika-my-quiz-ui`）。Sidebar／BottomNav への「カスタムクイズ」追加、設定・テーマ（`quizetika-sidebar-layout` / `quizetika-user-settings-ui`）。マイページからのリアクション履歴導線削除（`quizetika-auth-profile-ui`）。カスタムクイズの URL 共有可能化・フィルタプリセット保存。サーバー側ユーザー設定（テーマ）永続化。リアクション機能データの削除・マイグレーション。
   - **Phase 26**: リスト探索・作成・編集・プレイ UI（`quizetika-lists-discovery-ui` / `quizetika-creator-dash-ui` / `quizetika-play-flow-ui`）。Sidebar「リスト」ナビ（`quizetika-sidebar-layout`）。プロフィール「作成したリスト」（`quizetika-auth-profile-ui`）。既存 `attempts` ドキュメントの物理削除（履歴は残す）。
+  - **Phase 39**: NGワードマスタ自体の登録・編集・無効化操作、および管理者向け管理 UI（`supabase-governance` / `quizetika-moderation-governance-ui` が担当）。NGワード判定の一致アルゴリズム自体の高度化（表記ゆれ・多言語対応等）。
 - **隣接システムへの期待**:
   - **Phase 6**: 探索・作問 UI はコアが提供する有効ジャンル一覧および一覧クエリ結果に依存する。メタデータマスタの書き込み整合はコアの保存・投票処理が担う。
   - **Phase 8**: クイズおよび問題のブックマーク/リストUI、ならびにエディタ内での過去クイズ問題リンクUIは隣接の UI スペック（`quizetika-play-flow-ui` / `quizetika-creator-dash-ui`）がそれぞれ責任を持つ。
@@ -101,6 +103,7 @@
   - **Phase 23**: カスタムクイズ UI（`quizetika-my-quiz-ui`）は、3ソース問題プール合成 API、アドホックセッション API、および `my-quiz` 試行記録に依存する。プレイクライアントの `mode=my-quiz` 最小拡張は `quizetika-my-quiz-ui` が担当し、コアはセッション・試行の契約を提供する。
   - **Phase 26**: 隣接 UI スペックは、リスト関連 API が存在しない前提で更新する。マイグレーションスクリプト実行はデプロイ手順として別管理可（本要件は削除対象と契約停止を定義する）。
   - **Phase 27**: クイズプレイ UI （`quizetika-ui-quiz-lifecycle`）は、プレイ中のユーザーアクション（解答時間、ヒント数、回答変更等）をフックし、`QuestionAnswerDetail[]` 配列を構築した上で、試行完了時に `saveAttempt` ペイロードに含めること。
+  - **Phase 39**: NGワードマスタの登録・編集・無効化は `supabase-governance` が担当する。コアは常に最新の有効なマスタ内容に基づいてクイズ公開時検証を行うことを期待する。
 
 ## 要件
 
@@ -714,3 +717,18 @@
 1. When [クイズ全体の出題形式が `mixed`（複合形式）であるとき], the [Quizetika System] shall [問題タイプとして「連想（`association`）」を許可し、公開検証においてエラーを発生させない]。
 2. When [クイズ全体の出題形式が `mixed` であるとき], the [Quizetika System] shall [「早押し（`quick-press`）」および「ウミガメのスープ（`lateral-thinking`）」のいずれかが含まれている場合は、公開検証において不一致エラーを発生させる]。
 3. When [AI一括作問機能において出題形式に `mixed` が指定されたとき], the [Quizetika System] shall [Gemini APIのレスポンススキーマとして「連想（`association`）」問題も選択肢として含め、AIが複合形式の一部として連想問題を生成できるようにする]。
+
+## Phase 39: NGワードマスタ参照によるコンテンツ検証への移行 (2026-07)
+
+<!-- 現状 quiz-validation.ts にハードコードされた語句配列で判定している NGワードチェックを、supabase-governance が管理する NGワードマスタの参照に置き換える。マスタの登録・編集・無効化自体は supabase-governance の責務（要件9参照）であり、本フェーズはコアの検証ロジックが参照する対象データソースの振る舞いのみを扱う。 -->
+
+### 要件 32: NGワードマスタ参照によるコンテンツ検証
+
+**目的:** 運用者として、クイズ公開時のNGワードチェックを、管理者が随時更新可能なマスタデータに基づいて実行させたい。それにより、コードのデプロイを伴わずに機動的に禁止語句を追加・是正できるようにしたい。
+
+#### 受け入れ基準
+1. When [作成者がクイズの公開を要求したとき], the [Quizetika System] shall [NGワードマスタ上の有効な語句の一覧に基づいて、タイトル・説明・各問題文・解説の禁止語チェックを行う]。
+2. If [クイズ本文（タイトル・説明・問題文・解説のいずれか）に NGワードマスタ上の有効な語句が含まれているとき], the [Quizetika System] shall [公開を拒否し、作成者に不適切なワードが含まれている旨のエラーを提示する]。
+3. When [NGワードマスタに語句の追加・編集・無効化・再有効化が行われたとき], the [Quizetika System] shall [以降のクイズ公開検証において更新後の内容を反映する]。
+4. If [NGワードマスタの取得に失敗した場合], the [Quizetika System] shall [公開検証を安全側（禁止語チェックを実行できない状態として公開を保留またはエラーとする）で処理し、未検証のまま公開を許可しない]。
+5. The [Quizetika System] shall [NGワードマスタ自体の登録・編集・無効化操作を本要件の範囲に含めない（`supabase-governance` が担当）]。

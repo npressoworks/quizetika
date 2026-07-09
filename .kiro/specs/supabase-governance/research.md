@@ -14,6 +14,7 @@
   - `reputation.ts` の `getReputationLimit`（`users/{uid}/reputationLimits/{senderId}` サブコレクション読み取り）は、リポジトリ全体を検索しても呼び出し元が存在しない未使用コードだが、`reputation.ts` の公開APIとして境界内に含まれるため、読み取り専用の正規化テーブルとして移行対象に含める。
   - `tagMerge.ts` の `seedInitialGenres`（ブラウザクライアント版）は呼び出し元が存在しない重複コードであり、実際に使用されるのは `seedInitialGenresAdmin.ts` の `seedInitialGenresWithAdmin`（Admin SDK版、`/api/admin/seed-genres` から呼ばれる）のみ。移行時に重複を解消する。
   - Stripe Webhook の冪等性チェック用 `stripe_processed_events` Firestore コレクションに対応する PostgreSQL テーブルが未作成。
+  - （Phase 39）NGワードは `src/services/quiz-validation.ts` にハードコードされた文字列配列（`NG_WORD_LIST`）として実装されており、既存のガバナンス系テーブルには対応するマスタが存在しない。DB化により、既存の `merge_requests`/`genre_requests` と同様の「明示列 + `SECURITY DEFINER` RPC」パターンをそのまま適用できる新規テーブルとして追加する。
 
 ## Research Log
 
@@ -82,6 +83,16 @@
 - **Selected Approach**: 案2を採用。`votedUserIds`/`votes` 配列を `(request_id, voter_id)` 複合主キーを持つ中間テーブルに正規化する。
 - **Rationale**: `supabase-gameplay` の `quiz_reviews`/`difficulty_votes` 正規化と同じ設計哲学を踏襲し、一貫性を保つ。
 - **Trade-offs**: テーブル数が増えるが、投票の原子性・型安全性が向上する。
+- **Follow-up**: なし。
+
+### Decision: NGワードマスタのCRUDを Admin Client 直接操作ではなく RPC 化する（Phase 39）
+- **Context**: 既存の類似パターンとして、ジャンル直接登録（`/api/admin/genres`）は Supabase Admin クライアント（サービスロール、RLSバイパス）による直接書き込みを採用している。NGワードCRUDも同様に Admin Client 直接操作とするか、`handle_ban_user` 等と同様に RPC 化するか検討した。
+- **Alternatives Considered**:
+  1. Admin Client 直接操作（`metadata_genres` 直接書き込みと同型） — 重複検知（大文字小文字を区別しない）や空文字検証をアプリケーション層(TypeScript)で行う必要があり、検証ロジックが分散する。
+  2. `SECURITY DEFINER` RPC 化（`handle_ban_user`/`handle_create_merge_request` と同型） — 権限検証・正規化・重複検知をDBトランザクション内に閉じ込められる。
+- **Selected Approach**: 案2（RPC化）を採用。`handle_create_ng_word`／`handle_update_ng_word`／`handle_set_ng_word_active` の3RPCと、`normalized_word` への一意インデックスを組み合わせる。
+- **Rationale**: 要件9.2（大文字小文字を区別しない重複拒否）はレースコンディション下でも原子的に保証する必要があり、DB制約（一意インデックス）と組み合わせたRPCが最も確実。ジャンル直接登録がAdmin Client直接操作なのは`metadata_genres`が`supabase-core-data`所有の既存テーブルで重複キー(id)のみをチェックすればよい単純さによるものであり、NGワードの「表記ゆれを含む重複防止」という要件には適合しない。
+- **Trade-offs**: RPC定義が3つ増える一方、検証ロジックの一貫性と原子性が向上する。
 - **Follow-up**: なし。
 
 ## Risks & Mitigations

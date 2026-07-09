@@ -1099,4 +1099,33 @@ Option A（既存機能の拡張）が最も一貫性があり、無駄のない
 * `src/services/storage.ts` に各SNS名から `assets/logos/` 配下のロゴURLを取得する `getSnsLogoUrl(snsName: string)` 関数を実装する。
 * 各SNSのURLドメイン検証用に、正規表現（例: `^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.*$` など）を定義し、堅牢にバリデーションを行う。
 
+## Phase 39: NGワードマスタ参照によるコンテンツ検証への移行（2026-07 軽量ディスカバリー）
 
+### Extension Point Analysis
+- **既存コード**: `src/services/quiz-validation.ts` はファイル冒頭のコメントで「Supabase に依存しない純粋関数群（テスト容易性のため分離）」と明記されており、`NG_WORD_LIST` のコメント自体にも「実際のプロダクションでは外部設定ファイルや Supabase の moderation テーブルから動的ロードすることを推奨」と将来の拡張余地が既に示唆されていた。
+- **呼び出し元**: `containsNgWord` は同ファイル内の `validateQuizForPublish` からのみ呼ばれ、`validateQuizForPublish` は `src/services/quiz.ts`（公開処理、サーバー側）と `src/components/quiz/quiz-editor.tsx`（クライアント側事前検証）の2箇所から呼ばれる。
+- **統合アプローチ**: 純粋関数の境界を壊さず、NGワード一覧を引数化する。DB取得は新規サービス `ng-words.ts` に分離し、既存の「サービス層 = Supabase依存、lib層 = 純粋関数」という構造的な役割分担（`structure.md` の `src/lib/` と `src/services/` の区分）に整合させる。
+
+### Dependency Check
+- 新規外部ライブラリの追加は不要（既存の `@/lib/supabase/client` パターンを再利用）。
+
+### Integration Risk Assessment
+- **既存機能への影響**: `containsNgWord`／`validateQuizForPublish` の呼び出し元が2箇所のみのため、影響範囲は限定的。
+- **パフォーマンス**: 公開処理ごとに `ng_words` を1回 SELECT する追加コストが生じるが、既存の `saveQuiz` 自体が複数のSupabaseクエリ（ジャンル検証、タグ解決等）を伴う処理であり、影響は軽微と判断（要件にレイテンシ目標なし）。
+- **セキュリティ**: `ng_words` の SELECT を全員に許可する設計（`supabase-governance` 側RLS）のため、NGワード一覧がクライアントバンドル外でも取得可能になる。現状もハードコード配列としてクライアントバンドルに含まれていたため、露出度は同等以下。
+
+## Design Decisions（Phase 39 追記）
+
+### Decision: `containsNgWord`/`validateQuizForPublish` を非同期化せず引数化で対応する
+- **Context**: NGワード一覧の取得元をハードコード配列からDBへ変更する必要があるが、`quiz-validation.ts` は意図的にSupabase非依存の純粋関数群として設計されている。
+- **Alternatives Considered**:
+  1. `containsNgWord`／`validateQuizForPublish` 自体を `async` 化し、内部で `listActiveNgWords()` を呼び出す — 純粋関数としてのテスト容易性（Jestでの同期テスト）が失われ、既存の `quiz-validation.test.ts` の大半を非同期化する必要がある。
+  2. NGワード一覧を引数として受け取る形に変更し、DB取得は呼び出し元（`quiz.ts`／`quiz-editor.tsx`）に委譲する。
+- **Selected Approach**: 案2を採用。
+- **Rationale**: 既存のファイル冒頭コメントが明示する設計意図（純粋関数としての分離）を維持しつつ、最小限の変更（引数追加のみ）でDB化を実現できる。
+- **Trade-offs**: 呼び出し元2箇所でNGワード一覧の事前取得コードが必要になるが、変更範囲は小さく限定的。
+- **Follow-up**: なし。
+
+## Risks & Mitigations（Phase 39 追記）
+- **クライアント側事前検証の取得失敗時の挙動** — `quiz-editor.tsx` でのNGワード一覧取得が失敗した場合、事前チェックをスキップしサーバー側検証（最終防衛線）に委ねる。UXとしては公開ボタン押下後にサーバーエラーとして表示される。
+- **将来的なキャッシュ導入の要否** — 現状は都度クエリで十分だが、クイズ公開頻度が大幅に増加した場合はレイテンシ・DB負荷を再評価する必要がある（本フェーズでは要件外のため対応しない）。

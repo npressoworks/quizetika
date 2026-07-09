@@ -1,7 +1,9 @@
 # Technical Design Document - supabase-governance
 
 ## Overview
-本ドキュメントは、Quizetika のガバナンス機能（コンテンツ通報審査、タグ/ジャンル統合およびジャンル新設のコミュニティ投票、信頼スコア・BANによるモデレーション、Stripe 連携によるサブスクリプション権限判定）における Firebase Firestore／Firebase Admin SDK から Supabase (PostgreSQL) への移行に関する設計定義である。
+本ドキュメントは、Quizetika のガバナンス機能（コンテンツ通報審査、タグ/ジャンル統合およびジャンル新設のコミュニティ投票、信頼スコア・BANによるモデレーション、NGワードマスタ管理、Stripe 連携によるサブスクリプション権限判定）における Firebase Firestore／Firebase Admin SDK から Supabase (PostgreSQL) への移行に関する設計定義である。
+
+**Phase 39 追記**: `src/services/quiz-validation.ts` にハードコードされていた NGワード配列（`NG_WORD_LIST`）を、管理者が随時更新可能な `ng_words` マスタテーブルへ置き換える。マスタの CRUD（登録・編集・有効/無効切替・一覧取得）ロジックを本スペックが所有する（要件9）。クイズ公開時の判定ロジック自体は `quizetika-core` が所有し（本スペックの Out of Boundary）、管理者向け CRUD 画面は `quizetika-moderation-governance-ui` が所有する。
 
 `supabase-core-data`／`supabase-gameplay` が確立した「サービス層の外部インターフェースは変更せず、内部実装のみ RDB 正規化構造へ差し替えるブラックボックス置換」の方針、および「文字列連結の疑似ドキュメントIDではなく複合主キーで関係を表現する」正規化方針をそのまま踏襲する。加えて、`supabase-foundation` が本ドメイン向けに事前作成した `merge_requests`／`genre_requests`（`details JSONB` の汎用プレースホルダー）を、`quiz_reviews`（`supabase-gameplay`）と同様に実際の業務要件に即した明示列・投票用中間テーブルへ是正する。
 
@@ -13,6 +15,7 @@
 - Stripe Webhook・Checkout・Customer Portal 連携（`entitlement.ts`／`subscription.ts`／`stripe-webhook.ts`）のデータアクセス層を Supabase サーバークライアント（サービスロール）へ置き換える。
 - 初期ジャンルマスタの一括投入（シード）を Supabase 経由の単一実装へ統合する。
 - 既存コードに存在する管理者判定の不整合（`role='admin'` と `moderation_tier='admin'` の二重判定の不一致）を `is_admin()` ヘルパーへ統一して解消する。
+- NGワードマスタ（`ng_words`）の登録・編集・有効/無効切替を `SECURITY DEFINER` RPC でアトミックに実行し、大文字・小文字を区別しない重複登録を DB 制約レベルで防止する。
 
 ### Non-Goals
 - クイズ・問題・ユーザーデータ自体の CRUD（`supabase-core-data` が担当済み）。
@@ -21,6 +24,8 @@
 - ストレージ操作そのもの（`supabase-storage-migration` が担当済み。本スペックは `moveTemporaryGenreIcon()` 等の既存関数を呼び出すのみ）。
 - Firestore/Firebase の物理データ移行（別途手動対応、本スペックのスコープ外）。
 - `moderation_tier` enum の `'admin'` 値自体の廃止（`role` への一本化は将来の `supabase-cleanup` 等で再検討、本スペックでは `is_admin()` による吸収に留める）。
+- NGワードを用いたクイズ本文の一致判定アルゴリズムそのもの（`quizetika-core` が担当）。
+- NGワード管理者向け画面の UI 実装（`quizetika-moderation-governance-ui` が担当）。
 
 ## Boundary Commitments
 
@@ -29,14 +34,17 @@
 - `metadata_genres`／`metadata_tags`（構造自体は `supabase-core-data` が作成済み）への書き込みロジック（マージ可決時の `canonical_id`／`merged_*_ids` 更新、ジャンル新設可決時の新規登録、初期シード投入）。
 - `users` テーブル上のガバナンス系フィールド（`is_banned`／`banned_reason`／`banned_at`／`reputation_score`／`moderation_tier`／`reputation_history`／`role`／`subscription_tier`／`stripe_customer_id`／`stripe_subscription_id`／`subscription_status`／`current_period_end`／`is_premium`）への書き込みロジック。列定義自体は `supabase-foundation` が作成済みだが、これらの読み書きロジックは本スペックが所有する。
 - `quizzes` テーブルへの書き込みのうち、`flags_count`／`status`（通報審査に伴う保留・復帰）、および `genre`／`canonical_genre_id`（マージ可決に伴う一括置換）。列定義自体は他スペックが所有するテーブルに属するが、これらガバナンス系の読み書きロジックは本スペックが所有する。
-- `src/services/moderation.ts`, `tagMerge.ts`, `reputation.ts`, `entitlement.ts`, `entitlement-shared.ts`, `subscription.ts`, `stripe-webhook.ts`, `seedInitialGenresAdmin.ts` の実装。
-- `/api/admin/users/ban`, `/api/admin/users/unban`, `/api/admin/users/reset`, `/api/admin/seed-genres`, `/api/admin/genres`, `/api/billing/checkout-session`, `/api/billing/portal-session`, `/api/webhooks/stripe` のデータアクセス部分（認証トークン検証自体は `supabase-auth-migration` で移行済みのため変更しない）。
+- `src/services/moderation.ts`, `tagMerge.ts`, `reputation.ts`, `entitlement.ts`, `entitlement-shared.ts`, `subscription.ts`, `stripe-webhook.ts`, `seedInitialGenresAdmin.ts`, `ngWords.ts` の実装。
+- `/api/admin/users/ban`, `/api/admin/users/unban`, `/api/admin/users/reset`, `/api/admin/seed-genres`, `/api/admin/genres`, `/api/admin/ng-words`, `/api/billing/checkout-session`, `/api/billing/portal-session`, `/api/webhooks/stripe` のデータアクセス部分（認証トークン検証自体は `supabase-auth-migration` で移行済みのため変更しない）。
+- `ng_words`（NGワードマスタ）テーブルの構造とマイグレーション、登録・編集・有効/無効切替 RPC。
 
 ### Out of Boundary
 - `quizzes`／`questions`／`quiz_tags`／`quiz_questions`／`users` の基本構造そのもの、およびそれらの一般 CRUD ロジック（`supabase-core-data` が所有）。
 - `attempts`／`leaderboard_entries`／`quiz_reviews`／`reactions`／`difficulty_votes`／`feedback_reports`（`supabase-gameplay` が所有）。
 - ストレージバケット・アップロード/ダウンロード処理（`supabase-storage-migration` が所有）。本スペックは `moveTemporaryGenreIcon()` を呼び出すのみで再実装しない。
 - Stripe Customer / Subscription / Checkout Session の API 呼び出し自体（署名検証、Price ID マッピング等）。
+- クイズ公開時に `ng_words` を参照して禁止語判定を行うロジック（`quizetika-core` が所有）。本スペックは CRUD された最新データを提供するのみ。
+- NGワード管理画面（`/admin/ng-words`）の UI 実装（`quizetika-moderation-governance-ui` が所有）。
 
 ### Allowed Dependencies
 - `supabase-auth-migration`（認証済み Supabase クライアントの取得パターン、`verifySupabaseAccessToken`、`extractBearerToken`）。
@@ -44,10 +52,11 @@
 - `supabase-storage-migration`（`moveTemporaryGenreIcon()`／`uploadTemporaryGenreIconBuffer()` 等のジャンルアイコン移行関数）。
 
 ### Revalidation Triggers
-- `flags`／`merge_requests`／`genre_requests`／`admin_logs`／`stripe_processed_events`／`reputation_limits` のテーブル構造変更。
+- `flags`／`merge_requests`／`genre_requests`／`admin_logs`／`stripe_processed_events`／`reputation_limits`／`ng_words` のテーブル構造変更。
 - 本スペックが定義する RPC（`handle_ban_user` 等、後述）のシグネチャ変更。
 - `is_admin()`／`is_moderator_or_admin()` の判定条件変更（他スペックの RLS ポリシーからも参照される可能性があるため）。
 - `users` テーブルへの課金・信頼スコア関連列の追加・変更。
+- `ng_words` の列構成（`word`／`is_active` 等）変更や RPC（`handle_create_ng_word` 等）のシグネチャ変更（`quizetika-core` の公開時検証ロジックが参照するため）。
 
 ## Architecture
 
@@ -72,6 +81,7 @@ graph TB
     ClientUI --> ReputationSvc[reputation.ts]
     AdminRoutes[Admin API Routes] --> ReputationSvc
     AdminRoutes --> TagMergeSvc
+    AdminRoutes --> NgWordsSvc[ngWords.ts]
     BillingRoutes[Billing API Routes] --> SubscriptionSvc[subscription.ts]
     WebhookRoute[Stripe Webhook Route] --> StripeWebhookSvc[stripe-webhook.ts]
     StripeWebhookSvc --> EntitlementSvc[entitlement.ts]
@@ -85,6 +95,7 @@ graph TB
         EntitlementSvc
         SubscriptionSvc
         StripeWebhookSvc
+        NgWordsSvc
     end
 
     GovernanceServices --> SupabaseClient[Supabase JS Client]
@@ -99,6 +110,7 @@ graph TB
         AdminLogs[admin_logs]
         StripeEvents[stripe_processed_events]
         ReputationLimits[reputation_limits]
+        NgWords[ng_words]
     end
 
     RPC --> UsersCore[(users owned by core-data)]
@@ -119,7 +131,7 @@ graph TB
 |-------|------------------|-----------------|-------|
 | Services / Core | TypeScript (strict) | サービス層のマッピング・RPC呼び出し・Admin クライアント呼び出し実装 | `Database` 型（`supabase gen types`）を使用 |
 | Data / Storage | Supabase (PostgreSQL) 15+ | 正規化された永続データストア | 複合主キー・部分ユニークインデックスを追加 |
-| Infrastructure | Supabase RPC (PL/pgSQL) | アトミックなトランザクション処理 | 新規12種のRPCを定義 |
+| Infrastructure | Supabase RPC (PL/pgSQL) | アトミックなトランザクション処理 | 新規15種のRPCを定義（NGワードCRUD3種を含む） |
 | Infrastructure | Supabase Admin Client (Service Role) | RLSをバイパスする特権操作（Stripe同期、ジャンル直接登録・シード） | 既存 `createAdminClient()`（`supabase-storage-migration` 等で確立済みパターン）を再利用 |
 
 ## File Structure Plan
@@ -128,26 +140,30 @@ graph TB
 ```
 supabase/
 ├── migrations/
-│   └── 20260705000000_governance_normalization.sql  # [NEW] governance系テーブルDDL・ALTER・RPC定義
+│   ├── 20260705000000_governance_normalization.sql  # [変更なし] 既存governance系テーブルDDL・ALTER・RPC定義
+│   └── 20260710000000_ng_words.sql                  # [NEW] ng_wordsテーブルDDL・RLS・CRUD RPC定義
 src/
 ├── services/
-│   ├── moderation.ts              # [MODIFY] flagContent/resolveFlagをRPC呼び出しに書き換え
-│   ├── tagMerge.ts                # [MODIFY] マージ・ジャンル申請系をRPC呼び出しに書き換え、runMigration/seedInitialGenres(未使用)を削除
-│   ├── reputation.ts              # [MODIFY] BAN/UNBAN/リセットをRPC呼び出しに書き換え、is_admin()判定へ統一
-│   ├── entitlement.ts             # [MODIFY] firebase-admin -> Supabase Admin クライアント
-│   ├── entitlement-shared.ts      # [変更なし] 純粋関数のみ、DB非依存
-│   ├── subscription.ts            # [MODIFY] firebase-admin -> Supabase Admin クライアント
-│   ├── stripe-webhook.ts          # [MODIFY] firebase-admin -> Supabase Admin クライアント、stripe_processed_events参照
-│   └── seedInitialGenresAdmin.ts  # [MODIFY] firebase-admin -> Supabase Admin クライアント
+│   ├── moderation.ts              # [変更なし]
+│   ├── tagMerge.ts                # [変更なし]
+│   ├── reputation.ts              # [変更なし]
+│   ├── entitlement.ts             # [変更なし]
+│   ├── entitlement-shared.ts      # [変更なし]
+│   ├── subscription.ts            # [変更なし]
+│   ├── stripe-webhook.ts          # [変更なし]
+│   ├── seedInitialGenresAdmin.ts  # [変更なし]
+│   └── ngWords.ts                 # [NEW] NGワードマスタのCRUD RPC呼び出し（一覧・登録・編集・有効/無効切替）
 ├── app/api/
-│   ├── admin/users/ban/route.ts      # [変更なし] 既にSupabase認証済み、reputation.ts呼び出しのみ
-│   ├── admin/users/unban/route.ts    # [変更なし] 同上
-│   ├── admin/users/reset/route.ts    # [変更なし] 同上
-│   ├── admin/seed-genres/route.ts    # [MODIFY] 管理者チェックをSupabaseベースへ
-│   ├── admin/genres/route.ts         # [MODIFY] Firestore読み書き -> Supabase、アイコン移行をmoveTemporaryGenreIcon()へ委譲
-│   ├── billing/checkout-session/route.ts  # [MODIFY] BANチェックをSupabaseベースへ
-│   ├── billing/portal-session/route.ts    # [MODIFY] 同上
-│   └── webhooks/stripe/route.ts           # [変更なし] サービス呼び出しのみ、DB非依存
+│   ├── admin/users/ban/route.ts      # [変更なし]
+│   ├── admin/users/unban/route.ts    # [変更なし]
+│   ├── admin/users/reset/route.ts    # [変更なし]
+│   ├── admin/seed-genres/route.ts    # [変更なし]
+│   ├── admin/genres/route.ts         # [変更なし]
+│   ├── admin/ng-words/route.ts       # [NEW] GET(一覧取得)/POST(新規登録)、ngWords.ts呼び出し
+│   ├── admin/ng-words/[id]/route.ts  # [NEW] PATCH(表記編集・有効/無効切替)、ngWords.ts呼び出し
+│   ├── billing/checkout-session/route.ts  # [変更なし]
+│   ├── billing/portal-session/route.ts    # [変更なし]
+│   └── webhooks/stripe/route.ts           # [変更なし]
 ```
 
 ## System Flows
@@ -203,6 +219,22 @@ sequenceDiagram
     DB-->>Svc: 完了
 ```
 
+### NGワード登録フロー（Phase 39）
+```mermaid
+sequenceDiagram
+    participant Route as /api/admin/ng-words
+    participant Svc as ngWords.ts
+    participant DB as PostgreSQL RPC
+
+    Route->>Svc: createNgWord(word)
+    Svc->>DB: rpc(handle_create_ng_word, ...)
+    Note over DB: is_admin() で auth.uid() の権限検証
+    Note over DB: word をトリム・小文字化し normalized_word を算出
+    Note over DB: normalized_word の一意制約違反(23505)なら重複エラー
+    Note over DB: ng_words へ INSERT (is_active = TRUE)
+    DB-->>Svc: 新規レコード
+```
+
 ### Stripe Webhook 同期フロー
 ```mermaid
 sequenceDiagram
@@ -246,6 +278,14 @@ sequenceDiagram
 | 6.2 | ジャンル新設申請への重複防止投票 | tagMerge.ts | voteGenreRequest | - |
 | 6.3 | 可決時のジャンルマスタ登録 | tagMerge.ts | voteGenreRequest | - |
 | 7.1 | 初期ジャンルの冪等投入 | seedInitialGenresAdmin.ts | seedInitialGenresWithAdmin | - |
+| 9.1 | NGワードの新規登録 | ngWords.ts | createNgWord | NGワード登録フロー |
+| 9.2 | 重複語句の登録拒否 | ngWords.ts | createNgWord | NGワード登録フロー |
+| 9.3 | 空文字・空白のみの登録・更新拒否 | ngWords.ts | createNgWord, updateNgWord | - |
+| 9.4 | NGワードの表記編集 | ngWords.ts | updateNgWord | - |
+| 9.5 | NGワードの無効化 | ngWords.ts | setNgWordActive | - |
+| 9.6 | NGワードの再有効化 | ngWords.ts | setNgWordActive | - |
+| 9.7 | NGワード一覧の取得 | ngWords.ts | listNgWords | - |
+| 9.8 | 管理者権限のみへの操作制限 | ngWords.ts（RPC内 `is_admin()`） | createNgWord, updateNgWord, setNgWordActive | NGワード登録フロー |
 
 ## Components and Interfaces
 
@@ -261,6 +301,7 @@ sequenceDiagram
 | subscription.ts | Service | Checkout/Portal Session発行 | 4.1 | Stripe API（P0）, users（P1） | Service |
 | stripe-webhook.ts | Service | Webhookイベント処理・冪等性管理 | 4.1, 4.2 | stripe_processed_events（P0） | Service |
 | seedInitialGenresAdmin.ts | Service | 初期ジャンルシード | 7.1 | metadata_genres（P0） | Service |
+| ngWords.ts | Service | NGワードマスタのCRUD | 9.1-9.8 | ng_words（P0） | Service |
 
 ### モデレーション・タグ統合ドメイン
 
@@ -445,6 +486,51 @@ export interface SeedGenresService {
 ```
 - Postconditions: Supabase Admin クライアント（サービスロール）で `metadata_genres` に対し既存IDは更新、未存在IDは新規作成する（`upsert` 相当）。
 
+### NGワードマスタ管理ドメイン（Phase 39）
+
+#### ngWords.ts (NG Words Service)
+
+| Field | Detail |
+|-------|--------|
+| Intent | NGワードマスタ（`ng_words`）の一覧取得・登録・編集・有効/無効切替を RPC 経由で行う |
+| Requirements | 9.1-9.8 |
+
+**Responsibilities & Constraints**
+- `word` の前後空白トリム・小文字化した `normalized_word` を用いた大文字小文字区別なしの重複検知は RPC 側（DB制約 + 明示チェック）で行う。サービス層は入力をそのまま RPC に渡す。
+- 一覧取得（`listNgWords`）は RLS の SELECT ポリシー経由（誰でも読み取り可、書き込みは RPC 限定）で行い、RPC 化しない。
+
+**Dependencies**
+- Outbound: `ng_words`（P0） — CRUD対象テーブル
+- Outbound: `is_admin()`（P0） — RPC内での権限検証（既存ヘルパーを再利用、新規定義しない）
+
+**Contracts**: Service [x]
+
+##### Service Interface
+```typescript
+export interface NgWord {
+  id: string;
+  word: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NgWordsService {
+  listNgWords(): Promise<NgWord[]>;
+  createNgWord(word: string): Promise<NgWord>;
+  updateNgWord(id: string, word: string): Promise<NgWord>;
+  setNgWordActive(id: string, isActive: boolean): Promise<NgWord>;
+}
+```
+- Preconditions: `createNgWord`／`updateNgWord` は `word` が空文字・空白のみでないこと（トリム後の長さ > 0）をサービス層でも事前検証する（RPC側の検証と二重化し、UIへ早期にエラーを返す）。
+- Postconditions: `createNgWord` は新規行を `is_active = true` で作成する。`setNgWordActive` は指定行の `is_active` のみを更新する。
+- Invariants: `normalized_word`（`lower(trim(word))`）はテーブル全体で一意。
+
+**Implementation Notes**
+- Integration: `/api/admin/ng-words`（GET/POST）と `/api/admin/ng-words/[id]`（PATCH）から呼び出される。認可（管理者ロール確認）は RPC 内の `is_admin()` が最終防衛線であり、API Route 側のセッション検証はUX目的の一次フィルタに留める（既存の Defense-in-Depth 方針を踏襲）。
+- Validation: 重複エラー（`23505` unique_violation）は「この語句はすでに登録されています」のドメインエラーへ変換して返す。
+- Risks: `quizetika-core` の公開時検証がキャッシュを用いる場合、無効化直後の反映に遅延が生じ得る（キャッシュ戦略自体は `quizetika-core` の設計判断であり本スペックの責務外）。
+
 ## Data Models
 
 ### Logical Data Model
@@ -463,12 +549,17 @@ erDiagram
     users ||--o{ admin_logs : executes
     users ||--o{ reputation_limits : receives_from
     users ||--o{ reputation_limits : sends
+    ng_words {
+        text word
+        boolean is_active
+    }
 ```
 
 **構造の要点**:
 - `flags` は `(quiz_id, reporter_id)` の複合ユニーク制約で「報告者ごとに1回のみ」を不変条件として保証する。
 - `merge_request_votes`／`genre_request_votes` は `(request_id, voter_id)` 複合主キーで「投票者ごとに1回のみ」を保証し、Firestore の `votedUserIds`/`votes` 配列を排除する。
 - `merge_requests`／`genre_requests` は集計列（`votes_for_count` 等）を非正規化して保持し、投票のたびに RPC 内で差分更新する（`quiz_reviews` の `positive_count`/`negative_count` と同型のパターン）。
+- `ng_words` は他テーブルとの外部キー関係を持たない独立したマスタテーブルであり、`normalized_word`（`lower(trim(word))`）への一意インデックスで大文字小文字を区別しない重複を防止する。
 
 ### Physical Data Model
 
@@ -544,11 +635,24 @@ CREATE TABLE reputation_limits (
     PRIMARY KEY (author_id, sender_id)
 );
 
+-- NGワードマスタ（Phase 39）
+CREATE TABLE ng_words (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    word TEXT NOT NULL,
+    normalized_word TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+-- 大文字・小文字を区別しない重複登録をDB制約レベルで防止する
+CREATE UNIQUE INDEX idx_ng_words_normalized_word ON ng_words (normalized_word);
+
 -- RLS
 ALTER TABLE merge_request_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE genre_request_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stripe_processed_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reputation_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ng_words ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY merge_request_votes_read ON merge_request_votes FOR SELECT USING (TRUE);
 CREATE POLICY genre_request_votes_read ON genre_request_votes FOR SELECT USING (TRUE);
@@ -557,6 +661,8 @@ CREATE POLICY genre_request_votes_read ON genre_request_votes FOR SELECT USING (
 CREATE POLICY stripe_processed_events_policy ON stripe_processed_events FOR ALL USING (FALSE); -- service_role のみアクセス可
 CREATE POLICY reputation_limits_read ON reputation_limits FOR SELECT
     USING (auth.uid() = author_id OR auth.uid() = sender_id);
+-- ng_words: クイズ公開時検証(quizetika-core)およびクライアント側事前検証UIの双方から読み取れるよう全員に許可し、書き込みはRPC限定
+CREATE POLICY ng_words_read ON ng_words FOR SELECT USING (TRUE);
 
 -- 既存 RLS の是正: merge_requests / genre_requests への直接書き込みを禁止し RPC 経由に一本化する
 -- （現行ポリシーは「モデレータ以上のみ書き込み可」だが、実際の業務規則は「BANされていない任意ユーザーが提案・投票可」であり不整合のため）
@@ -932,6 +1038,85 @@ BEGIN
   VALUES (p_target_uid, auth.uid(), 'reputation_reset', p_reason);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- NGワードの新規登録（Phase 39）
+CREATE OR REPLACE FUNCTION handle_create_ng_word(
+  p_word TEXT
+) RETURNS ng_words AS $$
+DECLARE
+  v_normalized TEXT;
+  v_row ng_words;
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'permission-denied';
+  END IF;
+
+  v_normalized := lower(trim(p_word));
+  IF v_normalized = '' THEN
+    RAISE EXCEPTION 'empty-word';
+  END IF;
+
+  INSERT INTO ng_words (word, normalized_word, is_active)
+  VALUES (trim(p_word), v_normalized, TRUE)
+  RETURNING * INTO v_row;
+
+  RETURN v_row;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- NGワードの表記編集（Phase 39）
+CREATE OR REPLACE FUNCTION handle_update_ng_word(
+  p_id UUID,
+  p_word TEXT
+) RETURNS ng_words AS $$
+DECLARE
+  v_normalized TEXT;
+  v_row ng_words;
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'permission-denied';
+  END IF;
+
+  v_normalized := lower(trim(p_word));
+  IF v_normalized = '' THEN
+    RAISE EXCEPTION 'empty-word';
+  END IF;
+
+  UPDATE ng_words SET word = trim(p_word), normalized_word = v_normalized, updated_at = now()
+  WHERE id = p_id
+  RETURNING * INTO v_row;
+
+  IF v_row IS NULL THEN
+    RAISE EXCEPTION 'target-not-found';
+  END IF;
+
+  RETURN v_row;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- NGワードの有効/無効切替（Phase 39）
+CREATE OR REPLACE FUNCTION handle_set_ng_word_active(
+  p_id UUID,
+  p_is_active BOOLEAN
+) RETURNS ng_words AS $$
+DECLARE
+  v_row ng_words;
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'permission-denied';
+  END IF;
+
+  UPDATE ng_words SET is_active = p_is_active, updated_at = now()
+  WHERE id = p_id
+  RETURNING * INTO v_row;
+
+  IF v_row IS NULL THEN
+    RAISE EXCEPTION 'target-not-found';
+  END IF;
+
+  RETURN v_row;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
 ### Data Contracts & Integration
@@ -948,6 +1133,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 - `permission-denied`（`is_admin()`/`is_moderator_or_admin()` 不足）は API Route 側で `403` として扱う。
 - `circular-merge`／`same-id`／`already-resolved` はユーザー入力起因のエラーとして `400`/`409` に分類する（`already-resolved` は投票締切後の二重送信のため `409`）。
 - `idx_merge_requests_pending_dedup` の一意制約違反（重複マージ提案）は `23505`（unique_violation）として捕捉し、「既に同じマージ提案が進行中です」というドメインエラーメッセージへ変換する。
+- `idx_ng_words_normalized_word` の一意制約違反（`23505`）は「この語句はすでに登録されています」というドメインエラーへ変換し、API Route 側で `409` として扱う。`empty-word` はサービス層でも事前検証するが、RPC側の検証をフェイルセーフとして残し `400` として扱う。
 
 ### Monitoring
 既存の `console.error` によるサーバーログ出力パターンを維持する（`supabase-gameplay`/`supabase-core-data` と同様、専用の監視基盤追加は本スペックのスコープ外）。
@@ -959,9 +1145,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 - `tests/services/tagMerge.test.ts`, `tagMerge-thresholds.test.ts`: `handle_create_merge_request`／`handle_vote_merge_request`／`handle_submit_genre_request`／`handle_vote_genre_request` のRPC呼び出し検証。閾値判定（70%/80%、重み5）は既存の期待値を維持する。
 - `tests/services/reputation.test.ts`: `handle_ban_user`／`handle_unban_user`／`handle_reset_user_reputation` のRPC呼び出し検証へ書き換え。`resolveModerationTier`（純関数）のテストは変更なし。
 - `tests/services/entitlement.test.ts`, `subscription.test.ts`, `stripe-webhook.test.ts`: Supabase Admin クライアントのモック（`from().update()`/`select()` チェーンモック）へ書き換え。
+- `tests/services/ngWords.test.ts`（新規）: `handle_create_ng_word`／`handle_update_ng_word`／`handle_set_ng_word_active` のRPC呼び出しパラメータ検証、空文字入力時のクライアント側事前検証、重複エラー（`23505`）のドメインエラー変換。
 
 ### Integration Verification
 - ローカル Supabase 環境に `20260705000000_governance_normalization.sql` を適用し、既存 `merge_requests`/`genre_requests` の列削除・追加がエラーなく完了することを確認する（開発環境データのため既存データ互換は考慮不要）。
 - `handle_vote_merge_request` の可決分岐で、`quiz_tags`／`quizzes` の書き換えが同一トランザクション内で完結し、可決直後に `SELECT` した結果に反映されていることを検証する（非同期ジョブが残存していないことの確認）。
 - `is_admin()` が `role='admin'` のみ／`moderation_tier='admin'` のみ／両方／どちらもなし の4パターンで正しく判定することを検証する。
+- `handle_create_ng_word` で大文字・小文字表記のみが異なる語句（例: `Spam` と `spam`）を連続登録した場合に2件目が `23505` で拒否されることを検証する。
 - Jest テストスイートの全パス確認、および `npm run build` による型エラーゼロの確認。

@@ -119,3 +119,36 @@
   - 成果物確認: 全テストがパスし、ゲートの再実行結果から対象ファイルが消えていること
   - _Requirements: 8.1, 8.2, 8.3_
   - _Depends: 4.1, 4.2, 4.3_
+
+- [ ] 5. NGワードマスタ管理機能の追加（Phase 39）
+- [ ] 5.1 NGワードマスタのスキーマとCRUD RPCのマイグレーション
+  - `ng_words` テーブル（`word`／`normalized_word`／`is_active`／`created_at`／`updated_at`）を新規作成し、`normalized_word`（`lower(trim(word))`）への一意インデックスで大文字・小文字を区別しない重複登録をDB制約レベルで防止する
+  - RLSを有効化し、SELECTは全員に許可、書き込みはRPC限定とするポリシーを定義する
+  - `handle_create_ng_word`（`is_admin()` 検証、空文字拒否、`normalized_word` の一意制約違反時は例外）、`handle_update_ng_word`（表記編集）、`handle_set_ng_word_active`（有効/無効切替）の3RPCを定義する
+  - 成果物確認: マイグレーションをローカル Supabase に適用し、テーブル・インデックス・3RPCがエラーなくデータベースへロードされること
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.8_
+
+- [ ] 5.2 NGワードマスタ読み書きサービスの実装
+  - `ngWords.ts` に `listNgWords`（RLS経由のSELECT）、`createNgWord`、`updateNgWord`、`setNgWordActive`（いずれも対応RPC呼び出し）を実装する
+  - `createNgWord`／`updateNgWord` はサービス層でも空文字・空白のみの入力を事前検証し、RPC呼び出し前に早期リターンする
+  - 重複エラー（`23505` unique_violation）を「この語句はすでに登録されています」というドメインエラーへ変換する
+  - 単体テストを実行し、正常系（登録・編集・有効/無効切替・一覧取得）と異常系（重複語句、空文字、権限不足）が期待どおりに動作することを確認する
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
+  - _Boundary: NgWordsService_
+  - _Depends: 5.1_
+
+- [ ] 5.3 NGワード管理APIルートの実装
+  - `/api/admin/ng-words` に GET（一覧取得）と POST（新規登録）を実装し、`ngWords.ts` の `listNgWords`／`createNgWord` を呼び出す
+  - `/api/admin/ng-words/[id]` に PATCH（表記編集・有効/無効切替）を実装し、`ngWords.ts` の `updateNgWord`／`setNgWordActive` を呼び出す
+  - 重複エラーを `409`、空文字エラーを `400`、対象ID不在を `404` として返却するエラーハンドリングを実装する
+  - 成果物確認: 管理者トークンでの POST/GET/PATCH がそれぞれ期待どおりのレスポンスを返し、非管理者トークンでは `403` が返ること
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
+  - _Boundary: NgWordsAdminRoutes_
+  - _Depends: 5.2_
+
+- [ ] 5.4 統合検証
+  - `npm run build` を実行し、型エラーが発生しないことを確認する
+  - Jest テストスイート全体を実行し、既存テストを含めて全てパスすることを確認する
+  - 大文字・小文字表記のみが異なる語句（例: `Spam` と `spam`）を連続登録した場合に2件目が重複として拒否されることを手動確認する
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
+  - _Depends: 5.3_

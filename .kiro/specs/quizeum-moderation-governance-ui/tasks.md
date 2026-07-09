@@ -188,3 +188,44 @@
   - _Requirements: 3.4, 4.4_
   - _Boundary: migrate-icon API_
   - _Depends: 13.1_
+
+### 14. NGワードマスタ管理画面の実装（Phase 39）
+
+- [ ] 14.1 (P) NGワード管理APIルートの実装
+  - `/api/admin/ng-words` に GET（一覧取得）と POST（新規登録）を実装し、管理者権限を検証した上で `supabase-governance` の `ngWords.ts`（`listNgWords`／`createNgWord`）を呼び出す
+  - `/api/admin/ng-words/[id]` に PATCH（表記編集・有効/無効切替）を実装し、`ngWords.ts` の `updateNgWord`／`setNgWordActive` を呼び出す
+  - 重複エラーを `409`、空文字エラーを `400`、対象ID不在を `404`、非管理者を `403` として返却する
+  - **完了状態**: 管理者トークンでの GET/POST/PATCH がそれぞれ期待どおりのレスポンスを返し、非管理者トークンでは `403` が返ること
+  - _Requirements: 10.1, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8_
+  - _Boundary: admin-ng-words API_
+
+- [ ] 14.2 (P) NGワード管理画面のUI実装
+  - `src/app/admin/ng-words/page.tsx` と `admin-ng-words-client.tsx` を新規作成し、Tailwind CSS + shadcn/ui を使用して登録済みNGワード一覧テーブルと新規登録フォームを構築する
+  - `isAdminUser` ガードにより管理者以外のアクセスを遮断し `/not-found` へ遷移する
+  - 登録フォームは空文字・空白のみの入力をインライン検証でブロックし、`/api/admin/ng-words` への POST 時の重複エラー（`409`）を「この語句はすでに登録されています」として表示する
+  - 一覧内の各行に編集・有効/無効トグルを提供し、`/api/admin/ng-words/[id]` へ PATCH する
+  - **完了状態**: `/admin/ng-words` にアクセスするとNGワード一覧と登録フォームが表示され、新規登録・編集・有効/無効切替が成功すると一覧が即座に更新されること
+  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.6, 10.9_
+  - _Boundary: AdminNgWords_
+
+- [ ] 14.3 (P) 管理者ポータルへのナビゲーション導線追加
+  - `src/app/admin/page.tsx` に「NGワード管理」のナビゲーションカードを追加し、`/admin/ng-words` へのリンクを設置する
+  - **完了状態**: `/admin` へアクセスした際、「NGワード管理」カードが表示され、クリックで `/admin/ng-words` へ遷移すること
+  - _Requirements: 10.10_
+  - _Boundary: AdminPortal_
+  - _Depends: 14.2_
+
+- [ ] 14.4 (P) NGワード管理画面の非同期ローディングとスケルトン実装
+  - `src/app/admin/ng-words/page.tsx` を React Server Component と Suspense に対応させ、認証確認中はローディングインジケータを、一覧データロード中は `data-testid="ng-words-management-skeleton"` を付与したスケルトンプレースホルダーを表示する
+  - **完了状態**: 一覧データロード中はスケルトン表示となり、ロード完了後に実際のNGワード一覧コンテンツへ切り替わること
+  - _Requirements: 10.2, 10.3_
+  - _Boundary: AdminNgWords_
+  - _Depends: 14.2_
+
+- [ ] 14.5 Phase 39 検証テスト
+  - `/api/admin/ng-words`／`/api/admin/ng-words/[id]` に対する Jest テストを追加し、重複語句の `409`、空文字の `400`、非管理者の `403` を検証する
+  - Playwright E2E テストを追加し、管理者としてNGワードの登録・編集・有効/無効切替を行うと一覧へ即座に反映されること、管理者ポータルから `/admin/ng-words` へ遷移できることを検証する
+  - **完了状態**: Phase 39 に関連するすべての Jest テストおよび E2E テストがグリーンでパスすること
+  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 10.10_
+  - _Boundary: Testing_
+  - _Depends: 14.1, 14.3, 14.4_

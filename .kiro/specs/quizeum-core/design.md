@@ -93,6 +93,7 @@
 - **Phase 10 スマートサジェスト（2026-06-06 追記）**: `search_logs` コレクションのスキーマ（`userId`, `queryText`, `tags[]`, `genreId`, `loggedAt`）および TTL、`searchQuizzes` 内での fire-and-forget ログ書き込み。`GET /api/genres/weekly-top` / `GET /api/search/weekly-top` の集計 API Route（server-side Firestore Admin SDK、Next.js revalidate: 1800）。ユーザー個人履歴の保存は UI 側 `localStorage` のみ（Core に記録しない）。
 - **Phase 13 — Stripe サブスクリプション（2026-06）**: `users` の契約 tier・Stripe 識別子・契約状態フィールド、`subscription-plans` マスタ、`resolveUserEntitlements`、Checkout / Portal / Webhook API Routes、Webhook 冪等ログ（`stripe_processed_events`）、Firestore Rules による課金フィールドのクライアント書き込み遮断、`AskAiQuestionAPI` の tier 連動。
 - **Phase 30 — SNSリンク連携**: ユーザーの `snsLinks`（マップ）の構造設計、プロフィール更新時のバリデーション（ドメインおよびURL形式）、および `storage.ts` 内の `getSnsLogoUrl` ヘルパー（インメモリキャッシュ付き）の定義。
+- **Phase 39 — NGワードマスタ参照によるコンテンツ検証**: `quiz-validation.ts` の禁止語判定ロジック（`containsNgWord`/`validateQuizForPublish`）が `supabase-governance` 所有の `ng_words` マスタを参照する契約、および取得失敗時の安全側フェイルクローズ処理。
 
 ### Out of Boundary
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
@@ -111,12 +112,14 @@
 - **Phase 17 — プレイ/課金 UI**: 未登録向けボタン表記、制限到達 Pro 誘導（`/pricing`）、諦め後チャット内ナビ、ルール説明の上限数値更新（`quizetika-play-flow-ui`）。Free プラン上限説明（`quizetika-billing-subscription-ui` の `pricing-display.ts`）。
 - **Phase 18 — モード選択警告 UI**: 模擬試験・フラッシュカードのランキング非対象および初回プレイ権利消滅の事前告知（`quizetika-play-flow-ui`）。
 - **Phase 20 — 〇× UI**: 専用プレイ回答パネル（`quizetika-play-flow-ui`）、作問正解トグル（`quizetika-creator-dash-ui`）。
+- **Phase 39 — NGワード管理**: NGワードマスタ（`ng_words`）自体の登録・編集・有効/無効切替ロジックおよびそのRPC（`supabase-governance` が担当）。管理者向けNGワード管理UI（`quizetika-moderation-governance-ui` が担当）。
 
 ### Allowed Dependencies
 - **外部AI API**: 生成AI自動判定に必要な外部API（Google Gemini API等）。
 - **アセットストレージ**: カバー画像やアバター画像を管理する Firebase Storage。
 - **バックエンド基盤**: ユーザー認証およびデータの永続化を行う Firebase Auth, Cloud Firestore。
 - **外部決済（Phase 13）**: Stripe Checkout Sessions API、Customer Portal、Webhook（署名検証）。
+- **Phase 39 — NGワードマスタ読み取り**: `supabase-governance` が所有する `ng_words` テーブル（`is_active = true` の語句一覧を読み取り専用で参照）。
 
 ### Revalidation Triggers
 - `spec.json` の型定義（`User`, `Quiz`, `Attempt` 等）のスキーマ変更。
@@ -136,6 +139,7 @@
 - **Phase 18**: `isLeaderboardEligibleAttempt` の除外モード集合変更、`countPriorCompletedAttempts` のカウント対象（全モード／test-play 除外）変更。
 - **Phase 28**: `Attempt.questionAnswerDetails` のデータ定義変更、`saveAttempt` 内検証ロジック（件数・正解数・問題ID実在）の変更、`PendingSyncAttempt` キュー構造変更。
 - **Phase 30**: `User.snsLinks` のオブジェクト定義変更、SNSドメイン検証ルールの変更、Storage上のSNSロゴパスや拡張子の変更。
+- **Phase 39**: `ng_words` の列構成（`word`／`is_active`）変更、NGワード取得関数の戻り値形状の変更、取得失敗時のフェイルクローズ方針の変更。
 
 ---
 
@@ -3889,5 +3893,99 @@ sequenceDiagram
 **Risk**: **Low** (既存の判定文の配列拡張であり、副作用は極めて低い)
 
 **Document Status（Phase 31 設計）**: 本節に反映。
+
+## Phase 39: NGワードマスタ参照によるコンテンツ検証への移行（2026-07 設計詳細）
+
+### 1. 概要と目標
+`quiz-validation.ts` にハードコードされていた `NG_WORD_LIST` 配列を廃止し、`supabase-governance` が所有する `ng_words` マスタ（要件9）を参照する形へ移行する。`quiz-validation.ts` は「Supabase に依存しない純粋関数群（テスト容易性のため分離）」という既存の設計意図（ファイル冒頭コメント）を維持するため、DBアクセスをサービス層に切り出し、`containsNgWord`／`validateQuizForPublish` は NGワード一覧を引数として受け取る純粋関数のまま変更しない。
+
+### 2. アーキテクチャ決定
+- **境界の維持**: `quiz-validation.ts` は引き続き Supabase 非依存の純粋関数群とし、NGワード一覧の取得は新規サービス `src/services/ng-words.ts` に切り出す。呼び出し元（`quiz.ts`／`quiz-editor.tsx`）が事前に取得し、引数として渡す。
+- **キャッシュ戦略の不採用**: 要件32にリアルタイム性能要求はなく、公開処理1回につき `ng_words` を1回取得するシンプルな都度クエリ方式を採用する（Simplification 原則。キャッシュ層は要件が生じた場合の将来検討事項とし、本フェーズでは導入しない）。
+- **フェイルクローズ**: `listActiveNgWords()` が失敗した場合は例外をそのまま呼び出し元へ伝播させ、`saveQuiz('published')` はエラーで中断する。未検証のまま公開を許可しない（要件32.4）。
+
+### 3. Data Contracts
+
+```typescript
+// src/services/ng-words.ts
+export interface NgWordsService {
+  /** is_active = true の NGワード一覧を取得する。失敗時は例外をスローする */
+  listActiveNgWords(): Promise<string[]>;
+}
+```
+
+```typescript
+// src/services/quiz-validation.ts（シグネチャ変更）
+export function containsNgWord(text: string, ngWords: readonly string[]): boolean;
+export function validateQuizForPublish(
+  quiz: Quiz,
+  ngWords: readonly string[]
+): QuizPublishValidationError[];
+```
+- `NG_WORD_LIST` 定数は削除する。
+- `containsNgWord`／`validateQuizForPublish` の呼び出し元は全て `ngWords` 引数を渡すよう更新する（`validateGeneratedQuestions` はNGワード判定を行わないため対象外）。
+
+### 4. System Flow
+
+```mermaid
+sequenceDiagram
+    participant Editor as quiz-editor.tsx
+    participant Svc as quiz.ts
+    participant NgSvc as ng-words.ts
+    participant DB as Supabase (ng_words)
+    participant Val as quiz-validation.ts
+
+    Editor->>Svc: saveQuiz(quiz, 'published')
+    Svc->>NgSvc: listActiveNgWords()
+    NgSvc->>DB: select word where is_active = true
+    alt 取得成功
+        DB-->>NgSvc: NGワード配列
+        NgSvc-->>Svc: ngWords
+        Svc->>Val: validateQuizForPublish(quiz, ngWords)
+        alt 禁止語を含む
+            Val-->>Svc: ngWordエラー
+            Svc-->>Editor: 公開拒否（バリデーションエラー）
+        else 禁止語なし
+            Val-->>Svc: エラーなし
+            Svc-->>Editor: 公開成功
+        end
+    else 取得失敗
+        NgSvc-->>Svc: 例外スロー
+        Svc-->>Editor: 公開拒否（サーバーエラー、未検証のまま公開しない）
+    end
+```
+
+### 5. File Structure Plan（Phase 39）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/services/ng-words.ts` | New | `ng_words` マスタから `is_active = true` の語句一覧を取得する読み取り専用サービス |
+| `src/services/quiz-validation.ts` | Modify | `NG_WORD_LIST` 定数を削除。`containsNgWord`／`validateQuizForPublish` を `ngWords` 引数受け取りに変更 |
+| `src/services/quiz.ts` | Modify | クイズ公開処理内で `listActiveNgWords()` を呼び出し `validateQuizForPublish` へ渡す。取得失敗時は公開処理をエラーで中断 |
+| `src/components/quiz/quiz-editor.tsx` | Modify | クライアント側事前検証のため NGワード一覧取得を追加。取得失敗時は事前チェックをスキップし、最終防衛線であるサーバー側検証に委ねる |
+
+### 6. Requirements Traceability（Phase 39）
+
+| Req | Summary | Component |
+|---|---|---|
+| 32.1 | NGワードマスタ参照による禁止語チェック | `ng-words.ts`, `quiz-validation.ts` |
+| 32.2 | 禁止語検出時の公開拒否 | `quiz-validation.ts` |
+| 32.3 | マスタ更新内容の以降の検証への反映 | `ng-words.ts`（キャッシュなし都度取得により自然に満たす） |
+| 32.4 | マスタ取得失敗時の安全側処理 | `quiz.ts`, `ng-words.ts` |
+| 32.5 | マスタ自体のCRUDは対象外 | （`supabase-governance` が担当、[[Out of Boundary]] 参照） |
+
+### 7. Testing Strategy（Phase 39）
+
+| 種別 | 検証 |
+|---|---|
+| Unit | `containsNgWord(text, ngWords)` — 渡された `ngWords` 配列に応じて判定結果が変わり、配列に存在しない語句では検出されないこと |
+| Unit | `validateQuizForPublish(quiz, ngWords)` — `ngWords` 内の語句をタイトル・説明・問題文・解説のいずれかに含む場合に `field: 'ngWord'` のエラーが返ること |
+| Integration | `quiz.ts` — `listActiveNgWords()` が例外をスローした場合、`saveQuiz(quiz, 'published')` がエラーをスローしクイズが公開されないこと（`@/lib/supabase/client` のチェーンモックで検証） |
+| Integration | `quiz.ts` — `ng_words` に新規登録された語句が、次回の `saveQuiz` 呼び出しから検証対象になること（モックの返り値切り替えで検証） |
+
+**Effort**: **S**（既存の純粋関数シグネチャ変更 + 新規読み取りサービス1つ + 呼び出し元2箇所の更新）
+**Risk**: **Low**（型シグネチャの追加引数化であり、既存の判定ロジック自体は変更しない）
+
+**Document Status（Phase 39 設計）**: 本節に反映。
 
 

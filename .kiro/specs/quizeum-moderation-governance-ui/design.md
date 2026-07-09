@@ -8,6 +8,7 @@
 **Phase 6（2026-06）**: ジャンルアイコンアップロードの設計・エラーメッセージを **SEC-08（SVG 禁止、PNG/JPEG/GIF のみ、2MB）** に仕様統一。
 **管理者ジャンル直接追加機能の追加（2026-06-18 追加）**: システム管理者が直接ジャンルを定義・新設できる専用画面（`/admin/genres`）と、そこへの相互ナビゲーションを追加する。
 **ジャンル画像のローカル保存化（2026-06-18 追加）**: ジャンルアイコン画像および一時画像の保存先を Firebase Storage からローカルファイルシステム（`assets/genre/`）へ変更し、エミュレータバケットエラーを解消してファイル管理を簡素化する。
+**NGワードマスタ管理画面の追加（Phase 39・2026-07 追加）**: `supabase-governance` が新規に提供する NGワードマスタ CRUD（要件9）を管理者が操作するための専用画面（`/admin/ng-words`）を追加する。既存の `AdminGenresPage` と同型の「一覧 + 追加フォーム + インライン編集」パターンを踏襲する。
 
 ### Goals
 - 不適切通報審査キューおよび管理者特別審査閲覧ビューの構築。
@@ -16,11 +17,13 @@
 - 初期ジャンルの一括投入（シード）および個別ジャンルの直接追加機能の構築。
 - ユーザーの `moderationTier` または管理者ロールに基づいた、厳格なディレクトリ・ページ保護（403または404フォールバック）の実装。
 - ジャンル画像アセット（一時保存および正式アセット）のローカルファイルシステム上での管理、および Next.js API Routes による動的アセット配信の構築。
+- NGワードマスタ（禁止語句一覧）の一覧表示、登録、表記編集、有効/無効切替を行う管理者専用画面（`/admin/ng-words`）の構築（Phase 39）。
 
 ### Non-Goals
 - 一般ユーザーがクイズをプレイする画面、またはクイズ作成画面のUI設計そのもの（別スペックが担当）。
 - 既存ジャンルの物理的な削除機能（不要になったジャンルは非表示または非アクティブ化で対応し、物理削除は本要件の対象外とする）。
 - Firebase Storage バケットを利用したジャンルアイコン画像のアップロード・保存処理。
+- NGワードマスタへの実際の書き込みロジック・判定アルゴリズム自体（`supabase-governance`／`quizetika-core` が担当、Phase 39）。NGワードの物理削除機能（無効化のみ）。
 
 ---
 
@@ -34,10 +37,12 @@
 - **ローカル画像配信 API**: 保存されたアセットを動的配信する GET `/api/assets/genre/[...path]` API。
 - **投票インタラクション**: 賛成・反対投票時の加重値計算とプログレスバーの描画。
 - **ジャンルデータ管理**: 初期ジャンルの一括投入（シード）および個別ジャンルの直接追加APIルート `/api/admin/genres`、および一時画像から正式フォルダへの移動を行う `/api/genres/migrate-icon`。
+- **NGワード管理UI（Phase 39）**: `/admin/ng-words` ページコンポーネント、一覧・登録・編集・有効/無効切替 API ルート `/api/admin/ng-words`／`/api/admin/ng-words/[id]` のリクエストハンドリング（データアクセス自体は `supabase-governance` の `ngWords.ts` サービスへ委譲）。
 
 ### Out of Boundary
 - Cloud Functions を用いた非同期の投票可決バックエンドトリガー処理（`quizetika-core`が担当）。
 - ローカル画像ファイルの永続化やホストサーバー上でのバックアップ運用（ホスト環境に依存）。
+- NGワードマスタへの実際のDB書き込みロジック・RPC実装（`supabase-governance` の `ngWords.ts` が担当、Phase 39）。クイズ公開時のNGワード判定アルゴリズム（`quizetika-core` が担当、Phase 39）。
 
 ### Allowed Dependencies
 - **`quizetika-auth-profile-ui`**: `Header`, `useAuth`, プロフィール権限バッジ
@@ -45,11 +50,13 @@
 - **`quizetika-core`**: `ModerationService`, Firebase Admin SDK
 - **Static Assets**: `src/data/initial_genres.json` (初期ジャンル定義データ)
 - **Local Directory**: `assets/genre/` (アセット書き込み・読み込み用)
+- **`supabase-governance`（Phase 39）**: `ngWords.ts` サービス（`listNgWords`／`createNgWord`／`updateNgWord`／`setNgWordActive`）
 
 ### Revalidation Triggers
 - `ModerationService` またはジャンル管理 API のシグネチャ変更。
 - ユーザーロール・ `moderationTier` の種別追加。
 - ローカルファイルシステム上の書き込み権限やパス構造の変更。
+- `supabase-governance` の `ngWords.ts` サービスインターフェース変更（Phase 39）。
 
 ---
 
@@ -78,15 +85,22 @@ src/
 │   │   │   └── page.tsx       # 管理者モデレーション審査画面 (1.1-1.5, 5.1-5.3, 5.6, 5.7, 7.8)
 │   │   ├── users/
 │   │   │   └── page.tsx       # 管理者ユーザー管理画面 (7.8) - 既存修正（相互リンク追加）
-│   │   └── genres/
-│   │       ├── page.tsx       # 管理者専用ジャンル管理・直接追加画面 (7.1-7.7)
-│   │       └── admin-genres-client.tsx  # 管理者ジャンル画面用クライアントコンポーネント (7.1-7.7, 9.1-9.4, 9.6)
+│   │   ├── genres/
+│   │   │   ├── page.tsx       # 管理者専用ジャンル管理・直接追加画面 (7.1-7.7)
+│   │   │   └── admin-genres-client.tsx  # 管理者ジャンル画面用クライアントコンポーネント (7.1-7.7, 9.1-9.4, 9.6)
+│   │   └── ng-words/
+│   │       ├── page.tsx       # [NEW] 管理者専用NGワード管理画面 (10.1-10.10, Phase 39)
+│   │       └── admin-ng-words-client.tsx  # [NEW] NGワード管理画面用クライアントコンポーネント (10.1-10.10, Phase 39)
 │   ├── api/
 │   │   ├── admin/
 │   │   │   ├── seed-genres/
 │   │   │   │   └── route.ts   # 初期ジャンル一括投入APIルート (5.1, 5.3-5.5)
-│   │   │   └── genres/
-│   │   │       └── route.ts   # 管理者専用ジャンル管理・登録APIルート (7.1, 7.4, 7.5) - [MODIFY] ローカル移行対応
+│   │   │   ├── genres/
+│   │   │   │   └── route.ts   # 管理者専用ジャンル管理・登録APIルート (7.1, 7.4, 7.5) - [MODIFY] ローカル移行対応
+│   │   │   └── ng-words/
+│   │   │       ├── route.ts       # [NEW] GET(一覧取得)/POST(新規登録) (10.3, 10.4, 10.5, 10.6, Phase 39)
+│   │   │       └── [id]/
+│   │   │           └── route.ts   # [NEW] PATCH(表記編集・有効/無効切替) (10.7, 10.8, Phase 39)
 │   │   ├── genres/
 │   │   │   ├── generate-icon/
 │   │   │   │   └── route.ts   # AIジャンルアイコン生成APIルート (9.1, 9.4-9.6) - [MODIFY] ローカル一時保存対応
@@ -137,6 +151,36 @@ sequenceDiagram
     DB-->>MainAPI: 書き込み成功
     MainAPI-->>UI: 200 OK
     UI->>UI: 成功メッセージ表示と一覧の再読み込み
+```
+
+### 管理者によるNGワード登録・無効化フロー（Phase 39）
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as システム管理者
+    participant UI as NGワード管理画面
+    participant API as NGワードAPIルート
+    participant Svc as ngWords.ts (supabase-governance)
+
+    Admin->>UI: 語句を入力し 追加 ボタンをクリック
+    UI->>API: POST /api/admin/ng-words { word }
+    API->>Svc: createNgWord(word)
+    alt 重複または空文字
+        Svc-->>API: エラー (重複 または 空文字)
+        API-->>UI: 409 または 400
+        UI->>UI: インラインエラー表示
+    else 成功
+        Svc-->>API: 新規NGワード
+        API-->>UI: 200 OK
+        UI->>UI: 一覧を最新の状態に更新
+    end
+
+    Admin->>UI: 一覧内の有効/無効トグルを操作
+    UI->>API: PATCH /api/admin/ng-words/[id] { isActive }
+    API->>Svc: setNgWordActive(id, isActive)
+    Svc-->>API: 更新後のNGワード
+    API-->>UI: 200 OK
+    UI->>UI: 一覧表示へ即座に反映
 ```
 
 ---
@@ -203,6 +247,16 @@ sequenceDiagram
 | 9.4         | 生成失敗エラー表示とボタン活性化復帰           | `/admin/genres` Page / `/community/genres` | Error banner / State       | AI生成フロー       |
 | 9.5         | 一般ユーザーデイリー生成上限制限（1日5回）     | `/api/genres/generate-icon`                | checkDailyLimit            | AI生成フロー       |
 | 9.6         | 管理者生成上限免除（無制限）                   | `/api/genres/generate-icon`                | skipDailyLimit             | AI生成フロー       |
+| 10.1        | 管理者以外のNGワード管理画面アクセス制限       | `/admin/ng-words` Page                     | `middleware.ts`            | -                  |
+| 10.2        | 認証情報確認中のローディング表示               | `/admin/ng-words` Page                     | UI spinner                 | -                  |
+| 10.3        | NGワード一覧および登録フォーム表示             | `/admin/ng-words` Page                     | `admin-ng-words API` (GET) | NGワード登録・無効化フロー |
+| 10.4        | NGワード新規登録                               | `/admin/ng-words` Page / API               | `admin-ng-words API` (POST)| NGワード登録・無効化フロー |
+| 10.5        | 重複語句の登録拒否                             | `/admin/ng-words` Page / API               | `admin-ng-words API` (POST)| NGワード登録・無効化フロー |
+| 10.6        | 空文字・空白のみの登録・編集拒否               | `/admin/ng-words` Page                     | Inline validation          | -                  |
+| 10.7        | NGワードの表記編集                             | `/admin/ng-words` Page / API               | `admin-ng-words [id] API`  | -                  |
+| 10.8        | NGワードの有効/無効切替                        | `/admin/ng-words` Page / API               | `admin-ng-words [id] API`  | NGワード登録・無効化フロー |
+| 10.9        | 操作成功・失敗時のフィードバック表示           | `/admin/ng-words` Page                     | Alert / Toast              | NGワード登録・無効化フロー |
+| 10.10       | 管理者ポータルからのナビゲーション導線         | `/admin` Page                              | `AdminPortal`               | -                  |
 
 ---
 
@@ -222,6 +276,9 @@ sequenceDiagram
 | `generate-icon API` | API Route    | AIによるジャンルアイコン画像生成・ローカル一時保存 | 9.5, 9.6                                 | Gemini GenAI, Admin SDK Auth, `fs` module                                                               | JSON response  |
 | `upload-icon API`   | API Route    | 手動選択画像ファイルのローカル一時保存             | 3.1, 4.3, 7.6                            | `fs` module, `validateGenreIconFile`                                                                    | JSON response  |
 | `assets/genre API`  | API Route    | ローカルジャンル画像ファイルのバイナリ配信         | 7.4, 9.3                                 | `fs` module, `path` module                                                                              | Image response |
+| `AdminNgWords`      | UI / Page    | NGワード一覧表示、登録フォーム、編集・有効/無効切替 | 10.1-10.10                              | `useAuth`, `/api/admin/ng-words`, `/api/admin/ng-words/[id]`                                            | UI State / TSX |
+| `admin-ng-words API` | API Route   | NGワード一覧取得・新規登録                        | 10.3-10.6                                | `ngWords.ts`（`supabase-governance`）                                                                    | JSON response  |
+| `admin-ng-words [id] API` | API Route | NGワードの表記編集・有効/無効切替                 | 10.7, 10.8                               | `ngWords.ts`（`supabase-governance`）                                                                    | JSON response  |
 
 ---
 
@@ -242,6 +299,25 @@ sequenceDiagram
 **Dependencies**
 - Inbound: なし
 - Outbound: `/api/genres/upload-icon` (P0), `/api/admin/genres` (P0), `validateGenreIconFile` (P0)
+
+**Contracts**: State [x] / TSX [x]
+
+---
+
+#### AdminNgWordsPage Component (`src/app/admin/ng-words/page.tsx` および `admin-ng-words-client.tsx`)（Phase 39）
+- **Intent**: 管理者が登録済みのNGワード一覧を表示し、新規語句の登録、既存語句の表記編集、有効/無効切替を行うインターフェースを提供。`AdminGenresPage` と同型の「一覧 + 追加フォーム + インライン編集」パターンを踏襲する。
+- **Requirements**: 10.1-10.10
+- **Responsibilities & Constraints**:
+  - `isAdminUser` ガードにより、`admin` ロール以外のユーザーのアクセスを遮断し `/not-found` へ遷移（`AdminGenresPage` と同一パターン）。
+  - `/api/admin/ng-words`（GET）を呼び出して登録済みNGワード一覧（語句・有効/無効状態）をテーブル形式で表示。
+  - 新規登録フォームを提供（語句のテキスト入力のみ、画像アップロードは不要）。送信前にクライアント側で空文字・空白のみの入力をインライン検証し送信をブロックする。
+  - 登録は `/api/admin/ng-words`（POST）へ `{ word }` を送信。`409`（重複）応答時は「この語句はすでに登録されています」のインラインエラーを表示。
+  - 一覧内の各行に編集（表記変更）と有効/無効トグルを提供し、`/api/admin/ng-words/[id]`（PATCH）へ送信。
+  - 登録・編集・有効/無効切替が成功すると、一覧のステートを更新して画面表示に即時反映し、成功メッセージを表示する。
+
+**Dependencies**
+- Inbound: なし
+- Outbound: `/api/admin/ng-words` (P0), `/api/admin/ng-words/[id]` (P0)
 
 **Contracts**: State [x] / TSX [x]
 
@@ -329,6 +405,32 @@ sequenceDiagram
 | ------ | -------------------------- | ------------------------------------------------------ | -------------------------------------------- | ----------------------------------------------------------- |
 | POST   | `/api/genres/migrate-icon` | `{ tempUrl: string, genreId: string, userId: string }` | `{ success: boolean, iconImageUrl: string }` | 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 |
 
+#### admin-ng-words API (`src/app/api/admin/ng-words/route.ts`)（Phase 39）
+- **Intent**: 管理者認証を行い、NGワードマスタ一覧の取得、および新規語句の登録を提供する。データ書き込み自体は `supabase-governance` の `ngWords.ts`（`createNgWord`）へ委譲する。
+- **Requirements**: 10.3, 10.4, 10.5, 10.6
+- **Contracts**: API [x]
+- **処理フロー**:
+  - **GET**: セッションから管理者権限を検証し、`ngWords.ts` の `listNgWords()` を呼び出して一覧を返す。
+  - **POST**: リクエストボディの `word` をトリムし空文字なら `400`。`ngWords.ts` の `createNgWord(word)` を呼び出す。重複エラー（`23505` 由来）を検知した場合は `409` へ変換して返却する。
+
+##### API Contract
+| Method | Endpoint              | Request           | Response                              | Errors                                                          |
+| ------ | ---------------------- | ------------------ | -------------------------------------- | ---------------------------------------------------------------- |
+| GET    | `/api/admin/ng-words`  | なし (Auth Token 必須) | `NgWord[]`                             | 401 (Unauthorized), 403 (Forbidden), 500                        |
+| POST   | `/api/admin/ng-words`  | `{ word: string }` | `{ success: boolean, data: NgWord }`   | 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 409 (Conflict), 500 |
+
+#### admin-ng-words [id] API (`src/app/api/admin/ng-words/[id]/route.ts`)（Phase 39）
+- **Intent**: 管理者認証を行い、既存NGワードの表記編集および有効/無効切替を提供する。
+- **Requirements**: 10.7, 10.8
+- **Contracts**: API [x]
+- **処理フロー**:
+  - **PATCH**: リクエストボディに `word` が含まれる場合は `ngWords.ts` の `updateNgWord(id, word)` を呼び出す。`isActive` が含まれる場合は `setNgWordActive(id, isActive)` を呼び出す。対象IDが存在しない場合は `404`。
+
+##### API Contract
+| Method | Endpoint                      | Request                                              | Response                              | Errors                                                     |
+| ------ | ------------------------------ | ----------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------ |
+| PATCH  | `/api/admin/ng-words/[id]`     | `{ word?: string, isActive?: boolean }`               | `{ success: boolean, data: NgWord }`  | 400 (Bad Request), 401 (Unauthorized), 403 (Forbidden), 404 (Not Found), 409 (Conflict), 500 |
+
 ---
 
 ## Data Models
@@ -348,6 +450,18 @@ export interface GenreMetadata {
 }
 ```
 
+### Domain Model: NgWord (`src/types/index.ts`)（Phase 39）
+```typescript
+export interface NgWord {
+  id: string;
+  word: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+`supabase-governance` の `ngWords.ts` が定義する型をそのまま再利用する（型定義の重複を避けるため、`quizetika-moderation-governance-ui` 側で独自に再定義しない）。
+
 ---
 
 ## Error Handling
@@ -361,6 +475,10 @@ export interface GenreMetadata {
   - 画像選択時に `validateGenreIconFile` で非許容フォーマット（SVG含む）や2MB容量超過を検知した場合、フォーム送信をロックしてインラインでエラーを表示。
 - **ファイルアクセスとセキュリティガード**:
   - `assets/genre/` へのファイル書き込み/読み込み時、パスパラメータに `..` 等が含まれる場合は、APIレイヤー（`/api/assets/genre/[...path]` 等）で即座に `400 Bad Request` を返却し、不正なディレクトリ参照をブロックする。
+- **NGワード重複登録（Phase 39）**:
+  - `/api/admin/ng-words` の POST 時、`ngWords.ts` からの重複エラーを検知した場合 `409 Conflict` を返し、フロントエンド側で「この語句はすでに登録されています」とインライン表示。
+- **NGワード空文字入力（Phase 39）**:
+  - クライアント側で空文字・空白のみの入力を検知した場合、送信自体をブロックしてインラインエラーを表示（サーバー側の検証もフェイルセーフとして残る）。
 
 ---
 
@@ -383,3 +501,16 @@ export interface GenreMetadata {
 ### E2E/UI Tests
 - **ジャンル直接追加と一覧更新フロー**:
   - 管理者として `/admin/genres` にアクセスした際、ジャンル一覧が表示され、手動選択した PNG 画像をアップロードして追加した際に、ローカルファイルとして保存され、一覧テーブルへ自動的かつ即時反映されること。
+
+### Unit Tests（Phase 39）
+- **NGワード管理API (`/api/admin/ng-words`)**:
+  - 空文字・空白のみの `word` を POST した場合に `400 Bad Request` が返ること。
+  - `ngWords.ts` が重複エラーをスローした場合に `409 Conflict` へ変換されること。
+
+### E2E/UI Tests（Phase 39）
+- **NGワード登録・無効化フロー**:
+  - 管理者として `/admin/ng-words` にアクセスした際、NGワード一覧が表示され、新規語句を登録した際に一覧テーブルへ即時反映されること。
+  - 既存語句と重複する語句を登録しようとした際、インラインエラーが表示され登録が行われないこと。
+  - 一覧内の有効/無効トグルを操作した際、状態が即座に画面へ反映されること。
+- **管理者ポータルからの導線**:
+  - `/admin` へアクセスした際、「NGワード管理」のナビゲーションカードが表示され、クリックで `/admin/ng-words` へ遷移すること。
