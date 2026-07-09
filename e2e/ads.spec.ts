@@ -92,7 +92,8 @@ test.describe('広告機能 E2Eテスト', () => {
     });
 
     // 3. クイズをプレイ開始
-    const startPlayBtn = page.locator('text=プレイを開始する');
+    // （Phase 37: 通常形式クイズのプレイボタンは単一の「プレイ」表記に統一された）
+    const startPlayBtn = page.getByRole('button', { name: 'プレイ', exact: true });
     await expect(startPlayBtn).toBeVisible({ timeout: 15000 });
     await startPlayBtn.click();
 
@@ -158,7 +159,8 @@ test.describe('広告機能 E2Eテスト', () => {
     await page.goto(`/quiz/${adTestQuizId}`);
 
     // 4. クイズをプレイ開始
-    const startPlayBtn = page.locator('text=プレイを開始する');
+    // （Phase 37: 通常形式クイズのプレイボタンは単一の「プレイ」表記に統一された）
+    const startPlayBtn = page.getByRole('button', { name: 'プレイ', exact: true });
     await expect(startPlayBtn).toBeVisible({ timeout: 15000 });
     await startPlayBtn.click();
 

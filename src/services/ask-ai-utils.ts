@@ -2,7 +2,7 @@
  * AI対話エンジンのユーティリティ（純粋関数群）
  *
  * API Route (/api/attempt/ask-ai) から呼び出される、
- * Firestore や外部 API に依存しない純粋なビジネスロジック。
+ * Supabase や外部 API に依存しない純粋なビジネスロジック。
  *
  * Boundary: AskAiQuestionAPI (Phase 17)
  * Requirements: 4.6, 4.7, 4.10

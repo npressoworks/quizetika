@@ -112,22 +112,14 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
     });
   });
 
-  it('通常クイズでランキング非対象警告をプレイ開始ボタンの下に表示する', () => {
+  it('未プレイクイズでは警告と代替導線を表示しない', () => {
     render(<QuizDetailClient quiz={makeQuiz()} />);
 
-    const warning = screen.getByTestId('play-mode-leaderboard-warning');
-    const playBtn = screen.getByRole('button', { name: 'プレイを開始する' });
-
-    expect(warning).toBeInTheDocument();
-    expect(warning).toHaveTextContent('模擬試験モード');
-    expect(warning).toHaveTextContent('フラッシュカードモード');
-    expect(warning).toHaveTextContent('初回プレイランキング');
-    expect(
-      playBtn.compareDocumentPosition(warning) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
   });
 
-  it('プレイ済みクイズでは警告を表示しない', () => {
+  it('プレイ済みクイズで警告と代替導線を表示し、模擬試験・フラッシュカードへそれぞれ遷移できる', () => {
     mockUseAuth.mockReturnValue({
       user: { id: 'user-1' },
       authUser: null,
@@ -138,9 +130,26 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
       loading: false,
     });
 
+    const pushMock = jest.fn();
+    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({ push: pushMock });
+
     render(<QuizDetailClient quiz={makeQuiz()} />);
 
-    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    const warning = screen.getByTestId('play-mode-leaderboard-warning');
+    const altPanel = screen.getByTestId('alt-mode-play-panel');
+
+    expect(warning).toBeInTheDocument();
+    expect(altPanel).toBeInTheDocument();
+    expect(warning).toHaveTextContent('模擬試験モード');
+    expect(warning).toHaveTextContent('フラッシュカードモード');
+    expect(warning).toHaveTextContent('プレイ回数や順序にかかわらず');
+    expect(warning).not.toHaveTextContent('先にこれらのモードでプレイした場合');
+
+    screen.getByRole('button', { name: '模擬試験で復習する' }).click();
+    expect(pushMock).toHaveBeenCalledWith('/quiz/quiz-1/play?mode=exam');
+
+    screen.getByRole('button', { name: 'フラッシュカードで復習する' }).click();
+    expect(pushMock).toHaveBeenCalledWith('/quiz/quiz-1/play?mode=flashcard');
   });
 
   it('ウミガメ専用クイズでは警告を表示しない', () => {
@@ -161,6 +170,7 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
     );
 
     expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
   });
 
   it('早押しクイズでは警告を表示しない', () => {
@@ -182,6 +192,185 @@ describe('QuizDetailClient - Phase 19 LB warning', () => {
     );
 
     expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('認証済み・未プレイクイズでは警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1' },
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set<string>(),
+      loading: false,
+    });
+
+    render(<QuizDetailClient quiz={makeQuiz()} />);
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('未認証時はplayedQuizIdsに該当エントリがあっても警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set(['quiz-1']),
+      loading: false,
+    });
+
+    render(<QuizDetailClient quiz={makeQuiz()} />);
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('プレイ済みのウミガメ専用クイズでも警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1' },
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set(['quiz-1']),
+      loading: false,
+    });
+
+    render(
+      <QuizDetailClient
+        quiz={makeQuiz({
+          questions: [
+            {
+              id: 'q1',
+              type: 'lateral-thinking',
+              text: 'ウミガメ',
+              truthKeywords: ['真相'],
+              explanation: '',
+            },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+
+  it('プレイ済みの早押しクイズでも警告と代替導線を表示しない', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 'user-1' },
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: new Set(['quiz-1']),
+      loading: false,
+    });
+
+    render(
+      <QuizDetailClient
+        quiz={makeQuiz({
+          format: 'quick-press',
+          questions: [
+            {
+              id: 'q1',
+              type: 'quick-press',
+              text: '早押し',
+              correctAnswer: '答え',
+              explanation: '',
+            },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.queryByTestId('play-mode-leaderboard-warning')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('alt-mode-play-panel')).not.toBeInTheDocument();
+  });
+});
+
+describe('QuizDetailClient - Phase 37 単一プレイボタン化', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: null,
+      loading: false,
+    });
+  });
+
+  it('通常形式クイズでは3択のプレイモード選択UIを表示せず、見出しも表示しない（ボタン自体が「プレイ」のため）', () => {
+    render(<QuizDetailClient quiz={makeQuiz()} />);
+
+    expect(screen.queryByRole('heading', { name: 'プレイ' })).not.toBeInTheDocument();
+    expect(screen.queryByText('プレイモード選択')).not.toBeInTheDocument();
+    expect(screen.queryByText('通常モード')).not.toBeInTheDocument();
+    expect(screen.queryByText('模擬試験モード')).not.toBeInTheDocument();
+    expect(screen.queryByText('フラッシュカードモード')).not.toBeInTheDocument();
+  });
+
+  it('通常形式クイズでは単一の「プレイ」ボタンのみが表示され、押下すると常に通常モードへ遷移する', () => {
+    const pushMock = jest.fn();
+    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({ push: pushMock });
+
+    render(<QuizDetailClient quiz={makeQuiz()} />);
+
+    const buttons = screen.getAllByRole('button').filter((btn) => btn.getAttribute('data-analytics') === 'quiz-play-start-detail');
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveTextContent('プレイ');
+
+    buttons[0].click();
+    expect(pushMock).toHaveBeenCalledWith('/quiz/quiz-1/play?mode=normal');
+  });
+
+  it('水平思考形式クイズの単一モード表示は維持される', () => {
+    render(
+      <QuizDetailClient
+        quiz={makeQuiz({
+          questions: [
+            {
+              id: 'q1',
+              type: 'lateral-thinking',
+              text: 'ウミガメ',
+              truthKeywords: ['真相'],
+              explanation: '',
+            },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.getByText('水平思考チャットモード')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '会員登録してプレイする' })).toBeInTheDocument();
+  });
+
+  it('早押し形式クイズの単一モード表示は維持される', () => {
+    render(
+      <QuizDetailClient
+        quiz={makeQuiz({
+          format: 'quick-press',
+          questions: [
+            {
+              id: 'q1',
+              type: 'quick-press',
+              text: '早押し',
+              correctAnswer: '答え',
+              explanation: '',
+            },
+          ],
+        })}
+      />
+    );
+
+    expect(screen.getByText('早押し通常プレイ')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '早押しを開始する' })).toBeInTheDocument();
   });
 });
 

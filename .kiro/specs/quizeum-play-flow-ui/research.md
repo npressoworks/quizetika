@@ -1000,4 +1000,164 @@ Phase 11 目標:
 1. **404** — リダイレクトではなくルート削除による既定 404。
 2. **プロフィールリスト** — `profile-client.tsx` のタブ除去は play-flow が軽微実施（auth-profile スペックは別途）。
 
+---
+
+## Phase 37: クイズ詳細画面のプレイモード選択廃止・既プレイ限定の代替導線（2026-07-07）
+
+### Summary
+- **Discovery Type**: Extension（既存 `QuizDetailClient` の簡素化 + 条件分岐追加）。
+- **Key Findings**:
+  - 現状 `quiz-detail-client.tsx` はローカル state `selectedMode`（`normal`/`exam`/`flashcard`）を持つ3択UIを常時表示している。水平思考・早押し形式は既存の分岐（`isLateralThinkingQuiz` / `isQuickPressQuiz`）で単一モード表示済みのため変更不要。
+  - 既プレイ判定は `usePlayedQuizIds(user?.id)` が既に提供しており（ホーム画面のプレイ状況フィルタ、詳細画面の「プレイ済み」バッジで利用中）、新規の判定ロジック・APIは不要。
+  - 結果画面の「もう一度プレイする」ボタン（`quiz-result-client.tsx`）は既に `/quiz/${quiz.id}`（詳細画面）へ戻る実装のため、初回プレイ完了後に代替導線へ自然に到達できる。追加の画面遷移設計は不要。
+  - E2E 3本（`e2e/learning-support.spec.ts`, `e2e/quiz-play.spec.ts`, `e2e/advanced-quiz-features.spec.ts`）が、未プレイの新規クイズに対して模擬試験・フラッシュカードの選択UIや警告を即座にクリック/検証しており、本フェーズのゲーティングで直接壊れる。事前に1周プレイを完了させてから詳細画面に戻る手順への更新が必須。
+  - スタイリングは Phase 24（shadcn/ui + Tailwind 移行）により `page.module.css` ではなく `detail-classes.ts`（Tailwindユーティリティのオブジェクトマップ）で管理されている。design.md Phase 19 節の記述（`page.module.css`）は移行前の記述であり、本フェーズの実装は `detail-classes.ts` を対象とする。
+  - **重要な既存実装との矛盾を発見**: 現行の `showLeaderboardWarning` 条件は `!isLateralThinkingQuiz && !isQuickPressQuiz && !hasPlayedThisQuiz`（**未プレイ時のみ**警告表示）であり、`tests/components/quiz-detail-client.test.tsx` の既存テストもこれに整合している。design.md の Phase 19 記述（`!isLateralThinkingQuiz && !isQuickPressQuiz` のみ）はこの `!hasPlayedThisQuiz` 条件が後から追加された事実を反映しておらず、ドキュメントが実装より古い状態だった。Phase 37 では警告条件を `hasPlayedThisQuiz` 反転（既プレイ時のみ表示、代替導線と同時表示）に変更するため、この既存テストの反転修正が必須タスクとなる。
+
+### Design Decisions
+1. **モード選択 state の削除** — `selectedMode` state と3択UIブロックを完全に削除し、常に `mode=normal` へ遷移する単一ボタンに統一。水平思考・早押し形式の既存分岐は変更しない。
+2. **代替導線は既存コンポーネント内にインライン実装** — 新規の再利用可能コンポーネントとしては切り出さない（利用箇所がクイズ詳細画面のみのため、Simplification原則によりコンポーネント分割を見送り）。
+3. **既プレイ判定の再利用** — 新規 API・フックを作らず、既存 `usePlayedQuizIds` / `hasPlayedThisQuiz` をそのまま再利用する。
+4. **警告表示条件の変更** — `modeLeaderboardWarning` は既存クラスを流用し、表示条件のみ「3択UI表示時」→「代替導線表示時（既プレイ時）」に変更する。
+
+### Risks & Mitigations
+- リスク: 既存 E2E 3本が新規クイズに対して即座に模擬試験・フラッシュカードへ遷移する手順を含むため、変更後に失敗する。
+  - 緩和: 各テストを「まず通常モードで1周完了 → 詳細画面へ戻る → 代替導線から模擬試験/フラッシュカードを開始」という手順に更新する。
+- リスク: `usePlayedQuizIds` は未認証時に `null` を返す設計のため、ゲスト（未認証）ユーザーに代替導線を誤って表示する実装漏れの可能性。
+  - 緩和: 表示条件に `user` の存在チェックを明示的に含める（要件 27.2、`hasPlayedThisQuiz` の既存定義が `Boolean(user && ...)` のため自然に担保される）。
+
+**Document Status（Phase 37 設計）**: `design.md` Phase 37 節に反映済。
+
 **Document Status（Phase 26 設計）**: `design.md` Phase 26 節に反映済。
+
+---
+
+# Gap Analysis: クイズ単位リーダーボードの自分の順位表示・既存TOP5表示バグ（Phase 38 — 2026-07-07）
+
+## Analysis Summary
+
+- **スコープ**: 要件9（Phase 38 追加分、基準9〜15）— ログインユーザー自身の順位表示（TOP5圏内外問わず、ボードごとに独立、記録なし/ゲストは非表示）。
+- **重大な既存バグを確認**: `QuizDualLeaderboard` が依存する `quiz.leaderboardFirstPlay` / `leaderboardReplay`（`src/services/quiz.ts:128-129`）は、Supabase移行後に存在しない列 `leaderboard_first_play` / `leaderboard_replay` を `(row as any)` キャストで参照しており、常に `undefined ?? []`（空配列）に解決される。すなわち**現行の詳細画面TOP5表示は常に空状態を表示しており、既存の基準9-5・9-6は実質的に満たされていない**。この不整合は `supabase-cleanup` の是正対象ファイル一覧にも含まれておらず、既存の単体テスト（`tests/components/quiz-dual-leaderboard.test.tsx`）は `getQuiz()` を経由せず `quiz` propに直接フィクスチャを注入しているため、この回帰を検出できていなかった。
+- **再利用可能な資産**: `getLeaderboard(quizId, board, limit)`（`src/services/attempt.ts:193`）は `leaderboard_entries` テーブルから正しく取得できており、テスト済み（`tests/services/attempt-leaderboard.test.ts`）。また `leaderboard_entries` は `UNIQUE(quiz_id, user_id, type)` により**全ユーザーの自己ベストを保持**しているため（上位5件への絞り込みは読み取り時の `LIMIT` のみ）、自分の順位算出に必要なデータは既に存在し、新規テーブル・マイグレーションは不要。
+- **新規に必要な能力**: (1) 自分の当該ボードでの記録1件の取得、(2) その記録より上位の件数をカウントして順位を算出するクエリ。いずれも `attempt.ts` の既存パターン（`leaderboard_entries` への読み取り専用クエリ）を踏襲すれば実現できる。
+- **推奨（設計フェーズ）**: **Option C（ハイブリッド）** — 自分の順位算出クエリは `attempt.ts` に追加（`getLeaderboard` と同じ置き場所）、データ取得の呼び出し・整形は新規フック（例: `useQuizLeaderboard`）に切り出して `QuizDualLeaderboard` を純粋な表示コンポーネントに保つ。これにより、既存バグが見逃された原因（フェッチ層を経由しないコンポーネントテスト）も同時に解消できる。
+
+## 1. Current State Investigation
+
+| 領域 | ファイル | 現状 |
+| --- | --- | --- |
+| 表示コンポーネント | `src/components/quiz/quiz-dual-leaderboard.tsx` | `getQuiz(quizId)` を自前で呼び出し、`quiz.leaderboardFirstPlay`/`leaderboardReplay` を `getLeaderboardFirstPlay`/`getLeaderboardReplay`（`@/lib/leaderboard-ranking`）経由で読み取り、`slice(0, 5)` して表示。**この経路は常に空**（下記バグ参照）。 |
+| クイズ取得サービス | `src/services/quiz.ts:101-129`（`mapRowToQuiz`） | `leaderboardFirstPlay: (row as any).leaderboard_first_play ?? []` — `quizzes` テーブル（`database.types.ts:1157`）にこの列は存在しないため常に `[]`。 |
+| リーダーボード取得サービス | `src/services/attempt.ts:186-216`（`getLeaderboard`） | `leaderboard_entries` を `quiz_id`+`type` で絞り込み、`score` 降順・`elapsed_seconds` 昇順で `limit(N)`。正しく動作・テスト済みだが、`QuizDualLeaderboard` からは一度も呼ばれていない。 |
+| データモデル | `leaderboard_entries`（`database.types.ts:657-694`、`supabase-gameplay` design.md） | `UNIQUE(quiz_id, user_id, type)` — ユーザーごとの自己ベスト1行を全件保持（Firestore時代の「上位5件のみ保持」から改善済み）。`type` は `'first_play' \| 'replay'`。 |
+| 純関数（比較規則） | `src/lib/leaderboard-ranking.ts` | `compareLeaderboardRecords`（score降順・elapsedSeconds昇順）は既存。同順位規則（基準13）はこの関数のロジックと整合させられる。 |
+| 型定義 | `src/types/index.ts:113-119`（`LeaderboardRecord`） | `rank` フィールドなし。自分の順位表示には rank 付きの拡張が必要（表現方法は設計フェーズで決定）。 |
+| 参考: プラットフォーム全体LB | `src/app/leaderboard/leaderboard-client.tsx` | 配列インデックスをそのまま順位として表示（`index+1`）。データソース・取得範囲が異なり、「取得ウィンドウ外の順位」を扱えないため、今回の自分の順位算出には流用不可。 |
+| 認証状態取得 | `useAuth()`（`src/context/auth-context.tsx`、Phase 37等で既に他画面が使用） | ゲスト判定・`user.id` 取得の既存パターンとして再利用可能。 |
+
+## 2. Requirement-to-Asset Map
+
+| 要件（基準） | 状態 | ギャップ / 備考 |
+| --- | --- | --- |
+| 9-1〜9-4（TOP5表示・列・並び順・空状態） | ⚠️ **要件上は既存実装済みのはずが実際は破損** | データソースが空にしか解決しないため、常に空状態が表示される（下記バグ）。 |
+| 9-5・9-6（`leaderboardFirstPlay`/`leaderboardReplay` 読み取り） | ❌ **バグ（既存契約違反）** | `quiz.ts` が存在しない列を参照。修正は「正しいデータソースへの読み替え」のみで契約自体（フィールド名等）は変更不要。 |
+| 9-7（`data-testid`） | ✅ 実装済み | 変更不要。 |
+| 9-8（並び替えロジック非実装の境界） | ✅ 充足 | コンポーネントは `slice(0,5)` のみで独自ソートしていない。 |
+| 9-9・9-10（自分の順位を常に別枠表示・ボードごと独立評価） | ❌ **未実装** | 自分の順位を算出する関数・UI行ともに新規。 |
+| 9-11（記録なし時は非表示） | ❌ 未実装 | 自分の記録1件取得クエリの結果が null の場合の分岐が必要。 |
+| 9-12（ゲスト時は非表示） | ❌ 未実装だが低リスク | `useAuth()` の `user` 有無で分岐（既存パターン踏襲）。 |
+| 9-13（同順位規則） | ❌ 未実装 | カウントクエリの条件式（後述）で担保。`leaderboard-ranking.ts` の比較規則と整合させる。 |
+| 9-14（自分の順位行の `data-testid`） | ❌ 未実装 | UI追加のみ。 |
+| 9-15（順位算出ロジックを自前実装しない境界） | 設計判断待ち | どの層（`attempt.ts` か新規モジュールか）に置くかを設計フェーズで確定。 |
+
+## 3. Implementation Approach Options
+
+### Option A: `attempt.ts` を直接拡張 + コンポーネントから直接呼び出し
+
+- `attempt.ts` に `getMyLeaderboardEntry(quizId, board, userId)`（自分の1件取得）と `getLeaderboardRank(quizId, board, score, elapsedSeconds)`（自分より上位の件数+1をカウント）を追加。
+- `QuizDualLeaderboard` は `getQuiz()` 依存をやめ、上記2関数 + 既存 `getLeaderboard()` を直接呼び出す。
+
+| 長所 | 短所 |
+| --- | --- |
+| 新規ファイルなし、`getLeaderboard` と同じ置き場所で発見性が高い | コンポーネントがデータ取得の配線（3〜4クエリ×2ボード）を直接持ち、既存バグを見逃した「props注入のみのテスト」問題が再発しやすい |
+| 変更差分が最小 | `attempt.ts` がさらに肥大化 |
+
+**Effort**: S–M | **Risk**: Low（クエリ自体は単純だが、テスト観点の再発防止策が別途必要）
+
+### Option B: 新規フック + サービス層の一式新設
+
+- `src/hooks/useQuizLeaderboard.ts` を新設し、両ボードの TOP5・自分の順位取得を一括で担う。`attempt.ts` 側の新規関数はOption Aと同様に追加。
+- `QuizDualLeaderboard` は `getQuiz()` 呼び出しを完全に廃止し、フックの戻り値のみを描画する純粋表示コンポーネント化。
+
+| 長所 | 短所 |
+| --- | --- |
+| 構造原則（`structure.md`「UIとの境界分離」）に合致、フック単体テストでバグ再発を防止しやすい | 新規ファイル増（フック1つ + 型) |
+| `getQuiz()` の冗長な呼び出しを削減（このコンポーネントは元々リーダーボードフィールド以外を使っていない） | 初期配線コストがやや増える |
+
+**Effort**: M | **Risk**: Low
+
+### Option C: ハイブリッド（推奨）
+
+- クエリ関数自体は Option A のとおり `attempt.ts` に追加（`quizetika-core` 系の既存置き場所を踏襲、要件9-15の境界表現と一致）。
+- 呼び出し・整形のオーケストレーションのみ Option B のとおり新規フックへ分離し、`QuizDualLeaderboard` を表示専念にする。
+- 新規フックに対して `attempt-leaderboard.test.ts` と同様の Supabase チェーンモックによる統合寄りのテストを追加し、今回のバグを生んだ「propsのみのコンポーネントテスト」というテスト境界の穴を塞ぐ。
+
+| 長所 | 短所 |
+| --- | --- |
+| バックエンド追加は最小・一貫（Option Aの利点）、かつテスト境界の欠陥を是正（Option Bの利点） | 過剰設計を避けるため、フックの責務をリーダーボード取得のみに限定する規律が必要 |
+
+**Effort**: S–M（1〜3日） | **Risk**: Low
+
+## 4. 設計論点（Research Needed）
+
+| 項目 | 内容 |
+| --- | --- |
+| 順位算出クエリの実装方式 | (a) クライアント供給の `supabase-js` `.or()` フィルタでカウントクエリを2本発行（マイグレーション不要、`attempt.ts` の既存パターンのみで完結） vs (b) 新規 Postgres RPC（`RANK() OVER (...)` 等で1往復に統合、効率的だが新規マイグレーションが必要で `supabase-gameplay`（実装完了済み）の所有領域に踏み込む）。初版は (a) を推奨、(b) は将来の最適化候補として研究事項に留める。 |
+| `LeaderboardRecord` への `rank` 表現方法 | 型を直接拡張する（`rank?: number`）か、自分の行専用の別型（例: `SelfLeaderboardEntry extends LeaderboardRecord { rank: number }`）を新設するかは設計フェーズで決定。 |
+| 同順位カウントクエリの正確性 | `.or('score.gt.X,and(score.eq.X,elapsed_seconds.lt.Y)')` 形式のPostgRESTフィルタ構文が意図通り機能するか、ローカルSupabase環境での実クエリ検証が必要（ユニットテストのモックだけでは実際のSQL生成を保証できない）。 |
+| `leaderboard_entries` のSELECT RLSポリシー | 既存の匿名ゲストによるTOP5取得（`getLeaderboard`）が現に動作している前提から公開読み取りポリシーは既に存在すると推測されるが、カウントクエリでも同ポリシーが適用されるか設計フェーズで確認する。 |
+| 既存バグ修正の影響範囲 | `leaderboardFirstPlay`/`leaderboardReplay` を実データで満たすよう修正した場合、他に暗黙にこの空配列依存に頼っているコードがないか（本調査では `quiz.ts` と `quiz-dual-leaderboard.tsx` 以外の参照は確認されなかったが、設計フェーズで最終確認推奨）。 |
+
+## 5. Upstream / Downstream
+
+| 依存 | 状態 |
+| --- | --- |
+| `quizetika-core` / `supabase-gameplay`（`leaderboard_entries`, `getLeaderboard`） | ✅ 実装済み・テスト済み。自分の順位算出も同テーブル・同サービスファイルの拡張で完結可能（新規スペック起票は不要と判断）。 |
+| `tests/components/quiz-dual-leaderboard.test.tsx` | 既存テストは全て `quiz` propへの直接フィクスチャ注入のみ。バグ修正・新機能実装に伴い、フェッチ層を経由する新規テスト（フックまたはサービス関数単位）の追加が必須。 |
+| E2E（`e2e/leaderboard.spec.ts` 等、要確認） | 現行TOP5表示が壊れていた場合、E2Eが実データ検証をどこまでカバーしていたか設計フェーズで確認要（モック/シードデータ依存の可能性）。 |
+
+## 6. Effort & Risk Summary
+
+| ワークストリーム | Effort | Risk | 根拠 |
+| --- | --- | --- | --- |
+| 既存バグ修正（TOP5データソースの是正） | S | Low | 既存の `getLeaderboard()` を呼ぶよう配線し直すのみ。ロジック新設なし。 |
+| 自分の順位表示（新規） | S–M | Low–Medium | クエリ2本×2ボードは既存パターンの延長だが、PostgRESTの`.or()`複合条件は本コードベース初出のため実クエリ検証が必要。 |
+| テスト整備（フェッチ層のテスト追加） | S | Low | `attempt-leaderboard.test.ts` と同型のモック手法を流用可能。 |
+| **Phase 38 合計** | **S–M（1〜3日）** | **Low–Medium** | 新規テーブル・マイグレーション不要、既存インフラの組み合わせで完結。 |
+
+## 7. Design Phase Recommendations
+
+1. **採用**: Option C（ハイブリッド）。順位算出クエリは `attempt.ts` に追加、呼び出し統合は新規フックへ。
+2. **優先順**: 既存バグ修正（データソース是正）→ 自分の記録1件取得 → 順位カウントクエリ → UI行追加・`data-testid` → テスト整備。
+3. **設計で確定すること**: 順位算出をクライアント合成クエリ（`.or()`）で行うか将来的にRPC化するか、`rank` の型表現、同順位カウントクエリの実クエリ検証手順。
+4. **テスト**: 新規フック/サービス関数はSupabaseチェーンモックでの単体テストに加え、可能であればローカルSupabase環境での実クエリ検証を推奨（PostgRESTの `.or()` 複合条件の構文リスクのため）。
+5. **既存バグの扱い**: Phase 38のタスクに含める（要件9-5・9-6は変更していないため、design/tasksでの明示的な修正タスクとして計上する）。
+
+## Document Status
+
+- **入力**: `requirements.md` 要件9（基準1〜15、Phase 38差分）、`quiz-dual-leaderboard.tsx`, `leaderboard-ranking.ts`, `attempt.ts`, `quiz.ts`, `database.types.ts`, `supabase-gameplay` design.md/research.md, 既存テスト（`quiz-dual-leaderboard.test.tsx`, `attempt-leaderboard.test.ts`）
+- **手法**: gap-analysis.md フレームワーク、Grep/Read によるコードベース調査
+- **分析日**: 2026-07-07
+- **外部Web調査**: 不要（社内スタック・既存インフラの組み合わせで完結）
+
+### Design Synthesis（Phase 38 — 2026-07-07、design.md 反映済み）
+
+**Generalization**
+- `LeaderboardSelfEntry`（`LeaderboardRecord` に `rank: number` を加えた拡張型）として設計し、既存の `LeaderboardRecord` 契約を壊さず自分の順位表現を追加した。`getMyLeaderboardRank` は既存 `getLeaderboard` と同じ `attempt.ts` の節・同じ `leaderboard_entries` 参照パターンに統合し、新しいサービスファイルは作らなかった。
+
+**Build vs. Adopt**
+- 自分の順位算出は、新規 Postgres RPC（`RANK() OVER (...)`）を採用せず、既存の `getLeaderboard` と同じクライアント合成クエリ（`.or()` フィルタ + count）で実装する方針を採用した。理由: 新規マイグレーションが不要で `supabase-gameplay`（実装完了済み）の所有領域に踏み込まずに済み、Effort/Riskを S–M・Low–Medium に抑えられるため。RPC化は将来の最適化候補として明記し、今回は採用しないことを決定した。
+
+**Simplification**
+- `QuizDualLeaderboard` の `quiz` prop・内部 `getQuiz()` 呼び出しを完全に廃止した。このコンポーネントは元々 `quiz` オブジェクトのうち `leaderboardFirstPlay`/`leaderboardReplay`（既に壊れていたフィールド）しか使っておらず、`useQuizLeaderboard` フックへの一本化によって不要なフェッチ・不要な抽象化を1つ削減できた。
+- `Quiz.leaderboardFirstPlay`/`leaderboardReplay`/`leaderboard` フィールド自体の型からの削除は、影響範囲（`quiz-editor.tsx`, `quiz-play-client.tsx`, `test-play.ts` 等の複数フィクスチャ）が本フェーズの目的（自分の順位表示）に対して不釣り合いに広いため、意図的にスコープ外とした（design.md Non-Goals 参照）。死んだ参照経路として無害に残置し、将来のクリーンアップ候補として記録するに留める。

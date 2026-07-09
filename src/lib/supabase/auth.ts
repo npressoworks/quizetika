@@ -2,14 +2,23 @@ import { createClient } from './client';
 
 const supabaseClient = createClient();
 
+/** OAuth 完了後の遷移先を callback URL に付与する */
+function buildOAuthRedirectTo(redirectPath?: string) {
+  const callbackUrl = new URL('/api/auth/callback', window.location.origin);
+  if (redirectPath) {
+    callbackUrl.searchParams.set('redirect', redirectPath);
+  }
+  return callbackUrl.toString();
+}
+
 /**
  * Google ログインを開始する (OAuth)
  */
-export async function signInWithGoogle() {
+export async function signInWithGoogle(redirectPath?: string) {
   const { data, error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/api/auth/callback`,
+      redirectTo: buildOAuthRedirectTo(redirectPath),
     },
   });
   return { data, error };
@@ -18,11 +27,11 @@ export async function signInWithGoogle() {
 /**
  * Twitter / X ログインを開始する (OAuth)
  */
-export async function signInWithTwitter() {
+export async function signInWithTwitter(redirectPath?: string) {
   const { data, error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'twitter',
     options: {
-      redirectTo: `${window.location.origin}/api/auth/callback`,
+      redirectTo: buildOAuthRedirectTo(redirectPath),
     },
   });
   return { data, error };
@@ -31,12 +40,12 @@ export async function signInWithTwitter() {
 /**
  * Microsoft ログインを開始する (OAuth)
  */
-export async function signInWithMicrosoft() {
+export async function signInWithMicrosoft(redirectPath?: string) {
   const { data, error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'azure',
     options: {
       scopes: 'email profile',
-      redirectTo: `${window.location.origin}/api/auth/callback`,
+      redirectTo: buildOAuthRedirectTo(redirectPath),
     },
   });
   return { data, error };

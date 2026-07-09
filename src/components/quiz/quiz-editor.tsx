@@ -120,7 +120,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
   const [cowNoticeIds, setCowNoticeIds] = useState<Set<string>>(new Set());
   /** 折りたたみ中の問題IDセット */
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-  /** テストプレイ復帰後に Firestore 取得でドラフトを上書きしない */
+  /** テストプレイ復帰後に Supabase 取得でドラフトを上書きしない */
   const skipServerQuizLoadRef = useRef(false);
   const prevQuizIdRef = useRef<string | undefined>(undefined);
 

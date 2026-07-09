@@ -242,7 +242,7 @@ interface BottomNavProps {
 * **Responsibilities & Constraints**:
   * 767px以下でのみ画面上部に固定表示する。
   * 768px以上では非表示にする。
-  * 左端にロゴ、右端に「作問する（アイコン）」および「ユーザーアバター」を配置する。未ログイン時はログインリンクを表示する。
+  * 左端にロゴ、右端に「クイズを作る（アイコン）」および「ユーザーアバター」を配置する。未ログイン時はログインリンクを表示する。
 
 ##### Interface Definition
 ```typescript
@@ -696,7 +696,7 @@ if (user) {
 ### 3. Navigation Items（Phase 27 差分）
 
 #### Sidebar 主要ナビゲーション（`sidebar.tsx`）
-`user` が存在し、かつ `isAdminUser(user)` が真の場合に、「ダッシュボード」リンクの下、「作問する」ボタンの上に「管理者メニュー」へのリンクを表示します。
+`user` が存在し、かつ `isAdminUser(user)` が真の場合に、「ダッシュボード」リンクの下、「クイズを作る」ボタンの上に「管理者メニュー」へのリンクを表示します。
 
 ```tsx
 {user && isAdminUser(user) && (
@@ -717,7 +717,7 @@ if (user) {
 ```
 
 - **管理者メニュー** アイコン: `@mui/icons-material` の `Shield`
-- 配置位置: ダッシュボード（`/creator/dashboard`）リンクの下、作問する（`/quiz/create`）リンクの上。
+- 配置位置: ダッシュボード（`/creator/dashboard`）リンクの下、クイズを作る（`/quiz/create`）リンクの上。
 
 #### Sidebar アカウントポップアップ（`sidebar.tsx`）
 ドロップダウンメニューの先頭（マイページの上）に「管理者メニュー」を表示します。

@@ -161,7 +161,7 @@
 **Objective:** As a システム管理者, I want 各メニューから管理者ページ（`/admin`）へ1タップで遷移できること, so that ユーザー管理やモデレーション作業を迅速に開始できる。
 
 #### Acceptance Criteria
-1. While ユーザーがログイン状態かつ管理者権限（`isAdminUser(user)` が true）であるとき, the Sidebar Component shall 「管理者メニュー」（`/admin`）を主要ナビゲーション項目（「ダッシュボード」等の下部、「作問する」ボタンの上）に含めること。
+1. While ユーザーがログイン状態かつ管理者権限（`isAdminUser(user)` が true）であるとき, the Sidebar Component shall 「管理者メニュー」（`/admin`）を主要ナビゲーション項目（「ダッシュボード」等の下部、「クイズを作る」ボタンの上）に含めること。
 2. While ユーザーが未ログイン状態または管理者権限がないとき, the Sidebar Component shall 主要ナビゲーションおよびプロフィールポップアップに「管理者メニュー」を非表示にすること。
 3. When ユーザーが Sidebar の「管理者メニュー」項目をクリックしたとき, the Sidebar Component shall 管理者ポータル画面（`/admin`）へ遷移すること。
 4. While 現在のパスが `/admin` または `/admin/` で始まるとき, the Sidebar Component shall 「管理者メニュー」項目をアクティブ状態としてハイライト表示すること。

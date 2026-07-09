@@ -281,13 +281,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
             data-analytics="nav-create-quiz"
           >
             <AddCircleOutlined sx={{ fontSize: 22 }} />
-            <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作問する</span>
+            <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>クイズを作る</span>
             {/* ミニ表示時にホバーで表示されるツールチップ */}
             <span className={cn(
               "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
               isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
             )}>
-              作問する
+              クイズを作る
             </span>
           </Link>
         )}

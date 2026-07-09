@@ -76,9 +76,11 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     await quizCard.getByTestId('play-btn').click();
 
     // 4. クイズ詳細画面からプレイを開始する
+    // （Phase 37: 初回訪問・未プレイ時はランキング非対象警告・代替導線は表示されず、単一「プレイ」ボタンのみが表示される）
     await expect(page).toHaveURL(/\/quiz\//);
-    await expect(page.getByTestId('play-mode-leaderboard-warning')).toBeVisible();
-    const startPlayBtn = page.locator('text=プレイを開始する');
+    await expect(page.getByTestId('play-mode-leaderboard-warning')).toHaveCount(0);
+    await expect(page.getByTestId('alt-mode-play-panel')).toHaveCount(0);
+    const startPlayBtn = page.getByRole('button', { name: 'プレイ', exact: true });
     await expect(startPlayBtn).toBeVisible();
     await startPlayBtn.click();
 

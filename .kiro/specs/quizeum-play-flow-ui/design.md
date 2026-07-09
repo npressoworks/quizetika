@@ -48,6 +48,8 @@
 
 **Phase 22（2026-06-09）**: IA を再編する。`/` はディスカバリーホーム（3カルーセル）、現行 `HomeClient` の探索 UX は `/search` へ移設。検索画面ではフィルタパネルを閉じてもアクティブ条件チップを常時表示し、URL クエリと探索状態を同期する（`search-url-state.ts` は core、ナビは sidebar-layout）。
 
+**Phase 37（2026-07-07）**: `QuizDetailClient` のプレイモード選択（`selectedMode` state・3択UI）を廃止し、通常形式のクイズでは常に単一の「プレイ」ボタン（`mode=normal`）に統一する。既に `usePlayedQuizIds` で完了済みと判定されるクイズに限り、模擬試験・フラッシュカードへの代替導線を条件付きで表示する。水平思考・早押し形式の既存の専用単一モード分岐は変更しない。ランキング非対象警告（Phase 19）の表示条件をこの代替導線表示時に変更する。
+
 ### Goals
 - 複合検索フィルタ、タブ切替タイムラインを備えた軽快なホーム画面の構築。
 - プレイ中のブラウザ再読み込みや切断をカバーする、`localStorage` を用いた解答セッションのクライアントサイド一時保護と同期。
@@ -56,6 +58,7 @@
 - オフライン時におけるプレイ進行・結果確認のフォールバック処理。
 - クイズ作成者本人に対する編集動線UIの提供、および他ユーザーによる直接編集URLアクセス時の認可保護（ガード）。
 - **Phase 19**: 模擬試験・フラッシュカードのランキング非対象を、プレイ開始前のモード選択画面で明示する。
+- **Phase 37**: クイズ詳細画面のプレイ導線を単一ボタンに簡素化しつつ、既プレイユーザー向けに模擬試験・フラッシュカードへの復習導線を維持する。
 
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizetika-creator-dash-ui` に委ねます）。
@@ -68,6 +71,7 @@
 - **Phase 12**: 指摘フィードバック・通報・ブックマークのFirestoreへの物理的な保存・カウントアップ・自動審査（`quizetika-core` が担当）。
 - **Phase 13**: 既存の難易度 6〜10 を持つクイズの自動マイグレーションスクリプトは UI スペックの対象外とします（読み取り互換/テストデータ修正に委ねます）。
 - **Phase 14**: `difficultyVote` の永続化ロジック・API・スキーマ変更、難易度スケール変更、クイズ詳細／クイズカードの難易度表示変更、探索画面アコーディオンの変更。
+- **Phase 37**: カスタムクイズ機能（`/my-quiz`）のセッション・UI（`quizetika-my-quiz-ui`）。プレイ完了判定ロジック自体の新規実装（既存 `usePlayedQuizIds` を再利用）。模擬試験・フラッシュカードのプレイ進行・結果保存ロジックの変更。
 
 
 ---
@@ -98,7 +102,9 @@
 - **結果画面のアクション強化 (Phase 12)**: 結果サマリーカード上のクイズ全体のブックマークトグル、指摘モーダルの全体指摘時「別解の追加」カテゴリ非表示、指摘ボタン横の通報ボタン表示と通報モーダル連携。
 - **結果画面の回答・解説アコーディオン (Phase 14)**: 各問題行の回答サマリー・解説・ヒント履歴の折りたたみ（初期 closed）、問題ごとの独立開閉状態。
 - **体感難易度投票 ★ UI (Phase 14)**: 数値ボタングリッドの廃止、クリック可能な ★5個、`getDifficultyColor` によるグラデーション表示、オフライン非活性。
-- **模擬試験・フラッシュカード LB 警告（Phase 19）**: プレイモード選択パネル内の静的警告文、`data-testid="play-mode-leaderboard-warning"`、早押し固定・ウミガメ専用 UI では非表示。
+- **模擬試験・フラッシュカード LB 警告（Phase 19、Phase 37 で表示条件改定）**: 代替導線内の静的警告文、`data-testid="play-mode-leaderboard-warning"`、早押し固定・ウミガメ専用 UI では非表示。
+- **クイズ詳細プレイ導線の簡素化・既プレイ限定の代替導線（Phase 37）**: `QuizDetailClient` の単一「プレイ」ボタン化（`selectedMode` state・3択UIの削除）、`usePlayedQuizIds` を用いた既プレイ判定に基づく模擬試験・フラッシュカードへの代替導線（`data-testid="alt-mode-play-panel"`）の条件付き表示。
+- **クイズ単位リーダーボードの自分の順位表示・データソース是正（Phase 38）**: 初回プレイ／リプレイ双方のTOP5表とは別枠で、ログインユーザー自身の順位を常時表示する（ボードごとに独立評価、記録なし・ゲスト時は非表示、同順位は同一順位）。あわせて、`QuizDualLeaderboard` の破損したデータソース（`Quiz.leaderboardFirstPlay`/`leaderboardReplay` 経由の空データ参照）を是正し、`leaderboard_entries` を直接参照する経路へ統一する。
 
 
 ### Out of Boundary
@@ -106,10 +112,12 @@
 - 認証状態の監視およびユーザープロフィールそのものの編集UI（`quizetika-auth-profile-ui`が担当）。
 - Firestore へのリーダーボード書き込み、`compareLeaderboardRecords` / `mergeUserEntryAndTakeTop5` の呼び出し（`quizetika-core`）。
 - **Phase 19**: LB 登録判定・初回／リプレイ振り分けロジック（`quizetika-core` Phase 18）。プレイ画面・結果画面での追加警告。
+- **Phase 37**: カスタムクイズ機能（`/my-quiz`）のセッション・UI（`quizetika-my-quiz-ui` が担当）。プレイ済み判定ロジック自体の新規実装（既存 `usePlayedQuizIds` / `/api/user/played-quiz-ids` を再利用）。模擬試験・フラッシュカードのプレイ進行・結果保存ロジックの変更。
+- **Phase 38**: 自分の順位算出における新しい順位規則の考案（既存 `compareLeaderboardRecords` の規則を適用するのみ）。プラットフォーム総合リーダーボード（`/leaderboard`）における自分の順位表示。`Quiz.leaderboardFirstPlay`/`leaderboardReplay`/`leaderboard` フィールドおよび関連フィクスチャ（`quiz-editor.tsx`, `quiz-play-client.tsx`, `test-play.ts` 等）の型変更・削除（`QuizDualLeaderboard` から参照されなくなり無害化するが、影響範囲の広いクリーンアップは本フェーズのスコープ外とし将来へ委ねる）。
 
 ### Allowed Dependencies
 - **`quizetika-auth-profile-ui`**: `Header`, `useAuth`
-- **`quizetika-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, **`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**, **`getBookmarkFeed`, `toggleBookmark`, `getQuestionsInList`, `saveAttempt`（`mode: 'question-list'`）（Phase 8）**, **`listActiveTags`（Phase 10）**, **`searchQuizzes` の `tags?: string[]` AND フィルタ（Phase 10）**, **`searchQuizzes` の `format?: QuizFormat` フィルタ（Phase 11・実装済み）**, **`sortQuizzesForList`（scoped 検索結果のクライアントソート・Phase 11）**
+- **`quizetika-core`**: `AttemptService`, `BookmarkService`, `ReviewService`, ~~`getLeaderboardFirstPlay` / `getLeaderboardReplay`（読み取りのみ）`~~ → **Phase 38 で `getLeaderboard`（`leaderboard_entries` 読み取り）へ置換**, **`listActiveGenres`, `getQuizzesByGenre`, `getQuizzesByTag`, `searchQuizzes`（Phase 6）**, **`getBookmarkFeed`, `toggleBookmark`, `getQuestionsInList`, `saveAttempt`（`mode: 'question-list'`）（Phase 8）**, **`listActiveTags`（Phase 10）**, **`searchQuizzes` の `tags?: string[]` AND フィルタ（Phase 10）**, **`searchQuizzes` の `format?: QuizFormat` フィルタ（Phase 11・実装済み）**, **`sortQuizzesForList`（scoped 検索結果のクライアントソート・Phase 11）**, **`getLeaderboard`（`leaderboard_entries` からのTOP N読み取り・実装済み）、新設 `getMyLeaderboardRank`（自分の記録1件取得＋同順位規則に基づく順位カウント、読み取り専用）（Phase 38）**
 - **サーバーAPIプロキシ**: `/api/attempt/ask-ai`, `/api/attempt/verify-truth`
 
 ### Revalidation Triggers
@@ -120,6 +128,8 @@
 - **Phase 8**: `BookmarkFeed` / `BookmarkedQuestionEntry` 形状変更、`QuestionInListEntry` 契約変更、`question-list` attempt フィールド追加、問題リストセッションキー仕様変更。
 - **Phase 10**: `TagMetadata` フィールド変更、`listActiveTags` フィルタ条件変更、`searchQuizzes` の `tags` AND 契約変更、`normalizeTag` 規則変更。
 - **Phase 11**: `SearchFilters.format` 許容値変更、`resolveQuizFormat` / `getFormatLabel` 規則変更（カルーセルラベルと連動）、要件 1.2 / 10.3 のホームジャンル遷移ルール改定（`GenreNav` 非表示）。
+- **Phase 37**: `usePlayedQuizIds` / `/api/user/played-quiz-ids` の判定条件・レスポンス形状変更。
+- **Phase 38**: `leaderboard_entries` のテーブル構造・RLSポリシー変更、`getLeaderboard`/`getMyLeaderboardRank` のシグネチャ変更、`compareLeaderboardRecords` の同順位規則変更。
 
 ---
 
@@ -408,21 +418,31 @@ sequenceDiagram
     Note over UI: 送信待機表示が消え、AIの回答バブルが表示される
 ```
 
-### クイズ詳細リーダーボード表示フロー（Phase 5・読み取りのみ）
+### クイズ詳細リーダーボード表示フロー（Phase 5 → Phase 38 でデータソース是正・自分の順位表示追加）
+> Phase 5 時点の実装は `Quiz.leaderboardFirstPlay`/`leaderboardReplay`（Firestore時代の埋め込みフィールド）を読む設計だったが、Supabase移行後にこれらのフィールドは実在しない列を参照する死んだコードとなり、常に空配列を返していた（詳細は `research.md` Phase 38 ギャップ分析）。以下は Phase 38 で是正した正しいフローを示す。
+
 ```mermaid
 sequenceDiagram
     participant Page as QuizDetailPage
     participant LB as QuizDualLeaderboard
-    participant Lib as leaderboard-ranking (read)
-    participant Quiz as Quiz (Firestore doc)
+    participant Auth as useAuth
+    participant Hook as useQuizLeaderboard
+    participant Core as attempt.ts leaderboard_entries
 
-    Page->>Quiz: getQuiz(id)
-    Quiz-->>Page: quiz + leaderboardFirstPlay / leaderboardReplay
-    Page->>LB: quiz prop
-    LB->>Lib: getLeaderboardFirstPlay(quiz)
-    LB->>Lib: getLeaderboardReplay(quiz)
-    Note over Lib: 初回は leaderboardFirstPlay、空なら legacy leaderboard
-    LB->>LB: slice(0, 5)、タブで初回／リプレイを切替表示
+    Page->>LB: quizId prop
+    LB->>Auth: user
+    LB->>Hook: useQuizLeaderboard(quizId, user?.id ?? null)
+    Hook->>Core: getLeaderboard(quizId, first_play)
+    Hook->>Core: getLeaderboard(quizId, replay)
+    alt userId が非null（認証済み）
+        Hook->>Core: getMyLeaderboardRank(quizId, first_play, userId)
+        Hook->>Core: getMyLeaderboardRank(quizId, replay, userId)
+    else ゲスト
+        Note over Hook: 自分の順位クエリを発行しない self は両ボードとも null
+    end
+    Core-->>Hook: top 上位5件 と self rank付き1件または null
+    Hook-->>LB: firstPlay と replay それぞれの top self loading
+    LB->>LB: TOP5表を描画 self が非null のボードのみ別枠で自分の順位行を追加描画
 ```
 
 ### ホーム・ジャンル探索フロー（Phase 6）
@@ -649,9 +669,10 @@ sequenceDiagram
 | 1.5          | クイズカード魅力向上 (サムネイル・プレイボタン・情報整理)                                       | `QuizCard`                                                                          | `Quiz` data representation                       | -                                          |
 | 2.1          | クイズ詳細メタ情報表示                                                                          | `/quiz/[id]` Page                                                                   | `QuizService`                                    | -                                          |
 | 2.2          | 良問評価バッジとマスク制御                                                                      | `/quiz/[id]` Page                                                                   | `ReviewService`                                  | -                                          |
-| 2.3          | 3つのプレイモード選択UI                                                                         | `/quiz/[id]` Page                                                                   | Mode Panel                                       | -                                          |
-| 2.3a         | LB 非対象警告（exam/flashcard）                                                                 | `QuizDetailClient`                                                                  | `play-mode-leaderboard-warning`                  | -                                          |
-| 2.4          | プレイ画面へのリダイレクト遷移                                                                  | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
+| 2.3          | **（Phase 37 改定）** 単一「プレイ」ボタン（3択UIは廃止）                                       | `/quiz/[id]` Page                                                                   | `QuizDetailClient`                               | -                                          |
+| 2.3a         | **（Phase 37 改定）** 「プレイ」ボタン押下時は常に `mode=normal` へ遷移                         | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
+| 2.3b         | 模擬試験・フラッシュカードへのアクセス条件は要件27・19に従う（本画面は3択UIを提供しない）       | `QuizDetailClient`                                                                  | -                                                 | -                                          |
+| 2.4          | プレイパネル（プレイボタン・代替導線）でのプレイ画面へのリダイレクト遷移                        | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
 | 2.5          | 作成者本人用「クイズ編集」ボタンの表示                                                          | `/quiz/[id]` Page                                                                   | `useAuth`                                        | -                                          |
 | 2.6          | 編集ボタンクリック時のクイズ編集画面遷移                                                        | `/quiz/[id]` Page                                                                   | `useRouter`                                      | -                                          |
 | 3.1          | 個別/全体カウントダウンタイマー                                                                 | `/quiz/[id]/play` Page                                                              | Timer Hook                                       | -                                          |
@@ -681,10 +702,17 @@ sequenceDiagram
 | 9.2          | 順位・表示名・正解数・時間・達成日                                                              | `QuizDualLeaderboard`                                                               | Table markup                                     | -                                          |
 | 9.3          | 表示順（サーバー保存順を信頼）                                                                  | `QuizDualLeaderboard`                                                               | `getLeaderboard*` + slice                        | -                                          |
 | 9.4          | 空状態                                                                                          | `QuizDualLeaderboard`                                                               | Empty UI                                         | -                                          |
-| 9.5          | 初回: `leaderboardFirstPlay` + legacy fallback                                                  | `QuizDualLeaderboard`                                                               | `getLeaderboardFirstPlay`                        | -                                          |
-| 9.6          | リプレイ: `leaderboardReplay` のみ                                                              | `QuizDualLeaderboard`                                                               | `getLeaderboardReplay`                           | -                                          |
+| 9.5          | **（Phase 38 改定）** 初回プレイの永続化記録のみ表示（フォールバック廃止）                      | `QuizDualLeaderboard`                                                               | `getLeaderboard(quizId, 'first_play')`           | -                                          |
+| 9.6          | **（Phase 38 改定）** リプレイの永続化記録のみ表示                                              | `QuizDualLeaderboard`                                                               | `getLeaderboard(quizId, 'replay')`               | -                                          |
 | 9.7          | E2E `data-testid`                                                                               | `QuizDualLeaderboard`                                                               | test ids                                         | -                                          |
 | 9.8          | 更新・マージなし（表示のみ）                                                                    | `QuizDualLeaderboard`                                                               | —                                                | Out of boundary                            |
+| 9.9          | **（Phase 38）** 自分の記録がある場合、TOP5表とは別枠で自分の順位行を常に表示                   | `QuizDualLeaderboard`                                                               | `useQuizLeaderboard`                             | クイズ詳細LB表示フロー                     |
+| 9.10         | **（Phase 38）** 初回・リプレイ双方のボードで自分の順位を独立評価                               | `useQuizLeaderboard`                                                                | `getMyLeaderboardRank`                           | クイズ詳細LB表示フロー                     |
+| 9.11         | **（Phase 38）** 自分の記録がないボードでは自分の順位欄を非表示                                 | `QuizDualLeaderboard`                                                               | `self === null` 分岐                             | -                                          |
+| 9.12         | **（Phase 38）** ゲスト時はいずれのボードも自分の順位欄を非表示                                 | `QuizDualLeaderboard`                                                               | `useAuth`                                        | -                                          |
+| 9.13         | **（Phase 38）** 同順位（正解数・時間が完全一致）には同一順位を付与                             | `getMyLeaderboardRank`                                                              | 同順位カウントクエリ                             | -                                          |
+| 9.14         | **（Phase 38）** 自分の順位行の testid（初回・リプレイ区別）                                    | `QuizDualLeaderboard`                                                               | test ids                                         | -                                          |
+| 9.15         | **（Phase 38）** 順位算出ロジックを自ら実装しない境界                                           | —                                                                                   | —                                                | Out of boundary                            |
 | 10.1         | 動的ジャンルナビ（Phase 11: ホームは `GenreCarousel`。`GenreNav` は非正本）                     | `GenreCarousel`, `useActiveGenres`                                                  | `listActiveGenres`                               | ホーム探索アコーディオン・カルーセルフロー |
 | 10.2         | ハードコード GENRES 廃止                                                                        | `HomePage`, `GenreCarousel`                                                         | —                                                | —                                          |
 | 10.3         | ジャンル探索（Phase 11: ホームカルーセルは遷移せずフィルタ）                                    | `GenreCarousel`                                                                     | —                                                | ホーム探索アコーディオン・カルーセルフロー |
@@ -737,6 +765,12 @@ sequenceDiagram
 | 5.9          | 同じ作者の他クイズおすすめ表示                                                                  | `QuizResultPage`, `QuizCard`                                                        | `getQuizzesByAuthor`                             | —                                          |
 | 5.10         | 結果「お疲れ様でした」カードのクイズブックマークボタン                                          | `QuizResultPage`                                                                    | `toggleBookmark`                                 | —                                          |
 | 5.11 / 5.11a | 指摘横の通報ボタン表示と通報モーダル連携                                                        | `QuizResultPage`, `ReportModal`                                                     | `flagContent`                                    | コンテンツ通報フロー                       |
+| 27.1–27.3    | 既プレイ限定の代替導線（模擬試験・フラッシュカード）の表示条件                                  | `QuizDetailPage`                                                                    | `usePlayedQuizIds`                               | —                                          |
+| 27.4–27.5    | 代替導線からのモード別プレイ画面遷移                                                            | `QuizDetailPage`                                                                    | `useRouter`                                      | —                                          |
+| 27.6–27.8    | Out of boundary（プレイ進行ロジック・カスタムクイズ・完了判定の新規実装）                       | —                                                                                   | `quizetika-my-quiz-ui`                           | —                                          |
+| 27.9         | testid 契約（`alt-mode-play-panel`）                                                            | `QuizDetailPage`                                                                    | —                                                | —                                          |
+| 19.1–19.3    | **（Phase 37 改定）** 警告表示条件（代替導線表示時のみ）                                        | `QuizDetailPage`                                                                    | `play-mode-leaderboard-warning`                  | —                                          |
+| 19.5–19.6    | **（Phase 37 改定）** 警告文言の再確認（初回喪失リスクの記述整理）                              | `QuizDetailPage`                                                                    | —                                                | —                                          |
 
 ---
 
@@ -760,8 +794,9 @@ sequenceDiagram
 | `SkeletonCard`           | UI / Component | 検索ロード中の骨組みアニメーション                                        | 1.4                                              | —                                                                                                                       | State      |
 | `useHomeQuizFeed`        | Hook           | タブ取得 / `searchQuizzes` 切替・デバウンス（tags AND 含む）              | 1.3, 10.4, 12.12–12.15                           | `searchQuizzes`, tab APIs                                                                                               | State      |
 | `usePlayedQuizIds`       | Hook           | プレイ済み quizId 集合                                                    | 1.3                                              | `/api/user/played-quiz-ids`                                                                                             | State      |
-| `QuizDetailPage`         | UI / Page      | クイズのメタデータおよび良問評価、プレイモード選択、作成者編集動線        | 2.1–2.6                                          | `QuizService`, `ReviewService`, `useAuth`                                                                               | State      |
-| `QuizDualLeaderboard`    | UI / Component | 初回／リプレイLBのタブ表示（読み取り専用）                                | 9.1–9.8                                          | `getLeaderboardFirstPlay`, `getLeaderboardReplay` (P0)                                                                  | State      |
+| `QuizDetailPage`         | UI / Page      | クイズのメタデータおよび良問評価、単一プレイボタン、既プレイ限定の代替モード導線、作成者編集動線 | 2.1–2.6, 19.1–19.9, 27.1–27.9                    | `QuizService`, `ReviewService`, `useAuth`, `usePlayedQuizIds`                                                           | State      |
+| `QuizDualLeaderboard`    | UI / Component | 初回／リプレイLBのタブ表示＋自分の順位表示（読み取り専用）                | 9.1–9.15                                         | `useQuizLeaderboard` (P0), `useAuth` (P0)                                                                               | State      |
+| `useQuizLeaderboard`     | Hook           | 両ボードのTOP5・自分の順位取得を統合（ゲストは自分の順位を問い合わせない）| 9.9–9.13, 9.15                                   | `getLeaderboard` (P0), `getMyLeaderboardRank` (P0)                                                                       | State      |
 | `QuizPlayPage`           | UI / Page      | クイズ解答画面（通常タイマー、ヒント、ウミガメスープチャット）            | 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6 | `usePlayState`, `useAiPlayState`                                                                                        | State, API |
 | `QuizEditor`             | UI / Component | クイズ編集の認可ガード処理およびエディタUIの保護                          | 8.1, 8.2                                         | `useAuth`, `QuizService`, `useRouter`                                                                                   | State      |
 | `QuizResultPage`         | UI / Page      | 正誤解説、評価・難易度投票、指摘フォーム、作成者フォローボタン            | 5.1, 5.2, 5.3, 5.4, 5.5                          | `ReviewService`, `UserService`                                                                                          | State, API |
@@ -1027,46 +1062,97 @@ export const EXPLORE_FORMAT_OPTIONS: ExploreFormatOption[];
 
 **Contracts**: State [x]
 
-#### `QuizDualLeaderboard`（Phase 5）
+#### `QuizDualLeaderboard`（Phase 5、Phase 38 で改定）
 
-| Field        | Detail                                                          |
-| ------------ | --------------------------------------------------------------- |
-| Intent       | クイズドキュメントから初回／リプレイ上位5名をタブ切替で表示する |
-| Requirements | 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8                          |
+| Field        | Detail                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| Intent       | クイズ単位の初回／リプレイ上位5名をタブ切替で表示し、TOP5とは別枠で自分の順位も表示する |
+| Requirements | 9.1–9.15                                                                                 |
 
 **Responsibilities & Constraints**
-- `quiz: Quiz` を受け取り、初回タブ・リプレイタブでそれぞれ最大5行のテーブルを描画する。
-- 並び替え・マージ・Firestore更新は行わない（`quizetika-core` が保存時に順位付け済みの配列を信頼し `slice(0, 5)` のみ）。
+- `quizId: string` を受け取り、`useQuizLeaderboard` から得た初回タブ・リプレイタブそれぞれの TOP5（最大5行）と自分の順位（`self`）を描画する。
+- 並び替え・マージ・書き込みは行わない（`useQuizLeaderboard` が返す既に順位付け済みのデータをそのまま描画するのみ）。
 - 全問正解限定のラベルや空状態メッセージは使わない。
+- **（Phase 38）** 自分の順位行は、TOP5圏内・圏外を問わず `self` が非 `null` の場合は必ず表示する（TOP5に同一ユーザーが重複表示されることを許容する。要件9.9–9.10）。
+- **（Phase 38・破壊的変更）** `quiz: Quiz` prop・内部 `getQuiz()` 呼び出しを廃止する。理由: (1) このコンポーネントは元々 `quiz` オブジェクトのうち `leaderboardFirstPlay`/`leaderboardReplay` のみを使用しており、Phase 12 の独立 Suspense 境界の意図（他のクイズ詳細フェッチをブロックしない）とも整合する、(2) `quiz` prop への直接フィクスチャ注入だけで検証する既存テストが、実データ経路の破損（`Quiz.leaderboardFirstPlay` が常に空になる不具合）を検出できなかった根本原因であるため、フェッチ層を通るテストへ強制的に置き換える。
 
 **Dependencies**
-- Inbound: `QuizDetailPage` — `quiz` prop（Criticality P0）
-- Outbound: `@/lib/leaderboard-ranking` — `getLeaderboardFirstPlay`, `getLeaderboardReplay`（Criticality P0）
+- Inbound: `QuizDetailPage` — `quizId` prop（Criticality P0）
+- Outbound: `useQuizLeaderboard`（Criticality P0）
+- Outbound: `useAuth`（Criticality P0） — ゲスト判定（要件9.12）
 
 **Contracts**: State [x]
 
 ##### Props
 ```typescript
 interface QuizDualLeaderboardProps {
-  quiz: Quiz;
+  quizId: string;
 }
 ```
 
 ##### `data-testid` 契約（E2E）
-| 要素                     | test id                       | 備考                            |
-| ------------------------ | ----------------------------- | ------------------------------- |
-| 全体ラッパー             | `quiz-leaderboard`            | 既存E2E互換                     |
-| タブ（初回）             | `quiz-leaderboard-tab-first`  | ラベル: 初回プレイランキング    |
-| タブ（リプレイ）         | `quiz-leaderboard-tab-replay` | ラベル: リプレイランキング      |
-| 初回テーブルラッパー     | `highscore-leaderboard`       | 後方互換のため初回側に維持      |
-| リプレイテーブルラッパー | `replay-leaderboard`          | 旧 `fastest-leaderboard` を置換 |
-| 各行                     | `leaderboard-entry`           | 初回・リプレイ両方              |
+| 要素                     | test id                        | 備考                             |
+| ------------------------ | ------------------------------- | --------------------------------- |
+| 全体ラッパー             | `quiz-leaderboard`             | 既存E2E互換                      |
+| タブ（初回）             | `quiz-leaderboard-tab-first`   | ラベル: 初回プレイランキング     |
+| タブ（リプレイ）         | `quiz-leaderboard-tab-replay`  | ラベル: リプレイランキング       |
+| 初回テーブルラッパー     | `highscore-leaderboard`        | 後方互換のため初回側に維持       |
+| リプレイテーブルラッパー | `replay-leaderboard`           | 旧 `fastest-leaderboard` を置換  |
+| 各行（TOP5）             | `leaderboard-entry`            | 初回・リプレイ両方               |
+| 自分の順位行（初回）     | `leaderboard-my-rank-first`    | **（Phase 38 新規・要件9.14）**  |
+| 自分の順位行（リプレイ） | `leaderboard-my-rank-replay`   | **（Phase 38 新規・要件9.14）**  |
 
 **Implementation Notes**
 - デフォルト表示タブ: 初回プレイ。
 - 日付は `completedAt` を `toLocaleDateString('ja-JP')` で表示（既存ページと同様）。
 - 表示名欠落時は `名無しさん`。
-- スタイルは `quiz-dual-leaderboard.module.css` に集約し、既存 `page.module.css` の `.leaderboardSection` 等を移管または `@compose` 相当のクラス再利用。
+- スタイルは `quiz-dual-leaderboard.module.css` に集約する。
+- **（Phase 38）** 自分の順位行は既存 `LeaderboardTable` と同一の列（順位・ユーザー表示名・正解数・合計時間・達成日）を持つ1行専用の表示（`MyRankRow`）として実装し、TOP5行の列定義（`rankClass` 等）を再利用する。TOP5表と視覚的に区別できるよう見出し（例:「あなたの順位」）とセパレータを付ける。
+- **（Phase 38）** `self` が未取得（ローディング中）の間はTOP5表のみ表示し、自分の順位行はローディング完了後に条件付きで追加描画する（レイアウトシフトを避けるため、TOP5表の初期描画をブロックしない）。
+
+#### `useQuizLeaderboard`（Phase 38）
+
+| Field        | Detail                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| Intent       | クイズ単位LBの初回・リプレイ両ボードについて、TOP5と自分の順位の取得を1箇所に集約する      |
+| Requirements | 9.9–9.13, 9.15                                                                              |
+
+**Responsibilities & Constraints**
+- `quizId` と `userId`（`null` はゲスト）を受け取り、`getLeaderboard(quizId, 'first_play')` / `getLeaderboard(quizId, 'replay')` を常に並行取得する。
+- `userId` が非 `null` の場合のみ、`getMyLeaderboardRank(quizId, 'first_play', userId)` / `getMyLeaderboardRank(quizId, 'replay', userId)` を並行取得する。ゲスト（`userId === null`）のときはこの2クエリを発行しない（要件9.12を、無駄な問い合わせを避けつつ満たす）。
+- 順位算出の業務ロジック（同順位規則含む）は自ら実装しない。`getMyLeaderboardRank` が返す `rank` をそのまま用いる（要件9.15）。
+
+**Dependencies**
+- Outbound: `src/services/attempt.ts` — `getLeaderboard`（Criticality P0）
+- Outbound: `src/services/attempt.ts` — `getMyLeaderboardRank`（Criticality P0・新設）
+
+**Contracts**: State [x]
+
+```typescript
+interface QuizLeaderboardBoardState {
+  top: LeaderboardRecord[];
+  self: LeaderboardSelfEntry | null;
+  loading: boolean;
+}
+
+interface UseQuizLeaderboardResult {
+  firstPlay: QuizLeaderboardBoardState;
+  replay: QuizLeaderboardBoardState;
+}
+
+function useQuizLeaderboard(
+  quizId: string,
+  userId: string | null
+): UseQuizLeaderboardResult;
+```
+- Preconditions: `quizId` は存在するクイズのID。
+- Postconditions: 各ボードの `top` は最大5件（`getLeaderboard` 契約に準拠）。`self` はゲストまたは記録なしのとき `null`。
+- Invariants: `self` が非 `null` のとき、`self.rank` は 1 以上の整数。
+
+**Implementation Notes**
+- Integration: `quizId` 変更時に再フェッチする。`userId` の遷移（ゲスト→ログイン等）でも自分の順位を再評価する。
+- Validation: `getMyLeaderboardRank` から返る `LeaderboardSelfEntry` の `rank` が `top` 内の同一ユーザーの位置と矛盾しないことをテストで確認する（重複表示は仕様どおりであり不整合ではない）。
+- Risks: 4クエリ（`getLeaderboard` x2 + `getMyLeaderboardRank` x2）が並行発行されるため、`Promise.all` でまとめて発行しウォーターフォールを避ける。
 
 #### `BookmarksTabs` / `useBookmarkFeed`（Phase 8）
 
@@ -1210,11 +1296,12 @@ function buildQuestionListPlayUrl(session: QuestionListSession, index: number): 
   - ~~ジャンルアイコンクリックで `/genres/[id]` に遷移すること~~ → **Phase 11 改定**: ジャンルカルーセル選択で同一 URL のままグリッドが絞り込まれること（`/genres` へ遷移しないこと）。
   - `GenreSearchField` / `UnifiedSearchField` でサジェスト選択後、デバウンス経由でグリッドが更新されること。
   - 認証済みで「未プレイのみ」選択時、プレイ済みクイズが一覧から除外されること。
-- **クイズ詳細・二系統リーダーボード（Phase 5）**:
+- **クイズ詳細・二系統リーダーボード（Phase 5、Phase 38 でデータ経路修正・自分の順位表示を追加）**:
   - `[data-testid="quiz-leaderboard"]` が表示されること。
   - 初回タブで `[data-testid="highscore-leaderboard"]`、リプレイタブ切替後に `[data-testid="replay-leaderboard"]` が表示されること。
-  - エントリがある場合、各行に `[data-testid="leaderboard-entry"]` が存在し、列に正解数・秒数が含まれること（テキストマッチは緩く、存在確認中心）。
+  - エントリがある場合、各行に `[data-testid="leaderboard-entry"]` が存在し、列に正解数・秒数が含まれること（テキストマッチは緩く、存在確認中心）。実データ（実際に `leaderboard_entries` へ保存された記録）で表示されることを確認し、Phase 38 で修正した破損データ経路の回帰を防ぐ。
   - 旧テスト「最速全問正解ランキング」「`fastest-leaderboard`」は削除またはリプレイ仕様へ差し替え。
+  - ログイン済みユーザーが自身の記録を持つボードで `[data-testid="leaderboard-my-rank-first"]` または `[data-testid="leaderboard-my-rank-replay"]` が表示されること。記録がないボードやゲストでは表示されないこと。
 - **ホーム画面 UI 最最適化 (Phase 9)**:
   - 巨大バナーが削除または大幅に縮小されて描画されること。
   - 検索バーがカテゴリナビゲーション（`[data-testid="genre-nav"]`）より上位に配置されていること。
@@ -3044,3 +3131,229 @@ export type BookmarkTab = 'quiz' | 'question'; // 'list' 削除
 **Effort**: **M**（2日、Core 完了後）
 
 **Document Status（Phase 26 設計）**: 本節に反映。要件 11（Phase 8 リストプレイ）は **廃止**。
+
+---
+
+## Phase 37: クイズ詳細画面のプレイモード選択廃止・既プレイ限定の代替導線（2026-07-07）
+
+### 1. Overview
+
+`QuizDetailClient`（`src/app/quiz/[id]/quiz-detail-client.tsx`）の `selectedMode` state と3択プレイパネル（通常・模擬試験・フラッシュカード）を廃止し、通常形式のクイズでは常に単一の「プレイ」ボタン（`mode=normal` 固定）を表示する。模擬試験・フラッシュカードは、既存の `usePlayedQuizIds` によって当該クイズを完了済みと判定された認証済みユーザーに対してのみ、単一ボタンの下に追加表示される代替導線（`data-testid="alt-mode-play-panel"`）から開始できる。水平思考（ウミガメのスープ）・早押し形式向けの既存の単一モード分岐（`isLateralThinkingQuiz` / `isQuickPressQuiz`）は変更しない。
+
+**プレイパネル見出しの修正**: 現行 `<h2>{styles.playPanelTitle}>プレイモード選択</h2>` は水平思考・早押し・通常の全分岐で共通表示されているが、「モード選択」という文言は本フェーズの簡素化方針と矛盾する。見出しテキストを「プレイ」に変更する（`playPanelTitle` クラス自体は変更しない）。
+
+**既存スタイルクラスの扱い（重要）**: `modeOption` / `modeSelected` / `modeHeader` / `modeDesc` の4クラスは、3択UIだけでなく水平思考・早押し形式の既存の単一モード表示カード（`isLateralThinkingQuiz` / `isQuickPressQuiz` 分岐）でも共用されている。これらの分岐は変更しないため、4クラスは**削除せず維持**する。3択UIブロック（通常形式の3分岐）のみを削除し、水平思考・早押し分岐のマークアップ・クラス適用はそのまま残す。
+
+結果画面（`quiz-result-client.tsx`）の「もう一度プレイする」ボタンは既に `/quiz/${quiz.id}`（詳細画面）へ遷移する実装のため、初回の通常プレイ完了後、ユーザーは自然に代替導線へ到達できる。この画面遷移パスに変更は不要。
+
+**重要な既存実装との差分**: 現行の `showLeaderboardWarning` は `!isLateralThinkingQuiz && !isQuickPressQuiz && !hasPlayedThisQuiz`（**未プレイ時のみ**警告表示）であり、`tests/components/quiz-detail-client.test.tsx` の既存テスト「プレイ済みクイズでは警告を表示しない」もこれに整合している。これは旧UI（常時3択表示）において「先に模擬試験/フラッシュカードで遊ぶと初回プレイ権を失う」リスクを事前告知する目的だった。Phase 37 では模擬試験・フラッシュカード自体が既プレイユーザーにしか表示されなくなるため、この事前告知の意味が消滅する。したがって警告の表示条件は `hasPlayedThisQuiz` を反転し、代替導線と同時（＝**既プレイ時のみ**）に表示するよう変更する。既存テストは新条件に合わせて反転修正が必要（4. File Structure Plan 参照）。
+
+### 2. Boundary Commitments（Phase 37）
+
+| Owns                                                              | Out of Boundary                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `QuizDetailClient` の単一プレイボタン化（`selectedMode` state 削除） | プレイ完了判定ロジック自体（`usePlayedQuizIds` を再利用のみ） |
+| 既プレイ限定の代替導線表示条件・スタイル・testid                   | 模擬試験・フラッシュカードのプレイ進行・結果保存ロジック      |
+| ランキング非対象警告（要件19）の表示条件変更                       | カスタムクイズ（`/my-quiz`）のセッション・UI（my-quiz-ui）    |
+| 関連 E2E（learning-support / quiz-play / advanced-quiz-features）  | `quizetika-core` の LB 登録判定・初回/リプレイ振り分け        |
+
+### 3. Architecture / UI Design
+
+```mermaid
+flowchart TD
+  Start[クイズ詳細画面表示] --> IsLateral{水平思考形式か}
+  IsLateral -->|Yes| SingleChat[単一チャットモード表示]
+  IsLateral -->|No| IsQuick{早押し形式か}
+  IsQuick -->|Yes| SingleQuick[単一早押しモード表示]
+  IsQuick -->|No| SingleNormal[単一プレイボタン表示 mode normal]
+  SingleNormal --> Played{usePlayedQuizIds で完了済みか}
+  Played -->|No| End1[代替導線を表示しない]
+  Played -->|Yes| AltPanel[代替導線を表示 exam flashcard]
+```
+
+**表示条件（既存フックの再利用）**:
+```typescript
+const showAltModePanel =
+  !isLateralThinkingQuiz && !isQuickPressQuiz && hasPlayedThisQuiz;
+```
+`hasPlayedThisQuiz` は既存の `Boolean(user && playedQuizIds?.has(quiz.id))`（要件1のプレイ状況フィルタ・既存のプレイ済みバッジと同一判定根拠）をそのまま用いる。新規の判定ロジック・APIは追加しない。
+
+**単一プレイボタンの遷移**:
+```typescript
+const handlePlayStart = () => {
+  if (isLateralThinkingQuiz) { /* 既存分岐を維持 */ }
+  else if (isQuickPressQuiz) { /* 既存分岐を維持 */ }
+  else router.push(`/quiz/${quiz.id}/play?mode=normal`);
+};
+
+const handleAltModeStart = (mode: 'exam' | 'flashcard') => {
+  router.push(`/quiz/${quiz.id}/play?mode=${mode}`);
+};
+```
+
+**代替導線 Markup（既存 `modeLeaderboardWarning` クラスを再利用、新規 `altMode*` クラスを追加）**:
+```tsx
+{showAltModePanel && (
+  <div className={styles.altModeSection} data-testid="alt-mode-play-panel">
+    <p className={styles.altModeLabel}>プレイ済み: 復習用モードも利用できます</p>
+    <div className={styles.modeLeaderboardWarning} data-testid="play-mode-leaderboard-warning">
+      <WarningAmberOutlined sx={{ fontSize: 16 }} aria-hidden />
+      <p>模擬試験モード・フラッシュカードモードの記録は、プレイ回数や順序にかかわらず、初回プレイランキングおよびリプレイランキングのいずれにも掲載されません。</p>
+    </div>
+    <div className={styles.altModeButtons}>
+      <button onClick={() => handleAltModeStart('exam')}>模擬試験で復習する</button>
+      <button onClick={() => handleAltModeStart('flashcard')}>フラッシュカードで復習する</button>
+    </div>
+  </div>
+)}
+```
+
+**警告文言の変更（要件19.5改定への対応）**: 現行文言には「先にこれらのモードでプレイした場合、のちに通常モードでプレイしても初回プレイランキングには掲載されません」という**プレイ順序依存**の一文が含まれるが、代替導線は既プレイ限定になるためこの懸念は構造的に発生しなくなる。文言は上記のとおり「プレイ回数や順序にかかわらず...いずれにも掲載されません」という**順序非依存**の表現に置き換える（表示条件だけでなく文言自体の修正が必須）。`altModeSection`/`altModeLabel`/`altModeButtons` クラスの新規追加はタスク29.2が担当する。
+
+### 4. File Structure Plan（Phase 37）
+
+| ファイル                                              | 操作       | 責務                                                                                  |
+| ------------------------------------------------------ | ---------- | --------------------------------------------------------------------------------------- |
+| `src/app/quiz/[id]/quiz-detail-client.tsx`            | **Modify** | `selectedMode` state・3択UIブロック（通常形式の3分岐のみ）削除、単一プレイボタン化、代替導線の条件付き追加、プレイパネル見出しを「プレイ」に変更。水平思考・早押し分岐のマークアップは変更しない |
+| `src/app/quiz/[id]/detail-classes.ts`                 | **Modify** | `altModeSection`/`altModeLabel`/`altModeButtons` を新規追加。`modeOption`/`modeSelected`/`modeHeader`/`modeDesc`/`modeLeaderboardWarning` は水平思考・早押し分岐（および代替導線）で引き続き使用するため**削除しない** |
+| `tests/components/quiz-detail-client.test.tsx`        | **Modify** | 既存の `describe('QuizDetailClient - Phase 19 LB warning')` を反転修正。現行実装は `!hasPlayedThisQuiz` 時のみ警告表示（未プレイ時警告・既プレイ時非表示）だが、Phase 37 では警告は代替導線と同時（`hasPlayedThisQuiz` 時のみ）表示に変わるため、「プレイ済みクイズでは警告を表示しない」テストを「プレイ済みクイズで警告と代替導線を表示する」に、「通常クイズで警告を表示する」テストを「未プレイクイズでは警告を表示しない」に更新する |
+| `e2e/learning-support.spec.ts`                        | **Modify** | 「3モード表示」テストを、初回プレイ完了 → 詳細画面再訪問 → 代替導線からモード選択、の手順に更新 |
+| `e2e/quiz-play.spec.ts`                                | **Modify** | 新規クイズ初回訪問時に警告非表示・単一「プレイ」ボタンのみであることを検証するテストへ更新 |
+| `e2e/advanced-quiz-features.spec.ts`                  | **Modify** | 模擬試験・フラッシュカードE2Eの開始手順を、既プレイ状態を経由する手順へ更新              |
+
+### 5. Requirements Traceability（Phase 37）
+
+| Req        | Summary                                          | Component                                  |
+| ---------- | ------------------------------------------------- | ------------------------------------------- |
+| 2.3        | 3択UI廃止・単一プレイボタン                       | `QuizDetailClient`                          |
+| 2.3a       | プレイボタン押下時は常に `mode=normal`            | `QuizDetailClient`                          |
+| 2.3b       | 模擬試験・フラッシュカードは要件27・19に従う      | `QuizDetailClient`                          |
+| 2.4        | プレイパネルからのプレイ画面遷移                  | `useRouter`                                 |
+| 19.1–19.2  | 警告の表示条件（代替導線表示時のみ）              | `QuizDetailClient`                          |
+| 19.3       | 水平思考・早押し形式では非表示                    | `QuizDetailClient`                          |
+| 19.4–19.6  | 警告文言・配置                                    | `styles.modeLeaderboardWarning`             |
+| 19.7–19.8  | 境界（LB判定はcoreに依存、追加警告は対象外）      | —                                            |
+| 19.9       | testid 契約                                       | `play-mode-leaderboard-warning`             |
+| 27.1       | 既プレイ・通常形式クイズでの代替導線表示          | `QuizDetailClient`, `usePlayedQuizIds`      |
+| 27.2       | 未完了・未認証では非表示                          | `QuizDetailClient`                          |
+| 27.3       | 水平思考・早押し形式では非表示                    | `QuizDetailClient`                          |
+| 27.4–27.5  | モード別プレイ画面遷移                            | `handleAltModeStart`                        |
+| 27.6       | プレイ進行・結果保存ロジックは変更しない          | Out of boundary                             |
+| 27.7       | カスタムクイズ（my-quiz）は対象外                 | Out of boundary                             |
+| 27.8       | 完了判定ロジックの再利用（新規実装しない）        | `usePlayedQuizIds`                          |
+| 27.9       | testid 契約                                       | `alt-mode-play-panel`                       |
+
+### 6. Testing Strategy（Phase 37）
+
+| 種別          | 検証                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------- |
+| **Component** | 未プレイ・通常形式クイズで単一「プレイ」ボタンのみ表示され、代替導線・警告が表示されないこと         |
+| **Component** | 既プレイ・通常形式クイズで代替導線と警告が表示され、模擬試験・フラッシュカードへそれぞれ正しく遷移すること |
+| **Component** | 水平思考・早押し形式クイズでは、完了状況にかかわらず代替導線・警告が表示されないこと                 |
+| **E2E**       | `e2e/learning-support.spec.ts` — 初回プレイ完了 → 詳細画面再訪問 → 代替導線から模擬試験/フラッシュカード開始 |
+| **E2E**       | `e2e/quiz-play.spec.ts` — 新規クイズ初回訪問時は警告非表示・単一ボタンのみ                            |
+| **Regression**| 水平思考・早押し形式の既存の単一モード遷移・結果保存フローに影響がないこと                           |
+
+**Effort**: **S**（1日程度、既存フック・クラスの再利用のためロジック新規実装は僅少。E2E更新3本が主要工数）
+
+**Document Status（Phase 37 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。
+
+---
+
+## Phase 38: クイズ単位リーダーボードの自分の順位表示・既存データソース是正（2026-07-07）
+
+### 1. Overview
+
+クイズ詳細画面のクイズ単位リーダーボード（`QuizDualLeaderboard`、要件9）に、ログインユーザー自身の順位を TOP5 表とは別枠で常時表示する機能を追加する（`research.md` Phase 38 ギャップ分析を参照）。
+
+調査の過程で、現行実装が Supabase 移行以前の Firestore 埋め込みフィールド（`Quiz.leaderboardFirstPlay` / `leaderboardReplay`）を読む設計のまま残っており、`quizzes` テーブルに該当列が存在しないため常に空配列を返す**既存バグ**を確認した。正しいデータは `leaderboard_entries` テーブルに保持され、`getLeaderboard()`（`src/services/attempt.ts`）で読み取れる状態にある。本フェーズはこの既存バグの是正と自分の順位表示の新規実装を1つの設計としてまとめて扱う。
+
+### Non-Goals（Phase 38）
+- `Quiz.leaderboardFirstPlay` / `leaderboardReplay` / `leaderboard` フィールドの型からの削除、および関連フィクスチャ（`quiz-editor.tsx`, `quiz-play-client.tsx`, `test-play.ts` 等）の更新は行わない。`QuizDualLeaderboard` がこれらを参照しなくなることで無害化するに留め、削除は将来のクリーンアップに委ねる。
+- 自分の順位算出クエリを1往復の RPC（`RANK() OVER (...)` 等）に統合すること。初版は既存 `getLeaderboard` と同じ層のクライアント合成クエリで実装し、RPC 化は将来の最適化候補とする（`research.md` 参照）。
+- プラットフォーム総合リーダーボード（`/leaderboard`）への自分の順位表示。
+
+### 2. Boundary Commitments（Phase 38）
+
+| Owns                                                                 | Out of Boundary                                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `QuizDualLeaderboard` の自分の順位行表示（TOP5圏内外問わず常時、ボードごと独立） | 自分の順位算出における新しい順位規則の考案（既存 `compareLeaderboardRecords` の適用のみ） |
+| `useQuizLeaderboard` によるデータ取得オーケストレーション（ゲスト短絡含む） | プラットフォーム総合リーダーボード（`/leaderboard`）の「自分の順位」表示     |
+| `attempt.ts` への読み取り専用関数 `getMyLeaderboardRank` の追加       | `leaderboard_entries` のスキーマ・RLSポリシー変更                        |
+| 既存の破損データソース（`Quiz.leaderboardFirstPlay`/`leaderboardReplay`）からの離脱（`getLeaderboard` への一本化） | `Quiz` 型・関連フィクスチャからのフィールド削除（将来のクリーンアップに委譲） |
+
+### 3. Architecture: `getMyLeaderboardRank` の契約
+
+`attempt.ts` の既存 `getLeaderboard`（読み取り専用・`leaderboard_entries` 参照）と同じ層に、自分の記録1件と順位を返す関数を追加する。順位算出は既存の順位規則（正解数降順・同点時合計時間昇順）をそのままカウントクエリに適用するのみで、新しい業務規則は考案しない。
+
+```typescript
+// src/types/index.ts への追加
+export interface LeaderboardSelfEntry extends LeaderboardRecord {
+  rank: number;
+}
+```
+
+##### Service Interface
+```typescript
+interface AttemptLeaderboardSelfService {
+  getMyLeaderboardRank(
+    quizId: string,
+    board: 'first_play' | 'replay',
+    userId: string
+  ): Promise<LeaderboardSelfEntry | null>;
+}
+```
+- Preconditions: `userId` は呼び出し元（`useQuizLeaderboard`）が非ゲストであることを確認済みの認証済みユーザーIDであること。
+- Postconditions: `leaderboard_entries` に `(quiz_id, type, user_id)` の行が存在しない場合は `null` を返す（要件9.11）。存在する場合、`rank` は「自分より真に上位（正解数が多い、または同数で合計時間が短い）の行数 + 1」として算出する。正解数・合計時間が完全一致する行は同一 `rank` を返す（要件9.13）。
+- Invariants: 読み取り専用。`leaderboard_entries` を更新・並び替えしない。
+
+**実装方針（2クエリ構成、`research.md` Research Needed の解決）**:
+1. `leaderboard_entries` から `(quiz_id, type, user_id)` に一致する自分の1行を取得する（`maybeSingle`）。存在しなければ `null` を返す。
+2. 自分の `score`/`elapsed_seconds` を用いて、`(score > 自分のscore) OR (score = 自分のscore AND elapsed_seconds < 自分のelapsed_seconds)` を満たす行数を `count: 'exact', head: true` で取得し、`rank = count + 1` とする。
+3. 条件式は PostgREST の `.or()` フィルタで組み立てる。`score` / `elapsed_seconds` は手順1で取得した数値型の値のみを埋め込み、外部入力文字列を直接連結しない（インジェクション対策）。
+
+### 4. File Structure Plan（Phase 38）
+
+| ファイル                                              | 操作       | 責務                                                                                  |
+| ------------------------------------------------------ | ---------- | -------------------------------------------------------------------------------------- |
+| `src/types/index.ts`                                  | **Modify** | `LeaderboardSelfEntry`（`LeaderboardRecord` 拡張、`rank: number`）を追加               |
+| `src/services/attempt.ts`                              | **Modify** | `getMyLeaderboardRank` を追加（既存 `getLeaderboard` と同じ節に配置）                  |
+| `src/hooks/useQuizLeaderboard.ts`                      | **New**    | 両ボードのTOP5・自分の順位取得を統合。ゲスト時は自分の順位クエリを発行しない           |
+| `src/components/quiz/quiz-dual-leaderboard.tsx`        | **Modify** | `quiz` prop・`getQuiz()` 呼び出しを廃止し `quizId` propのみに簡素化。`useQuizLeaderboard` を利用し、TOP5表とは別枠で自分の順位行（`MyRankRow`）を描画。`useAuth()` でゲスト判定 |
+| `tests/components/quiz-dual-leaderboard.test.tsx`      | **Modify** | `quiz` prop直接注入方式を廃止し、`useQuizLeaderboard` をモックしたレンダリングテストへ全面刷新（TOP5・自分の順位・記録なし・ゲストの各分岐） |
+| `tests/hooks/useQuizLeaderboard.test.ts`                | **New**    | Supabaseチェーンモック（`attempt-leaderboard.test.ts` と同型）でTOP5・自分の順位取得・ゲスト短絡を検証 |
+| `tests/services/attempt-leaderboard.test.ts`            | **Modify** | `getMyLeaderboardRank` のテストを追加（自分の記録あり/なし、同順位カウント、真に上位のカウント境界） |
+
+### 5. Requirements Traceability（Phase 38）
+
+| Req  | Summary                                          | Component                              |
+| ---- | ------------------------------------------------- | ---------------------------------------- |
+| 9.9  | 自分の記録がある場合、TOP5表とは別枠で常時表示    | `QuizDualLeaderboard`                    |
+| 9.10 | ボードごとに自分の順位を独立評価                  | `useQuizLeaderboard`                     |
+| 9.11 | 記録なしのボードは自分の順位欄を非表示            | `QuizDualLeaderboard`（`self === null`） |
+| 9.12 | ゲスト時はいずれのボードも非表示                  | `QuizDualLeaderboard`（`useAuth`）       |
+| 9.13 | 同順位（完全一致）には同一順位を付与              | `getMyLeaderboardRank`                   |
+| 9.14 | 自分の順位行の testid（初回・リプレイ区別）       | `QuizDualLeaderboard`                    |
+| 9.15 | 順位算出ロジックを自ら実装しない境界              | Out of boundary                          |
+| 9.5–9.6（是正） | 破損データソースの是正（TOP5表示自体の回復） | `QuizDualLeaderboard`, `getLeaderboard`  |
+
+### 6. Testing Strategy（Phase 38）
+
+| 種別          | 検証                                                                                                    |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Unit**      | `getMyLeaderboardRank` — 自分の記録がない場合に `null` を返すこと。同順位（完全一致）の相手がいる場合に同一 `rank` を返すこと。真に上位の行のみカウントし、自分自身の行を含めないこと。 |
+| **Unit**      | `useQuizLeaderboard` — `userId` が `null` のとき、自分の順位クエリ（`getMyLeaderboardRank`）を発行しないこと（ネットワーク呼び出し回数で検証）。 |
+| **Component** | `QuizDualLeaderboard` — 自分がTOP5圏内・圏外いずれの場合も `leaderboard-my-rank-{first,replay}` が表示され、TOP5表とは別に描画されること（重複表示を許容）。 |
+| **Component** | `QuizDualLeaderboard` — 自分の記録がないボードでは自分の順位欄が描画されないこと。ゲスト（`user === null`）ではいずれのボードも描画されないこと。 |
+| **Regression**| `QuizDualLeaderboard` が実際に `leaderboard_entries` 由来のデータ（`getLeaderboard`）を表示すること（Phase 5 以来の破損データ経路の回帰確認）。 |
+| **E2E**       | `e2e/leaderboard.spec.ts`（またはクイズ詳細E2E）— 認証済みユーザーがクイズをプレイ後、詳細画面で自分の順位が表示されることを実データで確認する。 |
+
+### Risks & Mitigations（Phase 38）
+- **リスク**: `.or()` によるフィルタ文字列合成はこのコードベース初出のパターンであり、PostgRESTの構文誤りが静かに0件ヒット（誤った順位）を返す可能性がある。
+  - **緩和**: ユニットテストに加え、ローカル Supabase 環境での実クエリ検証をタスクに含める（`research.md` Research Needed 参照）。
+- **リスク**: `QuizDualLeaderboard` の `quiz` prop 廃止は破壊的変更であり、他に未確認の呼び出し元があれば型エラーで検知されるが念のため確認する。
+  - **緩和**: 本設計時点のコードベース調査では `src/app/quiz/[id]/page.tsx` のみが `quizId` propで呼び出しており、他の呼び出し元は存在しない（`research.md` Phase 38 参照）。
+- **リスク**: `leaderboard_entries` の SELECT RLS ポリシーが自分の1行取得・カウントクエリにも適用されるか未検証。
+  - **緩和**: 既存 `getLeaderboard` がゲストでも匿名でTOP5を取得できている実績から同一ポリシーが適用されると推定されるが、実装タスクでローカル環境にて確認する。
+
+**Document Status（Phase 38 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。

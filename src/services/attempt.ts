@@ -10,6 +10,7 @@ import {
   PlayHistoryPage,
   PlayHistoryEntry,
   LeaderboardRecord,
+  LeaderboardSelfEntry,
   assertPlayModeAllowedForSave,
   satisfiesMyQuizAttemptContract,
 } from '../types';
@@ -213,6 +214,57 @@ export async function getLeaderboard(
     elapsedSeconds: row.elapsed_seconds,
     completedAt: new Date(row.completed_at),
   }));
+}
+
+/**
+ * クイズの指定ボードにおける、ログインユーザー自身のリーダーボード記録1件と順位を取得する。
+ * 自身の記録が存在しない場合は null を返す。
+ *
+ * 順位は既存の順位規則（正解数降順・同点時合計解答時間昇順）をそのまま適用し、
+ * 「自分より真に上位（正解数が多い、または同数で合計時間が短い）の記録件数 + 1」として算出する。
+ * 正解数・合計解答時間が完全に一致する記録同士には同一の順位を付与する（自分自身は「真に上位」の
+ * 集合に含まれないため、同順位の相手の有無に関わらず正しく計算される）。
+ *
+ * 実装は2クエリ構成: (1) 自分の1行を取得, (2) 自分より真に上位の行数をカウントクエリで取得。
+ * カウント条件は `.or()` フィルタに手順(1)で取得した数値のみを埋め込んで組み立てる
+ * （外部入力文字列をそのまま連結しない）。
+ */
+export async function getMyLeaderboardRank(
+  quizId: string,
+  board: 'first_play' | 'replay',
+  userId: string
+): Promise<LeaderboardSelfEntry | null> {
+  const { data: selfRow, error: selfError } = await supabase
+    .from('leaderboard_entries')
+    .select('*')
+    .eq('quiz_id', quizId)
+    .eq('type', board)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (selfError || !selfRow) return null;
+
+  const { count, error: countError } = await supabase
+    .from('leaderboard_entries')
+    .select('*', { count: 'exact', head: true })
+    .eq('quiz_id', quizId)
+    .eq('type', board)
+    .or(
+      `score.gt.${selfRow.score},and(score.eq.${selfRow.score},elapsed_seconds.lt.${selfRow.elapsed_seconds})`
+    );
+
+  if (countError) {
+    throw new Error(`自分の順位算出に失敗しました: ${countError.message}`);
+  }
+
+  return {
+    userId: selfRow.user_id,
+    displayName: selfRow.display_name,
+    score: selfRow.score,
+    elapsedSeconds: selfRow.elapsed_seconds,
+    completedAt: new Date(selfRow.completed_at),
+    rank: (count ?? 0) + 1,
+  };
 }
 
 /**

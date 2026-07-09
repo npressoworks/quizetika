@@ -18,6 +18,26 @@ const createChainMock = (resolveValue: any) => {
   return chain;
 };
 
+// getMyLeaderboardRank の1本目のクエリ（自分の1行取得: .select().eq()...maybeSingle()）用チェーンモック
+const createMaybeSingleChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    maybeSingle: jest.fn(() => Promise.resolve(resolveValue)),
+  };
+  return chain;
+};
+
+// getMyLeaderboardRank の2本目のクエリ（真に上位の件数カウント: .select(..., {count,head})...or()）用チェーンモック
+const createCountChainMock = (resolveValue: any) => {
+  const chain: any = {
+    select: jest.fn(() => chain),
+    eq: jest.fn(() => chain),
+    or: jest.fn(() => Promise.resolve(resolveValue)),
+  };
+  return chain;
+};
+
 jest.mock('../../src/lib/supabase/client', () => {
   const mock: any = {
     from: jest.fn(),
@@ -28,7 +48,7 @@ jest.mock('../../src/lib/supabase/client', () => {
   };
 });
 
-import { saveAttempt, getLeaderboard } from '../../src/services/attempt';
+import { saveAttempt, getLeaderboard, getMyLeaderboardRank } from '../../src/services/attempt';
 import { getQuiz } from '../../src/services/quiz';
 import { createClient } from '../../src/lib/supabase/client';
 
@@ -179,5 +199,98 @@ describe('getLeaderboard - leaderboard_entries からの上位N件取得', () =>
 
     const result = await getLeaderboard(quizId, 'first_play');
     expect(result).toEqual([]);
+  });
+});
+
+describe('getMyLeaderboardRank - 自分の記録取得と順位算出', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const selfRow = {
+    quiz_id: quizId,
+    user_id: userId,
+    display_name: 'Self User',
+    score: 4,
+    elapsed_seconds: 50,
+    type: 'first_play',
+    completed_at: new Date('2026-02-01').toISOString(),
+  };
+
+  const expectedRankFilter = `score.gt.${selfRow.score},and(score.eq.${selfRow.score},elapsed_seconds.lt.${selfRow.elapsed_seconds})`;
+
+  test('自分の記録が存在し、真に上位の記録が2件ある場合、rank: 3 が返ること', async () => {
+    mockSupabase.from
+      .mockImplementationOnce(() => createMaybeSingleChainMock({ data: selfRow, error: null }))
+      .mockImplementationOnce(() => createCountChainMock({ count: 2, error: null }));
+
+    const result = await getMyLeaderboardRank(quizId, 'first_play', userId);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        userId,
+        displayName: 'Self User',
+        score: 4,
+        elapsedSeconds: 50,
+        rank: 3,
+      })
+    );
+    expect(mockSupabase.from).toHaveBeenCalledTimes(2);
+  });
+
+  test('自分の記録が存在しない場合（maybeSingle が data: null を返す場合）、null が返ること', async () => {
+    mockSupabase.from.mockImplementationOnce(() =>
+      createMaybeSingleChainMock({ data: null, error: null })
+    );
+
+    const result = await getMyLeaderboardRank(quizId, 'first_play', userId);
+
+    expect(result).toBeNull();
+    // 自分の記録が存在しない場合はカウントクエリを発行せず1回のみ from が呼ばれること
+    expect(mockSupabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  test('自分と正解数・合計解答時間が完全一致する他ユーザーが存在する場合、そのユーザーはカウントに含まれず同一順位になること（.or() フィルタ条件を検証）', async () => {
+    const countChain = createCountChainMock({ count: 1, error: null });
+    mockSupabase.from
+      .mockImplementationOnce(() => createMaybeSingleChainMock({ data: selfRow, error: null }))
+      .mockImplementationOnce(() => countChain);
+
+    const result = await getMyLeaderboardRank(quizId, 'first_play', userId);
+
+    // 完全一致（score同値かつelapsed_seconds同値）の相手は score.gt も
+    // (score.eq AND elapsed_seconds.lt) も満たさないため、フィルタ条件自体が
+    // 同順位の相手をカウントから除外する（＝同一順位になる）ことを保証する。
+    expect(countChain.or).toHaveBeenCalledWith(expectedRankFilter);
+    expect(result?.rank).toBe(2);
+  });
+
+  test('自分自身の記録がカウント対象に含まれないこと（自分の score/elapsed_seconds に対する .or() フィルタが真に上位のみを対象とすることを検証）', async () => {
+    const countChain = createCountChainMock({ count: 0, error: null });
+    mockSupabase.from
+      .mockImplementationOnce(() => createMaybeSingleChainMock({ data: selfRow, error: null }))
+      .mockImplementationOnce(() => countChain);
+
+    const result = await getMyLeaderboardRank(quizId, 'first_play', userId);
+
+    // 自分自身の行は score.gt も (score.eq AND elapsed_seconds.lt) も
+    // 自分自身に対しては満たさないため、他に記録がなければ rank: 1 となり、
+    // 自分自身がカウントに含まれていないことが確認できる。
+    expect(countChain.or).toHaveBeenCalledWith(expectedRankFilter);
+    expect(countChain.eq).toHaveBeenCalledWith('quiz_id', quizId);
+    expect(countChain.eq).toHaveBeenCalledWith('type', 'first_play');
+    expect(result?.rank).toBe(1);
+  });
+
+  test('カウントクエリでエラーが発生した場合に例外がスローされること', async () => {
+    mockSupabase.from
+      .mockImplementationOnce(() => createMaybeSingleChainMock({ data: selfRow, error: null }))
+      .mockImplementationOnce(() =>
+        createCountChainMock({ count: null, error: { message: 'count failed' } })
+      );
+
+    await expect(getMyLeaderboardRank(quizId, 'first_play', userId)).rejects.toThrow(
+      '自分の順位算出に失敗しました: count failed'
+    );
   });
 });

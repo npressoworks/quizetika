@@ -1,6 +1,6 @@
 /**
  * クイズ公開バリデーション・タグ正規化ロジック
- * Firestore に依存しない純粋関数群（テスト容易性のため分離）
+ * Supabase に依存しない純粋関数群（テスト容易性のため分離）
  *
  * Boundary: QuizService (Task 2.2)
  * Requirements: 2.1, 2.2, 2.3
@@ -31,7 +31,7 @@ import {
 
 /**
  * NGワード一覧（小文字で定義。実際のプロダクションでは外部設定ファイルや
- * Firestore の moderation コレクションから動的ロードすることを推奨）
+ * Supabase の moderation テーブルから動的ロードすることを推奨）
  */
 export const NG_WORD_LIST: string[] = [
   'spam',
