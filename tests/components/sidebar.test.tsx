@@ -50,7 +50,7 @@ describe('Sidebar Component', () => {
     expect(screen.getAllByText('Proプラン')[0]).toBeInTheDocument();
     expect(screen.queryByText('通知')).not.toBeInTheDocument();
     expect(screen.queryByText('ブックマーク')).not.toBeInTheDocument();
-    expect(screen.queryByText('作問する')).not.toBeInTheDocument();
+    expect(screen.queryByText('クイズを作る')).not.toBeInTheDocument();
     expect(screen.queryByText('ダッシュボード')).not.toBeInTheDocument();
   });
 
@@ -64,7 +64,7 @@ describe('Sidebar Component', () => {
     expect(screen.getAllByText('通知')[0]).toBeInTheDocument();
     expect(screen.getAllByText('ブックマーク')[0]).toBeInTheDocument();
     expect(screen.getAllByText('マイページ')[0]).toBeInTheDocument();
-    expect(screen.getAllByText('作問する')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('クイズを作る')[0]).toBeInTheDocument();
     expect(screen.getAllByText('ダッシュボード')[0]).toBeInTheDocument();
 
     // ログインユーザーのアバター・表示名が表示されること

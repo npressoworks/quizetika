@@ -10,7 +10,7 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
       await dialog.accept();
     });
 
-    // 2. ヘッダーの「作問する」をクリック
+    // 2. ヘッダーの「クイズを作る」をクリック
     // (PCサイドバー用とモバイルヘッダー用の2つのリンクが同時にDOMへ存在するため、
     //  現在のビューポートで実際に表示されている要素に :visible で絞り込む)
     const createQuizBtn = page.locator('[data-analytics="nav-create-quiz"]:visible');
