@@ -694,7 +694,8 @@ export async function updateQuiz(
 
   if (effectiveStatus === 'published') {
     const merged: Quiz = { ...currentQuiz, ...updatePayload };
-    const errors = validateQuizForPublish(merged);
+    const ngWords = ['spam', 'scam', 'hentai', 'adult', 'porn', 'xxx'];
+    const errors = validateQuizForPublish(merged, ngWords);
     if (errors.length > 0) {
       throw new Error(
         `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`
@@ -922,7 +923,8 @@ export async function saveQuiz(
   }
 
   if (status === 'published') {
-    const errors = validateQuizForPublish(payload);
+    const ngWords = ['spam', 'scam', 'hentai', 'adult', 'porn', 'xxx'];
+    const errors = validateQuizForPublish(payload, ngWords);
     if (errors.length > 0) {
       throw new Error(
         `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`

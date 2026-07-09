@@ -1127,7 +1127,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     // 公開時のみバリデーションチェック
     if (status === 'published') {
       const tempQuiz = { id: quizId || '', ...quizData, createdAt: new Date(), updatedAt: new Date() } as Quiz;
-      const errors = validateQuizForPublish(tempQuiz);
+      const ngWords = ['spam', 'scam', 'hentai', 'adult', 'porn', 'xxx'];
+      const errors = validateQuizForPublish(tempQuiz, ngWords);
       if (errors.length > 0) {
         setValidationErrors(errors);
         setErrorText('公開バリデーションエラーが発生しました。内容を修正してください。');
