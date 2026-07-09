@@ -191,13 +191,14 @@
 
 ### 14. NGワードマスタ管理画面の実装（Phase 39）
 
-- [ ] 14.1 (P) NGワード管理APIルートの実装
+- [x] 14.1 (P) NGワード管理APIルートの実装
   - `/api/admin/ng-words` に GET（一覧取得）と POST（新規登録）を実装し、管理者権限を検証した上で `supabase-governance` の `ngWords.ts`（`listNgWords`／`createNgWord`）を呼び出す
   - `/api/admin/ng-words/[id]` に PATCH（表記編集・有効/無効切替）を実装し、`ngWords.ts` の `updateNgWord`／`setNgWordActive` を呼び出す
   - 重複エラーを `409`、空文字エラーを `400`、対象ID不在を `404`、非管理者を `403` として返却する
   - **完了状態**: 管理者トークンでの GET/POST/PATCH がそれぞれ期待どおりのレスポンスを返し、非管理者トークンでは `403` が返ること
   - _Requirements: 10.1, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8_
   - _Boundary: admin-ng-words API_
+  - **注記（設計上の境界重複）**: `src/app/api/admin/ng-words/route.ts` と `[id]/route.ts` は `supabase-governance` タスク5.3（commit `9981059`）で既に実装済みであり、本タスクの契約（要件10.1, 10.3-10.8、design.mdのAPI Contract）を byte-for-byte 満たしていることを確認した。両specのdesign.md File Structure Planが同一ファイルを重複して`[NEW]`と記載していたための設計上のギャップ。新規コード変更は行わず、既存実装（`tests/api/admin-ng-words.test.ts`／`admin-ng-words-id.test.ts`、21テスト）を証跡として本タスクを完了とする。
 
 - [ ] 14.2 (P) NGワード管理画面のUI実装
   - `src/app/admin/ng-words/page.tsx` と `admin-ng-words-client.tsx` を新規作成し、Tailwind CSS + shadcn/ui を使用して登録済みNGワード一覧テーブルと新規登録フォームを構築する
