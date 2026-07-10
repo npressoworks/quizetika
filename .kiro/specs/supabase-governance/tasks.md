@@ -196,7 +196,7 @@
 
 <!-- タスク6.1/6.2で発見。トリガー関数のコメントには「特権管理者やサーバーサイド操作（service_role）でない場合のみチェックを実行する」とあるが、実装は auth.role() = 'authenticated' のみをチェックしており is_admin() の例外を実装していない、コメントと実装が乖離したバグ。handle_reset_user_reputation は SECURITY DEFINER RPC 内で users を UPDATE するが、auth.role() はセッションのロールを返すため SECURITY DEFINER でも 'authenticated' のままであり、このトリガーに一律ブロックされる。 -->
 
-- [ ] 7.1 check_users_immutable_fields トリガーへの is_admin() 例外追加
+- [x] 7.1 check_users_immutable_fields トリガーへの is_admin() 例外追加
   - 新規マイグレーションファイルを作成し、`check_users_immutable_fields()` トリガー関数を `CREATE OR REPLACE FUNCTION` で再定義する（既存の適用済みマイグレーションファイル `20260702000000_init.sql` 自体は変更しない）
   - チェック条件を `auth.role() = 'authenticated' AND NOT is_admin()` に変更し、管理者（`is_admin()` が true）の場合は特権フィールド（`moderation_tier`／`reputation_score`／`subscription_tier`）の変更を許可する
   - 成果物確認: マイグレーションをローカル Supabase に適用し、管理者セッションでの `reputation_score`／`moderation_tier` 更新（`handle_reset_user_reputation` 経由）が成功し、非管理者セッションでの直接更新は引き続き `Immutable fields modified` で拒否されることを確認する（実際のログイン済み管理者セッションでの実リクエスト検証を含める）
