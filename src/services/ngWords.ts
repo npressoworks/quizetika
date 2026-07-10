@@ -9,10 +9,8 @@
  * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8
  */
 
-import { createClient } from '../lib/supabase/client';
+import { createClient } from '../lib/supabase/server';
 import { Database } from '../lib/supabase/database.types';
-
-const supabase = createClient();
 
 export interface NgWord {
   id: string;
@@ -48,6 +46,7 @@ function assertNonEmptyWord(word: string): void {
  * NGワードマスタの一覧を取得する（RLS の SELECT ポリシー経由）
  */
 export async function listNgWords(): Promise<NgWord[]> {
+  const supabase = await createClient();
   const { data, error } = await supabase.from('ng_words').select('*');
 
   if (error) {
@@ -65,6 +64,7 @@ export async function listNgWords(): Promise<NgWord[]> {
 export async function createNgWord(word: string): Promise<NgWord> {
   assertNonEmptyWord(word);
 
+  const supabase = await createClient();
   const { data, error } = await (supabase as any).rpc('handle_create_ng_word', {
     p_word: word,
   });
@@ -91,6 +91,7 @@ export async function createNgWord(word: string): Promise<NgWord> {
 export async function updateNgWord(id: string, word: string): Promise<NgWord> {
   assertNonEmptyWord(word);
 
+  const supabase = await createClient();
   const { data, error } = await (supabase as any).rpc('handle_update_ng_word', {
     p_id: id,
     p_word: word,
@@ -119,6 +120,7 @@ export async function updateNgWord(id: string, word: string): Promise<NgWord> {
  * @param isActive true: 有効化, false: 無効化
  */
 export async function setNgWordActive(id: string, isActive: boolean): Promise<NgWord> {
+  const supabase = await createClient();
   const { data, error } = await (supabase as any).rpc('handle_set_ng_word_active', {
     p_id: id,
     p_is_active: isActive,

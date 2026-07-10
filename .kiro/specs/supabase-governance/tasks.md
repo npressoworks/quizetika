@@ -153,7 +153,17 @@
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
   - _Depends: 5.3_
 
+- [x] 5.5 バグ修正: ngWords.ts のSupabaseクライアントをサーバー用に是正
+  - `ngWords.ts` が `../lib/supabase/client`（ブラウザ用、セッションなしの匿名クライアント）をモジュールトップレベルで生成しているため、サーバーサイドAPI Route（`/api/admin/ng-words`, `/api/admin/ng-words/[id]`）から呼び出すと `auth.uid()` が常に `NULL` になり、`handle_create_ng_word`／`handle_update_ng_word`／`handle_set_ng_word_active` 内の `is_admin()` 判定が常に失敗して `permission-denied` になる不具合を修正する
+  - `../lib/supabase/server` の Cookie 連携 `createClient()`（非同期関数）に差し替え、各関数内で `await createClient()` を呼ぶ形に変更する（モジュールトップレベルでのインスタンス化を廃止する）
+  - 成果物確認: 実際にログイン済み管理者セッションのCookieを持つリクエストで `/api/admin/ng-words` へのPOSTがRPC呼び出しレベルで成功し、`permission-denied` が発生しないことを確認する（Jestのモックテストだけでなく、ローカルSupabase + 開発サーバーを用いた実リクエストでの検証を含める）
+  - 単体テストを実行し、`tests/services/ngWords.test.ts` のモックをサーバークライアント（`../lib/supabase/server`）に合わせて更新した上で全てパスすることを確認する
+  - _Requirements: 9.1, 9.2, 9.4, 9.5, 9.6, 9.8_
+  - _Boundary: NgWordsService_
+  - _Depends: 5.2_
+
 ## Implementation Notes (Phase 39)
 
 - 管理者権限チェックは `is_admin()` RPC（DB層）に加え、`/api/admin/*` の慣例に倣い Route 層でも `authorizeAdmin()` による401/403判定を明示的に実装（`listNgWords` 自体はRLS SELECT公開のため権限ゲートを持たないため）。
 - エラー種別のHTTPステータス変換は既存の `admin/users/ban` 等と同様、サービス層が投げるエラーメッセージの部分文字列一致で判定するパターンを踏襲（`ngWords.ts` のエラーメッセージ文言と `route.ts` のマッピングが暗黙的に結合している点に注意）。
+- **【重大・要フォローアップ】タスク5.5で判明**: `ngWords.ts` はサービス層でSupabaseクライアントをモジュールトップレベルで生成する際、ブラウザ用の匿名クライアント（`../lib/supabase/client`）を使っていたため、サーバーサイドAPI Routeから呼び出すと `auth.uid()` が常に `NULL` になり `is_admin()` 判定が常に失敗する不具合があった（実際に管理者としてログインしていても操作が全て権限エラーになる）。この不具合は `quizeum-moderation-governance-ui` タスク14.5のPlaywright E2Eテストで実際に検出された。同じパターン（モジュールトップレベルでブラウザ用クライアントを生成し、`auth.uid()` に依存するRPCを呼ぶ）を `src/services/reputation.ts` の `banUser`／`unbanUser`／`resetUserReputation` も持っており、これらの唯一の呼び出し元がサーバーサイドAPI Route（`/api/admin/users/ban`／`unban`／`reset`）であるため、**管理者のBAN/UNBAN/レピュテーションリセット機能が本番で同様に機能していない可能性が高い**。別途バグ修正タスクとして起票し検証・修正すべき（`moderation.ts`／`tagMerge.ts` は呼び出し元が全てクライアントコンポーネントのため同種の実害はないことを確認済み）。

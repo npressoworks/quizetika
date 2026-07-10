@@ -1,16 +1,16 @@
 import { listNgWords, createNgWord, updateNgWord, setNgWordActive } from '../../src/services/ngWords';
 
-jest.mock('../../src/lib/supabase/client', () => {
-  const mock: any = {
-    from: jest.fn(() => mock),
-    select: jest.fn(() => mock),
-    rpc: jest.fn(),
-  };
-  return { createClient: () => mock };
-});
+const mockSupabase: any = {
+  from: jest.fn(() => mockSupabase),
+  select: jest.fn(() => mockSupabase),
+  rpc: jest.fn(),
+};
 
-import { createClient } from '../../src/lib/supabase/client';
-const supabase = createClient() as any;
+jest.mock('../../src/lib/supabase/server', () => ({
+  createClient: async () => mockSupabase,
+}));
+
+const supabase = mockSupabase;
 
 const sampleRow = {
   id: 'ng-1',
