@@ -1,7 +1,5 @@
-import { createClient } from '../lib/supabase/client';
+import { createClient } from '../lib/supabase/server';
 import { ReputationEventLog } from '../types';
-
-const supabase = createClient();
 
 /**
  * 権限ティアーの定数定義
@@ -38,6 +36,7 @@ export function resolveModerationTier(reputationScore: number): ModerationTier {
 export async function getReputationScore(
   uid: string
 ): Promise<{ reputationScore: number; moderationTier: ModerationTier; reputationHistory: ReputationEventLog[] }> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('users')
     .select('reputation_score, moderation_tier, reputation_history')
@@ -80,6 +79,7 @@ export async function getReputationLimit(
   authorId: string,
   senderId: string
 ): Promise<ReputationLimit> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from('reputation_limits')
     .select('total_delta')
@@ -110,6 +110,7 @@ export async function resetUserReputation(
     throw new Error('リセット理由は10文字以上で入力してください。');
   }
 
+  const supabase = await createClient();
   const { error } = await (supabase as any).rpc('handle_reset_user_reputation', {
     p_target_uid: targetUid,
     p_reason: reason,
@@ -142,6 +143,7 @@ export async function banUser(
     throw new Error('BAN理由は10文字以上で入力してください。');
   }
 
+  const supabase = await createClient();
   const { error } = await (supabase as any).rpc('handle_ban_user', {
     p_target_uid: targetUid,
     p_reason: reason,
@@ -168,6 +170,7 @@ export async function unbanUser(
   targetUid: string,
   executorId: string
 ): Promise<void> {
+  const supabase = await createClient();
   const { error } = await (supabase as any).rpc('handle_unban_user', {
     p_target_uid: targetUid,
   });

@@ -172,7 +172,7 @@
 
 <!-- タスク5.5でngWords.tsに発見・修正した不具合と同一パターン。reputation.ts はタスク2.3（既存・完了済み）で実装されたが、当時のレビューではモックテストとビルド成功のみで検証しており、実際のサーバーコンテキストでのauth.uid()解決を見落としていた。Phase 39のNGワード機能実装中にPlaywright E2Eテストの手法が確立されたことで、既存機能の潜在バグとして本タスクを追加する。 -->
 
-- [ ] 6.1 reputation.ts のSupabaseクライアントをサーバー用に是正
+- [x] 6.1 reputation.ts のSupabaseクライアントをサーバー用に是正
   - `reputation.ts` が `../lib/supabase/client`（ブラウザ用、セッションなしの匿名クライアント）をモジュールトップレベルで生成しているため、サーバーサイドAPI Route（`/api/admin/users/ban`, `/api/admin/users/unban`, `/api/admin/users/reset`）から呼び出すと `auth.uid()` が常に `NULL` になり、`handle_ban_user`／`handle_unban_user`／`handle_reset_user_reputation` 内の `is_admin()` 判定が常に失敗して `permission-denied` になる不具合を修正する
   - `../lib/supabase/server` の Cookie 連携 `createClient()`（非同期関数）に差し替え、`banUser`／`unbanUser`／`resetUserReputation`／`getReputationScore`／`checkModeratorEligibility`／`getReputationLimit` の各関数内で `await createClient()` を呼ぶ形に変更する（モジュールトップレベルでのインスタンス化を廃止する）
   - 成果物確認: 実際にログイン済み管理者セッションのCookieを持つリクエストで `/api/admin/users/ban`（および unban／reset）へのPOSTがRPC呼び出しレベルで成功し、`permission-denied` が発生しないことを確認する（ローカルSupabase + 開発サーバーを用いた実リクエスト、または既存のE2Eテストがあれば実行しての検証を含める）

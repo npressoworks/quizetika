@@ -17,16 +17,16 @@ const createChainMock = (resolveValue: any) => {
   return chain;
 };
 
-jest.mock('../../src/lib/supabase/client', () => {
-  const mock: any = {
-    from: jest.fn(() => mock),
-    rpc: jest.fn(),
-  };
-  return { createClient: () => mock };
-});
+const mockSupabase: any = {
+  from: jest.fn(() => mockSupabase),
+  rpc: jest.fn(),
+};
 
-import { createClient } from '../../src/lib/supabase/client';
-const supabase = createClient() as any;
+jest.mock('../../src/lib/supabase/server', () => ({
+  createClient: async () => mockSupabase,
+}));
+
+const supabase = mockSupabase;
 
 describe('ReputationService - resolveModerationTier', () => {
   test('0 〜 49 点は newcomer', () => {
