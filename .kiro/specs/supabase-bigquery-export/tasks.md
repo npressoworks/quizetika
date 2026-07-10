@@ -6,7 +6,7 @@
   - 完了条件: `supabase db reset`後にanalytics_outboxテーブルと両拡張が存在し、anonクライアントからoutboxが不可視
   - _Requirements: 5.1, 5.2_
 
-- [ ] 1.2 キャプチャトリガー基盤とattempts/quizzes/questionsへの適用
+- [x] 1.2 キャプチャトリガー基盤とattempts/quizzes/questionsへの適用
   - 許可カラム列挙方式のキャプチャトリガー関数(SECURITY DEFINER): attempts(全カラム)、quizzes/questions(author_name/author_avatar除外)
   - DELETE時はOLD行のサニタイズ済みスナップショットをevent_type='DELETE'で記録
   - 完了条件: 3テーブルへのINSERT/UPDATE/DELETEでoutbox行が生成され、payloadに除外カラムが含まれない
@@ -100,3 +100,4 @@
 ## Implementation Notes
 
 - タスク1.1: design.mdのFile Structure Planは1.1〜1.4を単一マイグレーションファイルとする想定だったが、タスク単位でのレビュー・ロールバックを容易にするため、タスクごとに個別のマイグレーションファイルへ分割した(`20260713000000_bigquery_export_outbox.sql`)。以降の1.2〜1.4も同様に個別ファイルとし、タイムスタンプは直前のマイグレーションより後にする。既存最新マイグレーションは`20260712000000_fix_immutable_fields_admin_exception.sql`だった(タスク生成時点の想定`20260710000000_ng_words.sql`より新しい)。
+- タスク1.2: `attempts`/`quizzes`/`questions`のライブスキーマはdesign.md記載の静的スナップショットから既にドリフトしていた(`questions.quiz_id`→`owner_quiz_id`へのリネーム、`quizzes`の`question_ids`/`questions`等5カラムDROP、`quizzes.likes_count`/`difficulty_votes_sum`/`difficulty_votes_count`追加、`attempts.gave_up_lateral`追加。いずれも`20260703000000_core_data_normalization.sql`/`20260703000100_core_data_cleanup.sql`/`20260703000200_gameplay_normalization.sql`由来)。以降のタスク(1.3、4.2統合テスト)は設計書の静的リストではなく`\d <table>`によるライブスキーマ確認を優先すること。
