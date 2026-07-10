@@ -223,10 +223,15 @@
   - _Boundary: AdminNgWords_
   - _Depends: 14.2_
 
-- [ ] 14.5 Phase 39 検証テスト
+- [x] 14.5 Phase 39 検証テスト
   - `/api/admin/ng-words`／`/api/admin/ng-words/[id]` に対する Jest テストを追加し、重複語句の `409`、空文字の `400`、非管理者の `403` を検証する
   - Playwright E2E テストを追加し、管理者としてNGワードの登録・編集・有効/無効切替を行うと一覧へ即座に反映されること、管理者ポータルから `/admin/ng-words` へ遷移できることを検証する
   - **完了状態**: Phase 39 に関連するすべての Jest テストおよび E2E テストがグリーンでパスすること
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 10.10_
   - _Boundary: Testing_
   - _Depends: 14.1, 14.3, 14.4_
+
+## Implementation Notes (Phase 39)
+
+- タスク14.1: `/api/admin/ng-words` と `/api/admin/ng-words/[id]` は `supabase-governance` タスク5.3で既に実装済みだったため、新規コード変更は行わず契約適合のみ確認した（詳細はタスク14.1の注記を参照）。
+- タスク14.5で追加したPlaywright E2Eテスト（`e2e/admin-ng-words.spec.ts`）が、実際のログイン済み管理者セッションでNGワード登録が常に権限エラーになる重大な本番バグ（`src/services/ngWords.ts` がサーバーサイドから呼ばれる際にセッションなしの匿名クライアントを使っていたため `auth.uid()` が常にNULLになる）を検出した。モックベースのJestテストでは検出できなかった。修正は `supabase-governance` タスク5.5（commit `eb1f108`）で対応済み。**教訓**: モックに依存するテストだけでなく、実際のローカルSupabase + 開発サーバーを用いたE2E/手動検証を行うことで、モックが隠してしまうサーバー/クライアントコンテキストの取り違えバグを検出できる。
