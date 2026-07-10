@@ -180,9 +180,14 @@
   - _Requirements: 1.1, 1.2, 3.1, 3.2_
   - _Boundary: ReputationService_
 
-- [ ] 6.2 リグレッション確認
+- [x] 6.2 リグレッション確認
   - `npm run build` を実行し、型エラーが発生しないことを確認する
   - Jest テストスイート全体を実行し、既存テストを含めて全てパスすることを確認する
   - `admin/users` 画面（BAN/UNBAN/レピュテーションリセットUI）が存在すれば、実際の管理者操作フローを手動またはE2Eで確認する
   - _Requirements: 1.1, 1.2, 1.3, 3.1, 3.2_
   - _Depends: 6.1_
+
+## Implementation Notes (Task 6)
+
+- タスク6.1/6.2で、`reputation.ts` のSupabaseクライアントをサーバー用（Cookie連携）に修正した結果、BAN/UNBANはエンドツーエンドで正常動作することを実リクエストで確認した。
+- **【未解決・別issue】** `resetUserReputation`（レピュテーションリセット）は本修正後も `check_users_immutable_fields` トリガー（`supabase/migrations/20260702000000_init.sql`）により `Immutable fields modified`（`P0001`）で失敗し続ける。このトリガーは `auth.role() = 'authenticated'` のみをチェックし `is_admin()` の例外を持たないため、管理者による正当な `reputation_score`／`moderation_tier`／`subscription_tier` の更新も一律ブロックしてしまう。要件3.2（レピュテーションリセット）はこのタスクの範囲では完全には満たされていない。別途 `check_users_immutable_fields` トリガーに `is_admin()` 例外を追加するバグ修正タスクが必要（このトリガーを所有する境界の再検討が必要な可能性がある）。
