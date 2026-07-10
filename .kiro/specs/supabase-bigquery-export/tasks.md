@@ -17,7 +17,7 @@
   - 完了条件: 4テーブルの書き込みでoutbox行が生成され、usersのUPDATEではoutboxに行が増えない
   - _Requirements: 1.2, 1.3, 2.4, 4.1, 4.4_
 
-- [ ] 1.4 配送トリガーとpg_cronジョブ(再送・パージ)の実装
+- [x] 1.4 配送トリガーとpg_cronジョブ(再送・パージ)の実装
   - outbox INSERTトリガーがVaultのシークレットを使いpg_net http_request(タイムアウト5000ms)でFunction URLへ起床通知
   - 再送ジョブ(毎分: pendingが2分以上滞留時に通知)、パージジョブ(毎日: sent 30日超を削除、failedは保持)
   - 完了条件: outbox行INSERTでnet._http_responseにリクエスト記録が残り、cron.jobに2ジョブが登録される
@@ -101,4 +101,5 @@
 
 - タスク1.1: design.mdのFile Structure Planは1.1〜1.4を単一マイグレーションファイルとする想定だったが、タスク単位でのレビュー・ロールバックを容易にするため、タスクごとに個別のマイグレーションファイルへ分割した(`20260713000000_bigquery_export_outbox.sql`)。以降の1.2〜1.4も同様に個別ファイルとし、タイムスタンプは直前のマイグレーションより後にする。既存最新マイグレーションは`20260712000000_fix_immutable_fields_admin_exception.sql`だった(タスク生成時点の想定`20260710000000_ng_words.sql`より新しい)。
 - タスク1.2: `attempts`/`quizzes`/`questions`のライブスキーマはdesign.md記載の静的スナップショットから既にドリフトしていた(`questions.quiz_id`→`owner_quiz_id`へのリネーム、`quizzes`の`question_ids`/`questions`等5カラムDROP、`quizzes.likes_count`/`difficulty_votes_sum`/`difficulty_votes_count`追加、`attempts.gave_up_lateral`追加。いずれも`20260703000000_core_data_normalization.sql`/`20260703000100_core_data_cleanup.sql`/`20260703000200_gameplay_normalization.sql`由来)。以降のタスク(1.3、4.2統合テスト)は設計書の静的リストではなく`\d <table>`によるライブスキーマ確認を優先すること。
+- タスク1.4: 標準の`supabase_functions.http_request()`トリガーヘルパーはヘッダーが`CREATE TRIGGER`時点の静的値に固定されVaultからの動的取得ができないため、`net.http_post`を直接呼ぶ専用トリガー関数を自前実装した。Webhookシークレットと配送先Function URLは両方Vault(`vault.secrets`)に保持し、Edge Functionデプロイ後に`vault.update_secret`で実値へ更新する運用(task 5.1のREADMEで手順化)。レビューで`notify_analytics_export()`に`net.http_post`呼び出しを囲む例外処理がない点を非ブロッキングの改善提案として指摘された(pg_netは非同期エンキューのため実害は確認されていないが、将来のハードニング候補として記録)。
 - タスク1.3: `quiz_reviews`もdesign.mdの静的スナップショット(`id`/`rating`/`comment`)から大幅にドリフトしており、`20260703000200_gameplay_normalization.sql`で複合PK`(reviewer_id, quiz_id)`・`type`('positive'/'negative')・`reason`(自由記述)構成に変更済み。`reason`は要件2.4の「レビューコメント」に相当するため同期対象に含めた(PIIリスクは要件4.5としてREADME側で対応)。`quiz_tags.original_label`は初期作成時からの列で追加のドリフトではない。
