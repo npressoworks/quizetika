@@ -167,3 +167,22 @@
 - 管理者権限チェックは `is_admin()` RPC（DB層）に加え、`/api/admin/*` の慣例に倣い Route 層でも `authorizeAdmin()` による401/403判定を明示的に実装（`listNgWords` 自体はRLS SELECT公開のため権限ゲートを持たないため）。
 - エラー種別のHTTPステータス変換は既存の `admin/users/ban` 等と同様、サービス層が投げるエラーメッセージの部分文字列一致で判定するパターンを踏襲（`ngWords.ts` のエラーメッセージ文言と `route.ts` のマッピングが暗黙的に結合している点に注意）。
 - **【重大・要フォローアップ】タスク5.5で判明**: `ngWords.ts` はサービス層でSupabaseクライアントをモジュールトップレベルで生成する際、ブラウザ用の匿名クライアント（`../lib/supabase/client`）を使っていたため、サーバーサイドAPI Routeから呼び出すと `auth.uid()` が常に `NULL` になり `is_admin()` 判定が常に失敗する不具合があった（実際に管理者としてログインしていても操作が全て権限エラーになる）。この不具合は `quizeum-moderation-governance-ui` タスク14.5のPlaywright E2Eテストで実際に検出された。同じパターン（モジュールトップレベルでブラウザ用クライアントを生成し、`auth.uid()` に依存するRPCを呼ぶ）を `src/services/reputation.ts` の `banUser`／`unbanUser`／`resetUserReputation` も持っており、これらの唯一の呼び出し元がサーバーサイドAPI Route（`/api/admin/users/ban`／`unban`／`reset`）であるため、**管理者のBAN/UNBAN/レピュテーションリセット機能が本番で同様に機能していない可能性が高い**。別途バグ修正タスクとして起票し検証・修正すべき（`moderation.ts`／`tagMerge.ts` は呼び出し元が全てクライアントコンポーネントのため同種の実害はないことを確認済み）。
+
+## 6. バグ修正: reputation.ts のSupabaseクライアントをサーバー用に是正（既存機能の潜在バグ）
+
+<!-- タスク5.5でngWords.tsに発見・修正した不具合と同一パターン。reputation.ts はタスク2.3（既存・完了済み）で実装されたが、当時のレビューではモックテストとビルド成功のみで検証しており、実際のサーバーコンテキストでのauth.uid()解決を見落としていた。Phase 39のNGワード機能実装中にPlaywright E2Eテストの手法が確立されたことで、既存機能の潜在バグとして本タスクを追加する。 -->
+
+- [ ] 6.1 reputation.ts のSupabaseクライアントをサーバー用に是正
+  - `reputation.ts` が `../lib/supabase/client`（ブラウザ用、セッションなしの匿名クライアント）をモジュールトップレベルで生成しているため、サーバーサイドAPI Route（`/api/admin/users/ban`, `/api/admin/users/unban`, `/api/admin/users/reset`）から呼び出すと `auth.uid()` が常に `NULL` になり、`handle_ban_user`／`handle_unban_user`／`handle_reset_user_reputation` 内の `is_admin()` 判定が常に失敗して `permission-denied` になる不具合を修正する
+  - `../lib/supabase/server` の Cookie 連携 `createClient()`（非同期関数）に差し替え、`banUser`／`unbanUser`／`resetUserReputation`／`getReputationScore`／`checkModeratorEligibility`／`getReputationLimit` の各関数内で `await createClient()` を呼ぶ形に変更する（モジュールトップレベルでのインスタンス化を廃止する）
+  - 成果物確認: 実際にログイン済み管理者セッションのCookieを持つリクエストで `/api/admin/users/ban`（および unban／reset）へのPOSTがRPC呼び出しレベルで成功し、`permission-denied` が発生しないことを確認する（ローカルSupabase + 開発サーバーを用いた実リクエスト、または既存のE2Eテストがあれば実行しての検証を含める）
+  - 単体テストを実行し、既存テストのモックをサーバークライアント（`../lib/supabase/server`）に合わせて更新した上で全てパスすることを確認する
+  - _Requirements: 1.1, 1.2, 3.1, 3.2_
+  - _Boundary: ReputationService_
+
+- [ ] 6.2 リグレッション確認
+  - `npm run build` を実行し、型エラーが発生しないことを確認する
+  - Jest テストスイート全体を実行し、既存テストを含めて全てパスすることを確認する
+  - `admin/users` 画面（BAN/UNBAN/レピュテーションリセットUI）が存在すれば、実際の管理者操作フローを手動またはE2Eで確認する
+  - _Requirements: 1.1, 1.2, 1.3, 3.1, 3.2_
+  - _Depends: 6.1_
