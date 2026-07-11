@@ -44,7 +44,7 @@
   - _Boundary: AdminGenresClient, AdminModerationPage_
 
 - [ ] 4. Integration: ジャンル削除フローの画面統合
-- [ ] 4.1 ジャンル一覧に削除操作を統合する
+- [x] 4.1 ジャンル一覧に削除操作を統合する
   - 各行に削除操作を開始する要素を追加し、開始時に影響クイズ件数取得APIを呼び出してから削除ダイアログを開く
   - ダイアログの確定コールバックで削除APIを呼び出し、成功時は一覧を再取得して成功メッセージを表示し、失敗時はエラーメッセージを表示して対象ジャンルを一覧に残す
   - Observable: 削除操作の開始からダイアログ確定までの一連の操作で、影響クイズ件数の表示、削除実行後の一覧更新、失敗時のエラー表示がそれぞれ画面上で確認できる
@@ -81,3 +81,4 @@
 - Task 1.1: `delete_genre_with_reassignment` のマイグレーションファイル名は design.md 記載の `20260715000000_...` ではなく、実際の最新マイグレーション `20260717000000_bigquery_export_outbox_claim_rpc.sql` より後になるよう `supabase/migrations/20260718000000_genre_deletion_reassignment.sql` を採用した。以降のタスクでこの関数を参照する際はこのファイル名・RPC名 `delete_genre_with_reassignment(p_genre_id, p_reassign_to_id)` を使うこと。
 - Task 2.2: タスク1.1で追加したRPCがSupabase生成型（`src/lib/supabase/database.types.ts`）に未反映だったため、`Functions`型定義に `delete_genre_with_reassignment` のエントリを手動追記した（機械的な型整合パッチ、他エントリは変更なし）。今後DB関数を追加するタスクでも同様の追記が必要になる可能性がある。
 - Task 3.2: 一括投入UIをmoderationページから削除した結果、`tests/app/admin/moderation-seed.test.tsx` の一括投入関連2テストが意図通り失敗する状態になっている（対象UIがmoderationページから消えたため）。これはタスク5.2で当該テストをジャンル管理画面向けに移設・修正することで解消する想定。タスク5.2実施時はこの2件の失敗が前提であることに注意。
+- Task 4.1: design.mdの記述に軽微な内部矛盾あり（Implementation Notesの文章は失敗時に「ダイアログを閉じる」とあるが、State Managementの状態遷移表とDeleteGenreDialogのコントラクト(`errorMessage`props)は失敗時にダイアログを開いたままエラー表示する設計になっている）。より構造化された記述（状態遷移表・コンポーネントContract）を優先し、失敗時はダイアログを閉じずに `deleteErrorMessage` をダイアログ内表示する実装とした。要件3.5「エラーメッセージを表示し、削除対象ジャンルを一覧に残す」は満たしている。
