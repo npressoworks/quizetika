@@ -91,7 +91,7 @@
   - 完了条件: READMEに監視クエリ・PII留意事項・退役経緯のセクションが存在する
   - _Requirements: 4.5, 5.2, 6.1, 6.2_
 
-- [ ] 5.2 旧資産の削除とアーカイブ注記
+- [x] 5.2 旧資産の削除とアーカイブ注記
   - extensions/firestore-bigquery-export.envとscripts/bq-import-guide.mdを削除、旧spec quizeum-analytics-bigqueryのspec.jsonにアーカイブ注記を追加
   - 完了条件: 両ファイルがリポジトリに存在せず、旧spec.jsonにアーカイブ注記が含まれる
   - _Depends: 5.1_

@@ -18,5 +18,9 @@
       "approved": true
     }
   },
-  "ready_for_implementation": true
+  "ready_for_implementation": true,
+  "archived": true,
+  "archived_at": "2026-07-11T17:36:04+09:00",
+  "archived_reason": "Firebase→Supabase移行によりFirestoreベースのBigQuery連携(firestore-bigquery-export Extension)が機能停止したため、supabase-bigquery-export specに置き換えられた。クライアント側のQuestionAnswerDetailトラッキング実装の設計記録として本specは保持される。",
+  "superseded_by": "supabase-bigquery-export"
 }
