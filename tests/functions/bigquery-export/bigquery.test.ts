@@ -63,6 +63,26 @@ describe("bigquery insertEvents", () => {
     expect(body.rows[1].json.event_id).toBe("event-2");
   });
 
+  it("serializes payload as a JSON-encoded string, not a nested object (BigQuery tabledata.insertAll requires JSON-typed columns to be passed as strings; a nested object causes a real BigQuery 'payload is not a record' insertError, confirmed via E2E verification against real BigQuery)", async () => {
+    const events = [
+      buildEvent({ event_id: "event-1", payload: { foo: "bar", n: 1 } }),
+    ];
+
+    const mockFetch = jest.fn(async () => {
+      return new Response(
+        JSON.stringify({ kind: "bigquery#tableDataInsertAllResponse" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }) as unknown as typeof fetch;
+
+    await insertEvents("fake-token", CONFIG, events, mockFetch);
+
+    const [, init] = mockFetch.mock.calls[0];
+    const body = JSON.parse(String((init as RequestInit).body));
+    expect(typeof body.rows[0].json.payload).toBe("string");
+    expect(JSON.parse(body.rows[0].json.payload)).toEqual({ foo: "bar", n: 1 });
+  });
+
   it("returns ok:true with all event_ids in sentEventIds when the response has no insertErrors", async () => {
     const events = [
       buildEvent({ event_id: "event-a" }),

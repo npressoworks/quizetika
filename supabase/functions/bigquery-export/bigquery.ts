@@ -18,7 +18,12 @@ interface InsertAllRow {
     table_name: string;
     event_type: OutboxEvent["event_type"];
     occurred_at: string;
-    payload: Record<string, unknown>;
+    // BigQuery tabledata.insertAll (streaming insert) は JSON型カラムの値を
+    // ネストしたオブジェクトとしてではなく、JSON文字列として受け取る必要がある。
+    // ネストしたオブジェクトを渡すと `"payload is not a record"` エラーになる
+    // (実BigQueryへのE2E検証で判明。tabledata.insertAll特有の制約で、
+    // クエリ実行時のJSON型パラメータとは異なる)。
+    payload: string;
   };
 }
 
@@ -56,9 +61,10 @@ function buildRequestBody(events: OutboxEvent[]): InsertAllRequestBody {
         // OutboxEvent.occurred_at は Postgres 由来の ISO 8601 文字列であることが前提。
         // BigQuery の TIMESTAMP 型はISO 8601文字列をそのままパースできるため変換しない。
         occurred_at: event.occurred_at,
-        // payload は BigQuery 側で JSON 型のカラムのため、ネストしたオブジェクトのまま渡す
-        // (文字列化しない)。
-        payload: event.payload,
+        // payload は BigQuery 側で JSON 型のカラムだが、streaming insert
+        // (tabledata.insertAll) はJSON型の値をJSON文字列として要求するため、
+        // ここで明示的に文字列化する(上記InsertAllRow.json.payloadの型注記を参照)。
+        payload: JSON.stringify(event.payload),
       },
     })),
   };
