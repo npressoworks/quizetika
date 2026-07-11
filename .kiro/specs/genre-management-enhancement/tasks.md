@@ -61,7 +61,7 @@
   - _Depends: 2.1, 2.2_
   - _Boundary: GenreUsageApi, GenreDeleteApi_
 
-- [ ] 5.2 (P) 一括投入UI移動に伴う既存テストを移設・更新する
+- [x] 5.2 (P) 一括投入UI移動に伴う既存テストを移設・更新する
   - `tests/app/admin/moderation-seed.test.tsx` のシナリオをジャンル管理画面向けのテストへ移設する
   - `e2e/admin-genres.spec.ts` を一括投入UIの新配置に合わせて更新する
   - Observable: 移設後のテストスイートがグリーンになり、モデレーション画面側に一括投入関連のテストが残っていないことを確認できる
@@ -82,3 +82,4 @@
 - Task 2.2: タスク1.1で追加したRPCがSupabase生成型（`src/lib/supabase/database.types.ts`）に未反映だったため、`Functions`型定義に `delete_genre_with_reassignment` のエントリを手動追記した（機械的な型整合パッチ、他エントリは変更なし）。今後DB関数を追加するタスクでも同様の追記が必要になる可能性がある。
 - Task 3.2: 一括投入UIをmoderationページから削除した結果、`tests/app/admin/moderation-seed.test.tsx` の一括投入関連2テストが意図通り失敗する状態になっている（対象UIがmoderationページから消えたため）。これはタスク5.2で当該テストをジャンル管理画面向けに移設・修正することで解消する想定。タスク5.2実施時はこの2件の失敗が前提であることに注意。
 - Task 4.1: design.mdの記述に軽微な内部矛盾あり（Implementation Notesの文章は失敗時に「ダイアログを閉じる」とあるが、State Managementの状態遷移表とDeleteGenreDialogのコントラクト(`errorMessage`props)は失敗時にダイアログを開いたままエラー表示する設計になっている）。より構造化された記述（状態遷移表・コンポーネントContract）を優先し、失敗時はダイアログを閉じずに `deleteErrorMessage` をダイアログ内表示する実装とした。要件3.5「エラーメッセージを表示し、削除対象ジャンルを一覧に残す」は満たしている。
+- Task 5.2: `tests/app/admin/moderation-seed.test.tsx` は一括投入UI検証専用のテストファイルで、通報審査キュー等の他のモデレーション機能テストを含んでいなかったため、ファイル自体を削除した（1回目のレビューで「対象UI不在下でのトートロジー」と指摘され是正）。moderationページの通報審査キュー機能自体は元々このファイルでカバーされておらず、`tests/services/moderation.test.ts` 等の別ファイルで検証されているため、削除によるカバレッジ損失はない。

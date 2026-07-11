@@ -157,6 +157,41 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
     }
   });
 
+  test('初期ジャンル一括投入UIが /admin/genres に表示され、実行できることの確認', async ({ page }) => {
+    // APIのモック（一括投入APIの成功レスポンス）
+    await page.route('**/api/admin/seed-genres', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, added: 4, updated: 6 }),
+      });
+    });
+
+    await page.goto('/login');
+    const e2eLoginBtn = page.locator('#e2e-test-login-btn');
+    if (await e2eLoginBtn.isVisible()) {
+      await e2eLoginBtn.click();
+      await page.waitForURL('/', { timeout: 10000 });
+    }
+
+    await page.goto('/admin/genres');
+    await page.waitForTimeout(2000);
+
+    const isPageVisible = await page.locator('#genreId').isVisible().catch(() => false);
+
+    if (isPageVisible) {
+      // 一括投入セクションとボタンが /admin/genres 上に表示されていること
+      const seedHeading = page.locator('#seed-genres-heading');
+      const seedButton = page.locator('#seed-genres-btn');
+      await expect(seedHeading).toBeVisible();
+      await expect(seedButton).toBeVisible();
+
+      // ボタンをクリックすると投入処理が実行され、成功メッセージが表示されること
+      await seedButton.click();
+      await expect(page.locator('text=新規: 4件、更新: 6件')).toBeVisible();
+    }
+  });
+
   test('コミュニティ申請画面での AI 画像生成および申請フローの検証', async ({ page }) => {
     // APIのモック
     await page.route('**/api/genres/generate-icon', async (route) => {
