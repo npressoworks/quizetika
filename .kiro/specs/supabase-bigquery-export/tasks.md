@@ -57,7 +57,7 @@
   - _Boundary: ExportFunction(bigquery)_
   - _Depends: 3.1_
 
-- [ ] 3.4 (P) outboxアクセスモジュールの実装
+- [x] 3.4 (P) outboxアクセスモジュールの実装
   - service roleクライアントでpending行のFOR UPDATE SKIP LOCKEDバッチ取得(RPC経由)、sent消込/retry_count加算/failed遷移
   - 完了条件: 取得→消込の一連の操作でoutbox行のstatusが期待通り遷移する
   - _Requirements: 5.1, 5.2_
@@ -101,6 +101,7 @@
 
 - タスク1.1: design.mdのFile Structure Planは1.1〜1.4を単一マイグレーションファイルとする想定だったが、タスク単位でのレビュー・ロールバックを容易にするため、タスクごとに個別のマイグレーションファイルへ分割した(`20260713000000_bigquery_export_outbox.sql`)。以降の1.2〜1.4も同様に個別ファイルとし、タイムスタンプは直前のマイグレーションより後にする。既存最新マイグレーションは`20260712000000_fix_immutable_fields_admin_exception.sql`だった(タスク生成時点の想定`20260710000000_ng_words.sql`より新しい)。
 - タスク1.2: `attempts`/`quizzes`/`questions`のライブスキーマはdesign.md記載の静的スナップショットから既にドリフトしていた(`questions.quiz_id`→`owner_quiz_id`へのリネーム、`quizzes`の`question_ids`/`questions`等5カラムDROP、`quizzes.likes_count`/`difficulty_votes_sum`/`difficulty_votes_count`追加、`attempts.gave_up_lateral`追加。いずれも`20260703000000_core_data_normalization.sql`/`20260703000100_core_data_cleanup.sql`/`20260703000200_gameplay_normalization.sql`由来)。以降のタスク(1.3、4.2統合テスト)は設計書の静的リストではなく`\d <table>`によるライブスキーマ確認を優先すること。
+- タスク3.4: outbox.tsは`@supabase/supabase-js`を使わず、google-auth.ts/bigquery.tsと同じ`fetchFn`注入パターンでPostgREST(`/rest/v1/rpc/...`、`/rest/v1/analytics_outbox`)に直接アクセスする(design.mdのExportFunction Dependencies「npm依存ゼロ」はコンポーネント全体の方針と解釈)。pending行取得は新規RPC`claim_pending_analytics_events`(FOR UPDATE SKIP LOCKED)経由。ただしPostgRESTの1回のRPC呼び出しは単一トランザクションでHTTPレスポンス返却時にロックが解放されるため、「claim後BigQuery送信中に別呼び出しが同じ行を再claimしない」ことまでは保証しない(既存のstatus CHECK制約にclaim中の中間状態がなく、追加はtask 1.1の境界外のため)。この残存リスクはBigQuery側のinsertId重複排除+v_dedup_eventsビューに委ねる設計判断とした。retry_count上限(10)超過時のfailed遷移判断はoutbox.tsの責務外とし、task 3.5(index.ts)が`incrementRetryCount`の結果を見て`markFailed`を呼ぶかどうかを決定すること。
 - タスク3.3: `bigquery.ts`の`insertEvents`は部分失敗時(`ok: false`)に`retryableEventIds`(失敗行のみ)しか返さず、成功行のevent_idは`ExportResult`型に明示フィールドがない。呼び出し側(task 3.4/3.5のoutbox消込処理)は、自身が渡した`events`配列と`retryableEventIds`の集合差分(`allSentEventIds = batchEventIds - retryableEventIds`)を計算することで、部分失敗時でも成功行を正しく`sent`に消込むこと(design.mdの「行単位エラーは該当行のみretry対象に残し、成功行は消し込む」と整合)。
 - タスク3.1: このサンドボックス環境ではDockerホストからのポートフォワーディング(54321等)が機能しないため、Edge Functionの動作確認は`docker exec <kong container>`経由またはDockerネットワーク内の一時curlコンテナで行うこと。ホストからの直接curlは既存のpre-existingサービスも含めて失敗する既知の環境制約であり、コードの不具合ではない。
 - タスク2.1: 実際のGCPプロジェクト`quizeum-77bc6`(ユーザー承認済み)に`quizetika_analytics`データセット・`raw_events`テーブルを作成して検証した。Windows版`bq` CLIは日本語コメントを含むSQLファイルをパイプ実行すると`UnicodeEncodeError`(cp932)を表示上投げるが、これは表示のみの既知の問題でBigQueryジョブ自体は成功する(`bq ls -j -a`のジョブステータスで確認すること)。views.sql(task 2.2)実装時も同様の現象が想定されるため、CLIの終了コード/標準出力ではなく`bq show`/ジョブ履歴で成否判定すること。
