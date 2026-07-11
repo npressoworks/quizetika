@@ -42,7 +42,7 @@
   - 完了条件: `supabase functions serve bigquery-export`がローカルで起動し200を返す
   - _Requirements: 1.4_
 
-- [ ] 3.2 (P) Google認証モジュールの実装
+- [x] 3.2 (P) Google認証モジュールの実装
   - Web Crypto APIでSA鍵からRS256 JWT署名→OAuth2トークンエンドポイントでアクセストークン取得、モジュールスコープで有効期限キャッシュ
   - fetch注入によりDenoグローバル非依存(Jestテスト可能)
   - 完了条件: SA鍵JSONを与えるとBearerトークン文字列が返り、期限内の再呼び出しでHTTP往復が発生しない
