@@ -88,6 +88,27 @@ supabase secrets set `
   --project-ref <SUPABASE_PROJECT_REF>
 ```
 
+**⚠️ Windows PowerShellでの既知の罠(実際に本番デプロイで発生)**: `KEY="$(Get-Content ...)"`のようにJSON文字列を
+コマンドライン引数としてインラインで渡すと、PowerShell→`npx`→Node.jsの引数受け渡しの過程で**JSON内の二重引用符が
+サイレントに失われ**、`GCP_SERVICE_ACCOUNT_JSON`が壊れたJSON(例: `{id: xxx}`のように引用符抜け)として設定されて
+しまうことがある。これはEdge Function側では`JSON.parse()`失敗として現れ、配送トリガーのリクエストは200 OKで
+届くにもかかわらずEdge Functionが`{"error":"internal error"}`(HTTP 500)を返し続けるという分かりにくい障害になる
+(`net._http_response`のstatus_codeで気づける)。
+
+**対策**: JSON形式の値(特に`GCP_SERVICE_ACCOUNT_JSON`)は、インライン引数ではなく`--env-file`オプションで
+設定すること。
+
+```powershell
+# .envファイルに1行で書き出す(JSON内の改行は\nエスケープ済みのため元々単一行のはず)
+$saKeyJson = Get-Content bigquery-export-sa-key.json -Raw
+$envContent = "GCP_SERVICE_ACCOUNT_JSON=$saKeyJson"
+[System.IO.File]::WriteAllText("prod-secrets.env", $envContent, [System.Text.Encoding]::UTF8)
+
+supabase secrets set --project-ref <SUPABASE_PROJECT_REF> --env-file prod-secrets.env
+```
+
+設定後は必ず動作確認(下記「動作確認」)まで行い、`net._http_response`に200が記録されることを確認すること。
+
 **重要(見落としやすい手動ステップ)**: マイグレーション`20260716000000_bigquery_export_delivery.sql`は
 Vaultに `analytics_webhook_secret` / `analytics_webhook_url` を**ローカル開発用プレースホルダ値**
 (`local-dev-placeholder-CHANGE-ME` / `http://host.docker.internal:54321/...`)で自動作成するのみで、
