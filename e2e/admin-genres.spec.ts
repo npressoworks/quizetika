@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { createDbClient } from './db-client';
+import { readE2eFixtureIds } from './fixture-ids';
 
 test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
 
@@ -189,6 +191,158 @@ test.describe('管理者ジャンル直接管理 E2Eテスト', () => {
       // ボタンをクリックすると投入処理が実行され、成功メッセージが表示されること
       await seedButton.click();
       await expect(page.locator('text=新規: 4件、更新: 6件')).toBeVisible();
+    }
+  });
+
+  test('影響クイズが存在するジャンルを再割当て先指定の上で削除すると、対象クイズのジャンルが再割当て先へ変更されること', async ({ page }) => {
+    const db = createDbClient();
+    await db.connect();
+
+    const suffix = Date.now();
+    const sourceGenreId = `e2e-del-src-${suffix}`;
+    const targetGenreId = `e2e-del-target-${suffix}`;
+    let quizId: string | null = null;
+
+    try {
+      const { userId } = readE2eFixtureIds();
+
+      // 削除対象ジャンルと再割当て先ジャンルを直接投入する
+      await db.query(
+        `INSERT INTO metadata_genres (id, display_name, description, icon_image_url, canonical_id, merged_genre_ids, is_active)
+         VALUES ($1, $2, '', NULL, NULL, '{}', true), ($3, $4, '', NULL, NULL, '{}', true)`,
+        [sourceGenreId, `E2E削除元ジャンル${suffix}`, targetGenreId, `E2E再割当て先ジャンル${suffix}`]
+      );
+
+      // 削除対象ジャンルを参照するクイズを1件投入する
+      const quizResult = await db.query<{ id: string }>(
+        `INSERT INTO quizzes (
+           author_id, author_name, title, description, difficulty, genre,
+           canonical_genre_id, status, visibility, question_count, play_count, format
+         ) VALUES ($1, 'e2e-test-user', $2, 'E2E削除フローテスト用クイズ', 3, $3, $3, 'published', 'public', 1, 0, 'multiple-choice')
+         RETURNING id`,
+        [userId, `[E2E_DEL] クイズ_${suffix}`, sourceGenreId]
+      );
+      quizId = quizResult.rows[0].id;
+
+      // ログイン
+      await page.goto('/login');
+      const e2eLoginBtn = page.locator('#e2e-test-login-btn');
+      if (await e2eLoginBtn.isVisible()) {
+        await e2eLoginBtn.click();
+        await page.waitForURL('/', { timeout: 10000 });
+      }
+
+      await page.goto('/admin/genres');
+      await page.waitForTimeout(2000);
+
+      const isPageVisible = await page.locator('#genreId').isVisible().catch(() => false);
+      expect(isPageVisible).toBeTruthy();
+
+      // 一覧に投入した削除対象ジャンルが表示されるまで待機し、削除操作を開始する
+      const deleteBtn = page.locator(`[data-testid="delete-genre-btn-${sourceGenreId}"]`);
+      await expect(deleteBtn).toBeVisible({ timeout: 10000 });
+      await deleteBtn.click();
+
+      // 影響クイズ件数が1件と表示されることを確認する
+      const usageCount = page.locator('[data-testid="delete-genre-usage-count"]');
+      await expect(usageCount).toContainText('1件', { timeout: 10000 });
+
+      // 再割当て先未選択の間は確定ボタンが無効化されている
+      const confirmBtn = page.locator('[data-testid="delete-genre-confirm-btn"]');
+      await expect(confirmBtn).toBeDisabled();
+
+      // 再割当て先ジャンルを選択する
+      await page.locator('[data-testid="delete-genre-reassign-select"]').click();
+      await page.locator(`[data-testid="delete-genre-reassign-option-${targetGenreId}"]`).click();
+
+      await expect(confirmBtn).toBeEnabled();
+      await confirmBtn.click();
+
+      // 成功メッセージが表示され、削除対象ジャンルが一覧から消えることを確認する
+      await expect(page.locator('text=を削除しました')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(`[data-testid="delete-genre-btn-${sourceGenreId}"]`)).toHaveCount(0);
+      await expect(page.locator(`[data-testid="delete-genre-btn-${targetGenreId}"]`)).toBeVisible();
+
+      // DB状態を確認: 削除対象ジャンルは消え、対象クイズは再割当て先へ更新されている
+      const genreCheck = await db.query<{ id: string }>(
+        `SELECT id FROM metadata_genres WHERE id = $1`,
+        [sourceGenreId]
+      );
+      expect(genreCheck.rows.length).toBe(0);
+
+      const quizCheck = await db.query<{ genre: string; canonical_genre_id: string }>(
+        `SELECT genre, canonical_genre_id FROM quizzes WHERE id = $1`,
+        [quizId]
+      );
+      expect(quizCheck.rows[0].genre).toBe(targetGenreId);
+      expect(quizCheck.rows[0].canonical_genre_id).toBe(targetGenreId);
+    } finally {
+      // 後片付け: テスト用クイズ・ジャンルをDBから除去する（成功時は既にジャンルは削除済み）
+      if (quizId) {
+        await db.query(`DELETE FROM quizzes WHERE id = $1`, [quizId]);
+      }
+      await db.query(`DELETE FROM metadata_genres WHERE id = ANY($1::text[])`, [
+        [sourceGenreId, targetGenreId],
+      ]);
+      await db.end();
+    }
+  });
+
+  test('影響クイズが存在しないジャンルは再割当て先選択なしで削除できること', async ({ page }) => {
+    const db = createDbClient();
+    await db.connect();
+
+    const suffix = Date.now();
+    const emptyGenreId = `e2e-del-empty-${suffix}`;
+
+    try {
+      // 影響クイズを持たない削除対象ジャンルを直接投入する
+      await db.query(
+        `INSERT INTO metadata_genres (id, display_name, description, icon_image_url, canonical_id, merged_genre_ids, is_active)
+         VALUES ($1, $2, '', NULL, NULL, '{}', true)`,
+        [emptyGenreId, `E2E空ジャンル${suffix}`]
+      );
+
+      // ログイン
+      await page.goto('/login');
+      const e2eLoginBtn = page.locator('#e2e-test-login-btn');
+      if (await e2eLoginBtn.isVisible()) {
+        await e2eLoginBtn.click();
+        await page.waitForURL('/', { timeout: 10000 });
+      }
+
+      await page.goto('/admin/genres');
+      await page.waitForTimeout(2000);
+
+      const isPageVisible = await page.locator('#genreId').isVisible().catch(() => false);
+      expect(isPageVisible).toBeTruthy();
+
+      const deleteBtn = page.locator(`[data-testid="delete-genre-btn-${emptyGenreId}"]`);
+      await expect(deleteBtn).toBeVisible({ timeout: 10000 });
+      await deleteBtn.click();
+
+      // 影響クイズ件数が0件と表示され、再割当て先選択UIは表示されないことを確認する
+      const usageCount = page.locator('[data-testid="delete-genre-usage-count"]');
+      await expect(usageCount).toContainText('0件', { timeout: 10000 });
+      await expect(page.locator('[data-testid="delete-genre-reassign-select"]')).toHaveCount(0);
+
+      // 再割当て先を選択せずに確定できることを確認する
+      const confirmBtn = page.locator('[data-testid="delete-genre-confirm-btn"]');
+      await expect(confirmBtn).toBeEnabled();
+      await confirmBtn.click();
+
+      await expect(page.locator('text=を削除しました')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator(`[data-testid="delete-genre-btn-${emptyGenreId}"]`)).toHaveCount(0);
+
+      const genreCheck = await db.query<{ id: string }>(
+        `SELECT id FROM metadata_genres WHERE id = $1`,
+        [emptyGenreId]
+      );
+      expect(genreCheck.rows.length).toBe(0);
+    } finally {
+      // 後片付け（成功時は既に削除済みだが、失敗時に備えて念のため削除しておく）
+      await db.query(`DELETE FROM metadata_genres WHERE id = $1`, [emptyGenreId]);
+      await db.end();
     }
   });
 
