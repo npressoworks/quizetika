@@ -24,7 +24,7 @@
   - _Requirements: 1.4, 5.1_
 
 - [ ] 2. BigQueryスキーマとビュー
-- [ ] 2.1 raw_eventsテーブルDDLの作成
+- [x] 2.1 raw_eventsテーブルDDLの作成
   - scripts/bigquery/setup.sql: quizetika_analyticsデータセット、raw_events(event_id/table_name/event_type/occurred_at/payload JSON)、日次パーティション+table_nameクラスタリング
   - 完了条件: bqコマンドでsetup.sqlを適用するとデータセットとテーブルが作成される
   - _Requirements: 2.5, 3.1, 5.3_
@@ -101,5 +101,6 @@
 
 - タスク1.1: design.mdのFile Structure Planは1.1〜1.4を単一マイグレーションファイルとする想定だったが、タスク単位でのレビュー・ロールバックを容易にするため、タスクごとに個別のマイグレーションファイルへ分割した(`20260713000000_bigquery_export_outbox.sql`)。以降の1.2〜1.4も同様に個別ファイルとし、タイムスタンプは直前のマイグレーションより後にする。既存最新マイグレーションは`20260712000000_fix_immutable_fields_admin_exception.sql`だった(タスク生成時点の想定`20260710000000_ng_words.sql`より新しい)。
 - タスク1.2: `attempts`/`quizzes`/`questions`のライブスキーマはdesign.md記載の静的スナップショットから既にドリフトしていた(`questions.quiz_id`→`owner_quiz_id`へのリネーム、`quizzes`の`question_ids`/`questions`等5カラムDROP、`quizzes.likes_count`/`difficulty_votes_sum`/`difficulty_votes_count`追加、`attempts.gave_up_lateral`追加。いずれも`20260703000000_core_data_normalization.sql`/`20260703000100_core_data_cleanup.sql`/`20260703000200_gameplay_normalization.sql`由来)。以降のタスク(1.3、4.2統合テスト)は設計書の静的リストではなく`\d <table>`によるライブスキーマ確認を優先すること。
+- タスク2.1: 実際のGCPプロジェクト`quizeum-77bc6`(ユーザー承認済み)に`quizetika_analytics`データセット・`raw_events`テーブルを作成して検証した。Windows版`bq` CLIは日本語コメントを含むSQLファイルをパイプ実行すると`UnicodeEncodeError`(cp932)を表示上投げるが、これは表示のみの既知の問題でBigQueryジョブ自体は成功する(`bq ls -j -a`のジョブステータスで確認すること)。views.sql(task 2.2)実装時も同様の現象が想定されるため、CLIの終了コード/標準出力ではなく`bq show`/ジョブ履歴で成否判定すること。
 - タスク1.4: 標準の`supabase_functions.http_request()`トリガーヘルパーはヘッダーが`CREATE TRIGGER`時点の静的値に固定されVaultからの動的取得ができないため、`net.http_post`を直接呼ぶ専用トリガー関数を自前実装した。Webhookシークレットと配送先Function URLは両方Vault(`vault.secrets`)に保持し、Edge Functionデプロイ後に`vault.update_secret`で実値へ更新する運用(task 5.1のREADMEで手順化)。レビューで`notify_analytics_export()`に`net.http_post`呼び出しを囲む例外処理がない点を非ブロッキングの改善提案として指摘された(pg_netは非同期エンキューのため実害は確認されていないが、将来のハードニング候補として記録)。
 - タスク1.3: `quiz_reviews`もdesign.mdの静的スナップショット(`id`/`rating`/`comment`)から大幅にドリフトしており、`20260703000200_gameplay_normalization.sql`で複合PK`(reviewer_id, quiz_id)`・`type`('positive'/'negative')・`reason`(自由記述)構成に変更済み。`reason`は要件2.4の「レビューコメント」に相当するため同期対象に含めた(PIIリスクは要件4.5としてREADME側で対応)。`quiz_tags.original_label`は初期作成時からの列で追加のドリフトではない。
