@@ -30,7 +30,7 @@
   - _Requirements: 2.5, 3.1, 5.3_
   - _Boundary: RawEventsSchema_
 
-- [ ] 2.2 分析ビュー群の作成
+- [x] 2.2 分析ビュー群の作成
   - scripts/bigquery/views.sql: v_dedup_events(event_id重複排除)、v_current_<table>(最新状態+DELETE除外)、v_question_versions(版有効期間)、v_attempt_answers_training(解答詳細UNNEST+版整合結合)、v_quality_signals
   - 完了条件: サンプルイベントをraw_eventsに投入した状態で各ビューが期待列・期待行を返す
   - _Requirements: 2.6, 3.2, 5.3, 5.4_
