@@ -10,7 +10,7 @@
   - _Boundary: DeleteGenreFunction_
 
 - [ ] 2. Core: ジャンル削除API
-- [ ] 2.1 (P) 削除対象ジャンルに紐づく既存クイズ件数を返すAPIを実装する
+- [x] 2.1 (P) 削除対象ジャンルに紐づく既存クイズ件数を返すAPIを実装する
   - `GET /api/admin/genres/:id/usage` で `authorizeAdmin()` 相当の認可チェックを行う
   - 対象ジャンルが存在しない場合は404を返す
   - Observable: 認可済みリクエストで `{ quizCount: number }` が返り、非管理者リクエストは401/403、存在しないIDは404になることをテストで確認できる
