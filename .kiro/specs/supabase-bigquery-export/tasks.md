@@ -86,7 +86,7 @@
   - _Depends: 1.3_
 
 - [ ] 5. 運用ドキュメントと旧資産整理
-- [ ] 5.1 運用READMEの作成
+- [x] 5.1 運用READMEの作成
   - scripts/bigquery/README.md: セットアップ手順(SA作成→DDL→secrets→マイグレーション→デプロイ)、監視クエリ2本(failed検出/pending滞留)、シークレットローテーション手順、自由記述PIIリスクの留意事項、旧Firestoreパイプライン退役の経緯
   - 完了条件: READMEに監視クエリ・PII留意事項・退役経緯のセクションが存在する
   - _Requirements: 4.5, 5.2, 6.1, 6.2_
