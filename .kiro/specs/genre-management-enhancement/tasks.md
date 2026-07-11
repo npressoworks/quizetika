@@ -35,7 +35,7 @@
   - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6_
   - _Boundary: DeleteGenreDialog_
 
-- [ ] 3.2 (P) 初期ジャンル一括投入UIをモデレーション画面からジャンル管理画面へ移動する
+- [x] 3.2 (P) 初期ジャンル一括投入UIをモデレーション画面からジャンル管理画面へ移動する
   - `admin/moderation/page.tsx` から一括投入のハンドラ・state・UIブロック（`seed-genres-btn` を含む）を削除する
   - `admin-genres/admin-genres-client.tsx` に同等のロジック・UI（ボタンID `seed-genres-btn` 維持、ローディング状態、成功/失敗メッセージ、一覧の即時更新）を追加する
   - 非管理者には一括投入UIセクションを表示しない
@@ -80,3 +80,4 @@
 ## Implementation Notes
 - Task 1.1: `delete_genre_with_reassignment` のマイグレーションファイル名は design.md 記載の `20260715000000_...` ではなく、実際の最新マイグレーション `20260717000000_bigquery_export_outbox_claim_rpc.sql` より後になるよう `supabase/migrations/20260718000000_genre_deletion_reassignment.sql` を採用した。以降のタスクでこの関数を参照する際はこのファイル名・RPC名 `delete_genre_with_reassignment(p_genre_id, p_reassign_to_id)` を使うこと。
 - Task 2.2: タスク1.1で追加したRPCがSupabase生成型（`src/lib/supabase/database.types.ts`）に未反映だったため、`Functions`型定義に `delete_genre_with_reassignment` のエントリを手動追記した（機械的な型整合パッチ、他エントリは変更なし）。今後DB関数を追加するタスクでも同様の追記が必要になる可能性がある。
+- Task 3.2: 一括投入UIをmoderationページから削除した結果、`tests/app/admin/moderation-seed.test.tsx` の一括投入関連2テストが意図通り失敗する状態になっている（対象UIがmoderationページから消えたため）。これはタスク5.2で当該テストをジャンル管理画面向けに移設・修正することで解消する想定。タスク5.2実施時はこの2件の失敗が前提であることに注意。

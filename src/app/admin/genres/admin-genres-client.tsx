@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
+import { assertSeedGenresAccess } from '@/lib/seed-genres-access';
 import { uploadImage, getGenreIconPath } from '@/services/storage';
 import {
   validateGenreIconFile,
@@ -48,6 +49,11 @@ export default function AdminGenresClient() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 初期ジャンル一括投入ステート定義
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedSuccessMessage, setSeedSuccessMessage] = useState<string | null>(null);
+  const [seedErrorMessage, setSeedErrorMessage] = useState<string | null>(null);
 
   // フォームステート定義
   const [formGenreId, setFormGenreId] = useState('');
@@ -166,6 +172,58 @@ export default function AdminGenresClient() {
       void fetchGenres();
     }
   }, [isAdmin, authUser]);
+
+  // 初期ジャンル一括投入処理の実行
+  const handleSeedGenres = async () => {
+    if (!authUser) {
+      setSeedErrorMessage('ログインセッションが無効です。再度ログインしてください。');
+      return;
+    }
+
+    setSeedLoading(true);
+    setSeedSuccessMessage(null);
+    setSeedErrorMessage(null);
+
+    try {
+      await assertSeedGenresAccess(authUser.uid);
+
+      const token = await authUser.getIdToken();
+      const res = await fetch('/api/admin/seed-genres', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+        added?: number;
+        updated?: number;
+      };
+
+      if (!res.ok) {
+        throw new Error(
+          data.message ||
+            data.error ||
+            '初期ジャンルの一括投入に失敗しました。',
+        );
+      }
+
+      const added = data.added ?? 0;
+      const updated = data.updated ?? 0;
+      setSeedSuccessMessage(
+        `初期ジャンルの一括投入が完了しました（新規: ${added}件、更新: ${updated}件）。`,
+      );
+
+      // 一覧を即時更新
+      void fetchGenres();
+    } catch (err) {
+      console.error('初期ジャンル投入エラー:', err);
+      setSeedErrorMessage(
+        err instanceof Error ? err.message : '初期ジャンルの一括投入に失敗しました。',
+      );
+    } finally {
+      setSeedLoading(false);
+    }
+  };
 
   // アイコンファイル選択時のハンドラ
   const handleIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -301,6 +359,44 @@ export default function AdminGenresClient() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg" id="seed-genres-heading">
+            初期ジャンル一括投入 (Seed Initial Genres)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            `src/data/initial_genres.json` に定義された標準ジャンルを
+            metadata_genres へ冪等に登録します。
+          </p>
+          {seedSuccessMessage && (
+            <Alert>
+              <AlertDescription>✅ {seedSuccessMessage}</AlertDescription>
+            </Alert>
+          )}
+          {seedErrorMessage && (
+            <Alert variant="destructive">
+              <AlertDescription>⚠️ {seedErrorMessage}</AlertDescription>
+            </Alert>
+          )}
+          <Button
+            type="button"
+            id="seed-genres-btn"
+            onClick={handleSeedGenres}
+            disabled={seedLoading}
+          >
+            {seedLoading ? (
+              <>
+                <CircularProgress size={16} color="inherit" className="mr-2" /> 投入中...
+              </>
+            ) : (
+              '🌱 初期ジャンル一括投入'
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
       {successMessage && (
         <Alert>
           <AlertDescription>✅ {successMessage}</AlertDescription>

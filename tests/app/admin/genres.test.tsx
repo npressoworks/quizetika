@@ -39,6 +39,10 @@ jest.mock('@/lib/genre-icon-upload', () => ({
   GENRE_ICON_ACCEPT: '.png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif',
 }));
 
+jest.mock('@/lib/seed-genres-access', () => ({
+  assertSeedGenresAccess: jest.fn().mockResolvedValue({ id: 'admin-1' }),
+}));
+
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUploadImage = uploadImage as jest.MockedFunction<typeof uploadImage>;
 const mockValidateGenreIconFile = validateGenreIconFile as jest.MockedFunction<typeof validateGenreIconFile>;
@@ -249,5 +253,102 @@ describe('AdminGenresPage - ジャンル直接管理UI', () => {
     expect(screen.getByText(/ジャンル「科学」を新しく追加しました。/)).toBeInTheDocument();
     expect(screen.getByText('科学')).toBeInTheDocument();
     expect(screen.getByText('science')).toBeInTheDocument();
+  });
+
+  test('管理者のアクセス時に初期ジャンル一括投入セクションとボタンが表示されること', async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: 'admin-1',
+        moderationTier: 'admin',
+      } as any,
+      authUser: { getIdToken: mockGetIdToken, uid: 'admin-1' } as any,
+      loading: false,
+      refreshUser: jest.fn(),
+    });
+
+    render(<AdminGenresPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('歴史')).toBeInTheDocument();
+    });
+
+    expect(document.getElementById('seed-genres-btn')).toBeInTheDocument();
+    expect(document.getElementById('seed-genres-heading')).toBeInTheDocument();
+  });
+
+  test('投入中はボタンが無効化され、完了後に成功メッセージが表示されジャンル一覧が再取得されること', async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: 'admin-1',
+        moderationTier: 'admin',
+      } as any,
+      authUser: { getIdToken: mockGetIdToken, uid: 'admin-1' } as any,
+      loading: false,
+      refreshUser: jest.fn(),
+    });
+
+    const fetchMock = jest.fn().mockImplementation((url) => {
+      if (url === '/api/admin/seed-genres') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ success: true, added: 4, updated: 6 }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => [
+          {
+            id: 'genre-1',
+            displayName: '歴史',
+            description: '歴史に関する問題',
+            iconImageUrl: 'https://example.com/genre-1.png',
+            isActive: true,
+          },
+        ],
+      });
+    });
+    global.fetch = fetchMock;
+
+    render(<AdminGenresPage />);
+
+    await screen.findByText('歴史');
+
+    const seedButton = document.getElementById('seed-genres-btn') as HTMLButtonElement;
+    fireEvent.click(seedButton);
+
+    expect(seedButton).toBeDisabled();
+
+    await waitFor(() => {
+      expect(screen.getByText(/新規: 4件、更新: 6件/)).toBeInTheDocument();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/admin/seed-genres',
+      expect.objectContaining({ method: 'POST' })
+    );
+    // 一覧の再取得 (GET /api/admin/genres) が投入後に呼ばれていること
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === '/api/admin/genres').length
+    ).toBeGreaterThanOrEqual(2);
+  });
+
+  test('非管理者には一括投入UIセクションが表示されないこと', async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        id: 'user-1',
+        moderationTier: 'newcomer',
+      } as any,
+      authUser: null,
+      loading: false,
+      refreshUser: jest.fn(),
+    });
+
+    render(<AdminGenresPage />);
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/not-found');
+    });
+
+    expect(document.getElementById('seed-genres-btn')).not.toBeInTheDocument();
   });
 });
