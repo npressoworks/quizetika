@@ -32,8 +32,13 @@ Edge Function本体: `supabase/functions/bigquery-export/{index.ts, google-auth.
 ### 1. GCPサービスアカウントの作成(最小権限)
 
 BigQueryの対象データセットに対して `roles/bigquery.dataEditor` のみを付与したサービスアカウントを作成する。
-実際の本番デプロイではプロジェクト `quizeum-77bc6` に対して以下を実行済み(SA:
-`bigquery-export-sa@quizeum-77bc6.iam.gserviceaccount.com`)。新規環境でも同じ手順を踏む。
+実際の本番デプロイではプロジェクト `quizetika` に対して以下を実行済み(SA:
+`bigquery-export-sa@quizetika.iam.gserviceaccount.com`)。新規環境でも同じ手順を踏む。
+
+> **プロジェクト移行の経緯**: 当初は `quizeum-77bc6` プロジェクトで検証していたが、2026-07-11に新規GCP
+> プロジェクト `quizetika` へ切り替えた。`quizeum-77bc6` 側に作成したサービスアカウント・データセット・
+> テーブル・ビューはそのまま残存している(削除は別途判断が必要)。以降このREADMEおよびコード中の
+> `<GCP_PROJECT_ID>` は特記なき限り `quizetika` を指す。
 
 ```powershell
 gcloud iam service-accounts create bigquery-export-sa `
