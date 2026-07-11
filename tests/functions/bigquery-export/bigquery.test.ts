@@ -68,14 +68,16 @@ describe("bigquery insertEvents", () => {
       buildEvent({ event_id: "event-1", payload: { foo: "bar", n: 1 } }),
     ];
 
-    const mockFetch = jest.fn(async () => {
-      return new Response(
-        JSON.stringify({ kind: "bigquery#tableDataInsertAllResponse" }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
-    }) as unknown as typeof fetch;
+    const mockFetch = jest.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) => {
+        return new Response(
+          JSON.stringify({ kind: "bigquery#tableDataInsertAllResponse" }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    );
 
-    await insertEvents("fake-token", CONFIG, events, mockFetch);
+    await insertEvents("fake-token", CONFIG, events, mockFetch as unknown as typeof fetch);
 
     const [, init] = mockFetch.mock.calls[0];
     const body = JSON.parse(String((init as RequestInit).body));
