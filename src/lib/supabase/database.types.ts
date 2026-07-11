@@ -1587,6 +1587,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_genre_with_reassignment: {
+        Args: { p_genre_id: string; p_reassign_to_id?: string | null }
+        Returns: number
+      }
       handle_adjust_failed_questions_count: {
         Args: { p_delta: number; p_user_id: string }
         Returns: undefined

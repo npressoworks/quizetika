@@ -17,7 +17,7 @@
   - _Requirements: 2.2_
   - _Boundary: GenreUsageApi_
 
-- [ ] 2.2 (P) ジャンル削除・既存クイズ再割当てを実行するAPIを実装する
+- [x] 2.2 (P) ジャンル削除・既存クイズ再割当てを実行するAPIを実装する
   - `DELETE /api/admin/genres/:id` で `authorizeAdmin()` 相当の認可チェックを行う
   - リクエストボディの `reassignToGenreId` を `delete_genre_with_reassignment` へ橋渡しし、関数からの例外メッセージを400/404のHTTPステータスへマッピングする
   - Observable: 正常系で `{ success: true, reassignedCount: number }` が200で返り、`genre-not-found`→404、`same-genre`/`reassign-required`/`invalid-reassign-target`→400、非管理者→401/403になることをテストで確認できる
@@ -79,3 +79,4 @@
 
 ## Implementation Notes
 - Task 1.1: `delete_genre_with_reassignment` のマイグレーションファイル名は design.md 記載の `20260715000000_...` ではなく、実際の最新マイグレーション `20260717000000_bigquery_export_outbox_claim_rpc.sql` より後になるよう `supabase/migrations/20260718000000_genre_deletion_reassignment.sql` を採用した。以降のタスクでこの関数を参照する際はこのファイル名・RPC名 `delete_genre_with_reassignment(p_genre_id, p_reassign_to_id)` を使うこと。
+- Task 2.2: タスク1.1で追加したRPCがSupabase生成型（`src/lib/supabase/database.types.ts`）に未反映だったため、`Functions`型定義に `delete_genre_with_reassignment` のエントリを手動追記した（機械的な型整合パッチ、他エントリは変更なし）。今後DB関数を追加するタスクでも同様の追記が必要になる可能性がある。
