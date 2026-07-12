@@ -813,7 +813,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
             {/* 初期メッセージ */}
             <div className={`${styles.chatBubble} ${styles.bubbleAi}`}>
               {lateralQuestion ? (
-                <MarkdownContent markdown={lateralQuestion.questionText} />
+                <MarkdownContent markdown={lateralQuestion.questionText} disableLinks />
               ) : null}
               <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 ※ 質問は「はい」か「いいえ」で回答可能なクローズドクエスチョンで行うと解決に近づきます。

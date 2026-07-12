@@ -44,6 +44,7 @@ export function QuestionTextDisplay({
       markdown={question.questionText}
       className={className}
       as="h2"
+      disableLinks
     />
   );
 }

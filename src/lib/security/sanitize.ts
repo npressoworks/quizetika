@@ -9,32 +9,22 @@
 import DOMPurify from 'isomorphic-dompurify';
 import { marked } from 'marked';
 
-// marked のカスタムレンダラーを作成
-const renderer = new marked.Renderer();
-
-// リンクに target="_blank" と rel="noopener noreferrer" を自動付与
-renderer.link = function (this: any, hrefOrToken: any, title?: any, text?: any) {
-  let href = '';
-  let titleStr = '';
-  let linkText = '';
-
+// リンクのトークンからhref・title・表示テキストを取り出す共通処理
+function extractLinkParts(this: any, hrefOrToken: any, title?: any, text?: any) {
   if (hrefOrToken && typeof hrefOrToken === 'object') {
-    href = hrefOrToken.href || '';
-    titleStr = hrefOrToken.title || '';
-    linkText = (this && this.parser && hrefOrToken.tokens)
-      ? this.parser.parseInline(hrefOrToken.tokens)
-      : (hrefOrToken.text || '');
-  } else {
-    href = hrefOrToken || '';
-    titleStr = title || '';
-    linkText = text || '';
+    return {
+      href: hrefOrToken.href || '',
+      titleStr: hrefOrToken.title || '',
+      linkText: (this && this.parser && hrefOrToken.tokens)
+        ? this.parser.parseInline(hrefOrToken.tokens)
+        : (hrefOrToken.text || ''),
+    };
   }
+  return { href: hrefOrToken || '', titleStr: title || '', linkText: text || '' };
+}
 
-  return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleStr ? ` title="${titleStr}"` : ''}>${linkText}</a>`;
-};
-
-// コードブロックの末尾の不要な改行を取り除く
-renderer.code = function (codeOrToken: any, infostring?: any, escaped?: any) {
+// コードブロックの末尾の不要な改行を取り除く（レンダラー共通）
+function renderCode(codeOrToken: any, infostring?: any) {
   let code = '';
   let lang = '';
 
@@ -49,9 +39,25 @@ renderer.code = function (codeOrToken: any, infostring?: any, escaped?: any) {
   const langClass = lang ? ` class="language-${lang}"` : '';
   const trimmedCode = code.replace(/\n$/, '');
   return `<pre><code${langClass}>${trimmedCode}</code></pre>`;
+}
+
+// 通常のレンダラー: リンクに target="_blank" と rel="noopener noreferrer" を自動付与
+const renderer = new marked.Renderer();
+renderer.link = function (this: any, hrefOrToken: any, title?: any, text?: any) {
+  const { href, titleStr, linkText } = extractLinkParts.call(this, hrefOrToken, title, text);
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer"${titleStr ? ` title="${titleStr}"` : ''}>${linkText}</a>`;
 };
+renderer.code = renderCode;
 
 marked.use({ renderer });
+
+// URL埋め込みを禁止するレンダラー: リンク記法・ベアURLをすべてプレーンテキスト化する
+const noLinkRenderer = new marked.Renderer();
+noLinkRenderer.link = function (this: any, hrefOrToken: any, title?: any, text?: any) {
+  const { linkText } = extractLinkParts.call(this, hrefOrToken, title, text);
+  return linkText;
+};
+noLinkRenderer.code = renderCode;
 
 // marked のデフォルト設定を適用
 marked.setOptions({
@@ -87,9 +93,10 @@ export function sanitizeHtml(html: string): string {
  * - 見出し、太字、斜体、リスト、リンク、コードブロック、表などの完全なマークダウンに対応。
  *
  * @param markdown ユーザーが入力した問題文・解説文等のマークダウン文字列
+ * @param options.disableLinks trueの場合、リンク記法・ベアURLをリンク化せずプレーンテキストとして表示する（作問の問題文でのURL埋め込み廃止用）
  * @returns サニタイズ済みの安全なHTML文字列
  */
-export function parseMarkdownToHtml(markdown: string): string {
+export function parseMarkdownToHtml(markdown: string, options?: { disableLinks?: boolean }): string {
   if (!markdown) return '';
 
   // 1. マークダウン箇条書き記号の正規化と、リストの自動クローズ処理
@@ -151,7 +158,10 @@ export function parseMarkdownToHtml(markdown: string): string {
 
   try {
     // 3. marked によるマークダウンパース
-    let parsedHtml = marked.parse(escaped, { async: false }) as string;
+    let parsedHtml = marked.parse(escaped, {
+      async: false,
+      renderer: options?.disableLinks ? noLinkRenderer : renderer,
+    }) as string;
     
     // 4. タグ末尾の余分な改行文字の整理
     parsedHtml = parsedHtml

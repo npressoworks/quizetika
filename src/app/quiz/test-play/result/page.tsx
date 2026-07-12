@@ -154,6 +154,7 @@ function TestPlayResultContent() {
               <MarkdownContent
                 markdown={q.questionText}
                 className={styles.questionTextResult}
+                disableLinks
               />
 
               {(judgeable || q.explanation) && (

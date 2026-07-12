@@ -986,6 +986,7 @@ export function QuizResultClient({
               <MarkdownContent
                 markdown={q.questionText}
                 className={styles.questionTextResult}
+                disableLinks
               />
 
               <ResultQuestionDetailsAccordion

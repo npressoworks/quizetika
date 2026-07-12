@@ -20,6 +20,21 @@ describe('parseMarkdownToHtml', () => {
     expect(html).toContain('<a href="https://google.com" target="_blank" rel="noopener noreferrer">Google</a>');
   });
 
+  test('disableLinks指定時はリンク記法がリンク化されずテキストのみになること（作問の問題文でのURL埋め込み廃止）', () => {
+    const markdown = '[Google](https://google.com) を見て。';
+    const html = parseMarkdownToHtml(markdown, { disableLinks: true });
+    expect(html).not.toContain('<a ');
+    expect(html).not.toContain('href=');
+    expect(html).toContain('Google');
+  });
+
+  test('disableLinks指定時はベアURL（自動リンク）もリンク化されないこと', () => {
+    const markdown = '詳細は https://example.com/reference を参照。';
+    const html = parseMarkdownToHtml(markdown, { disableLinks: true });
+    expect(html).not.toContain('<a ');
+    expect(html).not.toContain('href=');
+  });
+
   test('インラインコードが code タグにパースされること', () => {
     const markdown = 'これは `const x = 1` です。';
     const html = parseMarkdownToHtml(markdown);
