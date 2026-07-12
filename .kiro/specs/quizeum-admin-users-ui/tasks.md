@@ -183,7 +183,7 @@
   - _Depends: 6.5_
 
 ### 8. Core: UIコンポーネント実装
-- [ ] 8.1 (P) AdminUserSearchPanel への抽出とTierDowngradeControl統合
+- [x] 8.1 (P) AdminUserSearchPanel への抽出とTierDowngradeControl統合
   - 既存 `src/app/admin/users/page.tsx` の検索・リセット・BAN/UNBANロジックを `src/app/admin/users/admin-user-search-panel.tsx` へ移設する。既存の `id`/`data-testid`（`execute-reset-btn` 等）は一切変更しない。
   - `src/components/admin/tier-downgrade-control.tsx` を新規作成し、現在のティアより厳密に下位のティアのみを選択肢とするドロップダウン、理由入力（10文字以上）、確認フローを実装して `AdminUserSearchPanel` に統合する。`newcomer` の場合は操作を非活性化する。
   - **完了条件**: 検索結果表示エリアに「ティア引き下げ」操作が表示され、下位ティア選択→理由入力→確認→実行後にティア表示が更新されること。既存のリセット/BAN/UNBANフォームは移設前と同じ`id`で動作すること。
@@ -264,3 +264,4 @@
 - 5.1: マイグレーションファイル名は設計書記載の `20260713000000` ではなく `20260719000000` を使用（既存の `20260713000000`〜`20260718000000` は別チェーンの既存マイグレーションと衝突するため）。5.2以降のマイグレーションもこの連番の続き（`20260719000100`以降）を使用すること。
 - 5.1: ローカル環境の `supabase_migrations.schema_migrations` 履歴テーブルが空だったため `npx supabase migration up` が使えず、`pg` 経由で直接SQLを適用し履歴行を手動追加した（既存の環境課題、本タスクでは対応不要）。以降のタスクでも同様の対応が必要になる可能性がある。
 - **重要**: PowerShellの `Get-Content`/`Set-Content` で日本語を含むspecファイルを読み書きすると、システムのデフォルトコードページ（CP932）誤変換によりUTF-8日本語テキストが破損する（文字化け）ことが判明した。spec配下の`.md`ファイルを編集する際は、必ずRead/Edit/Writeツールを使用し、PowerShell経由でのテキスト置換は行わないこと。
+- 8.1（レビューで発見・本タスク起因ではない既存バグ）: `e2e/admin-users.spec.ts` の「モデレーション審査キューに戻る」テキストへの期待が、`page.tsx`の実際のナビリンク文言「🛡️ モデレーション審査画面へ」と一致していない（このズレは本タスクの変更以前から存在）。タスク10.1（既存機能の回帰確認）でこの不一致がテスト失敗として顕在化する場合は、テスト側の期待値を実際の文言に合わせて修正すること。
