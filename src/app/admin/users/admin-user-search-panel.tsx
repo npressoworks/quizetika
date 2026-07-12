@@ -6,7 +6,7 @@
  */
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { getUserProfile } from '@/services/user';
@@ -40,7 +40,15 @@ const ADMIN_LOG_ACTION_LABELS: Record<AdminLogEntry['action'], string> = {
   tier_downgrade: 'ティア引き下げ',
 };
 
-export function AdminUserSearchPanel() {
+interface AdminUserSearchPanelProps {
+  /**
+   * 通報ランキング等の他パネルから選択された対象UID。
+   * この値が変化するたびに、そのUIDで自動検索を実行する（Requirement 9.7）。
+   */
+  selectedUid?: string;
+}
+
+export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps = {}) {
   const { authUser } = useAuth();
 
   const [searchUid, setSearchUid] = useState('');
@@ -71,9 +79,9 @@ export function AdminUserSearchPanel() {
     }
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchUid.trim()) return;
+  const performSearch = async (uidToSearch: string) => {
+    const uid = uidToSearch.trim();
+    if (!uid) return;
 
     setFetchLoading(true);
     setSuccessMessage(null);
@@ -83,7 +91,6 @@ export function AdminUserSearchPanel() {
     setHasSearched(true);
 
     try {
-      const uid = searchUid.trim();
       const u = await getUserProfile(uid);
       setSearchedUser(u);
       if (!u) {
@@ -98,6 +105,20 @@ export function AdminUserSearchPanel() {
       setFetchLoading(false);
     }
   };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await performSearch(searchUid);
+  };
+
+  // 通報ランキング等の他パネルから選択されたUIDが変化するたびに、
+  // 既存の検索フローを再利用して自動検索を実行する（Requirement 9.7）。
+  useEffect(() => {
+    if (!selectedUid || !selectedUid.trim()) return;
+    setSearchUid(selectedUid);
+    void performSearch(selectedUid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUid]);
 
   const executeReset = async () => {
     if (!searchedUser || !authUser) return;

@@ -3,17 +3,29 @@
  */
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdminUserSearchPanel } from './admin-user-search-panel';
+import { AdminReportedUsersPanel } from './admin-reported-users-panel';
+import { AdminBannedUsersPanel } from './admin-banned-users-panel';
+
+type AdminUsersTab = 'search' | 'reported' | 'banned';
 
 export default function AdminUsersPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<AdminUsersTab>('search');
+  const [selectedUid, setSelectedUid] = useState<string | undefined>(undefined);
+
+  const handleSelectUser = (uid: string) => {
+    setSelectedUid(uid);
+    setActiveTab('search');
+  };
 
   const isAuthorized =
     (user?.moderationTier as string) === 'admin' ||
@@ -73,7 +85,31 @@ export default function AdminUsersPage() {
         </p>
       </header>
 
-      <AdminUserSearchPanel />
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AdminUsersTab)}>
+        <TabsList>
+          <TabsTrigger id="tab-search" value="search">
+            🔍 検索
+          </TabsTrigger>
+          <TabsTrigger id="tab-reported" value="reported">
+            🚨 通報ランキング
+          </TabsTrigger>
+          <TabsTrigger id="tab-banned" value="banned">
+            ⛔ BAN管理
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="search" className="mt-4">
+          <AdminUserSearchPanel selectedUid={selectedUid} />
+        </TabsContent>
+
+        <TabsContent value="reported" className="mt-4">
+          <AdminReportedUsersPanel onSelectUser={handleSelectUser} />
+        </TabsContent>
+
+        <TabsContent value="banned" className="mt-4">
+          <AdminBannedUsersPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -229,13 +229,14 @@
   - _レビュー1回目でREJECTED（BAN日時`bannedAt`が未表示）→修正後APPROVED。`displayBannedAt`をdisplayReasonと同じフォールバックパターンで実装し、同じスケルトン条件下でreasonと共に表示。_
 
 ### 9. Integration: タブコンテナ化と状態配線
-- [ ] 9.1 /admin/users のタブコンテナ化と選択中ユーザー状態の配線
+- [x] 9.1 /admin/users のタブコンテナ化と選択中ユーザー状態の配線
   - `src/app/admin/users/page.tsx` を、`Tabs`（UID検索・通報ランキング・BAN管理）を持つコンテナへ変更し、`AdminUserSearchPanel` / `AdminReportedUsersPanel` / `AdminBannedUsersPanel` を配置する。管理者用サイドバー・ヘッダー・タブ枠等の静的フレームをサーバーコンポーネントとして即座にレンダリングし、Next.jsのStreaming機能でクライアントへ送信する構成に変更する。
   - `selectedUid` 状態を `page.tsx` にリフトアップし、`ReportedUsersPanel` / `BannedUsersPanel` の行選択時に `onSelectUser(uid)` が呼ばれたら検索タブへ切り替え、`AdminUserSearchPanel` に選択UIDを渡して自動検索させる。
   - **完了条件**: 通報ランキングタブでユーザー行を選択すると検索タブへ自動遷移し、該当ユーザーの詳細情報が表示された状態になること。既存の管理者アクセスガード（1.1, 1.2）とナビゲーションリンク（4.1, 4.2）が維持されていること。静的フレームがデータロードを待たずに即座に表示されること。
   - _Requirements: 1.1, 1.2, 4.1, 4.2, 7.1, 9.7_
   - _Boundary: AdminUsersPage_
   - _Depends: 8.1, 8.2, 8.3, 8.4_
+  - _実装メモ: デフォルトアクティブタブは「検索」のため、既存e2e/admin-users.spec.tsのタブ非依存な検索フローに影響なし。BannedUsersPanelへのonSelectUser配線はdesign.md/requirements.mdがRequirement 11で要求していないため未実装（レビュー確認済み、正当なスコープ判断）。Requirement 7.1は/bannedページ（8.6）と同じ「認証確認後、静的フレームをデータロード待たずに同期表示」という実用的解釈を踏襲（真のRSC Streamingではない）。_
 
 ### 10. Validation
 - [ ] 10.1 既存検索/リセット/BAN/UNBAN機能の回帰確認
