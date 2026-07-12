@@ -10,8 +10,10 @@ import {
 import { getOpenReportCountsByCreator } from '@/services/review';
 import { computeUserEntitlements } from '@/services/entitlement-shared';
 import type { CreatorQuizStatus } from '@/lib/creator-quiz-status';
-import type { Question, Quiz, User } from '@/types';
+import type { Question, Quiz, QuizVisibility, User } from '@/types';
 import type { UserEntitlements } from '@/types/subscription';
+import { CreatorQuizManagementSections } from './creator-quiz-management-sections';
+import { CreatorQuizVisibilityToggle } from './creator-quiz-visibility-toggle';
 
 export interface CreatorQuizManagementFilters {
   keyword: string;
@@ -50,6 +52,12 @@ export interface UseCreatorQuizManagementResult {
   ) => void;
   clearFilters: () => void;
   entitlements: UserEntitlements;
+  /**
+   * 公開範囲切り替え成功時に、一覧上の該当クイズの `visibility` のみを
+   * ローカル state 上で即時更新する（要件17.5）。全件再フェッチは行わない。
+   * 対象クイズが現在の一覧に存在しない場合は何もしない。
+   */
+  updateQuizVisibility: (quizId: string, nextVisibility: QuizVisibility) => void;
 }
 
 /**
@@ -194,6 +202,20 @@ export function useCreatorQuizManagement(
 
   const entitlements = computeUserEntitlements(user ?? {});
 
+  const updateQuizVisibility = useCallback(
+    (quizId: string, nextVisibility: QuizVisibility) => {
+      setQuizzes((prev) => {
+        if (!prev) return prev;
+        const index = prev.findIndex((quiz) => quiz.id === quizId);
+        if (index === -1) return prev;
+        const next = [...prev];
+        next[index] = { ...next[index], visibility: nextVisibility };
+        return next;
+      });
+    },
+    []
+  );
+
   return {
     quizzes,
     questionsByQuizId,
@@ -210,15 +232,19 @@ export function useCreatorQuizManagement(
     setSort,
     clearFilters,
     entitlements,
+    updateQuizVisibility,
   };
 }
 
 /**
- * `/creator/quizzes` のデータ取得オーケストレーション用クライアントコンポーネント。
+ * `/creator/quizzes` のデータ取得オーケストレーションと画面組み立てを担うクライアントコンポーネント。
  *
  * 未認証ユーザーは復帰クエリ付きでログイン画面へリダイレクトする（要件15.2）。
- * 表示専用の一覧・フィルタ UI は別コンポーネント（タスク14.5/14.6）が担当するため、
- * ここでは最小限のプレースホルダーのみを描画し、データ・状態管理の契約を満たすことに専念する。
+ * データ取得・状態管理は `useCreatorQuizManagement` が担い、表示専用の一覧・フィルタ UI は
+ * `CreatorQuizManagementSections`（タスク14.5）へ委譲する。公開範囲切り替え UI
+ * （`CreatorQuizVisibilityToggle`、タスク14.6）は `renderVisibilityToggle` スロット経由で接続し、
+ * 切り替え成功時は `updateQuizVisibility` により一覧の該当行のみをローカル state 上で即時更新する
+ * （要件17.5・全件再フェッチは行わない）。
  */
 export function CreatorQuizManagementClient() {
   const router = useRouter();
@@ -258,8 +284,29 @@ export function CreatorQuizManagementClient() {
   }
 
   return (
-    <div data-testid="creator-quiz-management-loaded">
-      {(management.quizzes ?? []).length}
+    <div data-testid="creator-quiz-management-page">
+      <CreatorQuizManagementSections
+        quizzes={management.quizzes}
+        reportCounts={management.reportCounts}
+        reportCountsFailed={management.reportCountsFailed}
+        filters={management.filters}
+        setKeyword={management.setKeyword}
+        setStatus={management.setStatus}
+        setGenreId={management.setGenreId}
+        setTag={management.setTag}
+        setSort={management.setSort}
+        clearFilters={management.clearFilters}
+        entitlements={management.entitlements}
+        renderVisibilityToggle={(quiz) => (
+          <CreatorQuizVisibilityToggle
+            quiz={quiz}
+            entitlements={management.entitlements}
+            onVisibilityChange={(quizId, next) =>
+              management.updateQuizVisibility(quizId, next)
+            }
+          />
+        )}
+      />
     </div>
   );
 }

@@ -1,12 +1,39 @@
 /**
  * @jest-environment jsdom
  */
+
+// jsdom は PointerEvent および pointer capture 関連 API を実装していないため、
+// Select コンポーネントが内部で使用するイベント生成・API 呼び出しに失敗する。
+// tests/components/creator-quiz-visibility-toggle.test.tsx と同じポリフィルを注入する。
+if (typeof window !== 'undefined' && typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params);
+    }
+  }
+  // @ts-expect-error jsdom 環境向けの簡易ポリフィルのため型は緩めに扱う
+  window.PointerEvent = PointerEventPolyfill;
+}
+if (typeof window !== 'undefined' && !window.HTMLElement.prototype.hasPointerCapture) {
+  window.HTMLElement.prototype.hasPointerCapture = () => false;
+}
+if (typeof window !== 'undefined' && !window.HTMLElement.prototype.setPointerCapture) {
+  window.HTMLElement.prototype.setPointerCapture = () => {};
+}
+if (typeof window !== 'undefined' && !window.HTMLElement.prototype.releasePointerCapture) {
+  window.HTMLElement.prototype.releasePointerCapture = () => {};
+}
+if (typeof window !== 'undefined' && !window.HTMLElement.prototype.scrollIntoView) {
+  window.HTMLElement.prototype.scrollIntoView = () => {};
+}
+
 import '@testing-library/jest-dom';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { CreatorQuizManagementClient } from '@/app/creator/quizzes/creator-quiz-management-client';
 import { searchAuthorQuizzes } from '@/services/author-quiz-search';
 import { getOpenReportCountsByCreator } from '@/services/review';
+import { updateQuiz } from '@/services/quiz';
 import type { Quiz } from '@/types';
 
 const mockRouter = { push: jest.fn() };
@@ -14,7 +41,9 @@ jest.mock('next/navigation', () => ({
   useRouter: () => mockRouter,
 }));
 
-let mockUser: { id: string } | null = { id: 'author-1' };
+let mockUser: { id: string; subscriptionTier?: string; subscriptionStatus?: string } | null = {
+  id: 'author-1',
+};
 let mockAuthLoading = false;
 jest.mock('@/context/auth-context', () => ({
   useAuth: () => ({ user: mockUser, loading: mockAuthLoading }),
@@ -27,6 +56,13 @@ jest.mock('@/services/author-quiz-search', () => ({
 jest.mock('@/services/review', () => ({
   getOpenReportCountsByCreator: jest.fn(),
 }));
+
+jest.mock('@/services/quiz', () => ({
+  updateQuiz: jest.fn(),
+  listActiveGenres: jest.fn().mockResolvedValue([]),
+}));
+
+const mockedUpdateQuiz = updateQuiz as jest.MockedFunction<typeof updateQuiz>;
 
 const mockedSearchAuthorQuizzes = searchAuthorQuizzes as jest.MockedFunction<
   typeof searchAuthorQuizzes
@@ -128,12 +164,82 @@ describe('CreatorQuizManagementClient - データ取得・状態管理', () => {
     render(<CreatorQuizManagementClient />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('creator-quiz-management-loaded')).toBeInTheDocument();
+      expect(screen.getByTestId('creator-quiz-management-page')).toBeInTheDocument();
     });
 
     // 一覧本体はエラー扱いにならない
     expect(
       screen.queryByTestId('creator-quiz-management-error')
     ).not.toBeInTheDocument();
+  });
+
+  it('未解決指摘件数バッジをクリックすると、該当クイズの編集画面へ実際に画面遷移すること', async () => {
+    render(<CreatorQuizManagementClient />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('creator-quiz-report-badge')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('creator-quiz-report-badge'));
+
+    expect(mockRouter.push).toHaveBeenCalledWith(`/quiz/${sampleQuiz.id}/edit`);
+  });
+
+  it('読み込み完了後、実際の一覧セクション（CreatorQuizManagementSections）が描画されること', async () => {
+    render(<CreatorQuizManagementClient />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('creator-quiz-management-page')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('creator-quiz-management-list')).toBeInTheDocument();
+    expect(
+      screen.getByTestId(`creator-quiz-management-row-${sampleQuiz.id}`)
+    ).toBeInTheDocument();
+  });
+
+  it('公開範囲切り替え操作を行うと、該当行の統合ステータス表示のみが即時更新され、一覧・指摘件数の再取得は行われないこと', async () => {
+    mockUser = {
+      id: 'author-1',
+      subscriptionTier: 'pro',
+      subscriptionStatus: 'active',
+    };
+    mockedUpdateQuiz.mockResolvedValue(undefined);
+
+    render(<CreatorQuizManagementClient />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('creator-quiz-status-public')
+      ).toBeInTheDocument();
+    });
+
+    expect(mockedSearchAuthorQuizzes).toHaveBeenCalledTimes(1);
+    expect(mockedGetOpenReportCountsByCreator).toHaveBeenCalledTimes(1);
+
+    const toggle = screen.getByTestId('creator-quiz-visibility-toggle');
+    fireEvent.click(toggle);
+    const privateOption = await screen.findByTestId(
+      'creator-quiz-visibility-toggle-option-private'
+    );
+    fireEvent.keyDown(privateOption, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(mockedUpdateQuiz).toHaveBeenCalledWith('quiz-1', {
+        visibility: 'private',
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('creator-quiz-status-private')
+      ).toBeInTheDocument();
+    });
+
+    expect(
+      screen.queryByTestId('creator-quiz-status-public')
+    ).not.toBeInTheDocument();
+    expect(mockedSearchAuthorQuizzes).toHaveBeenCalledTimes(1);
+    expect(mockedGetOpenReportCountsByCreator).toHaveBeenCalledTimes(1);
   });
 });
