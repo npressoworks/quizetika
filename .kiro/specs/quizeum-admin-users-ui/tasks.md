@@ -214,7 +214,7 @@
   - _Boundary: BannedUsersPanel_
   - _Depends: 6.3_
   - _重大な発見・修正（本タスクのレビュー中に検出）: `src/services/reputation.ts` はサーバー専用Supabaseクライアント（`next/headers`依存）を使用しており、クライアントコンポーネント（8.2/8.3/8.4）から直接importすると`next build`が失敗することが判明。`src/services/reputation-client.ts`（ブラウザクライアント版）を新規作成し、`getReportedUsersRanking`/`getBannedUsers`/`getUserAdminLogs`/`unbanUser`をクライアント向けに複製、3パネルのimport先を切り替えて解決。`reputation.ts`本体とAPIルート（ban/unban/reset/downgrade-tier）は無変更。`npx next build`のグリーンを確認済み。以降タスク8.5でクライアントコンポーネントから`reputation.ts`の関数を使う場合は`reputation-client.ts`を使用すること。_
-- [ ] 8.5 (P) ReportUserDialog の新規実装とプロフィール画面への統合
+- [x] 8.5 (P) ReportUserDialog の新規実装とプロフィール画面への統合
   - `src/components/profile/report-user-dialog.tsx` を、既存 `report-modal.tsx` と同型の構成（カテゴリ選択、自由記述、送信、成功表示）で新規作成する。
   - `src/app/profile/[uid]/profile-client.tsx` に「ユーザーを通報」ボタンを追加し、`ReportUserDialog` を開く導線を実装する（対象が自分自身のプロフィールの場合はボタンを非表示にする）。
   - **完了条件**: 他ユーザーのプロフィール画面で「ユーザーを通報」ボタンから理由未入力時にインラインエラーが出ること、正しく送信すると成功メッセージが表示されること、自分のプロフィールではボタンが表示されないこと。

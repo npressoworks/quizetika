@@ -36,6 +36,7 @@ import { User, Quiz, Badge } from '@/types';
 import { resolveModerationTierDisplay, type ModerationTierDisplayKey } from '@/lib/moderation-tier-display';
 import { ProfilePlayHistoryPanel } from '@/components/profile/profile-play-history-panel';
 import { ProfileDetailSkeleton } from '@/components/profile/profile-skeleton';
+import { ReportUserDialog } from '@/components/profile/report-user-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge as UiBadge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -96,6 +97,7 @@ export function ProfileClient() {
   const [submittingFollow, setSubmittingFollow] = useState(false);
   const [isDeletedPending, setIsDeletedPending] = useState(false);
   const [snsLogoUrls, setSnsLogoUrls] = useState<Record<string, string>>({});
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
@@ -366,14 +368,25 @@ export function ProfileClient() {
                   </Link>
                 ) : (
                   currentUser && (
-                    <Button
-                      variant={followingState ? 'secondary' : 'default'}
-                      onClick={handleFollowToggle}
-                      disabled={submittingFollow}
-                      data-analytics="profile-follow-toggle"
-                    >
-                      {followingState ? 'フォロー解除' : 'フォローする'}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={followingState ? 'secondary' : 'default'}
+                        onClick={handleFollowToggle}
+                        disabled={submittingFollow}
+                        data-analytics="profile-follow-toggle"
+                      >
+                        {followingState ? 'フォロー解除' : 'フォローする'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsReportDialogOpen(true)}
+                        data-testid="profile-report-user-btn"
+                        data-analytics="profile-report-user-open"
+                      >
+                        <WarningAmberOutlined sx={{ fontSize: 16 }} className="mr-1" />
+                        ユーザーを通報
+                      </Button>
+                    </div>
                   )
                 )}
               </div>
@@ -473,6 +486,16 @@ export function ProfileClient() {
           </Tabs>
         </div>
       </div>
+
+      {currentUser && !isMyProfile && (
+        <ReportUserDialog
+          isOpen={isReportDialogOpen}
+          onClose={() => setIsReportDialogOpen(false)}
+          targetUid={uid}
+          targetDisplayName={profileUser.displayName}
+          reporterId={currentUser.id}
+        />
+      )}
     </main>
   );
 }
