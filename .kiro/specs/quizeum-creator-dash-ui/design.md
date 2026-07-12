@@ -1141,7 +1141,7 @@ graph LR
 | `src/services/author-quiz-search.ts` | **Modify** | `searchAuthorQuizzes` が拡張後のパラメータを `filterAuthorQuizzesWithQuestions` / `sortAuthorQuizzes` へ橋渡しするよう更新（DB クエリ自体は無変更）。 |
 | `src/services/review.ts` | **Modify** | `getOpenReportCountsByCreator(creatorId: string): Promise<Record<string, number>>` を追加。既存の `getReportsForCreator` と同一クエリ条件（`status: 'open'`）で `quiz_id` ごとに件数集計する。 |
 | `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `QuizListSection`（`creator-quiz-list`）の呼び出しを撤去し、`/creator/quizzes` への導線カード（`data-testid="creator-dashboard-manage-quizzes-link"`）に置換。 |
-| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `QuizListSection` 表示専用だった `getQuizzesByAuthor` 呼び出しと `quizzes` state を削除。 |
+| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `QuizListSection` の描画を管理画面への導線カードに置換。`getQuizzesByAuthor` 呼び出しと `quizzes` state は `computeDashboardStats`（統計カード）が引き続き参照するため維持する。 |
 | `e2e/creator-dashboard.spec.ts` | **Modify** | `creator-quiz-list`/`quiz-card` を直接 assert していた既存ケースを、導線カードの存在確認に置き換え。 |
 | `e2e/creator-quiz-management.spec.ts` | **New** | `/creator/quizzes` のスモークテスト（一覧表示・検索・並び替え・公開範囲切替・指摘バッジ→編集画面遷移）。 |
 | `tests/lib/creator-quiz-status.test.ts` | **New** | `resolveCreatorQuizStatus` の単体テスト（draft/published×public/followers/private の全組み合わせ）。 |
