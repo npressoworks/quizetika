@@ -9,7 +9,7 @@ import {
   CheckOutlined,
   ContentCopyOutlined,
   PlayArrowOutlined,
-  DashboardOutlined,
+  ListAltOutlined,
   AddOutlined,
   SmsOutlined,
   WarningAmberOutlined
@@ -111,8 +111,8 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
           <p style={{ color: 'var(--text-muted)', marginBottom: '30px' }}>
             指定されたIDのクイズ情報が取得できないか、削除された可能性があります。
           </p>
-          <Link href="/creator/dashboard" className="btn btn-primary" style={{ width: '100%' }}>
-            ダッシュボードに戻る
+          <Link href="/creator/quizzes" className="btn btn-primary" style={{ width: '100%' }}>
+            クイズ管理画面へ
           </Link>
         </div>
       </div>
@@ -208,14 +208,14 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
                 自分でプレイする
               </button>
 
-              {/* 作家ダッシュボードボタン */}
+              {/* クイズ管理画面ボタン */}
               <button
-                onClick={() => router.push('/creator/dashboard')}
+                onClick={() => router.push('/creator/quizzes')}
                 className="btn btn-secondary"
                 style={{ flex: 1 }}
               >
-                <DashboardOutlined sx={{ fontSize: 18 }} />
-                ダッシュボードに戻る
+                <ListAltOutlined sx={{ fontSize: 18 }} />
+                クイズ管理画面へ
               </button>
             </div>
 
