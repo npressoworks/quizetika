@@ -147,12 +147,13 @@
   - _Boundary: reputation service_
   - _Depends: 5.3_
   - _実装メモ: `GetReportedUsersRankingResult` 型はdesign.mdの `types/index.ts` 割当リストに含まれないため、`reputation.ts` 内でローカル定義・exportした（design.md整合、レビュー確認済み）。以降のUIタスクはこの型を `services/reputation` からimportすること。_
-- [ ] 6.3 (P) reputation service への getBannedUsers 実装
+- [x] 6.3 (P) reputation service への getBannedUsers 実装
   - `src/services/reputation.ts` に `getBannedUsers(filters)` を追加し、`get_banned_users` RPCへ日時範囲・キーワード・ページングパラメータを渡し、結果を `BannedUserSummary[]` に整形する。
   - **完了条件**: Jestテストで、フィルタ引数がRPC呼び出しパラメータへ正しく渡されること、および `bannedByExecutorId` を含む結果整形が検証できること。
   - _Requirements: 11.3, 11.4, 11.5, 11.6_
   - _Boundary: reputation service_
   - _Depends: 5.3_
+  - _実装メモ: `get_banned_users` のSQL引数にDEFAULT NULLがないため、未指定フィルタは明示的に`null`へ変換してから渡す（`undefined`のままではPostgRESTに拒否される）。`BannedUserFilters`/`GetBannedUsersResult`型はtask 6.2と同様`reputation.ts`内でローカル定義・export。_
 - [ ] 6.4 (P) reputation service への getUserAdminLogs 実装
   - `src/services/reputation.ts` に `getUserAdminLogs(targetUid)` を追加し、`get_user_admin_logs` RPCの結果を `AdminLogEntry[]` に整形する。
   - **完了条件**: Jestテストで、RPCモックの戻り値が `AdminLogEntry[]` へ正しくマッピングされることを検証できること。

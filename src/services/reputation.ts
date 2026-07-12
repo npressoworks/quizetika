@@ -1,5 +1,5 @@
 import { createClient } from '../lib/supabase/server';
-import { ReputationEventLog, ReportedUserSummary } from '../types';
+import { ReputationEventLog, ReportedUserSummary, BannedUserSummary } from '../types';
 
 /**
  * 権限ティアーの定数定義
@@ -278,6 +278,71 @@ export async function getReportedUsersRanking(
     isBanned: row.is_banned,
     totalReportCount: row.total_report_count,
     latestReportAt: row.latest_report_at,
+  }));
+
+  return { items, hasMore };
+}
+
+/**
+ * `getBannedUsers` の絞り込み条件。
+ */
+export interface BannedUserFilters {
+  bannedFrom?: string; // ISO日時
+  bannedTo?: string; // ISO日時
+  keyword?: string; // UIDまたは表示名の部分一致
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * `getBannedUsers` の戻り値。
+ */
+export interface GetBannedUsersResult {
+  items: BannedUserSummary[];
+  hasMore: boolean;
+}
+
+/**
+ * BAN済みユーザー一覧を、`get_banned_users` RPC経由で取得する（日時範囲・キーワード絞り込み対応）。
+ *
+ * `page` は 1 始まりのページ番号として扱い、`offset = (page - 1) * pageSize` に変換する。
+ * `hasMore` の判定には「余分に1件多く取得する」方式を用いる: RPCへは `p_limit = pageSize + 1` を渡し、
+ * 返却件数が `pageSize` を超えていれば `hasMore = true` とし、超過分の1件を除いて返す
+ * （`getReportedUsersRanking` と同じパターン）。
+ *
+ * @param filters 日時範囲・キーワード・ページングの絞り込み条件
+ */
+export async function getBannedUsers(filters: BannedUserFilters): Promise<GetBannedUsersResult> {
+  const { bannedFrom, bannedTo, keyword, page, pageSize } = filters;
+  const offset = (page - 1) * pageSize;
+  const limit = pageSize + 1;
+
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any).rpc('get_banned_users', {
+    p_limit: limit,
+    p_offset: offset,
+    p_banned_from: bannedFrom ?? null,
+    p_banned_to: bannedTo ?? null,
+    p_keyword: keyword ?? null,
+  });
+
+  if (error) {
+    if (error.message === 'permission-denied') {
+      throw new Error('この操作を実行する権限がありません');
+    }
+    throw new Error(`BAN済みユーザー一覧の取得に失敗しました: ${error.message}`);
+  }
+
+  const rows: any[] = data ?? [];
+  const hasMore = rows.length > pageSize;
+  const trimmedRows = hasMore ? rows.slice(0, pageSize) : rows;
+
+  const items: BannedUserSummary[] = trimmedRows.map((row) => ({
+    uid: row.uid,
+    displayName: row.display_name,
+    bannedReason: row.banned_reason,
+    bannedAt: row.banned_at,
+    bannedByExecutorId: row.banned_by_executor_id,
   }));
 
   return { items, hasMore };

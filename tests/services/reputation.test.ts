@@ -8,6 +8,7 @@ import {
   unbanUser,
   downgradeUserTier,
   getReportedUsersRanking,
+  getBannedUsers,
 } from '../../src/services/reputation';
 
 const createChainMock = (resolveValue: any) => {
@@ -376,6 +377,143 @@ describe('ReputationService - getReportedUsersRanking', () => {
     supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
 
     await expect(getReportedUsersRanking(1, 10)).rejects.toThrow(
+      'この操作を実行する権限がありません'
+    );
+  });
+});
+
+describe('ReputationService - getBannedUsers', () => {
+  const makeRow = (overrides: Partial<Record<string, unknown>> = {}) => ({
+    uid: 'user-1',
+    display_name: 'BAN太郎',
+    banned_reason: '規約違反',
+    banned_at: '2026-07-10T00:00:00.000Z',
+    banned_by_executor_id: 'admin-1',
+    ...overrides,
+  });
+
+  beforeEach(() => jest.clearAllMocks());
+
+  test('RPCの戻り値（snake_case）が BannedUserSummary[]（camelCase）へ正しくマッピングされること（bannedByExecutorId含む）', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: [
+        makeRow({
+          uid: 'user-1',
+          display_name: 'BAN太郎',
+          banned_reason: '規約違反行為のため',
+          banned_at: '2026-07-11T09:00:00.000Z',
+          banned_by_executor_id: 'admin-executor-uid',
+        }),
+      ],
+      error: null,
+    });
+
+    const result = await getBannedUsers({ page: 1, pageSize: 10 });
+
+    expect(result.items).toEqual([
+      {
+        uid: 'user-1',
+        displayName: 'BAN太郎',
+        bannedReason: '規約違反行為のため',
+        bannedAt: '2026-07-11T09:00:00.000Z',
+        bannedByExecutorId: 'admin-executor-uid',
+      },
+    ]);
+  });
+
+  test('bannedReason/bannedByExecutorId が null の行も正しくマッピングされること', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: [makeRow({ banned_reason: null, banned_by_executor_id: null })],
+      error: null,
+    });
+
+    const result = await getBannedUsers({ page: 1, pageSize: 10 });
+
+    expect(result.items[0].bannedReason).toBeNull();
+    expect(result.items[0].bannedByExecutorId).toBeNull();
+  });
+
+  test('フィルタ未指定の場合、bannedFrom/bannedTo/keyword は null としてRPCへ渡されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    await getBannedUsers({ page: 1, pageSize: 10 });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_banned_users', {
+      p_limit: 11,
+      p_offset: 0,
+      p_banned_from: null,
+      p_banned_to: null,
+      p_keyword: null,
+    });
+  });
+
+  test('bannedFrom/bannedTo/keyword が指定された場合、正しくRPCパラメータへ渡されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    await getBannedUsers({
+      bannedFrom: '2026-07-01T00:00:00.000Z',
+      bannedTo: '2026-07-10T00:00:00.000Z',
+      keyword: 'user-1',
+      page: 1,
+      pageSize: 10,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_banned_users', {
+      p_limit: 11,
+      p_offset: 0,
+      p_banned_from: '2026-07-01T00:00:00.000Z',
+      p_banned_to: '2026-07-10T00:00:00.000Z',
+      p_keyword: 'user-1',
+    });
+  });
+
+  test('page/pageSize から正しい p_limit/p_offset を算出してRPCを呼び出すこと（3ページ目）', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    await getBannedUsers({ page: 3, pageSize: 20 });
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_banned_users', {
+      p_limit: 21,
+      p_offset: 40,
+      p_banned_from: null,
+      p_banned_to: null,
+      p_keyword: null,
+    });
+  });
+
+  test('結果件数が pageSize と同数の場合、hasMore は false になること', async () => {
+    const rows = Array.from({ length: 10 }, (_, i) => makeRow({ uid: `user-${i}` }));
+    supabase.rpc.mockResolvedValue({ data: rows, error: null });
+
+    const result = await getBannedUsers({ page: 1, pageSize: 10 });
+
+    expect(result.items).toHaveLength(10);
+    expect(result.hasMore).toBe(false);
+  });
+
+  test('結果件数が pageSize を超える場合、超過分は除外され hasMore は true になること', async () => {
+    const rows = Array.from({ length: 11 }, (_, i) => makeRow({ uid: `user-${i}` }));
+    supabase.rpc.mockResolvedValue({ data: rows, error: null });
+
+    const result = await getBannedUsers({ page: 1, pageSize: 10 });
+
+    expect(result.items).toHaveLength(10);
+    expect(result.hasMore).toBe(true);
+    expect(result.items.map((item) => item.uid)).toEqual(rows.slice(0, 10).map((r) => r.uid));
+  });
+
+  test('結果が0件の場合、空配列と hasMore=false を返すこと', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    const result = await getBannedUsers({ page: 1, pageSize: 10 });
+
+    expect(result).toEqual({ items: [], hasMore: false });
+  });
+
+  test('非管理者が呼び出した場合、権限エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
+
+    await expect(getBannedUsers({ page: 1, pageSize: 10 })).rejects.toThrow(
       'この操作を実行する権限がありません'
     );
   });
