@@ -221,11 +221,12 @@
   - _Requirements: 8.1, 8.2, 8.3_
   - _Boundary: ReportUserDialog_
   - _Depends: 7.2_
-- [ ] 8.6 (P) /banned画面のスケルトン化
+- [x] 8.6 (P) /banned画面のスケルトン化
   - `src/app/banned/page.tsx` を修正し、ヘッダー・タイトル・停止通知の基本フレームを即座に表示した上で、BAN理由・日時等の詳細情報のロード中は専用スケルトン（`data-testid="banned-info-skeleton"`）を表示し、ロード完了後に実データへ差し替える。
   - **完了条件**: `/banned` 画面にアクセスした際、基本フレームが即座に表示され、詳細情報のロード中はスケルトンが表示され、完了後に実際のBAN理由・日時に差し替わることが確認できること。
   - _Requirements: 7.6, 7.7, 7.8, 7.10_
   - _Boundary: BannedPage_
+  - _レビュー1回目でREJECTED（BAN日時`bannedAt`が未表示）→修正後APPROVED。`displayBannedAt`をdisplayReasonと同じフォールバックパターンで実装し、同じスケルトン条件下でreasonと共に表示。_
 
 ### 9. Integration: タブコンテナ化と状態配線
 - [ ] 9.1 /admin/users のタブコンテナ化と選択中ユーザー状態の配線
