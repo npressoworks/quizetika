@@ -175,7 +175,7 @@
   - _Requirements: 10.3, 10.4_
   - _Boundary: downgrade-tier API Route_
   - _Depends: 6.1_
-- [ ] 7.2 (P) /api/users/report エンドポイントの作成
+- [x] 7.2 (P) /api/users/report エンドポイントの作成
   - `src/app/api/users/report/route.ts` を新規作成し、認証済みユーザーのトークンを検証した上で `submitUserReport` を呼び出す。
   - **完了条件**: 認証済みユーザーのトークンでリクエストした際に `200 OK` が返ること、未認証時は401、自己通報時は409が返ることを確認できること。
   - _Requirements: 8.3, 8.4, 8.5_
