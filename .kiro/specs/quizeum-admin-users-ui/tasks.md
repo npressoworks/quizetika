@@ -115,7 +115,7 @@
   - _Requirements: 10.3_
   - _Boundary: Database Migration_
   - _実装ファイル: `supabase/migrations/20260719000000_admin_log_action_enum_tier_downgrade.sql`（design.md記載の `20260713000000` は既存の別マイグレーション連番と衝突するため `20260719000000` に変更。以降5.2のマイグレーションもこの後続番号を使用）_
-- [ ] 5.2 user_reportsテーブル・RLS・5種のRPC定義マイグレーション作成
+- [x] 5.2 user_reportsテーブル・RLS・5種のRPC定義マイグレーション作成
   - `user_reports` テーブル（`reporter_id`, `target_uid`, `category` CHECK制約付き, `detail`, `status`, `created_at`）と、`(reporter_id, target_uid)` に `status='open'` の部分ユニークインデックスを作成する。
   - `user_reports` にRLSを有効化し、クライアントからの直接SELECT/INSERT/UPDATEを許可しないポリシーを設定する。
   - `handle_report_user`（自己通報拒否・カテゴリ検証・冪等な重複防止）、`handle_downgrade_tier`（`is_admin()`検証・下位ティアのみ許可・`admin_logs`記録）、`get_reported_users_ranking`（`quizzes.flags_count`合算＋`user_reports`合算・0件除外・降順ページング）、`get_banned_users`（`users`と`admin_logs`をJOINし実行者情報を含めて返却・日時フィルタ・キーワード検索）、`get_user_admin_logs`（対象UIDの`admin_logs`履歴を降順取得）の5つの`SECURITY DEFINER`関数を定義する。
@@ -123,6 +123,7 @@
   - _Requirements: 8.1, 8.4, 8.5, 8.6, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3, 10.4, 10.7, 11.3, 11.4, 11.5, 11.6_
   - _Boundary: Database Migration_
   - _Depends: 5.1_
+  - _実装ファイル: `supabase/migrations/20260719000100_user_reports_and_ranking.sql`_
 - [ ] 5.3 型定義の再生成とアプリケーション型の追加
   - `npm run gen:types` を実行し `src/lib/supabase/database.types.ts` を再生成する。
   - `src/types/index.ts` に `UserReport`, `ReportedUserSummary`, `BannedUserSummary`, `AdminLogEntry` 型を追加する。
