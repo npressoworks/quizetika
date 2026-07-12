@@ -6,7 +6,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useAuth } from '@/context/auth-context';
 import { getUserProfile } from '@/services/user';
-import { getUserAdminLogs } from '@/services/reputation';
+import { getUserAdminLogs } from '@/services/reputation-client';
 import { User, AdminLogEntry } from '@/types';
 
 jest.mock('@/context/auth-context', () => ({
@@ -17,7 +17,7 @@ jest.mock('@/services/user', () => ({
   getUserProfile: jest.fn(),
 }));
 
-jest.mock('@/services/reputation', () => ({
+jest.mock('@/services/reputation-client', () => ({
   getUserAdminLogs: jest.fn(),
 }));
 

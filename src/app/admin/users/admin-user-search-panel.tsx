@@ -10,7 +10,7 @@ import React, { useState } from 'react';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { getUserProfile } from '@/services/user';
-import { getUserAdminLogs } from '@/services/reputation';
+import { getUserAdminLogs } from '@/services/reputation-client';
 import { AdminLogEntry, User } from '@/types';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { TierDowngradeControl, type ModerationTier } from '@/components/admin/tier-downgrade-control';

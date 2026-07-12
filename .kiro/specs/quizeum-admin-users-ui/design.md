@@ -149,7 +149,11 @@ src/
 │   └── profile/
 │       └── report-user-dialog.tsx             # 新規: `report-modal.tsx` と同型のユーザー通報ダイアログ
 ├── services/
-│   ├── reputation.ts                          # 変更: downgradeUserTier / getReportedUsersRanking / getBannedUsers / getUserAdminLogs を追加
+│   ├── reputation.ts                          # 変更: downgradeUserTier / getReportedUsersRanking / getBannedUsers / getUserAdminLogs を追加（サーバー専用クライアント使用、API Route専用）
+│   ├── reputation-client.ts                   # 新規（実装時追加）: getReportedUsersRanking / getBannedUsers / getUserAdminLogs / unbanUser のブラウザクライアント版。
+│   │                                           #   reputation.tsはnext/headers依存のサーバークライアントを使うため、クライアントコンポーネント
+│   │                                           #   （admin-user-search-panel.tsx等）から直接importするとnext buildが失敗する。読み取り系3関数と
+│   │                                           #   unbanUserのクライアント向け複製をこのファイルに分離し、3パネルはここからimportする。
 │   └── user-report.ts                         # 新規: submitUserReport（handle_report_user RPC呼び出し）
 └── types/
     └── index.ts                               # 変更: UserReport, ReportedUserSummary, BannedUserSummary, AdminLogEntry 型を追加

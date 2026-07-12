@@ -4,10 +4,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { getReportedUsersRanking } from '@/services/reputation';
+import { getReportedUsersRanking } from '@/services/reputation-client';
 import { ReportedUserSummary } from '@/types';
 
-jest.mock('@/services/reputation', () => ({
+jest.mock('@/services/reputation-client', () => ({
   getReportedUsersRanking: jest.fn(),
 }));
 
