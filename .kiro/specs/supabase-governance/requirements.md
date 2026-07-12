@@ -1,7 +1,7 @@
 # Requirements Document - supabase-governance
 
 ## Introduction
-本仕様書は、Quizetika のガバナンス機能（管理者モデレーション操作、タグ/ジャンル統合、信頼スコア・レピュテーション管理、および Stripe 連携によるサブスクリプション権限判定）における Firestore 依存から Supabase (PostgreSQL) への移行に伴う、システムおよびオペレータ向けの振る舞い要件を定義します。
+本仕様書は、Quizetika のガバナンス機能（管理者モデレーション操作、タグ/ジャンル統合、信頼スコア・レピュテーション管理、NGワードマスタ管理、および Stripe 連携によるサブスクリプション権限判定）における Firestore 依存から Supabase (PostgreSQL) への移行に伴う、システムおよびオペレータ向けの振る舞い要件を定義します。
 
 ## Boundary Context
 - **In scope**:
@@ -12,13 +12,16 @@
   - ユーザーによるクイズのコンテンツ通報（フラグ立て）、および管理者による審査（公開復帰／永久削除）
   - 新規ジャンル新設の申請、投票の受付、および可決時のジャンルマスタ登録
   - 初期ジャンルマスタデータの投入（管理者による一括シード）
+  - NGワード（クイズ公開時に検知する禁止語句）マスタの管理者による登録・編集・無効化・一覧表示
 - **Out of scope**:
   - Stripe 決済システムそのもののAPI仕様変更（Webhook の受け口、Stripe から受け取るJSONペイロード解析はそのまま維持する）
   - 通常のクイズプレイ解答フロー（`supabase-gameplay` が担当）
   - 通常のユーザー・クイズ・問題等のCRUD処理（`supabase-core-data` が担当）
+  - NGワードを用いたクイズ本文の一致判定アルゴリズムそのもの（`quizeum-core` が担当）
 - **Adjacent expectations**:
   - 管理者操作は、`supabase-auth-migration` から連携されるユーザーセッションの権限ロール（`role = 'admin'`）に基づき認可制御されることを期待します。
   - タグ/ジャンルの統合による書き換え対象は、`supabase-core-data` が管理するクイズ情報です。
+  - 登録されたNGワードマスタは、クイズ公開時のコンテンツ検証（`quizeum-core` が担当）から参照されることを期待します。
 
 ## Requirements
 
@@ -86,3 +89,19 @@
 1. The `src/app/admin/moderation/page.tsx`, `src/app/community/genres/page.tsx`, `src/app/community/merge/page.tsx`, `src/lib/seed-genres-access.ts`, `src/app/api/genres/generate-icon/route.ts` は firebase および firebase-admin パッケージ、`@/lib/firebase/*` への import を持たない。
 2. While ジャンル新設申請・タグ統合申請の一覧を画面に表示している間, the ガバナンスUI shall Supabase を用いたデータ取得手段（Realtime 購読またはポーリングによる再取得）によって最新の申請・投票状況を反映する。
 3. The AI作問（チャット対話・問題生成・サムネイル生成）の日次利用回数管理機能（`src/services/ai-authoring-route-helpers.ts`, `src/app/api/quiz/ai-chat-authoring/route.ts`, `src/app/api/quiz/ai-generate-questions/route.ts`, `src/app/api/quiz/ai-generate-thumbnail/route.ts`）は Supabase のテーブルを用いて日次利用回数を管理し、Firestore（`users/{uid}/dailyAiAuthoringCounts`）への依存を持たない。
+
+### 9. NGワードマスタ管理要件
+
+<!-- NGワードは現状 quiz-validation.ts にハードコードされた配列として実装されており、どの既存スペックの Scope にも含まれていなかったオーファンドメイン。DBマスタ化に伴い、マスタの登録・編集・無効化・一覧表示の責務を本スペックの拡張として引き受ける（判定アルゴリズム自体は quizeum-core が担当）。 -->
+
+**Objective:** 管理者として、クイズ公開時に検知する禁止語句（NGワード）の一覧を随時追加・修正・無効化したい。それにより、コンテンツの健全性を継続的に維持したい
+
+#### Acceptance Criteria
+1. When 管理者が新しいNGワードを登録した時, the NGワード管理システム shall 当該語句を有効な状態でNGワードマスタに追加する。
+2. If 管理者が既に登録済みの語句（大文字・小文字を区別しない同一語句）を重複登録しようとした時, the NGワード管理システム shall 登録を拒否し、重複していることを提示する。
+3. If 管理者が空文字または空白のみの語句を登録・更新しようとした時, the NGワード管理システム shall 当該操作を拒否する。
+4. When 管理者が登録済みのNGワードの表記を編集した時, the NGワード管理システム shall 当該語句を更新後の内容でNGワードマスタに反映する。
+5. When 管理者が登録済みのNGワードを無効化した時, the NGワード管理システム shall 当該語句をNGワードマスタ上で無効な状態にし、以後のクイズ公開時コンテンツ検証の対象から除外する。
+6. When 管理者が無効化済みのNGワードを再度有効化した時, the NGワード管理システム shall 当該語句を以後のクイズ公開時コンテンツ検証の対象に戻す。
+7. When 管理者がNGワードマスタの一覧を表示した時, the NGワード管理システム shall 登録済みの全NGワードとその有効・無効状態を表示する。
+8. The NGワード管理システム shall NGワードマスタへの登録・編集・有効/無効切替操作を管理者権限を持つユーザーのみに許可する。

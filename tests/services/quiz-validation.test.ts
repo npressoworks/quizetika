@@ -20,6 +20,19 @@ import {
 import { Quiz, Question, Choice } from '../../src/types';
 
 /* ============================================================
+   テスト用NGワード一覧（旧 quiz-validation.ts の NG_WORD_LIST 相当）
+   ============================================================ */
+
+const TEST_NG_WORDS: readonly string[] = [
+  'spam',
+  'scam',
+  'hentai',
+  'adult',
+  'porn',
+  'xxx',
+];
+
+/* ============================================================
    ヘルパー: テスト用のベースクイズ・問題オブジェクトを生成
    ============================================================ */
 
@@ -143,20 +156,31 @@ describe('normalizeTag', () => {
    containsNgWord のテスト
    ============================================================ */
 describe('containsNgWord', () => {
-  test('NGワードを含むテキストはtrueを返す', () => {
-    expect(containsNgWord('このテキストにspamが含まれる')).toBe(true);
+  const ngWords = ['spam', 'scam', 'hentai', 'adult', 'porn', 'xxx'];
+
+  test('渡されたNGワード一覧に含まれる語句を含むテキストはtrueを返す', () => {
+    expect(containsNgWord('このテキストにspamが含まれる', ngWords)).toBe(true);
   });
 
-  test('NGワードを含まないテキストはfalseを返す', () => {
-    expect(containsNgWord('通常のクイズタイトルです')).toBe(false);
+  test('渡されたNGワード一覧に含まれない語句はfalseを返す', () => {
+    expect(containsNgWord('通常のクイズタイトルです', ngWords)).toBe(false);
   });
 
   test('大文字・小文字の差異を無視する（ケースインセンシティブ）', () => {
-    expect(containsNgWord('SPAM content')).toBe(true);
+    expect(containsNgWord('SPAM content', ngWords)).toBe(true);
   });
 
   test('空文字列はfalseを返す', () => {
-    expect(containsNgWord('')).toBe(false);
+    expect(containsNgWord('', ngWords)).toBe(false);
+  });
+
+  test('NGワード一覧が空の場合は何も検出しない', () => {
+    expect(containsNgWord('spamを含むテキスト', [])).toBe(false);
+  });
+
+  test('NGワード一覧に含まれる語句のみが検出され、一覧にない語句は検出されない', () => {
+    expect(containsNgWord('bannedを含むテキスト', ['spam'])).toBe(false);
+    expect(containsNgWord('bannedを含むテキスト', ['banned'])).toBe(true);
   });
 });
 
@@ -168,15 +192,15 @@ describe('validateQuizForPublish', () => {
   describe('正常系', () => {
     test('有効なクイズはエラーなしで通過する', () => {
       const quiz = makeQuiz();
-      expect(validateQuizForPublish(quiz)).toHaveLength(0);
+      expect(validateQuizForPublish(quiz, TEST_NG_WORDS)).toHaveLength(0);
     });
 
     test('難易度が境界値1でも通過する', () => {
-      expect(validateQuizForPublish(makeQuiz({ difficulty: 1 }))).toHaveLength(0);
+      expect(validateQuizForPublish(makeQuiz({ difficulty: 1 }), TEST_NG_WORDS)).toHaveLength(0);
     });
 
     test('難易度が境界値5でも通過する', () => {
-      expect(validateQuizForPublish(makeQuiz({ difficulty: 5 }))).toHaveLength(0);
+      expect(validateQuizForPublish(makeQuiz({ difficulty: 5 }), TEST_NG_WORDS)).toHaveLength(0);
     });
   });
 
@@ -184,7 +208,7 @@ describe('validateQuizForPublish', () => {
   describe('問題数バリデーション', () => {
     test('問題が0件の場合エラーを返す', () => {
       const quiz = makeQuiz({ questions: [], questionCount: 0 });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
   });
@@ -193,13 +217,13 @@ describe('validateQuizForPublish', () => {
   describe('タイトルバリデーション', () => {
     test('タイトルが空の場合エラーを返す', () => {
       const quiz = makeQuiz({ title: '' });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'title')).toBe(true);
     });
 
     test('タイトルが100文字を超えた場合エラーを返す', () => {
       const quiz = makeQuiz({ title: 'あ'.repeat(101) });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'title')).toBe(true);
     });
   });
@@ -208,13 +232,13 @@ describe('validateQuizForPublish', () => {
   describe('難易度バリデーション', () => {
     test('難易度が0の場合エラーを返す', () => {
       const quiz = makeQuiz({ difficulty: 0 });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'difficulty')).toBe(true);
     });
 
     test('難易度が6の場合エラーを返す', () => {
       const quiz = makeQuiz({ difficulty: 6 });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'difficulty')).toBe(true);
     });
   });
@@ -223,13 +247,13 @@ describe('validateQuizForPublish', () => {
   describe('ジャンルバリデーション', () => {
     test('ジャンルが未選択の場合エラーを返す', () => {
       const quiz = makeQuiz({ genre: '' });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'genre' && e.message === 'ジャンルを選択してください')).toBe(true);
     });
 
     test('ジャンルが設定されている場合エラーを返さない', () => {
       const quiz = makeQuiz({ genre: 'programming' });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'genre')).toBe(false);
     });
   });
@@ -238,7 +262,7 @@ describe('validateQuizForPublish', () => {
   describe('問題文バリデーション', () => {
     test('問題文が空の場合エラーを返す', () => {
       const quiz = makeQuiz({ questions: [makeQuestion({ questionText: '' })] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(
         errors.some((e) => e.questionField === 'questionText' && e.message === '問題文を入力してください')
       ).toBe(true);
@@ -246,13 +270,13 @@ describe('validateQuizForPublish', () => {
 
     test('問題文が空白のみの場合エラーを返す', () => {
       const quiz = makeQuiz({ questions: [makeQuestion({ questionText: '   ' })] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.questionField === 'questionText')).toBe(true);
     });
 
     test('問題文が5文字未満の場合エラーを返す', () => {
       const quiz = makeQuiz({ questions: [makeQuestion({ questionText: 'あいう' })] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.questionField === 'questionText' && e.message.includes('5文字以上'))).toBe(
         true
       );
@@ -260,7 +284,7 @@ describe('validateQuizForPublish', () => {
 
     test('問題文が500文字を超える場合エラーを返す', () => {
       const quiz = makeQuiz({ questions: [makeQuestion({ questionText: 'あ'.repeat(501) })] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.questionField === 'questionText' && e.message.includes('500文字以内'))).toBe(
         true
       );
@@ -277,7 +301,7 @@ describe('validateQuizForPublish', () => {
         ],
       });
       const quiz = makeQuiz({ questions: [questionWithNoAnswer] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -286,7 +310,7 @@ describe('validateQuizForPublish', () => {
         choices: [makeChoice({ id: 'c1', isCorrect: true })],
       });
       const quiz = makeQuiz({ questions: [questionWithOneChoice] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -297,7 +321,7 @@ describe('validateQuizForPublish', () => {
         ),
       });
       const quiz = makeQuiz({ questions: [questionWithTooManyChoices] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -308,7 +332,7 @@ describe('validateQuizForPublish', () => {
         ),
       });
       const quiz = makeQuiz({ questions: [questionWithTenChoices] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -319,7 +343,7 @@ describe('validateQuizForPublish', () => {
         correctTextAnswerList: [],
       });
       const quiz = makeQuiz({ questions: [questionWithNoAnswer] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -331,7 +355,7 @@ describe('validateQuizForPublish', () => {
         textInputMode: 'char-count',
       });
       const quiz = makeQuiz({ questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -344,7 +368,7 @@ describe('validateQuizForPublish', () => {
         textInputCharCount: 4,
       });
       const quiz = makeQuiz({ questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) =>
         e.field === 'questions' &&
         e.questionField === 'correctTextAnswer' &&
@@ -362,7 +386,7 @@ describe('validateQuizForPublish', () => {
         textInputCharCount: 4,
       });
       const quiz = makeQuiz({ questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -374,7 +398,7 @@ describe('validateQuizForPublish', () => {
         textInputMode: 'numeric',
       });
       const quiz = makeQuiz({ questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -386,7 +410,7 @@ describe('validateQuizForPublish', () => {
         textInputMode: 'numeric',
       });
       const quiz = makeQuiz({ questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -398,7 +422,7 @@ describe('validateQuizForPublish', () => {
         textInputMode: 'numeric',
       });
       const quiz = makeQuiz({ questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -409,7 +433,7 @@ describe('validateQuizForPublish', () => {
         correctTextAnswerList: [],
       });
       const quiz = makeQuiz({ questions: [questionWithNoAnswer] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -420,7 +444,7 @@ describe('validateQuizForPublish', () => {
         correctTextAnswerList: ['正解'],
       });
       const quiz = makeQuiz({ questions: [questionWithAnswer] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -432,7 +456,7 @@ describe('validateQuizForPublish', () => {
         truthKeywords: ['ウミガメ', 'スープ'],
       });
       const quiz = makeQuiz({ questions: [validLateralQuestion] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -444,7 +468,7 @@ describe('validateQuizForPublish', () => {
         truthKeywords: ['ウミガメ'],
       });
       const quiz = makeQuiz({ questions: [invalidQuestion] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -456,7 +480,7 @@ describe('validateQuizForPublish', () => {
         truthKeywords: [],
       });
       const quiz = makeQuiz({ questions: [invalidQuestion] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -470,7 +494,7 @@ describe('validateQuizForPublish', () => {
         format: 'multiple-choice',
         questions: [question],
       });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
@@ -484,7 +508,7 @@ describe('validateQuizForPublish', () => {
         format: 'text-input',
         questions: [question],
       });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -510,8 +534,8 @@ describe('validateQuizForPublish', () => {
         questions: [quickPressQuestion],
       });
 
-      expect(validateQuizForPublish(quiz1).some((e) => e.field === 'questions')).toBe(true);
-      expect(validateQuizForPublish(quiz2).some((e) => e.field === 'questions')).toBe(true);
+      expect(validateQuizForPublish(quiz1, TEST_NG_WORDS).some((e) => e.field === 'questions')).toBe(true);
+      expect(validateQuizForPublish(quiz2, TEST_NG_WORDS).some((e) => e.field === 'questions')).toBe(true);
     });
 
     test('複合形式(mixed)で許可された問題形式（選択・〇✕・記述・並べ替え・連想）が含まれる場合エラーを返さない', () => {
@@ -547,7 +571,7 @@ describe('validateQuizForPublish', () => {
         format: 'mixed',
         questions: [mcQuestion, tfQuestion, tiQuestion, stQuestion, asQuestion],
       });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
 
@@ -560,7 +584,7 @@ describe('validateQuizForPublish', () => {
         ],
       });
       const quiz = makeQuiz({ format: 'true-false', questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.message.includes('正解を1つだけ'))).toBe(true);
     });
 
@@ -573,7 +597,7 @@ describe('validateQuizForPublish', () => {
         ],
       });
       const quiz = makeQuiz({ format: 'true-false', questions: [question] });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
     });
   });
@@ -599,13 +623,13 @@ describe('validateQuizForPublish', () => {
   describe('NGワードバリデーション', () => {
     test('タイトルにNGワードが含まれる場合エラーを返す', () => {
       const quiz = makeQuiz({ title: 'spam quiz' });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'ngWord')).toBe(true);
     });
 
     test('説明文にNGワードが含まれる場合エラーを返す', () => {
       const quiz = makeQuiz({ description: 'This is spam content' });
-      const errors = validateQuizForPublish(quiz);
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'ngWord')).toBe(true);
     });
   });

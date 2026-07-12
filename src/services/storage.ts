@@ -32,7 +32,7 @@ export async function uploadImage(file: File, path: string): Promise<string> {
 export async function deleteImage(imageUrl: string): Promise<void> {
   if (!imageUrl) return;
 
-  // Supabase Storage の公開URLパターンに一致しない場合（旧 Firebase URL・外部アバター等）は何もしない
+  // Supabase Storage の公開URLパターンに一致しない場合（Supabase 以外の外部URL（Dicebearデフォルトアバター等））は何もしない
   const parsed = parseSupabasePublicUrl(imageUrl);
   if (!parsed) {
     return;

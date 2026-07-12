@@ -405,6 +405,11 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+[functions.bigquery-export]
+# 認証はSupabase JWTではなくカスタムヘッダー(X-Analytics-Webhook-Secret)で行うため無効化する
+# (呼び出し元はpg_net/pg_cronであり、認証済みSupabaseクライアントではない)
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

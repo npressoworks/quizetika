@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { saveQuiz, getQuiz, updateQuiz } from '@/services/quiz';
+import { listActiveNgWords } from '@/services/ng-words';
 import {
   validateQuizForPublish,
   collectQuestionTextValidationErrors,
@@ -1127,7 +1128,19 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     // 公開時のみバリデーションチェック
     if (status === 'published') {
       const tempQuiz = { id: quizId || '', ...quizData, createdAt: new Date(), updatedAt: new Date() } as Quiz;
-      const errors = validateQuizForPublish(tempQuiz);
+
+      // NGワード一覧を取得してクライアント側事前チェックに用いる。
+      // 取得に失敗した場合は事前チェックをスキップし（フェイルオープン）、
+      // 最終防衛線であるサーバー側検証（saveQuiz/updateQuiz）に委ねる。
+      let ngWords: string[] = [];
+      try {
+        ngWords = await listActiveNgWords();
+      } catch (err) {
+        console.error('NGワード一覧の取得に失敗しました。クライアント側の事前チェックをスキップします:', err);
+        ngWords = [];
+      }
+
+      const errors = validateQuizForPublish(tempQuiz, ngWords);
       if (errors.length > 0) {
         setValidationErrors(errors);
         setErrorText('公開バリデーションエラーが発生しました。内容を修正してください。');

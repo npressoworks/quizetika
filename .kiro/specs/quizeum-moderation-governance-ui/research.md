@@ -116,3 +116,34 @@
 ## 4. References
 - [src/lib/genre-icon-upload.ts](file:///d:/quizetika/src/lib/genre-icon-upload.ts) — ジャンルアイコン用共通バリデーションロジック
 - [src/services/storage.ts](file:///d:/quizetika/src/services/storage.ts) — 旧ジャンルアイコン保存先パス決定ロジック
+
+---
+
+## 5. Phase 39: NGワードマスタ管理画面（2026-07 軽量ディスカバリー）
+
+### Extension Point Analysis
+- **既存パターン**: `AdminGenresPage`（`src/app/admin/genres/page.tsx` + `admin-genres-client.tsx`）が「一覧取得 + 追加フォーム + 即時反映」の確立済みパターンを持つ。NGワード管理はこのパターンをそのまま踏襲できる（画像アップロードが不要な分、むしろ単純）。
+- **admin ポータル**: `src/app/admin/page.tsx` は既に3枚のナビゲーションカード（モデレーション審査／ユーザー評判管理／ジャンル直接管理）を持つサーバーコンポーネントであり、4枚目のカード追加は既存パターンの機械的拡張で対応可能。
+- **依存関係**: NGワードのCRUDロジック自体（重複検知・DB書き込み）は `supabase-governance` の `ngWords.ts`／RPC が所有するため、本スペックはAPI Routeでの薄いブリッジ（認証確認 + `ngWords.ts` 呼び出し + レスポンス整形）のみを担当する。既存の `admin-genres API` が Firestore（現状はSupabase）への直接書き込みを行っているのとは異なり、NGワード管理APIはサービス層への委譲に留まる薄い実装になる。
+
+### Dependency Check
+- 新規外部ライブラリの追加は不要。既存の `useAuth`、Tailwind/shadcn コンポーネントをそのまま再利用する。
+
+### Integration Risk Assessment
+- **既存機能への影響**: 新規ページ・新規APIルートの追加のみで、既存の `AdminGenresPage` や他の管理画面には影響しない。
+- **画像処理系との違い**: ジャンル管理で必要だったローカルファイルアップロード・ディレクトリトラバーサル対策（Risks & Mitigations 参照）は、NGワードがテキストのみのためそのまま持ち込む必要はない（Non-Goals として明記済み）。
+
+## Design Decisions（Phase 39 追記）
+
+### Decision: NGワード管理画面を `AdminGenresPage` と同型のページ + クライアントコンポーネント構成にする
+- **Context**: 新規CRUD管理画面を実装するにあたり、ゼロから設計するか既存パターンを踏襲するか検討した。
+- **Alternatives Considered**:
+  1. 汎用的な「マスタデータ管理」コンポーネントを新設し、ジャンル管理・NGワード管理の両方から再利用する。
+  2. `AdminGenresPage` と同型の独立したページ + クライアントコンポーネントとして実装する。
+- **Selected Approach**: 案2を採用。
+- **Rationale**: 現時点でマスタ管理UIは「ジャンル」「NGワード」の2種類のみであり、両者はフィールド構成（画像の有無等）が異なる。汎用化は将来3種類目のマスタが必要になった時点で再検討すべきであり、今の段階での抽象化は投機的（Simplification原則）。
+- **Trade-offs**: 若干のコード重複（一覧表示・フォーム送信のボイラープレート）が生じるが、既存の `AdminGenresPage` の実装から逸脱しないため学習コストが低い。
+- **Follow-up**: なし。
+
+## Risks & Mitigations（Phase 39 追記）
+- **NGワード一覧の外部露出** — `ng_words` の SELECT を全ユーザーに許可する設計（`supabase-governance` 側RLS）のため、NGワード一覧がAPI経由で取得可能になる。既存のハードコード配列も元々クライアントバンドルに含まれていたため、露出度は同等以下と判断（[[Design Decisions]] は `supabase-governance/research.md` 側にも記録）。

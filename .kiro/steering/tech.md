@@ -72,11 +72,15 @@ npm run gen:types
 - **Stripe課金フロー**: Stripe Checkout Session（サーバー生成）+ Webhook（`/api/webhooks/stripe`）でサブスクリプション状態を Supabase に同期。`src/lib/stripe/server.ts` にサーバー側クライアントを集約し、クライアントバンドルへの秘密鍵漏洩を防止する。
 - **広告の動的ロードと制御（Quizetika Ads）**: 有料プラン（Pro/Premium）のアクティブな状態で広告スクリプト（Google AdSense）のロードを動的にスキップし、パフォーマンスおよび不要なネットワークリクエストを排除する。一時的広告非表示フラグ環境変数 `NEXT_PUBLIC_DISABLE_ADS` が `'true'` の場合、すべての広告コンポーネントおよびフックで非表示処理にフォールバックする。
 - **ハイブリッド無限スクロール設計**: クイズ一覧等におけるページング体験向上のため、初期状態は「もっと見る」ボタンで開始し、クリック後はスクロール交差監視による自動追加ロード（無限スクロール）に移行するハイブリッド方式を採用。データフェッチには Supabase のカーソルベースページング処理（`getQuizzesByAuthorPage` やクイズフィードのカーソル仕様拡張）を適用し、不要な全件フェッチによる読み取りコストを削減する。
+- **OAuth（Google/X/Azure AD）の PKCE コード交換**: `signInWithGoogle` 等（`src/lib/supabase/auth.ts`）は `redirectTo` に `/api/auth/callback?redirect=<path>` を指定し、`src/app/api/auth/callback/route.ts` が `supabase.auth.exchangeCodeForSession(code)` でコード交換とログイン後リダイレクトを行う。新規 OAuth プロバイダ追加時もこのコールバックルートを再利用する。
+- **RLS ポリシーは SELECT/UPDATE だけでなく操作種別ごとに定義**: 初回サインイン時の `users` 行作成など、クライアントから直接 `INSERT` が走るテーブルには専用の INSERT ポリシーが必要（SELECT/UPDATE ポリシーがあっても INSERT は別途定義しないと拒否される）。新しいテーブル・書き込み経路を追加する際は、想定する全操作（SELECT/INSERT/UPDATE/DELETE）に対応するポリシーが揃っているか確認する。
+- **`onAuthStateChange` は購読直後に `INITIAL_SESSION` を発火**: `AuthProvider` 側で個別に `getSession()` を呼んで初期化する必要はない（二重実行によるレースで初回ユーザー作成が重複INSERTになりうる）。
 - **Firebase → Supabase 段階移行（完了・ドメイン単位カットオーバー）**: 一括移行ではなく `.kiro/specs/supabase-*`（foundation → auth-migration → core-data → gameplay/governance/storage-migration → cleanup の順）でドメインごとに移行した。全ドメインの移行完了後、`supabase-cleanup` スペックにより `firebase`/`firebase-admin` パッケージと初期化コードをリポジトリから完全に除去し、Supabase 単独構成に一本化した。
 - **RDB 正規化の徹底（core-data）**: Firestore ドキュメント構造をそのまま PostgreSQL に転写しない。文字列連結の疑似ドキュメントID（例: `follower_id + '_' + following_id`）は複合主キーに、配列/JSONB による埋め込み（バッジ・フォロー中ジャンル・タグ・問題構成）は中間テーブル（`user_badges`, `user_genre_follows`, `quiz_tags`, `quiz_questions` 等）に正規化する。サービス層の TypeScript インターフェースは変更せず、内部クエリのみを差し替えるブラックボックス置換を徹底する。
 
 ---
 _updated_at: 2026-07-05 — supabase-cleanup 完了に伴い Supabase 単独構成の記述に更新_
 _updated_at: 2026-07-06 — e2e-suite-stabilization 完了に伴い、Failure Ledger + ベースライン差分検証によるE2Eスイート安定化パターンを追記_
+_updated_at: 2026-07-09 — OAuth PKCEコールバック実装（`/api/auth/callback`）に伴い、OAuthリダイレクトパターンおよびRLS INSERTポリシー要件・`onAuthStateChange`初期化パターンを追記_
 
 _Document standards and patterns, not every dependency_

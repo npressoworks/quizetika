@@ -119,3 +119,99 @@
   - 成果物確認: 全テストがパスし、ゲートの再実行結果から対象ファイルが消えていること
   - _Requirements: 8.1, 8.2, 8.3_
   - _Depends: 4.1, 4.2, 4.3_
+
+- [ ] 5. NGワードマスタ管理機能の追加（Phase 39）
+- [x] 5.1 NGワードマスタのスキーマとCRUD RPCのマイグレーション
+  - `ng_words` テーブル（`word`／`normalized_word`／`is_active`／`created_at`／`updated_at`）を新規作成し、`normalized_word`（`lower(trim(word))`）への一意インデックスで大文字・小文字を区別しない重複登録をDB制約レベルで防止する
+  - RLSを有効化し、SELECTは全員に許可、書き込みはRPC限定とするポリシーを定義する
+  - `handle_create_ng_word`（`is_admin()` 検証、空文字拒否、`normalized_word` の一意制約違反時は例外）、`handle_update_ng_word`（表記編集）、`handle_set_ng_word_active`（有効/無効切替）の3RPCを定義する
+  - 成果物確認: マイグレーションをローカル Supabase に適用し、テーブル・インデックス・3RPCがエラーなくデータベースへロードされること
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.8_
+
+- [x] 5.2 NGワードマスタ読み書きサービスの実装
+  - `ngWords.ts` に `listNgWords`（RLS経由のSELECT）、`createNgWord`、`updateNgWord`、`setNgWordActive`（いずれも対応RPC呼び出し）を実装する
+  - `createNgWord`／`updateNgWord` はサービス層でも空文字・空白のみの入力を事前検証し、RPC呼び出し前に早期リターンする
+  - 重複エラー（`23505` unique_violation）を「この語句はすでに登録されています」というドメインエラーへ変換する
+  - 単体テストを実行し、正常系（登録・編集・有効/無効切替・一覧取得）と異常系（重複語句、空文字、権限不足）が期待どおりに動作することを確認する
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
+  - _Boundary: NgWordsService_
+  - _Depends: 5.1_
+
+- [x] 5.3 NGワード管理APIルートの実装
+  - `/api/admin/ng-words` に GET（一覧取得）と POST（新規登録）を実装し、`ngWords.ts` の `listNgWords`／`createNgWord` を呼び出す
+  - `/api/admin/ng-words/[id]` に PATCH（表記編集・有効/無効切替）を実装し、`ngWords.ts` の `updateNgWord`／`setNgWordActive` を呼び出す
+  - 重複エラーを `409`、空文字エラーを `400`、対象ID不在を `404` として返却するエラーハンドリングを実装する
+  - 成果物確認: 管理者トークンでの POST/GET/PATCH がそれぞれ期待どおりのレスポンスを返し、非管理者トークンでは `403` が返ること
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
+  - _Boundary: NgWordsAdminRoutes_
+  - _Depends: 5.2_
+
+- [x] 5.4 統合検証
+  - `npm run build` を実行し、型エラーが発生しないことを確認する
+  - Jest テストスイート全体を実行し、既存テストを含めて全てパスすることを確認する
+  - 大文字・小文字表記のみが異なる語句（例: `Spam` と `spam`）を連続登録した場合に2件目が重複として拒否されることを手動確認する
+  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
+  - _Depends: 5.3_
+
+- [x] 5.5 バグ修正: ngWords.ts のSupabaseクライアントをサーバー用に是正
+  - `ngWords.ts` が `../lib/supabase/client`（ブラウザ用、セッションなしの匿名クライアント）をモジュールトップレベルで生成しているため、サーバーサイドAPI Route（`/api/admin/ng-words`, `/api/admin/ng-words/[id]`）から呼び出すと `auth.uid()` が常に `NULL` になり、`handle_create_ng_word`／`handle_update_ng_word`／`handle_set_ng_word_active` 内の `is_admin()` 判定が常に失敗して `permission-denied` になる不具合を修正する
+  - `../lib/supabase/server` の Cookie 連携 `createClient()`（非同期関数）に差し替え、各関数内で `await createClient()` を呼ぶ形に変更する（モジュールトップレベルでのインスタンス化を廃止する）
+  - 成果物確認: 実際にログイン済み管理者セッションのCookieを持つリクエストで `/api/admin/ng-words` へのPOSTがRPC呼び出しレベルで成功し、`permission-denied` が発生しないことを確認する（Jestのモックテストだけでなく、ローカルSupabase + 開発サーバーを用いた実リクエストでの検証を含める）
+  - 単体テストを実行し、`tests/services/ngWords.test.ts` のモックをサーバークライアント（`../lib/supabase/server`）に合わせて更新した上で全てパスすることを確認する
+  - _Requirements: 9.1, 9.2, 9.4, 9.5, 9.6, 9.8_
+  - _Boundary: NgWordsService_
+  - _Depends: 5.2_
+
+## Implementation Notes (Phase 39)
+
+- 管理者権限チェックは `is_admin()` RPC（DB層）に加え、`/api/admin/*` の慣例に倣い Route 層でも `authorizeAdmin()` による401/403判定を明示的に実装（`listNgWords` 自体はRLS SELECT公開のため権限ゲートを持たないため）。
+- エラー種別のHTTPステータス変換は既存の `admin/users/ban` 等と同様、サービス層が投げるエラーメッセージの部分文字列一致で判定するパターンを踏襲（`ngWords.ts` のエラーメッセージ文言と `route.ts` のマッピングが暗黙的に結合している点に注意）。
+- **【重大・要フォローアップ】タスク5.5で判明**: `ngWords.ts` はサービス層でSupabaseクライアントをモジュールトップレベルで生成する際、ブラウザ用の匿名クライアント（`../lib/supabase/client`）を使っていたため、サーバーサイドAPI Routeから呼び出すと `auth.uid()` が常に `NULL` になり `is_admin()` 判定が常に失敗する不具合があった（実際に管理者としてログインしていても操作が全て権限エラーになる）。この不具合は `quizeum-moderation-governance-ui` タスク14.5のPlaywright E2Eテストで実際に検出された。同じパターン（モジュールトップレベルでブラウザ用クライアントを生成し、`auth.uid()` に依存するRPCを呼ぶ）を `src/services/reputation.ts` の `banUser`／`unbanUser`／`resetUserReputation` も持っており、これらの唯一の呼び出し元がサーバーサイドAPI Route（`/api/admin/users/ban`／`unban`／`reset`）であるため、**管理者のBAN/UNBAN/レピュテーションリセット機能が本番で同様に機能していない可能性が高い**。別途バグ修正タスクとして起票し検証・修正すべき（`moderation.ts`／`tagMerge.ts` は呼び出し元が全てクライアントコンポーネントのため同種の実害はないことを確認済み）。
+
+## 6. バグ修正: reputation.ts のSupabaseクライアントをサーバー用に是正（既存機能の潜在バグ）
+
+<!-- タスク5.5でngWords.tsに発見・修正した不具合と同一パターン。reputation.ts はタスク2.3（既存・完了済み）で実装されたが、当時のレビューではモックテストとビルド成功のみで検証しており、実際のサーバーコンテキストでのauth.uid()解決を見落としていた。Phase 39のNGワード機能実装中にPlaywright E2Eテストの手法が確立されたことで、既存機能の潜在バグとして本タスクを追加する。 -->
+
+- [x] 6.1 reputation.ts のSupabaseクライアントをサーバー用に是正
+  - `reputation.ts` が `../lib/supabase/client`（ブラウザ用、セッションなしの匿名クライアント）をモジュールトップレベルで生成しているため、サーバーサイドAPI Route（`/api/admin/users/ban`, `/api/admin/users/unban`, `/api/admin/users/reset`）から呼び出すと `auth.uid()` が常に `NULL` になり、`handle_ban_user`／`handle_unban_user`／`handle_reset_user_reputation` 内の `is_admin()` 判定が常に失敗して `permission-denied` になる不具合を修正する
+  - `../lib/supabase/server` の Cookie 連携 `createClient()`（非同期関数）に差し替え、`banUser`／`unbanUser`／`resetUserReputation`／`getReputationScore`／`checkModeratorEligibility`／`getReputationLimit` の各関数内で `await createClient()` を呼ぶ形に変更する（モジュールトップレベルでのインスタンス化を廃止する）
+  - 成果物確認: 実際にログイン済み管理者セッションのCookieを持つリクエストで `/api/admin/users/ban`（および unban／reset）へのPOSTがRPC呼び出しレベルで成功し、`permission-denied` が発生しないことを確認する（ローカルSupabase + 開発サーバーを用いた実リクエスト、または既存のE2Eテストがあれば実行しての検証を含める）
+  - 単体テストを実行し、既存テストのモックをサーバークライアント（`../lib/supabase/server`）に合わせて更新した上で全てパスすることを確認する
+  - _Requirements: 1.1, 1.2, 3.1, 3.2_
+  - _Boundary: ReputationService_
+
+- [x] 6.2 リグレッション確認
+  - `npm run build` を実行し、型エラーが発生しないことを確認する
+  - Jest テストスイート全体を実行し、既存テストを含めて全てパスすることを確認する
+  - `admin/users` 画面（BAN/UNBAN/レピュテーションリセットUI）が存在すれば、実際の管理者操作フローを手動またはE2Eで確認する
+  - _Requirements: 1.1, 1.2, 1.3, 3.1, 3.2_
+  - _Depends: 6.1_
+
+## Implementation Notes (Task 6)
+
+- タスク6.1/6.2で、`reputation.ts` のSupabaseクライアントをサーバー用（Cookie連携）に修正した結果、BAN/UNBANはエンドツーエンドで正常動作することを実リクエストで確認した。
+- **【未解決・別issue → タスク7で対応】** `resetUserReputation`（レピュテーションリセット）は本修正後も `check_users_immutable_fields` トリガー（`supabase/migrations/20260702000000_init.sql`）により `Immutable fields modified`（`P0001`）で失敗し続ける。このトリガーは `auth.role() = 'authenticated'` のみをチェックし `is_admin()` の例外を持たないため、管理者による正当な `reputation_score`／`moderation_tier`／`subscription_tier` の更新も一律ブロックしてしまう。要件3.2（レピュテーションリセット）はこのタスクの範囲では完全には満たされていない。
+
+## 7. バグ修正: check_users_immutable_fields トリガーに管理者例外を追加（既存機能の潜在バグ）
+
+<!-- タスク6.1/6.2で発見。トリガー関数のコメントには「特権管理者やサーバーサイド操作（service_role）でない場合のみチェックを実行する」とあるが、実装は auth.role() = 'authenticated' のみをチェックしており is_admin() の例外を実装していない、コメントと実装が乖離したバグ。handle_reset_user_reputation は SECURITY DEFINER RPC 内で users を UPDATE するが、auth.role() はセッションのロールを返すため SECURITY DEFINER でも 'authenticated' のままであり、このトリガーに一律ブロックされる。 -->
+
+- [x] 7.1 check_users_immutable_fields トリガーへの is_admin() 例外追加
+  - 新規マイグレーションファイルを作成し、`check_users_immutable_fields()` トリガー関数を `CREATE OR REPLACE FUNCTION` で再定義する（既存の適用済みマイグレーションファイル `20260702000000_init.sql` 自体は変更しない）
+  - チェック条件を `auth.role() = 'authenticated' AND NOT is_admin()` に変更し、管理者（`is_admin()` が true）の場合は特権フィールド（`moderation_tier`／`reputation_score`／`subscription_tier`）の変更を許可する
+  - 成果物確認: マイグレーションをローカル Supabase に適用し、管理者セッションでの `reputation_score`／`moderation_tier` 更新（`handle_reset_user_reputation` 経由）が成功し、非管理者セッションでの直接更新は引き続き `Immutable fields modified` で拒否されることを確認する（実際のログイン済み管理者セッションでの実リクエスト検証を含める）
+  - _Requirements: 3.2_
+  - _Boundary: GovernanceSchema_
+
+- [x] 7.2 リグレッション確認
+  - `npm run build` を実行し、型エラーが発生しないことを確認する
+  - Jest テストスイート全体を実行し、既存テストを含めて全てパスすることを確認する
+  - `admin/users` 画面のレピュテーションリセットUIで実際の管理者操作フローを手動またはE2Eで確認する
+  - 非管理者ユーザーが `reputation_score`／`moderation_tier`／`subscription_tier` を直接変更しようとした場合に引き続きブロックされることを確認する（既存の防御を弱めていないことの確認）
+  - _Requirements: 3.1, 3.2_
+  - _Depends: 7.1_
+
+## Implementation Notes (Task 7)
+
+- タスク7.1/7.2で `check_users_immutable_fields` トリガーに `is_admin()` 例外を追加し、レピュテーションリセット（`handle_reset_user_reputation`）が管理者操作として正しく成功することを、実際の管理者UIフロー（`/admin/users` 画面での確認ダイアログのCONFIRM操作）を通じてエンドツーエンドで実証した。非管理者による直接更新は引き続きブロックされることも確認済み。
+- この一連の修正（タスク5.5, 6.1/6.2, 7.1/7.2）はいずれもNGワード機能（Phase 39）の実装中に偶発的に発見された、既存機能の潜在的なセキュリティ関連バグ（サーバーコンテキストでの匿名クライアント使用、および特権フィールド保護トリガーの`is_admin()`判定漏れ）である。ユーザー承認を得た上で対応した。

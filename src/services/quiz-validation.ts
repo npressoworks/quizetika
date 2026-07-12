@@ -30,28 +30,15 @@ import {
    ========================================================================== */
 
 /**
- * NGワード一覧（小文字で定義。実際のプロダクションでは外部設定ファイルや
- * Supabase の moderation テーブルから動的ロードすることを推奨）
- */
-export const NG_WORD_LIST: string[] = [
-  'spam',
-  'scam',
-  'hentai',
-  'adult',
-  'porn',
-  'xxx',
-  // 追加のNGワードはここに記載
-];
-
-/**
  * テキストにNGワードが含まれるか判定する（ケースインセンシティブ）
  * @param text 検査対象テキスト
+ * @param ngWords 判定に用いるNGワード一覧（呼び出し元が用意する。例: `listActiveNgWords()`）
  * @returns NGワードを含む場合 true
  */
-export function containsNgWord(text: string): boolean {
+export function containsNgWord(text: string, ngWords: readonly string[]): boolean {
   if (!text) return false;
   const lower = text.toLowerCase();
-  return NG_WORD_LIST.some((word) => lower.includes(word));
+  return ngWords.some((word) => lower.includes(word.toLowerCase()));
 }
 
 /* ==========================================================================
@@ -505,9 +492,13 @@ export function validateQuizForDraft(quiz: Pick<Quiz, 'title' | 'genre' | 'quest
  * - NGワード: タイトル・説明・問題文にNGワードが含まれないこと
  *
  * @param quiz 検証対象のクイズ
+ * @param ngWords NGワード判定に用いる語句一覧（呼び出し元が用意する。例: `listActiveNgWords()`）
  * @returns バリデーションエラーの配列（0件 = 合格）
  */
-export function validateQuizForPublish(quiz: Quiz): QuizPublishValidationError[] {
+export function validateQuizForPublish(
+  quiz: Quiz,
+  ngWords: readonly string[]
+): QuizPublishValidationError[] {
   const errors: QuizPublishValidationError[] = [];
 
   // ── タイトル ──────────────────────────────────────────
@@ -586,7 +577,7 @@ export function validateQuizForPublish(quiz: Quiz): QuizPublishValidationError[]
   ];
 
   for (const text of textsToCheck) {
-    if (containsNgWord(text)) {
+    if (containsNgWord(text, ngWords)) {
       errors.push({
         field: 'ngWord',
         message: '不適切なワードが含まれているため公開できません。内容を修正してください',

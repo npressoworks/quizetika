@@ -165,5 +165,6 @@
   - リネーム完了後に `npm run build` と `npm run test` を実行し成功することを確認する
   - `src/components/quiz/quiz-editor.tsx` の `CANONICAL_TAGS` 内 `'Firebase'` が変更されず残存していることを確認する
   - 観測可能な完了条件: `npm run build` と `npm run test` がいずれも終了コード `0` で完了し、`CANONICAL_TAGS` の `'Firebase'` タグが変更されていない
+  - __再検証（2026-07-09）__: `npm run verify:firebase-removed` を再実行し Stage A/B とも `RESULT: PASS`。`npm run build`（全ルート成功）・`npm run test`（228スイート/1311テスト全成功）を確認。`CANONICAL_TAGS` 自体は本タスク以降の別コミットで `quiz-editor.tsx` から削除されており（`src/` 全体を検索しても `'Firebase'` タグ・`CANONICAL_TAGS` ともに現存しない）、本タスクが変更した範囲には含まれないため対象外の既存ドリフトとして記録のみ行う
   - _Requirements: 9.3, 9.5, 9.6_
   - _Depends: 6.1, 6.2_

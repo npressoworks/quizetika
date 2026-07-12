@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
+import { assertSeedGenresAccess } from '@/lib/seed-genres-access';
 import { uploadImage, getGenreIconPath } from '@/services/storage';
 import {
   validateGenreIconFile,
@@ -28,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { DeleteGenreDialog } from '@/components/admin/delete-genre-dialog';
 
 interface GenreMetadata {
   id: string;
@@ -48,6 +50,17 @@ export default function AdminGenresClient() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // 初期ジャンル一括投入ステート定義
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedSuccessMessage, setSeedSuccessMessage] = useState<string | null>(null);
+  const [seedErrorMessage, setSeedErrorMessage] = useState<string | null>(null);
+
+  // ジャンル削除フローステート定義
+  const [deleteTargetGenre, setDeleteTargetGenre] = useState<GenreMetadata | null>(null);
+  const [deleteUsageCount, setDeleteUsageCount] = useState<number | null>(null);
+  const [deleteSubmitLoading, setDeleteSubmitLoading] = useState(false);
+  const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
   // フォームステート定義
   const [formGenreId, setFormGenreId] = useState('');
@@ -166,6 +179,153 @@ export default function AdminGenresClient() {
       void fetchGenres();
     }
   }, [isAdmin, authUser]);
+
+  // 初期ジャンル一括投入処理の実行
+  const handleSeedGenres = async () => {
+    if (!authUser) {
+      setSeedErrorMessage('ログインセッションが無効です。再度ログインしてください。');
+      return;
+    }
+
+    setSeedLoading(true);
+    setSeedSuccessMessage(null);
+    setSeedErrorMessage(null);
+
+    try {
+      await assertSeedGenresAccess(authUser.uid);
+
+      const token = await authUser.getIdToken();
+      const res = await fetch('/api/admin/seed-genres', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        message?: string;
+        error?: string;
+        added?: number;
+        updated?: number;
+      };
+
+      if (!res.ok) {
+        throw new Error(
+          data.message ||
+            data.error ||
+            '初期ジャンルの一括投入に失敗しました。',
+        );
+      }
+
+      const added = data.added ?? 0;
+      const updated = data.updated ?? 0;
+      setSeedSuccessMessage(
+        `初期ジャンルの一括投入が完了しました（新規: ${added}件、更新: ${updated}件）。`,
+      );
+
+      // 一覧を即時更新
+      void fetchGenres();
+    } catch (err) {
+      console.error('初期ジャンル投入エラー:', err);
+      setSeedErrorMessage(
+        err instanceof Error ? err.message : '初期ジャンルの一括投入に失敗しました。',
+      );
+    } finally {
+      setSeedLoading(false);
+    }
+  };
+
+  // ジャンル削除操作の開始（影響クイズ件数の取得とダイアログ表示）
+  const handleStartDeleteGenre = async (genre: GenreMetadata) => {
+    if (!authUser) {
+      setErrorMessage('ログインセッションが無効です。');
+      return;
+    }
+
+    setDeleteTargetGenre(genre);
+    setDeleteUsageCount(null);
+    setDeleteErrorMessage(null);
+
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch(`/api/admin/genres/${genre.id}/usage`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || '影響クイズ件数の取得に失敗しました。');
+      }
+
+      setDeleteUsageCount(
+        typeof data.quizCount === 'number' ? data.quizCount : 0,
+      );
+    } catch (err) {
+      console.error('ジャンル影響件数取得エラー:', err);
+      setDeleteTargetGenre(null);
+      setDeleteUsageCount(null);
+      setErrorMessage(
+        err instanceof Error ? err.message : '影響クイズ件数の取得に失敗しました。',
+      );
+    }
+  };
+
+  // 削除ダイアログの開閉状態変更ハンドラ（キャンセル・オーバーレイクローズを含む）
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setDeleteTargetGenre(null);
+      setDeleteUsageCount(null);
+      setDeleteErrorMessage(null);
+    }
+  };
+
+  // ジャンル削除の確定処理
+  const handleConfirmDeleteGenre = async (reassignToGenreId: string | null) => {
+    if (!deleteTargetGenre) return;
+    if (!authUser) {
+      setDeleteErrorMessage('ログインセッションが無効です。');
+      return;
+    }
+
+    setDeleteSubmitLoading(true);
+    setDeleteErrorMessage(null);
+
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch(`/api/admin/genres/${deleteTargetGenre.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reassignToGenreId }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || 'ジャンルの削除に失敗しました。');
+      }
+
+      setSuccessMessage(
+        `ジャンル「${deleteTargetGenre.displayName}」を削除しました（再割当て件数: ${data.reassignedCount ?? 0}件）。`,
+      );
+      setDeleteTargetGenre(null);
+      setDeleteUsageCount(null);
+      setDeleteErrorMessage(null);
+
+      // 一覧を即時再取得
+      void fetchGenres();
+    } catch (err) {
+      console.error('ジャンル削除エラー:', err);
+      setDeleteErrorMessage(
+        err instanceof Error ? err.message : 'ジャンルの削除に失敗しました。',
+      );
+    } finally {
+      setDeleteSubmitLoading(false);
+    }
+  };
 
   // アイコンファイル選択時のハンドラ
   const handleIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -301,6 +461,44 @@ export default function AdminGenresClient() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg" id="seed-genres-heading">
+            初期ジャンル一括投入 (Seed Initial Genres)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            `src/data/initial_genres.json` に定義された標準ジャンルを
+            metadata_genres へ冪等に登録します。
+          </p>
+          {seedSuccessMessage && (
+            <Alert>
+              <AlertDescription>✅ {seedSuccessMessage}</AlertDescription>
+            </Alert>
+          )}
+          {seedErrorMessage && (
+            <Alert variant="destructive">
+              <AlertDescription>⚠️ {seedErrorMessage}</AlertDescription>
+            </Alert>
+          )}
+          <Button
+            type="button"
+            id="seed-genres-btn"
+            onClick={handleSeedGenres}
+            disabled={seedLoading}
+          >
+            {seedLoading ? (
+              <>
+                <CircularProgress size={16} color="inherit" className="mr-2" /> 投入中...
+              </>
+            ) : (
+              '🌱 初期ジャンル一括投入'
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+
       {successMessage && (
         <Alert>
           <AlertDescription>✅ {successMessage}</AlertDescription>
@@ -459,6 +657,7 @@ export default function AdminGenresClient() {
                       <TableHead>表示名 / ID</TableHead>
                       <TableHead>説明</TableHead>
                       <TableHead className="w-[100px]">ステータス</TableHead>
+                      <TableHead className="w-[80px]">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -489,6 +688,18 @@ export default function AdminGenresClient() {
                             {genre.isActive ? '有効' : '無効'}
                           </Badge>
                         </TableCell>
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            data-testid={`delete-genre-btn-${genre.id}`}
+                            aria-label={`「${genre.displayName}」を削除`}
+                            onClick={() => handleStartDeleteGenre(genre)}
+                          >
+                            🗑️ 削除
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -498,6 +709,19 @@ export default function AdminGenresClient() {
           </CardContent>
         </Card>
       </div>
+
+      {deleteTargetGenre && (
+        <DeleteGenreDialog
+          open={Boolean(deleteTargetGenre)}
+          targetGenre={deleteTargetGenre}
+          otherGenres={genres.filter((genre) => genre.id !== deleteTargetGenre.id)}
+          affectedQuizCount={deleteUsageCount}
+          submitLoading={deleteSubmitLoading}
+          errorMessage={deleteErrorMessage}
+          onOpenChange={handleDeleteDialogOpenChange}
+          onConfirm={handleConfirmDeleteGenre}
+        />
+      )}
     </div>
   );
 }

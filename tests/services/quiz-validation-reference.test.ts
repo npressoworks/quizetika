@@ -69,7 +69,7 @@ describe('validateQuizForPublish reference skip', () => {
       ],
     });
     const owned = baseQuestion({ id: 'owned-1' });
-    const errors = validateQuizForPublish(baseQuiz([refQ, owned]));
+    const errors = validateQuizForPublish(baseQuiz([refQ, owned]), []);
     const answerErrors = errors.filter((e) => e.questionField === 'answers');
     expect(answerErrors).toHaveLength(0);
   });

@@ -22,7 +22,7 @@ const SUPABASE_PUBLIC_URL_PATTERN = /\/storage\/v1\/object\/public\/([^/]+)\/(.+
 
 /**
  * Supabase Storage の公開URLパターンからバケットとオブジェクトパスを抽出する
- * 一致しない場合（旧 Firebase Storage URL・外部URL等）は null を返す
+ * 一致しない場合（Supabase 以外の外部URL（Dicebearデフォルトアバター等））は null を返す
  */
 export function parseSupabasePublicUrl(url: string): BucketAndPath | null {
   const match = url.match(SUPABASE_PUBLIC_URL_PATTERN);

@@ -871,6 +871,33 @@ export type Database = {
           },
         ]
       }
+      ng_words: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          normalized_word: string
+          updated_at: string
+          word: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          normalized_word: string
+          updated_at?: string
+          word: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          normalized_word?: string
+          updated_at?: string
+          word?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           content: string
@@ -1560,6 +1587,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_genre_with_reassignment: {
+        Args: { p_genre_id: string; p_reassign_to_id?: string | null }
+        Returns: number
+      }
       handle_adjust_failed_questions_count: {
         Args: { p_delta: number; p_user_id: string }
         Returns: undefined
@@ -1596,6 +1627,23 @@ export type Database = {
           p_target_type: string
         }
         Returns: string
+      }
+      handle_create_ng_word: {
+        Args: { p_word: string }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          normalized_word: string
+          updated_at: string
+          word: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ng_words"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       handle_flag_content: {
         Args: { p_quiz_id: string; p_reason: string }
@@ -1669,6 +1717,23 @@ export type Database = {
         }
         Returns: string
       }
+      handle_set_ng_word_active: {
+        Args: { p_id: string; p_is_active: boolean }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          normalized_word: string
+          updated_at: string
+          word: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ng_words"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       handle_start_lateral_attempt: {
         Args: {
           p_ai_turn_limit: number
@@ -1717,6 +1782,23 @@ export type Database = {
           p_reporter_id: string
         }
         Returns: undefined
+      }
+      handle_update_ng_word: {
+        Args: { p_id: string; p_word: string }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          normalized_word: string
+          updated_at: string
+          word: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ng_words"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       handle_vote_genre_request: {
         Args: { p_opinion: string; p_request_id: string }

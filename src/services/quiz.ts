@@ -6,6 +6,7 @@ import {
   normalizeTag,
   normalizeQuizQuestionsForSave,
 } from './quiz-validation';
+import { listActiveNgWords } from './ng-words';
 import { normalizeSearchText, searchTextIncludes } from '../lib/normalize-search-text';
 import {
   assertAuthorOwnsQuestion,
@@ -694,7 +695,9 @@ export async function updateQuiz(
 
   if (effectiveStatus === 'published') {
     const merged: Quiz = { ...currentQuiz, ...updatePayload };
-    const errors = validateQuizForPublish(merged);
+    // NGワードマスタ取得に失敗した場合は例外がそのまま伝播し、公開処理を中断する（フェイルクローズ、要件32.4）
+    const ngWords = await listActiveNgWords();
+    const errors = validateQuizForPublish(merged, ngWords);
     if (errors.length > 0) {
       throw new Error(
         `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`
@@ -922,7 +925,9 @@ export async function saveQuiz(
   }
 
   if (status === 'published') {
-    const errors = validateQuizForPublish(payload);
+    // NGワードマスタ取得に失敗した場合は例外がそのまま伝播し、公開処理を中断する（フェイルクローズ、要件32.4）
+    const ngWords = await listActiveNgWords();
+    const errors = validateQuizForPublish(payload, ngWords);
     if (errors.length > 0) {
       throw new Error(
         `クイズの公開バリデーションに失敗しました: ${errors.map((e) => e.message).join('; ')}`

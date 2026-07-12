@@ -6,6 +6,7 @@
 **Phase 6（2026-06）**: ジャンルアイコンアップロードの仕様文言を SEC-08 / `docs/` と整合（**SVG 禁止、PNG/JPEG/GIF のみ**）。実装済み UI との乖離を解消する。
 **管理者ジャンル直接追加機能の追加（2026-06-18 追加）**: システム管理者が直接ジャンルを定義・新設できる専用画面（`/admin/genres`）と、そこへの相互ナビゲーションを追加する。
 **ジャンル画像のローカル保存化（2026-06-18 追加）**: ジャンルアイコン画像および一時画像の保存先を Firebase Storage からローカルファイルシステム（`assets/genre/`）へ変更し、Storage への依存を排除する。
+**Phase 39（2026-07 追加）**: 管理者向けNGワード（禁止語句）マスタ管理画面（`/admin/ng-words`）を新規追加する。
 
 ## Boundary Context
 - **In scope**:
@@ -20,11 +21,14 @@
   - 管理者専用のジャンル管理・追加画面（`/admin/genres`）の新規作成、およびそこでのジャンル直接追加フォーム（ID、表示名、説明、PNG/JPEG/GIFアイコン画像アップロード）の提供。
   - 管理画面間（`/admin/moderation`, `/admin/users`, `/admin/genres`）の相互ナビゲーション導線の追加。
   - ジャンル直接管理画面（`/admin/genres`）および新ジャンル新設申請画面（`/community/genres`）における、Gemini APIを利用したジャンルアイコン画像AI生成機能の提供。
+  - **Phase 39**: 管理者ロール専用のNGワードマスタ管理画面（`/admin/ng-words`）における、NGワードの登録・編集・有効/無効切替・一覧表示UI。
 - **Out of scope**:
   - `metadata_genres` ドキュメントの書き込みや Cloud Functions 側の投票集計トリガー本体のバックエンド処理（`quizetika-core`が担当）。
   - 既存ジャンルの物理的な削除機能（不要になったジャンルは非表示または非アクティブ化で対応し、物理削除は本要件の対象外とする）。
+  - **Phase 39**: NGワードマスタへのデータ書き込みや、クイズ公開時の禁止語判定ロジック自体のバックエンド処理（`supabase-governance` / `quizetika-core` が担当）。NGワードの物理削除機能（無効化のみとし、既存ジャンル管理画面と同様に物理削除は対象外とする）。
 - **Adjacent expectations**:
   - 管理者によるジャンル追加操作は、Firestore の `metadata_genres` コレクションに直接書き込みを行う（Security Rules の `canWriteMetadataGenres()` の定義に依存）。
+  - **Phase 39**: NGワードの登録・編集・有効/無効切替操作は、`supabase-governance` が提供するデータアクセス経路（API／サーバーアクション）を通じて行われることを期待します。
 
 ## Requirements
 
@@ -107,11 +111,17 @@
 11. While [登録済みジャンル一覧がロード中である間], the [Moderation Governance UI] shall [ジャンル一覧表示エリアに専用のスケルトンプレースホルダーを表示すること]。
 12. When [ジャンル一覧データのロードが完了したとき], the [Moderation Governance UI] shall [スケルトン表示領域を、実際の登録済みジャンル一覧コンテンツに差し替えること]。
 
+**NGワードマスタ管理画面における非同期表示最適化（Phase 39）**
+17. When [管理者がNGワードマスタ管理画面（`/admin/ng-words`）にアクセスしたとき], the [Moderation Governance UI] shall [サーバーコンポーネントとして管理者用サイドバー、ヘッダー、タイトル枠等の静的フレームを即座にレンダリングし、Next.jsのStreaming機能を通じてクライアントへ送信すること]。
+18. While [登録済みNGワード一覧がロード中である間], the [Moderation Governance UI] shall [NGワード一覧表示エリアに専用のスケルトンプレースホルダーを表示すること]。
+19. When [NGワード一覧データのロードが完了したとき], the [Moderation Governance UI] shall [スケルトン表示領域を、実際の登録済みNGワード一覧コンテンツに差し替えること]。
+
 **アクセシビリティ・テスト支援**
 13. The [Moderation Governance UI] shall [通報審査キューのスケルトン領域に `data-testid="moderation-queue-skeleton"` を付与すること]。
 14. The [Moderation Governance UI] shall [マージリクエスト投票のスケルトン領域に `data-testid="merge-requests-skeleton"` を付与すること]。
 15. The [Moderation Governance UI] shall [ジャンル申請・投票のスケルトン領域に `data-testid="genres-moderation-skeleton"` を付与すること]。
 16. The [Moderation Governance UI] shall [ジャンル管理画面のスケルトン領域に `data-testid="genres-management-skeleton"` を付与すること]。
+20. The [Moderation Governance UI] shall [NGワード管理画面のスケルトン領域に `data-testid="ng-words-management-skeleton"` を付与すること]。
 
 ### Requirement 7: 管理者専用ジャンル直接追加画面 (Page: `/admin/genres`)
 **Objective:** システム管理者として、コミュニティの投票を待つことなく即座に新しいジャンルをプラットフォームに直接追加し、クイズのカテゴリを整理したい。
@@ -132,8 +142,7 @@
 #### Acceptance Criteria
 1. When [管理者以外のユーザーが `/admin` にアクセスしたとき], the [Moderation Governance UI] shall [404または403エラー画面を表示してアクセスを遮断すること]。
 2. While [ユーザーの認証情報を確認中である間], the [Moderation Governance UI] shall [画面全体にローディングインジケータを表示すること]。
-3. When [管理者が `/admin` にアクセスしたとき], the [Moderation Governance UI] shall [「モデレーション審査（`/admin/moderation`）」「ユーザー評判管理（`/admin/users`）」「ジャンル直接管理（`/admin/genres`）」の各機能のタイトル、説明、および遷移用リンクを含んだナビゲーションカードを表示すること]。
-
+3. When [管理者が `/admin` にアクセスしたとき], the [Moderation Governance UI] shall [「モデレーション審査（`/admin/moderation`）」「ユーザー評判管理（`/admin/users`）」「ジャンル直接管理（`/admin/genres`）」「NGワード管理（`/admin/ng-words`）」の各機能のタイトル、説明、および遷移用リンクを含んだナビゲーションカードを表示すること]。
 
 ### Requirement 9: AIジャンルアイコン生成機能 (AI Genre Icon Generation)
 **Objective:** システム管理者または Quizetika ユーザーとして、ジャンルの表示名と説明に基づいて AI を使用してジャンルアイコン画像を生成し、ファイルを手動でアップロードすることなく高品質なアイコンを簡単に作成したい。
@@ -146,3 +155,17 @@
 5. When [一般ユーザーが新ジャンル申請画面（`/community/genres`）でAIアイコン生成を実行したとき], if [そのユーザーの当日の生成回数がデイリー上限（1日5回）に達しているとき], the [Moderation Governance UI] shall [「本日の画像生成上限に達しました」というエラーメッセージを表示して生成をブロックすること]。
 6. When [管理者ユーザーがジャンル管理画面（`/admin/genres`）でAIアイコン生成を実行したとき], the [Moderation Governance UI] shall [デイリー生成上限を適用せずに画像を生成すること]。
 
+### Requirement 10: NGワードマスタ管理画面 (Page: `/admin/ng-words`)（Phase 39）
+**Objective:** システム管理者として、クイズ公開時に検知される禁止語句（NGワード）の一覧を画面上で追加・編集・無効化し、コンテンツの健全性を継続的に維持したい。
+
+#### Acceptance Criteria
+1. When [管理者以外のユーザーが `/admin/ng-words` にアクセスしたとき], the [Moderation Governance UI] shall [404または403エラー画面を表示してアクセスを遮断すること]。
+2. While [ユーザーの認証情報を確認中である間], the [Moderation Governance UI] shall [画面全体にローディングインジケータを表示すること]。
+3. When [管理者が `/admin/ng-words` にアクセスしたとき], the [Moderation Governance UI] shall [登録済みのNGワード一覧（語句、有効/無効状態）を表示し、かつ新規NGワード登録用の入力フォームを提供すること]。
+4. When [管理者が登録フォームに語句を入力して「追加」ボタンをクリックしたとき], the [Moderation Governance UI] shall [当該語句をNGワードマスタへ新規登録し、一覧表示を最新の状態に更新すること]。
+5. If [追加時に入力された語句が、既に登録されている語句と大文字・小文字を区別せず重複するとき], the [Moderation Governance UI] shall [「この語句はすでに登録されています」というエラーメッセージを表示し、登録処理を中止すること]。
+6. If [空文字または空白のみの語句で登録・編集を送信しようとしたとき], the [Moderation Governance UI] shall [インラインエラーを表示し、送信処理を中止すること]。
+7. When [管理者が一覧内の既存NGワードの表記を編集して保存したとき], the [Moderation Governance UI] shall [当該語句を更新後の内容でNGワードマスタへ反映し、一覧表示を最新の状態に更新すること]。
+8. When [管理者が一覧内の既存NGワードの有効/無効切替を操作したとき], the [Moderation Governance UI] shall [当該語句の状態をNGワードマスタへ反映し、一覧表示に即座に反映すること]。
+9. When [NGワードの登録・編集・有効/無効切替が成功したとき], the [Moderation Governance UI] shall [成功メッセージを表示すること]。If [処理が失敗したとき], then the [Moderation Governance UI] shall [適切なエラーアラートを表示すること]。
+10. When [管理者が `/admin` 画面を表示したとき], the [Moderation Governance UI] shall [NGワード管理画面（`/admin/ng-words`）へのナビゲーションリンクを表示すること]。

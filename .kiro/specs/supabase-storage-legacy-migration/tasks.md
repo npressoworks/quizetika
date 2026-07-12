@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Foundation: 移行ツールの実行基盤と対象データ定義
+- [x] 1. Foundation: 移行ツールの実行基盤と対象データ定義
 
 - [x] 1.1 tsx を devDependency として追加し、npm スクリプトを登録する
   - `package.json` の `devDependencies` に `tsx` を追加する
@@ -14,7 +14,7 @@
   - _Requirements: 2.1_
   - _Boundary: LegacyAssetInventory_
 
-- [ ] 2. 棚卸しと冪等フィルタの実装
+- [x] 2. 棚卸しと冪等フィルタの実装
 
 - [x] 2.1 対象カラムの棚卸しクエリと既移行レコード除外ロジックを実装する
   - `src/services/legacy-storage-migration.ts` に `scanLegacyAssets()` を実装し、`LEGACY_STORAGE_TARGETS` の各カラムから `firebasestorage.googleapis.com` を含む値を持つレコードを検出する
@@ -25,7 +25,7 @@
   - _Boundary: LegacyAssetInventory_
   - _Depends: 1.2_
 
-- [ ] 3. 検証関数（前提条件サンプル検証・最終残存検証）の実装
+- [x] 3. 検証関数（前提条件サンプル検証・最終残存検証）の実装
 
 - [x] 3.1 サンプル読み取り検証関数を実装する
   - `scanLegacyAssets()` の結果から最大5件（総数がそれ未満の場合は全件）を抽出し、各URLへ匿名HTTP GETを行い読み取り可能かを判定する関数を実装する
@@ -43,7 +43,7 @@
   - _Boundary: LegacyMigrationVerificationGate_
   - _Depends: 2.1_
 
-- [ ] 4. フォールバックコード撤去関数の実装
+- [x] 4. フォールバックコード撤去関数の実装
 
 - [x] 4.1 next.config.ts のエントリ削除関数を実装する
   - `src/lib/legacy-fallback-cleanup.ts` に `removeFirebaseStorageRemotePattern(nextConfigSource: string)` を実装する（ファイルI/Oを行わない純粋関数）
@@ -60,7 +60,7 @@
   - _Requirements: 8.2_
   - _Boundary: LegacyFallbackCodeCleanup_
 
-- [ ] 5. レコード単位の移行処理の実装
+- [x] 5. レコード単位の移行処理の実装
 
 - [x] 5.1 単一レコードの取得・形式検証・複製・公開確認処理を実装する
   - `src/services/legacy-storage-migration.ts` に、(a) 旧URLへの匿名HTTP GET、(b) 取得結果のMIME形式検証（PNG/JPEG/GIFのみ許可）、(c) 決定的パス `{bucket}/legacy-migrated/{table}-{recordId}-{column}.{ext}` での Supabase Storage への `upsert: true` アップロード、(d) 新URLへのGETによる公開アクセス確認、を順に行う関数を実装する
@@ -80,7 +80,7 @@
   - _Boundary: LegacyAssetMigrator_
   - _Depends: 5.1_
 
-- [ ] 6. CLIラッパーの実装
+- [x] 6. CLIラッパーの実装
 
 - [x] 6.1 (P) migrate-legacy-storage CLIを実装する
   - `scripts/migrate-legacy-storage.ts` を実装し、`--execute` フラグの有無で 5.2 のドライラン/実行モードを切り替えて呼び出す
@@ -104,6 +104,8 @@
 - [x] 7.1 リポジトリ全体のビルド・テストを実行する
   - 本スペックで新規追加した全ファイル（`legacy-storage-targets.ts`, `legacy-storage-migration.ts`, `legacy-fallback-cleanup.ts`, 2つのCLIスクリプト、対応するテストファイル）を含めて `npm run build` と `npm run test` を実行する
   - 観測可能な完了条件: `npm run build` と `npm run test` がいずれも終了コード `0` で完了する
+  - __実データ移行の実施（2026-07-09）__: ローカル Supabase（`supabase start` 起動中、`http://127.0.0.1:54321`）に対して `npm run migrate:legacy-storage`（ドライラン）を実行し、対象総件数 `0件` を確認（ローカル環境には移行対象の Firebase Storage URL が残存していなかった）。続けて `npm run verify:legacy-storage-migration -- final` を実行し、残存ゼロ・`npm run build`・`npm run test` の内部実行成功を経て `RESULT: PASS`。この結果を受けて `next.config.ts`（`firebasestorage.googleapis.com` remotePattern 削除）・`src/services/storage.ts`・`src/lib/storage-path.ts`（コメント文言更新）のフォールバックコードが自動撤去された
+  - __最終ゲート再実行（2026-07-09）__: フォールバックコード撤去後の状態で `npm run build`（全ルート成功）・`npm run test`（228スイート/1311テスト全成功）を再実行し、リグレッションがないことを確認
   - _Requirements: 9.3_
   - _Depends: 6.1, 6.2_
 
