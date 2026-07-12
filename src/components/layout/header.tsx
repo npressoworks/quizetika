@@ -13,6 +13,7 @@ import {
   SettingsOutlined,
   AdminPanelSettingsOutlined,
   DashboardOutlined,
+  ListAltOutlined,
 } from '@mui/icons-material';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { buttonVariants } from '@/components/ui/button';
@@ -126,6 +127,18 @@ export const Header: React.FC = () => {
                   >
                     <DashboardOutlined sx={{ fontSize: 18 }} />
                     <span>ダッシュボード</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    render={
+                      <Link
+                        href="/creator/quizzes"
+                        onClick={() => setPopupOpen(false)}
+                        data-testid="header-creator-quizzes-link"
+                      />
+                    }
+                  >
+                    <ListAltOutlined sx={{ fontSize: 18 }} />
+                    <span>作成クイズ管理</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     render={

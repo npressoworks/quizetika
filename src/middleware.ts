@@ -118,9 +118,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // -------------------------------------------------------------------
-  // 認証必須ルートへのアクセス制限 (bookmarks, notifications, creator/dashboard)
+  // 認証必須ルートへのアクセス制限 (bookmarks, notifications, creator/dashboard, creator/quizzes)
   // -------------------------------------------------------------------
-  const authRequiredPaths = ['/bookmarks', '/creator/dashboard', '/profile/edit'];
+  const authRequiredPaths = ['/bookmarks', '/creator/dashboard', '/creator/quizzes', '/profile/edit'];
   const requiresAuth = authRequiredPaths.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
   );

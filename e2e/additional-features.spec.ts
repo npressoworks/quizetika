@@ -371,16 +371,16 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
         if (await saveDraftBtn.isVisible()) {
           await saveDraftBtn.click();
 
-          // ダッシュボードに遷移することを確認（デフォルトは「プレイヤー」タブのため「作家」タブへ切替える）
-          await expect(page).toHaveURL(/\/creator\/dashboard/);
-          await page.getByTestId('dashboard-tab-creator').click();
+          // 作成クイズ管理画面（/creator/quizzes）に遷移することを確認
+          await expect(page).toHaveURL(/\/creator\/quizzes/);
 
-          // 5. 作成したクイズを確認
-          const newQuizLink = page.getByTestId('creator-quiz-list').getByText(quizTitle).first();
+          // 5. 作成したクイズが一覧に表示されることを確認（要件19.1）
+          const newQuizLink = page
+            .getByTestId('creator-quiz-management-list')
+            .getByText(quizTitle)
+            .first();
           if (await newQuizLink.isVisible()) {
-            // 統計情報を確認できることを確認
-            const quizRow = newQuizLink.locator('..');
-            await expect(quizRow).toBeVisible();
+            await expect(newQuizLink).toBeVisible();
           }
         }
       }

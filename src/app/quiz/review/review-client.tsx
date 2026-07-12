@@ -260,6 +260,7 @@ export function ReviewClient({ initialGenres }: ReviewClientProps) {
                 failedQuestions[currentIdx]?.questionText ?? '',
                 failedQuestions[currentIdx]?.type
               )}
+              disableLinks
             />
           </div>
 

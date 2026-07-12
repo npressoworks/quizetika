@@ -22,6 +22,8 @@ import {
   PersonOutlined,
   Dashboard,
   DashboardOutlined,
+  ListAlt,
+  ListAltOutlined,
   AdminPanelSettings,
   AdminPanelSettingsOutlined,
   AddCircle,
@@ -241,6 +243,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
           </Link>
         )}
 
+        {user && (
+          <Link
+            href="/creator/quizzes"
+            className={cn(
+              navLinkBase,
+              pathname === '/creator/quizzes' && navLinkActive,
+              'group relative'
+            )}
+            data-testid="nav-creator-quizzes"
+          >
+            <span className="flex size-6 shrink-0 items-center justify-center">
+              {pathname === '/creator/quizzes' ? (
+                <ListAlt sx={{ fontSize: 22 }} />
+              ) : (
+                <ListAltOutlined sx={{ fontSize: 22 }} />
+              )}
+            </span>
+            <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作成クイズ管理</span>
+            {/* ミニ表示時にホバーで表示されるツールチップ */}
+            <span className={cn(
+              "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
+              isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
+            )}>
+              作成クイズ管理
+            </span>
+          </Link>
+        )}
+
         {user && isAdminUser(user) && (
           <Link
             href="/admin"
@@ -351,6 +381,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
               >
                 <DashboardOutlined sx={{ fontSize: 18 }} />
                 <span>ダッシュボード</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/creator/quizzes"
+                    onClick={() => setPopupOpen(false)}
+                    data-testid="sidebar-creator-quizzes-link"
+                  />
+                }
+              >
+                <ListAltOutlined sx={{ fontSize: 18 }} />
+                <span>作成クイズ管理</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 render={

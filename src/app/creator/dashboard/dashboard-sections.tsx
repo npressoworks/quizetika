@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { AnalyticsChart } from '@/components/charts/analytics-chart';
 import { SelectionPie } from '@/components/charts/selection-pie';
 import { Quiz, FeedbackReport, PlayHistoryEntry } from '@/types';
-import { formatReviewScorePercent } from '@/services/review-utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +13,6 @@ import {
   PlayArrowOutlined as PlayIcon,
   BookmarkBorderOutlined as BookmarkIcon,
   StarOutlined as StarIcon,
-  ThumbUpOutlined as ThumbsUpIcon,
   DescriptionOutlined as FileTextIcon,
   EditOutlined as EditIcon,
   ErrorOutlineOutlined as AlertCircleIcon,
@@ -126,117 +124,29 @@ export function ChartsSection() {
   );
 }
 
-export function QuizListSection({ quizzes }: { quizzes: Quiz[] }) {
+export function ManageQuizzesLinkCard() {
   const router = useRouter();
-  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(quizzes[0] ?? null);
 
   return (
-    <>
-      <Card data-testid="creator-quiz-list" className="lg:col-span-1">
-        <CardHeader className="flex flex-row items-center gap-2 pb-2">
-          <FileTextIcon className="size-5" />
-          <CardTitle className="text-base">作成したクイズ一覧 ({quizzes.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {quizzes.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
-              <InboxIcon className="size-12 opacity-40" />
-              <p>作成したクイズがまだありません。</p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {quizzes.map((quiz) => (
-                <div
-                  key={quiz.id}
-                  className={cn(
-                    'flex cursor-pointer items-center justify-between gap-3 py-4 transition-colors first:pt-0 last:pb-0',
-                    selectedQuiz?.id === quiz.id && 'bg-muted/50 -mx-2 rounded-md px-2',
-                  )}
-                  onClick={() => setSelectedQuiz(quiz)}
-                  data-testid="quiz-card"
-                >
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <span className="block truncate font-medium">{quiz.title}</span>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <Badge
-                        variant={quiz.status === 'published' ? 'default' : 'secondary'}
-                        className="text-xs"
-                      >
-                        {quiz.status === 'published' ? '公開中' : '下書き'}
-                      </Badge>
-                      <span>プレイ: {quiz.playCount || 0}回</span>
-                      <span
-                        className="inline-flex items-center gap-1"
-                        data-testid="creator-quiz-review-score"
-                      >
-                        <ThumbsUpIcon className="size-3.5" aria-hidden />
-                        {formatReviewScorePercent(quiz.reviewScore) ?? '-'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/quiz/${quiz.id}/edit`);
-                      }}
-                    >
-                      <EditIcon className="size-3.5" />
-                      編集
-                    </Button>
-                    <ChevronRightIcon className="size-4 text-muted-foreground" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {selectedQuiz && (
-        <Card className="col-span-full">
-          <CardHeader>
-            <CardTitle className="text-lg">
-              クイズ個別アナリティクス: {selectedQuiz.title}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              各問題に対するプレイヤーの解答選択肢割合を分析して、問題の難易度や回答傾向を把握しましょう。
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {selectedQuiz.questions.map((q, idx) => {
-                let pieData: { label: string; count: number }[] = [];
-                if (q.type === 'multiple-choice' && q.choices) {
-                  pieData = q.choices.map((choice, choiceIdx) => ({
-                    label: choice.choiceText,
-                    count: choice.selectedCount || choiceIdx + 5,
-                  }));
-                } else {
-                  const corrects = q.correctCount ?? 10 + idx;
-                  const incorrects = q.incorrectCount ?? 5 + idx;
-                  pieData = [
-                    { label: '正解', count: corrects },
-                    { label: '不正解', count: incorrects },
-                  ];
-                }
-                return (
-                  <div key={q.id || idx} className="rounded-lg border p-4">
-                    <h4 className="mb-3 text-sm font-semibold">
-                      第 {idx + 1} 問: {q.questionText}
-                    </h4>
-                    <SelectionPie data={pieData} />
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </>
+    <Card className="lg:col-span-1">
+      <CardHeader className="flex flex-row items-center gap-2 pb-2">
+        <FileTextIcon className="size-5" />
+        <CardTitle className="text-base">作成したクイズの管理</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          クイズの検索・公開設定・指摘確認は専用の管理画面で行えます。
+        </p>
+        <Button
+          type="button"
+          onClick={() => router.push('/creator/quizzes')}
+          data-testid="creator-dashboard-manage-quizzes-link"
+        >
+          クイズ管理画面へ
+          <ChevronRightIcon className="size-4" />
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

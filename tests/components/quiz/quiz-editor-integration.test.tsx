@@ -83,7 +83,7 @@ async function fillMinimalValidQuiz(questionText: string) {
   const genreOption = await screen.findByTestId('genre-editor-search-option-history-geography');
   fireEvent.click(genreOption);
 
-  const questionTextInput = screen.getByPlaceholderText('例: Reactにおいて、**useState** で管理するのは？');
+  const questionTextInput = screen.getByPlaceholderText('例: 日本で一番**高い**山は？');
   fireEvent.change(questionTextInput, { target: { value: questionText } });
 }
 

@@ -60,8 +60,18 @@ jest.mock('@/hooks/useActiveGenres', () => ({
 }));
 
 // quiz および review サービスのモック (作家ダッシュボード用)
+const mockAuthorQuizzes = [
+  {
+    id: 'quiz-1',
+    title: '作家クイズ1',
+    status: 'published',
+    playCount: 10,
+    reviewScore: 0.8,
+    questions: [{ id: 'q1', questionText: '第一問' }],
+  },
+];
 jest.mock('@/services/quiz', () => ({
-  getQuizzesByAuthor: jest.fn().mockResolvedValue([]),
+  getQuizzesByAuthor: jest.fn(() => Promise.resolve(mockAuthorQuizzes)),
   getQuiz: jest.fn().mockResolvedValue({
     id: 'q1',
     genre: 'genre-1',
@@ -96,10 +106,24 @@ describe('CreatorDashboardClient - 統合ダッシュボードのテスト', () 
     const creatorTab = screen.getByTestId('dashboard-tab-creator');
     fireEvent.click(creatorTab);
 
-    // 作家ダッシュボードの表示またはローディングを待つ
+    // 作家ダッシュボードの統計セクションが表示されるのを待つ（getQuizzesByAuthor のデータから算出）
     await waitFor(() => {
-      // getQuizzesByAuthor が空配列を返すため、クイズリストスケルトン等は消えてコンテンツが表示される
-      expect(screen.getByTestId('quiz-list-skeleton')).toBeInTheDocument();
+      expect(screen.getByTestId('stats-section')).toBeInTheDocument();
     });
+    expect(screen.getByText('1 個')).toBeInTheDocument();
+  });
+
+  it('作家ダッシュボードには簡易クイズ一覧の代わりに管理画面への導線カードが表示され、クリックで /creator/quizzes へ遷移すること', async () => {
+    render(<CreatorDashboardClient />);
+
+    fireEvent.click(screen.getByTestId('dashboard-tab-creator'));
+
+    const manageLink = await screen.findByTestId('creator-dashboard-manage-quizzes-link');
+
+    // 簡易クイズ一覧セクションはもう表示されない
+    expect(screen.queryByTestId('creator-quiz-list')).not.toBeInTheDocument();
+
+    fireEvent.click(manageLink);
+    expect(mockRouter.push).toHaveBeenCalledWith('/creator/quizzes');
   });
 });

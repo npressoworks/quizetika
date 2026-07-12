@@ -242,7 +242,7 @@ export function QuestionCard({
                 <label className={editorClasses.label}>問題文（必須）</label>
                 <AutoGrowTextarea
                   className={`${editorClasses.textarea} ${questionTextHasError ? editorClasses.inputError : ''}`}
-                  placeholder="例: Reactにおいて、**useState** で管理するのは？"
+                  placeholder="例: 日本で一番**高い**山は？"
                   value={question.questionText}
                   onChange={(e) => handlers.onQuestionTextChange(qIdx, e.target.value)}
                   style={{ resize: 'vertical' }}
@@ -253,7 +253,7 @@ export function QuestionCard({
                   data-testid={`auto-grow-question-text-${qIdx}`}
                 />
                 <MarkdownFieldHint />
-                <MarkdownPreview markdown={question.questionText} />
+                <MarkdownPreview markdown={question.questionText} disableLinks />
                 <FieldValidationMessages
                   errors={validationErrors}
                   field="questions"

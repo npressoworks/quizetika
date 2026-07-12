@@ -118,6 +118,22 @@ export async function getReportsForCreator(creatorId: string): Promise<FeedbackR
 }
 
 /**
+ * 作家ダッシュボード用: 作成者に紐づく未解決（open）の指摘を、クイズIDごとに件数集計して返す。
+ * `getReportsForCreator` と同一のクエリ条件（creator_id + status: 'open'）を用いるため、
+ * 集計対象がずれない。指摘が1件もないクイズはキーに含まれない。
+ */
+export async function getOpenReportCountsByCreator(
+  creatorId: string
+): Promise<Record<string, number>> {
+  const reports = await getReportsForCreator(creatorId);
+
+  return reports.reduce<Record<string, number>>((counts, report) => {
+    counts[report.quizId] = (counts[report.quizId] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
+/**
  * 報告者(reporterId)が特定のクイズ(quizId)に対して送信した、
  * 未解決(status == 'open')の指摘レポート一覧を取得する。
  */

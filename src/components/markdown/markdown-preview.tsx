@@ -2,9 +2,10 @@ import { MarkdownContent } from './markdown-content';
 
 type MarkdownPreviewProps = {
   markdown: string;
+  disableLinks?: boolean;
 };
 
-export function MarkdownPreview({ markdown }: MarkdownPreviewProps) {
+export function MarkdownPreview({ markdown, disableLinks = false }: MarkdownPreviewProps) {
   if (!markdown.trim()) {
     return null;
   }
@@ -17,7 +18,7 @@ export function MarkdownPreview({ markdown }: MarkdownPreviewProps) {
       <p className="mb-2 text-[0.7rem] font-semibold tracking-wide text-muted-foreground uppercase">
         プレビュー
       </p>
-      <MarkdownContent markdown={markdown} />
+      <MarkdownContent markdown={markdown} disableLinks={disableLinks} />
     </div>
   );
 }

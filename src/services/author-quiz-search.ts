@@ -4,6 +4,7 @@ import { getQuestionsByQuiz } from './question';
 import {
   filterAuthorQuizzes,
   filterAuthorQuizzesWithQuestions,
+  sortAuthorQuizzes,
   type SearchAuthorQuizzesParams,
 } from '../lib/author-quiz-search';
 
@@ -22,9 +23,14 @@ export async function searchAuthorQuizzes(
   const quizzes = await getQuizzesByAuthor(params.authorId, includeDrafts);
 
   const keyword = params.keyword?.trim();
+  const applySort = (result: Quiz[]): Quiz[] =>
+    params.sortBy
+      ? sortAuthorQuizzes(result, params.sortBy, params.sortOrder ?? 'asc')
+      : result;
+
   if (!keyword) {
     return {
-      quizzes: filterAuthorQuizzes(quizzes, params),
+      quizzes: applySort(filterAuthorQuizzes(quizzes, params)),
       questionsByQuizId: {},
     };
   }
@@ -41,7 +47,9 @@ export async function searchAuthorQuizzes(
   );
 
   return {
-    quizzes: filterAuthorQuizzesWithQuestions(quizzes, questionsByQuizId, params),
+    quizzes: applySort(
+      filterAuthorQuizzesWithQuestions(quizzes, questionsByQuizId, params)
+    ),
     questionsByQuizId,
   };
 }

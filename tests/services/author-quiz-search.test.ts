@@ -1,6 +1,7 @@
 import {
   filterAuthorQuizzes,
   filterAuthorQuizzesWithQuestions,
+  sortAuthorQuizzes,
 } from '../../src/lib/author-quiz-search';
 import type { Question, Quiz } from '../../src/types';
 
@@ -141,5 +142,136 @@ describe('author-quiz-search', () => {
       keyword: '見つからない',
     });
     expect(result).toHaveLength(0);
+  });
+
+  test('filterAuthorQuizzes: 統合ステータス絞り込みが単独で作用する', () => {
+    const quizzes = [
+      makeQuiz({ id: '1', status: 'draft' }),
+      makeQuiz({ id: '2', status: 'published', visibility: 'public' }),
+      makeQuiz({ id: '3', status: 'suspended' }),
+    ];
+    const result = filterAuthorQuizzes(quizzes, { status: 'draft' });
+    expect(result.map((q) => q.id)).toEqual(['1']);
+
+    const publicResult = filterAuthorQuizzes(quizzes, { status: 'public' });
+    expect(publicResult.map((q) => q.id)).toEqual(['2']);
+
+    const suspendedResult = filterAuthorQuizzes(quizzes, { status: 'suspended' });
+    expect(suspendedResult.map((q) => q.id)).toEqual(['3']);
+  });
+
+  test('filterAuthorQuizzes: ジャンル絞り込みは canonicalGenreId 完全一致のみを対象とし、未解決クイズを指定時のみ除外する', () => {
+    const quizzes = [
+      makeQuiz({ id: '1', canonicalGenreId: 'programming' }),
+      makeQuiz({ id: '2', canonicalGenreId: 'design' }),
+      makeQuiz({ id: '3', canonicalGenreId: '' }),
+    ];
+
+    const filtered = filterAuthorQuizzes(quizzes, { genreId: 'programming' });
+    expect(filtered.map((q) => q.id)).toEqual(['1']);
+    expect(filtered.some((q) => q.id === '3')).toBe(false);
+
+    const unfiltered = filterAuthorQuizzes(quizzes, {});
+    expect(unfiltered.map((q) => q.id)).toEqual(['1', '2', '3']);
+  });
+
+  test('filterAuthorQuizzes: 統合ステータス・ジャンル・タグ・キーワードを AND で組み合わせる', () => {
+    const quizzes = [
+      makeQuiz({
+        id: '1',
+        title: 'JavaScript 入門',
+        status: 'published',
+        visibility: 'public',
+        canonicalGenreId: 'programming',
+        tags: ['js'],
+      }),
+      makeQuiz({
+        id: '2',
+        title: 'JavaScript 応用',
+        status: 'published',
+        visibility: 'public',
+        canonicalGenreId: 'programming',
+        tags: ['web'],
+      }),
+      makeQuiz({
+        id: '3',
+        title: 'JavaScript 発展',
+        status: 'draft',
+        canonicalGenreId: 'programming',
+        tags: ['js'],
+      }),
+      makeQuiz({
+        id: '4',
+        title: 'Python 入門',
+        status: 'published',
+        visibility: 'public',
+        canonicalGenreId: 'design',
+        tags: ['js'],
+      }),
+    ];
+
+    const result = filterAuthorQuizzes(quizzes, {
+      keyword: 'JavaScript',
+      tag: 'js',
+      genreId: 'programming',
+      status: 'public',
+    });
+    expect(result.map((q) => q.id)).toEqual(['1']);
+  });
+
+  describe('sortAuthorQuizzes', () => {
+    function makeQuizzesForSort(): Quiz[] {
+      return [
+        makeQuiz({
+          id: 'a',
+          title: 'Banana',
+          playCount: 5,
+          createdAt: new Date('2026-01-02T00:00:00Z'),
+        }),
+        makeQuiz({
+          id: 'b',
+          title: 'Apple',
+          playCount: 20,
+          createdAt: new Date('2026-01-01T00:00:00Z'),
+        }),
+        makeQuiz({
+          id: 'c',
+          title: 'Cherry',
+          playCount: 1,
+          createdAt: new Date('2026-01-03T00:00:00Z'),
+        }),
+      ];
+    }
+
+    test('title で昇順・降順に並び替える', () => {
+      const quizzes = makeQuizzesForSort();
+      const asc = sortAuthorQuizzes(quizzes, 'title', 'asc');
+      expect(asc.map((q) => q.id)).toEqual(['b', 'a', 'c']);
+      const desc = sortAuthorQuizzes(quizzes, 'title', 'desc');
+      expect(desc.map((q) => q.id)).toEqual(['c', 'a', 'b']);
+    });
+
+    test('playCount で昇順・降順に並び替える', () => {
+      const quizzes = makeQuizzesForSort();
+      const asc = sortAuthorQuizzes(quizzes, 'playCount', 'asc');
+      expect(asc.map((q) => q.id)).toEqual(['c', 'a', 'b']);
+      const desc = sortAuthorQuizzes(quizzes, 'playCount', 'desc');
+      expect(desc.map((q) => q.id)).toEqual(['b', 'a', 'c']);
+    });
+
+    test('createdAt で昇順・降順に並び替える', () => {
+      const quizzes = makeQuizzesForSort();
+      const asc = sortAuthorQuizzes(quizzes, 'createdAt', 'asc');
+      expect(asc.map((q) => q.id)).toEqual(['b', 'a', 'c']);
+      const desc = sortAuthorQuizzes(quizzes, 'createdAt', 'desc');
+      expect(desc.map((q) => q.id)).toEqual(['c', 'a', 'b']);
+    });
+
+    test('入力配列を変更しない', () => {
+      const quizzes = makeQuizzesForSort();
+      const original = [...quizzes];
+      sortAuthorQuizzes(quizzes, 'title', 'asc');
+      expect(quizzes.map((q) => q.id)).toEqual(original.map((q) => q.id));
+    });
   });
 });

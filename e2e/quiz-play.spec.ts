@@ -40,7 +40,7 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     await genreOption.click();
 
     // 第1問目の問題入力
-    const qTextarea = page.locator('textarea[placeholder="例: Reactにおいて、**useState** で管理するのは？"]').first();
+    const qTextarea = page.locator('textarea[placeholder="例: 日本で一番**高い**山は？"]').first();
     await qTextarea.fill('Reactのフックでステート管理を行うのは？');
 
     // 選択肢の入力

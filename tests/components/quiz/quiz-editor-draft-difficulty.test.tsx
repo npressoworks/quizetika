@@ -86,7 +86,7 @@ describe('QuizEditor 下書き保存時の難易度デフォルト値', () => {
     const genreOption = await screen.findByTestId('genre-editor-search-option-history-geography');
     fireEvent.click(genreOption);
 
-    const questionText = screen.getByPlaceholderText('例: Reactにおいて、**useState** で管理するのは？');
+    const questionText = screen.getByPlaceholderText('例: 日本で一番**高い**山は？');
     fireEvent.change(questionText, { target: { value: 'テスト問題文です' } });
 
     const saveDraftBtn = screen.getByRole('button', { name: '下書き保存' });

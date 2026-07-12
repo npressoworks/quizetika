@@ -19,6 +19,8 @@
 
 **Phase 28（2026-06-28）**: 作家ダッシュボードの間違い指摘キューにおいて、各指摘を解決（解消）済みとするアクションを追加し、Firestoreの指摘ステータス更新（`resolveReport` 呼び出し）とダッシュボード表示の即時反映を連携する。
 
+**Phase 40（2026-07-12）**: 作家ダッシュボード（分析専念）とは別に、作成者が自分のクイズ全体を一覧・検索・管理するための専用画面（`/creator/quizzes`）を追加する。一覧・検索（キーワード／統合ステータス／ジャンル／タグ）、新規作成・編集への導線、公開・限定公開・非公開の切り替え、クイズ単位の未解決指摘件数バッジ表示を提供する。既存の `visibility`（`public`/`followers`/`private`）と Pro プラン制限（`quizetika-core` の `assertCanSetQuizVisibilitySync` 等）を初めて UI に露出する。あわせて、作家ダッシュボードの簡易クイズ一覧（`creator-quiz-list`）を本画面への導線に置き換える（要件 15〜18 参照）。
+
 
 ## 境界コンテキスト
 - **対象範囲（In scope）**:
@@ -34,12 +36,14 @@
   - **Phase 20**: クイズ全体の出題形式として「〇×式」の選択、複合形式における問題タイプ「〇×」の切り替え、正解トグル（〇／×）のみの作問 UI。
   - **Phase 27**: 作家ダッシュボードへの「プレイヤー」と「作家」の切り替えタブ表示。プレイヤーダッシュボードにおける基本統計（累計プレイ数、平均正解率、平均解答時間、プレイ済クイズ数）、ビジュアル分析グラフ（日別プレイ数、プレイモード割合）、ジャンル・タグ別のプレイ頻度分析（よくプレイする上位ジャンル・タグおよびそれぞれのプレイ回数）および正答率分析（正答率の高い上位ジャンル・タグおよびそれぞれの正答率、ただしプレイ回数3回以上を対象）。
   - **Phase 28**: 作家ダッシュボードの間違い指摘カードにおける「解決済みにする」（または同等）アクションの提供、解決処理中の非活性化、API（`resolveReport`）連携によるステータス更新とリスト表示からの除外。
+  - **Phase 40**: 作成クイズ管理画面（`/creator/quizzes`）における自作クイズの一覧・検索（キーワード／統合ステータス／ジャンル／タグ）・並び替え（クイズ名／プレイ回数／作成日）・新規作成導線・編集導線・公開／限定公開／非公開の切り替え・クイズ単位の未解決指摘件数バッジ表示。作家ダッシュボードの簡易クイズ一覧セクションの本画面への導線への置き換え。
 - **対象外（Out of scope）**:
   - 外部クイズデータのインポート UI およびインポート処理本体（仕様変更によりインポート機能は完全に廃止されたため、UI 領域は一切設置しない）。
   - **Phase 8**: ブックマーク一覧 UI、プレイ／結果画面での問題ブックマーク（`quizetika-play-flow-ui`）。
   - **Phase 26**: リスト探索 UI（`quizetika-lists-discovery-ui`）、プロフィール「作成したリスト」（`quizetika-auth-profile-ui`）。
   - **Phase 12**: 作問エディタ以外の画面（リスト編集、プロフィール編集、管理画面等）のテキストエリア自動伸長の一括適用。過去自作クイズ検索のサーバー側全文検索インデックス新設。作家ダッシュボード以外の一部の管理画面等の非同期ローディング一括適用（主要画面以外は本フェーズの対象外）。
   - **Phase 20**: 〇×問題のプレイ回答 UI（1タップ 〇／× ボタン）（`quizetika-play-flow-ui`）。選択肢テキストの自由編集 UI。
+  - **Phase 40**: クイズの削除機能（本フェーズでは提供しない）。指摘の解決・却下操作 UI 本体（既存の要件 14 の編集画面サイドバー・モーダルが担当、本画面は未解決件数バッジと編集画面への導線のみ）。アナリティクスグラフ・個別問題解答割合表示（作家ダッシュボードが引き続き担当）。`visibility` の判定・永続化・Pro プラン制限ロジック本体（`quizetika-core` の `assertCanSetQuizVisibilitySync` 等が担当）。
 - **隣接システムへの期待（Phase 6）**:
   - ジャンルマスタ読み取り・公開時 `canonicalGenreId` 解決は `quizetika-core` が担当。本スペックはエディタ UI の選択肢表示とリフレッシュのみ。
   - ジャンル新設申請・投票 UI は `quizetika-moderation-governance-ui`（`/community/genres`）が担当。
@@ -55,6 +59,10 @@
   - クイズIDからクイズのジャンルやタグマスタ情報を特定・解決するための `Quiz` ドキュメントの読み込み（または core 側でのジャンル/タグ解決）は `quizetika-core`（`QuizService` 等）に依存する。
 - **隣接システムへの期待（Phase 28）**:
   - 指摘レポートのステータス更新および通知送信は `quizetika-core`（`resolveReport`）に依存する。
+- **隣接システムへの期待（Phase 40）**:
+  - クイズの `visibility`（`public`/`followers`/`private`）判定・更新時の Pro プラン制限（`assertCanSetQuizVisibilitySync` / `canAccessProVisibility` / `ProRequiredForVisibilityError`）は既存の `quizetika-core` 実装（`src/lib/quiz-access.ts`, `updateQuiz`）に依存し、本要件はこれを UI から呼び出す・エラーを解釈して表示するのみとする。
+  - クイズ単位の未解決指摘件数の集計方法（クライアント集計か API 集計か）は `design.md` で確定する。本要件は集計結果の表示と導線のみを規定する。
+  - ジャンル・統合ステータスによる作成者クイズの絞り込みは、既存 `searchAuthorQuizzes`（キーワード・タグのみ対応）の拡張または新規実装が必要になる場合があるが、正本は `quizetika-core` が担当する。
 
 ## 要件
 
@@ -298,4 +306,73 @@
 11. The ポップアップモーダル内においても、各指摘の横に「解決済」および「却下」の操作ボタンを提供し、その場での解消・却下処理を行えるようにすること。
 12. The ポップアップモーダルには「このまま更新する」ボタンを表示し、作成者がそれをクリックしたとき、未解消の指摘が残ったままでも実際のクイズ更新処理（`updateQuiz`）を実行し、編集画面から遷移できること。
 13. If [未解消の指摘が存在しない（すべて解決または却下済み）状態で「更新」ボタンをクリックしたとき], the [Creator Dashboard UI] shall [モーダルを表示せずに即座にクイズの更新処理を実行すること]。
+
+### 要件 15: 作成クイズ管理画面（Phase 40）(Page: `/creator/quizzes`)
+**目的:** クイズ作成者として、作家ダッシュボードの分析画面とは別に、自分が作成したクイズだけを一覧・検索できる専用画面を使いたい。それにより分析情報に埋もれずクイズの管理作業（検索・新規作成・編集への遷移）を素早く行える。
+
+#### 受け入れ基準
+1. When 認証済みユーザーが `/creator/quizzes` にアクセスしたとき、the Creator Quiz Management UI shall 当該ユーザーが作成したクイズ（公開・限定公開・非公開・下書きを含む全件）の一覧を表示すること。
+2. When 未認証ユーザーが `/creator/quizzes` にアクセスしたとき、the Creator Quiz Management UI shall 認証画面（`/login`）へリダイレクトし、ログイン後に `/creator/quizzes` へ戻れるよう `redirect` クエリを付与すること。
+3. While クイズ一覧の取得中である間、the Creator Quiz Management UI shall 一覧表示エリアにローディングスケルトンを表示すること。
+4. If クイズ一覧の取得に失敗した場合、the Creator Quiz Management UI shall エラーメッセージと再試行操作を表示し、サイレントに空一覧へフォールバックしてはならないこと。
+5. The Creator Quiz Management UI shall 一覧の各行にクイズのサムネイル、タイトル、要件 16 の統合ステータス、プレイ回数、要件 17 の未解決指摘件数バッジを表示すること。
+6. When 作成者が作成したクイズが1件も存在しないとき、the Creator Quiz Management UI shall 空状態メッセージと新規作成導線（要件 15.8）を表示すること。
+7. The Creator Quiz Management UI shall 画面本体に `data-testid="creator-quiz-management-page"`、一覧領域に `data-testid="creator-quiz-management-list"` を付与すること。
+8. The Creator Quiz Management UI shall 「クイズを新規作成する」導線を表示し、選択時に既存のクイズ作成画面（`/quiz/create`）へ遷移すること。
+9. When 作成者が一覧の各行から「編集する」操作を行ったとき、the Creator Quiz Management UI shall 該当クイズの編集画面（`/quiz/[id]/edit`）へ遷移すること。
+
+### 要件 16: クイズ検索・絞り込み・並び替え（Phase 40）(Page: `/creator/quizzes`)
+**目的:** クイズ作成者として、作成したクイズが増えても目的のクイズをすぐ見つけ、任意の基準で並べ替えたい。それにより管理対象が多くても効率よく編集・確認作業ができる。
+
+#### 受け入れ基準
+1. The Creator Quiz Management UI shall キーワード入力欄を提供し、クイズタイトルおよび説明文に対する部分一致検索を適用すること。
+2. When 作成者がキーワードを入力したとき、the Creator Quiz Management UI shall デバウンス後にクライアント側またはサーバー側で一覧を再取得・再絞り込みすること。
+3. The Creator Quiz Management UI shall 要件 17 の統合ステータス（公開・限定公開・非公開・下書き）による絞り込み UI を提供すること。
+4. The Creator Quiz Management UI shall 有効ジャンルマスタ（`listActiveGenres`）由来の候補からのジャンル絞り込み UI を提供すること。
+5. If クイズの `genre` が現行の有効ジャンルマスタに未解決（要件 5.5 のレガシー・マージ保留状態）である場合、the Creator Quiz Management UI shall ジャンル絞り込みが指定されているときに当該クイズを絞り込み結果から除外すること（ジャンル未指定時は引き続き一覧に含める）。
+6. The Creator Quiz Management UI shall タグによる絞り込み UI を提供すること。
+7. When キーワード・統合ステータス・ジャンル・タグのいずれかが指定されているとき、the Creator Quiz Management UI shall すべての条件を AND で合成して一覧を絞り込むこと。
+8. When 絞り込み条件に一致するクイズが0件のとき、the Creator Quiz Management UI shall 空状態メッセージと条件緩和の案内を表示すること。
+9. When 作成者がフィルタ一括クリア操作を行ったとき、the Creator Quiz Management UI shall キーワード・統合ステータス・ジャンル・タグを初期値に戻すこと。
+10. The Creator Quiz Management UI shall フィルタ領域に `data-testid="creator-quiz-management-filters"` を付与すること。
+
+**並び替え**
+11. The Creator Quiz Management UI shall 一覧の並び替え基準として、少なくとも「クイズ名（昇順／降順）」「プレイ回数（多い順／少ない順）」「作成日（新しい順／古い順）」を選択できる UI を提供すること。
+12. The Creator Quiz Management UI shall 画面初期表示時の並び替え基準を「作成日（新しい順）」とすること。
+13. When 作成者が並び替え基準を変更したとき、the Creator Quiz Management UI shall 現在の絞り込み条件（キーワード・統合ステータス・ジャンル・タグ）を維持したまま、選択した基準で一覧を並び替えること。
+14. The Creator Quiz Management UI shall 並び替え操作領域に `data-testid="creator-quiz-management-sort"` を付与すること。
+
+### 要件 17: 公開・限定公開・非公開の統合ステータス表示と切り替え（Phase 40）(Page: `/creator/quizzes`)
+**目的:** クイズ作成者として、クイズごとの現在の公開範囲を一目で把握し、その場で公開範囲を切り替えたい。それにより下書き・限定共有・一般公開を状況に応じて使い分けられる。
+
+#### 受け入れ基準
+1. The Creator Quiz Management UI shall 各クイズの状態を、下書き（`status: 'draft'`）・公開（`status: 'published'` かつ `visibility: 'public'`）・限定公開（`status: 'published'` かつ `visibility: 'followers'`）・非公開（`status: 'published'` かつ `visibility: 'private'`）・審査により非表示（`status: 'suspended'`）のいずれか1つの統合ステータスとして表示すること。
+2. Where クイズが下書き（`status: 'draft'`）である場合、the Creator Quiz Management UI shall 公開範囲切り替え操作を表示せず、編集画面（要件 1）での公開操作へ委ねること。
+3. Where クイズがモデレーションにより凍結（`status: 'suspended'`）である場合、the Creator Quiz Management UI shall 下書きとは区別される統合ステータス表示（例:「審査により非表示」）とし、公開範囲切り替え操作を表示しないこと。
+4. Where クイズが公開済み（`status: 'published'`）である場合、the Creator Quiz Management UI shall 公開・限定公開・非公開の3値から選択できる切り替え操作を提供すること。
+5. When 作成者が公開範囲の切り替え操作を行ったとき、the Creator Quiz Management UI shall 選択した公開範囲を反映し、成功時は一覧上の統合ステータス表示を即時更新すること。
+6. If 公開範囲の切り替えに失敗した場合、the Creator Quiz Management UI shall エラーメッセージを表示し、切り替え前の公開範囲表示を維持すること。
+7. Where 作成者が有料プラン（Pro またはそれ以上）の権利を保有していない場合、the Creator Quiz Management UI shall 限定公開・非公開への切り替え操作を非活性状態で表示し、有料プランへの案内導線を提示すること。
+8. If 有料プランの権利を保有しない作成者が限定公開・非公開への切り替えを試みてサーバー側の権限エラーを受け取った場合、the Creator Quiz Management UI shall エラーメッセージと有料プランへの案内導線を表示し、切り替え前の公開範囲表示を維持すること。
+9. The Creator Quiz Management UI shall 統合ステータス表示に `data-testid` プレフィックス（例: `creator-quiz-status-draft` / `creator-quiz-status-public` / `creator-quiz-status-followers` / `creator-quiz-status-private` / `creator-quiz-status-suspended`）を付与すること。
+10. The Creator Quiz Management UI shall 公開範囲切り替え操作領域に `data-testid="creator-quiz-visibility-toggle"` を付与すること。
+
+### 要件 18: クイズ単位の未解決指摘件数表示（Phase 40）(Page: `/creator/quizzes`)
+**目的:** クイズ作成者として、どのクイズに未対応の指摘が溜まっているかを一覧から把握したい。それにより対応が必要なクイズを見落とさず編集画面へ移動できる。
+
+#### 受け入れ基準
+1. The Creator Quiz Management UI shall 各クイズ行に、当該クイズに対する未解決（`status: 'open'`）の指摘件数をバッジとして表示すること。
+2. When クイズに未解決の指摘が0件のとき、the Creator Quiz Management UI shall 当該クイズの指摘バッジを表示しない、または「指摘なし」を示す非強調表示とすること。
+3. When 作成者が未解決指摘件数バッジを選択したとき、the Creator Quiz Management UI shall 該当クイズの編集画面（`/quiz/[id]/edit`）へ遷移し、既存の指摘確認・解決・却下操作（要件 14）へ引き継ぐこと。
+4. The Creator Quiz Management UI shall 指摘の解決・却下操作自体を本画面上に実装してはならない（要件 14 の編集画面が担当）。
+5. The Creator Quiz Management UI shall 未解決指摘件数バッジに `data-testid="creator-quiz-report-badge"` を付与すること。
+
+### 要件 19: 作家ダッシュボードとの統合（Phase 40）(Page: `/creator/dashboard`)
+**目的:** クイズ作成者として、ダッシュボードでは分析情報に集中しつつ、クイズ管理が必要なときはワンタップで管理画面に移動したい。それにより2画面の役割が重複せず迷わず使い分けられる。
+
+#### 受け入れ基準
+1. The Creator Dashboard UI shall 既存の簡易クイズ一覧セクション（`creator-quiz-list`）を、作成クイズ管理画面（`/creator/quizzes`）への導線に置き換えること。
+2. The Creator Dashboard UI shall 要件 2・要件 13 に定義された分析機能（アナリティクスグラフ、個別問題解答割合、プレイヤー統計等）を本統合による変更対象に含めないこと。
+3. When 作成者が作家ダッシュボードから当該導線を選択したとき、the Creator Dashboard UI shall `/creator/quizzes` へ遷移すること。
+4. The Creator Dashboard UI shall 当該導線に `data-testid="creator-dashboard-manage-quizzes-link"` を付与すること。
 

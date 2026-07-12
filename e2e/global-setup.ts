@@ -20,6 +20,14 @@ const E2E_EMAIL = 'e2e-test-user@example.com';
 const E2E_PASSWORD = 'e2e-test-password-999';
 const AD_TEST_QUIZ_COUNT = 25;
 
+// 公開範囲（限定公開・非公開）アクセス制御 E2E 用の追加アカウント
+const VIS_AUTHOR_EMAIL = 'e2e-vis-author@example.com';
+const VIS_AUTHOR_PASSWORD = 'e2e-vis-author-password-999';
+const VIS_FOLLOWER_EMAIL = 'e2e-vis-follower@example.com';
+const VIS_FOLLOWER_PASSWORD = 'e2e-vis-follower-password-999';
+const VIS_STRANGER_EMAIL = 'e2e-vis-stranger@example.com';
+const VIS_STRANGER_PASSWORD = 'e2e-vis-stranger-password-999';
+
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,6 +39,31 @@ function createAdminClient() {
   return createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+/** Supabase Auth 上にメールアドレスでユーザーを取得または新規作成する（`listUsers` を都度呼ぶため、まとめて複数回呼ぶ用途向け） */
+async function getOrCreateAuthUser(
+  supabase: ReturnType<typeof createAdminClient>,
+  email: string,
+  password: string
+): Promise<string> {
+  const { data: listResult, error: listError } = await supabase.auth.admin.listUsers();
+  if (listError) {
+    throw new Error(`E2Eテストユーザー(${email})の検索に失敗しました: ${listError.message}`);
+  }
+  const existingUser = listResult.users.find((u) => u.email === email);
+  if (existingUser) {
+    return existingUser.id;
+  }
+  const { data: created, error: createError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (createError || !created.user) {
+    throw createError ?? new Error(`E2Eテストユーザー(${email})の作成に失敗しました`);
+  }
+  return created.user.id;
 }
 
 /**
@@ -180,7 +213,108 @@ export default async function globalSetup() {
       questionIds.push(questionId);
     }
 
-    const fixtureIds: E2eFixtureIds = { userId: e2eUid, quizIds, questionIds };
+    // 6. 公開範囲（限定公開・非公開）アクセス制御 E2E 用のアカウント・フォロー関係・クイズを投入
+    const visAuthorUid = await getOrCreateAuthUser(supabase, VIS_AUTHOR_EMAIL, VIS_AUTHOR_PASSWORD);
+    const visFollowerUid = await getOrCreateAuthUser(supabase, VIS_FOLLOWER_EMAIL, VIS_FOLLOWER_PASSWORD);
+    const visStrangerUid = await getOrCreateAuthUser(supabase, VIS_STRANGER_EMAIL, VIS_STRANGER_PASSWORD);
+
+    // author は Pro プラン（role/moderation_tier は付与しない = 一般ユーザーとして可視性制御を検証する）
+    await db.query(
+      `INSERT INTO users (id, email, display_name, avatar_url, bio, subscription_tier, subscription_status, updated_at)
+       VALUES ($1, $2, $3, $4, '', 'pro', 'active', $5)
+       ON CONFLICT (id) DO UPDATE SET
+         subscription_tier = EXCLUDED.subscription_tier,
+         subscription_status = EXCLUDED.subscription_status,
+         updated_at = EXCLUDED.updated_at`,
+      [visAuthorUid, VIS_AUTHOR_EMAIL, 'e2e-vis-author', `https://api.dicebear.com/7.x/bottts/svg?seed=${visAuthorUid}`, now]
+    );
+    // follower / stranger は無料プランのまま（デフォルト値を維持するため display_name 等のみ upsert）
+    await db.query(
+      `INSERT INTO users (id, email, display_name, avatar_url, bio, updated_at)
+       VALUES ($1, $2, $3, $4, '', $5)
+       ON CONFLICT (id) DO UPDATE SET updated_at = EXCLUDED.updated_at`,
+      [visFollowerUid, VIS_FOLLOWER_EMAIL, 'e2e-vis-follower', `https://api.dicebear.com/7.x/bottts/svg?seed=${visFollowerUid}`, now]
+    );
+    await db.query(
+      `INSERT INTO users (id, email, display_name, avatar_url, bio, updated_at)
+       VALUES ($1, $2, $3, $4, '', $5)
+       ON CONFLICT (id) DO UPDATE SET updated_at = EXCLUDED.updated_at`,
+      [visStrangerUid, VIS_STRANGER_EMAIL, 'e2e-vis-stranger', `https://api.dicebear.com/7.x/bottts/svg?seed=${visStrangerUid}`, now]
+    );
+
+    // follower が author をフォロー済みの状態にする（follows は (follower_id, following_id) の複合主キー）
+    await db.query(
+      `INSERT INTO follows (follower_id, following_id) VALUES ($1, $2)
+       ON CONFLICT (follower_id, following_id) DO NOTHING`,
+      [visFollowerUid, visAuthorUid]
+    );
+
+    // 既存の可視性テスト用クイズを削除してから再投入（再実行時の重複防止）
+    await db.query(
+      `DELETE FROM quizzes WHERE author_id = ANY($1::uuid[]) AND title LIKE '[VIS_TEST]%'`,
+      [[visAuthorUid, visStrangerUid]]
+    );
+
+    async function seedVisibilityTestQuiz(authorId: string, authorName: string, title: string): Promise<string> {
+      const quizResult = await db.query<{ id: string }>(
+        `INSERT INTO quizzes (
+           author_id, author_name, title, description, difficulty, genre,
+           canonical_genre_id, status, visibility, question_count, play_count, format
+         ) VALUES ($1, $2, $3, $4, 3, '趣味・カルチャー', 'hobby-culture', 'published', 'public', 1, 0, 'multiple-choice')
+         RETURNING id`,
+        [authorId, authorName, title, `${title} の説明文です。`]
+      );
+      const quizId = quizResult.rows[0].id;
+
+      const questionResult = await db.query<{ id: string }>(
+        `INSERT INTO questions (
+           owner_quiz_id, author_id, author_name, type, question_text, explanation, choices
+         ) VALUES ($1, $2, $3, 'multiple-choice', $4, '解説の内容です。', $5::jsonb)
+         RETURNING id`,
+        [
+          quizId,
+          authorId,
+          authorName,
+          `${title} の問題文`,
+          JSON.stringify([
+            { id: '1', choiceText: '正解', isCorrect: true, selectedCount: 0 },
+            { id: '2', choiceText: '不正解', isCorrect: false, selectedCount: 0 },
+          ]),
+        ]
+      );
+      const questionId = questionResult.rows[0].id;
+
+      await db.query(
+        `INSERT INTO quiz_questions (quiz_id, question_id, display_order) VALUES ($1, $2, 1)`,
+        [quizId, questionId]
+      );
+
+      return quizId;
+    }
+
+    const visAuthorQuizId = await seedVisibilityTestQuiz(
+      visAuthorUid,
+      'e2e-vis-author',
+      '[VIS_TEST] 限定公開・非公開テスト用クイズ'
+    );
+    const visStrangerQuizId = await seedVisibilityTestQuiz(
+      visStrangerUid,
+      'e2e-vis-stranger',
+      '[VIS_TEST] Pro制限テスト用クイズ'
+    );
+
+    const fixtureIds: E2eFixtureIds = {
+      userId: e2eUid,
+      quizIds,
+      questionIds,
+      visibilityTest: {
+        author: { email: VIS_AUTHOR_EMAIL, password: VIS_AUTHOR_PASSWORD, userId: visAuthorUid },
+        follower: { email: VIS_FOLLOWER_EMAIL, password: VIS_FOLLOWER_PASSWORD, userId: visFollowerUid },
+        stranger: { email: VIS_STRANGER_EMAIL, password: VIS_STRANGER_PASSWORD, userId: visStrangerUid },
+        authorQuizId: visAuthorQuizId,
+        strangerQuizId: visStrangerQuizId,
+      },
+    };
     writeFileSync(FIXTURE_IDS_PATH, JSON.stringify(fixtureIds, null, 2));
   } finally {
     await db.end();

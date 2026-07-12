@@ -9,6 +9,7 @@ import {
   getReportsForCreator,
   getOpenReportsForQuiz,
   updateFeedbackReport,
+  getOpenReportCountsByCreator,
 } from '../../src/services/review';
 
 // チェーン用のモックヘルパー（bookmark.test.ts と同様のパターン）
@@ -505,6 +506,126 @@ describe('ReviewService - getReportsForCreator', () => {
 
     const result = await getReportsForCreator(creatorId);
     expect(result).toEqual([]);
+  });
+});
+
+describe('ReviewService - getOpenReportCountsByCreator', () => {
+  const creatorId = 'creator-uid-123';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('複数クイズにまたがる未解決の指摘を、クイズIDごとに正しい件数で集計できること', async () => {
+    const mockReports = [
+      {
+        id: 'report-1',
+        quiz_id: 'quiz-a',
+        quiz_title: 'クイズA',
+        question_id: 'q-1',
+        question_text: '問題1',
+        reporter_id: 'reporter-1',
+        creator_id: creatorId,
+        category: 'typo',
+        content: '指摘1',
+        status: 'open',
+        created_at: new Date('2026-06-01').toISOString(),
+      },
+      {
+        id: 'report-2',
+        quiz_id: 'quiz-a',
+        quiz_title: 'クイズA',
+        question_id: 'q-2',
+        question_text: '問題2',
+        reporter_id: 'reporter-2',
+        creator_id: creatorId,
+        category: 'fact',
+        content: '指摘2',
+        status: 'open',
+        created_at: new Date('2026-06-02').toISOString(),
+      },
+      {
+        id: 'report-3',
+        quiz_id: 'quiz-b',
+        quiz_title: 'クイズB',
+        question_id: 'q-1',
+        question_text: '問題1',
+        reporter_id: 'reporter-3',
+        creator_id: creatorId,
+        category: 'typo',
+        content: '指摘3',
+        status: 'open',
+        created_at: new Date('2026-06-03').toISOString(),
+      },
+    ];
+
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        return createChainMock({ data: mockReports, error: null });
+      }
+      return mockSupabase;
+    });
+
+    const result = await getOpenReportCountsByCreator(creatorId);
+
+    expect(result).toEqual({ 'quiz-a': 2, 'quiz-b': 1 });
+  });
+
+  test('未解決の指摘が0件のクイズはキーに含まれないこと', async () => {
+    const mockReports = [
+      {
+        id: 'report-1',
+        quiz_id: 'quiz-a',
+        quiz_title: 'クイズA',
+        question_id: 'q-1',
+        question_text: '問題1',
+        reporter_id: 'reporter-1',
+        creator_id: creatorId,
+        category: 'typo',
+        content: '指摘1',
+        status: 'open',
+        created_at: new Date('2026-06-01').toISOString(),
+      },
+    ];
+
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        return createChainMock({ data: mockReports, error: null });
+      }
+      return mockSupabase;
+    });
+
+    const result = await getOpenReportCountsByCreator(creatorId);
+
+    expect(result).toEqual({ 'quiz-a': 1 });
+    expect(result).not.toHaveProperty('quiz-b');
+    expect(Object.keys(result)).toHaveLength(1);
+  });
+
+  test('未解決の指摘が1件もない場合、空オブジェクトを返すこと', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        return createChainMock({ data: [], error: null });
+      }
+      return mockSupabase;
+    });
+
+    const result = await getOpenReportCountsByCreator(creatorId);
+
+    expect(result).toEqual({});
+  });
+
+  test('取得に失敗した場合は空オブジェクトを返すこと', async () => {
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'feedback_reports') {
+        return createChainMock({ data: null, error: { message: 'DB error' } });
+      }
+      return mockSupabase;
+    });
+
+    const result = await getOpenReportCountsByCreator(creatorId);
+
+    expect(result).toEqual({});
   });
 });
 

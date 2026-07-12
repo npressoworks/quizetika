@@ -10,12 +10,11 @@ import { computeDashboardStats, type DashboardStats } from '@/lib/dashboard-stat
 import {
   StatsGridSection,
   ChartsSection,
-  QuizListSection,
+  ManageQuizzesLinkCard,
   FeedbackSection,
 } from './dashboard-sections';
 import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
-import { QuizListSkeleton } from '@/components/quiz/quiz-list-skeleton';
 import { FeedbackSkeleton } from '@/components/quiz/feedback-skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PlayerDashboardClient } from './player-dashboard-client';
@@ -128,11 +127,7 @@ function CreatorDashboardClientInner() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {quizzes === null ? (
-          <QuizListSkeleton data-testid="quiz-list-skeleton" />
-        ) : (
-          <QuizListSection quizzes={quizzes} />
-        )}
+        <ManageQuizzesLinkCard />
 
         {feedbacks === null ? (
           <FeedbackSkeleton data-testid="feedback-list-skeleton" />
