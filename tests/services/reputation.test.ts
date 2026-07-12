@@ -6,6 +6,7 @@ import {
   resetUserReputation,
   banUser,
   unbanUser,
+  downgradeUserTier,
 } from '../../src/services/reputation';
 
 const createChainMock = (resolveValue: any) => {
@@ -214,5 +215,65 @@ describe('ReputationService - unbanUser', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('handle_unban_user', {
       p_target_uid: targetUid,
     });
+  });
+});
+
+describe('ReputationService - downgradeUserTier', () => {
+  const targetUid = 'target-user-uid';
+  const executorId = 'admin-executor-uid';
+  const newTier = 'contributor';
+  const reason = '規約違反行為が確認されたためティアを引き下げ';
+
+  beforeEach(() => jest.clearAllMocks());
+
+  test('管理者が実行した場合、RPCが正しい引数で呼び出されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
+
+    await downgradeUserTier(targetUid, executorId, newTier, reason);
+
+    expect(supabase.rpc).toHaveBeenCalledWith('handle_downgrade_tier', {
+      p_target_uid: targetUid,
+      p_new_tier: newTier,
+      p_reason: reason,
+    });
+  });
+
+  test('理由が10文字未満の場合、RPCを呼ばずバリデーションエラーになること', async () => {
+    await expect(downgradeUserTier(targetUid, executorId, newTier, '短すぎ')).rejects.toThrow(
+      'ティア引き下げ理由は10文字以上で入力してください。'
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  test('非管理者が実行した場合、権限エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
+
+    await expect(downgradeUserTier(targetUid, 'non-admin-uid', newTier, reason)).rejects.toThrow(
+      'この操作を実行する権限がありません'
+    );
+  });
+
+  test('対象ユーザーが存在しない場合、エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'target-not-found' } });
+
+    await expect(downgradeUserTier(targetUid, executorId, newTier, reason)).rejects.toThrow(
+      '対象のユーザーが見つかりません'
+    );
+  });
+
+  test('RPC側で理由が10文字未満と判定された場合、エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'reason-too-short' } });
+
+    await expect(downgradeUserTier(targetUid, executorId, newTier, reason)).rejects.toThrow(
+      'ティア引き下げ理由は10文字以上で入力してください。'
+    );
+  });
+
+  test('引き下げ先ティアが現在より下位でない場合、エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'invalid-tier-downgrade' } });
+
+    await expect(downgradeUserTier(targetUid, executorId, newTier, reason)).rejects.toThrow(
+      '引き下げ先のティアは現在のティアより下位である必要があります'
+    );
   });
 });

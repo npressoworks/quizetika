@@ -134,7 +134,7 @@
   - _レビュー指摘（非ブロッキング）: `UserReport.status` に design.md 未記載の `'rejected'` が含まれる（DB側もCHECK制約なし）。現時点で消費者コードがないため実害なし。UserReportを実際に使用するタスク6.5/8.5で整合を確認すること。_
 
 ### 6. Core: サービス層実装
-- [ ] 6.1 (P) reputation service への downgradeUserTier 実装
+- [x] 6.1 (P) reputation service への downgradeUserTier 実装
   - `src/services/reputation.ts` に `downgradeUserTier(targetUid, executorId, newTier, reason)` を追加し、`handle_downgrade_tier` RPCを呼び出す。理由10文字未満はRPC呼び出し前にクライアント側でも早期リターンする。
   - **完了条件**: `tests/services/reputation.test.ts` に追加したJestテストで、正常系（RPC呼び出しとモック結果の整形）と異常系（理由10文字未満でRPCを呼ばずエラーを返す）がパスすること。
   - _Requirements: 10.3, 10.4_

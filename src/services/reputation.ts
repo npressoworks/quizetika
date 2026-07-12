@@ -185,3 +185,45 @@ export async function unbanUser(
     throw new Error(`UNBAN処理に失敗しました: ${error.message}`);
   }
 }
+
+/**
+ * 指定ユーザーのモデレータティアーを、現在より厳密に下位のティアへ引き下げ、監査ログに保存する
+ *
+ * @param targetUid 対象ユーザーのUID
+ * @param executorId 実行者（管理者）のUID（RPC側で `auth.uid()` から権限検証されるため実際の認可には使用されない）
+ * @param newTier 引き下げ先のティアー（現在のティアより厳密に下位である必要がある）
+ * @param reason ティア引き下げ理由（10文字以上）
+ */
+export async function downgradeUserTier(
+  targetUid: string,
+  executorId: string,
+  newTier: ModerationTier,
+  reason: string
+): Promise<void> {
+  if (reason.length < 10) {
+    throw new Error('ティア引き下げ理由は10文字以上で入力してください。');
+  }
+
+  const supabase = await createClient();
+  const { error } = await (supabase as any).rpc('handle_downgrade_tier', {
+    p_target_uid: targetUid,
+    p_new_tier: newTier,
+    p_reason: reason,
+  });
+
+  if (error) {
+    if (error.message === 'permission-denied') {
+      throw new Error('この操作を実行する権限がありません');
+    }
+    if (error.message === 'target-not-found') {
+      throw new Error('対象のユーザーが見つかりません');
+    }
+    if (error.message === 'reason-too-short') {
+      throw new Error('ティア引き下げ理由は10文字以上で入力してください。');
+    }
+    if (error.message === 'invalid-tier-downgrade') {
+      throw new Error('引き下げ先のティアは現在のティアより下位である必要があります');
+    }
+    throw new Error(`ティア引き下げ処理に失敗しました: ${error.message}`);
+  }
+}
