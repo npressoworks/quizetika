@@ -198,7 +198,7 @@
   - _Boundary: UserSearchPanel_
   - _Depends: 8.1, 6.4_
   - _レビュー指摘（非ブロッキング）: reset/ban/unban/tier-downgradeの4アクションすべてがrefreshAdminLogsを呼ぶことはコード直読で確認済みだが、テストのコール数アサーションはresetアクションのみ。他3アクションのテストカバレッジ追加は将来の改善候補。_
-- [ ] 8.3 (P) AdminReportedUsersPanel の新規実装
+- [x] 8.3 (P) AdminReportedUsersPanel の新規実装
   - `src/app/admin/users/admin-reported-users-panel.tsx` を新規作成し、`getReportedUsersRanking` を呼び出して表示名・UID・ティア・BANステータス・総通報数を含む一覧を総通報数降順で表示する。limit/offsetベースの「前へ/次へ」ページネーションを実装する。
   - 0件時の空状態メッセージと、ロード中のスケルトン（`data-testid="admin-reported-users-skeleton"`）を実装する。行選択時に `onSelectUser(uid)` プロパティを呼び出す。
   - **完了条件**: 通報ランキングタブを開くと一覧が総通報数降順で表示され、「次へ」操作でページが切り替わり、該当0件時に空状態メッセージが表示されること。
