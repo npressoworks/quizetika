@@ -1090,3 +1090,189 @@ export function consumeTestPlayDraftForEditor(
 
 **Document Status（Phase 28 設計）**: 本節に反映。
 
+---
+
+## Phase 40: 作成クイズ管理画面（2026-07-12）
+
+### 1. Overview
+
+作家ダッシュボード（`/creator/dashboard`）はアナリティクス（累計統計・グラフ・プレイヤー統計）に専念させ、作成者が自分のクイズを一覧・検索・並び替え・管理するための専用画面 `/creator/quizzes` を新設します。既に `quizetika-core`／`updateQuiz` に実装済みの `visibility`（`public`/`followers`/`private`）と Pro プラン制限ロジック（`assertCanSetQuizVisibilitySync`）を初めて UI に露出し、クイズ単位の未解決指摘件数バッジから既存の編集画面（要件14の指摘サイドバー）へ導線を張ります。
+
+### 2. Boundary Commitments（Phase 40）
+
+| Owns | Out of Boundary |
+|---|---|
+| `/creator/quizzes` ページ本体（一覧・検索・絞り込み・並び替え・空/エラー状態） | 指摘の解決・却下操作 UI 本体（要件14の編集画面サイドバー・モーダルが担当） |
+| 統合ステータス（公開/限定公開/非公開/下書き）の導出・表示・切替 UI | `visibility` 判定・Pro 制限ロジックの正本（`quizetika-core` / `src/lib/quiz-access.ts` が担当。本スペックは呼び出しとエラー表示のみ） |
+| クイズ検索・絞り込み（キーワード/統合ステータス/ジャンル/タグ）・並び替えの lib 拡張 | アナリティクスグラフ・個別問題解答割合・プレイヤー統計（作家ダッシュボードが引き続き担当） |
+| クイズ単位の未解決指摘件数集計・バッジ表示・編集画面への導線 | クイズの削除機能（本フェーズでは提供しない） |
+| 作家ダッシュボードの簡易クイズ一覧セクション撤去と本画面への導線への置換 | `updateQuiz` 自体の実装・バリデーション（`quizetika-core` が担当。本スペックは呼び出し元） |
+
+### 3. Architecture
+
+```mermaid
+graph LR
+    Page[creator quizzes page] --> Client[CreatorQuizManagementClient]
+    Client --> Search[searchAuthorQuizzes extended]
+    Client --> Reports[getOpenReportCountsByCreator]
+    Client --> Status[resolveCreatorQuizStatus]
+    Client --> Sections[CreatorQuizManagementSections]
+    Sections --> VisibilityToggle[CreatorQuizVisibilityToggle]
+    VisibilityToggle --> UpdateQuiz[updateQuiz]
+    UpdateQuiz --> QuizAccess[assertCanSetQuizVisibilitySync]
+    Sections --> ReportBadge[report count badge]
+    ReportBadge --> EditPage[quiz edit page]
+    Dashboard[creator dashboard] --> LinkCard[manage quizzes link card]
+    LinkCard --> Page
+```
+
+**依存方向**: `Page`（Server Component）→ `Client`（データ取得オーケストレーション）→ `Sections`（表示専用コンポーネント）。`Client` は `src/services`（`author-quiz-search.ts`, `review.ts`, `quiz.ts`）と `src/lib`（`creator-quiz-status.ts`, `quiz-access.ts`）のみに依存し、`Sections` は props 経由でのみデータを受け取る（サービス層への直接依存を持たない）。
+
+### 4. File Structure Plan（Phase 40）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/app/creator/quizzes/page.tsx` | **New** | Server Component。静的フレーム（見出し・新規作成ボタン）を先行レンダリングし `CreatorQuizManagementClient` を配置（Phase 12 と同じ Streaming パターン）。 |
+| `src/app/creator/quizzes/creator-quiz-management-client.tsx` | **New** | `'use client'`。認証ガード（未認証は `/login?redirect=/creator/quizzes`）、`searchAuthorQuizzes`（拡張後）と `getOpenReportCountsByCreator` の並列フェッチ、キーワード・統合ステータス・ジャンル・タグ・並び替えのローカル state 管理、ローディング/エラー/空状態の分岐。 |
+| `src/app/creator/quizzes/creator-quiz-management-sections.tsx` | **New** | 表示専用コンポーネント群：フィルタバー（`data-testid="creator-quiz-management-filters"`）、並び替えセレクト（`data-testid="creator-quiz-management-sort"`）、一覧行（`data-testid="creator-quiz-management-list"`）、スケルトン。空状態は2種類を区別して実装する: (1) 作成クイズが0件（要件15.6、CTAは「クイズを新規作成する」）、(2) 絞り込み結果が0件（要件16.8、CTAは「条件をクリア」）。 |
+| `src/app/creator/quizzes/creator-quiz-visibility-toggle.tsx` | **New** | `'use client'`。統合ステータスが公開済みのクイズに対する公開/限定公開/非公開の切替 UI（`Select` + disabled + アップグレード導線）。`updateQuiz` 呼び出しと `ProRequiredForVisibilityError` の try/catch を内包。 |
+| `src/lib/creator-quiz-status.ts` | **New** | 純関数 `resolveCreatorQuizStatus(quiz): CreatorQuizStatus` と型定義。`resolveQuizVisibility`（既存）を内部利用。 |
+| `src/lib/author-quiz-search.ts` | **Modify** | `SearchAuthorQuizzesParams` に `genreId?: string`, `status?: CreatorQuizStatus`, `sortBy?: 'title' \| 'playCount' \| 'createdAt'`, `sortOrder?: 'asc' \| 'desc'` を追加。`filterAuthorQuizzes` / `filterAuthorQuizzesWithQuestions` にジャンル・統合ステータス条件を追加し、新規 `sortAuthorQuizzes(quizzes, sortBy, sortOrder)` を追加。ジャンル絞り込みは `quiz.canonicalGenreId === genreId` の完全一致のみを対象とし、`genreId` 指定時は `canonicalGenreId` が空または現行マスタ外（要件5.5のレガシー・マージ保留クイズ）を結果から除外する（`genreId` 未指定時は全件を対象に含める）。 |
+| `src/services/author-quiz-search.ts` | **Modify** | `searchAuthorQuizzes` が拡張後のパラメータを `filterAuthorQuizzesWithQuestions` / `sortAuthorQuizzes` へ橋渡しするよう更新（DB クエリ自体は無変更）。 |
+| `src/services/review.ts` | **Modify** | `getOpenReportCountsByCreator(creatorId: string): Promise<Record<string, number>>` を追加。既存の `getReportsForCreator` と同一クエリ条件（`status: 'open'`）で `quiz_id` ごとに件数集計する。 |
+| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `QuizListSection`（`creator-quiz-list`）の呼び出しを撤去し、`/creator/quizzes` への導線カード（`data-testid="creator-dashboard-manage-quizzes-link"`）に置換。 |
+| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `QuizListSection` 表示専用だった `getQuizzesByAuthor` 呼び出しと `quizzes` state を削除。 |
+| `e2e/creator-dashboard.spec.ts` | **Modify** | `creator-quiz-list`/`quiz-card` を直接 assert していた既存ケースを、導線カードの存在確認に置き換え。 |
+| `e2e/creator-quiz-management.spec.ts` | **New** | `/creator/quizzes` のスモークテスト（一覧表示・検索・並び替え・公開範囲切替・指摘バッジ→編集画面遷移）。 |
+| `tests/lib/creator-quiz-status.test.ts` | **New** | `resolveCreatorQuizStatus` の単体テスト（draft/published×public/followers/private の全組み合わせ）。 |
+| `tests/services/author-quiz-search.test.ts` | **Modify** | ジャンル・統合ステータス絞り込みおよび `sortAuthorQuizzes` のテストケースを追加（既存の `filterAuthorQuizzes` 系テストが配置されているファイル）。 |
+| `tests/services/review.test.ts` | **Modify** | `getOpenReportCountsByCreator` の単体テストを追加（複数クイズ・0件クイズ混在ケース）。 |
+
+### 5. Components and Interfaces（Phase 40）
+
+| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
+|-----------|--------------|--------|---------------|--------------------------|-----------|
+| `CreatorQuizManagementClient` | UI (Client) | データ取得オーケストレーションと状態管理 | 15, 16, 18 | `searchAuthorQuizzes`(P0), `getOpenReportCountsByCreator`(P0), `useAuth`(P0) | Service |
+| `CreatorQuizManagementSections` | UI (Presentational) | 一覧・フィルタ・並び替え UI の表示 | 15, 16, 17, 18 | `CreatorQuizManagementClient`(P0) | — |
+| `CreatorQuizVisibilityToggle` | UI (Client) | 公開範囲切替と Pro 制限エラー表示 | 17 | `updateQuiz`(P0), `quiz-access.ts`(P0) | Service |
+| `resolveCreatorQuizStatus` | lib (純関数) | 統合ステータス導出 | 17.1 | `resolveQuizVisibility`(P0) | — |
+| `sortAuthorQuizzes` | lib (純関数) | 並び替え | 16.11-16.14 | — | — |
+| `getOpenReportCountsByCreator` | service | クイズ単位の未解決指摘件数集計 | 18.1 | Supabase `feedback_reports`(P0) | Service |
+
+#### `resolveCreatorQuizStatus`（`src/lib/creator-quiz-status.ts`）
+
+```typescript
+export type CreatorQuizStatus =
+  | 'draft'
+  | 'public'
+  | 'followers'
+  | 'private'
+  | 'suspended';
+
+export function resolveCreatorQuizStatus(
+  quiz: Pick<Quiz, 'status' | 'visibility'>
+): CreatorQuizStatus {
+  if (quiz.status === 'suspended') {
+    return 'suspended';
+  }
+  if (quiz.status !== 'published') {
+    return 'draft';
+  }
+  const visibility = resolveQuizVisibility(quiz);
+  if (visibility === 'private') return 'private';
+  if (visibility === 'followers') return 'followers';
+  return 'public';
+}
+```
+- Preconditions: `quiz.status` は `'draft' | 'published' | 'suspended'`。
+- Postconditions: 常に5値のいずれか1つを返す（null/undefined を返さない）。`'suspended'` は `'draft'` とは独立した値であり、両者とも公開範囲切替 UI 非表示（要件17.2, 17.3）の対象だが表示ラベルは区別する（要件17.3 のレビュー修正: 「審査により非表示」）。
+- Invariants: `status === 'suspended'` を最優先で判定し、`draft`/`visibility` 分岐より前に評価する。
+
+**表示ラベル対応（`CreatorQuizManagementSections`）**: `draft` → 「下書き」（`data-testid="creator-quiz-status-draft"`）、`suspended` → 「審査により非表示」（`data-testid="creator-quiz-status-suspended"`、公開範囲切替 UI は非表示）。
+
+#### `CreatorQuizVisibilityToggle`
+
+| Field | Detail |
+|-------|--------|
+| Intent | 公開済みクイズの公開範囲を Select で切替え、Pro 制限を表示する |
+| Requirements | 17.3, 17.4, 17.5, 17.6, 17.7 |
+
+**Responsibilities & Constraints**
+- `status === 'draft'`（または `suspended`）の場合はコンポーネント自体を描画しない（要件17.2、呼び出し側の `CreatorQuizManagementSections` が判定）。
+- `canAccessProVisibility(entitlements)` が `false` の場合、`private`/`followers` の `SelectItem` を disabled にし、`title` 属性でツールチップ的に理由を表示（`explore-search-section.tsx` の既存パターンを踏襲）。
+- `updateQuiz(quizId, { visibility: next })` 呼び出しを try/catch し、`(error as { code?: string }).code === 'pro-required-for-visibility'` の場合はエラーメッセージとアップグレード導線（`ai-quiz-pro-upsell.tsx` のパターン踏襲、`/pricing` へのリンク）を表示、切替前の表示に戻す。それ以外のエラーは汎用エラーメッセージを表示する。
+
+**Dependencies**
+- Outbound: `updateQuiz`（`src/services/quiz.ts`）— 永続化 (P0)
+- Outbound: `canAccessProVisibility`, `ProRequiredForVisibilityError`（`src/lib/quiz-access.ts`）— 権限判定・エラー識別 (P0)
+- External: なし
+
+**Contracts**: Service [x] / API [ ] / Event [ ] / Batch [ ] / State [x]
+
+##### Service Interface
+```typescript
+interface CreatorQuizVisibilityToggleProps {
+  quiz: Pick<Quiz, 'id' | 'status' | 'visibility'>;
+  entitlements: Pick<UserEntitlements, 'hasPaidEntitlements'>;
+  onVisibilityChange: (quizId: string, next: QuizVisibility) => void;
+}
+```
+- Preconditions: `quiz.status === 'published'`（呼び出し側で保証）
+- Postconditions: 成功時は `onVisibilityChange` を呼び出し、一覧側の統合ステータス表示を即時更新する
+- Invariants: 切替失敗時、コンポーネント内部の表示値は切替前の `quiz.visibility` に戻る
+
+##### State Management
+- State model: `pending: boolean`（送信中）、`error: string | null`（失敗理由）をローカル state で保持
+- Persistence & consistency: 永続化は `updateQuiz` に委譲。楽観的更新は行わず、成功レスポンス後に親へ反映する（失敗時のロールバック UI を単純化するため）
+- Concurrency strategy: `pending` 中は Select を disabled にして二重送信を防止
+
+**Implementation Notes**
+- Integration: `updateQuiz` は `visibility` 以外のフィールドを送らないよう `{ visibility: next }` のみを渡す。
+- Validation: 事前の disabled 化（要件17.6）とサーバー起因エラー表示（要件17.7）の二重防御を両方実装する。
+- Risks: `updateQuiz` のエラー形状が将来変わった場合に判定が壊れる — `error instanceof ProRequiredForVisibilityError` によるクラス判定も併用し、`code` 文字列判定のみに依存しない。
+
+#### `getOpenReportCountsByCreator`（`src/services/review.ts`）
+
+##### Service Interface
+```typescript
+export async function getOpenReportCountsByCreator(
+  creatorId: string
+): Promise<Record<string, number>>
+```
+- Preconditions: `creatorId` は認証済みユーザーの UID
+- Postconditions: 未解決指摘が1件もないクイズはキーに含まれない（0件は「キー不在」として表現し、呼び出し側で `?? 0` によりデフォルト解決する）
+- Invariants: 既存 `getReportsForCreator` と同一の `status: 'open'` フィルタ条件を用い、集計対象がずれない
+
+**Implementation Notes**
+- Integration: `getReportsForCreator(creatorId)` と同一クエリ（`feedback_reports` を `creator_id` + `status: 'open'` で取得）の結果を `quiz_id` で `reduce` 集計する形で実装し、既存関数を変更しない。
+- Validation: N/A（読み取り専用の集計処理）。
+- Risks: 作成者のクイズ数・指摘件数が多い場合の読み取りコストは既存 `getReportsForCreator` と同一であり新規リスクではない。
+
+### 6. Data Models（Phase 40）
+
+`CreatorQuizStatus`（前掲）は永続化されない導出型。DB スキーマ変更はなし。`SearchAuthorQuizzesParams` の拡張フィールド（`genreId`, `status`, `sortBy`, `sortOrder`）もすべてリクエストパラメータであり、永続化スキーマへの影響はない。
+
+### 7. Error Handling（Phase 40）
+
+| ケース | 対応 |
+|---|---|
+| 一覧取得（`searchAuthorQuizzes`）失敗 | `CreatorQuizManagementClient` がエラー状態を保持し、`CreatorQuizManagementSections` にエラーメッセージ + 再試行ボタンを表示（要件15.4） |
+| 指摘件数取得（`getOpenReportCountsByCreator`）失敗 | 一覧取得自体は継続表示し、バッジのみ「取得失敗」を示す非強調表示にフォールバック（一覧全体をブロックしない） |
+| 公開範囲切替時の `ProRequiredForVisibilityError` | `CreatorQuizVisibilityToggle` がエラーメッセージとアップグレード導線を表示し、表示値を切替前に戻す（要件17.7） |
+| 公開範囲切替時のその他のエラー（ネットワーク等） | 汎用エラーメッセージを表示し、表示値を切替前に戻す |
+
+### 8. Testing Strategy（Phase 40）
+
+| 種別 | 検証 |
+|---|---|
+| **Unit** | `tests/lib/creator-quiz-status.test.ts`: `resolveCreatorQuizStatus` が `suspended`・draft・published×public/followers/private の全組み合わせで期待する5値を返すこと（`suspended` が `draft` 判定より優先されること）。 |
+| **Unit** | `tests/lib/author-quiz-search.test.ts`: ジャンル・統合ステータスの絞り込みが AND で合成されること、`sortAuthorQuizzes` が3基準×昇順/降順で正しい順序を返すこと、`canonicalGenreId` が空/現行マスタ外のクイズがジャンル絞り込み指定時のみ除外されること。 |
+| **Unit** | `tests/services/review.test.ts`: `getOpenReportCountsByCreator` が複数クイズにまたがる指摘を正しく集計し、指摘0件のクイズがキーに含まれないこと。 |
+| **Integration** | `CreatorQuizVisibilityToggle` が Pro 未満エンタイトルメントで `private`/`followers` を disabled 表示し、`updateQuiz` が `ProRequiredForVisibilityError` を throw した場合にエラー表示へフォールバックすること（`updateQuiz` をモック）。 |
+| **E2E** | `e2e/creator-quiz-management.spec.ts`: `/creator/quizzes` で一覧表示→キーワード検索→統合ステータス/ジャンル/タグ絞り込み→並び替え→「クイズを新規作成する」導線→編集導線→指摘バッジクリックで編集画面へ遷移、の一連のスモークフロー。 |
+| **E2E** | `e2e/creator-dashboard.spec.ts`（更新）: ダッシュボードに `creator-quiz-list` が存在しないこと、`creator-dashboard-manage-quizzes-link` が `/creator/quizzes` へ遷移すること。 |
+
+**Effort**: **M**（3〜4日）
+
+**Document Status（Phase 40 設計）**: 本節に反映。
+
