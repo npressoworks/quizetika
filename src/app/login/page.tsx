@@ -87,8 +87,10 @@ function LoginPageContent() {
   const handleE2ETestLogin = (isMockAuthEnabled || isLocalhost) ? async () => {
     setErrorMsg('');
     setSubmitting(true);
-    const email = 'e2e-test-user@example.com';
-    const password = 'e2e-test-password-999';
+    // E2Eテストが複数アカウントを切り替えられるよう、クエリパラメータでの上書きを許可する
+    // （本番相当の認証UIでは isMockAuthEnabled || isLocalhost の場合のみ到達するテスト専用経路）。
+    const email = searchParams.get('e2eEmail') || 'e2e-test-user@example.com';
+    const password = searchParams.get('e2ePassword') || 'e2e-test-password-999';
     try {
       const { error: signInError } = await signInWithEmail(email, password);
       if (signInError) {

@@ -9,10 +9,31 @@ import { join } from 'node:path';
 
 export const FIXTURE_IDS_PATH = join(__dirname, '.e2e-fixture-ids.json');
 
+export interface VisibilityTestAccount {
+  email: string;
+  password: string;
+  userId: string;
+}
+
+export interface VisibilityTestFixtures {
+  /** Pro プラン。限定公開・非公開への切り替え自体を検証するクイズの作成者 */
+  author: VisibilityTestAccount;
+  /** author をフォローしている無料プランアカウント。限定公開クイズの閲覧可否検証用 */
+  follower: VisibilityTestAccount;
+  /** author をフォローしていない無料プランアカウント。非公開/限定公開クイズの閲覧拒否、および
+   *  自分のクイズを Pro 未加入のまま非公開/限定公開に切り替えようとした際の拒否の両方を検証する */
+  stranger: VisibilityTestAccount;
+  /** author が所有する公開済みクイズ（テスト開始時点は visibility: 'public'） */
+  authorQuizId: string;
+  /** stranger が所有する公開済みクイズ（Pro 未加入切り替え拒否の検証用） */
+  strangerQuizId: string;
+}
+
 export interface E2eFixtureIds {
   userId: string;
   quizIds: string[];
   questionIds: string[];
+  visibilityTest: VisibilityTestFixtures;
 }
 
 export function readE2eFixtureIds(): E2eFixtureIds {
