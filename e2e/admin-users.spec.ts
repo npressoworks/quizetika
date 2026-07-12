@@ -30,16 +30,23 @@ test.describe('特権管理者ユーザー評判管理 E2Eテスト', () => {
 
     // ログインユーザーが管理者の場合のみ画面が表示される
     // (もしE2Eテストユーザーが管理者の場合、画面の各要素が表示されるはず)
-    const isPageVisible = await page.locator('h1').filter({ hasText: 'ユーザー評判管理' }).isVisible().catch(() => false);
-    
+    // 認証情報の確認は非同期(useAuth)のため、即座にisVisible()で判定すると
+    // レンダリング前に評価されて偽陰性となることがある。表示を明示的に待つ。
+    const isPageVisible = await page
+      .locator('h1')
+      .filter({ hasText: 'ユーザー評判管理' })
+      .waitFor({ state: 'visible', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+
     if (isPageVisible) {
       // タイトル、概要、検索ボックスの表示確認
       await expect(page.locator('h1')).toContainText('ユーザー評判管理');
       await expect(page.locator('text=特権管理者専用')).toBeVisible();
       await expect(page.locator('input[placeholder="ユーザーUIDを入力..."]')).toBeVisible();
-      
+
       // 相互ナビゲーションリンクの存在確認
-      const backLink = page.locator('text=モデレーション審査キューに戻る');
+      const backLink = page.locator('text=モデレーション審査画面へ');
       await expect(backLink).toBeVisible();
       
       // 指向先のモデレーション画面に戻れるか
@@ -51,12 +58,20 @@ test.describe('特権管理者ユーザー評判管理 E2Eテスト', () => {
 
   test('リセット理由のバリデーション動作確認', async ({ page }) => {
     await page.goto('/admin/users');
-    const isPageVisible = await page.locator('h1').filter({ hasText: 'ユーザー評判管理' }).isVisible().catch(() => false);
-    
+    // 認証情報の確認は非同期(useAuth)のため、表示を明示的に待ってから判定する。
+    const isPageVisible = await page
+      .locator('h1')
+      .filter({ hasText: 'ユーザー評判管理' })
+      .waitFor({ state: 'visible', timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+
     if (isPageVisible) {
       // 検索フォームにダミーのUIDを入力して検索
       await page.locator('input[placeholder="ユーザーUIDを入力..."]').fill('test-target-uid');
-      await page.locator('button:has-text("検索")').click();
+      // タブ化に伴い「🔍 検索」タブ(role="tab")も"検索"を部分一致で含むため、
+      // role="button"の検索実行ボタンに限定して特定する。
+      await page.getByRole('button', { name: '検索', exact: true }).click();
       
       // 結果表示の有無にかかわらず、UI上でのバリデーション（理由10文字制限）を検証
       // ※ここではテスト用DBにデータがない場合もあるため、UI要素がある場合に限る
