@@ -154,7 +154,7 @@
   - _Boundary: reputation service_
   - _Depends: 5.3_
   - _実装メモ: `get_banned_users` のSQL引数にDEFAULT NULLがないため、未指定フィルタは明示的に`null`へ変換してから渡す（`undefined`のままではPostgRESTに拒否される）。`BannedUserFilters`/`GetBannedUsersResult`型はtask 6.2と同様`reputation.ts`内でローカル定義・export。_
-- [ ] 6.4 (P) reputation service への getUserAdminLogs 実装
+- [x] 6.4 (P) reputation service への getUserAdminLogs 実装
   - `src/services/reputation.ts` に `getUserAdminLogs(targetUid)` を追加し、`get_user_admin_logs` RPCの結果を `AdminLogEntry[]` に整形する。
   - **完了条件**: Jestテストで、RPCモックの戻り値が `AdminLogEntry[]` へ正しくマッピングされることを検証できること。
   - _Requirements: 7.4, 7.5_

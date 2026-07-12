@@ -1,5 +1,5 @@
 import { createClient } from '../lib/supabase/server';
-import { ReputationEventLog, ReportedUserSummary, BannedUserSummary } from '../types';
+import { ReputationEventLog, ReportedUserSummary, BannedUserSummary, AdminLogEntry } from '../types';
 
 /**
  * 権限ティアーの定数定義
@@ -346,4 +346,34 @@ export async function getBannedUsers(filters: BannedUserFilters): Promise<GetBan
   }));
 
   return { items, hasMore };
+}
+
+/**
+ * 指定ユーザーに関する監査ログ（`admin_logs`）の履歴一覧を、
+ * `get_user_admin_logs` RPC経由で取得する（`created_at` 降順、RPC側で整列済み）。
+ *
+ * @param targetUid 対象ユーザーのUID
+ */
+export async function getUserAdminLogs(targetUid: string): Promise<AdminLogEntry[]> {
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any).rpc('get_user_admin_logs', {
+    p_target_uid: targetUid,
+  });
+
+  if (error) {
+    if (error.message === 'permission-denied') {
+      throw new Error('この操作を実行する権限がありません');
+    }
+    throw new Error(`監査ログ履歴の取得に失敗しました: ${error.message}`);
+  }
+
+  const rows: any[] = data ?? [];
+
+  return rows.map((row) => ({
+    id: row.id,
+    action: row.action,
+    executorId: row.executor_id,
+    reason: row.reason,
+    createdAt: row.created_at,
+  }));
 }

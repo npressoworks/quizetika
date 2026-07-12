@@ -9,6 +9,7 @@ import {
   downgradeUserTier,
   getReportedUsersRanking,
   getBannedUsers,
+  getUserAdminLogs,
 } from '../../src/services/reputation';
 
 const createChainMock = (resolveValue: any) => {
@@ -514,6 +515,100 @@ describe('ReputationService - getBannedUsers', () => {
     supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
 
     await expect(getBannedUsers({ page: 1, pageSize: 10 })).rejects.toThrow(
+      'この操作を実行する権限がありません'
+    );
+  });
+});
+
+describe('ReputationService - getUserAdminLogs', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const makeRow = (overrides: Partial<Record<string, unknown>> = {}) => ({
+    id: 'log-1',
+    action: 'ban',
+    executor_id: 'admin-1',
+    reason: 'BAN理由テキスト',
+    created_at: '2026-07-10T00:00:00.000Z',
+    ...overrides,
+  });
+
+  test('RPCの戻り値（4種のactionを含む複数行）を AdminLogEntry[] へ正しくマッピングすること', async () => {
+    const rows = [
+      makeRow({ id: 'log-1', action: 'reputation_reset' }),
+      makeRow({ id: 'log-2', action: 'ban' }),
+      makeRow({ id: 'log-3', action: 'unban' }),
+      makeRow({ id: 'log-4', action: 'tier_downgrade' }),
+    ];
+    supabase.rpc.mockResolvedValue({ data: rows, error: null });
+
+    const result = await getUserAdminLogs('target-uid');
+
+    expect(result).toEqual([
+      {
+        id: 'log-1',
+        action: 'reputation_reset',
+        executorId: 'admin-1',
+        reason: 'BAN理由テキスト',
+        createdAt: '2026-07-10T00:00:00.000Z',
+      },
+      {
+        id: 'log-2',
+        action: 'ban',
+        executorId: 'admin-1',
+        reason: 'BAN理由テキスト',
+        createdAt: '2026-07-10T00:00:00.000Z',
+      },
+      {
+        id: 'log-3',
+        action: 'unban',
+        executorId: 'admin-1',
+        reason: 'BAN理由テキスト',
+        createdAt: '2026-07-10T00:00:00.000Z',
+      },
+      {
+        id: 'log-4',
+        action: 'tier_downgrade',
+        executorId: 'admin-1',
+        reason: 'BAN理由テキスト',
+        createdAt: '2026-07-10T00:00:00.000Z',
+      },
+    ]);
+  });
+
+  test('executor_id / reason が null の行は、executorId / reason が null としてマッピングされること', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: [makeRow({ executor_id: null, reason: null })],
+      error: null,
+    });
+
+    const result = await getUserAdminLogs('target-uid');
+
+    expect(result[0].executorId).toBeNull();
+    expect(result[0].reason).toBeNull();
+  });
+
+  test('p_target_uid パラメータが正しく渡されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    await getUserAdminLogs('target-uid-123');
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_user_admin_logs', {
+      p_target_uid: 'target-uid-123',
+    });
+  });
+
+  test('結果が0件の場合、空配列を返すこと（エラーにしないこと）', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    const result = await getUserAdminLogs('target-uid');
+
+    expect(result).toEqual([]);
+  });
+
+  test('非管理者が呼び出した場合、権限エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
+
+    await expect(getUserAdminLogs('target-uid')).rejects.toThrow(
       'この操作を実行する権限がありません'
     );
   });
