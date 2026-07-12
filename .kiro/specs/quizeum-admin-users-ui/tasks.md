@@ -140,12 +140,13 @@
   - _Requirements: 10.3, 10.4_
   - _Boundary: reputation service_
   - _Depends: 5.3_
-- [ ] 6.2 (P) reputation service への getReportedUsersRanking 実装
+- [x] 6.2 (P) reputation service への getReportedUsersRanking 実装
   - `src/services/reputation.ts` に `getReportedUsersRanking(page, pageSize)` を追加し、`get_reported_users_ranking` RPCの結果を `ReportedUserSummary[]` に整形する。
   - **完了条件**: Jestテストで、RPCモックの戻り値が `ReportedUserSummary[]` へ正しくマッピングされ、`hasMore` がページサイズと結果件数から正しく算出されることを検証できること。
   - _Requirements: 9.3, 9.4, 9.5_
   - _Boundary: reputation service_
   - _Depends: 5.3_
+  - _実装メモ: `GetReportedUsersRankingResult` 型はdesign.mdの `types/index.ts` 割当リストに含まれないため、`reputation.ts` 内でローカル定義・exportした（design.md整合、レビュー確認済み）。以降のUIタスクはこの型を `services/reputation` からimportすること。_
 - [ ] 6.3 (P) reputation service への getBannedUsers 実装
   - `src/services/reputation.ts` に `getBannedUsers(filters)` を追加し、`get_banned_users` RPCへ日時範囲・キーワード・ページングパラメータを渡し、結果を `BannedUserSummary[]` に整形する。
   - **完了条件**: Jestテストで、フィルタ引数がRPC呼び出しパラメータへ正しく渡されること、および `bannedByExecutorId` を含む結果整形が検証できること。

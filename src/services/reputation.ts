@@ -1,5 +1,5 @@
 import { createClient } from '../lib/supabase/server';
-import { ReputationEventLog } from '../types';
+import { ReputationEventLog, ReportedUserSummary } from '../types';
 
 /**
  * 権限ティアーの定数定義
@@ -226,4 +226,59 @@ export async function downgradeUserTier(
     }
     throw new Error(`ティア引き下げ処理に失敗しました: ${error.message}`);
   }
+}
+
+/**
+ * `getReportedUsersRanking` の戻り値。
+ */
+export interface GetReportedUsersRankingResult {
+  items: ReportedUserSummary[];
+  hasMore: boolean;
+}
+
+/**
+ * 通報数上位ユーザー一覧を、`get_reported_users_ranking` RPC経由で取得する。
+ *
+ * `page` は 1 始まりのページ番号として扱い、`offset = (page - 1) * pageSize` に変換する。
+ * `hasMore` の判定には「余分に1件多く取得する」方式を用いる: RPCへは `p_limit = pageSize + 1` を渡し、
+ * 返却件数が `pageSize` を超えていれば `hasMore = true` とし、超過分の1件を除いて返す
+ * （RPCが総件数を返さないため）。
+ *
+ * @param page ページ番号（1始まり）
+ * @param pageSize 1ページあたりの表示件数
+ */
+export async function getReportedUsersRanking(
+  page: number,
+  pageSize: number
+): Promise<GetReportedUsersRankingResult> {
+  const offset = (page - 1) * pageSize;
+  const limit = pageSize + 1;
+
+  const supabase = await createClient();
+  const { data, error } = await (supabase as any).rpc('get_reported_users_ranking', {
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) {
+    if (error.message === 'permission-denied') {
+      throw new Error('この操作を実行する権限がありません');
+    }
+    throw new Error(`通報数上位ユーザー一覧の取得に失敗しました: ${error.message}`);
+  }
+
+  const rows: any[] = data ?? [];
+  const hasMore = rows.length > pageSize;
+  const trimmedRows = hasMore ? rows.slice(0, pageSize) : rows;
+
+  const items: ReportedUserSummary[] = trimmedRows.map((row) => ({
+    uid: row.uid,
+    displayName: row.display_name,
+    moderationTier: row.moderation_tier as ModerationTier,
+    isBanned: row.is_banned,
+    totalReportCount: row.total_report_count,
+    latestReportAt: row.latest_report_at,
+  }));
+
+  return { items, hasMore };
 }

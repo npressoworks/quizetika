@@ -7,6 +7,7 @@ import {
   banUser,
   unbanUser,
   downgradeUserTier,
+  getReportedUsersRanking,
 } from '../../src/services/reputation';
 
 const createChainMock = (resolveValue: any) => {
@@ -274,6 +275,108 @@ describe('ReputationService - downgradeUserTier', () => {
 
     await expect(downgradeUserTier(targetUid, executorId, newTier, reason)).rejects.toThrow(
       '引き下げ先のティアは現在のティアより下位である必要があります'
+    );
+  });
+});
+
+describe('ReputationService - getReportedUsersRanking', () => {
+  const makeRow = (overrides: Partial<Record<string, unknown>> = {}) => ({
+    uid: 'user-1',
+    display_name: '通報太郎',
+    moderation_tier: 'contributor',
+    is_banned: false,
+    total_report_count: 5,
+    latest_report_at: '2026-07-10T00:00:00.000Z',
+    ...overrides,
+  });
+
+  beforeEach(() => jest.clearAllMocks());
+
+  test('RPCの戻り値（snake_case）が ReportedUserSummary[]（camelCase）へ正しくマッピングされること', async () => {
+    supabase.rpc.mockResolvedValue({
+      data: [
+        makeRow({
+          uid: 'user-1',
+          display_name: '通報太郎',
+          moderation_tier: 'moderator',
+          is_banned: true,
+          total_report_count: 12,
+          latest_report_at: '2026-07-11T09:00:00.000Z',
+        }),
+      ],
+      error: null,
+    });
+
+    const result = await getReportedUsersRanking(1, 10);
+
+    expect(result.items).toEqual([
+      {
+        uid: 'user-1',
+        displayName: '通報太郎',
+        moderationTier: 'moderator',
+        isBanned: true,
+        totalReportCount: 12,
+        latestReportAt: '2026-07-11T09:00:00.000Z',
+      },
+    ]);
+  });
+
+  test('結果件数が pageSize と同数の場合、hasMore は false になること', async () => {
+    const rows = Array.from({ length: 10 }, (_, i) => makeRow({ uid: `user-${i}` }));
+    supabase.rpc.mockResolvedValue({ data: rows, error: null });
+
+    const result = await getReportedUsersRanking(1, 10);
+
+    expect(result.items).toHaveLength(10);
+    expect(result.hasMore).toBe(false);
+  });
+
+  test('結果件数が pageSize を超える場合、超過分は除外され hasMore は true になること', async () => {
+    const rows = Array.from({ length: 11 }, (_, i) => makeRow({ uid: `user-${i}` }));
+    supabase.rpc.mockResolvedValue({ data: rows, error: null });
+
+    const result = await getReportedUsersRanking(1, 10);
+
+    expect(result.items).toHaveLength(10);
+    expect(result.hasMore).toBe(true);
+    expect(result.items.map((item) => item.uid)).toEqual(rows.slice(0, 10).map((r) => r.uid));
+  });
+
+  test('結果が0件の場合、空配列と hasMore=false を返すこと', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    const result = await getReportedUsersRanking(1, 10);
+
+    expect(result).toEqual({ items: [], hasMore: false });
+  });
+
+  test('page/pageSize から正しい p_limit/p_offset を算出してRPCを呼び出すこと（1ページ目）', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    await getReportedUsersRanking(1, 10);
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_reported_users_ranking', {
+      p_limit: 11,
+      p_offset: 0,
+    });
+  });
+
+  test('page/pageSize から正しい p_limit/p_offset を算出してRPCを呼び出すこと（3ページ目）', async () => {
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    await getReportedUsersRanking(3, 20);
+
+    expect(supabase.rpc).toHaveBeenCalledWith('get_reported_users_ranking', {
+      p_limit: 21,
+      p_offset: 40,
+    });
+  });
+
+  test('非管理者が呼び出した場合、権限エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
+
+    await expect(getReportedUsersRanking(1, 10)).rejects.toThrow(
+      'この操作を実行する権限がありません'
     );
   });
 });
