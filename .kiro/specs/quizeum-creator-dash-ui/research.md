@@ -263,4 +263,111 @@
 - Discovery 種別: **Light（Extension / Bugfix）**
 - 外部 Web 調査: 不要
 
+---
+
+# Phase 40: 作成クイズ管理画面（2026-07-12 追記）
+
+## Summary
+- **Discovery Scope**: Extension（軽量ディスカバリー）
+- **Key Findings**:
+  - 「非公開」相当の機能（`visibility: 'private'`/`'followers'`）と Pro プラン制限（`assertCanSetQuizVisibilitySync` 等）は `src/lib/quiz-access.ts` および `src/services/quiz.ts` の `updateQuiz` に既に実装済みだが、UI からの露出が一切ない。
+  - 作成者クイズの検索（`searchAuthorQuizzes`）は全件取得後のクライアント側配列フィルタ方式であり、ジャンル・統合ステータス・並び替えオプションは未対応。DBカーソルページング（`getQuizzesByAuthorPage`）とは別実装で、両者を単純合成できない。
+  - クイズ単位の未解決指摘件数を集計する既存関数は存在しない。
+
+## Research Log
+
+### 統合ステータス（公開・限定公開・非公開・下書き）の表現
+- **Context**: 要件17は `status`（draft/published/suspended）と `visibility`（public/followers/private）という直交する2軸を1つの統合ステータスとして表示することを求める。
+- **Sources Consulted**: `src/types/index.ts`（`Quiz`, `QuizVisibility`）、`src/lib/quiz-access.ts`（`resolveQuizVisibility`, `canViewQuiz`）。
+- **Findings**: `visibility` は `published` クイズにのみ意味を持つ（`draft`/`suspended` では UI 上不要）。`resolveQuizVisibility()` が `visibility ?? 'public'` のデフォルト解決を既に提供している。
+- **Implications**: 新規の永続化フィールドは不要。`status` と `resolveQuizVisibility(quiz)` から統合ステータスを導出する純粋関数を1つ追加すればよい。
+
+### クイズ検索・絞り込み・並び替えの拡張ポイント
+- **Context**: 要件16はキーワード・統合ステータス・ジャンル・タグの AND 絞り込みと、クイズ名・プレイ回数・作成日の並び替えを求める。
+- **Sources Consulted**: `src/services/author-quiz-search.ts`, `src/lib/author-quiz-search.ts`, `src/services/quiz.ts`（`getQuizzesByAuthor`, `getQuizzesByAuthorPage`）。
+- **Findings**: `searchAuthorQuizzes` は `getQuizzesByAuthor(authorId, includeDrafts)` で作成者の全クイズを一度に取得し、`filterAuthorQuizzes` / `filterAuthorQuizzesWithQuestions`（純関数、`src/lib/author-quiz-search.ts`）でキーワード・タグのみをクライアント側フィルタしている。DB クエリの変更は不要。一方 `getQuizzesByAuthorPage` は `created_at desc` 固定のカーソルページングで、検索パラメータを持たない。
+- **Implications**: 統合ステータス・ジャンル・並び替えを追加する場合、`getQuizzesByAuthorPage` のカーソルページングとは統合せず、既存の「全件取得 + クライアント側フィルタ/ソート」方式をそのまま拡張するのが最小変更。作成者本人のクイズ件数は数百件規模を想定し、全件クライアント処理で許容範囲と判断（Performance & Scalability 参照）。
+
+### 未解決指摘件数の集計
+- **Context**: 要件18はクイズ単位の未解決指摘件数バッジを求めるが、既存にクイズ単位の集計関数はない。
+- **Sources Consulted**: `src/services/review.ts`（`getReportsForCreator`, `getOpenReportsByQuizId` 等）。
+- **Findings**: `getReportsForCreator(creatorId)` は作成者の全公開クイズ横断で `status: 'open'` の `FeedbackReport[]` をフラット取得する。クイズ ID ごとの `reduce` 集計は呼び出し側で行っていない。
+- **Implications**: 既存関数を変更せず、新規関数 `getOpenReportCountsByCreator(creatorId): Promise<Record<string, number>>` を追加する（`getReportsForCreator` を呼んで `quizId` で集計するラッパー）。既存の「単一クイズ用」「作成者全体用」の関数分離パターンに整合する。
+
+### 公開範囲変更のエラーハンドリング
+- **Context**: Pro 未満のユーザーが非公開・限定公開への切替を試みた場合の UI 挙動（要件17.6, 17.7）。
+- **Sources Consulted**: `src/lib/quiz-access.ts`（`ProRequiredForVisibilityError`, `assertCanSetQuizVisibilitySync`）、`src/services/quiz.ts`（`updateQuiz` 内 `enforceVisibilityEntitlement`）。
+- **Findings**: `updateQuiz` は内部で `assertCanSetQuizVisibilitySync` を呼び、Pro 未満なら `ProRequiredForVisibilityError`（`code: 'pro-required-for-visibility'`）を throw する。UI 側でこの例外を捕捉する既存の呼び出し例は見つからなかった（現状 UI 未実装のため）。
+- **Implications**: フロントで `canAccessProVisibility(entitlementFields)` を使い事前にトグルを disabled 化する（要件17.6）のに加え、`updateQuiz` 呼び出しを try/catch し `error.code === 'pro-required-for-visibility'` を判定してエラー表示にフォールバックする（要件17.7、二重防御）。
+
+### アップグレード導線・UI コンポーネントパターン
+- **Context**: Pro 未満ユーザー向けのアップグレード導線 UI。
+- **Sources Consulted**: `src/components/quiz/editor/ai-quiz-pro-upsell.tsx`、`src/components/explore/explore-search-section.tsx`（336行目 `SelectTrigger title=...` disabled+tooltip パターン）。
+- **Findings**: 既存の `ai-quiz-pro-upsell.tsx` が「説明文 + `/pricing` へのリンクボタン」という定型パターンを持つ。Select 系コンポーネントの disabled 状態には `title` 属性で理由を補足する既存パターンがある。
+- **Implications**: 新規コンポーネントはこの2つの既存パターンを組み合わせて実装する（新規デザイン言語を持ち込まない）。
+
+### スタイリング方針
+- **Context**: `/creator/quizzes` を Tailwind + shadcn/ui にするか CSS Modules にするか。
+- **Findings**: `/creator/dashboard` 配下は既に全面 Tailwind + shadcn/ui（`Card`, `Badge`, `Button`, `Select`, `Tabs`）。CSS Modules は `quiz/editor/` の一部にのみ残存。
+- **Implications**: 新規画面も Tailwind + shadcn/ui に統一する（steering の Phase 24 方針と整合）。
+
+### 既存ダッシュボードとの統合影響
+- **Context**: `creator-quiz-list`（`QuizListSection`）撤去の影響範囲。
+- **Sources Consulted**: `src/app/creator/dashboard/dashboard-client.tsx`, `dashboard-sections.tsx`, `e2e/creator-dashboard.spec.ts`。
+- **Findings**: `dashboard-client.tsx` は `quizzes` state を `QuizListSection` 表示のためだけに保持しており、他セクション（アナリティクス等）とは独立している。撤去してもアナリティクス系 state 管理には影響しない。既存 E2E（`e2e/creator-dashboard.spec.ts`）が `creator-quiz-list`/`quiz-card` を直接 assert しているため更新必須。
+- **Implications**: `dashboard-client.tsx` から `getQuizzesByAuthor` 呼び出しと `quizzes` state を削除し、`QuizListSection` の代わりに軽量な `<Link href="/creator/quizzes">` カードに置き換える。E2E は該当 assertion を新画面向けに移設する。
+
+## Architecture Pattern Evaluation（Phase 40）
+
+| Option | Description | Strengths | Risks / Limitations | 判定 |
+|--------|-------------|-----------|---------------------|------|
+| 全件取得＋クライアント側フィルタ/ソート/仮想ページング | 既存 `searchAuthorQuizzes` 方式を拡張し、フィルタ・ソート・「もっと見る」による段階表示をすべてメモリ上で行う | 実装が最小、既存パターンと整合、DBクエリ変更不要 | 作成者のクイズ数が非常に多い場合に初回ロードが重くなる | **採用** |
+| DBカーソルページング＋サーバー側フィルタ拡張 | `getQuizzesByAuthorPage` にジャンル/ステータス/並び替えパラメータを追加しDBクエリで解決 | 大量データでもスケールする | 既存の「検索はクライアントフィルタ」という設計原則からの逸脱、Supabaseクエリの複雑化、変更範囲が `quizetika-core` 側に及ぶ | 却下（過剰実装、Simplification原則） |
+
+## Design Decisions（Phase 40）
+
+### Decision: 統合ステータスの導出方法
+- **Context**: `status` と `visibility` の2軸を1つの表示用ステータスにまとめる必要がある。
+- **Alternatives Considered**:
+  1. 新規 DB カラム `displayStatus` を追加し、更新のたびに同期する
+  2. 表示時に `status`/`visibility` から都度導出する純粋関数
+- **Selected Approach**: 2（純粋関数 `resolveCreatorQuizStatus(quiz): CreatorQuizStatus`）
+- **Rationale**: 既存の `resolveQuizVisibility` と同じ「保存値を増やさず導出する」パターンに従う。同期漏れ・不整合のリスクがない。
+- **Trade-offs**: 導出ロジックを呼び出し側（一覧表示・フィルタ・ソート）で都度実行するが、演算コストは無視できるレベル。
+- **Follow-up**: `src/lib/creator-quiz-status.ts` に配置し、`src/lib/quiz-access.ts` の `resolveQuizVisibility` を内部で再利用する。
+
+### Decision: 公開範囲変更のAPI設計
+- **Context**: 公開・限定公開・非公開の切替をどう永続化するか。
+- **Alternatives Considered**:
+  1. 新規専用API（`setQuizVisibility`）を作る
+  2. 既存 `updateQuiz(quizId, { visibility })` をそのまま呼ぶ
+- **Selected Approach**: 2
+- **Rationale**: `updateQuiz` は既に `visibility` 更新とPro制限検証（`enforceVisibilityEntitlement`）を内包しており、新規APIは重複実装になる（Build vs Adopt原則）。
+- **Trade-offs**: なし。既存契約をそのまま利用するため後方互換性の懸念もない。
+- **Follow-up**: UI側は `updateQuiz` 呼び出し前に `canAccessProVisibility` でトグルのdisabled判定を行い、UX上の二重防御とする。
+
+### Decision: 未解決指摘件数の集計方法
+- **Context**: クイズ単位の未解決指摘件数をどう取得するか。
+- **Alternatives Considered**:
+  1. `getReportsForCreator` の返り値をUI側で `reduce` 集計する
+  2. サービス層に新規関数 `getOpenReportCountsByCreator` を追加し、集計済みの `Record<string, number>` を返す
+- **Selected Approach**: 2
+- **Rationale**: 既存のサービス層は「UIに生データを渡さず、用途に応じた形で返す」パターン（`getOpenReportsByQuizId` 等の専用関数群）を踏襲しており、UI側集計より一貫性が高い。
+- **Trade-offs**: サービス層に1関数増えるが、責務分離が明確になる。
+- **Follow-up**: `src/services/review.ts` に追加し、内部で `getReportsForCreator` と同等のクエリ結果を `quiz_id` でグルーピングする。
+
+## Risks & Mitigations（Phase 40）
+- 作成者のクイズ数が将来的に増加した場合、全件クライアントフィルタ方式のロード時間が悪化する — 既存 `searchAuthorQuizzes` と同一の制約であり新規リスクではない。閾値超過が観測されたら DB 側ページング＋フィルタへの移行を再検討する（Revalidation Trigger）。
+- `updateQuiz` の `ProRequiredForVisibilityError` を握りつぶすと「切替が反映されない」ように見えるUXになる — 設計で try/catch 必須化し、エラーメッセージ表示を明示的に要求する。
+- ダッシュボードの `creator-quiz-list` 撤去により既存 E2E（`e2e/creator-dashboard.spec.ts`）が壊れる — タスク側で当該テストの更新を必須タスクとして明記する。
+
+## Document Status（Phase 40）
+- 分析: Grep/Read によるコードベース調査（Explore subagent 経由）
+- Discovery 種別: **Light（Extension）**
+- 外部 Web 調査: 不要
+
+### `/kiro-validate-design` レビュー結果の反映（2026-07-12）
+- **懸念1（ジャンル絞り込みとレガシー/orphan `canonicalGenreId`）**: `src/services/quiz.ts` の `createQuiz`/`updateQuiz` は `genre` 設定時に `canonicalGenreId` を都度解決するが、要件5.5が想定するレガシー・マージ保留クイズでは現行マスタ外の値のまま残り得る。ユーザー判断により、ジャンル絞り込み指定時はこれらを結果から除外する仕様とし、requirements.md 要件16に基準5を追加、design.md の `author-quiz-search.ts` File Structure Plan 行に明記した。
+- **懸念2（`suspended` ステータスの統合ステータス表示）**: `quiz-access.ts` の `canViewQuiz` は `suspended` を作成者本人の `draft` とは異なる特別扱いにしている。ユーザー判断により、統合ステータスに独立した5値目（「審査により非表示」）を追加し、requirements.md 要件17に基準3を追加、design.md の `resolveCreatorQuizStatus` を5値ユニオン型に修正した。
+- **軽微指摘（空状態の書き分け）**: 要件15.6（クイズ0件）と要件16.8（絞り込み結果0件）で異なるCTAを出すことを `creator-quiz-management-sections.tsx` の File Structure Plan 行に明記した。
 
