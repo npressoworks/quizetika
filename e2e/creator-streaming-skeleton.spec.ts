@@ -12,11 +12,19 @@ test.describe('クリエイター画面 Streaming / Suspense スケルトン E2E
 
     await expect(page.getByTestId('stats-skeleton')).toBeHidden({ timeout: 15000 });
     await expect(page.getByTestId('charts-skeleton')).toBeHidden({ timeout: 15000 });
-    await expect(page.getByTestId('quiz-list-skeleton')).toBeHidden({ timeout: 15000 });
     await expect(page.getByTestId('feedback-list-skeleton')).toBeHidden({ timeout: 15000 });
 
     await expect(page.getByTestId('stats-section')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByTestId('creator-quiz-list')).toBeVisible({ timeout: 15000 });
+  });
+
+  test('作成クイズ管理画面（/creator/quizzes）で読み込みスケルトンが消えコンテンツが表示されること', async ({ page }) => {
+    await page.goto('/creator/quizzes');
+    await page.waitForLoadState('domcontentloaded');
+
+    // Suspense フォールバックのスケルトンが表示され、その後コンテンツに切り替わることを確認
+    await expect(page.getByTestId('creator-quiz-management-loading')).toBeHidden({ timeout: 15000 });
+    await expect(page.getByTestId('creator-quiz-management-page')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('creator-quiz-management-list')).toBeVisible({ timeout: 15000 });
   });
 
   test('クイズ作成画面で quiz-editor-skeleton が消えエディタが表示されること', async ({ page }) => {

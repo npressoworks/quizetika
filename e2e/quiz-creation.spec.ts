@@ -71,8 +71,10 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
     await expect.poll(() => dialogMessage).toContain('下書きを保存しました');
     await expect(page).toHaveURL(/\/creator\/dashboard/);
 
-    // ダッシュボード内に保存した下書きクイズが表示されていることを確認（デフォルトは「プレイヤー」タブのため「作家」タブへ切り替える）
-    await page.getByTestId('dashboard-tab-creator').click();
-    await expect(page.getByTestId('creator-quiz-list').getByText(quizTitle)).toBeVisible();
+    // 保存した下書きクイズは作成クイズ管理画面（/creator/quizzes）の一覧に表示されることを確認（要件19.1）
+    await page.goto('/creator/quizzes');
+    await expect(
+      page.getByTestId('creator-quiz-management-list').getByText(quizTitle)
+    ).toBeVisible({ timeout: 15000 });
   });
 });

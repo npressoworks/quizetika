@@ -13,8 +13,8 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
     // ダッシュボードページが表示されることを確認
     await expect(page.locator('h1').filter({ hasText: /ダッシュボード|クイズ管理/ }).first()).toBeVisible();
 
-    // 2. 自身が作成したクイズ一覧が表示されることを確認
-    await expect(page.getByTestId('creator-quiz-list')).toBeVisible({ timeout: 15000 });
+    // 2. 簡易クイズ一覧は撤去され、作成クイズ管理画面（/creator/quizzes）への導線が表示されることを確認（要件19.1, 19.4）
+    await expect(page.getByTestId('creator-dashboard-manage-quizzes-link')).toBeVisible({ timeout: 15000 });
 
     // 3. ダッシュボードに統計情報が表示されることを確認
     await expect(page.getByTestId('stats-section')).toBeVisible({ timeout: 15000 });
@@ -286,8 +286,11 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
           await expect(page).toHaveURL(/\/creator\/dashboard/);
           await page.getByTestId('dashboard-tab-creator').click();
 
-          // 4. 新しく作成したクイズが一覧に表示されることを確認
-          await expect(page.getByTestId('creator-quiz-list').getByText(quizTitle)).toBeVisible();
+          // 4. 新しく作成したクイズは作成クイズ管理画面（/creator/quizzes）の一覧に表示されることを確認（要件19.1）
+          await page.goto('/creator/quizzes');
+          await expect(
+            page.getByTestId('creator-quiz-management-list').getByText(quizTitle)
+          ).toBeVisible({ timeout: 15000 });
         }
       }
     }
