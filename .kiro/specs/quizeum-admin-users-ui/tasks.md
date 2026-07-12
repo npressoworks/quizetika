@@ -169,7 +169,7 @@
   - _実装メモ: レビュー時にPowerShellのsafety classifierが一時的に利用不可となり `npx jest` の実行検証ができなかったため、独立レビュアーおよび親コントローラーがコード・テストファイルの内容を直接読み、実際のSQL（`RAISE EXCEPTION`文字列）と1対1で突合するstatic verificationで承認した。次回のテスト全体実行（タスク7.x以降のいずれかで`npm run test`を回す際）で `tests/services/user-report.test.ts` が実際にパスすることを確認すること。_
 
 ### 7. Core: APIエンドポイント実装
-- [ ] 7.1 (P) /api/admin/users/downgrade-tier エンドポイントの作成
+- [x] 7.1 (P) /api/admin/users/downgrade-tier エンドポイントの作成
   - `src/app/api/admin/users/downgrade-tier/route.ts` を新規作成し、既存の `ban/route.ts` と同型のBearerトークン検証を行った上で `downgradeUserTier` を呼び出す。
   - **完了条件**: 管理者トークンでリクエストした際に `200 OK` が返り対象ユーザーのティアが更新されること、非admin/不正リクエストでは 400/401/403/409 のいずれかが返ることを確認できること。
   - _Requirements: 10.3, 10.4_
