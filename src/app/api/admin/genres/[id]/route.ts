@@ -77,7 +77,9 @@ export async function DELETE(
     const supabase = createAdminClient();
     const { data, error } = await supabase.rpc('delete_genre_with_reassignment', {
       p_genre_id: id,
-      p_reassign_to_id: reassignToGenreId,
+      // 生成型上は `string | undefined` だが、RPC引数は DEFAULT NULL のため
+      // 実行時は null を明示的に渡す（挙動は変更しない。型生成側の揺れを吸収するキャスト）
+      p_reassign_to_id: reassignToGenreId as string | undefined,
     });
 
     if (error) {

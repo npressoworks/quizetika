@@ -124,13 +124,14 @@
   - _Boundary: Database Migration_
   - _Depends: 5.1_
   - _実装ファイル: `supabase/migrations/20260719000100_user_reports_and_ranking.sql`_
-- [ ] 5.3 型定義の再生成とアプリケーション型の追加
+- [x] 5.3 型定義の再生成とアプリケーション型の追加
   - `npm run gen:types` を実行し `src/lib/supabase/database.types.ts` を再生成する。
   - `src/types/index.ts` に `UserReport`, `ReportedUserSummary`, `BannedUserSummary`, `AdminLogEntry` 型を追加する。
   - **完了条件**: `database.types.ts` に `user_reports` テーブル型と5RPCの引数/戻り値型が反映され、`tsc --noEmit` が型エラーなく通ること。
   - _Requirements: 8.1, 9.6, 10.1, 11.3_
   - _Boundary: Types_
   - _Depends: 5.2_
+  - _レビュー指摘（非ブロッキング）: `UserReport.status` に design.md 未記載の `'rejected'` が含まれる（DB側もCHECK制約なし）。現時点で消費者コードがないため実害なし。UserReportを実際に使用するタスク6.5/8.5で整合を確認すること。_
 
 ### 6. Core: サービス層実装
 - [ ] 6.1 (P) reputation service への downgradeUserTier 実装

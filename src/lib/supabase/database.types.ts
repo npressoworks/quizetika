@@ -138,6 +138,42 @@ export type Database = {
           },
         ]
       }
+      analytics_outbox: {
+        Row: {
+          event_id: string
+          event_type: string
+          last_error: string | null
+          occurred_at: string
+          payload: Json
+          retry_count: number
+          sent_at: string | null
+          status: string
+          table_name: string
+        }
+        Insert: {
+          event_id?: string
+          event_type: string
+          last_error?: string | null
+          occurred_at?: string
+          payload: Json
+          retry_count?: number
+          sent_at?: string | null
+          status?: string
+          table_name: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          last_error?: string | null
+          occurred_at?: string
+          payload?: Json
+          retry_count?: number
+          sent_at?: string | null
+          status?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           author_id: string | null
@@ -1480,6 +1516,51 @@ export type Database = {
           },
         ]
       }
+      user_reports: {
+        Row: {
+          category: string
+          created_at: string
+          detail: string
+          id: string
+          reporter_id: string
+          status: string
+          target_uid: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          detail: string
+          id?: string
+          reporter_id: string
+          status?: string
+          target_uid: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          detail?: string
+          id?: string
+          reporter_id?: string
+          status?: string
+          target_uid?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reports_target_uid_fkey"
+            columns: ["target_uid"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -1587,9 +1668,59 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      analytics_export_purge_sent: { Args: never; Returns: undefined }
+      analytics_export_retry_notify: { Args: never; Returns: undefined }
+      claim_pending_analytics_events: {
+        Args: { p_batch_size?: number }
+        Returns: {
+          event_id: string
+          event_type: string
+          occurred_at: string
+          payload: Json
+          retry_count: number
+          table_name: string
+        }[]
+      }
       delete_genre_with_reassignment: {
-        Args: { p_genre_id: string; p_reassign_to_id?: string | null }
+        Args: { p_genre_id: string; p_reassign_to_id?: string }
         Returns: number
+      }
+      get_banned_users: {
+        Args: {
+          p_banned_from: string
+          p_banned_to: string
+          p_keyword: string
+          p_limit: number
+          p_offset: number
+        }
+        Returns: {
+          banned_at: string
+          banned_by_executor_id: string
+          banned_reason: string
+          display_name: string
+          uid: string
+        }[]
+      }
+      get_reported_users_ranking: {
+        Args: { p_limit: number; p_offset: number }
+        Returns: {
+          display_name: string
+          is_banned: boolean
+          latest_report_at: string
+          moderation_tier: Database["public"]["Enums"]["moderation_tier_enum"]
+          total_report_count: number
+          uid: string
+        }[]
+      }
+      get_user_admin_logs: {
+        Args: { p_target_uid: string }
+        Returns: {
+          action: Database["public"]["Enums"]["admin_log_action_enum"]
+          created_at: string
+          executor_id: string
+          id: string
+          reason: string
+        }[]
       }
       handle_adjust_failed_questions_count: {
         Args: { p_delta: number; p_user_id: string }
@@ -1645,6 +1776,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      handle_downgrade_tier: {
+        Args: {
+          p_new_tier: Database["public"]["Enums"]["moderation_tier_enum"]
+          p_reason: string
+          p_target_uid: string
+        }
+        Returns: undefined
+      }
       handle_flag_content: {
         Args: { p_quiz_id: string; p_reason: string }
         Returns: undefined
@@ -1690,6 +1829,10 @@ export type Database = {
       handle_reorder_questions: {
         Args: { p_question_ids: string[]; p_quiz_id: string }
         Returns: number
+      }
+      handle_report_user: {
+        Args: { p_category: string; p_detail: string; p_target_uid: string }
+        Returns: undefined
       }
       handle_reset_user_reputation: {
         Args: { p_reason: string; p_target_uid: string }
@@ -1808,9 +1951,14 @@ export type Database = {
         Args: { p_opinion: string; p_request_id: string }
         Returns: undefined
       }
+      increment_analytics_outbox_retry: {
+        Args: { p_error?: string; p_event_ids: string[] }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
       is_moderator_or_admin: { Args: never; Returns: boolean }
       is_not_banned: { Args: never; Returns: boolean }
+      notify_analytics_export: { Args: never; Returns: undefined }
       record_leaderboard_entry: {
         Args: {
           p_board: string
@@ -1825,7 +1973,11 @@ export type Database = {
       resolve_vote_weight: { Args: { p_user_id: string }; Returns: number }
     }
     Enums: {
-      admin_log_action_enum: "reputation_reset" | "ban" | "unban"
+      admin_log_action_enum:
+        | "reputation_reset"
+        | "ban"
+        | "unban"
+        | "tier_downgrade"
       announcement_category_enum:
         | "info"
         | "maintenance"
@@ -1973,7 +2125,12 @@ export const Constants = {
   },
   public: {
     Enums: {
-      admin_log_action_enum: ["reputation_reset", "ban", "unban"],
+      admin_log_action_enum: [
+        "reputation_reset",
+        "ban",
+        "unban",
+        "tier_downgrade",
+      ],
       announcement_category_enum: [
         "info",
         "maintenance",
