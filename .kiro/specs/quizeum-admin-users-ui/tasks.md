@@ -190,13 +190,14 @@
   - _Requirements: 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4, 5.5, 10.1, 10.2, 10.4, 10.5, 10.6, 10.7_
   - _Boundary: UserSearchPanel_
   - _Depends: 7.1_
-- [ ] 8.2 UserSearchPanel への監査ログ履歴リストとスケルトン表示の追加
+- [x] 8.2 UserSearchPanel への監査ログ履歴リストとスケルトン表示の追加
   - `AdminUserSearchPanel` に、検索対象ユーザーに関する `admin_logs` 履歴リスト表示エリアを新規実装し、`getUserAdminLogs` を呼び出して表示する（アクション種別・実行者・理由・日時）。
   - ユーザー情報表示エリアと監査ログ表示エリアそれぞれに、ロード中はセクション単位のスケルトンプレースホルダー（`data-testid="admin-user-info-skeleton"` / `data-testid="admin-logs-skeleton"`）を表示し、ロード完了後に実データへ差し替える。
   - **完了条件**: UIDを検索すると監査ログ履歴リストが表示され、リセット/BAN/UNBAN/ティア引き下げの実行後に一覧が最新化されること。ロード中は指定の`data-testid`を持つスケルトンが表示され、完了後に実データへ切り替わることが目視・テストで確認できること。
   - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.9_
   - _Boundary: UserSearchPanel_
   - _Depends: 8.1, 6.4_
+  - _レビュー指摘（非ブロッキング）: reset/ban/unban/tier-downgradeの4アクションすべてがrefreshAdminLogsを呼ぶことはコード直読で確認済みだが、テストのコール数アサーションはresetアクションのみ。他3アクションのテストカバレッジ追加は将来の改善候補。_
 - [ ] 8.3 (P) AdminReportedUsersPanel の新規実装
   - `src/app/admin/users/admin-reported-users-panel.tsx` を新規作成し、`getReportedUsersRanking` を呼び出して表示名・UID・ティア・BANステータス・総通報数を含む一覧を総通報数降順で表示する。limit/offsetベースの「前へ/次へ」ページネーションを実装する。
   - 0件時の空状態メッセージと、ロード中のスケルトン（`data-testid="admin-reported-users-skeleton"`）を実装する。行選択時に `onSelectUser(uid)` プロパティを呼び出す。

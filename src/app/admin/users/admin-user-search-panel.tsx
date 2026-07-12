@@ -10,7 +10,8 @@ import React, { useState } from 'react';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { getUserProfile } from '@/services/user';
-import { User } from '@/types';
+import { getUserAdminLogs } from '@/services/reputation';
+import { AdminLogEntry, User } from '@/types';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { TierDowngradeControl, type ModerationTier } from '@/components/admin/tier-downgrade-control';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -30,6 +32,13 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 
 type PendingAction = 'reset' | 'ban' | 'unban' | null;
+
+const ADMIN_LOG_ACTION_LABELS: Record<AdminLogEntry['action'], string> = {
+  reputation_reset: '評判リセット',
+  ban: 'BAN',
+  unban: 'UNBAN',
+  tier_downgrade: 'ティア引き下げ',
+};
 
 export function AdminUserSearchPanel() {
   const { authUser } = useAuth();
@@ -46,6 +55,22 @@ export function AdminUserSearchPanel() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
+  const [adminLogs, setAdminLogs] = useState<AdminLogEntry[]>([]);
+  const [adminLogsLoading, setAdminLogsLoading] = useState(false);
+
+  const refreshAdminLogs = async (targetUid: string) => {
+    setAdminLogsLoading(true);
+    try {
+      const logs = await getUserAdminLogs(targetUid);
+      setAdminLogs(logs);
+    } catch (err) {
+      console.error('監査ログ履歴の取得エラー:', err);
+      setAdminLogs([]);
+    } finally {
+      setAdminLogsLoading(false);
+    }
+  };
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchUid.trim()) return;
@@ -54,13 +79,17 @@ export function AdminUserSearchPanel() {
     setSuccessMessage(null);
     setErrorMessage(null);
     setSearchedUser(null);
+    setAdminLogs([]);
     setHasSearched(true);
 
     try {
-      const u = await getUserProfile(searchUid.trim());
+      const uid = searchUid.trim();
+      const u = await getUserProfile(uid);
       setSearchedUser(u);
       if (!u) {
         setErrorMessage('指定されたUIDのユーザーが見つかりません。');
+      } else {
+        void refreshAdminLogs(uid);
       }
     } catch (err) {
       console.error('ユーザー検索エラー:', err);
@@ -101,6 +130,7 @@ export function AdminUserSearchPanel() {
       setReason('');
       const updatedUser = await getUserProfile(searchedUser.id);
       setSearchedUser(updatedUser);
+      void refreshAdminLogs(searchedUser.id);
     } catch (err: unknown) {
       console.error('リセットエラー:', err);
       setErrorMessage(
@@ -143,6 +173,7 @@ export function AdminUserSearchPanel() {
       setBanReason('');
       const updatedUser = await getUserProfile(searchedUser.id);
       setSearchedUser(updatedUser);
+      void refreshAdminLogs(searchedUser.id);
     } catch (err: unknown) {
       console.error('BANエラー:', err);
       setErrorMessage(
@@ -183,6 +214,7 @@ export function AdminUserSearchPanel() {
       setSuccessMessage('ユーザーアカウントの停止（BAN）を解除しました。');
       const updatedUser = await getUserProfile(searchedUser.id);
       setSearchedUser(updatedUser);
+      void refreshAdminLogs(searchedUser.id);
     } catch (err: unknown) {
       console.error('UNBANエラー:', err);
       setErrorMessage(
@@ -225,6 +257,7 @@ export function AdminUserSearchPanel() {
     setErrorMessage(null);
     if (searchedUser) {
       void getUserProfile(searchedUser.id).then(setSearchedUser);
+      void refreshAdminLogs(searchedUser.id);
     }
   };
 
@@ -299,6 +332,25 @@ export function AdminUserSearchPanel() {
         </CardContent>
       </Card>
 
+      {fetchLoading && (
+        <Card data-testid="admin-user-info-skeleton">
+          <CardHeader className="flex flex-row items-start gap-4">
+            <Skeleton className="size-16 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-3 w-56" />
+              <Skeleton className="h-5 w-20" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </CardContent>
+        </Card>
+      )}
+
       {searchedUser && (
         <div className="space-y-6">
           <Card>
@@ -354,6 +406,57 @@ export function AdminUserSearchPanel() {
               </Table>
             </CardContent>
           </Card>
+
+          {adminLogsLoading ? (
+            <Card data-testid="admin-logs-skeleton">
+              <CardHeader>
+                <CardTitle className="text-lg">監査ログ履歴</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">監査ログ履歴</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {adminLogs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    このユーザーに関する監査ログ履歴はありません。
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>操作種別</TableHead>
+                        <TableHead>実行者UID</TableHead>
+                        <TableHead>理由</TableHead>
+                        <TableHead>日時</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {adminLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell>{ADMIN_LOG_ACTION_LABELS[log.action] ?? log.action}</TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {log.executorId ?? '（不明）'}
+                          </TableCell>
+                          <TableCell>{log.reason ?? '（理由なし）'}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(log.createdAt).toLocaleString('ja-JP')}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
