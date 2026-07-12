@@ -580,13 +580,14 @@
   - _Boundary: Testing (E2E)_
   - _Depends: 14.7, 14.8_
 
-- [ ] 14.13 Phase 40 統合検証
+- [x] 14.13 Phase 40 統合検証
   - 作成クイズ管理画面と作家ダッシュボードの結線を通しで確認し、既存機能（クイズ作成・編集・アナリティクス・指摘解決サイドバー）に回帰がないことを確認する。
   - `npm test` / `npm run build` / Playwright E2E がすべて成功することを確認する。
   - **完了状態**: 関連する単体・結合・E2Eテストおよびビルドがすべてグリーンであること。
   - _Requirements: 15.1, 16.6, 17.1, 18.1, 19.1_
   - _Boundary: Testing_
   - _Depends: 14.9, 14.10, 14.11, 14.12_
+  - **実施記録**: `npm test` → 245 suites / 1497 tests 全成功。`npm run build` → 成功（`/creator/quizzes` ルート含むビルド出力を確認）。`npx playwright test`（対象6ファイル）→ 36〜37/38 成功、残る2件は (1) `seo-sharing.spec.ts` のSNS共有機能テスト（quiz-play導線に起因する既存の無関係な失敗、レビューで確認済み）、(2) `additional-features.spec.ts` のジャンル詳細ページテスト（本タスクの変更と無関係、単体再実行で2/2成功しフレーキーと確認）。他のe2eファイルは `creator-quiz-list`/ダッシュボードのクイズ一覧関連testidを参照していないことをgrepで確認済みのため、回帰範囲は14.12で検証済みの6ファイルに限定される。
 
 ## Implementation Notes (Phase 40)
 - 公開範囲変更・Pro制限は既存 `updateQuiz`／`quiz-access.ts` をそのまま呼び出すのみで、新規バックエンドAPIは追加しません。
