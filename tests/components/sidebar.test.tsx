@@ -143,8 +143,19 @@ describe('Sidebar Component', () => {
 
     // ポップアップアイテムが表示されること
     expect(screen.getByTestId('sidebar-dashboard-link')).toBeInTheDocument();
+    expect(screen.getByTestId('sidebar-creator-quizzes-link')).toBeInTheDocument();
     expect(screen.getByTestId('sidebar-settings-link')).toBeInTheDocument();
     expect(screen.getByText('ログアウト')).toBeInTheDocument();
+  });
+
+  it('ログイン時は主要メニューに「作成クイズ管理」への導線を表示し、/creator/quizzes でアクティブ表示になる', () => {
+    mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
+    mockPathname = '/creator/quizzes';
+    render(<Sidebar />);
+
+    const link = screen.getByTestId('nav-creator-quizzes');
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveClass('active');
   });
 
   it('管理者ユーザーログイン時は「管理者メニュー」を主要メニューに表示し、/admin パスでアクティブ表示になる', () => {
