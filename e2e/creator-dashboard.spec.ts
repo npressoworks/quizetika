@@ -282,12 +282,10 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
         if (await saveDraftBtn.isVisible()) {
           await saveDraftBtn.click();
 
-          // ダッシュボードに戻ることを確認
-          await expect(page).toHaveURL(/\/creator\/dashboard/);
-          await page.getByTestId('dashboard-tab-creator').click();
+          // 作成クイズ管理画面（/creator/quizzes）に遷移することを確認
+          await expect(page).toHaveURL(/\/creator\/quizzes/);
 
-          // 4. 新しく作成したクイズは作成クイズ管理画面（/creator/quizzes）の一覧に表示されることを確認（要件19.1）
-          await page.goto('/creator/quizzes');
+          // 4. 新しく作成したクイズが一覧に表示されることを確認（要件19.1）
           await expect(
             page.getByTestId('creator-quiz-management-list').getByText(quizTitle)
           ).toBeVisible({ timeout: 15000 });

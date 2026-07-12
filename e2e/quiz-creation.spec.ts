@@ -67,12 +67,11 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
     await expect(saveDraftBtn).toBeVisible();
     await saveDraftBtn.click();
 
-    // アラートの表示とダッシュボードへの遷移を確認
+    // アラートの表示と作成クイズ管理画面（/creator/quizzes）への遷移を確認
     await expect.poll(() => dialogMessage).toContain('下書きを保存しました');
-    await expect(page).toHaveURL(/\/creator\/dashboard/);
+    await expect(page).toHaveURL(/\/creator\/quizzes/);
 
-    // 保存した下書きクイズは作成クイズ管理画面（/creator/quizzes）の一覧に表示されることを確認（要件19.1）
-    await page.goto('/creator/quizzes');
+    // 保存した下書きクイズが一覧に表示されることを確認（要件19.1）
     await expect(
       page.getByTestId('creator-quiz-management-list').getByText(quizTitle)
     ).toBeVisible({ timeout: 15000 });

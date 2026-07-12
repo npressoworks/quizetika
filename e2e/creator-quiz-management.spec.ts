@@ -45,10 +45,9 @@ test.describe('作成クイズ管理画面 (/creator/quizzes) E2Eスモークテ
     const saveDraftBtn = page.locator('text=下書き保存').first();
     await expect(saveDraftBtn).toBeVisible();
     await saveDraftBtn.click();
-    await expect(page).toHaveURL(/\/creator\/dashboard/, { timeout: 15000 });
+    await expect(page).toHaveURL(/\/creator\/quizzes/, { timeout: 15000 });
 
-    // ── 1. 作成クイズ管理画面へ遷移し、一覧に表示されることを確認（要件15.1, 15.4） ──
-    await page.goto('/creator/quizzes');
+    // ── 1. 作成クイズ管理画面に遷移済み。一覧に表示されることを確認（要件15.1, 15.4） ──
     await expect(page.getByTestId('creator-quiz-management-page')).toBeVisible({
       timeout: 15000,
     });

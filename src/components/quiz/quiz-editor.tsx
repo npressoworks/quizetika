@@ -1231,7 +1231,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         router.push(`/quiz/${quizId}/success`);
       } else {
         alert('下書きを保存しました！');
-        router.push('/creator/dashboard');
+        router.push('/creator/quizzes');
       }
     } catch (err: any) {
       console.error(err);

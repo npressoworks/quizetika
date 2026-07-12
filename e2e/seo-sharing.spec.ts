@@ -281,12 +281,11 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
       if (await saveDraftBtn.isVisible()) {
         await saveDraftBtn.click();
 
-        // ダッシュボードに遷移することを確認
-        await expect(page).toHaveURL(/\/creator\/dashboard/);
+        // 作成クイズ管理画面（/creator/quizzes）に遷移することを確認
+        await expect(page).toHaveURL(/\/creator\/quizzes/);
 
-        // 5. 作成クイズ管理画面（/creator/quizzes）から作成したクイズの詳細ページへアクセス
+        // 5. 作成クイズ管理画面から作成したクイズの詳細ページへアクセス
         // (一覧の「編集する」ボタンで編集画面URLからクイズIDを取得し、詳細ページへ直接遷移する)
-        await page.goto('/creator/quizzes');
         const managementList = page.getByTestId('creator-quiz-management-list');
         await expect(managementList.getByText(quizTitle)).toBeVisible({ timeout: 15000 });
         const newQuizItem = page
