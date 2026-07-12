@@ -1,4 +1,6 @@
-# Implementation Plan: quizetika-admin-users-ui
+# Implementation Plan: quizeum-admin-users-ui
+
+> **注記（2026-07-12）**: セクション1〜4はプロジェクトのSupabase移行前（Firebase/Firestore時代）に実装・完了済みのタスクの記録であり、`firestore.rules` 等の記述は現在の実装（Supabase RPC + RLS）とは一致しない。すべて `[x]` 完了済みのため再実行しない。BAN機能見直し（通報ランキング・ティア引き下げ・BAN一覧・Requirement 7の新規実装）の新規タスクはセクション5以降に記載する。
 
 ## Tasks
 
@@ -105,3 +107,155 @@
   - _Requirements: 5.6, 6.1, 6.2_
   - _Boundary: TestSuite_
   - _Depends: 3.2, 3.3, 3.4, 3.5_
+
+### 5. Foundation: DBスキーマ拡張（enum・テーブル・RPC）
+- [x] 5.1 admin_log_action_enum への tier_downgrade 値追加マイグレーション作成
+  - `admin_log_action_enum` に `tier_downgrade` 値を追加する専用マイグレーションファイルを作成する（値追加のみを行い、この値を参照するRPC定義は含めない）。
+  - **完了条件**: ローカルSupabaseでマイグレーションを適用後、`SELECT unnest(enum_range(NULL::admin_log_action_enum))` に `tier_downgrade` が含まれること。
+  - _Requirements: 10.3_
+  - _Boundary: Database Migration_
+  - _実装ファイル: `supabase/migrations/20260719000000_admin_log_action_enum_tier_downgrade.sql`（design.md記載の `20260713000000` は既存の別マイグレーション連番と衝突するため `20260719000000` に変更。以降5.2のマイグレーションもこの後続番号を使用）_
+- [ ] 5.2 user_reportsテーブル・RLS・5種のRPC定義マイグレーション作成
+  - `user_reports` テーブル（`reporter_id`, `target_uid`, `category` CHECK制約付き, `detail`, `status`, `created_at`）と、`(reporter_id, target_uid)` に `status='open'` の部分ユニークインデックスを作成する。
+  - `user_reports` にRLSを有効化し、クライアントからの直接SELECT/INSERT/UPDATEを許可しないポリシーを設定する。
+  - `handle_report_user`（自己通報拒否・カテゴリ検証・冪等な重複防止）、`handle_downgrade_tier`（`is_admin()`検証・下位ティアのみ許可・`admin_logs`記録）、`get_reported_users_ranking`（`quizzes.flags_count`合算＋`user_reports`合算・0件除外・降順ページング）、`get_banned_users`（`users`と`admin_logs`をJOINし実行者情報を含めて返却・日時フィルタ・キーワード検索）、`get_user_admin_logs`（対象UIDの`admin_logs`履歴を降順取得）の5つの`SECURITY DEFINER`関数を定義する。
+  - **完了条件**: ローカルSupabaseでマイグレーションを適用後、`psql`または`supabase db`経由で5関数すべてが存在し、非adminユーザーで管理者専用4関数を呼ぶと `permission-denied` 相当のエラーが返ること。
+  - _Requirements: 8.1, 8.4, 8.5, 8.6, 9.3, 9.4, 9.5, 10.1, 10.2, 10.3, 10.4, 10.7, 11.3, 11.4, 11.5, 11.6_
+  - _Boundary: Database Migration_
+  - _Depends: 5.1_
+- [ ] 5.3 型定義の再生成とアプリケーション型の追加
+  - `npm run gen:types` を実行し `src/lib/supabase/database.types.ts` を再生成する。
+  - `src/types/index.ts` に `UserReport`, `ReportedUserSummary`, `BannedUserSummary`, `AdminLogEntry` 型を追加する。
+  - **完了条件**: `database.types.ts` に `user_reports` テーブル型と5RPCの引数/戻り値型が反映され、`tsc --noEmit` が型エラーなく通ること。
+  - _Requirements: 8.1, 9.6, 10.1, 11.3_
+  - _Boundary: Types_
+  - _Depends: 5.2_
+
+### 6. Core: サービス層実装
+- [ ] 6.1 (P) reputation service への downgradeUserTier 実装
+  - `src/services/reputation.ts` に `downgradeUserTier(targetUid, executorId, newTier, reason)` を追加し、`handle_downgrade_tier` RPCを呼び出す。理由10文字未満はRPC呼び出し前にクライアント側でも早期リターンする。
+  - **完了条件**: `tests/services/reputation.test.ts` に追加したJestテストで、正常系（RPC呼び出しとモック結果の整形）と異常系（理由10文字未満でRPCを呼ばずエラーを返す）がパスすること。
+  - _Requirements: 10.3, 10.4_
+  - _Boundary: reputation service_
+  - _Depends: 5.3_
+- [ ] 6.2 (P) reputation service への getReportedUsersRanking 実装
+  - `src/services/reputation.ts` に `getReportedUsersRanking(page, pageSize)` を追加し、`get_reported_users_ranking` RPCの結果を `ReportedUserSummary[]` に整形する。
+  - **完了条件**: Jestテストで、RPCモックの戻り値が `ReportedUserSummary[]` へ正しくマッピングされ、`hasMore` がページサイズと結果件数から正しく算出されることを検証できること。
+  - _Requirements: 9.3, 9.4, 9.5_
+  - _Boundary: reputation service_
+  - _Depends: 5.3_
+- [ ] 6.3 (P) reputation service への getBannedUsers 実装
+  - `src/services/reputation.ts` に `getBannedUsers(filters)` を追加し、`get_banned_users` RPCへ日時範囲・キーワード・ページングパラメータを渡し、結果を `BannedUserSummary[]` に整形する。
+  - **完了条件**: Jestテストで、フィルタ引数がRPC呼び出しパラメータへ正しく渡されること、および `bannedByExecutorId` を含む結果整形が検証できること。
+  - _Requirements: 11.3, 11.4, 11.5, 11.6_
+  - _Boundary: reputation service_
+  - _Depends: 5.3_
+- [ ] 6.4 (P) reputation service への getUserAdminLogs 実装
+  - `src/services/reputation.ts` に `getUserAdminLogs(targetUid)` を追加し、`get_user_admin_logs` RPCの結果を `AdminLogEntry[]` に整形する。
+  - **完了条件**: Jestテストで、RPCモックの戻り値が `AdminLogEntry[]` へ正しくマッピングされることを検証できること。
+  - _Requirements: 7.4, 7.5_
+  - _Boundary: reputation service_
+  - _Depends: 5.3_
+- [ ] 6.5 (P) user-report service の新規作成
+  - `src/services/user-report.ts` を新規作成し、`submitUserReport(reporterId, targetUid, category, detail)` を実装する。呼び出し前に `reporterId === targetUid` を検証しRPCを呼ばずエラーを返す。
+  - **完了条件**: `tests/services/user-report.test.ts` を新規作成し、自己通報時にRPCが呼ばれずエラーが返ること、正常系でRPC呼び出しが行われることがJestテストでパスすること。
+  - _Requirements: 8.3, 8.5, 8.6_
+  - _Boundary: user-report service_
+  - _Depends: 5.3_
+
+### 7. Core: APIエンドポイント実装
+- [ ] 7.1 (P) /api/admin/users/downgrade-tier エンドポイントの作成
+  - `src/app/api/admin/users/downgrade-tier/route.ts` を新規作成し、既存の `ban/route.ts` と同型のBearerトークン検証を行った上で `downgradeUserTier` を呼び出す。
+  - **完了条件**: 管理者トークンでリクエストした際に `200 OK` が返り対象ユーザーのティアが更新されること、非admin/不正リクエストでは 400/401/403/409 のいずれかが返ることを確認できること。
+  - _Requirements: 10.3, 10.4_
+  - _Boundary: downgrade-tier API Route_
+  - _Depends: 6.1_
+- [ ] 7.2 (P) /api/users/report エンドポイントの作成
+  - `src/app/api/users/report/route.ts` を新規作成し、認証済みユーザーのトークンを検証した上で `submitUserReport` を呼び出す。
+  - **完了条件**: 認証済みユーザーのトークンでリクエストした際に `200 OK` が返ること、未認証時は401、自己通報時は409が返ることを確認できること。
+  - _Requirements: 8.3, 8.4, 8.5_
+  - _Boundary: report API Route_
+  - _Depends: 6.5_
+
+### 8. Core: UIコンポーネント実装
+- [ ] 8.1 (P) AdminUserSearchPanel への抽出とTierDowngradeControl統合
+  - 既存 `src/app/admin/users/page.tsx` の検索・リセット・BAN/UNBANロジックを `src/app/admin/users/admin-user-search-panel.tsx` へ移設する。既存の `id`/`data-testid`（`execute-reset-btn` 等）は一切変更しない。
+  - `src/components/admin/tier-downgrade-control.tsx` を新規作成し、現在のティアより厳密に下位のティアのみを選択肢とするドロップダウン、理由入力（10文字以上）、確認フローを実装して `AdminUserSearchPanel` に統合する。`newcomer` の場合は操作を非活性化する。
+  - **完了条件**: 検索結果表示エリアに「ティア引き下げ」操作が表示され、下位ティア選択→理由入力→確認→実行後にティア表示が更新されること。既存のリセット/BAN/UNBANフォームは移設前と同じ`id`で動作すること。
+  - _Requirements: 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4, 5.5, 10.1, 10.2, 10.4, 10.5, 10.6, 10.7_
+  - _Boundary: UserSearchPanel_
+  - _Depends: 7.1_
+- [ ] 8.2 UserSearchPanel への監査ログ履歴リストとスケルトン表示の追加
+  - `AdminUserSearchPanel` に、検索対象ユーザーに関する `admin_logs` 履歴リスト表示エリアを新規実装し、`getUserAdminLogs` を呼び出して表示する（アクション種別・実行者・理由・日時）。
+  - ユーザー情報表示エリアと監査ログ表示エリアそれぞれに、ロード中はセクション単位のスケルトンプレースホルダー（`data-testid="admin-user-info-skeleton"` / `data-testid="admin-logs-skeleton"`）を表示し、ロード完了後に実データへ差し替える。
+  - **完了条件**: UIDを検索すると監査ログ履歴リストが表示され、リセット/BAN/UNBAN/ティア引き下げの実行後に一覧が最新化されること。ロード中は指定の`data-testid`を持つスケルトンが表示され、完了後に実データへ切り替わることが目視・テストで確認できること。
+  - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.9_
+  - _Boundary: UserSearchPanel_
+  - _Depends: 8.1, 6.4_
+- [ ] 8.3 (P) AdminReportedUsersPanel の新規実装
+  - `src/app/admin/users/admin-reported-users-panel.tsx` を新規作成し、`getReportedUsersRanking` を呼び出して表示名・UID・ティア・BANステータス・総通報数を含む一覧を総通報数降順で表示する。limit/offsetベースの「前へ/次へ」ページネーションを実装する。
+  - 0件時の空状態メッセージと、ロード中のスケルトン（`data-testid="admin-reported-users-skeleton"`）を実装する。行選択時に `onSelectUser(uid)` プロパティを呼び出す。
+  - **完了条件**: 通報ランキングタブを開くと一覧が総通報数降順で表示され、「次へ」操作でページが切り替わり、該当0件時に空状態メッセージが表示されること。
+  - _Requirements: 9.1, 9.2, 9.6, 9.7, 9.8, 9.9_
+  - _Boundary: ReportedUsersPanel_
+  - _Depends: 6.2_
+- [ ] 8.4 (P) AdminBannedUsersPanel の新規実装
+  - `src/app/admin/users/admin-banned-users-panel.tsx` を新規作成し、`getBannedUsers` を呼び出してBAN日時降順の一覧（表示名・UID・BAN理由・BAN日時・実行者）を表示する。
+  - BAN日時の期間指定（開始/終了）とUID/表示名キーワード検索の入力操作を実装し、`ConfirmActionDialog` を再利用した解除（UNBAN）操作を一覧行から実行可能にする。
+  - 0件時の空状態メッセージと、ロード中のスケルトン（`data-testid="admin-banned-users-skeleton"`）を実装する。
+  - **完了条件**: BAN管理タブでBAN済み一覧が表示され、日時範囲・キーワードでの絞り込みが機能し、行から解除操作を実行すると一覧からその行が除外されること。
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9_
+  - _Boundary: BannedUsersPanel_
+  - _Depends: 6.3_
+- [ ] 8.5 (P) ReportUserDialog の新規実装とプロフィール画面への統合
+  - `src/components/profile/report-user-dialog.tsx` を、既存 `report-modal.tsx` と同型の構成（カテゴリ選択、自由記述、送信、成功表示）で新規作成する。
+  - `src/app/profile/[uid]/profile-client.tsx` に「ユーザーを通報」ボタンを追加し、`ReportUserDialog` を開く導線を実装する（対象が自分自身のプロフィールの場合はボタンを非表示にする）。
+  - **完了条件**: 他ユーザーのプロフィール画面で「ユーザーを通報」ボタンから理由未入力時にインラインエラーが出ること、正しく送信すると成功メッセージが表示されること、自分のプロフィールではボタンが表示されないこと。
+  - _Requirements: 8.1, 8.2, 8.3_
+  - _Boundary: ReportUserDialog_
+  - _Depends: 7.2_
+- [ ] 8.6 (P) /banned画面のスケルトン化
+  - `src/app/banned/page.tsx` を修正し、ヘッダー・タイトル・停止通知の基本フレームを即座に表示した上で、BAN理由・日時等の詳細情報のロード中は専用スケルトン（`data-testid="banned-info-skeleton"`）を表示し、ロード完了後に実データへ差し替える。
+  - **完了条件**: `/banned` 画面にアクセスした際、基本フレームが即座に表示され、詳細情報のロード中はスケルトンが表示され、完了後に実際のBAN理由・日時に差し替わることが確認できること。
+  - _Requirements: 7.6, 7.7, 7.8, 7.10_
+  - _Boundary: BannedPage_
+
+### 9. Integration: タブコンテナ化と状態配線
+- [ ] 9.1 /admin/users のタブコンテナ化と選択中ユーザー状態の配線
+  - `src/app/admin/users/page.tsx` を、`Tabs`（UID検索・通報ランキング・BAN管理）を持つコンテナへ変更し、`AdminUserSearchPanel` / `AdminReportedUsersPanel` / `AdminBannedUsersPanel` を配置する。管理者用サイドバー・ヘッダー・タブ枠等の静的フレームをサーバーコンポーネントとして即座にレンダリングし、Next.jsのStreaming機能でクライアントへ送信する構成に変更する。
+  - `selectedUid` 状態を `page.tsx` にリフトアップし、`ReportedUsersPanel` / `BannedUsersPanel` の行選択時に `onSelectUser(uid)` が呼ばれたら検索タブへ切り替え、`AdminUserSearchPanel` に選択UIDを渡して自動検索させる。
+  - **完了条件**: 通報ランキングタブでユーザー行を選択すると検索タブへ自動遷移し、該当ユーザーの詳細情報が表示された状態になること。既存の管理者アクセスガード（1.1, 1.2）とナビゲーションリンク（4.1, 4.2）が維持されていること。静的フレームがデータロードを待たずに即座に表示されること。
+  - _Requirements: 1.1, 1.2, 4.1, 4.2, 7.1, 9.7_
+  - _Boundary: AdminUsersPage_
+  - _Depends: 8.1, 8.2, 8.3, 8.4_
+
+### 10. Validation
+- [ ] 10.1 既存検索/リセット/BAN/UNBAN機能の回帰確認
+  - `e2e/admin-users.spec.ts` を実行し、タブコンテナ化・パネル抽出後も既存のUID検索・リセット・BAN/UNBANフローがすべて成功することを確認する。失敗があれば `id`/`data-testid` の不一致を修正する。
+  - **完了条件**: `e2e/admin-users.spec.ts` の既存テストケースがすべてパスすること。
+  - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 5.1, 5.2, 5.3, 5.4, 5.5_
+  - _Boundary: TestSuite_
+  - _Depends: 9.1_
+- [ ] 10.2 通報ランキングからティア引き下げまでのE2E検証
+  - 管理者が通報ランキング一覧から行を選択し、検索タブへ切り替わって詳細が表示され、ティア引き下げを実行して成功することを確認するE2Eテストを作成する。
+  - **完了条件**: 新規E2Eテストが、ランキング表示→行選択→タブ切替→ティア引き下げ実行→成功表示までの一連の流れでパスすること。
+  - _Requirements: 9.7, 10.3, 10.6_
+  - _Boundary: TestSuite_
+  - _Depends: 9.1_
+- [ ] 10.3 ユーザー直接通報のE2E検証
+  - 一般ユーザーが他ユーザーのプロフィール画面から通報を送信し、成功メッセージが表示されるまでの一連の流れを確認するE2Eテストを作成する。
+  - **完了条件**: 新規E2Eテストが、通報ダイアログを開く→理由入力→送信→成功メッセージ表示までパスすること。
+  - _Requirements: 8.1, 8.2, 8.3_
+  - _Boundary: TestSuite_
+  - _Depends: 8.5_
+- [ ] 10.4 BAN済み一覧の絞り込み・解除のE2E検証
+  - 管理者がBAN管理タブでBAN日時範囲を指定して一覧を絞り込み、UNBANを実行して一覧からその行が消えることを確認するE2Eテストを作成する。
+  - **完了条件**: 新規E2Eテストが、日時フィルタ適用→絞り込み結果確認→解除実行→一覧更新確認までパスすること。
+  - _Requirements: 11.4, 11.7_
+  - _Boundary: TestSuite_
+  - _Depends: 9.1_
+
+## Implementation Notes
+- 5.1: マイグレーションファイル名は設計書記載の `20260713000000` ではなく `20260719000000` を使用（既存の `20260713000000`〜`20260718000000` は別チェーンの既存マイグレーションと衝突するため）。5.2以降のマイグレーションもこの連番の続き（`20260719000100`以降）を使用すること。
+- 5.1: ローカル環境の `supabase_migrations.schema_migrations` 履歴テーブルが空だったため `npx supabase migration up` が使えず、`pg` 経由で直接SQLを適用し履歴行を手動追加した（既存の環境課題、本タスクでは対応不要）。以降のタスクでも同様の対応が必要になる可能性がある。
+- **重要**: PowerShellの `Get-Content`/`Set-Content` で日本語を含むspecファイルを読み書きすると、システムのデフォルトコードページ（CP932）誤変換によりUTF-8日本語テキストが破損する（文字化け）ことが判明した。spec配下の`.md`ファイルを編集する際は、必ずRead/Edit/Writeツールを使用し、PowerShell経由でのテキスト置換は行わないこと。
