@@ -169,7 +169,12 @@ export function CreatorQuizManagementSections({
                   className="w-full"
                   data-testid="creator-quiz-management-filter-status"
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {filters.status
+                      ? STATUS_FILTER_OPTIONS.find((option) => option.value === filters.status)
+                          ?.label
+                      : '未指定'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem
@@ -203,7 +208,11 @@ export function CreatorQuizManagementSections({
                   className="w-full"
                   data-testid="creator-quiz-management-filter-genre"
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {filters.genreId
+                      ? genres.find((genre) => genre.id === filters.genreId)?.displayName
+                      : '未指定'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem
@@ -251,7 +260,9 @@ export function CreatorQuizManagementSections({
                   className="w-full"
                   data-testid="creator-quiz-management-sort"
                 >
-                  <SelectValue />
+                  <SelectValue>
+                    {SORT_OPTIONS.find((option) => option.value === currentSortValue)?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {SORT_OPTIONS.map((option) => (

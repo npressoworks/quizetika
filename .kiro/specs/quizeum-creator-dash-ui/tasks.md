@@ -514,7 +514,7 @@
   - _Boundary: CreatorQuizManagementSections_
   - _Depends: 14.4_
 
-- [ ] 14.6 (P) クイズ公開範囲切り替えUIの実装
+- [x] 14.6 (P) クイズ公開範囲切り替えUIの実装
   - 公開済みクイズに対し、公開・限定公開・非公開を切り替えるUIを実装し、下書き・審査により非表示のクイズには切り替え操作を表示しない。
   - 有料プランの権利を保有しない場合は限定公開・非公開への切り替えを非活性表示にし、有料プランへの案内導線を提示する。
   - 切り替え処理を実行し、成功時は表示を即時更新、失敗時（権限エラー・その他エラー双方）はエラーメッセージを表示して切り替え前の表示に戻す。
@@ -584,5 +584,6 @@
 - 公開範囲変更・Pro制限は既存 `updateQuiz`／`quiz-access.ts` をそのまま呼び出すのみで、新規バックエンドAPIは追加しません。
 - 検索・絞り込み・並び替えは既存の「全件取得＋クライアント側フィルタ」方式（`searchAuthorQuizzes`）を拡張する形とし、DBカーソルページングとは統合しません（design.md Phase 40 参照）。
 - `resolveReport`/`rejectReport` による指摘の解決・却下操作自体は本フェーズの範囲に含めません（既存の要件14編集画面が担当）。
+- shadcn/ui の `<SelectValue />` は children 未指定だと選択中の生の value 文字列（例: `"public"`）をそのまま表示する（日本語ラベルへ自動変換されない）。`explore-search-section.tsx` と同様に `<SelectValue>{options.find(o => o.value === current)?.label}</SelectValue>` の形で明示的にラベルを渡すこと（14.6で発覚・修正済み）。
 
 

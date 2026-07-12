@@ -311,6 +311,36 @@ describe('CreatorQuizManagementSections', () => {
     expect(setSort).toHaveBeenCalledWith('playCount', 'desc');
   });
 
+  it('統合ステータス・ジャンル・並び替えセレクトは選択中の値を生の文字列ではなく日本語ラベルで表示すること', () => {
+    render(
+      <CreatorQuizManagementSections
+        {...baseProps({
+          quizzes: [],
+          filters: {
+            ...DEFAULT_FILTERS,
+            status: 'public',
+            genreId: 'genre-1',
+            sortBy: 'playCount',
+            sortOrder: 'desc',
+          },
+        })}
+      />
+    );
+    expect(screen.getByTestId('creator-quiz-management-filter-status')).toHaveTextContent('公開');
+    expect(screen.getByTestId('creator-quiz-management-filter-status')).not.toHaveTextContent(
+      'public'
+    );
+    expect(screen.getByTestId('creator-quiz-management-filter-genre')).toHaveTextContent(
+      'プログラミング'
+    );
+    expect(screen.getByTestId('creator-quiz-management-sort')).toHaveTextContent(
+      'プレイ回数が多い順'
+    );
+    expect(screen.getByTestId('creator-quiz-management-sort')).not.toHaveTextContent(
+      'playCount-desc'
+    );
+  });
+
   it('下書き・凍結ステータスの行には公開範囲切り替えスロットが表示されないこと', () => {
     const quizzes: Quiz[] = [
       makeQuiz({ id: 'draft-1', status: 'draft', visibility: undefined }),
