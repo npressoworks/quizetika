@@ -596,4 +596,31 @@
 - shadcn/ui の `<SelectValue />` は children 未指定だと選択中の生の value 文字列（例: `"public"`）をそのまま表示する（日本語ラベルへ自動変換されない）。`explore-search-section.tsx` と同様に `<SelectValue>{options.find(o => o.value === current)?.label}</SelectValue>` の形で明示的にラベルを渡すこと（14.6で発覚・修正済み）。
 - 14.8のレビューで、`creator-quiz-list` testid 撤去が `e2e/creator-dashboard.spec.ts` 以外にも `e2e/creator-streaming-skeleton.spec.ts`・`e2e/quiz-creation.spec.ts`・`e2e/seo-sharing.spec.ts`・`e2e/additional-features.spec.ts` の既存アサーションを壊すことが判明。14.8はダッシュボード側コード（jestで検証可能な範囲）に留め、これら4ファイルの修正は14.12に統合済み（14.12の説明・完了状態を更新）。
 
+### 15. Phase 41: Creator プラン表記への更新（2026-07-13、Upstream: quizetika-core 要件33 先行必須）
+
+- [x] 15.1 公開範囲切り替えUIの文言更新
+  - `creator-quiz-visibility-toggle.tsx` の disabled 時ツールチップ・エラーメッセージ文言を「Pro プランが必要です」から「Creator プランが必要です」へ更新する
+  - **完了状態**: `player` tier エンタイトルメント（`hasCreatorEntitlements: false`）でも `private`/`followers` が disabled 表示され、「Creator プランが必要です」の文言が表示されること
+  - _Requirements: 17.7_
+  - _Depends: quizetika-core 29.3_
+  - _Boundary: CreatorQuizVisibilityToggle_
+
+- [x] 15.2 Phase 41 結合テストの更新
+  - `creator-quiz-visibility-toggle` の結合テストを Creator 表記文言に更新する
+  - **完了状態**: Phase 41 に関連する結合テストがグリーンでパスすること
+  - _Requirements: 17.7_
+  - _Depends: 15.1_
+  - _Boundary: Testing_
+
+- [x] 15.3 Phase 41 統合検証
+  - 本スペック全体のテストスイートを実行し、既存機能への回帰がないことを確認する
+  - **完了状態**: 全ての Jest テストおよび関連 E2E テストがグリーンでパスすること
+  - _Depends: 15.2_
+  - _Requirements: 17.7_
+
+## Implementation Notes (Phase 41)
+
+- **Upstream 前提**: `quizetika-core` タスク 29.3（`canAccessProVisibility()` の `hasCreatorEntitlements` ベース切り替え）が完了していること。関数・クラス識別子（`canAccessProVisibility`, `ProRequiredForVisibilityError`）は維持されるため、本スペック側は文言更新のみで済む。
+- **実装順序**: 15.1 → 15.2 → 15.3。
+
 
