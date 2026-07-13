@@ -296,7 +296,7 @@
   - _Requirements: 12.7_
   - _Boundary: reputation service_
   - _Depends: 12.1（同一ファイル `reputation.ts`/`reputation.test.ts` を編集するため12.1と並列実行不可、順序のみで依存関係を表現）_
-- [ ] 12.3 /api/admin/users/reset-reports エンドポイントの作成
+- [x] 12.3 /api/admin/users/reset-reports エンドポイントの作成
   - `src/app/api/admin/users/reset-reports/route.ts` を新規作成し、既存の `downgrade-tier/route.ts` と同型のBearerトークン検証を行った上で `resetUserReports` を呼び出す。
   - **完了条件**: 管理者トークンでリクエストした際に `200 OK` が返り対象ユーザーの通報が解決済みになること、非admin/不正リクエストでは400/401/403/404のいずれかが返ることを確認できること。
   - _Requirements: 12.3, 12.4_
