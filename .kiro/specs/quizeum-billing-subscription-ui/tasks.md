@@ -175,4 +175,105 @@
 - **実装順序**: タスク 7（core 価格 API）→ 8.2 → 9.1。タスク 8.1 は 7 と並行可能（`(P)`）。
 - **価格正本**: Stripe Price（`GET /api/billing/prices`）。`pricing-display.ts` の固定円ラベルは Phase 2 で廃止する。
 - **失敗時 UX**: 「価格を読み込めません」表示。ハードコード代替金額は使用しない（ディスカバリー確定方針）。
+
+### 11. Phase 3 — 複数有料プラン表示への拡張と Creator への改名（2026-07-13、Upstream: quizetika-core Phase 41 先行必須）
+
+- [x] 11.1 (P) プラン定義配列 of features
+  - `pricing-display.ts` の Pro 単一定義を `PAID_PLAN_DISPLAYS`（`player`/`creator` の配列）へ変更する
+  - Player の特典文言を「ウミガメAI質問の日次制限解除」「広告非表示」の2件、Creator の特典文言を既存4件（AI質問無制限・広告非表示・クイズ限定公開・AI作問アシスタント）に設定する
+  - 全画面表示の「Pro」表記を「Creator」に置き換える
+  - **完了状態**: `PAID_PLAN_DISPLAYS` が `player`/`creator` の順で2件を返し、Player の特典配列が2件、Creator が4件であること
+  - _Requirements: 11.1, 11.2, 11.6_
+  - _Boundary: PricingDisplay_
+
+- [x] 11.2 (P) tier別価格取得クライアントの実装
+  - `billing-client.ts` の `fetchProPrices()` を `fetchPlanPrices()` に置き換え、`GET /api/billing/prices` の新レスポンス形状（`{ player, creator }`）をパースする
+  - **完了状態**: `fetchPlanPrices()` が `{ player, creator }` 形状のオブジェクトを返し、旧 `fetchProPrices` の呼び出し箇所が残っていないこと
+  - _Requirements: 11.5_
+  - _Depends: quizetika-core 29.7_
+  - _Boundary: BillingClient_
+
+- [x] 11.3 購読開始クライアントのプラン引数化
+  - `billing-client.ts` の `startCheckoutSession` に `plan: 'player' | 'creator'` を必須第一引数として追加する
+  - **完了状態**: `startCheckoutSession('player', 'monthly')` が `POST /api/billing/checkout-session` に `{ plan: 'player', priceInterval: 'monthly' }` を送信すること
+  - _Requirements: 11.7_
+  - _Depends: quizetika-core 29.9_
+  - _Boundary: BillingClient_
+
+- [x] 11.4 プランカードの汎用化
+  - `pro-plan-card.tsx` を `paid-plan-card.tsx` にリネームし、`tier: 'player' | 'creator'` を props で受け取る汎用実装へ変更する（価格状態機械・CTA ガードは既存ロジックを踏襲）
+  - **完了状態**: 同一コンポーネントに `tier="player"` と `tier="creator"` を渡すことでそれぞれ対応する価格・特典が表示されること
+  - _Requirements: 11.1, 11.2, 11.5, 11.6_
+  - _Depends: 11.1, 11.2_
+  - _Boundary: PaidPlanCard_
+
+- [x] 11.5 契約状態解釈の多プラン対応
+  - `pricing-entitlement.ts` の tier 判定を `'player' | 'creator' | 'premium'` に対応させ、契約中 tier に応じたバッジ表示・CTA モードを解決する
+  - **完了状態**: `subscriptionTier: 'player'` のユーザーで Player バッジが表示され、`'creator'` で Creator バッジが表示されること
+  - _Requirements: 11.10, 11.11_
+  - _Boundary: PricingEntitlement_
+
+- [x] 11.6 料金プラン画面の3枚描画統合
+  - `/pricing` ページを `FreePlanCard` + `PAID_PLAN_DISPLAYS.map()` による `PaidPlanCard` 描画へ変更する
+  - **完了状態**: `/pricing` に Free・Player・Creator の3カードがこの順で表示されること
+  - _Requirements: 11.3, 11.4_
+  - _Depends: 11.4_
+  - _Boundary: PricingPage_
+
+- [x] 11.7 購読開始時のプラン選択UI統合
+  - 未契約ユーザーが各プランカードから購読開始する際、選択されたプランと課金間隔の両方を購読開始クライアントへ渡すよう統合する
+  - **完了状態**: Player カードから購読すると `startCheckoutSession('player', interval)` が、Creator カードからは `startCheckoutSession('creator', interval)` が呼ばれること
+  - _Requirements: 11.7_
+  - _Depends: 11.3, 11.6_
+  - _Boundary: PaidPlanCard_
+
+- [x] 11.8 Phase 3 統合検証
+  - プラン一覧表示・価格取得・購読開始のJest/APIテストを実行し、Phase 1/2 回帰テストを含む関連スイートがすべてグリーンであること
+  - **完了状態**: Phase 3 追加テストと既存回帰テストがすべてパスすること
+  - _Depends: 11.5, 11.7_
+  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.10, 11.11, 11.12, 11.13_
+
+### 12. Phase 4 — Player・Creator 間のプラン変更 UI（2026-07-13、Upstream: quizetika-core 要件35 先行必須）
+
+- [x] 12.1 プラン変更クライアントの実装
+  - `billing-client.ts` に `changePlan(targetPlan: 'player' | 'creator')` を追加し、`POST /api/billing/change-plan` を呼び出す
+  - **完了状態**: `changePlan('creator')` が正しいリクエストボディで API を呼び、200 応答をパースして tier を返すこと
+  - _Requirements: 12.9_
+  - _Depends: quizetika-core 29.17_
+  - _Boundary: BillingClient_
+
+- [x] 12.2 (P) ダウングレード確認ダイアログの実装
+  - `downgrade-confirm-dialog.tsx` を新規実装し、`pricing-display.ts` の Creator/Player 特典配列の差分（クイズ限定公開・AI作問アシスタント）を表示する確認ダイアログを作成する
+  - **完了状態**: ダイアログを開くと失われる特典として「クイズ限定公開」「AI作問アシスタント」が表示され、確定・キャンセルの2ボタンがあること
+  - _Requirements: 12.4_
+  - _Boundary: DowngradeConfirmDialog_
+
+- [x] 12.3 プランカードへの切替CTA統合
+  - `paid-plan-card.tsx` に、契約中プランと異なるプランのカード表示時の「切り替える」CTA を追加する。アップグレード方向は確認ダイアログなしで即実行、ダウングレード方向は `DowngradeConfirmDialog` を開いてから実行する
+  - **完了状態**: Player 契約中に Creator カードのCTAを押すと確認なしで `changePlan('creator')` が呼ばれ、Creator 契約中に Player カードのCTAを押すと確認ダイアログが開き、確定操作後にのみ `changePlan('player')` が呼ばれること
+  - _Requirements: 12.1, 12.2, 12.3, 12.5, 12.6, 12.7_
+  - _Depends: 12.1, 12.2_
+  - _Boundary: PaidPlanCard_
+
+- [x] 12.4 プラン変更エラーハンドリング
+  - プラン変更API呼び出し失敗時（同一プラン・未認証・有料契約なし・その他）に応じたエラーメッセージ表示を実装する
+  - **完了状態**: 同一プラン指定時に専用メッセージ、401時にログイン誘導、その他失敗時に汎用日本語エラーが表示され、契約状態表示が変更前のまま維持されること
+  - _Requirements: 12.8, 12.9, 12.10_
+  - _Depends: 12.3_
+  - _Boundary: PaidPlanCard_
+
+- [x] 12.5 Phase 4 統合検証
+  - プラン変更UIのJest/APIテストを実行し、Phase 1〜3回帰テストを含む関連スイートがすべてグリーンであること
+  - **完了状態**: Phase 4 追加テストと既存回帰テストがすべてパスすること
+  - _Depends: 12.4_
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8, 12.9, 12.10, 12.11, 12.12_
+
+### Phase 3（2026-07-13）
+- **Upstream 前提**: `quizetika-core` タスク 29.2, 29.6, 29.7, 29.8, 29.9（tier拡張・Prices/Checkout API契約変更）が完了していること。
+- **実装順序**: 11.1 / 11.2（並行可）→ 11.3 → 11.4（11.1, 11.2依存）→ 11.5（並行可）→ 11.6（11.4依存）→ 11.7（11.3, 11.6依存）→ 11.8。
+- **破壊的変更への注意**: `fetchProPrices`/`ProPlanCard` の旧名称・旧形状を残さず完全に置き換える（コンパイルエラーで呼び出し漏れを検出させる設計判断、research.md参照）。
+
+### Phase 4（2026-07-13）
+- **Upstream 前提**: `quizetika-core` 要件35（タスク 29.16, 29.17、プラン変更API）が完了していること。
+- **実装順序**: 12.1 / 12.2（並行可）→ 12.3（12.1, 12.2依存）→ 12.4 → 12.5。
 - **core 境界**: タスク 7 のファイルは `quizetika-core` スペック境界だが、本ロードマップでは billing-ui Phase 2 の先行前提として同一 PR で実装してよい。

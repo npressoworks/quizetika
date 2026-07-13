@@ -1,15 +1,16 @@
 import {
   getFreePlanForUi,
   getPricingPlansForUi,
-  getProPlanForUi,
+  getPricingPlanForUi,
 } from '@/lib/pricing-display';
 
 describe('pricing-display', () => {
-  test('getPricingPlansForUi: Free と Pro の 2 件を返す', () => {
+  test('getPricingPlansForUi: Free, Player, Creator の 3 件を返す', () => {
     const plans = getPricingPlansForUi();
-    expect(plans).toHaveLength(2);
+    expect(plans).toHaveLength(3);
     expect(plans[0].tier).toBe('free');
-    expect(plans[1].tier).toBe('pro');
+    expect(plans[1].tier).toBe('player');
+    expect(plans[2].tier).toBe('creator');
   });
 
   test('getFreePlanForUi: 無料プランの表示情報', () => {
@@ -19,15 +20,23 @@ describe('pricing-display', () => {
     expect(limited).toBeDefined();
     expect(limited?.label).toContain('30回');
     expect(limited?.label).toContain('150回');
-    expect('monthlyPriceLabel' in plan).toBe(false);
   });
 
-  test('getProPlanForUi: 特典 bullet を含み価格フィールドは持たない', () => {
-    const plan = getProPlanForUi();
-    expect(plan.displayName).toBe('Pro');
-    expect(plan.featureBullets.length).toBeGreaterThanOrEqual(1);
+  test('getPricingPlanForUi: Player プランの表示情報', () => {
+    const plan = getPricingPlanForUi('player');
+    expect(plan.displayName).toBe('Player');
+    expect(plan.featureBullets).toHaveLength(2);
     expect(plan.featureBullets[0].id).toBe('unlimited_ai_questions');
-    expect('monthlyPriceLabel' in plan).toBe(false);
-    expect('yearlyPriceLabel' in plan).toBe(false);
+    expect(plan.featureBullets[1].id).toBe('ad_free');
+  });
+
+  test('getPricingPlanForUi: Creator プランの表示情報', () => {
+    const plan = getPricingPlanForUi('creator');
+    expect(plan.displayName).toBe('Creator');
+    expect(plan.featureBullets).toHaveLength(4);
+    expect(plan.featureBullets[0].id).toBe('unlimited_ai_questions');
+    expect(plan.featureBullets[1].id).toBe('ad_free');
+    expect(plan.featureBullets[2].id).toBe('quiz_visibility_control');
+    expect(plan.featureBullets[3].id).toBe('ai_quiz_authoring');
   });
 });

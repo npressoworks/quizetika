@@ -6,7 +6,7 @@ export interface PricingFeatureBullet {
 }
 
 export interface PricingPlanDisplay {
-  tier: 'free' | 'pro' | 'player' | 'creator';
+  tier: 'free' | 'player' | 'creator';
   displayName: string;
   featureBullets: readonly PricingFeatureBullet[];
 }
@@ -27,16 +27,38 @@ export const PRICING_PLANS_DISPLAY: readonly PricingPlanDisplay[] = [
     ],
   },
   {
-    tier: 'pro',
-    displayName: 'Pro',
+    tier: 'player',
+    displayName: 'Player',
     featureBullets: [
       {
         id: 'unlimited_ai_questions',
         label: 'ウミガメAIへの質問が日次制限なし',
       },
       {
+        id: 'ad_free',
+        label: '広告非表示',
+      },
+    ],
+  },
+  {
+    tier: 'creator',
+    displayName: 'Creator',
+    featureBullets: [
+      {
+        id: 'unlimited_ai_questions',
+        label: 'ウミガメAIへの質問が日次制限なし',
+      },
+      {
+        id: 'ad_free',
+        label: '広告非表示',
+      },
+      {
+        id: 'quiz_visibility_control',
+        label: 'クイズの限定公開（非公開・フォロワー限定など）',
+      },
+      {
         id: 'ai_quiz_authoring',
-        label: 'AI 作問（1日100回）・サムネイル AI 生成（1日20回）',
+        label: 'AI作問アシスタント（AI作問・サムネイル自動生成）',
       },
     ],
   },
@@ -47,10 +69,9 @@ export function getPricingPlansForUi(): readonly PricingPlanDisplay[] {
 }
 
 export function getPricingPlanForUi(
-  tier: 'free' | 'pro' | 'player' | 'creator'
+  tier: 'free' | 'player' | 'creator'
 ): PricingPlanDisplay {
-  const planTier = tier === 'creator' || tier === 'player' ? 'pro' : tier;
-  const plan = PRICING_PLANS_DISPLAY.find((entry) => entry.tier === planTier);
+  const plan = PRICING_PLANS_DISPLAY.find((entry) => entry.tier === tier);
   if (!plan) {
     throw new Error(`Pricing plan not found for tier: ${tier}`);
   }
@@ -60,8 +81,3 @@ export function getPricingPlanForUi(
 export function getFreePlanForUi(): PricingPlanDisplay {
   return getPricingPlanForUi('free');
 }
-
-export function getProPlanForUi(): PricingPlanDisplay {
-  return getPricingPlanForUi('pro');
-}
-

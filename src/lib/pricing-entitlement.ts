@@ -8,7 +8,6 @@ export interface PricingUiState {
   ctaMode: PricingUiCtaMode;
   subscriptionTier: SubscriptionTier;
   hasPaidEntitlements: boolean;
-  showProBadge: boolean;
 }
 
 function computeUserEntitlementsForUser(user: User | null) {
@@ -94,7 +93,6 @@ export function resolvePricingUiState(
       ctaMode: 'loading',
       subscriptionTier: 'free',
       hasPaidEntitlements: false,
-      showProBadge: false,
     };
   }
 
@@ -103,7 +101,6 @@ export function resolvePricingUiState(
       ctaMode: 'guest',
       subscriptionTier: 'free',
       hasPaidEntitlements: false,
-      showProBadge: false,
     };
   }
 
@@ -116,7 +113,6 @@ export function resolvePricingUiState(
       ctaMode: 'manage',
       subscriptionTier,
       hasPaidEntitlements: true,
-      showProBadge: true,
     };
   }
 
@@ -124,7 +120,5 @@ export function resolvePricingUiState(
     ctaMode: 'subscribe',
     subscriptionTier,
     hasPaidEntitlements: false,
-    showProBadge: false,
   };
 }
-
