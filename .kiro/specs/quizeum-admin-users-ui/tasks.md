@@ -304,7 +304,7 @@
   - _Depends: 12.1_
 
 ### 13. Core: UI統合
-- [ ] 13.1 UserSearchPanel への通報数リセットUIの追加
+- [x] 13.1 UserSearchPanel への通報数リセットUIの追加
   - `src/app/admin/users/admin-user-search-panel.tsx` の検索結果詳細表示エリアに、`TierDowngradeControl` と同様のパターン（理由入力10文字以上・`ConfirmActionDialog`による確認・実行ボタン）で「通報数リセット」操作を追加する。
   - ユーザー検索成功時に `getUserOpenReportCount` を呼び出し、結果が0件の場合はリセット操作を非活性化する（Requirement 12.7）。実行成功後は成功メッセージを表示し、未処理通報件数の表示（0件）を更新する。
   - 本操作がクイズ通報累計（`quizzes.flags_count`）には影響しないことを明示する説明文をUI上に表示する（Requirement 12.8）。
@@ -313,6 +313,7 @@
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8_
   - _Boundary: UserSearchPanel_
   - _Depends: 12.2, 12.3_
+  - _レビュー1回目でREJECTED（`getUserOpenReportCount`をclient componentから使うためのロジックをreputation-client.tsに置かず`admin-user-search-panel.tsx`内にローカル複製していた点、`AdminLogEntry['action']`型に`report_reset`が未追加だった点）→修正後APPROVED。`reputation-client.ts`に`getUserOpenReportCount`を正式追加し、`types/index.ts`の型を更新。_
 
 ### 14. Validation
 - [ ] 14.1 通報数リセットのE2E検証

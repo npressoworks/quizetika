@@ -10,7 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { CircularProgress } from '@mui/material';
 import { useAuth } from '@/context/auth-context';
 import { getUserProfile } from '@/services/user';
-import { getUserAdminLogs } from '@/services/reputation-client';
+import { getUserAdminLogs, getUserOpenReportCount } from '@/services/reputation-client';
 import { AdminLogEntry, User } from '@/types';
 import { ConfirmActionDialog } from '@/components/admin/confirm-action-dialog';
 import { TierDowngradeControl, type ModerationTier } from '@/components/admin/tier-downgrade-control';
@@ -31,13 +31,14 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 
-type PendingAction = 'reset' | 'ban' | 'unban' | null;
+type PendingAction = 'reset' | 'ban' | 'unban' | 'reset-reports' | null;
 
 const ADMIN_LOG_ACTION_LABELS: Record<AdminLogEntry['action'], string> = {
   reputation_reset: '評判リセット',
   ban: 'BAN',
   unban: 'UNBAN',
   tier_downgrade: 'ティア引き下げ',
+  report_reset: '通報数リセット',
 };
 
 interface AdminUserSearchPanelProps {
@@ -66,6 +67,23 @@ export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps 
   const [adminLogs, setAdminLogs] = useState<AdminLogEntry[]>([]);
   const [adminLogsLoading, setAdminLogsLoading] = useState(false);
 
+  const [openReportCount, setOpenReportCount] = useState<number | null>(null);
+  const [reportCountLoading, setReportCountLoading] = useState(false);
+  const [resetReportsReason, setResetReportsReason] = useState('');
+
+  const refreshOpenReportCount = async (targetUid: string) => {
+    setReportCountLoading(true);
+    try {
+      const count = await getUserOpenReportCount(targetUid);
+      setOpenReportCount(count);
+    } catch (err) {
+      console.error('未処理通報件数の取得エラー:', err);
+      setOpenReportCount(null);
+    } finally {
+      setReportCountLoading(false);
+    }
+  };
+
   const refreshAdminLogs = async (targetUid: string) => {
     setAdminLogsLoading(true);
     try {
@@ -88,6 +106,7 @@ export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps 
     setErrorMessage(null);
     setSearchedUser(null);
     setAdminLogs([]);
+    setOpenReportCount(null);
     setHasSearched(true);
 
     try {
@@ -97,6 +116,7 @@ export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps 
         setErrorMessage('指定されたUIDのユーザーが見つかりません。');
       } else {
         void refreshAdminLogs(uid);
+        void refreshOpenReportCount(uid);
       }
     } catch (err) {
       console.error('ユーザー検索エラー:', err);
@@ -247,6 +267,48 @@ export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps 
     }
   };
 
+  const executeResetReports = async () => {
+    if (!searchedUser || !authUser) return;
+
+    setActionLoading(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const token = await authUser.getIdToken();
+      const res = await fetch('/api/admin/users/reset-reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          targetUid: searchedUser.id,
+          reason: resetReportsReason,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || data.error || '通報数リセット処理に失敗しました。');
+      }
+
+      setSuccessMessage('ユーザーの通報数をリセットしました。');
+      setResetReportsReason('');
+      void refreshOpenReportCount(searchedUser.id);
+      void refreshAdminLogs(searchedUser.id);
+    } catch (err: unknown) {
+      console.error('通報数リセットエラー:', err);
+      setErrorMessage(
+        err instanceof Error ? err.message : '通報数リセット処理中にエラーが発生しました。',
+      );
+    } finally {
+      setActionLoading(false);
+      setPendingAction(null);
+    }
+  };
+
   const handleResetRequest = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchedUser) return;
@@ -267,10 +329,21 @@ export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps 
     setPendingAction('ban');
   };
 
+  const handleResetReportsRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchedUser) return;
+    if (resetReportsReason.length < 10) {
+      setErrorMessage('通報数リセット理由は10文字以上で入力してください。');
+      return;
+    }
+    setPendingAction('reset-reports');
+  };
+
   const handleConfirmAction = () => {
     if (pendingAction === 'reset') void executeReset();
     else if (pendingAction === 'ban') void executeBan();
     else if (pendingAction === 'unban') void executeUnban();
+    else if (pendingAction === 'reset-reports') void executeResetReports();
   };
 
   const handleTierDowngradeSuccess = (message: string) => {
@@ -315,6 +388,12 @@ export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps 
       title: 'BANを解除しますか？',
       description: 'このユーザーのアカウント停止を解除し、通常のアクセスを復帰させます。',
       confirmLabel: 'BANを解除',
+    },
+    'reset-reports': {
+      title: '通報数をリセットしますか？',
+      description:
+        '対象ユーザーへの未処理のユーザー直接通報をすべて解決済みにします。クイズ通報累計（flags_count）には影響しません。この操作は監査ログに記録されます。',
+      confirmLabel: '通報数リセットを実行',
     },
   } as const;
 
@@ -590,6 +669,66 @@ export function AdminUserSearchPanel({ selectedUid }: AdminUserSearchPanelProps 
                   </form>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">通報数リセット</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                【注意】この操作は対象ユーザーへの<strong>ユーザー直接通報</strong>
+                を一括で解決済みにします。クイズ側の通報累計（
+                <code className="font-mono">quizzes.flags_count</code>
+                ）には一切影響しません。実行履歴は監査ログとして保存されます。
+              </p>
+              <p className="text-sm" data-testid="open-report-count">
+                {`未処理の直接通報: ${
+                  reportCountLoading || openReportCount === null ? '取得中...' : `${openReportCount}件`
+                }`}
+              </p>
+              {!reportCountLoading && openReportCount === 0 && (
+                <p className="text-xs text-muted-foreground" data-testid="reset-reports-disabled-message">
+                  対象ユーザーへの未処理の直接通報が存在しないため、通報数リセット操作は行えません。
+                </p>
+              )}
+              <form onSubmit={handleResetReportsRequest} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="resetReportsReason">通報数リセット理由（10文字以上必須）</Label>
+                  <Textarea
+                    id="resetReportsReason"
+                    placeholder="通報数をリセットするに至った具体的な理由を入力してください..."
+                    value={resetReportsReason}
+                    onChange={(e) => setResetReportsReason(e.target.value)}
+                    disabled={actionLoading}
+                    rows={4}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    現在の文字数: {resetReportsReason.length} 文字
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  id="execute-reset-reports-btn"
+                  variant="destructive"
+                  disabled={
+                    actionLoading ||
+                    resetReportsReason.length < 10 ||
+                    reportCountLoading ||
+                    !openReportCount
+                  }
+                >
+                  {actionLoading && pendingAction === 'reset-reports' ? (
+                    <>
+                      <CircularProgress size={16} /> 処理中...
+                    </>
+                  ) : (
+                    '🚩 通報数をリセットする'
+                  )}
+                </Button>
+              </form>
             </CardContent>
           </Card>
 

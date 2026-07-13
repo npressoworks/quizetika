@@ -419,7 +419,7 @@ export interface BannedUserSummary {
 /** 対象ユーザーの管理者ログ履歴1件（`get_user_admin_logs` RPC戻り値対応） */
 export interface AdminLogEntry {
   id: string;
-  action: 'reputation_reset' | 'ban' | 'unban' | 'tier_downgrade';
+  action: 'reputation_reset' | 'ban' | 'unban' | 'tier_downgrade' | 'report_reset';
   executorId: string | null;
   reason: string | null;
   createdAt: string;

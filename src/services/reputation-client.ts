@@ -133,6 +133,30 @@ export async function getUserAdminLogs(targetUid: string): Promise<AdminLogEntry
 }
 
 /**
+ * 対象ユーザーへの未処理（`status = 'open'`）のユーザー直接通報件数を、
+ * `get_user_open_report_count` RPC経由で取得する。
+ *
+ * `src/services/reputation.ts` の同名関数（サーバー専用）と同じロジックだが、当関数は
+ * ブラウザ用Supabaseクライアントを用いるクライアントコンポーネント向けの実装である。
+ *
+ * @param targetUid 対象ユーザーのUID
+ */
+export async function getUserOpenReportCount(targetUid: string): Promise<number> {
+  const { data, error } = await (supabase as any).rpc('get_user_open_report_count', {
+    p_target_uid: targetUid,
+  });
+
+  if (error) {
+    if (error.message === 'permission-denied') {
+      throw new Error('この操作を実行する権限がありません');
+    }
+    throw new Error(`未処理通報件数の取得に失敗しました: ${error.message}`);
+  }
+
+  return typeof data === 'number' ? data : 0;
+}
+
+/**
  * 指定ユーザーのアカウント停止を解除（UNBAN）し、監査ログに保存する
  *
  * @param targetUid 対象ユーザーのUID
