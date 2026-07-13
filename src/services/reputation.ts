@@ -265,31 +265,6 @@ export async function resetUserReports(
 }
 
 /**
- * 対象ユーザーへの未処理（`status = 'open'`）のユーザー直接通報件数を、
- * `get_user_open_report_count` RPC経由で取得する。
- *
- * Requirement 12.7: 検索対象ユーザーの未処理直接通報件数が0件の場合、
- * `UserSearchPanel` が通報数リセット操作を非活性化するための事前判定に使用する。
- *
- * @param targetUid 対象ユーザーのUID
- */
-export async function getUserOpenReportCount(targetUid: string): Promise<number> {
-  const supabase = await createClient();
-  const { data, error } = await (supabase as any).rpc('get_user_open_report_count', {
-    p_target_uid: targetUid,
-  });
-
-  if (error) {
-    if (error.message === 'permission-denied') {
-      throw new Error('この操作を実行する権限がありません');
-    }
-    throw new Error(`未処理通報件数の取得に失敗しました: ${error.message}`);
-  }
-
-  return typeof data === 'number' ? data : 0;
-}
-
-/**
  * `getReportedUsersRanking` の戻り値。
  */
 export interface GetReportedUsersRankingResult {

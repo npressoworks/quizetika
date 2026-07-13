@@ -11,7 +11,6 @@ import {
   getBannedUsers,
   getUserAdminLogs,
   resetUserReports,
-  getUserOpenReportCount,
 } from '../../src/services/reputation';
 
 const createChainMock = (resolveValue: any) => {
@@ -329,47 +328,6 @@ describe('ReputationService - resetUserReports', () => {
 
     await expect(resetUserReports(targetUid, executorId, reason)).rejects.toThrow(
       '通報数リセット理由は10文字以上で入力してください。'
-    );
-  });
-});
-
-describe('ReputationService - getUserOpenReportCount', () => {
-  const targetUid = 'target-user-uid';
-
-  beforeEach(() => jest.clearAllMocks());
-
-  test('RPCが整数を返した場合、その整数をそのまま返すこと', async () => {
-    supabase.rpc.mockResolvedValue({ data: 3, error: null });
-
-    const result = await getUserOpenReportCount(targetUid);
-
-    expect(result).toBe(3);
-    expect(supabase.rpc).toHaveBeenCalledWith('get_user_open_report_count', {
-      p_target_uid: targetUid,
-    });
-  });
-
-  test('RPCが0を返した場合、falsy値に丸められず0を返すこと', async () => {
-    supabase.rpc.mockResolvedValue({ data: 0, error: null });
-
-    const result = await getUserOpenReportCount(targetUid);
-
-    expect(result).toBe(0);
-  });
-
-  test('RPCがnullを返した場合、0を返すこと', async () => {
-    supabase.rpc.mockResolvedValue({ data: null, error: null });
-
-    const result = await getUserOpenReportCount(targetUid);
-
-    expect(result).toBe(0);
-  });
-
-  test('非管理者が呼び出した場合、権限エラーになること', async () => {
-    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
-
-    await expect(getUserOpenReportCount(targetUid)).rejects.toThrow(
-      'この操作を実行する権限がありません'
     );
   });
 });

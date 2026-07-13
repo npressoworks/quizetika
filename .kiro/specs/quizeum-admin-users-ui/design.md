@@ -10,17 +10,21 @@
 **Users**: システム管理者（`role === 'admin'`）が本機能一式を使用する。一般ユーザーは新設される「ユーザー直接通報」機能の送信者としてのみ関与する。
 **Impact**: `/admin/users` を単一フォーム画面からタブ構成の複合画面へ変更する。新規テーブル `user_reports`、新規RPC 5種、`admin_log_action_enum` への値追加を伴う。既存のRequirement 1–6（検索・リセット・BAN/UNBAN・`/banned`画面）の挙動・契約は変更しない。Requirement 7（非同期表示最適化）は要件として承認済みだが、現行コードには未実装（ページ全体ローディングのみ、監査ログ履歴リスト自体も未実装）であることがタスク生成時の調査で判明したため、本specの範囲内で新規実装する。
 
+**通報数リセット機能（追加、2026-07-13）**: 嫌がらせ等による組織的な大量通報を受けたユーザーが通報ランキング上位に不当に表示され続ける事態を是正するため、対象ユーザーへのユーザー直接通報（`user_reports`）を管理者が一括で解決済みにできる操作を追加する（Requirement 12）。新規RPC1種、`admin_log_action_enum` へのさらなる値追加を伴う。クイズ通報累計（`quizzes.flags_count`）には影響しない。
+
 ### Goals
 - 既存の検索・リセット・BAN/UNBAN・`/banned`画面の契約を、現行実装（Supabase RPC + RLS）どおりに正しく記録する
 - 通報数（クイズ通報合算＋ユーザー直接通報）順にユーザーを一覧表示し、行選択から既存の詳細操作へシームレスに遷移できるようにする
 - モデレータティアーを、全リセットに限らず任意の下位ティアへ直接変更できるようにする
 - BAN済みユーザーをBAN日時・キーワードで絞り込み、一覧から直接UNBANできるようにする
 - `/admin/users` および `/banned` 画面に、承認済みだが未実装だったRequirement 7（セクション単位のスケルトン表示、監査ログ履歴リスト表示）を実装する
+- 組織的な大量通報を受けたユーザーへのユーザー直接通報を、管理者が一括で解決済みにし、総通報数（直接通報分）をリセットできるようにする
 
 ### Non-Goals
 - ユーザー直接通報・クイズ通報の個別審査ワークフロー（承認/却下の詳細画面）は対象外（引き続き `quizeum-moderation-governance-ui` 等の領域）
 - 通報数のしきい値到達による自動処罰（自動BAN・自動ティア変更）は対象外。すべて管理者の手動操作のみ
 - ユーザーの物理削除、過去投稿コンテンツの遡及的な非公開化は対象外
+- クイズ通報累計（`quizzes.flags_count`）のリセット・審査（引き続き `quizeum-moderation-governance-ui` の審査画面が担当）
 
 ## Boundary Commitments
 
@@ -34,7 +38,8 @@
 - BAN済みユーザー一覧（実行者情報を含む）を返す新規RPC `get_banned_users`、対象ユーザーの監査ログ履歴を返す新規RPC `get_user_admin_logs`（いずれも `admin_logs` がクライアントSELECT不可のため必須）
 - アカウント停止状態をユーザーに通知する `/banned` 画面のUI（既存の遮断ロジックは無変更、表示部分にRequirement 7のスケルトン化を新規実装）
 - `/admin/users` 各セクション（検索結果、監査ログ、通報ランキング、BAN一覧）および `/banned` 画面のセクション単位スケルトン表示（Requirement 7、未実装だったため新規実装）
-- `admin_log_action_enum` への `tier_downgrade` 値追加
+- `admin_log_action_enum` への `tier_downgrade` 値追加、および `report_reset` 値追加（Requirement 12）
+- 対象ユーザーへのユーザー直接通報を一括で解決済みにする新規RPC `handle_reset_user_reports`（Requirement 12）、対象ユーザーの未処理直接通報件数を返す新規RPC `get_user_open_report_count`（Requirement 12.7の非活性化判定用）、および `/api/admin/users/reset-reports` エンドポイント
 
 ### Out of Boundary
 - クイズ単位の通報受付・審査キュー処理そのもの（`flagContent` / `resolveFlag` / `quizeum-moderation-governance-ui` の既存領域、変更しない）
@@ -42,6 +47,7 @@
 - `quizzes_read` RLSポリシーの一般的な見直し（本設計は通報数集計RPC内でのみ `SECURITY DEFINER` によりこの制約を回避する。ポリシー自体の変更は行わない）
 - BANユーザーのアクセス遮断機構自体（`/banned` 画面へのミドルウェアリダイレクト、`is_not_banned()`）— 既存のまま、無変更
 - ユーザー自身が実行するプロフィール編集（`quizeum-auth-profile-ui` が所有）
+- クイズ通報累計（`quizzes.flags_count`）のリセット・審査（`handle_reset_user_reports` は `user_reports` のみを対象とし、`quizzes` テーブルには一切書き込まない）
 
 ### Allowed Dependencies
 - `is_admin()` / `is_moderator_or_admin()`（`governance_normalization.sql` で定義済み）を新規RPCの権限チェックに使用する
@@ -93,6 +99,8 @@ graph TB
     ReputationService --> RankingRpc[get_reported_users_ranking]
     ReputationService --> BannedListRpc[get_banned_users]
     ReputationService --> AuditLogRpc[get_user_admin_logs]
+    ReputationService --> ResetReportsRpc[handle_reset_user_reports]
+    ReputationService --> OpenReportCountRpc[get_user_open_report_count]
     UserReportService --> ReportRpc[handle_report_user]
 
     BanRpc --> AdminLogs[(admin_logs)]
@@ -105,6 +113,9 @@ graph TB
     ReportRpc --> UserReportsTable[(user_reports)]
     RankingRpc --> QuizzesTable[(quizzes flags_count)]
     RankingRpc --> UserReportsTable
+    ResetReportsRpc --> UserReportsTable
+    ResetReportsRpc --> AdminLogs
+    OpenReportCountRpc --> UserReportsTable
 ```
 
 **Architecture Integration**:
@@ -119,8 +130,8 @@ graph TB
 | Layer | Choice / Version | Role in Feature | Notes |
 |-------|------------------|-----------------|-------|
 | Frontend | Next.js 16 App Router / React 19 | `/admin/users` タブUI、`ReportUserDialog`、`/banned` 画面（既存） | 既存 `shadcn/ui` の `Tabs`（`src/components/ui/tabs.tsx`）を採用。`community/merge/page.tsx` と同型のタブ構成パターンを踏襲 |
-| Backend | Next.js API Routes | `/api/admin/users/{reset,ban,unban,downgrade-tier}`, `/api/users/report` | 既存 `route.ts` の Bearer検証パターンを踏襲 |
-| Data / Storage | Supabase PostgreSQL | `users` / `quizzes` / `admin_logs`（既存）、`user_reports`（新規）、新規RPC5種（`handle_report_user`, `handle_downgrade_tier`, `get_reported_users_ranking`, `get_banned_users`, `get_user_admin_logs`）、`admin_log_action_enum` 拡張 | `SECURITY DEFINER` RPCパターンを踏襲。新規ORM/権限ライブラリの導入なし |
+| Backend | Next.js API Routes | `/api/admin/users/{reset,ban,unban,downgrade-tier,reset-reports}`, `/api/users/report` | 既存 `route.ts` の Bearer検証パターンを踏襲 |
+| Data / Storage | Supabase PostgreSQL | `users` / `quizzes` / `admin_logs`（既存）、`user_reports`（新規）、新規RPC7種（`handle_report_user`, `handle_downgrade_tier`, `get_reported_users_ranking`, `get_banned_users`, `get_user_admin_logs`, `handle_reset_user_reports`, `get_user_open_report_count`）、`admin_log_action_enum` 拡張（`tier_downgrade`, `report_reset`） | `SECURITY DEFINER` RPCパターンを踏襲。新規ORM/権限ライブラリの導入なし |
 | Runtime prerequisite | Supabase CLI（`npm run gen:types`） | マイグレーション適用後の型再生成 | ローカル `supabase start` 起動中に実行 |
 
 ## File Structure Plan
@@ -139,7 +150,8 @@ src/
 │   │   ├── reset/route.ts                     # 既存、無変更
 │   │   ├── ban/route.ts                       # 既存、無変更
 │   │   ├── unban/route.ts                     # 既存、無変更
-│   │   └── downgrade-tier/route.ts            # 新規: ティア引き下げAPI（Requirement 10）
+│   │   ├── downgrade-tier/route.ts            # 新規: ティア引き下げAPI（Requirement 10）
+│   │   └── reset-reports/route.ts             # 新規: ユーザー直接通報数リセットAPI（Requirement 12）
 │   └── api/users/
 │       └── report/route.ts                    # 新規: ユーザー直接通報API（Requirement 8）
 ├── components/
@@ -149,25 +161,30 @@ src/
 │   └── profile/
 │       └── report-user-dialog.tsx             # 新規: `report-modal.tsx` と同型のユーザー通報ダイアログ
 ├── services/
-│   ├── reputation.ts                          # 変更: downgradeUserTier / getReportedUsersRanking / getBannedUsers / getUserAdminLogs を追加（サーバー専用クライアント使用、API Route専用）
-│   ├── reputation-client.ts                   # 新規（実装時追加）: getReportedUsersRanking / getBannedUsers / getUserAdminLogs / unbanUser のブラウザクライアント版。
+│   ├── reputation.ts                          # 変更: downgradeUserTier / getReportedUsersRanking / getBannedUsers / getUserAdminLogs に加え、resetUserReports を追加（サーバー専用クライアント使用、API Route専用）
+│   ├── reputation-client.ts                   # 変更（実装時追加分）: getReportedUsersRanking / getBannedUsers / getUserAdminLogs / unbanUser のブラウザクライアント版。
 │   │                                           #   reputation.tsはnext/headers依存のサーバークライアントを使うため、クライアントコンポーネント
 │   │                                           #   （admin-user-search-panel.tsx等）から直接importするとnext buildが失敗する。読み取り系3関数と
 │   │                                           #   unbanUserのクライアント向け複製をこのファイルに分離し、3パネルはここからimportする。
+│   │                                           #   resetUserReports は既存reset/ban/downgrade-tierと同じくAPI Route経由の変更系アクションのため、
+│   │                                           #   このファイルには追加しない（reputation.ts側にのみ実装）。
 │   └── user-report.ts                         # 新規: submitUserReport（handle_report_user RPC呼び出し）
 └── types/
     └── index.ts                               # 変更: UserReport, ReportedUserSummary, BannedUserSummary, AdminLogEntry 型を追加
 
 supabase/migrations/
 ├── 20260719000000_admin_log_action_enum_tier_downgrade.sql   # 新規: enum値追加のみ（別トランザクション）
-└── 20260719000100_user_reports_and_ranking.sql                # 新規: user_reportsテーブル、RLS、5種のRPC定義（handle_report_user, handle_downgrade_tier, get_reported_users_ranking, get_banned_users, get_user_admin_logs）
+├── 20260719000100_user_reports_and_ranking.sql                # 新規: user_reportsテーブル、RLS、5種のRPC定義（handle_report_user, handle_downgrade_tier, get_reported_users_ranking, get_banned_users, get_user_admin_logs）
+├── {YYYYMMDDHHMMSS}_admin_log_action_enum_report_reset.sql     # 新規: admin_log_action_enumへのreport_reset値追加のみ（別トランザクション、既存の20260719000000と同じ理由）
+└── {YYYYMMDDHHMMSS}_reset_user_reports.sql                     # 新規: handle_reset_user_reports / get_user_open_report_count の2RPC定義（実装時に実際の連番タイムスタンプへ差し替えること。20260719000100より後の日時を使用する）
 ```
 
 ### Modified Files
 - `src/app/admin/users/page.tsx` — 既存の検索フォーム実装を `AdminUserSearchPanel` に移し、`Tabs`（検索/通報ランキング/BAN管理）の器とし、`selectedUid` を状態としてリフトアップして各パネルに `onSelectUser` として渡す
   - **回帰防止の制約**: `e2e/admin-users.spec.ts` が依存する既存の `id`/`data-testid` 属性（`execute-reset-btn`, `execute-ban-btn`, `execute-unban-btn` 等）は、`AdminUserSearchPanel` への移設時に一切変更しない。属性値・DOM上の意味を維持したままファイルのみを移動する
 - `src/app/profile/[uid]/profile-client.tsx` — 「ユーザーを通報」ボタンと `ReportUserDialog` の呼び出しを追加（自分自身のプロフィールでは非表示）
-- `src/services/reputation.ts` — 新規関数4つ（`downgradeUserTier` / `getReportedUsersRanking` / `getBannedUsers` / `getUserAdminLogs`）を追加。既存の `resetUserReputation` / `banUser` / `unbanUser` は無変更
+- `src/services/reputation.ts` — 新規関数5つ（`downgradeUserTier` / `getReportedUsersRanking` / `getBannedUsers` / `getUserAdminLogs` / `resetUserReports`）を追加。既存の `resetUserReputation` / `banUser` / `unbanUser` は無変更。`getUserOpenReportCount` は呼び出し元が存在しないため`reputation.ts`には追加せず、`reputation-client.ts`にのみ実装する（実装レビューでの指摘を受けた訂正）
+- `src/app/admin/users/admin-user-search-panel.tsx` — 検索結果詳細表示エリアに、`TierDowngradeControl` と同様のパターン（理由入力・`ConfirmActionDialog`・実行）で「通報数リセット」操作を追加。対象ユーザーに未処理のユーザー直接通報が0件の場合は非活性化する（Requirement 12.7）
 - `src/types/index.ts` — 新規型を追加。既存 `User` 型は無変更
 - `src/lib/supabase/database.types.ts` — `npm run gen:types` により自動再生成（手動編集しない）
 
@@ -212,22 +229,24 @@ sequenceDiagram
 | 9.1–9.9 | 通報数上位ユーザー一覧 | AdminReportedUsersPanel, reputation service | `getReportedUsersRanking` → `get_reported_users_ranking` | 通報ランキング表示フロー |
 | 10.1–10.7 | ティア段階的引き下げ | TierDowngradeControl, reputation service | `downgradeUserTier` → `handle_downgrade_tier` | 通報ランキング表示フロー（行選択後） |
 | 11.1–11.9 | BAN済み一覧・検索・フィルタ・解除 | AdminBannedUsersPanel, reputation service | `getBannedUsers` → `get_banned_users`, `unbanUser` | — |
+| 12.1–12.8 | ユーザー直接通報数のリセット | UserSearchPanel, reputation service | `resetUserReports` → `handle_reset_user_reports` | — |
 
 ## Components and Interfaces
 
 | Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
 |-----------|--------------|--------|--------------|--------------------------|-----------|
 | AdminUsersPage | UI | タブコンテナ、選択中UIDの状態管理、`admin`ロールガード | 1, 4, 9.7 | UserSearchPanel (P0), ReportedUsersPanel (P0), BannedUsersPanel (P0) | State |
-| UserSearchPanel | UI | 既存検索/リセット/BAN/UNBAN/新規ティア引き下げのフォーム群、対象ユーザーの監査ログ履歴リスト表示（新規、Requirement 7の前提として必要） | 2, 3, 5, 7, 10 | reputation service (P0) | Service, State |
+| UserSearchPanel | UI | 既存検索/リセット/BAN/UNBAN/新規ティア引き下げのフォーム群、対象ユーザーの監査ログ履歴リスト表示（新規、Requirement 7の前提として必要）、通報数リセット操作（新規） | 2, 3, 5, 7, 10, 12 | reputation service (P0) | Service, State |
 | BannedPage（既存） | UI | BAN通知画面、非BANアクセス時のリダイレクト、セクションスケルトン表示（新規） | 6, 7 | AuthContext (P0), Middleware (P0) | State |
 | ReportedUsersPanel | UI | 通報数ランキングの一覧表示・ページネーション | 9 | reputation service (P0) | Service |
 | BannedUsersPanel | UI | BAN済み一覧・日時フィルタ・キーワード検索・解除 | 11 | reputation service (P0) | Service |
 | TierDowngradeControl | UI | 下位ティアのみを選択肢とするドロップダウンと確認 | 10 | reputation service (P0) | Service |
 | ReportUserDialog | UI | ユーザー直接通報フォーム（`report-modal.tsx`と同型） | 8 | user-report service (P0) | Service |
-| reputation service（既存拡張） | Service | ユーザー評判・権限・BAN関連のデータ操作、対象ユーザーの監査ログ履歴取得（新規） | 3, 5, 7, 9, 10, 11 | Supabase RPC (P0) | Service |
+| reputation service（既存拡張） | Service | ユーザー評判・権限・BAN関連のデータ操作、対象ユーザーの監査ログ履歴取得（新規）、ユーザー直接通報数のリセット（新規） | 3, 5, 7, 9, 10, 11, 12 | Supabase RPC (P0) | Service |
 | user-report service（新規） | Service | ユーザー直接通報の送信 | 8 | Supabase RPC (P0) | Service |
 | downgrade-tier API Route | Service | ティア引き下げのサーバー境界検証 | 10 | reputation service (P0) | API |
 | report API Route | Service | ユーザー通報のサーバー境界検証 | 8 | user-report service (P0) | API |
+| reset-reports API Route（新規） | Service | ユーザー直接通報数リセットのサーバー境界検証 | 12 | reputation service (P0) | API |
 
 ### UI Layer
 
@@ -441,6 +460,38 @@ function getUserAdminLogs(targetUid: string): Promise<AdminLogEntry[]>;
 - Postconditions: `createdAt` 降順で返却
 - Invariants: `target_uid = targetUid` の行のみを対象とする
 
+#### reputation service（新規: ユーザー直接通報数のリセット）
+
+| Field | Detail |
+|-------|--------|
+| Intent | 対象ユーザーへのユーザー直接通報（`user_reports`）を一括で解決済みにし、総通報数（直接通報分）をリセットする（Requirement 12） |
+| Requirements | 12.3, 12.4, 12.6, 12.7 |
+
+##### Service Interface
+```typescript
+function resetUserReports(
+  targetUid: string,
+  executorId: string,
+  reason: string
+): Promise<void>;
+```
+- Preconditions: `reason.length >= 10`（クライアント側でも早期リターン、既存の `banUser`/`downgradeUserTier` と同じパターン）
+- Postconditions: 対象ユーザーの `user_reports` のうち `status = 'open'` の行がすべて `status = 'resolved'` に更新され、`admin_logs` に `action = 'report_reset'` の行が追加される。`quizzes.flags_count` は一切変更されない（Requirement 12.8）
+- Invariants: RPC (`handle_reset_user_reports`) 側で `is_admin()` および理由10文字以上を再検証する。対象に未処理の直接通報が0件の場合でもエラーにはせず、0件更新として正常終了する（UI側は12.7に従い事前に操作を非活性化するが、RPC自体は冪等に振る舞う）
+
+**Requirement 12.7の実現方式**: `UserSearchPanel` が「リセット操作を非活性化するか」を判断するには、検索対象ユーザーの未処理直接通報件数を事前に把握する必要がある。`user_reports` はクライアント直接SELECT不可のため、以下を追加する。
+
+> **実装時の訂正**: `UserSearchPanel` はクライアントコンポーネントであるため、`next/headers` 依存のサーバー専用クライアントを使う `reputation.ts` を直接importできない（`reputation-client.ts` 分離の理由と同じ制約）。そのため `getUserOpenReportCount` は実際には `src/services/reputation-client.ts`（ブラウザクライアント版）にのみ実装し、`reputation.ts` には追加しない。design初版で `reputation.ts` 側にも追加する記載をしていたが、実装レビューで「呼び出し元が存在しない孤立コードになる」と指摘され削除した。
+
+##### Service Interface（追加: 未処理通報件数の取得）
+```typescript
+function getUserOpenReportCount(targetUid: string): Promise<number>;
+```
+- Preconditions: 呼び出し元は `admin` ロールを持つ（RPC側で再検証）
+- Postconditions: 対象ユーザーへの `user_reports` のうち `status = 'open'` の件数を返す
+- Invariants: `target_uid = targetUid` の行のみを対象とする
+- 実装: 新規RPC `get_user_open_report_count(p_target_uid UUID) RETURNS INT LANGUAGE plpgsql SECURITY DEFINER STABLE`（`is_admin()`検証、`user_reports`をCOUNT）。既存の `getUserAdminLogs` と同様、`UserSearchPanel` がユーザー検索成功時に合わせて呼び出し、結果が0のとき通報数リセット操作を非活性化する。
+
 #### Admin Users API Endpoints
 
 | Method | Endpoint | Request | Response | Errors | Requirements |
@@ -449,6 +500,7 @@ function getUserAdminLogs(targetUid: string): Promise<AdminLogEntry[]>;
 | POST | `/api/admin/users/ban` | `{ targetUid: string, reason: string }` | `{ success: boolean }` | 400, 401/403, 404, 500 | 5.2（既存） |
 | POST | `/api/admin/users/unban` | `{ targetUid: string }` | `{ success: boolean }` | 401/403, 404, 500 | 5.5（既存） |
 | POST | `/api/admin/users/downgrade-tier` | `{ targetUid: string, newTier: ModerationTier, reason: string }` | `{ success: boolean }` | 400, 401/403, 404, 409（不正な引き下げ先）, 500 | 10.3（新規） |
+| POST | `/api/admin/users/reset-reports` | `{ targetUid: string, reason: string }` | `{ success: boolean }` | 400, 401/403, 404, 500 | 12.3（新規） |
 | POST | `/api/users/report` | `{ targetUid: string, category: UserReportCategory, detail: string }` | `{ success: boolean }` | 400, 401, 409（自己通報）, 500 | 8.3（新規） |
 
 ## Data Models
@@ -456,7 +508,7 @@ function getUserAdminLogs(targetUid: string): Promise<AdminLogEntry[]>;
 ### Logical Data Model
 
 - `users`（既存、無変更）: `is_banned`, `banned_reason`, `banned_at`, `moderation_tier`, `reputation_score` を保持。
-- `admin_logs`（既存拡張）: `action` の enum を `'reputation_reset' | 'ban' | 'unban' | 'tier_downgrade'` に拡張。
+- `admin_logs`（既存拡張）: `action` の enum を `'reputation_reset' | 'ban' | 'unban' | 'tier_downgrade' | 'report_reset'` に拡張。
 - `user_reports`（新規）: `reporter_id`（FK→users.id）、`target_uid`（FK→users.id）、`category`、`detail`、`status`（`open` | `resolved`）、`created_at`。`(reporter_id, target_uid)` に `status = 'open'` の部分ユニークインデックスを設定し、重複通報を防止する（`feedback_reports` の重複防止パターンを踏襲）。
 
 ### Physical Data Model
@@ -536,10 +588,39 @@ CREATE OR REPLACE FUNCTION get_user_admin_logs(
 -- （Requirement 7.4/7.5が前提とする監査ログ履歴リスト表示のために新規追加）
 ```
 
+**マイグレーション3: `{YYYYMMDDHHMMSS}_admin_log_action_enum_report_reset.sql`（実装時に実際のタイムスタンプへ差し替え、`20260719000100` より後の日時を使用）**
+```sql
+ALTER TYPE admin_log_action_enum ADD VALUE 'report_reset';
+```
+- マイグレーション1と同じ理由（PostgreSQLの同一トランザクション内enum新値参照制約）により、値追加のみを行う専用ファイルとする。
+
+**マイグレーション4: `{YYYYMMDDHHMMSS}_reset_user_reports.sql`（マイグレーション3より後の日時を使用）**
+```sql
+CREATE OR REPLACE FUNCTION handle_reset_user_reports(
+  p_target_uid UUID,
+  p_reason TEXT
+) RETURNS VOID AS $$ ... $$ LANGUAGE plpgsql SECURITY DEFINER;
+-- is_admin() でない場合 'permission-denied'
+-- 対象ユーザーが存在しない場合 'target-not-found'
+-- p_reason が10文字未満の場合 'reason-too-short'
+-- user_reports のうち target_uid = p_target_uid AND status = 'open' の行をすべて status = 'resolved' に UPDATE
+--   （対象行が0件でもエラーにせず、0件更新として正常終了する。冪等）
+-- admin_logs に action='report_reset', target_uid, executor_id（auth.uid()）, reason, created_at で記録
+-- quizzes テーブルへは一切書き込まない（クイズ通報累計 flags_count は対象外、Requirement 12.8）
+
+CREATE OR REPLACE FUNCTION get_user_open_report_count(
+  p_target_uid UUID
+) RETURNS INT AS $$ ... $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+-- is_admin() でない場合 'permission-denied'
+-- user_reports を target_uid = p_target_uid AND status = 'open' で絞り込みCOUNTを返却
+-- （Requirement 12.7が前提とする「未処理0件時は操作を非活性化」の判定に使用）
+```
+
 ### Data Contracts & Integration
 
 - `get_reported_users_ranking` / `get_banned_users` / `get_user_admin_logs` の戻り値は、それぞれ対応するService Interfaceの型（`ReportedUserSummary` / `BannedUserSummary` / `AdminLogEntry`）に1:1対応する行セットとする。
-- `handle_downgrade_tier` / `handle_report_user` は戻り値を持たず、失敗時は既存RPCと同じ文字列規約（`permission-denied` / `target-not-found` 等）の例外を送出し、サービス層で日本語エラーメッセージに変換する（既存 `reputation.ts` のパターンを踏襲）。
+- `handle_downgrade_tier` / `handle_report_user` / `handle_reset_user_reports` は戻り値を持たず、失敗時は既存RPCと同じ文字列規約（`permission-denied` / `target-not-found` / `reason-too-short` 等）の例外を送出し、サービス層で日本語エラーメッセージに変換する（既存 `reputation.ts` のパターンを踏襲）。
+- `get_user_open_report_count` の戻り値は単一の整数（未処理直接通報件数）とする。
 
 ## Error Handling
 
@@ -547,7 +628,7 @@ CREATE OR REPLACE FUNCTION get_user_admin_logs(
 既存の3種のRPC（`handle_ban_user`等）と同じエラー規約を新規RPCにも適用する：RPCは短い識別子文字列（`permission-denied` / `target-not-found` / 業務エラー）を例外として送出し、サービス層（`reputation.ts` / `user-report.ts`）が日本語メッセージに変換し、API RouteがHTTPステータスにマッピングする。
 
 ### Error Categories and Responses
-- **ユーザーエラー**: リセット/BAN理由10文字未満（既存、3.1/5.1）、引き下げ理由10文字未満・ティア未選択（10.4）、通報理由未入力（8.2）、自己通報（8.5） → インラインエラー、送信ブロック
+- **ユーザーエラー**: リセット/BAN理由10文字未満（既存、3.1/5.1）、引き下げ理由10文字未満・ティア未選択（10.4）、通報理由未入力（8.2）、自己通報（8.5）、通報数リセット理由10文字未満（12.4） → インラインエラー、送信ブロック
 - **権限エラー**: 非adminによるRPC呼び出し → 403（既存の `forbidden` レスポンスパターンを流用）
 - **Not Found**: 対象UIDがシステムに存在しない（既存、2.2）
 - **重複エラー（非エラー扱い）**: 重複通報（8.6）はエラーとせず、既存状態を維持したまま「通報を受け付けました」を表示する（ユーザーに内部状態の詳細を漏らさない）
@@ -556,25 +637,28 @@ CREATE OR REPLACE FUNCTION get_user_admin_logs(
 ## Testing Strategy
 
 - **Unit Tests**（`tests/services/`）
-  - `reputation.test.ts`（既存に追加）: `downgradeUserTier` が理由10文字未満でエラーになること、`getReportedUsersRanking` / `getBannedUsers` / `getUserAdminLogs` がRPC/クエリのモック結果を正しく整形すること
+  - `reputation.test.ts`（既存に追加）: `downgradeUserTier` が理由10文字未満でエラーになること、`getReportedUsersRanking` / `getBannedUsers` / `getUserAdminLogs` がRPC/クエリのモック結果を正しく整形すること、`resetUserReports` が理由10文字未満でRPCを呼ばずエラーを返すこと・正常系でRPCを正しい引数で呼び出すこと
   - `user-report.test.ts`（新規）: `submitUserReport` が自己通報時にRPCを呼ばずエラーを返すこと
 - **Integration Tests**（`tests/components/`）
   - `admin-reported-users-panel.test.tsx`: 一覧行選択で `onSelectUser` が正しいUIDで呼ばれること、0件時に空状態が表示されること
   - `admin-banned-users-panel.test.tsx`: 日時フィルタ・キーワード検索の組み合わせで表示件数が絞り込まれること、解除操作後に一覧が更新されること
   - `tier-downgrade-control.test.tsx`: 現在のティアが `newcomer` のとき操作が非活性化されること、選択肢に現在ティア以上が含まれないこと
+  - `admin-user-search-panel.test.tsx`（既存に追加）: 対象ユーザーの未処理直接通報が0件のとき通報数リセット操作が非活性化されること（12.7）、リセット実行後に通報数表示が更新されること（12.6）
 - **E2E Tests**（`e2e/`）
   - 管理者が通報ランキングから行を選択し、検索タブへ切り替わって詳細情報が表示されるまでの一連の流れ（Requirement 9.7）
   - 一般ユーザーがプロフィール画面から他ユーザーを通報し、成功メッセージが表示されるまでの流れ（Requirement 8.1–8.3）
   - 管理者がBAN済み一覧をBAN日時で絞り込み、UNBANを実行して一覧から除外されるまでの流れ（Requirement 11.4, 11.7）
+  - 管理者が通報ランキング上位のユーザーに対して通報数リセットを実行し、当該ユーザーが一覧から消える（または総通報数が更新される）までの流れ（Requirement 12.3, 12.6）
   - （既存、無変更）BANされたユーザーが操作中に強制ログアウトされ `/banned` へ遷移すること（Requirement 6）
 
 ## Security Considerations
 
-- 新規RPC5種（`handle_report_user`, `handle_downgrade_tier`, `get_reported_users_ranking`, `get_banned_users`, `get_user_admin_logs`）はすべて `SECURITY DEFINER` とし、うち管理者専用の4種（`handle_downgrade_tier`, `get_reported_users_ranking`, `get_banned_users`, `get_user_admin_logs`）は `is_admin()` を関数内部で必ず再検証する（クライアント側のロールチェックはUXのみ、既存の二重防御方針を継承）。
-- `user_reports` テーブルはRLSを有効化した上でクライアントからの直接SELECT/INSERTを許可しない。読み取りは管理者向け集計RPC経由のみに限定し、通報内容（`detail`）が一般ユーザーに漏洩しない設計とする。
+- 新規RPC7種（`handle_report_user`, `handle_downgrade_tier`, `get_reported_users_ranking`, `get_banned_users`, `get_user_admin_logs`, `handle_reset_user_reports`, `get_user_open_report_count`）はすべて `SECURITY DEFINER` とし、うち管理者専用の6種（`handle_downgrade_tier`, `get_reported_users_ranking`, `get_banned_users`, `get_user_admin_logs`, `handle_reset_user_reports`, `get_user_open_report_count`）は `is_admin()` を関数内部で必ず再検証する（クライアント側のロールチェックはUXのみ、既存の二重防御方針を継承）。
+- `user_reports` テーブルはRLSを有効化した上でクライアントからの直接SELECT/INSERTを許可しない。読み取りは管理者向け集計RPC経由のみに限定し、通報内容（`detail`）が一般ユーザーに漏洩しない設計とする。書込み（ステータス更新）も `handle_reset_user_reports` 経由のみに限定する。
 - `admin_logs` テーブルは既存の `USING (FALSE)` ポリシーによりクライアントからのSELECTも禁止されているため、`get_banned_users` / `get_user_admin_logs` はいずれも `is_admin()` 検証を経た `SECURITY DEFINER` RPC内でのみ `admin_logs` を参照する。
 - `handle_downgrade_tier` は対象ティアが現在より厳密に下位であることをRPC内部で再検証し、クライアントから昇格方向のリクエストが送られても拒否する。
 - `handle_report_user` は `auth.uid() = p_target_uid` の自己通報をRPC内部で拒否し、クライアント側チェックのバイパスを防止する。
+- `handle_reset_user_reports` は `user_reports.status` の更新のみを行い、`quizzes.flags_count` を含む他テーブルへは一切書き込まない（本specの境界外である `quizeum-moderation-governance-ui` の審査対象データへの越境を防止、Requirement 12.8）。
 
 ## Migration Strategy
 
@@ -584,6 +668,11 @@ flowchart TD
     B --> C[npm run gen:types でdatabase.types.ts再生成]
     C --> D[サービス層 reputation.ts / user-report.ts 実装]
     D --> E[UIパネル実装 ReportedUsersPanel / BannedUsersPanel / TierDowngradeControl / ReportUserDialog]
+    E --> F[admin_log_action_enum に report_reset を追加]
+    F --> G[handle_reset_user_reports RPC定義]
+    G --> H[npm run gen:types で再生成]
+    H --> I[reputation.ts に resetUserReports 追加 + reset-reports API Route実装]
+    I --> J[UserSearchPanelへの通報数リセットUI統合]
 ```
-- enum値追加とRPC定義を別ファイルに分離するのは、PostgreSQLが `ALTER TYPE ... ADD VALUE` を実行した同一トランザクション内でその値を直後に使用できない制約を回避するため（`research.md` 参照）。
+- enum値追加とRPC定義を別ファイルに分離するのは、PostgreSQLが `ALTER TYPE ... ADD VALUE` を実行した同一トランザクション内でその値を直後に使用できない制約を回避するため（`research.md` 参照）。既存の `tier_downgrade` 追加と同じ理由で、`report_reset` の追加も専用マイグレーションとして分離する。
 - ロールバック時は、まずUI/サービス層の参照を除去してからRPC・テーブルを削除し、最後に enum 値追加はロールバック不可（PostgreSQLの制約上、enum値の削除は型再作成が必要）である点に留意する。
