@@ -267,6 +267,60 @@
   - _Depends: 9.1_
   - _2ユーザー（対象/範囲外）をSQL直接投入しBAN日時フィルタの絞り込みを検証、UNBAN実行後の行消失も確認。afterAllで両ユーザーのBAN状態・admin_logsをクリーンアップ。全E2E横断実行（8/8）で相互干渉なしを確認済み。_
 
+### 11. Foundation: 通報数リセット用DBスキーマ拡張
+- [x] 11.1 admin_log_action_enum への report_reset 値追加マイグレーション作成
+  - `admin_log_action_enum` に `report_reset` 値を追加する専用マイグレーションファイルを作成する（値追加のみを行い、この値を参照するRPC定義は含めない。既存の `tier_downgrade` 追加時と同じ理由）。
+  - **完了条件**: ローカルSupabaseでマイグレーションを適用後、`SELECT unnest(enum_range(NULL::admin_log_action_enum))` に `report_reset` が含まれること。
+  - _Requirements: 12.3_
+  - _Boundary: Database Migration_
+  - _実装ファイル: `supabase/migrations/20260719000200_admin_log_action_enum_report_reset.sql`。11.2以降のマイグレーションもこの連番の続き（`20260719000300`以降）を使用すること。_
+- [ ] 11.2 handle_reset_user_reports / get_user_open_report_count の2RPC定義マイグレーション作成
+  - `handle_reset_user_reports(p_target_uid UUID, p_reason TEXT) RETURNS VOID`（`is_admin()`検証、対象ユーザー存在確認、理由10文字以上検証、`user_reports`の`status='open'`行を`resolved`に一括UPDATE、`admin_logs`に`action='report_reset'`で記録、`quizzes`テーブルへは書き込まない）と、`get_user_open_report_count(p_target_uid UUID) RETURNS INT`（`is_admin()`検証、`user_reports`の`status='open'`件数をCOUNT）の2つの`SECURITY DEFINER`関数を定義する。
+  - `npm run gen:types` を実行し `src/lib/supabase/database.types.ts` を再生成する。
+  - **完了条件**: ローカルSupabaseでマイグレーションを適用後、両関数が存在し、非adminユーザーで呼び出すと `permission-denied` 相当のエラーが返ること。`database.types.ts` に両関数の引数/戻り値型が反映されること。
+  - _Requirements: 12.3, 12.4, 12.7, 12.8_
+  - _Boundary: Database Migration_
+  - _Depends: 11.1_
+
+### 12. Core: サービス層・APIエンドポイント実装
+- [ ] 12.1 reputation service への resetUserReports 実装
+  - `src/services/reputation.ts` に `resetUserReports(targetUid, executorId, reason)` を追加し、`handle_reset_user_reports` RPCを呼び出す。理由10文字未満はRPC呼び出し前にクライアント側でも早期リターンする。
+  - **完了条件**: `tests/services/reputation.test.ts` に追加したJestテストで、正常系（RPC呼び出しとエラーマッピング）と異常系（理由10文字未満でRPCを呼ばずエラーを返す）がパスすること。
+  - _Requirements: 12.3, 12.4_
+  - _Boundary: reputation service_
+  - _Depends: 11.2_
+- [ ] 12.2 reputation service への getUserOpenReportCount 実装
+  - `src/services/reputation.ts` に `getUserOpenReportCount(targetUid)` を追加し、`get_user_open_report_count` RPCの結果（整数）を返す。
+  - **完了条件**: Jestテストで、RPCモックの戻り値が正しく整数として返却されること、`permission-denied`エラーが日本語メッセージにマッピングされることを検証できること。
+  - _Requirements: 12.7_
+  - _Boundary: reputation service_
+  - _Depends: 12.1（同一ファイル `reputation.ts`/`reputation.test.ts` を編集するため12.1と並列実行不可、順序のみで依存関係を表現）_
+- [ ] 12.3 /api/admin/users/reset-reports エンドポイントの作成
+  - `src/app/api/admin/users/reset-reports/route.ts` を新規作成し、既存の `downgrade-tier/route.ts` と同型のBearerトークン検証を行った上で `resetUserReports` を呼び出す。
+  - **完了条件**: 管理者トークンでリクエストした際に `200 OK` が返り対象ユーザーの通報が解決済みになること、非admin/不正リクエストでは400/401/403/404のいずれかが返ることを確認できること。
+  - _Requirements: 12.3, 12.4_
+  - _Boundary: reset-reports API Route_
+  - _Depends: 12.1_
+
+### 13. Core: UI統合
+- [ ] 13.1 UserSearchPanel への通報数リセットUIの追加
+  - `src/app/admin/users/admin-user-search-panel.tsx` の検索結果詳細表示エリアに、`TierDowngradeControl` と同様のパターン（理由入力10文字以上・`ConfirmActionDialog`による確認・実行ボタン）で「通報数リセット」操作を追加する。
+  - ユーザー検索成功時に `getUserOpenReportCount` を呼び出し、結果が0件の場合はリセット操作を非活性化する（Requirement 12.7）。実行成功後は成功メッセージを表示し、未処理通報件数の表示（0件）を更新する。
+  - 本操作がクイズ通報累計（`quizzes.flags_count`）には影響しないことを明示する説明文をUI上に表示する（Requirement 12.8）。
+  - 本操作は既に `AdminUsersPage`（タスク9.1）が提供する管理者ロールガード配下で提供され、`UserSearchPanel` 自体に個別の追加ガードは実装しない（Requirement 12.1、既存ガードで充足）。
+  - **完了条件**: 検索結果に未処理の直接通報が1件以上あるユーザーでは「通報数リセット」操作が活性化され、理由入力→確認→実行→成功表示→件数0件への更新まで一連の流れが動作すること。未処理通報が0件のユーザーでは操作が非活性化されていること。
+  - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8_
+  - _Boundary: UserSearchPanel_
+  - _Depends: 12.2, 12.3_
+
+### 14. Validation
+- [ ] 14.1 通報数リセットのE2E検証
+  - 管理者が検索タブで対象ユーザーを検索し、通報数リセットを実行して未処理直接通報が解決済みになり、画面表示が更新されるまでの一連の流れを確認するE2Eテストを作成する。あわせて、未処理通報が0件のユーザーでは操作が非活性化されていることも確認する。
+  - **完了条件**: 新規E2Eテストが、対象ユーザー検索→通報数リセット実行→成功表示→件数更新確認、および0件ユーザーでの非活性化確認の両方でパスすること。
+  - _Requirements: 12.3, 12.6, 12.7_
+  - _Boundary: TestSuite_
+  - _Depends: 13.1_
+
 ## Implementation Notes
 - 5.1: マイグレーションファイル名は設計書記載の `20260713000000` ではなく `20260719000000` を使用（既存の `20260713000000`〜`20260718000000` は別チェーンの既存マイグレーションと衝突するため）。5.2以降のマイグレーションもこの連番の続き（`20260719000100`以降）を使用すること。
 - 5.1: ローカル環境の `supabase_migrations.schema_migrations` 履歴テーブルが空だったため `npx supabase migration up` が使えず、`pg` 経由で直接SQLを適用し履歴行を手動追加した（既存の環境課題、本タスクでは対応不要）。以降のタスクでも同様の対応が必要になる可能性がある。
