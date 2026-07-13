@@ -274,13 +274,14 @@
   - _Requirements: 12.3_
   - _Boundary: Database Migration_
   - _実装ファイル: `supabase/migrations/20260719000200_admin_log_action_enum_report_reset.sql`。11.2以降のマイグレーションもこの連番の続き（`20260719000300`以降）を使用すること。_
-- [ ] 11.2 handle_reset_user_reports / get_user_open_report_count の2RPC定義マイグレーション作成
+- [x] 11.2 handle_reset_user_reports / get_user_open_report_count の2RPC定義マイグレーション作成
   - `handle_reset_user_reports(p_target_uid UUID, p_reason TEXT) RETURNS VOID`（`is_admin()`検証、対象ユーザー存在確認、理由10文字以上検証、`user_reports`の`status='open'`行を`resolved`に一括UPDATE、`admin_logs`に`action='report_reset'`で記録、`quizzes`テーブルへは書き込まない）と、`get_user_open_report_count(p_target_uid UUID) RETURNS INT`（`is_admin()`検証、`user_reports`の`status='open'`件数をCOUNT）の2つの`SECURITY DEFINER`関数を定義する。
   - `npm run gen:types` を実行し `src/lib/supabase/database.types.ts` を再生成する。
   - **完了条件**: ローカルSupabaseでマイグレーションを適用後、両関数が存在し、非adminユーザーで呼び出すと `permission-denied` 相当のエラーが返ること。`database.types.ts` に両関数の引数/戻り値型が反映されること。
   - _Requirements: 12.3, 12.4, 12.7, 12.8_
   - _Boundary: Database Migration_
   - _Depends: 11.1_
+  - _実装ファイル: `supabase/migrations/20260719000300_reset_user_reports.sql`_
 
 ### 12. Core: サービス層・APIエンドポイント実装
 - [ ] 12.1 reputation service への resetUserReports 実装

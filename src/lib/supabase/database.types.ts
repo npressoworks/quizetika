@@ -1722,6 +1722,10 @@ export type Database = {
           reason: string
         }[]
       }
+      get_user_open_report_count: {
+        Args: { p_target_uid: string }
+        Returns: number
+      }
       handle_adjust_failed_questions_count: {
         Args: { p_delta: number; p_user_id: string }
         Returns: undefined
@@ -1832,6 +1836,10 @@ export type Database = {
       }
       handle_report_user: {
         Args: { p_category: string; p_detail: string; p_target_uid: string }
+        Returns: undefined
+      }
+      handle_reset_user_reports: {
+        Args: { p_reason: string; p_target_uid: string }
         Returns: undefined
       }
       handle_reset_user_reputation: {
@@ -1978,6 +1986,7 @@ export type Database = {
         | "ban"
         | "unban"
         | "tier_downgrade"
+        | "report_reset"
       announcement_category_enum:
         | "info"
         | "maintenance"
@@ -2130,6 +2139,7 @@ export const Constants = {
         "ban",
         "unban",
         "tier_downgrade",
+        "report_reset",
       ],
       announcement_category_enum: [
         "info",
