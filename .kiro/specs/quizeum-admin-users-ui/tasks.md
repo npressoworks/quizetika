@@ -290,7 +290,7 @@
   - _Requirements: 12.3, 12.4_
   - _Boundary: reputation service_
   - _Depends: 11.2_
-- [ ] 12.2 reputation service への getUserOpenReportCount 実装
+- [x] 12.2 reputation service への getUserOpenReportCount 実装
   - `src/services/reputation.ts` に `getUserOpenReportCount(targetUid)` を追加し、`get_user_open_report_count` RPCの結果（整数）を返す。
   - **完了条件**: Jestテストで、RPCモックの戻り値が正しく整数として返却されること、`permission-denied`エラーが日本語メッセージにマッピングされることを検証できること。
   - _Requirements: 12.7_
