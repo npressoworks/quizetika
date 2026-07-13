@@ -52,6 +52,11 @@ jest.mock('@/services/storage', () => ({
   getSnsLogoUrl: jest.fn().mockResolvedValue(''),
 }));
 
+jest.mock('@/components/profile/report-user-dialog', () => ({
+  ReportUserDialog: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div data-testid="report-user-dialog-mock" /> : null,
+}));
+
 jest.mock('@/hooks/useActiveGenres', () => ({
   useActiveGenres: jest.fn().mockReturnValue({
     genres: [
@@ -306,6 +311,83 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
         });
       } finally {
         mockParams.uid = originalParams.uid; // 元に戻す
+      }
+    });
+  });
+
+  describe('ユーザー通報ボタン（quizeum-admin-users-ui Requirement 8.5）', () => {
+    it('他人のプロフィールのとき、「ユーザーを通報」ボタンが表示されること', async () => {
+      const { getUser } = require('@/services/user');
+      (getUser as jest.Mock).mockResolvedValueOnce({
+        id: 'user-2',
+        displayName: '他人ユーザー',
+        reputationScore: 50,
+        followersCount: 2,
+        followingCount: 2,
+        bio: '他人の自己紹介',
+        badges: [],
+        deleteStatus: 'active',
+        totalFailedQuestionsCount: 0,
+        followedGenres: [],
+      });
+
+      const originalParams = { ...mockParams };
+      mockParams.uid = 'user-2';
+
+      try {
+        render(<ProfileClient />);
+        await waitFor(() => {
+          expect(screen.getByText('他人ユーザー')).toBeInTheDocument();
+        });
+
+        expect(screen.getByTestId('profile-report-user-btn')).toBeInTheDocument();
+      } finally {
+        mockParams.uid = originalParams.uid;
+      }
+    });
+
+    it('自分のプロフィールのとき、「ユーザーを通報」ボタンが表示されないこと', async () => {
+      render(<ProfileClient />);
+      await waitFor(() => {
+        expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId('profile-report-user-btn')).not.toBeInTheDocument();
+    });
+
+    it('「ユーザーを通報」ボタンをクリックすると ReportUserDialog が開くこと', async () => {
+      const { getUser } = require('@/services/user');
+      (getUser as jest.Mock).mockResolvedValueOnce({
+        id: 'user-2',
+        displayName: '他人ユーザー',
+        reputationScore: 50,
+        followersCount: 2,
+        followingCount: 2,
+        bio: '他人の自己紹介',
+        badges: [],
+        deleteStatus: 'active',
+        totalFailedQuestionsCount: 0,
+        followedGenres: [],
+      });
+
+      const originalParams = { ...mockParams };
+      mockParams.uid = 'user-2';
+
+      try {
+        render(<ProfileClient />);
+        await waitFor(() => {
+          expect(screen.getByText('他人ユーザー')).toBeInTheDocument();
+        });
+
+        expect(screen.queryByTestId('report-user-dialog-mock')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByTestId('profile-report-user-btn'));
+
+        await waitFor(() => {
+          expect(screen.getByTestId('report-user-dialog-mock')).toBeInTheDocument();
+        });
+      } finally {
+        mockParams.uid = originalParams.uid;
       }
     });
   });

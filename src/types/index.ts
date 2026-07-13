@@ -384,6 +384,47 @@ export interface AdminLog {
   createdAt: Date;
 }
 
+// 9.1 ユーザー通報 (user_reports)
+export type UserReportCategory = 'harassment' | 'impersonation' | 'spam' | 'other';
+
+export interface UserReport {
+  id: string;
+  reporterId: string;
+  targetUid: string;
+  category: UserReportCategory;
+  detail: string;
+  status: 'open' | 'resolved' | 'rejected';
+  createdAt: Date;
+}
+
+/** 通報ランキング表示用サマリー（`get_reported_users_ranking` RPC戻り値対応） */
+export interface ReportedUserSummary {
+  uid: string;
+  displayName: string;
+  moderationTier: 'newcomer' | 'contributor' | 'moderator' | 'senior_moderator';
+  isBanned: boolean;
+  totalReportCount: number;
+  latestReportAt: string;
+}
+
+/** BAN済みユーザー一覧表示用サマリー（`get_banned_users` RPC戻り値対応） */
+export interface BannedUserSummary {
+  uid: string;
+  displayName: string;
+  bannedReason: string | null;
+  bannedAt: string;
+  bannedByExecutorId: string | null;
+}
+
+/** 対象ユーザーの管理者ログ履歴1件（`get_user_admin_logs` RPC戻り値対応） */
+export interface AdminLogEntry {
+  id: string;
+  action: 'reputation_reset' | 'ban' | 'unban' | 'tier_downgrade' | 'report_reset';
+  executorId: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
 // 10. 運営からのお知らせ (announcements)
 export interface Announcement {
   id: string;
