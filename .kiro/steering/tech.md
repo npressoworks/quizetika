@@ -69,8 +69,8 @@ npm run gen:types
 - **Tailwind + shadcn 基盤（Phase 24）**: UI 刷新の基盤として Tailwind CSS v4 + shadcn/ui を採用。テーマは shadcn 標準（`dark` クラス + CSS 変数）。移行期は `data-theme` dual bridge で旧 CSS Modules と共存。共通プリミティブは `src/components/ui/`（shadcn CLI 生成）に集約。
 - **二重検証（Defense-in-Depth）**: フロントエンド（Cookie等）での権限チェックはUX向上のためだけに使用し、実際のデータ更新や操作は Supabase の Row Level Security（RLS）ポリシーおよびサーバーサイドでのトークン検証で厳格に認可します。
 - **画像のSVGアップロード禁止**: XSS（スクリプト埋め込み）攻撃を防ぐため、Supabase Storageへの画像アップロード（アイコン含む）は `PNG`, `JPEG`, `GIF` に限定し、Storage ポリシーで容量・MIMEタイプを厳格にチェックします。
-- **Stripe課金フロー**: Stripe Checkout Session（サーバー生成）+ Webhook（`/api/webhooks/stripe`）でサブスクリプション状態を Supabase に同期。`src/lib/stripe/server.ts` にサーバー側クライアントを集約し、クライアントバンドルへの秘密鍵漏洩を防止する。
-- **広告の動的ロードと制御（Quizetika Ads）**: 有料プラン（Pro/Premium）のアクティブな状態で広告スクリプト（Google AdSense）のロードを動的にスキップし、パフォーマンスおよび不要なネットワークリクエストを排除する。一時的広告非表示フラグ環境変数 `NEXT_PUBLIC_DISABLE_ADS` が `'true'` の場合、すべての広告コンポーネントおよびフックで非表示処理にフォールバックする。
+- **Stripe課金フローと複数有料プラン**: 無料プランに加え、Player および Creator の複数有料プランをサポート。Stripe Checkout Session（サーバー生成）および Webhook（`/api/webhooks/stripe`）によるサブスクリプション状態の同期に加え、プラン間のアップグレード（即時適用・日割り）およびダウングレード（失われる機能の確認ダイアログ表示後の確定実行）のプラン変更 API を提供します。`src/lib/stripe/server.ts` にサーバー側クライアントを集約し、クライアントバンドルへの秘密鍵漏洩を防止します。
+- **広告の動的ロードと制御（Quizetika Ads）**: 有料プラン（Player/Creator）のアクティブな状態で広告スクリプト（Google AdSense）のロードを動的にスキップし、パフォーマンスおよび不要なネットワークリクエストを排除する。一時的広告非表示フラグ環境変数 `NEXT_PUBLIC_DISABLE_ADS` が `'true'` の場合、すべての広告コンポーネントおよびフックで非表示処理にフォールバックする。
 - **ハイブリッド無限スクロール設計**: クイズ一覧等におけるページング体験向上のため、初期状態は「もっと見る」ボタンで開始し、クリック後はスクロール交差監視による自動追加ロード（無限スクロール）に移行するハイブリッド方式を採用。データフェッチには Supabase のカーソルベースページング処理（`getQuizzesByAuthorPage` やクイズフィードのカーソル仕様拡張）を適用し、不要な全件フェッチによる読み取りコストを削減する。
 - **OAuth（Google/X/Azure AD）の PKCE コード交換**: `signInWithGoogle` 等（`src/lib/supabase/auth.ts`）は `redirectTo` に `/api/auth/callback?redirect=<path>` を指定し、`src/app/api/auth/callback/route.ts` が `supabase.auth.exchangeCodeForSession(code)` でコード交換とログイン後リダイレクトを行う。新規 OAuth プロバイダ追加時もこのコールバックルートを再利用する。
 - **RLS ポリシーは SELECT/UPDATE だけでなく操作種別ごとに定義**: 初回サインイン時の `users` 行作成など、クライアントから直接 `INSERT` が走るテーブルには専用の INSERT ポリシーが必要（SELECT/UPDATE ポリシーがあっても INSERT は別途定義しないと拒否される）。新しいテーブル・書き込み経路を追加する際は、想定する全操作（SELECT/INSERT/UPDATE/DELETE）に対応するポリシーが揃っているか確認する。
@@ -82,5 +82,6 @@ npm run gen:types
 _updated_at: 2026-07-05 — supabase-cleanup 完了に伴い Supabase 単独構成の記述に更新_
 _updated_at: 2026-07-06 — e2e-suite-stabilization 完了に伴い、Failure Ledger + ベースライン差分検証によるE2Eスイート安定化パターンを追記_
 _updated_at: 2026-07-09 — OAuth PKCEコールバック実装（`/api/auth/callback`）に伴い、OAuthリダイレクトパターンおよびRLS INSERTポリシー要件・`onAuthStateChange`初期化パターンを追記_
+_updated_at: 2026-07-14 — 複数有料プラン（Player/Creator）拡張およびプラン変更（アップグレード・ダウングレード確認）統合に伴いStripe課金フローと広告動的スキップロジックを更新_
 
 _Document standards and patterns, not every dependency_
