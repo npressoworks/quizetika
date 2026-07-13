@@ -5,7 +5,7 @@ import { SmsOutlined, CloseOutlined } from '@mui/icons-material';
 import styles from './ai-chat-assistant.module.css';
 
 interface AiChatAssistantButtonProps {
-  isProUser: boolean;
+  isCreatorUser: boolean;
   isChatOpen: boolean;
   /** チャットを開くときのコールバック（初期メッセージ表示などを含む） */
   onOpen: () => void;
@@ -14,12 +14,12 @@ interface AiChatAssistantButtonProps {
 }
 
 export function AiChatAssistantButton({
-  isProUser,
+  isCreatorUser,
   isChatOpen,
   onOpen,
   onClose,
 }: AiChatAssistantButtonProps) {
-  if (!isProUser) return null;
+  if (!isCreatorUser) return null;
 
   return (
     <button

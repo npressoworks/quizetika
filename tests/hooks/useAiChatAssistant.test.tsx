@@ -50,7 +50,7 @@ describe('useAiChatAssistant', () => {
 
   const defaultProps = {
     userId: 'uid-pro',
-    isProUser: true,
+    isCreatorUser: true,
     quizState: {
       title: 'テストクイズ',
       description: 'テストです',
@@ -144,8 +144,9 @@ describe('useAiChatAssistant', () => {
     expect(options).toBeDefined();
 
     // ツールコールが発生
-    await act(async () => {
-      await options.onToolCall({
+    let toolCallPromise: Promise<any> | undefined;
+    act(() => {
+      toolCallPromise = options.onToolCall({
         toolCall: {
           toolCallId: 'call-bulk',
           toolName: 'generateBulkQuestions',
@@ -171,6 +172,11 @@ describe('useAiChatAssistant', () => {
       result.current.approveToolCall('call-bulk');
     });
 
+    // ツールコールの Promise 解決を待つ
+    await act(async () => {
+      await toolCallPromise;
+    });
+
     // setQuestions と addToolResult が走っていることを確認
     expect(mockSetQuestions).toHaveBeenCalled();
     expect(mockAddToolResult).toHaveBeenCalledWith(
@@ -182,6 +188,60 @@ describe('useAiChatAssistant', () => {
     );
     // 保留から消えていること
     expect(result.current.pendingApprovals['call-bulk']).toBeUndefined();
+  });
+
+  it('onToolCall が 承認必要ツールを受け取ると保留状態になり、reject で setQuestions が呼ばれず却下されること', async () => {
+    const { result } = renderHook(() => useAiChatAssistant(defaultProps));
+
+    const options = (global as any).lastUseChatOptions;
+    expect(options).toBeDefined();
+
+    // ツールコールが発生
+    let toolCallPromise: Promise<any> | undefined;
+    act(() => {
+      toolCallPromise = options.onToolCall({
+        toolCall: {
+          toolCallId: 'call-bulk-reject',
+          toolName: 'generateBulkQuestions',
+          input: {
+            questions: [
+              {
+                type: 'multiple-choice',
+                questionText: '日本の首都は？',
+                explanation: '東京です',
+              },
+            ],
+          },
+        },
+      });
+    });
+
+    // 保留状態に追加されていることを確認
+    expect(result.current.pendingApprovals['call-bulk-reject']).toBeDefined();
+
+    // 却下を実行
+    act(() => {
+      result.current.rejectToolCall('call-bulk-reject');
+    });
+
+    // ツールコールの Promise 解決を待つ
+    await act(async () => {
+      await toolCallPromise;
+    });
+
+    // setQuestions は呼ばれていないことを確認（mockSetQuestionsはクリアされていないので、前回の呼び出し回数のままか、あるいはクリアされているか。jest.clearAllMocks()がbeforeEachである）
+    // mockSetQuestions が 1回（前回のテスト分）だけで、今回のテストでは増えていないことをアサート
+    // または一応 mockSetQuestions.mock.calls.length などで検証
+    expect(mockSetQuestions).toHaveBeenCalledTimes(0); // 今回は各テストごとにクリアされるので 0 になるはず
+    expect(mockAddToolResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolCallId: 'call-bulk-reject',
+        tool: 'generateBulkQuestions',
+        output: expect.objectContaining({ success: false, error: 'rejected' }),
+      })
+    );
+    // 保留から消えていること
+    expect(result.current.pendingApprovals['call-bulk-reject']).toBeUndefined();
   });
 });
 

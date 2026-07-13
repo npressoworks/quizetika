@@ -84,6 +84,18 @@ export function hasUnlimitedAiQuestionsForUser(user: User | null): boolean {
   return computeUserEntitlementsForUser(user).hasUnlimitedAiQuestions;
 }
 
+/** AI 作問アシスタントの利用資格（クライアント表示用。制限判定の正本はサーバー） */
+export function hasAiAuthoringEntitlementsForUser(user: User | null): boolean {
+  if (!user) return false;
+  if (
+    user.moderationTier === 'moderator' ||
+    user.moderationTier === 'senior_moderator'
+  ) {
+    return true;
+  }
+  return computeUserEntitlementsForUser(user).hasCreatorEntitlements;
+}
+
 export function resolvePricingUiState(
   user: User | null,
   authLoading: boolean

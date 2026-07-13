@@ -71,14 +71,14 @@ export function assertAiAuthoringAccess(
   const isModeratorExempt = entitlements.isModerator;
   return {
     uid,
-    hasPaidEntitlements: entitlements.hasCreatorEntitlements ?? entitlements.hasPaidEntitlements,
+    hasPaidEntitlements: !!entitlements.hasCreatorEntitlements,
     isModeratorExempt,
     skipDailyLimit: entitlements.hasUnlimitedAiQuestions,
   };
 }
 
 export function canAccessAiAuthoring(entitlements: UserEntitlements): boolean {
-  return (entitlements.hasCreatorEntitlements ?? entitlements.hasPaidEntitlements) || entitlements.isModerator;
+  return !!entitlements.hasCreatorEntitlements || !!entitlements.isModerator;
 }
 
 export function readDailyAuthoringUsage(

@@ -9,7 +9,7 @@ import type { Question } from '@/types';
 
 export interface UseAiChatAssistantProps {
   userId?: string;
-  isProUser: boolean;
+  isCreatorUser: boolean;
   quizState: {
     title: string;
     description: string;
@@ -86,7 +86,7 @@ const questionSchema = z.object({
 
 export function useAiChatAssistant({
   userId,
-  isProUser,
+  isCreatorUser,
   quizState,
   setQuestions,
   setTitle,
@@ -145,7 +145,7 @@ export function useAiChatAssistant({
       console.error('[DEBUG useChat onError]', err);
     },
     async onToolCall({ toolCall }) {
-      if (!isProUser) {
+      if (!isCreatorUser) {
         addToolResultRef.current?.({
           toolCallId: toolCall.toolCallId,
           tool: toolCall.toolName as any,
@@ -162,18 +162,21 @@ export function useAiChatAssistant({
         'generateThumbnail'
       ];
 
-      // 対象のツールであれば即時解決せず、pendingApprovals に退避して同期的に終了
+      // 対象のツールであれば即時解決せず、Promise を返して pendingApprovals に退避
       if (approvalRequiredTools.includes(toolCall.toolName)) {
-        setPendingApprovals((prev) => ({
-          ...prev,
-          [toolCall.toolCallId]: {
-            toolCallId: toolCall.toolCallId,
-            toolName: toolCall.toolName,
-            args: toolCall.input,
-            resolve: () => {} // 互換性のためのダミー解決関数
-          }
-        }));
-        return;
+        return new Promise((resolve) => {
+          pendingResolvesRef.current[toolCall.toolCallId] = resolve;
+
+          setPendingApprovals((prev) => ({
+            ...prev,
+            [toolCall.toolCallId]: {
+              toolCallId: toolCall.toolCallId,
+              toolName: toolCall.toolName,
+              args: toolCall.input,
+              resolve: resolve,
+            },
+          }));
+        });
       }
 
       try {
