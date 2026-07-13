@@ -36,6 +36,8 @@
 
 **Phase 27（2026-06）**: クイズプレイ統計の BigQuery 連携基盤として、すべての問題形式に対応した解答詳細データ（`questionAnswerDetails`）を `Attempt` に蓄積する要件、および `saveAttempt` でのサーバーサイド二重検証（解答詳細の件数・正解数・問題ID実在確認）、オフライン時の `localStorage` 保管とオンライン復帰時のバッチ同期契約を追加します。
 
+**Phase 41（2026-07-13）**: 有料プランを将来にわたり複数プランへ拡張できる構造へ改定します。既存の `pro` tier を `creator`（表示名・内部識別子とも変更、既存契約者データの無停止移行を含む）へリネームし、新たに `player` tier（Free と Creator の中間価格帯、特典はウミガメのスープ AI 質問無制限と広告非表示のみ）を追加します。クイズ公開範囲の限定公開（要件 27）および AI 作問アシスタント（`quizetika-ai-quiz-authoring`）の Pro 限定特典は `player` tier には付与されず、引き続き `creator`／`premium` tier 限定とします。プラン多層化に伴い、同一プランの二重購読および Player・Creator の同時課金を防止する要件（要件 34）を追加します。
+
 ## 境界コンテキスト
 - **対象範囲（In scope）**:
   - ユーザー認証、プロフィール編集、および称号バッジ自動付与機能。
@@ -66,6 +68,7 @@
   - 管理者によるユーザーのアカウント停止（BAN）処理および監査ログへの記録。
   - **Phase 13**: サブスクリプション契約状態（`free` / `pro` / `premium`）の保持と更新、Pro プラン購読開始・契約管理のための認証済み API、外部決済サービスからの契約イベントに基づくエンタイトルメント同期、水平思考 AI 質問の日次制限に対する tier ベース判定、課金関連ユーザーフィールドのクライアント書き込み遮断。
   - **Phase 39**: クイズ公開時の NGワード自動チェックを、ハードコードされた語句リストではなく、管理者が随時更新可能な NGワードマスタ（`supabase-governance` が管理）の最新の有効な内容に基づいて実行する。
+  - **Phase 41**: 契約 tier モデルの `free` / `pro` / `premium` から `free` / `player` / `creator` / `premium` への拡張、既存 `pro` 契約者データの `creator` への無停止移行、`player` tier 向けの購読開始・契約管理・エンタイトルメント同期（広告非表示・ウミガメのスープ AI 質問無制限のみ付与）、tier 別価格帯（`free` < `player` < `creator`）の整合性維持、および購読開始時の外部決済サービス側での事前重複チェックと Webhook 側での重複サブスクリプション検知・自動解約・返金による二重課金防止。
 - **対象外（Out of scope）**:
   - 外部システムからのクイズリストやクイズのJSONインポート機能（エクスポートは対象範囲内）。
   - リアルタイムマルチプレイヤー対戦プレイ。
@@ -88,6 +91,7 @@
   - **Phase 23**: カスタムクイズ画面 UI、フィルタパネル、出題数設定、プレイクライアントの `mode=my-quiz` 分岐 UI（`quizetika-my-quiz-ui`）。Sidebar／BottomNav への「カスタムクイズ」追加、設定・テーマ（`quizetika-sidebar-layout` / `quizetika-user-settings-ui`）。マイページからのリアクション履歴導線削除（`quizetika-auth-profile-ui`）。カスタムクイズの URL 共有可能化・フィルタプリセット保存。サーバー側ユーザー設定（テーマ）永続化。リアクション機能データの削除・マイグレーション。
   - **Phase 26**: リスト探索・作成・編集・プレイ UI（`quizetika-lists-discovery-ui` / `quizetika-creator-dash-ui` / `quizetika-play-flow-ui`）。Sidebar「リスト」ナビ（`quizetika-sidebar-layout`）。プロフィール「作成したリスト」（`quizetika-auth-profile-ui`）。既存 `attempts` ドキュメントの物理削除（履歴は残す）。
   - **Phase 39**: NGワードマスタ自体の登録・編集・無効化操作、および管理者向け管理 UI（`supabase-governance` / `quizetika-moderation-governance-ui` が担当）。NGワード判定の一致アルゴリズム自体の高度化（表記ゆれ・多言語対応等）。
+  - **Phase 41**: `player` / `creator` の具体的な月額・年額金額（外部決済サービス Dashboard での Product/Price 作成そのもの）。`premium` tier の販売および `premium` 固有特典の定義（引き続き将来拡張の予約枠のみ）。`/pricing` 画面のプランカード表示・並び順・購読 CTA（`quizetika-billing-subscription-ui`）。AI 作問アシスタントのアクセス制御 UI・upsell 文言（`quizetika-ai-quiz-authoring`）。クイズ公開範囲の設定 UI・警告文言（`quizetika-creator-dash-ui` / `quizetika-ui-editor`）。既存契約者への告知・移行完了通知メール等の運用コミュニケーション。
 - **隣接システムへの期待**:
   - **Phase 6**: 探索・作問 UI はコアが提供する有効ジャンル一覧および一覧クエリ結果に依存する。メタデータマスタの書き込み整合はコアの保存・投票処理が担う。
   - **Phase 8**: クイズおよび問題のブックマーク/リストUI、ならびにエディタ内での過去クイズ問題リンクUIは隣接の UI スペック（`quizetika-play-flow-ui` / `quizetika-creator-dash-ui`）がそれぞれ責任を持つ。
@@ -99,6 +103,7 @@
   - **Phase 13**: 課金 UI（`quizetika-billing-subscription-ui`）は、コアが提供する購読開始 API・契約管理 API およびユーザープロフィール上の契約状態に依存する。プレイ UI（`quizetika-play-flow-ui`）は、コアが保持するエンタイトルメント（tier）に基づき AI 制限の有無を表示する。外部サブスクリプション決済サービスは Product/Price および Webhook 配信を提供する（運用設定はコア実装の前提条件）。
   - **Phase 17**: プレイ UI（`quizetika-play-flow-ui`）は、コアの認証必須・二層制限・諦め API 応答に基づき、未登録向けボタン表記・制限到達誘導・諦め後チャット内ナビを表示する。課金 UI（`quizetika-billing-subscription-ui`）は、Free プランの上限説明（30回/クイズ・150回/日横断）をコア要件と整合させる。
   - **Phase 21**: ホーム探索 UI（`quizetika-play-flow-ui`）は、本フェーズで定義するページング契約（初回件数・続きカーソル・`hasMore` 相当）に依存する。フィルタ・タブ・検索条件変更時の先頭リセットは UI が担い、コアは同一条件での続きページ取得の一貫性を保証する。
+  - **Phase 41**: 課金 UI（`quizetika-billing-subscription-ui`）は、本フェーズで拡張されたコアの tier モデル（`free` / `player` / `creator` / `premium`）と、tier 別の購読開始・契約管理 API に依存する。AI 作問アシスタント（`quizetika-ai-quiz-authoring`）およびクイズ公開範囲設定 UI（`quizetika-creator-dash-ui` / `quizetika-ui-editor`）は、`creator` へのリネーム後もエンタイトルメント判定規則（`creator`／`premium` 限定、`player` は対象外）が変わらないことをコアに依拠する。
   - **Phase 22**: ディスカバリーホーム UI（`quizetika-play-flow-ui`）は、トレンド Top 10・新着・有効ジャンル一覧の読み取り API に依存する。検索画面 UI は、本フェーズで定義する URL クエリ変換規則および Phase 21 の段階的取得 API に依存する。Sidebar／BottomNav（`quizetika-sidebar-layout`）は `/` と `/search` のルート確定に依存する。
   - **Phase 23**: カスタムクイズ UI（`quizetika-my-quiz-ui`）は、3ソース問題プール合成 API、アドホックセッション API、および `my-quiz` 試行記録に依存する。プレイクライアントの `mode=my-quiz` 最小拡張は `quizetika-my-quiz-ui` が担当し、コアはセッション・試行の契約を提供する。
   - **Phase 26**: 隣接 UI スペックは、リスト関連 API が存在しない前提で更新する。マイグレーションスクリプト実行はデプロイ手順として別管理可（本要件は削除対象と契約停止を定義する）。
@@ -732,3 +737,83 @@
 3. When [NGワードマスタに語句の追加・編集・無効化・再有効化が行われたとき], the [Quizetika System] shall [以降のクイズ公開検証において更新後の内容を反映する]。
 4. If [NGワードマスタの取得に失敗した場合], the [Quizetika System] shall [公開検証を安全側（禁止語チェックを実行できない状態として公開を保留またはエラーとする）で処理し、未検証のまま公開を許可しない]。
 5. The [Quizetika System] shall [NGワードマスタ自体の登録・編集・無効化操作を本要件の範囲に含めない（`supabase-governance` が担当）]。
+
+## Phase 41: 有料プランの多層化と tier 識別子リネーム (2026-07-13)
+
+### 要件 33: 有料プラン多層化と tier 識別子リネーム
+**目的:** プロダクトオーナーとして、有料プランを将来にわたり複数プランへ拡張できる構造にしたい。それにより、価格帯や特典が異なる複数の有料プランを段階的に追加・改定できる。
+
+#### 受け入れ基準
+
+**tier モデルの拡張**
+1. The [Quizetika System] shall [契約 tier を `free` / `player` / `creator` / `premium` の4段階で表現し、既存の `pro` という tier 識別子を `creator` に置き換える]。
+2. The [Quizetika System] shall [`player` tier を Free と Creator の中間の価格帯を持つ独立した有料 tier として扱い、Creator 固有の特典（要件 27 の限定公開、`quizetika-ai-quiz-authoring` の AI 作問アシスタント）を付与しない]。
+3. Where [将来 `premium` tier が有料販売される場合], the [Quizetika System] shall [既存の `free` / `player` / `creator` 契約者の挙動を変更せず、新 tier の特典定義を追加できる拡張点を維持する（本要件では引き続き予約枠のみ）]。
+4. The [Quizetika System] shall [tier 間の価格順序が `free` < `player` < `creator` となるよう、購読開始時に選択可能な価格情報を提供する（具体金額は運用設定）]。
+
+**既存契約者データの移行**
+5. When [本要件の実装が既存の `pro` tier 契約者データに適用されるとき], the [Quizetika System] shall [契約状態・エンタイトルメント・請求サイクルを変更せず、tier 識別子のみを `pro` から `creator` へ移行する]。
+6. While [tier 識別子の移行が実行されている間], the [Quizetika System] shall [対象ユーザーのサービス利用（AI 質問無制限・限定公開の維持等）を中断しない]。
+7. If [移行対象のユーザーが移行処理中に契約状態を参照した場合], the [Quizetika System] shall [移行前後を通じて一貫した有効な契約状態（tier・ステータス・有効期限）を返す]。
+
+**購読開始・契約管理（`player` tier）**
+8. When [認証済みユーザーが `player` tier の購読開始を要求したとき], the [Quizetika System] shall [外部サブスクリプション決済サービス上の安全な購読フローへ遷移するためのセッションを発行し、月額または年額のいずれかを選択可能にする]。
+9. If [未認証ユーザーが `player` tier の購読開始を要求した場合], the [Quizetika System] shall [購読フローを開始せず、ログインを要求する]。
+10. If [既に有効な `player` または `creator` 契約を有するユーザーが `player` tier の新規購読開始（Checkout）を要求した場合], the [Quizetika System] shall [新規購読セッションの発行を拒否し、既存契約がある場合はプラン変更（要件35）を利用するよう案内するエラーを返す]。
+11. If [既に有効な `player` または `creator` 契約を有するユーザーが `creator` tier の新規購読開始（Checkout）を要求した場合], the [Quizetika System] shall [新規購読セッションの発行を拒否し、プラン変更（要件35）を利用するよう案内するエラーを返す]。
+12. When [`player` tier の購読フローが正常に完了したとき], the [Quizetika System] shall [ユーザーの契約 tier を `player` に更新し、広告非表示およびウミガメのスープ AI 質問の日次制限解除を適用する]。
+13. When [有効な有料契約（`player` または `creator`）を有する認証済みユーザーが契約管理を要求したとき], the [Quizetika System] shall [外部決済サービス上の契約管理画面（プラン変更・解約・請求履歴参照）へ遷移するためのセッションを発行する]。
+
+**エンタイトルメント適用**
+14. While [ユーザーの契約 tier が `player` であり、かつ契約が有効である間], the [Quizetika System] shall [広告非表示エンタイトルメントおよび水平思考クイズの AI 質問日次制限の解除（要件 19 と整合）を適用し、要件 27 の限定公開特典および AI 作問アシスタントの利用資格は付与しない]。
+15. While [ユーザーの契約 tier が `creator` または `premium` であり、かつ契約が有効である間], the [Quizetika System] shall [移行前の `pro` tier が保有していた全特典（水平思考 AI 質問無制限、広告非表示、要件 27 の限定公開、AI 作問アシスタント）を変更なく維持する]。
+16. When [`player` 契約が解約または失効し有料期間が終了したとき], the [Quizetika System] shall [ユーザーの契約 tier を `free` に戻し、広告表示および水平思考クイズの日次制限を再適用する]。
+
+**境界・隣接**
+17. The [Quizetika System] shall [`player` / `creator` の具体的な月額・年額金額の決定、外部決済サービス Dashboard での Product/Price 作成そのものを本要件の範囲に含めない（運用設定）]。
+18. The [Quizetika System] shall [`/pricing` 画面のプランカード表示・並び順・購読 CTA、AI 作問アシスタントのアクセス制御 UI・upsell 文言、クイズ公開範囲設定 UI の表示文言を本要件の範囲に含めない（それぞれの隣接 UI スペックが担当）]。
+19. The [Quizetika System] shall [`premium` tier の有料販売および `premium` 固有特典の定義を本要件の範囲に含めない（拡張点の予約のみ）]。
+
+### 要件 34: 二重課金防止
+**目的:** ユーザーとして、同一プランを誤って二重購読したり、Player と Creator の両方を同時に契約させられたりしないようにしたい。それにより意図しない二重請求を受けない。
+
+#### 受け入れ基準
+
+**購読開始時の事前防止**
+1. When [認証済みユーザーが購読開始を要求したとき], the [Quizetika System] shall [ローカルデータベース上のキャッシュされた契約状態のみに頼らず、外部決済サービス上の当該ユーザーの最新の有効なサブスクリプション有無を確認したうえでセッション発行の可否を判定する]。
+2. If [確認の結果、既に有効なサブスクリプション（`player` または `creator`、tier の組み合わせを問わない）が存在する場合], the [Quizetika System] shall [新規のサブスクリプション購読開始セッションを発行しない]。
+
+**Webhook 側の事後検知と是正（安全網）**
+3. When [外部決済サービスからサブスクリプション作成完了の通知を受信したとき], the [Quizetika System] shall [通知対象ユーザーに紐づく決済サービス上の顧客が、通知対象と異なる他の有効なサブスクリプションを同時に保有していないかを確認する]。
+4. If [同一ユーザーに紐づく顧客が2件以上の有効なサブスクリプション（tier の組み合わせを問わない。同一プランの二重契約、および Player と Creator の同時契約の双方を含む）を保有していることが判明した場合], the [Quizetika System] shall [作成日時が最も古いサブスクリプションを正とし、それ以外の全てのサブスクリプションを即座に解約する]。
+5. When [重複と判定されたサブスクリプションを解約するとき], the [Quizetika System] shall [当該サブスクリプションに対する既に確定した支払いを全額返金する]。
+6. The [Quizetika System] shall [重複解約・返金の対象となったサブスクリプションについて、ユーザーの契約 tier・エンタイトルメントへ反映しない（正とされた1件のサブスクリプションのみを契約状態に反映する）]。
+7. The [Quizetika System] shall [重複検知・解約・返金が発生した事実を、事後調査のために監査記録として残す]。
+
+**境界・隣接**
+8. The [Quizetika System] shall [重複解約・返金が発生した場合のユーザーへの通知（メール等）を本要件の範囲に含めない（運用対応）]。
+9. The [Quizetika System] shall [決済サービス側のインフラ的な二重送信・二重処理そのものへの対策（Webhook イベント自体の冪等処理）を本要件の対象に含めない（要件19.10 の既存冪等処理と整合させるのみ）]。
+
+### 要件 35: Player と Creator 間のプラン変更
+**目的:** Player または Creator を契約中のユーザーとして、新規解約・再契約の手間なくプラン間を切り替えたい。それにより特典差分に応じて必要なタイミングで柔軟にアップグレード・ダウングレードできる。
+
+#### 受け入れ基準
+
+**プラン変更 API**
+1. When [有効な `player` 契約を持つ認証済みユーザーが `creator` へのプラン変更を要求したとき], the [Quizetika System] shall [新規サブスクリプションを作成せず、既存サブスクリプションの契約プランを外部決済サービス上で `creator` の価格へ更新する]。
+2. When [有効な `creator` 契約を持つ認証済みユーザーが `player` へのプラン変更を要求したとき], the [Quizetika System] shall [新規サブスクリプションを作成せず、既存サブスクリプションの契約プランを外部決済サービス上で `player` の価格へ更新する]。
+3. If [有効な有料契約を持たないユーザーがプラン変更を要求した場合], the [Quizetika System] shall [プラン変更を拒否し、新規購読開始を促す]。
+4. If [未認証ユーザーがプラン変更を要求した場合], the [Quizetika System] shall [プラン変更を実行せず、ログインを要求する]。
+5. If [現在契約中のプランと同一のプランへの変更が要求された場合], the [Quizetika System] shall [変更処理を実行せず、既に当該プランを契約中である旨を返す]。
+
+**比例配分（Proration）**
+6. When [プラン変更が正常に処理されたとき], the [Quizetika System] shall [変更を即時に反映し、現行請求期間の残り日数に応じた比例配分（アップグレード時は差額の即時課金、ダウングレード時は差額の次回請求へのクレジット）を外部決済サービスの標準機能に従って適用する]。
+
+**エンタイトルメント反映**
+7. When [プラン変更が外部決済サービス上で正常に処理されたとき], the [Quizetika System] shall [変更完了の通知を受信し次第、ユーザーの契約 tier を新プランへ更新し、対応するエンタイトルメント（要件33.14, 33.15）を即時に適用する]。
+8. When [`creator` から `player` へのプラン変更が完了したとき], the [Quizetika System] shall [要件27 の限定公開特典および AI 作問アシスタントの利用資格を失効させる]。
+
+**境界・隣接**
+9. The [Quizetika System] shall [プラン変更確認ダイアログ（特典喪失の明示等）、プラン変更 CTA の UI 表示を本要件の範囲に含めない（`quizetika-billing-subscription-ui` が担当）]。
+10. The [Quizetika System] shall [`free` から有料プランへの新規購読開始（要件33）、および有料プランから `free` への解約（Customer Portal 経由）を本要件の対象に含めない]。
+11. The [Quizetika System] shall [プラン変更処理を要件34 の重複購読検知の対象に含めない（新規サブスクリプションを作成しないため、重複が発生し得ない操作である）]。

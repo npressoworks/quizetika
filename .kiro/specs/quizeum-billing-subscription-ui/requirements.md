@@ -7,6 +7,10 @@
 
 **Phase 2（2026-06-08）**: Pro プランの月額・年額表示を、決済サービス（Stripe）で設定された有効価格から動的に取得して表示します。取得失敗時は代替の固定金額を表示せず、「価格を読み込めません」と明示します。Free プランの ¥0 表示は固定値のままです。
 
+**Phase 3（2026-07-13）**: `quizetika-core` Phase 41 の tier 多層化に合わせ、`/pricing` 画面を固定 2 枚カード（Free / Pro）から、将来の追加プランにも耐えるプラン一覧表示へ改定します。既存の「Pro」表記は「Creator」に改名し、Free と Creator の中間価格帯・特典を持つ新プラン「Player」を追加表示します。購読開始時はプラン（Player または Creator）と課金間隔（月額／年額）の両方を選択できるようにします。
+
+**Phase 4（2026-07-13）**: 契約中の Player・Creator ユーザーが解約・再契約を経ずにプラン間を直接切り替えられるようにします（要件12）。アップグレード（Player→Creator）は即時実行、ダウングレード（Creator→Player）は失われる特典を明示した確認ダイアログを経て実行します。実際のサブスクリプション更新は `quizetika-core` 要件35 が担当します。
+
 ## 境界コンテキスト
 - **対象範囲（In scope）**:
   - `/pricing` 料金プラン画面（Pro プランカード、月額／年額の選択、特典一覧、価格表示）。
@@ -17,9 +21,11 @@
   - サイドバー等グローバルナビから `/pricing` への導線（最小 1 か所）。
   - 契約状態（Pro 契約中バッジ等）の `/pricing` 上での視覚的表示。
   - 既存ネオンデザインシステムと整合した Vanilla CSS / CSS Modules による UI。
+  - **Phase 3**: Player プランのカード表示・月額年額の動的価格表示・購読開始。Free / Player / Creator の3プランを並列表示できる、プラン数増加に耐えるカードレイアウト。購読開始時のプラン選択（Player / Creator）と課金間隔選択の両立。契約状態表示・バッジ・CTA 文言の「Creator」への改名。
 - **対象外（Out of scope）**:
-  - Premium tier の販売 UI（将来拡張のための表示枠のみ設計で検討可、初版は Pro のみ）。
-  - §2.5 将来構想の他 Pro 特典（模擬試験詳細分析、弱点克服無制限、広告非表示、プライベートクイズ等）— 初版は **ウミガメ AI 質問の日次20回制限解除** のみを特典として明示。
+  - Premium tier の販売 UI（将来拡張のための表示枠のみ設計で検討可、初版は Free / Player / Creator のみ）。
+  - §2.5 将来構想の他 Creator 特典（模擬試験詳細分析、弱点克服無制限等）— Creator の特典表示はウミガメ AI 質問の日次制限解除・広告非表示・クイズ限定公開・AI 作問アシスタントに限定する。
+  - **Phase 3**: Player プランの特典表示は「ウミガメ AI 質問の日次制限解除」「広告非表示」の2点に限定し、クイズ限定公開および AI 作問アシスタントは Player の特典として表示しない（Creator 限定であることを明示）。
   - アプリ内カード入力による決済（Stripe Elements 等）。
   - 購読開始 API・契約管理 API・Webhook・Firestore エンタイトルメント同期・セキュリティルール（`quizetika-core`）。
   - 決済サービスから価格を取得・整形するサーバー側処理の実装詳細（`quizetika-core` が担当。本スペックは取得結果の画面表示と購読 UI 連携を担当）。
@@ -32,6 +38,8 @@
   - Checkout 成功後の契約 tier 更新は Webhook 経由で非同期に反映される。画面は `refreshUser` 等で最新プロフィールを再取得し、反映遅延時は再読み込みまたは短い案内を表示してよい。
   - ユーザープロフィールの `subscriptionTier` 未設定は `free` として解釈する（`quizetika-core` と一致）。
   - ログイン誘導は `/login?redirect=/pricing` パターンで戻り先を保持する（`quizetika-auth-profile-ui` と整合）。
+  - **Phase 3**: 購読開始 API は `priceInterval` に加え、購読対象プラン（`player` | `creator`）の指定を受け付けるようコアが拡張される。画面はユーザーが選択したプランと間隔の両方を購読開始 API に渡す。契約管理 API の応答には引き続きプラン種別を含み、画面は `player` / `creator` を区別した契約状態表示を行う。
+  - **Phase 3（二重課金防止）**: `quizetika-core` は購読開始 API 内で外部決済サービス側のライブ状態を確認し、既に有効な契約（同一プランまたは別プラン）が存在する場合は 409 を返す。画面は既存の 409 ハンドリング（要件2 AC5）をそのまま用いてよく、二重課金防止のための追加 UI 分岐は必要としない。購読開始ボタンは API 呼び出し中disabledのまま維持し（要件2 AC3）、同一タブでの多重クリックを防ぐ。
 
 ## 要件
 
@@ -138,3 +146,56 @@
 4. The [Quizetika System] shall [Free プランの ¥0 表示を固定値として表示し、決済サービスからの価格取得の対象に含めない]。
 5. While [Pro プランの月額・年額価格が未取得または取得失敗状態であるとき], the [Quizetika System] shall [月額／年額の切替操作を無効化するか、切替しても金額が表示されない状態を維持する]。
 6. The [Quizetika System] shall [Pro プランの表示用特典文言（例: ウミガメ AI 質問の日次制限解除）を価格取得の成否に関わらず表示する]。
+
+### 要件 11: 複数有料プラン表示への拡張と Creator への改名（Phase 3）
+**目的:** ユーザーとして、Free に加えて価格帯の異なる複数の有料プラン（Player・Creator）を比較検討し、自分に合ったプランを選びたい。それにより過不足のない特典を適切な価格で選択できる。
+
+#### 受け入れ基準
+
+**Pro から Creator への改名**
+1. The [Quizetika System] shall [`/pricing` 画面、契約状態バッジ、CTA 文言を含む全ての画面内表示において、旧「Pro」表記を「Creator」に置き換える]。
+2. The [Quizetika System] shall [Creator プランの特典文言として、ウミガメ AI 質問の日次制限解除、広告非表示、クイズ限定公開、AI 作問アシスタントを表示する]。
+
+**プラン一覧の拡張表示**
+3. When [ユーザーが `/pricing` を表示したとき], the [Quizetika System] shall [Free・Player・Creator の3プランをこの順で並列表示する]。
+4. The [Quizetika System] shall [プランカードをプラン定義の一覧に基づき描画し、将来プランが追加された場合にレイアウト変更なくカードを追加表示できる構造で実装する]。
+5. When [Player プランの月額・年額価格を表示するとき], the [Quizetika System] shall [Creator プランと同様に決済サービスで設定された有効価格を根拠とした金額を表示し、取得失敗時は「価格を読み込めません」と表示する]。
+6. The [Quizetika System] shall [Player プランの特典文言をウミガメ AI 質問の日次制限解除および広告非表示の2点に限定して表示し、クイズ限定公開・AI 作問アシスタントを Player の特典として表示しない]。
+
+**購読開始時のプラン選択**
+7. When [未契約の認証済みユーザーが `/pricing` で購読開始を行うとき], the [Quizetika System] shall [Player または Creator のいずれのプランを購読するかをユーザーに選択させたうえで、選択されたプランと課金間隔（月額／年額）を購読開始 API に渡す]。
+8. When [有効な Player 契約を有するユーザーが `/pricing` で Creator カードを表示したとき], the [Quizetika System] shall [新規購読 CTA の代わりに「Creator に切り替える」プラン変更 CTA を表示する]。
+9. When [有効な Creator 契約を有するユーザーが `/pricing` で Player カードを表示したとき], the [Quizetika System] shall [新規購読 CTA の代わりに「Player に切り替える」プラン変更 CTA を表示する]。
+
+**契約状態の視覚的表示（多プラン対応）**
+10. When [認証済みユーザーが `/pricing` を表示したとき], the [Quizetika System] shall [ユーザーの契約 tier（`free` / `player` / `creator`）に応じて、該当するプランカードにのみ契約中バッジを表示する]。
+11. While [ユーザーの契約 tier が `player` かつ有効な有料契約である間], the [Quizetika System] shall [Player 契約中であることを示すバッジまたは同等の視覚的インジケーターを表示する]。
+
+**境界・隣接**
+12. The [Quizetika System] shall [Premium tier の販売および Premium 固有特典の UI 表示を本要件の範囲に含めない]。
+13. The [Quizetika System] shall [クイズ限定公開の設定 UI、AI 作問アシスタントのアクセス制御 UI・upsell 文言を本要件の範囲に含めない（`quizetika-creator-dash-ui` / `quizetika-ui-editor` / `quizetika-ai-quiz-authoring` が担当）]。
+
+### 要件 12: Player・Creator 間のプラン変更 UI（Phase 4）
+**目的:** Player または Creator を契約中のユーザーとして、解約・再契約の手間なくプランを切り替えたい。それにより特典差分に応じて柔軟にアップグレード・ダウングレードできる。
+
+#### 受け入れ基準
+
+**アップグレード（Player → Creator）**
+1. When [Player 契約中のユーザーが Creator カードの「Creator に切り替える」CTA を実行したとき], the [Quizetika System] shall [確認ダイアログなしでプラン変更 API を呼び出し、即時切替と日割り課金が発生する旨を実行前にボタン付近の説明文で示す]。
+2. While [プラン変更 API の呼び出しが進行中であるとき], the [Quizetika System] shall [プラン変更ボタンを無効化し、処理中であることが分かるローディング表示を行う]。
+3. When [プラン変更 API がアップグレード成功を返したとき], the [Quizetika System] shall [最新のユーザープロフィールを再取得し、Creator の契約中バッジと特典表示に切り替える]。
+
+**ダウングレード（Creator → Player）**
+4. When [Creator 契約中のユーザーが Player カードの「Player に切り替える」CTA を実行したとき], the [Quizetika System] shall [確認ダイアログを表示し、切替により失われる特典（クイズ限定公開、AI 作問アシスタント）を明示したうえでユーザーの最終確認を求める]。
+5. When [確認ダイアログでユーザーがダウングレードを確定したとき], the [Quizetika System] shall [プラン変更 API を呼び出す]。
+6. When [確認ダイアログでユーザーがキャンセルを選択したとき], the [Quizetika System] shall [プラン変更 API を呼び出さず、契約状態を変更しない]。
+7. When [プラン変更 API がダウングレード成功を返したとき], the [Quizetika System] shall [最新のユーザープロフィールを再取得し、Player の契約中バッジと特典表示に切り替える]。
+
+**エラー処理**
+8. If [プラン変更 API が同一プランへの変更要求として拒否した場合], the [Quizetika System] shall [既に当該プランを契約中である旨のメッセージを表示する]。
+9. If [プラン変更 API が未認証（401）または有料契約なし（403 等）を返した場合], the [Quizetika System] shall [それぞれログイン画面への誘導、または新規購読 CTA を表示する]。
+10. If [プラン変更 API がその他の失敗を返した場合], the [Quizetika System] shall [日本語のエラーメッセージを表示し、契約状態表示を変更前のまま維持する]。
+
+**境界・隣接**
+11. The [Quizetika System] shall [プラン変更処理そのもの（外部決済サービス上のサブスクリプション更新、比例配分計算）を本要件の範囲に含めない（`quizetika-core` 要件35 が担当）]。
+12. The [Quizetika System] shall [`free` への解約（Customer Portal 経由）の UI フローを本要件の範囲に含めない（既存の契約管理 CTA が担当）]。

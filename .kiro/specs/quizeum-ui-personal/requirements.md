@@ -121,12 +121,14 @@ Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では
 9. If 問題プール取得に失敗したとき, the My Quiz Page shall `data-testid="my-quiz-pool-error"` でエラーと再試行を表示する。
 
 ### Requirement 8: 料金画面
-**Objective:** As a ユーザー, I want 料金プラン比較とサブスクリプション状態を確認できること, so that Free/Pro プランを理解しアップグレードできる。
+**Objective:** As a ユーザー, I want 料金プラン比較とサブスクリプション状態を確認できること, so that Free/Player/Creator プランを理解しアップグレードできる。
+
+**Phase 3（2026-07-13）**: `quizetika-billing-subscription-ui` Phase 3 の多プラン化（旧 Pro を Creator に改名し、中間価格帯の Player を追加）に合わせ、本要件の比較対象プランを Free/Pro の2枚から Free/Player/Creator の3枚に更新する。
 
 #### Acceptance Criteria
-1. When ユーザーが `/pricing` にアクセスしたとき, the Pricing Page shall Free プランと Pro プランの比較カードを表示する。
+1. When ユーザーが `/pricing` にアクセスしたとき, the Pricing Page shall Free・Player・Creator の各プラン比較カードを表示する。
 2. While 認証状態読み込み中である, the Pricing Page shall `data-testid="pricing-skeleton"` スケルトンを表示する。
-3. When ログインユーザーが Pro 資格を持つとき, the Pricing Page shall サブスクリプション状態バッジを表示する。
+3. When ログインユーザーが Player または Creator の有料プラン資格を持つとき, the Pricing Page shall 該当プランのサブスクリプション状態バッジを表示する。
 4. When チェックアウト完了またはキャンセル後に `?checkout=` クエリ付きでアクセスしたとき, the Pricing Page shall 対応するフィードバックバナーを表示し、URL からクエリを除去する。
 5. The Pricing Page shall 旧 neon 装飾を使用せず shadcn 標準 Card でプランカードを構成する。
 6. The Pricing Page shall Stripe Checkout 等の既存 CTA 契約（ログイン要求、リダイレクト）を維持する。

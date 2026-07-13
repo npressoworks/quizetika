@@ -45,7 +45,7 @@
 - **Context**: Stripe Price ID とユーザー向け円表示の分離。
 - **Sources Consulted**: `src/lib/subscription-plans.ts`, `.env.local` 例
 - **Findings**:
-  - コアは `STRIPE_PRICE_PRO_*`（Price ID）のみ。UI に金額文字列の正本はない。
+  - コアは `STRIPE_PRICE_CREATOR_*`（Price ID）のみ。UI に金額文字列の正本はない。
   - Stripe から動的取得は初版スコープ過大。
 - **Implications**: `pricing-display.ts` に表示用円価格・特典文言を集約。環境変数 `NEXT_PUBLIC_PRO_PRICE_MONTHLY_LABEL` 等で上書き可能にしてもよい（任意）。
 
@@ -325,7 +325,7 @@
 ### 2.2 制約・依存
 
 - **Stripe 秘密鍵**: クライアントから直接 Stripe API を呼べない → サーバー API 必須（要件 9.2 と一致）。
-- **Price ID**: 既存 env `STRIPE_PRICE_PRO_MONTHLY` / `YEARLY` を正本として再利用可能。
+- **Price ID**: 既存 env `STRIPE_PRICE_CREATOR_MONTHLY` / `YEARLY` を正本として再利用可能。
 - **認証**: 価格表示は未ログインでも閲覧可（要件 1.4）→ 価格 API は **認証不要の GET** が自然。
 - **Checkout 整合**: 表示価格と Checkout の `line_items.price` は同一 Price ID 由来にすれば自動整合。
 
@@ -455,3 +455,70 @@
 ## Document Status（Phase 2 Design）
 - **入力**: Phase 2 gap 分析、`requirements.md`、Stripe JPY `unit_amount` 慣行
 - **出力**: `design.md` Phase 2 更新、本節
+
+# Design Synthesis: Phase 3 複数有料プラン表示への拡張と Creator への改名（2026-07-13）
+
+## Summary
+- **Discovery Type**: Light（既存 billing UI 基盤の拡張。`quizetika-core` design.md Phase 41 の API 契約変更に追随）
+- **採用パターン**: `ProPlanCard` を tier props を持つ `PaidPlanCard` に一般化し、`pricing-display.ts` のプラン定義配列を `.map()` 描画する
+- **API 消費形状変更**: `fetchProPrices()` → `fetchPlanPrices()`（`{ player, creator }` 形状）、`startCheckoutSession` に `plan` 引数追加
+
+## Design Decisions
+
+### Decision: 単一 `ProPlanCard` を tier 非依存の `PaidPlanCard` へ一般化
+- **Context**: Player・Creator の2枚を同一の状態機械（loading/ready/error）で描画する必要がある。
+- **Alternatives Considered**:
+  1. `PlayerPlanCard` / `CreatorPlanCard` を別コンポーネントとして複製実装
+  2. `tier` props を受け取る単一 `PaidPlanCard` に一般化（選定）
+- **Selected Approach**: 案2。
+- **Rationale**: 既存 `ProPlanCard` の状態機械ロジック（価格 loading/ready/error、CTA disabled 判定）は tier に依存しないため、複製すると Player 追加のたびにロジックが二重管理になる。
+- **Trade-offs**: 単一コンポーネントの props/条件分岐がやや増えるが、将来プラン追加時の変更箇所は `pricing-display.ts` の配列エントリ追加のみで済む。
+
+### Decision: プラン単位ではなく画面全体でのエラー方針を維持
+- **Context**: Player・Creator 2プラン分の価格取得のうち一方のみ失敗した場合の UX。
+- **Selected Approach**: Phase 2 の「いずれか失敗で全体エラー」方針を維持し、プラン単位の部分エラー表示は初版では導入しない。
+- **Rationale**: 実装をシンプルに保ち、要件11 は「価格取得失敗時に価格を読み込めない旨を示す」ことのみを求めており、プラン単位の部分成功表示は要件で明示的に求められていない。
+- **Follow-up**: 将来プランが3つ以上に増え、1プランのみの障害が頻発するようであればプラン単位エラー表示への変更を再検討する。
+
+### Decision（Phase 4 で上書き）: ダウングレード（Creator→Player）は購読 CTA を出さず契約管理へ誘導
+- **Context**: 要件11.9 は Creator 契約中ユーザーへの Player 購読 CTA 非表示を求めていた（Phase 3 時点）。
+- **上書き理由**: ユーザーから「PlayerとCreatorを切り替えできるように。Stripeでサブスクリプションを更新する」との明示的な指示があり、`quizetika-core` 要件35（プラン変更 API）が新設された。本決定は Phase 4 の「Decision: ダウングレードは確認ダイアログ経由でプラン変更 API を呼ぶ」に置き換えられる（下記参照）。旧決定はここに履歴として残す。
+
+## Risks & Mitigations（Phase 3）
+- **`quizetika-core` API 契約変更との同時実装依存** — Prices/Checkout の契約変更は core 側タスクと同時に完了しないと型不整合が発生する。軽減策: 依存順（core → billing-ui）をタスク生成時に明示する。
+- **画面全体エラー方針による機会損失** — 1プランのみの価格取得失敗で全プラン非表示になる。軽減策: Design Decisions に記録済み。将来的な改善候補として残す。
+
+## Document Status（Phase 3 Design）
+- **入力**: `quizetika-core` design.md Phase 41 節（Prices/Checkout API 契約）、`requirements.md` 要件11
+- **出力**: `design.md` Phase 3 節、本節
+
+# Design Synthesis: Phase 4 Player・Creator 間のプラン変更 UI（2026-07-13）
+
+## Summary
+- **Discovery Type**: Light（`quizetika-core` 要件35 の Change Plan API を消費する新規 UI）
+- **背景**: Phase 3 で「ダウングレードは契約管理（Portal）へ誘導」としていた決定を、ユーザーからの明示的な指示により撤回。Player・Creator 間を解約・再契約なしで直接切り替えられる UI に置き換える。
+
+## Design Decisions
+
+### Decision: アップグレードは即時実行、ダウングレードは確認ダイアログ経由
+- **Context**: アップグレード（Player→Creator）は特典が増えるだけだが、ダウングレード（Creator→Player）はクイズ限定公開・AI作問アシスタントの利用権を失う。
+- **Alternatives Considered**:
+  1. 両方向とも確認なしで即時実行
+  2. 両方向とも確認ダイアログを挟む
+  3. アップグレードは即時、ダウングレードのみ確認ダイアログ（選定）
+- **Selected Approach**: 案3。
+- **Rationale**: ユーザーヒアリングで「確認ダイアログを挟む（失われる特典を明示）」が明示的に選択された。アップグレードは特典が失われないため確認は不要と判断。
+- **Trade-offs**: CTA の挙動がプラン間の方向によって異なるため、`PaidPlanCard` 内の分岐がやや増えるが、要件が明確に非対称であるため妥当な複雑さ。
+
+### Decision: 特典喪失一覧は `pricing-display.ts` の定義から差分抽出
+- **Context**: ダウングレード確認ダイアログに表示する「失う特典」一覧をどこで定義するか。
+- **Selected Approach**: Creator 特典配列から Player 特典配列を差し引いた差分（クイズ限定公開、AI作問アシスタント）を動的に算出し、ダイアログに表示する。
+- **Rationale**: 特典文言をダイアログ側にハードコードすると、`pricing-display.ts` の特典定義が変わった際に同期漏れが起きる。単一正本からの差分算出により重複を避ける（Simplification 原則）。
+
+## Risks & Mitigations（Phase 4）
+- **`quizetika-core` 要件35 API 契約変更との同時実装依存** — Change Plan API の契約変更は core 側タスクと同時に完了しないと型不整合が発生する。軽減策: 依存順（core → billing-ui）を明示する。
+- **ダウングレード確認ダイアログのスキップ** — UI 実装漏れで確認なしにダウングレードが実行されると、ユーザーが意図せず特典を失う。軽減策: Testing Strategy にダイアログ経由必須のテストを明記済み。
+
+## Document Status（Phase 4 Design）
+- **入力**: `quizetika-core` design.md 要件35 節（Change Plan API 契約）、`requirements.md` 要件12
+- **出力**: `design.md` Phase 3 節、本節

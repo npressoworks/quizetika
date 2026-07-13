@@ -454,14 +454,16 @@ sequenceDiagram
 
 | Field        | Detail                                      |
 | ------------ | ------------------------------------------- |
-| Intent       | Free/Pro 比較、checkout feedback、Pro badge |
+| Intent       | Free/Player/Creator 比較、checkout feedback、契約状態バッジ |
 | Requirements | 8.1–8.6                                     |
 
 **Implementation Notes**
-- grid: `grid gap-6 md:grid-cols-2`
+- grid: `grid gap-6 md:grid-cols-2` → Phase 3（下記参照）で `md:grid-cols-3` へ更新
 - Sparkles icon color を `text-primary` に（`#00ff66` 削除）
 - CheckoutFeedbackBanner → Alert
-- SubscriptionStatusBadge → Badge
+- SubscriptionStatusBadge → Badge（tier に応じたラベル: Player/Creator）
+
+**Phase 3（2026-07-13）差分**: `quizetika-billing-subscription-ui` Phase 3 の多プラン化（Pro→Creator 改名、Player 追加）に伴い、本コンポーネントが描画するプランカード数が2枚から3枚に増える。カードの中身（価格・特典・CTA）は billing-subscription-ui 側の `PaidPlanCard` 実装に従い、本スペックは shadcn Card へのラップとグリッドレイアウト調整のみを担当する（Boundary は変更なし、Out of Boundary の「決済処理・エンタイトルメント判定」は引き続き対象外）。
 
 ---
 
