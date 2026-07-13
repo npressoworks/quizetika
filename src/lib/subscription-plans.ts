@@ -3,7 +3,7 @@ import type { PriceInterval, SubscriptionTier } from '@/types/subscription';
 export type PaidFeatureKey = 'unlimited_ai_questions';
 
 export interface PaidTierDefinition {
-  tier: 'pro' | 'premium';
+  tier: 'player' | 'creator' | 'premium';
   displayName: string;
   priceIds: { monthly: string; yearly: string };
   featureKeys: readonly PaidFeatureKey[];
@@ -23,11 +23,20 @@ let priceIdToTierCache: Map<string, SubscriptionTier> | null = null;
 function buildPaidTierDefinitions(): readonly PaidTierDefinition[] {
   return [
     {
-      tier: 'pro',
-      displayName: 'Pro',
+      tier: 'player',
+      displayName: 'Player',
       priceIds: {
-        monthly: requireEnv('STRIPE_PRICE_PRO_MONTHLY'),
-        yearly: requireEnv('STRIPE_PRICE_PRO_YEARLY'),
+        monthly: requireEnv('STRIPE_PRICE_PLAYER_MONTHLY'),
+        yearly: requireEnv('STRIPE_PRICE_PLAYER_YEARLY'),
+      },
+      featureKeys: ['unlimited_ai_questions'],
+    },
+    {
+      tier: 'creator',
+      displayName: 'Creator',
+      priceIds: {
+        monthly: requireEnv('STRIPE_PRICE_CREATOR_MONTHLY'),
+        yearly: requireEnv('STRIPE_PRICE_CREATOR_YEARLY'),
       },
       featureKeys: ['unlimited_ai_questions'],
     },
@@ -69,12 +78,12 @@ export function priceIdToTier(priceId: string): SubscriptionTier | null {
   return ensurePriceIdMap().get(priceId) ?? null;
 }
 
-export function getPriceIdForInterval(interval: PriceInterval): string {
-  const pro = getPaidTierDefinitions().find((d) => d.tier === 'pro');
-  if (!pro) {
-    throw new Error('Pro tier is not configured');
+export function getPriceIdForInterval(tier: SubscriptionTier, interval: PriceInterval): string {
+  const def = getPaidTierDefinitions().find((d) => d.tier === tier);
+  if (!def) {
+    throw new Error(`Plan tier "${tier}" is not configured or not a paid tier`);
   }
-  return interval === 'monthly' ? pro.priceIds.monthly : pro.priceIds.yearly;
+  return interval === 'monthly' ? def.priceIds.monthly : def.priceIds.yearly;
 }
 
 export function hasFeature(tier: SubscriptionTier, feature: PaidFeatureKey): boolean {
@@ -84,7 +93,10 @@ export function hasFeature(tier: SubscriptionTier, feature: PaidFeatureKey): boo
 }
 
 export function resolveSubscriptionTier(
-  raw: SubscriptionTier | undefined | null
+  raw: string | undefined | null
 ): SubscriptionTier {
-  return raw ?? 'free';
+  if (raw === 'pro') return 'creator';
+  if (!raw) return 'free';
+  return raw as SubscriptionTier;
 }
+

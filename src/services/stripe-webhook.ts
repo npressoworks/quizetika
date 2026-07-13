@@ -6,6 +6,7 @@ import {
   applySubscriptionFromStripe,
   clearPaidEntitlements,
 } from '@/services/entitlement';
+import { resolveActiveSubscription } from '@/services/duplicate-subscription-guard';
 import type {
   StripeSubscriptionSnapshot,
   SubscriptionStatus,
@@ -41,7 +42,7 @@ export function buildSnapshotFromSubscription(
 
   const status = subscription.status as SubscriptionStatus;
   const hasPaid =
-    (mappedTier === 'pro' || mappedTier === 'premium') &&
+    mappedTier !== 'free' &&
     PAID_ACTIVE_STATUSES.includes(status);
 
   const subscriptionTier: SubscriptionTier = hasPaid ? mappedTier : 'free';
@@ -118,12 +119,49 @@ export async function handleStripeSubscriptionEvent(
     return;
   }
 
+  const customerId =
+    typeof subscription.customer === 'string'
+      ? subscription.customer
+      : subscription.customer?.id ?? '';
+
   if (subscription.status === 'canceled') {
-    const customerId =
-      typeof subscription.customer === 'string'
-        ? subscription.customer
-        : subscription.customer?.id ?? '';
+    // 解約されたサブスクリプションを処理する際、他にもアクティブな契約が残っているか確認
+    if (customerId) {
+      const stripeClient = getStripeClient();
+      const otherSubs = await stripeClient.subscriptions.list({
+        customer: customerId,
+      });
+      const activeSubs = otherSubs.data.filter(
+        (s) => s.id !== subscription.id && ['active', 'trialing', 'past_due'].includes(s.status)
+      );
+
+      if (activeSubs.length > 0) {
+        // 残存する最古のアクティブなサブスクリプションで契約状態を更新
+        activeSubs.sort((a, b) => a.created - b.created);
+        const snapshot = buildSnapshotFromSubscription(activeSubs[0], resolvedUid);
+        if (snapshot) {
+          await applySubscriptionFromStripe(snapshot);
+          return;
+        }
+      }
+    }
+
     await clearPaidEntitlements(resolvedUid, customerId);
+    return;
+  }
+
+  // 重複サブスクリプションの検知と是正
+  let keptSubscriptionId = subscription.id;
+  if (customerId && resolvedUid) {
+    const resolution = await resolveActiveSubscription(customerId, resolvedUid);
+    keptSubscriptionId = resolution.keptSubscriptionId;
+  }
+
+  // もし現在処理中のイベントが、重複検知によって既に解約されたサブスクリプションであれば適用をスキップ
+  if (keptSubscriptionId !== subscription.id) {
+    console.log(
+      `[stripe-webhook] Skipping apply subscription since this is a duplicate canceled subscription: ${subscription.id}`
+    );
     return;
   }
 

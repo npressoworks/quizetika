@@ -6,7 +6,7 @@ export interface PricingFeatureBullet {
 }
 
 export interface PricingPlanDisplay {
-  tier: 'free' | 'pro';
+  tier: 'free' | 'pro' | 'player' | 'creator';
   displayName: string;
   featureBullets: readonly PricingFeatureBullet[];
 }
@@ -47,9 +47,10 @@ export function getPricingPlansForUi(): readonly PricingPlanDisplay[] {
 }
 
 export function getPricingPlanForUi(
-  tier: Extract<SubscriptionTier, 'free' | 'pro'>
+  tier: 'free' | 'pro' | 'player' | 'creator'
 ): PricingPlanDisplay {
-  const plan = PRICING_PLANS_DISPLAY.find((entry) => entry.tier === tier);
+  const planTier = tier === 'creator' || tier === 'player' ? 'pro' : tier;
+  const plan = PRICING_PLANS_DISPLAY.find((entry) => entry.tier === planTier);
   if (!plan) {
     throw new Error(`Pricing plan not found for tier: ${tier}`);
   }
@@ -63,3 +64,4 @@ export function getFreePlanForUi(): PricingPlanDisplay {
 export function getProPlanForUi(): PricingPlanDisplay {
   return getPricingPlanForUi('pro');
 }
+

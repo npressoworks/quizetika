@@ -14,6 +14,9 @@ jest.mock('@/services/subscription', () => ({
   AlreadySubscribedError: class AlreadySubscribedError extends Error {
     name = 'AlreadySubscribedError';
   },
+  DowngradeNotAllowedError: class DowngradeNotAllowedError extends Error {
+    name = 'DowngradeNotAllowedError';
+  },
   UserNotFoundError: class UserNotFoundError extends Error {
     name = 'UserNotFoundError';
   },
@@ -44,17 +47,28 @@ describe('POST /api/billing/checkout-session', () => {
     mockVerify.mockResolvedValue(null);
     const req = new NextRequest('http://localhost/api/billing/checkout-session', {
       method: 'POST',
-      body: JSON.stringify({ priceInterval: 'monthly' }),
+      body: JSON.stringify({ priceInterval: 'monthly', plan: 'player' }),
     });
     const res = await POST(req);
     expect(res.status).toBe(401);
+  });
+
+  it('無効な plan パラメータは 400', async () => {
+    mockVerify.mockResolvedValue('uid-1');
+    const req = new NextRequest('http://localhost/api/billing/checkout-session', {
+      method: 'POST',
+      body: JSON.stringify({ priceInterval: 'monthly', plan: 'invalid' }),
+      headers: { Authorization: 'Bearer token' },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
   });
 
   it('free ユーザーは sessionUrl を取得できる', async () => {
     mockVerify.mockResolvedValue('uid-1');
     const req = new NextRequest('http://localhost/api/billing/checkout-session', {
       method: 'POST',
-      body: JSON.stringify({ priceInterval: 'monthly' }),
+      body: JSON.stringify({ priceInterval: 'monthly', plan: 'player' }),
       headers: { Authorization: 'Bearer token' },
     });
     const res = await POST(req);
@@ -69,10 +83,26 @@ describe('POST /api/billing/checkout-session', () => {
     mockCreateCheckout.mockRejectedValue(new AlreadySubscribedError());
     const req = new NextRequest('http://localhost/api/billing/checkout-session', {
       method: 'POST',
-      body: JSON.stringify({ priceInterval: 'yearly' }),
+      body: JSON.stringify({ priceInterval: 'yearly', plan: 'creator' }),
       headers: { Authorization: 'Bearer token' },
     });
     const res = await POST(req);
     expect(res.status).toBe(409);
   });
+
+  it('ダウングレード拒否（DowngradeNotAllowedError）は 409', async () => {
+    mockVerify.mockResolvedValue('uid-1');
+    const { DowngradeNotAllowedError } = jest.requireMock('@/services/subscription');
+    mockCreateCheckout.mockRejectedValue(new DowngradeNotAllowedError('downgrade not allowed'));
+    const req = new NextRequest('http://localhost/api/billing/checkout-session', {
+      method: 'POST',
+      body: JSON.stringify({ priceInterval: 'monthly', plan: 'player' }),
+      headers: { Authorization: 'Bearer token' },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe('downgrade-not-allowed');
+  });
 });
+

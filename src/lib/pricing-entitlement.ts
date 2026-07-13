@@ -1,7 +1,6 @@
+import { computeUserEntitlements } from '@/services/entitlement-shared';
 import type { User } from '@/types';
 import type { SubscriptionStatus, SubscriptionTier } from '@/types/subscription';
-
-const PAID_ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'trialing'];
 
 export type PricingUiCtaMode = 'guest' | 'subscribe' | 'manage' | 'loading';
 
@@ -12,11 +11,7 @@ export interface PricingUiState {
   showProBadge: boolean;
 }
 
-function resolveSubscriptionTier(user: User | null): SubscriptionTier {
-  return user?.subscriptionTier ?? 'free';
-}
-
-function computeHasPaidEntitlements(user: User | null): boolean {
+function computeUserEntitlementsForUser(user: User | null) {
   // E2Eテスト用のモック判定
   if (typeof window !== 'undefined') {
     try {
@@ -24,10 +19,21 @@ function computeHasPaidEntitlements(user: User | null): boolean {
       if (e2eMock) {
         const parsed = JSON.parse(e2eMock);
         if (
-          parsed.subscriptionTier === 'pro' &&
+          (parsed.subscriptionTier === 'pro' ||
+            parsed.subscriptionTier === 'player' ||
+            parsed.subscriptionTier === 'creator' ||
+            parsed.subscriptionTier === 'premium') &&
           parsed.subscriptionStatus === 'active'
         ) {
-          return true;
+          return {
+            subscriptionTier: (parsed.subscriptionTier === 'pro' ? 'creator' : parsed.subscriptionTier) as SubscriptionTier,
+            subscriptionStatus: parsed.subscriptionStatus as SubscriptionStatus,
+            currentPeriodEnd: null,
+            hasPaidEntitlements: true,
+            hasUnlimitedAiQuestions: true,
+            hasCreatorEntitlements: true,
+            isModerator: false,
+          };
         }
       }
     } catch (e) {
@@ -35,16 +41,24 @@ function computeHasPaidEntitlements(user: User | null): boolean {
     }
   }
 
-  if (!user) return false;
+  if (!user) {
+    return {
+      subscriptionTier: 'free' as SubscriptionTier,
+      subscriptionStatus: null as SubscriptionStatus | null,
+      currentPeriodEnd: null as Date | null,
+      hasPaidEntitlements: false,
+      hasUnlimitedAiQuestions: false,
+      hasCreatorEntitlements: false,
+      isModerator: false,
+    };
+  }
 
-  const subscriptionTier = user.subscriptionTier ?? 'free';
-  const subscriptionStatus = user.subscriptionStatus ?? null;
-
-  return (
-    (subscriptionTier === 'pro' || subscriptionTier === 'premium') &&
-    subscriptionStatus !== null &&
-    PAID_ACTIVE_STATUSES.includes(subscriptionStatus)
-  );
+  return computeUserEntitlements({
+    subscriptionTier: user.subscriptionTier,
+    subscriptionStatus: user.subscriptionStatus,
+    currentPeriodEnd: user.currentPeriodEnd,
+    moderationTier: user.moderationTier,
+  });
 }
 
 /** Pro 限定公開範囲（private / followers）の設定可否（クライアント表示用。正本は quiz-access + Rules） */
@@ -56,7 +70,7 @@ export function hasProVisibilityEntitlementsForUser(user: User | null): boolean 
   ) {
     return true;
   }
-  return computeHasPaidEntitlements(user);
+  return computeUserEntitlementsForUser(user).hasCreatorEntitlements;
 }
 
 /** 水平思考 AI 質問の無制限可否（クライアント表示用。制限判定の正本はサーバー） */
@@ -68,7 +82,7 @@ export function hasUnlimitedAiQuestionsForUser(user: User | null): boolean {
   ) {
     return true;
   }
-  return computeHasPaidEntitlements(user);
+  return computeUserEntitlementsForUser(user).hasUnlimitedAiQuestions;
 }
 
 export function resolvePricingUiState(
@@ -93,8 +107,9 @@ export function resolvePricingUiState(
     };
   }
 
-  const subscriptionTier = resolveSubscriptionTier(user);
-  const hasPaidEntitlements = computeHasPaidEntitlements(user);
+  const entitlements = computeUserEntitlementsForUser(user);
+  const subscriptionTier = entitlements.subscriptionTier;
+  const hasPaidEntitlements = entitlements.hasPaidEntitlements;
 
   if (hasPaidEntitlements) {
     return {
@@ -112,3 +127,4 @@ export function resolvePricingUiState(
     showProBadge: false,
   };
 }
+

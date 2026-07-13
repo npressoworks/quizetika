@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AutoAwesomeOutlined } from '@mui/icons-material';
 import { useAuth } from '@/context/auth-context';
@@ -29,6 +29,7 @@ function PricingPageContent() {
   const searchParams = useSearchParams();
 
   const [checkoutFeedback, setCheckoutFeedback] = useState<'success' | 'canceled' | null>(null);
+  const checkoutHandledRef = useRef(false);
 
   const uiState = useMemo(() => resolvePricingUiState(user, loading), [user, loading]);
 
@@ -38,6 +39,8 @@ function PricingPageContent() {
   useEffect(() => {
     const checkoutParam = searchParams.get('checkout');
     if (checkoutParam !== 'success' && checkoutParam !== 'canceled') return;
+    if (checkoutHandledRef.current) return;
+    checkoutHandledRef.current = true;
 
     setCheckoutFeedback(checkoutParam);
     if (checkoutParam === 'success') {

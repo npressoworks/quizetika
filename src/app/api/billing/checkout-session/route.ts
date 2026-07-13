@@ -5,6 +5,7 @@ import {
   AlreadySubscribedError,
   createCheckoutSession,
   UserNotFoundError,
+  DowngradeNotAllowedError,
 } from '@/services/subscription';
 import type { PriceInterval } from '@/types/subscription';
 
@@ -46,11 +47,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { priceInterval } = body as { priceInterval?: string };
+    const { priceInterval, plan } = body as { priceInterval?: string; plan?: string };
 
     if (priceInterval !== 'monthly' && priceInterval !== 'yearly') {
       return NextResponse.json(
         { error: 'invalid-params', message: 'priceInterval は monthly または yearly を指定してください。' },
+        { status: 400 }
+      );
+    }
+
+    if (plan !== 'player' && plan !== 'creator') {
+      return NextResponse.json(
+        { error: 'invalid-params', message: 'plan は player または creator を指定してください。' },
         { status: 400 }
       );
     }
@@ -67,10 +75,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       uid,
       email,
       priceInterval: priceInterval as PriceInterval,
+      plan: plan as 'player' | 'creator',
     });
 
     return NextResponse.json({ sessionUrl: result.sessionUrl }, { status: 200 });
   } catch (error) {
+    if (error instanceof DowngradeNotAllowedError) {
+      return NextResponse.json(
+        { error: 'downgrade-not-allowed', message: error.message },
+        { status: 409 }
+      );
+    }
     if (error instanceof AlreadySubscribedError) {
       return NextResponse.json(
         { error: 'already-subscribed', message: error.message },

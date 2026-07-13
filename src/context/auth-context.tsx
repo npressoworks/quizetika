@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { getUser, createUser } from '../services/user';
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Supabaseから最新のユーザー情報を再取得する
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (authUser) {
       const dbUser = await getUser(authUser.uid);
 
@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(dbUser);
       syncMiddlewareAuthCookies(dbUser, authUser.uid);
     }
-  };
+  }, [authUser]);
 
   useEffect(() => {
     // 認証状態の変化を監視（購読開始時に INITIAL_SESSION イベントで
@@ -155,8 +155,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const value = useMemo(
+    () => ({ user, authUser, loading, refreshUser }),
+    [user, authUser, loading, refreshUser]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, authUser, loading, refreshUser }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
