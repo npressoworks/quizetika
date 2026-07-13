@@ -229,6 +229,42 @@ export async function downgradeUserTier(
 }
 
 /**
+ * 対象ユーザーへのユーザー直接通報（`user_reports`）を一括で解決済みにし、通報数リセットを監査ログに保存する
+ *
+ * @param targetUid 対象ユーザーのUID
+ * @param executorId 実行者（管理者）のUID（RPC側で `auth.uid()` から権限検証されるため実際の認可には使用されない）
+ * @param reason 通報数リセット理由（10文字以上）
+ */
+export async function resetUserReports(
+  targetUid: string,
+  executorId: string,
+  reason: string
+): Promise<void> {
+  if (reason.length < 10) {
+    throw new Error('通報数リセット理由は10文字以上で入力してください。');
+  }
+
+  const supabase = await createClient();
+  const { error } = await (supabase as any).rpc('handle_reset_user_reports', {
+    p_target_uid: targetUid,
+    p_reason: reason,
+  });
+
+  if (error) {
+    if (error.message === 'permission-denied') {
+      throw new Error('この操作を実行する権限がありません');
+    }
+    if (error.message === 'target-not-found') {
+      throw new Error('対象のユーザーが見つかりません');
+    }
+    if (error.message === 'reason-too-short') {
+      throw new Error('通報数リセット理由は10文字以上で入力してください。');
+    }
+    throw new Error(`通報数リセットに失敗しました: ${error.message}`);
+  }
+}
+
+/**
  * `getReportedUsersRanking` の戻り値。
  */
 export interface GetReportedUsersRankingResult {

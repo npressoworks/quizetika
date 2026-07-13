@@ -284,7 +284,7 @@
   - _実装ファイル: `supabase/migrations/20260719000300_reset_user_reports.sql`_
 
 ### 12. Core: サービス層・APIエンドポイント実装
-- [ ] 12.1 reputation service への resetUserReports 実装
+- [x] 12.1 reputation service への resetUserReports 実装
   - `src/services/reputation.ts` に `resetUserReports(targetUid, executorId, reason)` を追加し、`handle_reset_user_reports` RPCを呼び出す。理由10文字未満はRPC呼び出し前にクライアント側でも早期リターンする。
   - **完了条件**: `tests/services/reputation.test.ts` に追加したJestテストで、正常系（RPC呼び出しとエラーマッピング）と異常系（理由10文字未満でRPCを呼ばずエラーを返す）がパスすること。
   - _Requirements: 12.3, 12.4_

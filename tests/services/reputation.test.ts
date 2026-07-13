@@ -10,6 +10,7 @@ import {
   getReportedUsersRanking,
   getBannedUsers,
   getUserAdminLogs,
+  resetUserReports,
 } from '../../src/services/reputation';
 
 const createChainMock = (resolveValue: any) => {
@@ -277,6 +278,56 @@ describe('ReputationService - downgradeUserTier', () => {
 
     await expect(downgradeUserTier(targetUid, executorId, newTier, reason)).rejects.toThrow(
       '引き下げ先のティアは現在のティアより下位である必要があります'
+    );
+  });
+});
+
+describe('ReputationService - resetUserReports', () => {
+  const targetUid = 'target-user-uid';
+  const executorId = 'admin-executor-uid';
+  const reason = '組織的な大量通報のため通報数をリセット';
+
+  beforeEach(() => jest.clearAllMocks());
+
+  test('管理者が実行した場合、RPCが正しい引数で呼び出されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: null });
+
+    await resetUserReports(targetUid, executorId, reason);
+
+    expect(supabase.rpc).toHaveBeenCalledWith('handle_reset_user_reports', {
+      p_target_uid: targetUid,
+      p_reason: reason,
+    });
+  });
+
+  test('理由が10文字未満の場合、RPCを呼ばずバリデーションエラーになること', async () => {
+    await expect(resetUserReports(targetUid, executorId, '短すぎ')).rejects.toThrow(
+      '通報数リセット理由は10文字以上で入力してください。'
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  test('非管理者が実行した場合、権限エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'permission-denied' } });
+
+    await expect(resetUserReports(targetUid, 'non-admin-uid', reason)).rejects.toThrow(
+      'この操作を実行する権限がありません'
+    );
+  });
+
+  test('対象ユーザーが存在しない場合、エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'target-not-found' } });
+
+    await expect(resetUserReports(targetUid, executorId, reason)).rejects.toThrow(
+      '対象のユーザーが見つかりません'
+    );
+  });
+
+  test('RPC側で理由が10文字未満と判定された場合、エラーになること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'reason-too-short' } });
+
+    await expect(resetUserReports(targetUid, executorId, reason)).rejects.toThrow(
+      '通報数リセット理由は10文字以上で入力してください。'
     );
   });
 });
