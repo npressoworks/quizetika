@@ -2,8 +2,10 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-context';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { resolveCreatorQuizStatus, type CreatorQuizStatus } from '@/lib/creator-quiz-status';
+import { exportQuizzes } from '@/services/quiz';
 import type { Quiz } from '@/types';
 import type { UserEntitlements } from '@/types/subscription';
 import type { CreatorQuizManagementFilters } from '@/app/creator/quizzes/creator-quiz-management-client';
@@ -21,7 +23,8 @@ import {
 import {
   InboxOutlined as InboxIcon,
   EditOutlined as EditIcon,
-  AddOutlined as AddIcon,
+  AddCircleOutlined as AddIcon,
+  DownloadOutlined as DownloadIcon,
   ErrorOutlineOutlined as AlertCircleIcon,
 } from '@mui/icons-material';
 
@@ -113,6 +116,7 @@ export function CreatorQuizManagementSections({
   renderVisibilityToggle,
 }: CreatorQuizManagementSectionsProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { genres } = useActiveGenres();
 
   const goToEdit = (quizId: string) => {
@@ -121,6 +125,27 @@ export function CreatorQuizManagementSections({
 
   const goToCreate = () => {
     router.push('/quiz/create');
+  };
+
+  const handleExportAll = async () => {
+    if (!user) return;
+    try {
+      const dataPackage = await exportQuizzes(user.id);
+      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
+        JSON.stringify(dataPackage, null, 2),
+      )}`;
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', jsonString);
+      downloadAnchor.setAttribute(
+        'download',
+        `quizetika_export_${user.displayName}_${new Date().toISOString().split('T')[0]}.json`,
+      );
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    } catch {
+      alert('エクスポートに失敗しました。');
+    }
   };
 
   const list = quizzes ?? [];
@@ -132,7 +157,16 @@ export function CreatorQuizManagementSections({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-end">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={handleExportAll}
+          data-analytics="creator-export-all"
+        >
+          <DownloadIcon className="size-4" />
+          クイズ一括エクスポート
+        </Button>
         <Button type="button" onClick={goToCreate}>
           <AddIcon className="size-4" />
           クイズを新規作成する
