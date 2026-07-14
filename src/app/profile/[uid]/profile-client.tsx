@@ -456,7 +456,7 @@ export function ProfileClient() {
             <TabsList variant="line" className="mb-6 w-full justify-start border-b border-border">
               <TabsTrigger
                 value="quizzes"
-                className="min-h-9 gap-2 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[-1px] group-data-horizontal/tabs:after:h-[3px]"
+                className="min-h-9 gap-2 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[1px] group-data-horizontal/tabs:after:h-[3px]"
               >
                 <GridViewOutlined sx={{ fontSize: 18 }} />
                 作成したクイズ ({quizzesCount})
@@ -464,7 +464,7 @@ export function ProfileClient() {
               {isMyProfile && (
                 <TabsTrigger
                   value="history"
-                  className="min-h-9 gap-2 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[-1px] group-data-horizontal/tabs:after:h-[3px]"
+                  className="min-h-9 gap-2 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[1px] group-data-horizontal/tabs:after:h-[3px]"
                   data-testid="profile-tab-history"
                 >
                   <HistoryOutlined sx={{ fontSize: 18 }} />
