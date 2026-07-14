@@ -19,7 +19,7 @@ import { QuizCard } from '@/components/quiz/quiz-card';
 import { useAds } from '@/hooks/useAds';
 import { AdsenseInlineAd } from '@/components/ads/adsense-inline-ad';
 import { GridSkeleton } from '@/components/ui/grid-skeleton';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, UnderlineTabsList, UnderlineTabsTrigger } from '@/components/ui/underline-tabs';
 import { DEFAULT_HOME_FEED_FILTERS } from '@/lib/home-feed-filters';
 import { applyPlayStatusFilter } from '@/lib/apply-play-status-filter';
 import { MIN_VISIBLE_AFTER_PLAY_FILTER } from '@/lib/feed-visible-threshold';
@@ -241,22 +241,22 @@ export function SearchClient({
 
       <section className="mt-6 flex flex-col gap-6">
         <Tabs value={activeTab} onValueChange={(value) => setTab(value as typeof activeTab)}>
-          <TabsList variant="line" className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
-            <TabsTrigger value="latest" className="rounded-none px-2 py-3 data-active:bg-transparent">
+          <UnderlineTabsList className="h-auto gap-6 p-0">
+            <UnderlineTabsTrigger value="latest" className="rounded-none px-2 py-3">
               新着順
-            </TabsTrigger>
-            <TabsTrigger value="popular" className="rounded-none px-2 py-3 data-active:bg-transparent">
+            </UnderlineTabsTrigger>
+            <UnderlineTabsTrigger value="popular" className="rounded-none px-2 py-3">
               人気順
-            </TabsTrigger>
-            <TabsTrigger value="trending" className="rounded-none px-2 py-3 data-active:bg-transparent">
+            </UnderlineTabsTrigger>
+            <UnderlineTabsTrigger value="trending" className="rounded-none px-2 py-3">
               トレンド
-            </TabsTrigger>
+            </UnderlineTabsTrigger>
             {user && (
-              <TabsTrigger value="timeline" className="rounded-none px-2 py-3 data-active:bg-transparent">
+              <UnderlineTabsTrigger value="timeline" className="rounded-none px-2 py-3">
                 フォローTL
-              </TabsTrigger>
+              </UnderlineTabsTrigger>
             )}
-          </TabsList>
+          </UnderlineTabsList>
         </Tabs>
 
         {feedError && (
