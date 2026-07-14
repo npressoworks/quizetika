@@ -15,8 +15,9 @@ jest.mock('next/navigation', () => ({
 }));
 
 const mockCurrentUser = { id: 'user-1', displayName: '本人' };
+const mockRefreshUser = jest.fn().mockResolvedValue(undefined);
 jest.mock('@/context/auth-context', () => ({
-  useAuth: () => ({ user: mockCurrentUser, loading: false }),
+  useAuth: () => ({ user: mockCurrentUser, loading: false, refreshUser: mockRefreshUser }),
 }));
 
 jest.mock('@/services/user', () => ({
@@ -26,10 +27,15 @@ jest.mock('@/services/user', () => ({
     bio: 'プロフィール自己紹介',
     deleteStatus: 'active',
     followedGenres: ['genre-1'],
+    avatarUrl: 'https://example.com/existing-avatar.png',
     snsLinks: { youtube: '', x: '', instagram: '', tiktok: '' },
   }),
   updateProfile: jest.fn(),
   validateProfileData: jest.fn().mockReturnValue([]),
+}));
+
+jest.mock('@/services/storage', () => ({
+  uploadUserAvatar: jest.fn(),
 }));
 
 jest.mock('@/hooks/useActiveGenres', () => ({
@@ -185,5 +191,77 @@ describe('ProfileEditClient - Genre Selection', () => {
     // 検索インプットが disabled になり、プレースホルダーが変化することを確認
     expect(searchInput).toBeDisabled();
     expect(searchInput).toHaveAttribute('placeholder', 'ジャンルは最大3つまで登録できます');
+  });
+});
+
+describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
+  const mockPreviewUrl = 'blob:mock-preview-url';
+
+  beforeAll(() => {
+    global.URL.createObjectURL = jest.fn(() => mockPreviewUrl);
+    global.URL.revokeObjectURL = jest.fn();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function makePngFile(name = 'avatar.png', size = 1024) {
+    const file = new File(['x'.repeat(size)], name, { type: 'image/png' });
+    return file;
+  }
+
+  it('初期表示で既存のアバター画像がプレビュー領域に表示されること', async () => {
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const preview = screen.getByTestId('profile-avatar-preview');
+    expect(preview).toBeInTheDocument();
+    expect(preview).toHaveAttribute('src', 'https://example.com/existing-avatar.png');
+  });
+
+  it('有効な画像を選択すると保存前にプレビューが更新されること', async () => {
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
+    const file = makePngFile();
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute('src', mockPreviewUrl);
+    });
+  });
+
+  it('許可されていない形式の画像を選択すると保存前にエラーが表示され、プレビューは変わらないこと', async () => {
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
+    const svgFile = new File(['<svg></svg>'], 'avatar.svg', { type: 'image/svg+xml' });
+
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [svgFile] } });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/PNG, JPEG, GIF/)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute(
+      'src',
+      'https://example.com/existing-avatar.png'
+    );
   });
 });

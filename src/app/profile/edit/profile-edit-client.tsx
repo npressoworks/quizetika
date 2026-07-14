@@ -10,6 +10,7 @@ import {
   validateProfileData,
   ProfileValidationError
 } from '@/services/user';
+import { validateAvatarFile, AVATAR_ACCEPT } from '@/lib/avatar-upload';
 import { ErrorOutlined, SaveOutlined, ArrowBackOutlined } from '@mui/icons-material';
 import { ProfileEditSkeleton } from '@/components/profile/profile-skeleton';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,11 @@ export function ProfileEditClient() {
   const [errors, setErrors] = useState<ProfileValidationError[]>([]);
   const [submitError, setSubmitError] = useState('');
 
+  const [existingAvatarUrl, setExistingAvatarUrl] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState('');
+
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const { genres, loading: genresLoading } = useActiveGenres();
@@ -61,6 +67,33 @@ export function ProfileEditClient() {
   const handleGenreRemove = (genreId: string) => {
     setSelectedGenres(prev => prev.filter(id => id !== genreId));
   };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const validation = validateAvatarFile(file);
+    if (!validation.ok) {
+      setAvatarError(validation.error);
+      return;
+    }
+
+    setAvatarError('');
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+    }
+    setAvatarFile(file);
+    setAvatarPreviewUrl(URL.createObjectURL(file));
+  };
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
 
   // 外側クリックでサジェストを閉じる
   useEffect(() => {
@@ -93,6 +126,7 @@ export function ProfileEditClient() {
         if (userData) {
           setDisplayName(userData.displayName || '');
           setBio(userData.bio || '');
+          setExistingAvatarUrl(userData.avatarUrl || '');
           setSelectedGenres(userData.followedGenres || []);
           if (userData.snsLinks) {
             setYoutube(userData.snsLinks.youtube || '');
@@ -179,6 +213,33 @@ export function ProfileEditClient() {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            <div className="flex flex-col items-center gap-3">
+              <img
+                data-testid="profile-avatar-preview"
+                src={avatarPreviewUrl || existingAvatarUrl || '/default-avatar.png'}
+                alt={displayName}
+                className="size-24 rounded-full border border-border object-cover"
+              />
+              <Label
+                htmlFor="avatar-upload-input"
+                className="inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-input bg-secondary px-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/80"
+              >
+                画像を変更する
+              </Label>
+              <input
+                id="avatar-upload-input"
+                data-testid="profile-avatar-upload-input"
+                type="file"
+                accept={AVATAR_ACCEPT}
+                className="hidden"
+                disabled={submitting}
+                onChange={handleAvatarChange}
+              />
+              {avatarError && (
+                <span className="text-xs text-destructive">{avatarError}</span>
+              )}
+            </div>
+
             <div className="flex flex-col gap-2">
               <Label htmlFor="displayName">表示名</Label>
               <Input

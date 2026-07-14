@@ -392,7 +392,7 @@
   - _Requirements: 16.8_
   - _Boundary: user-service_
 
-- [ ] 15.4 (P) プロフィール編集画面へのアバター選択・プレビューUIの統合
+- [x] 15.4 (P) プロフィール編集画面へのアバター選択・プレビューUIの統合
   - `src/app/profile/edit/profile-edit-client.tsx` に `avatarFile` / `avatarPreviewUrl` / `avatarError` の状態管理と、ファイル選択ハンドラ（`validateAvatarFile` による検証呼び出し）を実装する。
   - ファイル入力に `data-testid="profile-avatar-upload-input"`、プレビュー領域に `data-testid="profile-avatar-preview"` を付与する。
   - 新しいファイル選択時およびコンポーネントのアンマウント時に、直前の `URL.createObjectURL` プレビューURLを `URL.revokeObjectURL` で解放する。
