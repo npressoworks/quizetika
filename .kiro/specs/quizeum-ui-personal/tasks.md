@@ -168,3 +168,22 @@
 - 本プロジェクトの `Button` / `Badge` は `asChild` 非対応（base-ui）。Link ボタンは `buttonVariants()` + `Link` で構成する。
 - カスタムクイズ取得元は複数選択のため `ToggleGroup` ではなく個別 `Toggle`（`pressed` / `onPressedChange`）を使用。
 - `npm run build` は compile + TypeScript チェックは通過するが、並行ビルドによる `.next` 破損で page data 収集が ENOENT で失敗する場合あり。単独実行で再試行推奨。
+
+## 11. Phase 3: Player/Creator 表記への更新（2026-07-13、Upstream: quizetika-billing-subscription-ui Phase 3 先行必須）
+
+- [x] 11.1 料金画面グリッドレイアウトの3カラム対応
+  - `PricingPageContent` のカードグリッドを `grid gap-6 md:grid-cols-2` から `md:grid-cols-3` へ更新する（モバイルは既存の縦積みレイアウトを維持）
+  - **完了状態**: デスクトップ幅で Free・Player・Creator の3カードが横並びで表示され、モバイル幅では縦積みのまま崩れないこと
+  - _Requirements: 8.1_
+  - _Depends: quizetika-billing-subscription-ui 11.6_
+  - _Boundary: PricingPageContent_
+
+- [x] 11.2 Phase 3 統合検証
+  - `/pricing` 画面のレンダリングテストおよび既存 E2E（`user-settings`/`my-quiz`/`auth-profile`）に回帰がないことを確認する
+  - **完了状態**: 関連する Jest テストがグリーンでパスし、レイアウト崩れがないこと
+  - _Depends: 11.1_
+  - _Requirements: 8.1_
+
+### Implementation Notes (Phase 3)
+- **Upstream 前提**: `quizetika-billing-subscription-ui` タスク 11.6（`/pricing` の Free/Player/Creator 3枚描画統合）が完了していること。
+- 本スペックはグリッドレイアウトの調整のみを担当し、カード内部（価格・特典・CTA）のロジックには関与しない（Boundary は変更なし）。

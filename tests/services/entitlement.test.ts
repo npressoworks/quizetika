@@ -82,13 +82,11 @@ describe('EntitlementService', () => {
       subscriptionStatus: 'active',
       subscriptionTier: 'pro',
       currentPeriodEnd: new Date('2026-07-01T00:00:00Z'),
-      isPremium: true,
     });
 
     expect(chain.update).toHaveBeenCalledWith(
       expect.objectContaining({
         subscription_tier: 'pro',
-        is_premium: true,
         stripe_customer_id: 'cus_1',
         stripe_subscription_id: 'sub_1',
       })

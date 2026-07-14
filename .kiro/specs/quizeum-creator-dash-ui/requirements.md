@@ -21,6 +21,8 @@
 
 **Phase 40（2026-07-12）**: 作家ダッシュボード（分析専念）とは別に、作成者が自分のクイズ全体を一覧・検索・管理するための専用画面（`/creator/quizzes`）を追加する。一覧・検索（キーワード／統合ステータス／ジャンル／タグ）、新規作成・編集への導線、公開・限定公開・非公開の切り替え、クイズ単位の未解決指摘件数バッジ表示を提供する。既存の `visibility`（`public`/`followers`/`private`）と Pro プラン制限（`quizetika-core` の `assertCanSetQuizVisibilitySync` 等）を初めて UI に露出する。あわせて、作家ダッシュボードの簡易クイズ一覧（`creator-quiz-list`）を本画面への導線に置き換える（要件 15〜18 参照）。
 
+**Phase 41（2026-07-13）**: `quizetika-core` Phase 41 の tier リネームに伴い、要件 17 の「Pro プラン制限」表記を「Creator プラン制限」に改める。新設される中間価格帯プラン「Player」はクイズ限定公開・非公開への切り替え権利を持たず、Free と同様に非活性表示・有料プランへの案内導線の対象とする。
+
 
 ## 境界コンテキスト
 - **対象範囲（In scope）**:
@@ -60,7 +62,7 @@
 - **隣接システムへの期待（Phase 28）**:
   - 指摘レポートのステータス更新および通知送信は `quizetika-core`（`resolveReport`）に依存する。
 - **隣接システムへの期待（Phase 40）**:
-  - クイズの `visibility`（`public`/`followers`/`private`）判定・更新時の Pro プラン制限（`assertCanSetQuizVisibilitySync` / `canAccessProVisibility` / `ProRequiredForVisibilityError`）は既存の `quizetika-core` 実装（`src/lib/quiz-access.ts`, `updateQuiz`）に依存し、本要件はこれを UI から呼び出す・エラーを解釈して表示するのみとする。
+  - クイズの `visibility`（`public`/`followers`/`private`）判定・更新時の Creator プラン制限（`quizetika-core` Phase 41 でリネーム・改定される `src/lib/quiz-access.ts`, `updateQuiz` 相当の実装）は既存の `quizetika-core` 実装に依存し、本要件はこれを UI から呼び出す・エラーを解釈して表示するのみとする。`player` tier は限定公開・非公開への切り替え権利を持たない。
   - クイズ単位の未解決指摘件数の集計方法（クライアント集計か API 集計か）は `design.md` で確定する。本要件は集計結果の表示と導線のみを規定する。
   - ジャンル・統合ステータスによる作成者クイズの絞り込みは、既存 `searchAuthorQuizzes`（キーワード・タグのみ対応）の拡張または新規実装が必要になる場合があるが、正本は `quizetika-core` が担当する。
 
@@ -352,7 +354,7 @@
 4. Where クイズが公開済み（`status: 'published'`）である場合、the Creator Quiz Management UI shall 公開・限定公開・非公開の3値から選択できる切り替え操作を提供すること。
 5. When 作成者が公開範囲の切り替え操作を行ったとき、the Creator Quiz Management UI shall 選択した公開範囲を反映し、成功時は一覧上の統合ステータス表示を即時更新すること。
 6. If 公開範囲の切り替えに失敗した場合、the Creator Quiz Management UI shall エラーメッセージを表示し、切り替え前の公開範囲表示を維持すること。
-7. Where 作成者が有料プラン（Pro またはそれ以上）の権利を保有していない場合、the Creator Quiz Management UI shall 限定公開・非公開への切り替え操作を非活性状態で表示し、有料プランへの案内導線を提示すること。
+7. Where 作成者が Creator プラン（またはそれ以上）の権利を保有していない場合（Free および Player を含む）、the Creator Quiz Management UI shall 限定公開・非公開への切り替え操作を非活性状態で表示し、Creator プランへの案内導線を提示すること。
 8. If 有料プランの権利を保有しない作成者が限定公開・非公開への切り替えを試みてサーバー側の権限エラーを受け取った場合、the Creator Quiz Management UI shall エラーメッセージと有料プランへの案内導線を表示し、切り替え前の公開範囲表示を維持すること。
 9. The Creator Quiz Management UI shall 統合ステータス表示に `data-testid` プレフィックス（例: `creator-quiz-status-draft` / `creator-quiz-status-public` / `creator-quiz-status-followers` / `creator-quiz-status-private` / `creator-quiz-status-suspended`）を付与すること。
 10. The Creator Quiz Management UI shall 公開範囲切り替え操作領域に `data-testid="creator-quiz-visibility-toggle"` を付与すること。

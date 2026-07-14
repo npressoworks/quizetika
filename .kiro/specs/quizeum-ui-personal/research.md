@@ -93,4 +93,23 @@
 - `.kiro/steering/roadmap.md` Phase 24 Visual Direction
 - `.kiro/specs/quizetika-ui-foundation/design.md` — Theme bridge, primitives
 - `.kiro/specs/quizetika-ui-layout-shell/design.md` — Shell boundary
+
+## Design Synthesis: Phase 3 Player/Creator 表記への更新（2026-07-13）
+
+### Summary
+- **Discovery Type**: Light（レイアウト・表示文言の更新のみ）
+- **背景**: `quizetika-billing-subscription-ui` Phase 3 の多プラン化により、料金比較カードが2枚（Free/Pro）から3枚（Free/Player/Creator）に増える。本スペックは shadcn 化されたカードラッパー（`PricingPageContent`）のグリッドレイアウトのみを所有し、カード内部のロジック（価格・CTA・エンタイトルメント判定）は billing-subscription-ui が正本。
+
+### Design Decisions
+#### Decision: グリッド列数のみ調整、カード内部ロジックには関与しない
+- **Context**: 3枚レイアウトへの変更が必要だが、本スペックは Boundary 上「決済処理・エンタイトルメント判定」を所有しない。
+- **Selected Approach**: `md:grid-cols-2` → `md:grid-cols-3` のスタイル変更のみを本スペックのタスクとし、カード内部（`PaidPlanCard`）の実装は `quizetika-billing-subscription-ui` のタスクに委ねる。
+- **Rationale**: 既存の Boundary Commitments（「Stripe 埋め込みは ProPlanCard 内ロジック維持、見た目のみ Card/Button 化」）と整合する最小差分。
+
+### Risks & Mitigations（Phase 3）
+- **カード3枚化によるモバイルレイアウト崩れ** — `md:grid-cols-3` はデスクトップのみ適用とし、モバイルは既存の縦積みレイアウトを維持する。
+
+### Document Status（Phase 3）
+- 入力: `quizetika-billing-subscription-ui` design.md Phase 3 節
+- 出力: `design.md` 該当節、本節
 - shadcn/ui documentation — Form, Table, Toggle Group components

@@ -1,13 +1,20 @@
 import { createAdminClient } from '@/lib/supabase/server';
 import { getAppBaseUrl, getStripeClient } from '@/lib/stripe/server';
-import { getPriceIdForInterval } from '@/lib/subscription-plans';
+import { getPriceIdForInterval, getPaidTierDefinitions, priceIdToTier } from '@/lib/subscription-plans';
 import { resolveUserEntitlements } from '@/services/entitlement';
-import type { PriceInterval } from '@/types/subscription';
+import type { PriceInterval, SubscriptionTier } from '@/types/subscription';
 
 export class AlreadySubscribedError extends Error {
   constructor() {
     super('既に有料プランに加入しています');
     this.name = 'AlreadySubscribedError';
+  }
+}
+
+export class DowngradeNotAllowedError extends Error {
+  constructor() {
+    super('Creatorプラン契約中のため、Playerへのダウングレードはプラン変更機能をご利用ください');
+    this.name = 'DowngradeNotAllowedError';
   }
 }
 
@@ -29,6 +36,7 @@ export interface CreateCheckoutSessionInput {
   uid: string;
   email: string;
   priceInterval: PriceInterval;
+  plan: 'player' | 'creator';
 }
 
 export interface CreateCheckoutSessionResult {
@@ -84,13 +92,27 @@ export async function createCheckoutSession(
 ): Promise<CreateCheckoutSessionResult> {
   const entitlements = await resolveUserEntitlements(input.uid);
   if (entitlements.hasPaidEntitlements) {
+    if (entitlements.subscriptionTier === 'creator' && input.plan === 'player') {
+      throw new DowngradeNotAllowedError();
+    }
     throw new AlreadySubscribedError();
   }
 
   const customerId = await getOrCreateStripeCustomer(input.uid, input.email);
-  const priceId = getPriceIdForInterval(input.priceInterval);
-  const appUrl = getAppBaseUrl();
   const stripe = getStripeClient();
+
+  // Live duplicate subscription check (29.14)
+  const activeSubs = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'active',
+    limit: 1,
+  });
+  if (activeSubs.data.length > 0) {
+    throw new AlreadySubscribedError();
+  }
+
+  const priceId = getPriceIdForInterval(input.plan, input.priceInterval);
+  const appUrl = getAppBaseUrl();
 
   const session = await stripe.checkout.sessions.create({
     mode: 'subscription',
@@ -114,15 +136,10 @@ export async function createCheckoutSession(
 export async function createPortalSession(
   input: CreatePortalSessionInput
 ): Promise<{ sessionUrl: string }> {
-  const entitlements = await resolveUserEntitlements(input.uid);
-  if (!entitlements.hasPaidEntitlements) {
-    throw new NoActiveSubscriptionError();
-  }
-
   const supabase = createAdminClient();
   const { data: userRow } = await supabase
     .from('users')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, stripe_subscription_id')
     .eq('id', input.uid)
     .maybeSingle();
 
@@ -136,10 +153,151 @@ export async function createPortalSession(
   }
 
   const stripe = getStripeClient();
-  const session = await stripe.billingPortal.sessions.create({
+  const stripeSubscriptionId = userRow.stripe_subscription_id;
+
+  const sessionParams: any = {
     customer: stripeCustomerId,
     return_url: `${getAppBaseUrl()}/pricing`,
-  });
+  };
+
+  if (stripeSubscriptionId) {
+    sessionParams.flow_data = {
+      type: 'subscription_update',
+      subscription_update: {
+        subscription: stripeSubscriptionId,
+      },
+    };
+  }
+
+  const session = await stripe.billingPortal.sessions.create(sessionParams);
 
   return { sessionUrl: session.url };
 }
+
+export class SamePlanError extends Error {
+  constructor() {
+    super('現在契約中のプランと同一のプランへの変更はできません');
+    this.name = 'SamePlanError';
+  }
+}
+
+/**
+ * 有料プラン（player <-> creator）間の切替（proration_behavior: create_prorations）
+ */
+export async function changeSubscriptionPlan(
+  uid: string,
+  targetPlan: 'player' | 'creator'
+): Promise<SubscriptionTier> {
+  const entitlements = await resolveUserEntitlements(uid);
+  if (!entitlements.hasPaidEntitlements) {
+    throw new NoActiveSubscriptionError();
+  }
+
+  if (entitlements.subscriptionTier === targetPlan) {
+    throw new SamePlanError();
+  }
+
+  const supabase = createAdminClient();
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('stripe_customer_id')
+    .eq('id', uid)
+    .maybeSingle();
+
+  if (!userRow || !userRow.stripe_customer_id) {
+    throw new NoActiveSubscriptionError();
+  }
+
+  const stripeCustomerId = userRow.stripe_customer_id;
+  const stripe = getStripeClient();
+
+  const subs = await stripe.subscriptions.list({
+    customer: stripeCustomerId,
+    status: 'active',
+  });
+
+  const activeSubs = subs.data.filter((s) =>
+    ['active', 'trialing', 'past_due'].includes(s.status)
+  );
+
+  if (activeSubs.length === 0) {
+    throw new NoActiveSubscriptionError();
+  }
+
+  // 最古のサブスクリプションを正として更新
+  activeSubs.sort((a, b) => a.created - b.created);
+  const currentSub = activeSubs[0]!;
+
+  const currentPriceId = currentSub.items.data[0]?.price?.id;
+  if (!currentPriceId) {
+    throw new Error('現在のサブスクリプションから価格情報を取得できませんでした');
+  }
+
+  // 月額か年額かを判定
+  const allTiers = getPaidTierDefinitions();
+  let interval: 'monthly' | 'yearly' = 'monthly';
+  for (const tierDef of allTiers) {
+    if (tierDef.priceIds.monthly === currentPriceId) {
+      interval = 'monthly';
+      break;
+    }
+    if (tierDef.priceIds.yearly === currentPriceId) {
+      interval = 'yearly';
+      break;
+    }
+  }
+
+  const targetPriceId = getPriceIdForInterval(targetPlan, interval);
+  const currentItemId = currentSub.items.data[0]!.id;
+
+  const updatedSub = await stripe.subscriptions.update(currentSub.id, {
+    items: [{ id: currentItemId, price: targetPriceId }],
+    proration_behavior: 'create_prorations',
+  });
+
+  const newPriceId = updatedSub.items.data[0]?.price?.id;
+  return priceIdToTier(newPriceId ?? '') ?? targetPlan;
+}
+
+/**
+ * ユーザーの有効な Stripe サブスクリプションを即時キャンセルする
+ */
+export async function cancelUserSubscription(uid: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('stripe_customer_id, stripe_subscription_id')
+    .eq('id', uid)
+    .maybeSingle();
+
+  if (!userRow) {
+    throw new UserNotFoundError();
+  }
+
+  const stripeSubscriptionId = userRow.stripe_subscription_id;
+  const stripeCustomerId = userRow.stripe_customer_id;
+
+  const stripe = getStripeClient();
+
+  if (stripeSubscriptionId) {
+    try {
+      await stripe.subscriptions.cancel(stripeSubscriptionId);
+    } catch (err) {
+      console.warn(`[cancelUserSubscription] Failed to cancel subscription ID ${stripeSubscriptionId}:`, err);
+    }
+  } else if (stripeCustomerId) {
+    try {
+      const subs = await stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: 'active',
+      });
+      for (const sub of subs.data) {
+        await stripe.subscriptions.cancel(sub.id);
+      }
+    } catch (err) {
+      console.warn(`[cancelUserSubscription] Failed to list or cancel subscriptions for customer ${stripeCustomerId}:`, err);
+    }
+  }
+}
+
+

@@ -121,4 +121,24 @@
 ### 4. 開発見積もりとリスク (Complexity & Risk)
 * **開発規模 (Effort)**: M (3〜5日)
 * **リスク (Risk)**: Medium
+
+# Design Synthesis: Phase 2 Creator/Premium への利用資格改名（2026-07-13）
+
+## Summary
+- **Discovery Type**: Light（既存アクセス制御の判定条件切り替えのみ、新規機能なし）
+- **背景**: `quizetika-core` Phase 41 で `pro` tier が `creator` にリネームされ、`player` tier が新設される。本機能は `player` を対象外とし、`creator`/`premium` のみ利用可能とする。
+
+## Design Decisions
+
+### Decision: `hasPaidEntitlements` から `hasCreatorEntitlements` への参照切り替え
+- **Context**: 現行 `canAccessAiAuthoring()` は `entitlements.hasPaidEntitlements || entitlements.hasUnlimitedAiQuestions` で判定しており、これは「有料 tier かどうか」の二値のみを見ているため `player` tier も条件を満たしてしまう。
+- **Selected Approach**: `quizetika-core` が新設する `hasCreatorEntitlements`（`creator`/`premium` のみ true）を判定条件として採用する。
+- **Rationale**: 本機能側にモデレーター免除ロジックを重複実装せず、`quizetika-core` の capability モデルを単一の正本として参照する（Boundary の整合維持）。
+
+## Risks & Mitigations（Phase 2）
+- **`quizetika-core` の `hasCreatorEntitlements` 実装未完了時の並行実装リスク** — 依存順（core → ai-quiz-authoring）をタスク生成時に明示し、core 側のフィールド追加が先行することを前提とする。
+
+## Document Status（Phase 2 Design）
+- **入力**: `quizetika-core` design.md Phase 41 節（`hasCreatorEntitlements` 契約）
+- **出力**: `design.md` Phase 2 節、本節
   * *リスク要因*: Vercel AI SDK の `useChat` におけるツールコール解決の最大タイムアウト時間や、保留中にチャットがリセットされた場合のクリーンアップ処理の検証が必要。また、複数の一括生成（`generateBulkQuestions`）と単一処理のプレビュー表示出し分けを綺麗に行う必要がある。

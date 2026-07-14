@@ -68,7 +68,10 @@
 
 ### 仕様と記憶 (Kiro Metadata)
 **Location**: `/.kiro/`  
-**Purpose**: 設計仕様（`specs/`）やプロジェクトメモリであるステアリング（`steering/`）を管理するディレクトリ。
+**Purpose**: 設計仕様（`specs/`）やプロジェクトメモリであるステアリング（`steering/`）を管理するディレクトリ。以下の全体設計図は、個別のステアリングファイルに定義されています。
+- [ER図とデータベース設計](file:///d:/quizetika/.kiro/steering/er-diagram.md)
+- [画面遷移図と画面一覧](file:///d:/quizetika/.kiro/steering/screen-transition.md)
+- [システム構成図](file:///d:/quizetika/.kiro/steering/system-architecture.md)
 
 ## 命名規則 (Naming Conventions)
 

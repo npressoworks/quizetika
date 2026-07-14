@@ -26,7 +26,7 @@ import type { UserEntitlements } from '@/types/subscription';
 
 export interface CreatorQuizVisibilityToggleProps {
   quiz: Pick<Quiz, 'id' | 'status' | 'visibility'>;
-  entitlements: Pick<UserEntitlements, 'hasPaidEntitlements'>;
+  entitlements: Pick<UserEntitlements, 'hasCreatorEntitlements'>;
   onVisibilityChange: (quizId: string, next: QuizVisibility) => void;
 }
 
@@ -56,8 +56,8 @@ function isProRequiredError(error: unknown): boolean {
  * マウントすることを前提とする（要件17.2, 17.3）。念のため `quiz.status !== 'published'`
  * の場合は Select 自体を disabled にして誤操作を防ぐ（CONCERNS 参照）。
  *
- * 無料プランのユーザーも限定公開・非公開の選択操作自体は行えるが、実際に切り替えは行わず
- * Pro プランへの誘導ポップアップを表示する。API 呼び出し後にサーバー側で権限エラーが
+ * 無料プランや Player プランのユーザーも限定公開・非公開の選択操作自体は行えるが、実際に切り替えは行わず
+ * Creator プランへの誘導ポップアップを表示する。API 呼び出し後にサーバー側で権限エラーが
  * 返った場合（プラン状態の競合等）も同じポップアップで案内する。
  */
 export function CreatorQuizVisibilityToggle({
@@ -71,7 +71,7 @@ export function CreatorQuizVisibilityToggle({
   const [genericError, setGenericError] = React.useState(false);
   const [proModalOpen, setProModalOpen] = React.useState(false);
 
-  const canAccessProVisibility = entitlements.hasPaidEntitlements;
+  const canAccessProVisibility = entitlements.hasCreatorEntitlements;
   const notPublished = quiz.status !== 'published';
 
   const handleValueChange = async (value: string) => {
@@ -82,7 +82,7 @@ export function CreatorQuizVisibilityToggle({
     }
 
     if (PRO_RESTRICTED_VISIBILITY.includes(next) && !canAccessProVisibility) {
-      // 無料プランでは選択操作自体は許可するが、実際の切り替えは行わずポップアップで案内する。
+      // Creator プラン未満のプランでは選択操作自体は許可するが、実際の切り替えは行わずポップアップで案内する。
       setProModalOpen(true);
       return;
     }
@@ -146,9 +146,9 @@ export function CreatorQuizVisibilityToggle({
       <Dialog open={proModalOpen} onOpenChange={setProModalOpen}>
         <DialogContent data-testid="creator-quiz-visibility-pro-modal">
           <DialogHeader>
-            <DialogTitle>Pro プランが必要です</DialogTitle>
+            <DialogTitle>Creator プランが必要です</DialogTitle>
             <DialogDescription>
-              限定公開・非公開への切り替えには Pro プランへのアップグレードが必要です。
+              限定公開・非公開への切り替えには Creator プランへのアップグレードが必要です。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -157,7 +157,7 @@ export function CreatorQuizVisibilityToggle({
               className={cn(buttonVariants(), 'w-fit')}
               onClick={() => setProModalOpen(false)}
             >
-              Pro プランを見る
+              Creator プランを見る
             </Link>
           </DialogFooter>
         </DialogContent>

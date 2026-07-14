@@ -83,6 +83,7 @@ describe('POST /api/quiz/ai-generate-thumbnail', () => {
     mockVerify.mockResolvedValue('uid-pro');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
+      hasCreatorEntitlements: true,
       hasUnlimitedAiQuestions: true,
     });
     mockGenerateContent.mockResolvedValue({
@@ -128,6 +129,7 @@ describe('POST /api/quiz/ai-generate-thumbnail', () => {
     mockVerify.mockResolvedValue('uid-free');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: false,
+      hasCreatorEntitlements: false,
       hasUnlimitedAiQuestions: false,
     });
     const res = await POST(

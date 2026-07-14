@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { fetchProPricesFromStripe } from '@/services/billing-prices';
+import { fetchPlanPricesFromStripe } from '@/services/billing-prices';
 
 export const revalidate = 3600;
 
 export async function GET(): Promise<NextResponse> {
   try {
-    const prices = await fetchProPricesFromStripe();
+    const prices = await fetchPlanPricesFromStripe();
     return NextResponse.json(prices);
   } catch (error) {
     console.error('[billing/prices] error:', error);
@@ -15,3 +15,4 @@ export async function GET(): Promise<NextResponse> {
     );
   }
 }
+

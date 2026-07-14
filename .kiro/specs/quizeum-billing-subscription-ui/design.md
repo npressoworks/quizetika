@@ -381,3 +381,267 @@ type ProPriceUiState =
 
 - ギャップ分析: `.kiro/specs/quizetika-billing-subscription-ui/research.md` Phase 2 節
 - Upstream billing: `.kiro/specs/quizetika-core/design.md` Phase 13 節
+
+---
+
+## Phase 3: 複数有料プラン表示への拡張と Creator への改名（2026-07-13）
+
+### Overview（本フェーズ）
+`quizetika-core` Phase 41 の tier 多層化に合わせ、`/pricing` を「Pro カード1枚のハードコード」から「プラン定義配列に基づく複数カード表示」へ改定する。旧 Pro は表示・内部識別子とも Creator に改名し、中間価格帯の新プラン Player を追加する。購読開始時はプラン（`player` | `creator`）選択が必須になる。
+
+### Goals（Phase 3）
+- Free / Player / Creator の3プランを同一画面に並列表示し、将来プラン追加時もカード列挙のみで拡張できる構造にする（要件11.3–11.4）。
+- 購読開始 CTA がプラン単位で独立し、Player→Creator のアップグレード、Creator→Player のダウングレード拒否を正しく扱う（要件11.7–11.9）。
+- 旧「Pro」表記を全画面表示から除去する（要件11.1–11.2）。
+
+### Non-Goals（Phase 3）
+- Premium tier 販売 UI（要件11.12）。
+- クイズ限定公開・AI 作問アシスタントのアクセス制御 UI（要件11.13、`quizetika-creator-dash-ui` / `quizetika-ui-editor` / `quizetika-ai-quiz-authoring` が担当）。
+- `player` / `creator` の具体的金額決定（`quizetika-core` の運用設定）。
+
+### Boundary Commitments（Phase 3 差分）
+
+**This Spec Owns（追加）**
+- プラン一覧描画のためのプラン定義配列（`pricing-display.ts` を `tier: 'free' | 'player' | 'creator'` の配列へ拡張）。
+- 購読開始 UI 上でのプラン選択（`player` | `creator`）と、選択されたプランを Checkout API へ渡すクライアント操作。
+
+**Out of Boundary（追加）**
+- `player` / `creator` tier の capability 判定（`hasCreatorEntitlements` 等）ロジック自体（`quizetika-core` が正本、UI は結果表示のみ）。
+
+**Revalidation Triggers（追加）**
+- `GET /api/billing/prices` のレスポンス形状が `{ player, creator }` から変わった場合。
+- `POST /api/billing/checkout-session` のリクエストボディに `plan` フィールドが必須化された契約が変わった場合。
+
+### Architecture（Phase 3 差分）
+
+**既存アーキテクチャ分析**: Phase 2 で確立した「Thin Client + Hosted Redirect + Server-sourced Price Quotes」パターンを維持する。変更点は (1) 単一 `ProPlanCard` を tier 非依存の汎用 `PaidPlanCard` に一般化し、プラン定義配列から複数枚レンダリングする、(2) Prices API・Checkout API の消費形状を tier 別に対応させる、の2点。
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant PricingPage
+    participant BillingClient
+    participant PricesAPI as PricesAPI_core
+    participant CheckoutAPI as CheckoutAPI_core
+
+    User->>PricingPage: open /pricing
+    PricingPage->>BillingClient: fetchPlanPrices
+    BillingClient->>PricesAPI: GET no auth
+    PricesAPI-->>BillingClient: player creator monthly yearly labels
+    BillingClient-->>PricingPage: PricesReady
+    PricingPage->>User: render FreeCard PlayerCard CreatorCard
+    User->>PricingPage: subscribe click on PlayerCard
+    PricingPage->>BillingClient: startCheckout plan player interval
+    BillingClient->>CheckoutAPI: POST plan interval Bearer
+    CheckoutAPI-->>BillingClient: sessionUrl
+```
+
+**Key Decisions**:
+- `PricingPage` はプラン定義配列（`pricing-display.ts` の `PAID_PLAN_DISPLAYS`）を `.map()` で描画し、プラン数が増えてもレイアウト分岐コードを追加しない（要件11.4）。
+- `PaidPlanCard` は `tier: 'player' | 'creator'` を props で受け取り、価格・特典・CTA 文言をプラン定義から解決する単一実装とする（`ProPlanCard` の tier 決め打ちを解消）。
+
+### File Structure Plan（Phase 3）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/components/pricing/pro-plan-card.tsx` | Rename → `paid-plan-card.tsx` | `tier: 'player' \| 'creator'` を props に持つ汎用有料プランカード。旧 `ProPlanCard` の状態機械（loading/ready/error）はそのまま踏襲 |
+| `src/components/pricing/paid-plan-card.module.css` | Rename（`pro-plan-card.module.css` から） | スタイル定義そのまま |
+| `src/lib/pricing-display.ts` | Modify | `tier: 'free' \| 'player' \| 'creator'` の配列 `PAID_PLAN_DISPLAYS` を定義。Player は特典を「広告非表示・ウミガメAI質問無制限」の2件、Creator は既存4件（要件11.2, 11.6） |
+| `src/lib/billing-client.ts` | Modify | `fetchProPrices()` → `fetchPlanPrices()`（`{ player: PlanPriceQuote; creator: PlanPriceQuote }` を返す）。`startCheckoutSession(plan, interval)` へ `plan` 引数追加 |
+| `src/app/pricing/page.tsx` | Modify | `FreePlanCard` + `PAID_PLAN_DISPLAYS.map(tier => <PaidPlanCard tier={tier} />)` の3枚描画に変更 |
+| `src/lib/pricing-entitlement.ts` | Modify | `subscriptionTier === 'pro'` 判定を `'player' \| 'creator' \| 'premium'` へ拡張。`ctaMode` の解決に「どのプランに契約中か」を追加（Player→Creator アップグレード導線判定のため） |
+
+### Requirements Traceability（Phase 3）
+
+| Requirement | Summary | Components | Interfaces | Flows |
+|-------------|---------|------------|------------|-------|
+| 11.1–11.2 | Pro→Creator 改名 | `PaidPlanCard`, `pricing-display` | — | — |
+| 11.3–11.6 | プラン一覧拡張表示 | `PricingPage`, `PaidPlanCard`, `pricing-display` | Prices API | 描画フロー |
+| 11.7–11.9 | 購読開始時プラン選択 | `PaidPlanCard`, `billing-client` | Checkout API | Checkout フロー |
+| 11.10–11.11 | 契約状態の視覚的表示（多プラン） | `SubscriptionStatusBadge`, `pricing-entitlement` | Auth `User` | CTA 分岐 |
+| 11.12–11.13 | 境界（Premium・隣接UI 外） | — | — | — |
+
+### Components and Interfaces（Phase 3 差分）
+
+| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
+|-----------|---------------|--------|---------------|---------------------|-----------|
+| `PaidPlanCard`（`ProPlanCard` を一般化） | UI | tier 非依存の有料プランカード | 11.1–11.9 | `billing-client` (P0), `pricing-display` (P0) | State |
+| `pricing-display`（改修） | lib | Player/Creator 両プラン定義の正本 | 11.2, 11.6 | — | State |
+| `billing-client`（改修） | lib | tier 別価格取得・plan 指定 Checkout | 11.7–11.9 | `quizetika-core` Prices/Checkout API (P0) | API |
+
+#### Lib Layer — billing-client（Phase 3 拡張）
+
+```typescript
+export type PaidPlanTier = 'player' | 'creator';
+
+export interface PlanPriceQuote {
+  monthly: { amount: number; currency: 'jpy'; label: string };
+  yearly: { amount: number; currency: 'jpy'; label: string };
+  savingsLabel?: string;
+}
+
+export async function fetchPlanPrices(): Promise<Record<PaidPlanTier, PlanPriceQuote>>;
+export async function startCheckoutSession(
+  plan: PaidPlanTier,
+  interval: 'monthly' | 'yearly'
+): Promise<{ sessionUrl: string }>;
+```
+- `fetchPlanPrices`: 認証不要の `GET /api/billing/prices`。旧 `fetchProPrices` を置き換える（レスポンス形状が破壊的に変わるため関数名も変更し、呼び出し漏れをコンパイルエラーで検出させる）。
+- `startCheckoutSession` は `plan` を必須第一引数とする（旧シグネチャは `interval` のみだったため全呼び出し元の更新が必要）。
+
+**Implementation Notes**
+- Integration: `PaidPlanCard` は自身の `tier` props に対応する `prices[tier]` のみを参照する。契約中プランと異なるプランのカードを表示する際は `ctaMode: 'change-plan'`（Phase 4、要件12 参照）を `pricing-entitlement.ts` から受け取る。
+- Validation: 契約中プランと同一のカードには契約中バッジを表示し、購読/変更 CTA を出さない。
+- Risks: 2プラン分の価格取得が両方成功しないと画面全体が `PriceError` になる設計を維持するか、プラン単位で個別エラー表示するかは実装時に決定する（初版は簡潔さを優先し画面全体エラーで統一し、`research.md` に記録）。
+
+### System Flows（Phase 3 追加）
+
+```mermaid
+stateDiagram-v2
+    [*] --> Guest
+    [*] --> FreeTier
+    [*] --> PlayerActive
+    [*] --> CreatorActive
+    FreeTier --> PlayerCheckout: subscribe Player
+    FreeTier --> CreatorCheckout: subscribe Creator
+    PlayerActive --> ChangePlanPending: switch to Creator
+    CreatorActive --> ChangePlanPending: switch to Player
+    PlayerActive --> PortalPending: manage click
+    CreatorActive --> PortalPending: manage click
+```
+**Key Decisions**: `PlayerActive`/`CreatorActive` からの相互遷移は新規 Checkout や Portal ではなく、Phase 4 で追加するプラン変更 API（`ChangePlanPending`）を経由する（詳細は下記 Phase 4 節）。
+
+### Testing Strategy（Phase 3 追加分）
+
+| 種別 | 検証 |
+|---|---|
+| Unit | `pricing-display` — `PAID_PLAN_DISPLAYS` が `player`/`creator` の順で2件、各々の特典件数が仕様通り（Player 2件、Creator 4件）であること |
+| Unit | `fetchPlanPrices` — `{ player, creator }` 形状のレスポンスを正しくパースすること |
+| Integration | `PricingPage` — Free/Player/Creator の3カードがこの順で描画されること |
+| E2E | `/pricing` 表示後、Free/Player/Creator 各カードに価格ラベルまたはエラー文言が現れること |
+
+**Effort**: **M**（既存単一プランコンポーネントの一般化 + プラン定義配列化 + API 消費形状変更への追随）
+**Risk**: **Medium**（`quizetika-core` の API 契約変更と同時実装が前提のため、依存順を誤ると型不整合が発生する）
+
+**Document Status（Phase 3 設計）**: 本節に反映。`quizetika-core` design.md Phase 41 節の Prices/Checkout API 契約と整合済み。
+
+---
+
+## Phase 4: Player・Creator 間のプラン変更 UI（2026-07-13）
+
+### Overview（本フェーズ）
+`quizetika-core` 要件35 が提供するプラン変更 API（`POST /api/billing/change-plan`）を消費し、契約中の Player・Creator ユーザーが解約・再契約なしにプランを切り替えられる CTA を `/pricing` に追加する。アップグレード（Player→Creator）は即時実行、ダウングレード（Creator→Player）は失われる特典を明示する確認ダイアログを経て実行する。
+
+### Goals（Phase 4）
+- 契約中プランと異なる有料プランカードに「切り替える」CTA を表示し、新規 Checkout を経由せずプランを変更できる（要件12.1, 12.4）。
+- ダウングレード時は失う特典（限定公開・AI作問アシスタント）を確認ダイアログで明示する（要件12.4）。
+
+### Non-Goals（Phase 4）
+- プラン変更処理そのもの（Stripe サブスクリプション更新・比例配分）— `quizetika-core` が担当。
+- `free` への解約フロー（既存 Portal 経由のまま変更なし）。
+
+### Boundary Commitments（Phase 4）
+
+**This Spec Owns**
+- プラン変更 CTA・ダウングレード確認ダイアログの UI。
+- プラン変更 API の呼び出し、ローディング・エラー表示。
+
+**Out of Boundary**
+- `POST /api/billing/change-plan` のサーバー実装、Stripe `subscriptions.update()`、比例配分計算（`quizetika-core` 要件35）。
+
+**Allowed Dependencies**
+- `quizetika-core`（P0）: プラン変更 API。
+- 既存 `useAuth` / `refreshUser`（P0）。
+
+**Revalidation Triggers**
+- プラン変更 API のリクエスト/レスポンス契約変更。
+
+### Architecture（Phase 4）
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant PaidPlanCard
+    participant ConfirmDialog as DowngradeConfirmDialog
+    participant BillingClient
+    participant ChangePlanAPI as ChangePlanAPI_core
+
+    User->>PaidPlanCard: 切り替える CTA クリック（アップグレード）
+    PaidPlanCard->>BillingClient: changePlan targetPlan
+    BillingClient->>ChangePlanAPI: POST change-plan Bearer
+    ChangePlanAPI-->>BillingClient: 200
+    BillingClient-->>PaidPlanCard: 成功
+    PaidPlanCard->>PaidPlanCard: refreshUser
+
+    User->>PaidPlanCard: 切り替える CTA クリック（ダウングレード）
+    PaidPlanCard->>ConfirmDialog: open 失われる特典一覧
+    User->>ConfirmDialog: 確定
+    ConfirmDialog->>BillingClient: changePlan targetPlan
+    BillingClient->>ChangePlanAPI: POST change-plan Bearer
+    ChangePlanAPI-->>BillingClient: 200
+    BillingClient-->>PaidPlanCard: 成功
+    PaidPlanCard->>PaidPlanCard: refreshUser
+```
+
+**Key Decisions**:
+- アップグレードは確認ダイアログなしで即時実行し、ダウングレードのみ確認ダイアログを挿む（要件12.1, 12.4、ユーザーヒアリングで確定）。
+- ダイアログの表示内容（失われる特典一覧）は `pricing-display.ts` の Creator 特典定義から Player 特典定義を差分抽出して生成し、特典文言のハードコードを避ける。
+
+### File Structure Plan（Phase 4）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/lib/billing-client.ts` | Modify | `changePlan(targetPlan: PaidPlanTier): Promise<{ tier: PaidPlanTier }>` を追加 |
+| `src/components/pricing/paid-plan-card.tsx` | Modify | 契約中プランと異なるプランのカードに「切り替える」CTA を表示。ダウングレード方向の場合は `DowngradeConfirmDialog` を開く |
+| `src/components/pricing/downgrade-confirm-dialog.tsx` | New | Creator→Player ダウングレード時の確認ダイアログ。失われる特典一覧（`pricing-display.ts` の Creator/Player 特典差分）を表示し、確定/キャンセルを受け付ける |
+| `src/lib/pricing-entitlement.ts` | Modify | `ctaMode` に `'change-plan'` を追加し、契約中 tier と表示対象 tier の関係（同一/アップグレード方向/ダウングレード方向）を解決するヘルパーを追加 |
+
+### Requirements Traceability（Phase 4）
+
+| Requirement | Summary | Components | Interfaces | Flows |
+|-------------|---------|------------|------------|-------|
+| 12.1–12.3 | アップグレード即時実行 | `PaidPlanCard`, `billing-client` | Change Plan API | アップグレードフロー |
+| 12.4–12.7 | ダウングレード確認ダイアログ | `PaidPlanCard`, `DowngradeConfirmDialog`, `billing-client` | Change Plan API | ダウングレードフロー |
+| 12.8–12.10 | エラー処理 | `PaidPlanCard`, `billing-client` | Change Plan API | — |
+| 12.11–12.12 | 境界（core・Portal 外） | — | — | — |
+
+### Components and Interfaces（Phase 4）
+
+| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies | Contracts |
+|-----------|---------------|--------|---------------|---------------------|-----------|
+| `PaidPlanCard`（Phase 4 拡張） | UI | プラン変更 CTA・状態管理 | 12.1–12.3, 12.8–12.10 | `billing-client` (P0) | State |
+| `DowngradeConfirmDialog` | UI | ダウングレード確認・特典喪失明示 | 12.4–12.6 | `pricing-display` (P0) | State |
+
+#### Lib Layer — billing-client（Phase 4 拡張）
+```typescript
+export async function changePlan(
+  targetPlan: PaidPlanTier
+): Promise<{ tier: PaidPlanTier }>;
+```
+- 認証必須の `POST /api/billing/change-plan`。失敗時 `BillingClientError`（code: `unauthorized` | `no-active-subscription` | `same-plan` | `unknown`）。
+
+##### API Contract（消費）
+| Method | Endpoint | Request | Response | Errors |
+|--------|----------|---------|----------|--------|
+| POST | `/api/billing/change-plan` | `{ targetPlan: 'player' \| 'creator' }` | `{ tier; status }` | 400, 401, 403, 409 |
+
+**Implementation Notes**
+- Integration: `PaidPlanCard` の CTA ラベルは契約中 tier との相対位置で決定する（`player` 契約中に Creator カードを見ている場合は「Creator に切り替える」、逆は「Player に切り替える」）。
+- Validation: `changePlan` 呼び出し中はボタンを disabled にし、成功時のみ `refreshUser()` を呼ぶ（失敗時は状態を変更しない）。
+- Risks: ダウングレード確定後、Webhook 反映が遅延する間は契約状態表示が旧プランのまま — Phase 2 由来の「反映待ち」パターンをここでも踏襲する。
+
+### Testing Strategy（Phase 4 追加分）
+
+| 種別 | 検証 |
+|---|---|
+| Unit | `changePlan` — 200 レスポンスのパース、409/403 の `BillingClientError` |
+| Integration | `PaidPlanCard` — Player 契約中に Creator カードで「Creator に切り替える」CTA をクリックすると確認ダイアログなしで `changePlan('creator')` が呼ばれること（12.1） |
+| Integration | `PaidPlanCard` — Creator 契約中に Player カードで CTA をクリックすると `DowngradeConfirmDialog` が開き、Stripe 呼び出しは確定操作まで発生しないこと（12.4, 12.5） |
+| Integration | `DowngradeConfirmDialog` — 表示される特典喪失一覧に「クイズ限定公開」「AI 作問アシスタント」が含まれること（12.4） |
+| Integration | `DowngradeConfirmDialog` — キャンセル選択時に `changePlan` が呼ばれず契約状態が変わらないこと（12.6） |
+| E2E | Player 契約中ユーザーが `/pricing` から Creator へ切り替え、契約中バッジが Creator に変わることを確認 |
+
+**Effort**: **M**（新規コンポーネント1つ、既存カードへの CTA 分岐追加、API 消費追加）
+**Risk**: **Medium**（ダウングレード確認フローの分岐漏れは意図しない特典喪失につながるため、ダイアログ経由必須のテストを重点的に行う）
+
+**Document Status（Phase 4 設計）**: 本節に反映。`quizetika-core` design.md 要件35 節の Change Plan API 契約と整合済み。

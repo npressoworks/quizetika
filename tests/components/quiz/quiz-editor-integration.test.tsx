@@ -39,6 +39,7 @@ jest.mock('@/context/auth-context', () => ({
 
 jest.mock('@/lib/pricing-entitlement', () => ({
   hasUnlimitedAiQuestionsForUser: () => true, // Proユーザーに設定
+  hasAiAuthoringEntitlementsForUser: () => true,
 }));
 
 // Firestore / Service のモック

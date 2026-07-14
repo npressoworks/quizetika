@@ -1,4 +1,4 @@
-# Implementation Plan: quizetika-core
+﻿# Implementation Plan: quizetika-core
 
 ## Tasks
 
@@ -536,35 +536,35 @@
 
 ### 12. Phase 12 拡張 — スマートサジェスト向けデータ提供と検索ログ（2026-06）
 
-- [ ] 12.1 (P) 検索ログ記録用モジュールと `writeSearchLog` の実装
+- [x] 12.1 (P) 検索ログ記録用モジュールと `writeSearchLog` の実装
   - `src/lib/search-log.ts` を作成し、認証ユーザーが空でないキーワードまたはタグで検索した際に `search_logs` コレクションにログを記録する `writeSearchLog` を実装する。
   - エラー発生時は呼び出し元（検索処理）を中断せず、エラーログ出力のみでサイレントに無視する。未認証時や空クエリ時は早期リターンする。
   - **完了状態**: ユニットテストが通り、指定条件下で `search_logs` ドキュメントが正しく生成されること。
   - _Requirements: 18.11, 18.12, 18.13, 18.14, 18.15, 18.16_
   - _Boundary: search-log_
 
-- [ ] 12.2 週間人気ジャンル集計 API エンドポイントの実装
+- [x] 12.2 週間人気ジャンル集計 API エンドポイントの実装
   - `src/app/api/genres/weekly-top/route.ts` を作成し、直近7日間に完了した `attempts` の中からプレイ件数（完了数）の多い順にジャンルTop5を返すAPIを実装する。
   - 不足分はダミーデータで埋めず、Next.js revalidate による30分（1800秒）キャッシュを適用する。
   - **完了状態**: API が正しいソート順で `{ genres: GenreWeeklyEntry[] }` を返し、テストスイートがパスすること。
   - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5_
   - _Boundary: API Layer_
 
-- [ ] 12.3 週間人気ワード／タグ集計 API エンドポイントの実装
+- [x] 12.3 週間人気ワード／タグ集計 API エンドポイントの実装
   - `src/app/api/search/weekly-top/route.ts` を作成し、直近7日間の `search_logs` から人気ワードTop5および人気タグTop5を別フィールドとして返すAPIを実装する。
   - revalidate による30分キャッシュを適用する。
   - **完了状態**: API が `{ keywords: string[], tags: string[] }` を件数順ソートで返し、テストスイートがパスすること。
   - _Requirements: 18.6, 18.7, 18.8, 18.9, 18.10_
   - _Boundary: API Layer_
 
-- [ ] 12.4 統合検索 `searchQuizzes` へのログ記録組み込み
+- [x] 12.4 統合検索 `searchQuizzes` へのログ記録組み込み
   - `src/services/quiz.ts` の `searchQuizzes` 内で、検索キーワードやタグが存在する場合に `writeSearchLog` を fire-and-forget で呼び出すよう修正する。
   - **完了状態**: `searchQuizzes` 呼び出しにより検索ログがサイレントに記録されるが、書き込み失敗時も検索処理自体は正常終了すること。
   - _Requirements: 18.11, 18.12, 18.13_
   - _Depends: 12.1_
   - _Boundary: QuizService_
 
-- [ ] 12.5 Phase 12 統合検証
+- [x] 12.5 Phase 12 統合検証
   - 検索ログ記録、二系統の週間集計APIが正常に動作し、既存の検索機能が破壊されていないことを Jest で検証する。
   - **完了状態**: スマートサジェストデータ提供機能に関連するテストスイートがすべてグリーンであること。
   - _Depends: 12.2, 12.3, 12.4_
@@ -842,109 +842,146 @@
   - Phase 14 真相 AI 意味判定・Phase 16 プレイ UX（統合入力・経過時間・固定不合格メッセージ）の回帰がないことを確認する
   - 全コアテストスイートがグリーンであることを確認する
   - **完了状態**: 既存テストに回帰がなく、Phase 17 の受け入れ基準が満たされること
-  - _Depends: 17.2, 17.4, 17.5, 17.6, 17.8_
-  - _Requirements: 4.5, 4.13, 4.14, 4.15, 4.16, 4.17, 4.18, 4.19, 4.20, 4.25, 4.27_
+  - _Depends: 17.### 29. Phase 41: 有料プランの多層化・二重課金防止・プラン変更 (2026-07-13)
+
+- [x] 29.1 (P) tier→capability マッピングの実装
+  - `entitlement-shared.ts` に `SubscriptionCapability` 型（`ad_free` / `unlimited_ai_questions` / `quiz_visibility_control` / `ai_authoring_assist`）と tier ごとの capability 集合マップを追加する
+  - `computeUserEntitlements()` の戻り値に `hasCreatorEntitlements` フィールドを追加する（`creator`/`premium` かつ有効契約のときのみ true）
+  - **完了状態**: `free`/`player`/`creator`/`premium` × 契約状態の全組み合わせに対し `hasPaidEntitlements`・`hasUnlimitedAiQuestions`・`hasCreatorEntitlements` が仕様通りの値を返す単体テストがグリーンであること
+  - _Requirements: 33.1, 33.2, 33.14, 33.15_
+  - _Boundary: EntitlementShared_
+
+- [x] 29.2 (P) tier定義の拡張と Price ID 解決 of tier 引数化
+  - `subscription-plans.ts` に `player` tier 定義を追加し、既存 `pro` エントリの `tier` フィールド値を `creator` に変更する
+  - `getPriceIdForInterval()` を tier 引数を取る形へシグネチャ変更する
+  - **完了状態**: `getPriceIdForInterval('player', 'monthly')` と `getPriceIdForInterval('creator', 'yearly')` がそれぞれ正しい Price ID を返すこと
+  - _Requirements: 33.1, 33.4, 33.17_
+  - _Boundary: SubscriptionPlans_
+
+- [x] 29.3 (P) クイズ限定公開ゲートの判定切り替え
+  - `quiz-access.ts` の `canAccessProVisibility()` の判定を `hasPaidEntitlements` から `hasCreatorEntitlements` へ変更する
+  - `ProRequiredForVisibilityError` のメッセージ文言を Creator 表記へ更新する
+  - **完了状態**: `player` tier のエンタイトルメントで `canAccessProVisibility()` が `false` を返し、`creator`/`premium` では `true` を返すこと
+  - _Requirements: 33.14, 33.15_
+  - _Depends: 29.1_
+  - _Boundary: QuizAccessGate_
+
+- [x] 29.4 (P) AI作問アシスタントゲートの判定切り替え
+  - `ai-authoring-utils.ts` の `canAccessAiAuthoring()` の判定を `hasCreatorEntitlements` ベースへ変更する
+  - **完了状態**: `player` tier のエンタイトルメントで `canAccessAiAuthoring()` が `false` を返し、`creator`/`premium` では `true` を返すこと
+  - _Requirements: 33.14, 33.15_
+  - _Depends: 29.1_
+  - _Boundary: AiAuthoringGate_
+
+- [x] 29.5 (P) 広告表示判定の一本化
+  - `useAds.ts` の独自 tier 文字列比較ロジックを削除し、`computeUserEntitlements().hasPaidEntitlements` を参照する形へ置き換える
+  - **完了状態**: `player`/`creator`/`premium` いずれの有効契約でも広告が非表示になり、`free` では表示されること
+  - _Requirements: 33.14_
+  - _Depends: 29.1_
+  - _Boundary: UseAdsHook_
+
+- [x] 29.6 (P) tier別価格取得サービスの実装
+  - `billing-prices.ts` の `fetchProPricesFromStripe()` を `fetchPlanPricesFromStripe()` に置き換え、`player`・`creator` 両方の月額・年額価格を取得して返すよう変更する
+  - **完了状態**: Stripe mock に対して2 tier 分の Price ID で `prices.retrieve` が呼ばれ、`{ player, creator }` 形状のオブジェクトが返ること
+  - _Requirements: 33.4_
+  - _Depends: 29.2_
+  - _Boundary: BillingPrices_
+
+- [x] 29.7 価格取得APIのレスポンス形状変更
+  - `/api/billing/prices` route を `fetchPlanPricesFromStripe()` を呼び出す形へ更新し、レスポンスを `{ player, creator }` 形状で返す
+  - **完了状態**: `GET /api/billing/prices` が新形状のJSONを返し、既存の単一 tier 形状を返さないこと
+  - _Requirements: 33.4_
+  - _Depends: 29.6_
+  - _Boundary: BillingPricesAPI_
+
+- [x] 29.8 購読開始APIのプラン引数化と重複拒否
+  - `subscription.ts` の `createCheckoutSession()` に `plan: 'player' | 'creator'` 引数を追加する
+  - 既存有効契約（`player`/`creator` いずれか）を持つユーザーからの新規購読開始要求を、プラン変更（29.16）を案内するエラーで拒否する
+  - **完了状態**: `plan` 引数に応じて対応する Price ID で Checkout Session が作成され、既存契約者からの新規購読要求が拒否されること
+  - _Requirements: 33.8, 33.9, 33.10, 33.11, 33.12_
+  - _Depends: 29.2_
+  - _Boundary: SubscriptionService_
+
+- [x] 29.9 購読開始APIルートのプラン検証
+  - `/api/billing/checkout-session` route のリクエストボディから `plan` を検証・伝搬する
+  - **完了状態**: `plan` が `player`/`creator` 以外の場合に 400 を返すこと
+  - _Requirements: 33.8_
+  - _Depends: 29.8_
+  - _Boundary: CheckoutSessionAPI_
+
+- [x] 29.10 (P) Webhookの有料判定一般化
+  - `stripe-webhook.ts` の `buildSnapshotFromSubscription()` の有料判定を `mappedTier === 'pro' || mappedTier === 'premium'` から `mappedTier !== 'free'` へ変更する
+  - **完了状態**: `player` tier にマッピングされる Price ID を持つ Subscription イベントで `isPremium` 相当の有料フラグが `true` になること
+  - _Requirements: 33.5, 33.6, 33.7, 33.16_
+  - _Depends: 29.2_
+  - _Boundary: StripeWebhookAPI_
+
+- [x] 29.11 (P) 既存 `pro` 契約者データの `creator` への移行
+  - `UPDATE users SET subscription_tier = 'creator' WHERE subscription_tier = 'pro'` を含む Supabase migration ファイルを追加する
+  - **完了状態**: migration 実行後、`subscription_tier = 'pro'` の行が0件になり、他フィールド（`stripe_subscription_id` 等）が変化しないこと
+  - _Requirements: 33.5, 33.6, 33.7_
+  - _Boundary: Migration_
+
+- [x] 29.12 (P) 重複サブスクリプション検知・解約・返金サービスの実装
+  - `duplicate-subscription-guard.ts` を新規作成し、指定 Stripe 顧客の有効サブスクリプション一覧を取得、2件以上ある場合は作成日時が最古の1件を残して他を解約、解約分の直近支払い済みInvoiceを全額返金する関数を実装する
+  - **完了状態**: 作成日時が異なる2件の有効サブスクリプションを渡した Stripe mock に対し、新しい方が解約・返金され古い方のIDが返る単体テストがグリーンであること
+  - _Requirements: 34.4, 34.5, 34.6, 34.7_
+  - _Boundary: DuplicateSubscriptionGuard_
+
+- [x] 29.13 (P) 重複インシデント監査テーブルの追加
+  - `billing_duplicate_subscription_incidents` テーブルを作成する Supabase migration を追加する（クライアントアクセス不可）
+  - **完了状態**: migration 適用後にテーブルが存在し、Admin クライアント以外からの読み書きが RLS で拒否されること
+  - _Requirements: 34.7_
+  - _Boundary: Migration_
+
+- [x] 29.14 購読開始時のライブ重複チェック統合
+  - `createCheckoutSession()` に、DBキャッシュではなく Stripe 側の顧客の有効サブスクリプション一覧をライブ参照する事前チェックを追加する
+  - **完了状態**: DB上は `free` だが Stripe上に既に有効なサブスクリプションが存在するケースで購読開始が拒否されること
+  - _Requirements: 34.1, 34.2_
+  - _Depends: 29.8_
+  - _Boundary: SubscriptionService_
+
+- [x] 29.15 Webhookへの重複検知統合
+  - `handleStripeSubscriptionEvent()` の冒頭で `duplicate-subscription-guard.ts` の解決関数を呼び出し、返された正のサブスクリプションのみを `applySubscriptionFromStripe()` に渡すよう統合する
+  - **完了状態**: 重複解約が発生したイベントで `users.subscription_tier` が正のサブスクリプションの tier のみに更新されること
+  - _Requirements: 34.3, 34.4, 34.6_
+  - _Depends: 29.10, 29.12_
+  - _Boundary: StripeWebhookAPI_
+
+- [x] 29.16 プラン変更サービスの実装
+  - `subscription.ts` に `changeSubscriptionPlan(uid, targetPlan)` を追加し、既存サブスクリプションの `items` を対象 Price ID へ `proration_behavior: 'create_prorations'` で更新する。同一プラン指定時は例外をスローする
+  - **完了状態**: `player`→`creator` 指定で Stripe `subscriptions.update` が正しい Price ID・`proration_behavior` で呼ばれ、同一tier指定時は Stripe API を呼ばず例外がスローされること
+  - _Requirements: 35.1, 35.2, 35.3, 35.4, 35.5, 35.6, 35.7, 35.8_
+  - _Depends: 29.8_
+  - _Boundary: SubscriptionService_
+
+- [x] 29.17 プラン変更APIルートの実装
+  - `POST /api/billing/change-plan` route を新規作成し、Bearer認証・`targetPlan` 検証のうえ `changeSubscriptionPlan()` を呼び出す
+  - **完了状態**: 有料契約なしユーザーからの呼び出しが403を返し、有効な `player`/`creator` 契約者からの呼び出しが200でtierを返すこと
+  - _Requirements: 35.1, 35.2, 35.3, 35.4_
+  - _Depends: 29.16_
+  - _Boundary: ChangePlanAPI_
+
+- [x] 29.18 (P) Phase 41 単体テストの追加
+  - capability マップ、tier引数化、重複検知、プラン変更の各関数について、tier×状態の境界値を含む単体テストを追加する
+  - **完了状態**: Phase 41 で変更・追加した全関数の単体テストがグリーンでパスすること
+  - _Requirements: 33.1, 33.2, 33.14, 33.15, 34.4, 34.5, 35.1, 35.2, 35.5, 35.6_
+  - _Depends: 29.9, 29.14, 29.15, 29.17_
   - _Boundary: Testing_
 
----
-
-### 18. Phase 18: 模擬試験・フラッシュカード LB 非対象（2026-06-09）
-
-- [x] 18.1 LB 登録対象モード判定の拡張
-  - 模擬試験・フラッシュカードの完了試行を、初回プレイ・リプレイいずれのクイズ単位ランキング更新対象から除外する
-  - ゲスト・テストプレイに加え exam / flashcard を非対象とし、通常・弱点克服・リスト・問題リスト等は引き続き対象とする
-  - **完了状態**: 登録対象判定が exam / flashcard で false、認証済み normal で true を返すこと
-  - _Requirements: 9.1, 9.2, 9.3, 9.12_
-  - _Boundary: leaderboard-update_
-
-- [x] 18.2 解答永続化経路の初回／リプレイ振り分け整合
-  - ランキング登録対象の試行保存時のみ、同一ユーザー・同一クイズの**全モード**完了件数（test-play 除く）で初回／リプレイを決定する既存契約を維持する
-  - exam / flashcard 完了時は attempt 保存と playCount 加算のみ行い、両ランキング配列を更新しないことを確認する
-  - exam 先プレイ後の通常モード完了がリプレイランキングのみ更新されることを確認する
-  - **完了状態**: saveAttempt および真相合格完了経路が設計どおり振り分けられ、コード変更が不要な箇所は回帰テストで固定されること
-  - _Requirements: 9.4, 9.5, 9.6_
-  - _Depends: 18.1_
-  - _Boundary: AttemptService, VerifyTruthAPI_
-
-- [x] 18.3 (P) Phase 18 単体・統合テスト
-  - 登録対象判定と更新ペイロード組み立ての単体テストを追加する
-  - 模擬試験単独完了で両ランキングが更新されないこと、exam → normal で replay のみ更新されることを統合テストで検証する
-  - review / list 等が引き続き対象であることを明示テストする
-  - **完了状態**: 関連 Jest がグリーンであり、既存 normal 初回／リプレイ LB テストに回帰がないこと
-  - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.12_
-  - _Depends: 18.1, 18.2_
+- [x] 29.19 (P) Phase 41 結合テストの追加
+  - 購読開始API・Webhook・プラン変更APIの結合テストを追加し、重複購読拒否・重複解約返金・プラン切替後のtier反映を検証する
+  - **完了状態**: Phase 41 に関連する全結合テストがグリーンでパスすること
+  - _Requirements: 33.8, 33.9, 33.10, 33.11, 34.1, 34.2, 34.3, 35.7, 35.8_
+  - _Depends: 29.9, 29.14, 29.15, 29.17_
   - _Boundary: Testing_
 
-- [x] 18.4 Phase 18 統合検証
-  - 順位規則・上位5件保持・ウミガメ合格時 LB 更新（要件 9.7–9.11）が Phase 5 資産のまま維持されることを回帰確認する
-  - 全コアテストスイートがグリーンであることを確認する
-  - **完了状態**: Phase 18 受け入れ基準を満たし、要件 9.13–9.14（警告 UI）は play-flow-ui 側タスクに委譲されていること
-  - _Requirements: 9.7, 9.8, 9.9, 9.10, 9.11_
-  - _Depends: 18.3_
-  - _Boundary: Testing_
-
-## Implementation Notes (Phase 18)
-
-- 判定ロジックの正本は `leaderboard-update` モジュールに集約する。prior 件数カウントはモード不問の既存実装を維持する。
-- 既存 LB エントリの物理削除やマイグレーションは本フェーズ対象外（新規更新のみ制御）。
-- クイズ詳細の警告 UI は `quizetika-play-flow-ui` Phase 19 タスクで実装する。
-
----
-
-### 19. Phase 20: 〇×問題形式（`true-false`）コア整合（2026-06-09）
-
-- [x] 19.1 固定 〇／× 選択肢の生成・正規化ライブラリ
-  - `true-false` 問題向けに、正解トグル（〇／×）から固定ラベル「〇」「✕」の2選択肢を生成する純関数を実装する
-  - 既存 `choices` から正解側を推定する読み取り用関数と、保存前に ID を可能な限り維持しつつラベルと `isCorrect` を矯正する正規化関数を実装する
-  - **完了状態**: 単体テストで maru/batsu 双方の生成・正規化が期待どおり動作すること
-  - _Requirements: 20.5, 20.6, 20.8_
-  - _Boundary: true-false-defaults_
-
-- [x] 19.2 出題形式型と形式解決の拡張
-  - クイズ全体の出題形式に `true-false` を追加し、全問題が `true-false` のみのとき有効形式を `true-false` として解決する（`mixed` への誤フォールバックを除去する）
-  - 出題形式ラベル・説明・アイコンに「〇×式」を追加し、探索フィルタ（`quiz-format-match`）と整合させる
-  - **完了状態**: 単一 `true-false` クイズの `resolveQuizFormat` が `true-false` を返し、形式ラベルが「〇×式」になること
-  - _Requirements: 20.1, 20.2, 20.9, 20.10, 20.11, 20.12_
-  - _Depends: 19.1_
-  - _Boundary: quiz-format, quiz-format-labels, quiz-format-match_
-
-- [x] 19.3 公開検証と保存時正規化
-  - `true-false` 問題について選択肢2件・正解1件を公開時に検証する既存ルールを維持し、`format: 'true-false'` クイズでは全問が `true-false` であることを要求する
-  - 下書き・公開保存時に `true-false` 問題へ正規化を適用し、新規保存データの選択肢テキストが「〇」「✕」に統一されること
-  - **完了状態**: 3択・正解0件・形式不整合のクイズが公開拒否され、正規化後の保存データが検証を通過すること
-  - _Requirements: 20.3, 20.4, 20.5, 20.7_
-  - _Depends: 19.1, 19.2_
-  - _Boundary: quiz-validation, QuizService_
-
-- [x] 19.4 (P) Phase 20 単体テスト
-  - `true-false-defaults`、`resolveQuizFormat`、`validateQuizForPublish` の `true-false` 系テストを追加する
-  - 既存 `test_data.json` 相当の legacy ラベルデータが採点拒否されないことを回帰確認する（読み取り後方互換）
-  - **完了状態**: 関連 Jest がグリーンであり、既存選択式・形式フィルタテストに回帰がないこと
-  - _Requirements: 20.6, 20.7, 20.8_
-  - _Depends: 19.1, 19.2, 19.3_
-  - _Boundary: Testing_
-
-- [x] 19.5 Phase 20 統合検証
-  - `searchQuizzes` の出題形式 `true-false` フィルタが `resolveQuizFormat` と一致することを確認する
-  - 採点経路（`isChoiceAnswerCorrect`）が変更なく `true-false` で動作することを確認する
-  - **完了状態**: コアテストスイートがグリーンで、要件 20.13–20.15（UI 境界）は隣接スペックタスクに委譲されていること
-  - _Requirements: 20.9, 20.10, 20.11, 20.12_
-  - _Depends: 19.4_
-  - _Boundary: Integration_
-
-## Implementation Notes (Phase 20)
-
-- 正本は `true-false-defaults.ts` に集約。エディタ・プレイ UI は隣接スペックが担当。
-- 既存 Firestore の legacy ラベル（「○」「×」等）は読み取り・採点を継続。新規保存のみ「〇」「✕」へ正規化。
-- `saveAttempt` API・`isChoiceAnswerCorrect` の契約変更は行わない。
-
----
-
-### 20. Phase 21: ホーム向け公開クイズ一覧の段階的取得（2026-06-09）
-
-- [x] 20.1 ページング応答型とカーソルユーティリティの追加
-  - ホーム探索向けの段階的取得応答型（クイズ配列と続きカーソル）を型定義に追加する
-  - タブ別フィード用カーソル（並び種別・クイズ ID・ソートキー）の encode/decode を実装する
+- [x] 29.20 Phase 41 統合検証
+  - コア全体のテストスイートを実行し、`subscription_tier = 'pro'` の残存件数確認を含むデプロイ後検証手順を実施する
+  - **完了状態**: 全ての Jest テストがグリーンでパスし、`npm run build` がエラーなく成功し、`SELECT count(*) FROM users WHERE subscription_tier = 'pro'` が0件であること
+  - _Requirements: 33.1, 33.5, 33.6, 33.7, 34.1, 34.3, 35.1, 35.2_
+  - _Depends: 29.18, 29.19_
+  - _Boundary: Integration_�ード用カーソル（並び種別・クイズ ID・ソートキー）の encode/decode を実装する
   - 複合検索用オフセットカーソル（offset・クエリ fingerprint）の encode/decode を実装する
   - 無効・改ざんカーソルはエラーを返し、先頭ページへのサイレントフォールバックを行わないこと
   - **完了状態**: カーソル round-trip の単体テストが通り、壊れた base64 入力で例外または明示エラーになること
@@ -1543,3 +1580,150 @@
 - 実装順: 28.1 / 28.2（並行可）→ 28.3 / 28.4（並行可、いずれも28.1・28.2に依存）→ 28.5 → 28.6。
 - 28.4レビューで判明した落とし穴: モックの返り値と旧ハードコード配列の内容が偶然一致していると、テストは新実装なしでもパスしてしまい「load-bearingでないテスト」になる。NGワードのようなfixtureデータを使うテストでは、モック値・fixtureに旧実装には存在しない合成語（例: `zzz-unique-forbidden-word`）を使い、かつサービス呼び出し自体を`toHaveBeenCalled()`等で明示的に検証することで、RED phaseの偽陽性を防ぐ。
 - `ng_words` マスタ自体（テーブル・RPC・CRUDサービス）は `supabase-governance` が所有するため、本スペックのタスクは読み取りとその参照統合のみを対象とする。
+
+### 29. Phase 41: 有料プランの多層化・二重課金防止・プラン変更 (2026-07-13)
+
+- [x] 29.1 (P) tier→capability マッピングの実装
+  - `entitlement-shared.ts` に `SubscriptionCapability` 型（`ad_free` / `unlimited_ai_questions` / `quiz_visibility_control` / `ai_authoring_assist`）と tier ごとの capability 集合マップを追加する
+  - `computeUserEntitlements()` の戻り値に `hasCreatorEntitlements` フィールドを追加する（`creator`/`premium` かつ有効契約のときのみ true）
+  - **完了状態**: `free`/`player`/`creator`/`premium` × 契約状態の全組み合わせに対し `hasPaidEntitlements`・`hasUnlimitedAiQuestions`・`hasCreatorEntitlements` が仕様通りの値を返す単体テストがグリーンであること
+  - _Requirements: 33.1, 33.2, 33.14, 33.15_
+  - _Boundary: EntitlementShared_
+
+- [x] 29.2 (P) tier定義の拡張と Price ID 解決の tier 引数化
+  - `subscription-plans.ts` に `player` tier 定義を追加し、既存 `pro` エントリの `tier` フィールド値を `creator` に変更する
+  - `getPriceIdForInterval()` を tier 引数を取る形へシグネチャ変更する
+  - **完了状態**: `getPriceIdForInterval('player', 'monthly')` と `getPriceIdForInterval('creator', 'yearly')` がそれぞれ正しい Price ID を返すこと
+  - _Requirements: 33.1, 33.4, 33.17_
+  - _Boundary: SubscriptionPlans_
+
+- [x] 29.3 (P) クイズ限定公開ゲートの判定切り替え
+  - `quiz-access.ts` の `canAccessProVisibility()` の判定を `hasPaidEntitlements` から `hasCreatorEntitlements` へ変更する
+  - `ProRequiredForVisibilityError` のメッセージ文言を Creator 表記へ更新する
+  - **完了状態**: `player` tier のエンタイトルメントで `canAccessProVisibility()` が `false` を返し、`creator`/`premium` では `true` を返すこと
+  - _Requirements: 33.14, 33.15_
+  - _Depends: 29.1_
+  - _Boundary: QuizAccessGate_
+
+- [x] 29.4 (P) AI作問アシスタントゲートの判定切り替え
+  - `ai-authoring-utils.ts` の `canAccessAiAuthoring()` の判定を `hasCreatorEntitlements` ベースへ変更する
+  - **完了状態**: `player` tier のエンタイトルメントで `canAccessAiAuthoring()` が `false` を返し、`creator`/`premium` では `true` を返すこと
+  - _Requirements: 33.14, 33.15_
+  - _Depends: 29.1_
+  - _Boundary: AiAuthoringGate_
+
+- [x] 29.5 (P) 広告表示判定の一本化
+  - `useAds.ts` の独自 tier 文字列比較ロジックを削除し、`computeUserEntitlements().hasPaidEntitlements` を参照する形へ置き換える
+  - **完了状態**: `player`/`creator`/`premium` いずれの有効契約でも広告が非表示になり、`free` では表示されること
+  - _Requirements: 33.14_
+  - _Depends: 29.1_
+  - _Boundary: UseAdsHook_
+
+- [x] 29.6 (P) tier別価格取得サービスの実装
+  - `billing-prices.ts` の `fetchProPricesFromStripe()` を `fetchPlanPricesFromStripe()` に置き換え、`player`・`creator` 両方の月額・年額価格を取得して返すよう変更する
+  - **完了状態**: Stripe mock に対して2 tier 分の Price ID で `prices.retrieve` が呼ばれ、`{ player, creator }` 形状のオブジェクトが返ること
+  - _Requirements: 33.4_
+  - _Depends: 29.2_
+  - _Boundary: BillingPrices_
+
+- [x] 29.7 価格取得APIのレスポンス形状変更
+  - `/api/billing/prices` route を `fetchPlanPricesFromStripe()` を呼び出す形へ更新し、レスポンスを `{ player, creator }` 形状で返す
+  - **完了状態**: `GET /api/billing/prices` が新形状のJSONを返し、既存の単一 tier 形状を返さないこと
+  - _Requirements: 33.4_
+  - _Depends: 29.6_
+  - _Boundary: BillingPricesAPI_
+
+- [x] 29.8 購読開始APIのプラン引数化と重複拒否
+  - `subscription.ts` の `createCheckoutSession()` に `plan: 'player' | 'creator'` 引数を追加する
+  - 既存有効契約（`player`/`creator` いずれか）を持つユーザーからの新規購読開始要求を、プラン変更（29.16）を案内するエラーで拒否する
+  - **完了状態**: `plan` 引数に応じて対応する Price ID で Checkout Session が作成され、既存契約者からの新規購読要求が拒否されること
+  - _Requirements: 33.8, 33.9, 33.10, 33.11, 33.12_
+  - _Depends: 29.2_
+  - _Boundary: SubscriptionService_
+
+- [x] 29.9 購読開始APIルートのプラン検証
+  - `/api/billing/checkout-session` route のリクエストボディから `plan` を検証・伝搬する
+  - **完了状態**: `plan` が `player`/`creator` 以外の場合に 400 を返すこと
+  - _Requirements: 33.8_
+  - _Depends: 29.8_
+  - _Boundary: CheckoutSessionAPI_
+
+- [x] 29.10 (P) Webhookの有料判定一般化
+  - `stripe-webhook.ts` の `buildSnapshotFromSubscription()` の有料判定を `mappedTier === 'pro' || mappedTier === 'premium'` から `mappedTier !== 'free'` へ変更する
+  - **完了状態**: `player` tier にマッピングされる Price ID を持つ Subscription イベントで `isPremium` 相当の有料フラグが `true` になること
+  - _Requirements: 33.5, 33.6, 33.7, 33.16_
+  - _Depends: 29.2_
+  - _Boundary: StripeWebhookAPI_
+
+- [x] 29.11 (P) 既存 `pro` 契約者データの `creator` への移行
+  - `UPDATE users SET subscription_tier = 'creator' WHERE subscription_tier = 'pro'` を含む Supabase migration ファイルを追加する
+  - **完了状態**: migration 実行後、`subscription_tier = 'pro'` の行が0件になり、他フィールド（`stripe_subscription_id` 等）が変化しないこと
+  - _Requirements: 33.5, 33.6, 33.7_
+  - _Boundary: Migration_
+
+- [x] 29.12 (P) 重複サブスクリプション検知・解約・返金サービスの実装
+  - `duplicate-subscription-guard.ts` を新規作成し、指定 Stripe 顧客の有効サブスクリプション一覧を取得、2件以上ある場合は作成日時が最古の1件を残して他を解約、解約分の直近支払い済みInvoiceを全額返金する関数を実装する
+  - **完了状態**: 作成日時が異なる2件の有効サブスクリプションを渡した Stripe mock に対し、新しい方が解約・返金され古い方のIDが返る単体テストがグリーンであること
+  - _Requirements: 34.4, 34.5, 34.6, 34.7_
+  - _Boundary: DuplicateSubscriptionGuard_
+
+- [x] 29.13 (P) 重複インシデント監査テーブルの追加
+  - `billing_duplicate_subscription_incidents` テーブルを作成する Supabase migration を追加する（クライアントアクセス不可）
+  - **完了状態**: migration 適用後にテーブルが存在し、Admin クライアント以外からの読み書きが RLS で拒否されること
+  - _Requirements: 34.7_
+  - _Boundary: Migration_
+
+- [x] 29.14 購読開始時のライブ重複チェック統合
+  - `createCheckoutSession()` に、DBキャッシュではなく Stripe 側の顧客の有効サブスクリプション一覧をライブ参照する事前チェックを追加する
+  - **完了状態**: DB上は `free` だが Stripe上に既に有効なサブスクリプションが存在するケースで購読開始が拒否されること
+  - _Requirements: 34.1, 34.2_
+  - _Depends: 29.8_
+  - _Boundary: SubscriptionService_
+
+- [x] 29.15 Webhookへの重複検知統合
+  - `handleStripeSubscriptionEvent()` の冒頭で `duplicate-subscription-guard.ts` の解決関数を呼び出し、返された正のサブスクリプションのみを `applySubscriptionFromStripe()` に渡すよう統合する
+  - **完了状態**: 重複解約が発生したイベントで `users.subscription_tier` が正のサブスクリプションの tier のみに更新されること
+  - _Requirements: 34.3, 34.4, 34.6_
+  - _Depends: 29.10, 29.12_
+  - _Boundary: StripeWebhookAPI_
+
+- [x] 29.16 プラン変更サービスの実装
+  - `subscription.ts` に `changeSubscriptionPlan(uid, targetPlan)` を追加し、既存サブスクリプションの `items` を対象 Price ID へ `proration_behavior: 'create_prorations'` で更新する。同一プラン指定時は例外をスローする
+  - **完了状態**: `player`→`creator` 指定で Stripe `subscriptions.update` が正しい Price ID・`proration_behavior` で呼ばれ、同一tier指定時は Stripe API を呼ばず例外がスローされること
+  - _Requirements: 35.1, 35.2, 35.3, 35.4, 35.5, 35.6, 35.7, 35.8_
+  - _Depends: 29.8_
+  - _Boundary: SubscriptionService_
+
+- [x] 29.17 プラン変更APIルートの実装
+  - `POST /api/billing/change-plan` route を新規作成し、Bearer認証・`targetPlan` 検証のうえ `changeSubscriptionPlan()` を呼び出す
+  - **完了状態**: 有料契約なしユーザーからの呼び出しが403を返し、有効な `player`/`creator` 契約者からの呼び出しが200でtierを返すこと
+  - _Requirements: 35.1, 35.2, 35.3, 35.4_
+  - _Depends: 29.16_
+  - _Boundary: ChangePlanAPI_
+
+- [x] 29.18 (P) Phase 41 単体テストの追加
+  - capability マップ、tier引数化、重複検知、プラン変更の各関数について、tier×状態の境界値を含む単体テストを追加する
+  - **完了状態**: Phase 41 で変更・追加した全関数の単体テストがグリーンでパスすること
+  - _Requirements: 33.1, 33.2, 33.14, 33.15, 34.4, 34.5, 35.1, 35.2, 35.5, 35.6_
+  - _Depends: 29.9, 29.14, 29.15, 29.17_
+  - _Boundary: Testing_
+
+- [x] 29.19 (P) Phase 41 結合テストの追加
+  - 購読開始API・Webhook・プラン変更APIの結合テストを追加し、重複購読拒否・重複解約返金・プラン切替後のtier反映を検証する
+  - **完了状態**: Phase 41 に関連する全結合テストがグリーンでパスすること
+  - _Requirements: 33.8, 33.9, 33.10, 33.11, 34.1, 34.2, 34.3, 35.7, 35.8_
+  - _Depends: 29.9, 29.14, 29.15, 29.17_
+  - _Boundary: Testing_
+
+- [x] 29.20 Phase 41 統合検証
+  - コア全体のテストスイートを実行し、`subscription_tier = 'pro'` の残存件数確認を含むデプロイ後検証手順を実施する
+  - **完了状態**: 全ての Jest テストがグリーンでパスし、`npm run build` がエラーなく成功し、`SELECT count(*) FROM users WHERE subscription_tier = 'pro'` が0件であること
+  - _Requirements: 33.1, 33.5, 33.6, 33.7, 34.1, 34.3, 35.1, 35.2_
+  - _Depends: 29.18, 29.19_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 41)
+
+- 実装順: 29.1 / 29.2（並行可、Foundation）→ 29.3 / 29.4 / 29.5（29.1依存、並行可）・29.6（29.2依存）・29.8（29.2依存）・29.10（29.2依存）・29.11 / 29.12 / 29.13（並行可、独立）→ 29.7（29.6依存）・29.9（29.8依存）→ 29.14（29.8依存）・29.15（29.10, 29.12依存）・29.16（29.8依存、`subscription.ts` を共有するため29.8完了後に着手）→ 29.17（29.16依存）→ 29.18 / 29.19（並行可）→ 29.20。
+- 29.8 と 29.16 はいずれも `src/services/subscription.ts` を変更するため、ファイル競合を避けるべく 29.16 は 29.8 完了後に着手する（並行不可）。
+- 二重課金防止（29.12, 29.14, 29.15）は実際の返金処理を伴うため、実装時は Stripe mock による網羅的なシナリオ検証を最優先する。

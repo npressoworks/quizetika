@@ -60,6 +60,7 @@ describe('GET /api/quiz/ai-authoring-usage', () => {
     mockVerify.mockResolvedValue('uid-pro');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
+      hasCreatorEntitlements: true,
       hasUnlimitedAiQuestions: true,
     });
   });
@@ -78,6 +79,7 @@ describe('GET /api/quiz/ai-authoring-usage', () => {
     mockVerify.mockResolvedValue('uid-free');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: false,
+      hasCreatorEntitlements: false,
       hasUnlimitedAiQuestions: false,
     });
     const req = new NextRequest('http://localhost/api/quiz/ai-authoring-usage?userId=uid-free');

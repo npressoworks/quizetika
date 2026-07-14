@@ -54,12 +54,12 @@ function makeQuiz(overrides: Partial<Pick<Quiz, 'id' | 'status' | 'visibility'>>
   };
 }
 
-function freeEntitlements(): Pick<UserEntitlements, 'hasPaidEntitlements'> {
-  return { hasPaidEntitlements: false };
+function freeEntitlements(): Pick<UserEntitlements, 'hasCreatorEntitlements'> {
+  return { hasCreatorEntitlements: false };
 }
 
-function paidEntitlements(): Pick<UserEntitlements, 'hasPaidEntitlements'> {
-  return { hasPaidEntitlements: true };
+function paidEntitlements(): Pick<UserEntitlements, 'hasCreatorEntitlements'> {
+  return { hasCreatorEntitlements: true };
 }
 
 function openSelect() {
@@ -78,7 +78,7 @@ beforeEach(() => {
 });
 
 describe('CreatorQuizVisibilityToggle', () => {
-  it('無料プランのユーザーも限定公開・非公開を選択操作でき、選択すると updateQuiz を呼ばずに Pro プラン誘導ポップアップを表示すること', async () => {
+  it('無料プランのユーザーも限定公開・非公開を選択操作でき、選択すると updateQuiz を呼ばずに Creator プラン誘導ポップアップを表示すること', async () => {
     const onVisibilityChange = jest.fn();
     render(
       <CreatorQuizVisibilityToggle
@@ -109,7 +109,7 @@ describe('CreatorQuizVisibilityToggle', () => {
     expect(screen.getByTestId('creator-quiz-visibility-toggle')).toHaveTextContent('公開');
   });
 
-  it('Pro プラン誘導ポップアップに /pricing へのリンクが含まれること', async () => {
+  it('Creator プラン誘導ポップアップに /pricing へのリンクが含まれること', async () => {
     render(
       <CreatorQuizVisibilityToggle
         quiz={makeQuiz()}
@@ -123,7 +123,7 @@ describe('CreatorQuizVisibilityToggle', () => {
     await waitFor(() => {
       expect(screen.getByTestId('creator-quiz-visibility-pro-modal')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: /Pro/ })).toHaveAttribute('href', '/pricing');
+    expect(screen.getByRole('link', { name: /Creator/ })).toHaveAttribute('href', '/pricing');
   });
 
   it('有料プランのユーザーは3値すべてを選択でき、選択すると updateQuiz が呼ばれること', async () => {
@@ -162,7 +162,7 @@ describe('CreatorQuizVisibilityToggle', () => {
     });
   });
 
-  it('有料プランでも updateQuiz が ProRequiredForVisibilityError で失敗した場合（プラン状態の競合等）、Pro プラン誘導ポップアップを表示し表示値を元に戻すこと', async () => {
+  it('有料プランでも updateQuiz が ProRequiredForVisibilityError で失敗した場合（プラン状態の競合等）、Creator プラン誘導ポップアップを表示し表示値を元に戻すこと', async () => {
     mockUpdateQuiz.mockRejectedValueOnce(new ProRequiredForVisibilityError());
     const onVisibilityChange = jest.fn();
     render(
@@ -178,7 +178,7 @@ describe('CreatorQuizVisibilityToggle', () => {
     await waitFor(() => {
       expect(screen.getByTestId('creator-quiz-visibility-pro-modal')).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: /Pro/ })).toHaveAttribute('href', '/pricing');
+    expect(screen.getByRole('link', { name: /Creator/ })).toHaveAttribute('href', '/pricing');
     expect(onVisibilityChange).not.toHaveBeenCalled();
     expect(screen.getByTestId('creator-quiz-visibility-toggle')).toHaveTextContent('公開');
   });

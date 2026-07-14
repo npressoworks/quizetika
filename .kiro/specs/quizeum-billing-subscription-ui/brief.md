@@ -64,7 +64,7 @@
 - **Stripe**: Checkout（リダイレクト）+ Customer Portal + Webhook 署名検証（raw body、Node runtime）
 - **Security**: billing フィールドは Admin SDK / Webhook のみ書き込み可。クライアントからの `isPremium` / `subscriptionTier` 改ざんを Rules で遮断
 - **冪等性**: Webhook は `event.id` による重複処理防止
-- **環境変数**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY`（Premium 用は将来追加）、`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- **環境変数**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_CREATOR_MONTHLY`, `STRIPE_PRICE_CREATOR_YEARLY`（Premium 用は将来追加）、`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - **Styling**: Vanilla CSS / CSS Modules（Tailwind 不使用）
 - **初版 Pro 特典**: ウミガメ AI 質問の日次20回制限解除（`ask-ai` 既存ゲートと整合）
 - **拡張性**: プラン定義を `src/lib/subscription-plans.ts`（仮）等の単一マスタに集約し、UI は `paidTiers` 配列を map するだけで Premium 追加可能にする

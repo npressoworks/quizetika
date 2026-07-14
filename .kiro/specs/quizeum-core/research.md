@@ -495,7 +495,7 @@ Overall: L / Medium
   - `ask-ai` は既にサーバー側 `isPremium` 参照パターンを実装。`EntitlementService` へ集約すれば tier 拡張が容易。
   - `firestore.rules` で課金フィールドが未保護 — showstopper。Rules を先にデプロイ。
   - Stripe v22 + Checkout Sessions API が要件（リダイレクト Checkout）に最適。`payment_method_types` 省略で dynamic methods 有効。
-  - `.env.local` に Stripe キー・Webhook secret は既設定。`STRIPE_PRICE_PRO_MONTHLY/YEARLY` のみ追加必要。
+  - `.env.local` に Stripe キー・Webhook secret は既設定。`STRIPE_PRICE_CREATOR_MONTHLY/YEARLY` のみ追加必要。
 
 ## Research Log
 
@@ -571,15 +571,15 @@ Overall: L / Medium
 
 ### 1.1 再利用可能な資産
 
-| 資産                | パス                                                     | 再利用方法                                                                                                      |
-| ------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Bearer 認証パターン | `src/lib/firebase/auth-verify.ts`                        | Checkout / Portal API で同一                                                                                    |
-| Admin Firestore     | `src/lib/firebase/admin.ts` (`getAdminFirestore`)        | Webhook・エンタイトルメント書き込み                                                                             |
-| BAN API ルート構造  | `src/app/api/admin/users/ban/route.ts`                   | billing API の骨格                                                                                              |
-| AI 制限純関数       | `src/services/ask-ai-utils.ts` (`isAiTurnLimitExceeded`) | `EntitlementService` から呼び出し継続可                                                                         |
-| ask-ai サーバー検証 | `src/app/api/attempt/ask-ai/route.ts` L92–103            | `EntitlementService` へ置換対象                                                                                 |
-| Stripe パッケージ   | `package.json` (`stripe` ^22.2.0)                        | 未 import — 導入のみ残                                                                                          |
-| 環境変数（部分）    | `.env.local`                                             | `STRIPE_SECRET_KEY`, `WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` あり。**`STRIPE_PRICE_PRO_*` なし** |
+| 資産                | パス                                                     | 再利用方法                                                                                                          |
+| ------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Bearer 認証パターン | `src/lib/firebase/auth-verify.ts`                        | Checkout / Portal API で同一                                                                                        |
+| Admin Firestore     | `src/lib/firebase/admin.ts` (`getAdminFirestore`)        | Webhook・エンタイトルメント書き込み                                                                                 |
+| BAN API ルート構造  | `src/app/api/admin/users/ban/route.ts`                   | billing API の骨格                                                                                                  |
+| AI 制限純関数       | `src/services/ask-ai-utils.ts` (`isAiTurnLimitExceeded`) | `EntitlementService` から呼び出し継続可                                                                             |
+| ask-ai サーバー検証 | `src/app/api/attempt/ask-ai/route.ts` L92–103            | `EntitlementService` へ置換対象                                                                                     |
+| Stripe パッケージ   | `package.json` (`stripe` ^22.2.0)                        | 未 import — 導入のみ残                                                                                              |
+| 環境変数（部分）    | `.env.local`                                             | `STRIPE_SECRET_KEY`, `WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` あり。**`STRIPE_PRICE_CREATOR_*` なし** |
 
 ### 1.2 命名・レイヤー規約
 
@@ -676,13 +676,13 @@ src/app/api/webhooks/stripe/           — Missing
 
 ## 5. Research Needed（設計フェーズへ引き継ぎ済み／残確認）
 
-| 項目                                         | 状態                                                            |
-| -------------------------------------------- | --------------------------------------------------------------- |
-| Stripe Checkout Sessions + subscription mode | design.md で決定済み                                            |
-| Webhook raw body + Node runtime              | design.md で決定済み                                            |
-| **Stripe Dashboard Pro Product/Price 作成**  | 運用タスク — `STRIPE_PRICE_PRO_MONTHLY/YEARLY` を `.env` に設定 |
-| Customer Portal 有効化（Dashboard）          | 運用タスク                                                      |
-| ローカル Webhook 転送（`stripe listen`）     | 開発時 Research Needed（手順のみ）                              |
+| 項目                                         | 状態                                                                |
+| -------------------------------------------- | ------------------------------------------------------------------- |
+| Stripe Checkout Sessions + subscription mode | design.md で決定済み                                                |
+| Webhook raw body + Node runtime              | design.md で決定済み                                                |
+| **Stripe Dashboard Pro Product/Price 作成**  | 運用タスク — `STRIPE_PRICE_CREATOR_MONTHLY/YEARLY` を `.env` に設定 |
+| Customer Portal 有効化（Dashboard）          | 運用タスク                                                          |
+| ローカル Webhook 転送（`stripe listen`）     | 開発時 Research Needed（手順のみ）                                  |
 
 ## 6. Spec / ドキュメント整合ギャップ
 
@@ -1129,3 +1129,125 @@ Option A（既存機能の拡張）が最も一貫性があり、無駄のない
 ## Risks & Mitigations（Phase 39 追記）
 - **クライアント側事前検証の取得失敗時の挙動** — `quiz-editor.tsx` でのNGワード一覧取得が失敗した場合、事前チェックをスキップしサーバー側検証（最終防衛線）に委ねる。UXとしては公開ボタン押下後にサーバーエラーとして表示される。
 - **将来的なキャッシュ導入の要否** — 現状は都度クエリで十分だが、クイズ公開頻度が大幅に増加した場合はレイテンシ・DB負荷を再評価する必要がある（本フェーズでは要件外のため対応しない）。
+
+# Research & Design Decisions: quizetika-core — Phase 41 有料プラン多層化と tier 識別子リネーム（2026-07-13）
+
+## Summary
+- **Feature**: `quizetika-core` Phase 41（要件33）
+- **Discovery Scope**: Extension（既存サブスクリプション基盤の拡張）
+- **主要な発見**:
+  - `subscription_tier` は DB 上 `TEXT`（CHECK 制約・ENUM なし）であり、スキーマ変更なしで `'pro'` → `'creator'` のデータリネームが可能。
+  - 有料特典の判定が `hasPaidEntitlements`（tier が `free` 以外かどうかの単一フラグ）に一本化されており、クイズ限定公開（`quiz-access.ts`）と AI 作問アシスタント（`ai-authoring-utils.ts`）の双方がこのフラグを直接参照している。`player` tier を追加すると、この単一フラグでは「広告非表示・AI質問無制限は許可するが限定公開・AI作問は許可しない」という差分を表現できない。
+  - `subscription-plans.ts` は既にコメントで「Premium 追加時は配列に1エントリ追加する」という拡張を見込んだ `PaidTierDefinition[]` 配列設計になっているが、`getPriceIdForInterval()` は `'pro'` tier を決め打ちで検索しており、複数有料 tier を区別した価格解決ができない。
+  - `/api/billing/prices` は Pro 単一 tier の価格のみを返す形状（`ProPricesResult`）であり、`quizetika-billing-subscription-ui` が Player・Creator 両方の価格を同一画面に表示するには複数 tier 分の価格を返せる形状への変更が必要。
+
+## Research Log
+
+### tier 判定ロジックの分布
+- **Context**: `player` tier 追加により「支払い済みかどうか」の二値判定では特典を正しく差配できないことが判明。
+- **Sources Consulted**: `entitlement-shared.ts`（正本の判定関数）、`quiz-access.ts`（限定公開ゲート）、`ai-authoring-utils.ts` / `ai-authoring-route-helpers.ts`（AI作問ゲート）、`useAds.ts`（広告表示）、`pricing-entitlement.ts`（UI表示用複製ロジック）。
+- **Findings**:
+  - `computeUserEntitlements()`（`entitlement-shared.ts`）が唯一の正本判定関数で、`hasPaidEntitlements` と `hasUnlimitedAiQuestions` の2フィールドのみを提供している。
+  - `quiz-access.ts` の `canAccessProVisibility()` はモデレーター免除 OR `hasPaidEntitlements` で判定しており、`player` tier もこの条件を満たしてしまう（意図しない特典漏れ）。
+  - `ai-authoring-utils.ts` の `canAccessAiAuthoring()` も同様に `hasPaidEntitlements || hasUnlimitedAiQuestions` で判定しており、同じ問題を抱える。
+  - `useAds.ts` は独自にクライアント側で `subscriptionTier === 'pro' || subscriptionTier === 'premium'` を再実装しており（`entitlement-shared.ts` と重複するロジック）、tier 追加のたびに個別に修正が必要な状態。
+- **Implications**: tier ごとの特典差分を単一の「有料/無料」フラグではなく、tier→特典キー集合のマッピング（capability モデル）として `entitlement-shared.ts` に一本化し、既存の呼び出し側（`canAccessProVisibility`, `canAccessAiAuthoring`, `useAds.ts`）は新モデルに委譲する形へリファクタリングする。
+
+### 価格・Checkout の tier 決め打ち箇所
+- **Context**: `player` tier 追加により「Pro 1種類」を前提にしたコードが複数箇所で機能しなくなる。
+- **Findings**:
+  - `subscription-plans.ts` の `getPriceIdForInterval(interval)` は tier 引数を取らず、内部で `.find((d) => d.tier === 'pro')` と決め打ちしている。
+  - `billing-prices.ts` の `fetchProPricesFromStripe()` も同様に `'pro'` 決め打ちで、戻り値の型 `ProPricesResult` は単一 tier 分の形状。
+  - `services/subscription.ts` の `createCheckoutSession()` は `priceInterval` のみを受け取り、tier 選択を受け付けていない（Pro のみが購読対象だったため）。
+  - `stripe-webhook.ts` の `buildSnapshotFromSubscription()` は `mappedTier === 'pro' || mappedTier === 'premium'` を決め打ちで「有料判定」しており、`player` を有料として扱わない不具合を生む。
+- **Implications**: tier を引数として受け取る形へ関数シグネチャを一般化する。Webhook 側の「有料判定」は `mappedTier !== 'free'` へ単純化できる（tier 列挙が増えても個別列挙が不要になる）。
+
+## Architecture Pattern Evaluation（Phase 41）
+
+| Option                              | 説明                                                                        | 強み                                                                                  | リスク・制約                                                                                           | 備考 |
+| ----------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ---- |
+| Capability マップ方式               | tier → 特典キー集合の静的マップを正本とし、各ゲートは capability 有無で判定 | 新 tier 追加時にマップへ1行足すだけで済む。既存呼び出し側の関数シグネチャを維持できる | マップの整合性はコードレビューで担保する必要がある（DBやテストでの自動検証なし）                       | 選定 |
+| tier ごとの if 分岐を個別箇所に追加 | 各ゲート関数に `tier === 'player'` 等の分岐を都度追加                       | 変更範囲が局所的                                                                      | tier が増えるたびに全ゲート箇所を修正する必要があり、Phase 41 で発見したのと同種の漏れが将来も再発する | 却下 |
+
+## Design Decisions（Phase 41）
+
+### Decision: tier→特典の capability マップへの一般化
+- **Context**: `player` tier は「広告非表示・AI質問無制限」のみ、`creator`/`premium` はそれに加えて「限定公開・AI作問アシスタント」を持つという非対称な特典差分がある。
+- **Alternatives Considered**:
+  1. 各ゲート関数に tier 個別分岐を追加（却下: 保守性が低い）
+  2. tier→capability 集合のマップを `entitlement-shared.ts` に一本化（選定）
+- **Selected Approach**: `SubscriptionCapability`（`'ad_free' | 'unlimited_ai_questions' | 'quiz_visibility_control' | 'ai_authoring_assist'`）を定義し、tier ごとの capability 集合を静的マップで表現。`computeUserEntitlements()` の戻り値に `hasCreatorEntitlements`（`quiz_visibility_control`/`ai_authoring_assist` の可否、両者は常に同一 tier 集合のため1フィールドに統合）を追加する。
+- **Rationale**: 既存の `hasPaidEntitlements` / `hasUnlimitedAiQuestions` は「広告非表示・AI質問無制限」の意味では引き続き有効（player 含む全有料 tier で true）なため、既存フィールドの意味を変えず新フィールドを1つ追加するだけで済み、破壊的変更を避けられる。
+- **Trade-offs**: 呼び出し側（`quiz-access.ts`, `ai-authoring-utils.ts`）を `hasPaidEntitlements` から `hasCreatorEntitlements` 参照へ切り替える改修が必須になる（Phase 41 の変更範囲に含む）。
+- **Follow-up**: `useAds.ts` の独自 tier 判定ロジックを `computeUserEntitlements()` 呼び出しへ置き換え、判定ロジックの重複を解消する。
+
+### Decision: 価格取得・Checkout API の tier パラメータ化
+- **Context**: Player・Creator 2つの有料 tier の価格を同一画面で表示し、購読開始 API に tier を指定できるようにする必要がある。
+- **Selected Approach**: `getPaidTierDefinitions()` を tier 引数で検索するヘルパーに統一し、`getPriceIdForInterval(tier, interval)` へシグネチャ変更。`/api/billing/prices` のレスポンス形状を `Record<'player' | 'creator', ProPriceQuote ペア>` に変更。`POST /api/billing/checkout-session` のリクエストボディに必須の `plan: 'player' | 'creator'` を追加。
+- **Trade-offs**: 既存のリクエスト/レスポンス契約を破壊的に変更するため、`quizetika-billing-subscription-ui` 側の実装同時更新が前提となる（並行実装不可、依存順を明示）。
+
+### Decision: 既存 `pro` 契約者データの移行方式
+- **Context**: 契約状態・請求サイクルを変更せず tier 識別子のみをリネームする必要がある。
+- **Selected Approach**: 単一の UPDATE 文（`UPDATE users SET subscription_tier = 'creator' WHERE subscription_tier = 'pro'`）を含む Supabase migration ファイルを追加する。Stripe 側の Price/Product は変更しないため、Webhook 経由の同期には影響しない（`priceIdToTier()` が返す tier 文字列を `'pro'` から `'creator'` に変更するだけで、既存 Stripe Price ID とのマッピングは維持される）。
+- **Trade-offs**: マイグレーション実行は単一トランザクションの UPDATE のため、`pro`/`creator` が混在するウィンドウは発生しない。
+
+## Risks & Mitigations（Phase 41）
+- **`hasPaidEntitlements` 参照漏れ** — 呼び出し箇所の一部を見落とし、`player` tier に限定公開・AI作問が誤って開放されるリスク。軽減策: `hasPaidEntitlements` の全参照箇所を grep で洗い出し、限定公開・AI作問関連の2箇所を `hasCreatorEntitlements` へ置き換えたことをタスクの検証項目に含める。
+- **`/api/billing/prices` 契約変更の波及** — レスポンス形状変更が `quizetika-billing-subscription-ui` の未更新箇所を壊すリスク。軽減策: 依存順（core → billing-ui）を明示し、billing-ui 側のタスクで新形状への追随を必須項目とする。
+- **データ移行漏れ** — UPDATE 文の実行漏れにより本番で `pro` と `creator` が混在するリスク。軽減策: migration ファイルをコードデプロイと同一パイプラインに含め、デプロイ後に `SELECT count(*) FROM users WHERE subscription_tier = 'pro'` が 0 件であることを確認する検証手順をタスクに含める。
+
+## References（Phase 41）
+- 既存実装: `src/lib/subscription-plans.ts`, `src/services/entitlement-shared.ts`, `src/lib/quiz-access.ts`, `src/services/ai-authoring-utils.ts`, `src/services/stripe-webhook.ts`, `src/services/billing-prices.ts`, `src/services/subscription.ts`
+
+## Design Decisions（要件34 二重課金防止 追記・2026-07-13）
+
+### Decision: 事前チェックは Stripe ライブ参照、事後安全網は Webhook 側検知
+- **Context**: `createCheckoutSession()` の既存重複チェックは `resolveUserEntitlements()`（Supabase DB 参照）に依存しており、Webhook による DB 反映が遅延している間に2つ目の Checkout セッションを作成・完了させると、DB チェックだけではすり抜けてしまう（ユーザーヒアリングで確認済みの懸念）。
+- **Alternatives Considered**:
+  1. Checkout 開始時の DB チェック強化のみ（例: 楽観ロック用フラグを `users` テーブルに追加）— Webhook 反映前の短時間ウィンドウでの二重タブ操作等は防げない。
+  2. Checkout 開始時に Stripe API を直接ライブ参照 + Webhook 受信時に重複検知・自動解消する二段構え（選定）。
+- **Selected Approach**: 案2。購読開始時は `stripe.subscriptions.list({ customer, status: 'active' })` をライブ参照して事前拒否を強化し、それでも発生し得るレースコンディション（ほぼ同時刻の二重 Checkout 完了）に対しては Webhook 受信時に `DuplicateSubscriptionGuard` が事後検知・自動解約・返金を行う。
+- **Rationale**: ユーザーヒアリングで「Webhook側の安全網も必須」と明示された。事前チェックのみでは真の意味でのレースコンディション（数秒以内の同時実行）を排除できないため、事後の是正機構が不可欠。
+- **Trade-offs**: 実装・テストコストが増える（Stripe API 呼び出し増加、返金処理の正確性が求められる）が、実際の金銭的リスクを考慮すると許容範囲。
+
+### Decision: 「最古のサブスクリプションを正とする」統一ルール
+- **Context**: 重複検知時にどちらを正とするか（同一プランの二重契約、Player/Creator の同時契約の双方に共通のルールが必要）。
+- **Selected Approach**: ユーザーヒアリングの結果「後から完了した方を自動キャンセル（既存契約を優先）」を採用。実装上は Stripe `created` タイムスタンプが最も古いサブスクリプションを正とし、それ以外を全て解約する単一ルールに一般化した。
+- **Rationale**: 「先着優先」は同一プランの二重契約にも Player/Creator 同時契約にも共通して適用できる一貫したルールであり、tier の組み合わせごとに個別分岐を持たずに済む（Simplification 原則）。
+- **Trade-offs**: ユーザーが意図的に Player→Creator へアップグレードするつもりで先に Creator の Checkout を開始し、後から誤って Player の Checkout も完了させた場合、想定通り Creator（先に作成された方）が残る。逆に誤操作で先に Player を完了させ、本来欲しかった Creator を後から完了させた場合は Player が残ってしまう — この場合はユーザーが契約管理からアップグレードし直す必要がある（許容されたトレードオフとして記録）。
+
+### Decision: 返金は解約対象の直近支払い済み Invoice に対して全額実行
+- **Context**: サブスクリプション解約だけでは既に確定した支払いは返金されない。
+- **Selected Approach**: 解約対象サブスクリプションの直近の支払い済み Invoice に紐づく PaymentIntent に対し `refunds.create` で全額返金する。
+- **Rationale**: ユーザーに意図しない二重請求分の金銭的負担を残さないことが要件34.5 の目的そのもの。
+- **Follow-up**: 返金 API 呼び出し自体が失敗した場合のフォールバック（監査レコードに `refunded_amount: NULL` で記録し運用側の手動対応に委ねる）を Risks に記録済み。
+
+## Risks & Mitigations（要件34 追記）
+- **返金処理の失敗** — Stripe 側の一時障害等で `refunds.create` が失敗すると、解約は完了しているのに返金だけが漏れる状態になり得る。軽減策: 監査テーブルに `refunded_amount: NULL` で記録し、運用側が定期的に未返金インシデントを確認できるようにする。
+- **タイムゾーン・時刻精度による「最古」判定の誤り** — Stripe の `created` は UTC epoch 秒であり誤差要因は小さいが、念のため比較ロジックの単体テストで境界値（同一秒での作成）を検証する。
+- **Stripe API レート制限** — `subscriptions.list` の追加呼び出しにより Checkout 開始・Webhook 処理のレイテンシがわずかに増加する。既存のリクエスト量から見て許容範囲と判断（Performance 節では特別な対策を設けない）。
+
+## Design Decisions（要件35 プラン変更 追記・2026-07-13）
+
+### Decision: 新規サブスクリプション作成ではなく既存サブスクリプションの `items` 更新
+- **Context**: ユーザーから「PlayerとCreatorを切り替えできるように。Stripeでサブスクリプションを更新する」という明示的な指示があり、既存設計（要件33.11 の「ダウングレードは Portal 経由」）を上書きする形でプラン間の直接切替を実装する必要が生じた。
+- **Alternatives Considered**:
+  1. アップグレードは新規 Checkout、ダウングレードは Customer Portal（旧設計）— 両方向で解約・再契約に近い手順が必要になり、ユーザー体験・実装とも一貫しない。
+  2. Stripe `subscriptions.update()` で既存サブスクリプションの Price のみ差し替える（選定）。
+- **Selected Approach**: 案2。同一サブスクリプション ID を維持したまま Price（tier）のみを切り替える。
+- **Rationale**: Stripe が公式に推奨するプラン変更方式であり、請求サイクル・サブスクリプション ID を維持できるため、要件34（二重課金防止）の対象外にできる（新規サブスクリプションを作成しないため重複が原理的に発生しない）。
+- **Trade-offs**: 新規実装として `ChangePlanAPI` を追加する必要があるが、既存の Checkout/Webhook 基盤（Stripe クライアント、tier マッピング）をそのまま再利用できるため実装コストは小さい（Effort: S）。
+
+### Decision: 比例配分は Stripe 標準の `create_prorations`
+- **Context**: プラン変更時の課金・返金方針が未定義だった。
+- **Selected Approach**: `proration_behavior: 'create_prorations'` を指定し、Stripe 標準の日割り計算に従う（アップグレード時は差額を即時課金、ダウングレード時は次回請求へクレジット）。
+- **Rationale**: ユーザーヒアリングで「即時切替え＋日数比例課金/返金（Stripe標準）」が明示的に選択された。カスタム比例配分ロジックを自前実装するより Stripe の実績あるロジックに委ねる方が正確かつ低リスク（Build vs Adopt: Adopt を選択）。
+
+### Decision: ダウングレード確認は UI 側の責務、API 側は無条件実行
+- **Context**: ユーザーヒアリングで「確認ダイアログを挟む（失われる特典を明示）」が選択されたが、これは UI 上のユーザー体験の話であり、API 自体に確認ステップを設けるべきかが論点になった。
+- **Selected Approach**: `ChangePlanAPI` は確認ステップを持たず、呼び出されたら即座にプラン変更を実行する。確認ダイアログは `quizetika-billing-subscription-ui` 側の責務とし、API 呼び出し前にユーザーの最終確認を得る。
+- **Rationale**: API に確認フローを持たせると2段階リクエスト（確認トークン発行→実行）が必要になり複雑化する。UI 側で確認を完結させる方がシンプル（Simplification 原則）。
+
+## Risks & Mitigations（要件35 追記）
+- **API 呼び出しパラメータ誤りによる誤課金** — `subscriptions.update()` の `items`/`proration_behavior` パラメータ誤りは実際の請求額に直結する。軽減策: Stripe mock を用いた単体テストでパラメータの正確性を重点検証する。
+- **UI側の確認ダイアログをスキップした直接 API 呼び出し** — API 自体が無条件実行のため、UI 側の確認ダイアログを経由しない不正なクライアントからの呼び出しでは確認なしにダウングレードが実行され得る。軽減策: 本要件では認証済み本人操作であることのみを保証し、確認 UX の徹底は `quizetika-billing-subscription-ui` 側のタスクとする（Out of Boundary として明記済み）。

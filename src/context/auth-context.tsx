@@ -1,9 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { User as SupabaseUser } from '@supabase/supabase-js';
-import { getUser, createUser } from '../services/user';
+import { getUser, createUser, getUserProfileByEmail, updateUserUid } from '../services/user';
 import { User } from '../types';
 import {
   clearMiddlewareAuthCookies,
@@ -56,7 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Supabaseから最新のユーザー情報を再取得する
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     if (authUser) {
       const dbUser = await getUser(authUser.uid);
 
@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(dbUser);
       syncMiddlewareAuthCookies(dbUser, authUser.uid);
     }
-  };
+  }, [authUser]);
 
   useEffect(() => {
     // 認証状態の変化を監視（購読開始時に INITIAL_SESSION イベントで
@@ -123,27 +123,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // 存在しない場合は初期プロフィールを作成
       if (!dbUser) {
-        const tempUser: Omit<User, 'createdAt' | 'updatedAt'> = {
-          id: compatUser.uid,
-          email: compatUser.email || '',
-          displayName: compatUser.displayName || 'ユーザー',
-          avatarUrl: compatUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${compatUser.uid}`,
-          bio: 'クイズ大好き！よろしくお願いします。',
-          followedGenres: [],
-          badges: [],
-          createdQuizzesCount: 0,
-          totalPlayCount: 0,
-          followersCount: 0,
-          followingCount: 0,
-          reputationScore: 0,
-          moderationTier: 'newcomer',
-          reputationHistory: [],
-          lastReputationCalculatedAt: null,
-          totalFailedQuestionsCount: 0,
-          deleteStatus: 'active',
-        };
-        await createUser(tempUser);
-        dbUser = await getUser(compatUser.uid);
+        const userEmail = compatUser.email || '';
+        let existingUserByEmail = null;
+        if (userEmail) {
+          existingUserByEmail = await getUserProfileByEmail(userEmail);
+        }
+
+        if (existingUserByEmail) {
+          // メールアドレスが重複する古いレコードがある場合、現在のUIDに更新して不整合を自己修復
+          console.log(`[auth-context] Email duplicate detected for ${userEmail}. Self-healing UID from ${existingUserByEmail.id} to ${compatUser.uid}`);
+          await updateUserUid(existingUserByEmail.id, compatUser.uid);
+          dbUser = await getUser(compatUser.uid);
+        } else {
+          // 本当に新規ユーザーの場合は作成
+          const tempUser: Omit<User, 'createdAt' | 'updatedAt'> = {
+            id: compatUser.uid,
+            email: userEmail,
+            displayName: compatUser.displayName || 'ユーザー',
+            avatarUrl: compatUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${compatUser.uid}`,
+            bio: 'クイズ大好き！よろしくお願いします。',
+            followedGenres: [],
+            badges: [],
+            createdQuizzesCount: 0,
+            totalPlayCount: 0,
+            followersCount: 0,
+            followingCount: 0,
+            reputationScore: 0,
+            moderationTier: 'newcomer',
+            reputationHistory: [],
+            lastReputationCalculatedAt: null,
+            totalFailedQuestionsCount: 0,
+            deleteStatus: 'active',
+          };
+          await createUser(tempUser);
+          dbUser = await getUser(compatUser.uid);
+        }
       }
       setUser(dbUser);
       syncMiddlewareAuthCookies(dbUser, compatUser.uid);
@@ -155,8 +169,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const value = useMemo(
+    () => ({ user, authUser, loading, refreshUser }),
+    [user, authUser, loading, refreshUser]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, authUser, loading, refreshUser }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

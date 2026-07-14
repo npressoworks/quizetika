@@ -100,7 +100,7 @@
 
 ## 5. User Approval Flow: ユーザー承認フローの実装
 
-- [ ] 5.1 useAiChatAssistant Hook におけるツール解決の保留と承認/却下 API の実装
+- [x] 5.1 useAiChatAssistant Hook におけるツール解決の保留と承認/却下 API の実装
   - `onToolCall` 内で Promise をリターンして解決を保留するロジックを実装する
   - 保留中のツール情報と `resolve` 関数を格納・管理する `pendingApprovals` ステートを Hook 内に定義する
   - Hook から `approveToolCall(toolCallId)` と `rejectToolCall(toolCallId)` アクションを公開し、それぞれで Promise の解決、および承認時のみのエディタ状態（questions 等）への反映処理を実装する
@@ -108,7 +108,7 @@
   - _Requirements: 3.1, 3.2, 3.3_
   - _Boundary: UI Layer (Hook)_
 
-- [ ] 5.2 AiChatAssistantPanel におけるツール承認/却下 UI とプレビュー機能の実装
+- [x] 5.2 AiChatAssistantPanel におけるツール承認/却下 UI とプレビュー機能の実装
   - メッセージ内の `toolInvocations` を走査し、承認待ち状態の各ツールについて「承認（フォームに反映）」および「却下」ボタンを表示する
   - 変更される問題（追加される問題の詳細、変更前後差分、削除される問題インデックスなど）を表示するプレビューUIをチャット内に描画する
   - 承認または却下の処理が完了したツールはボタンを非表示にし、適用済み/却下の確定テキスト表示に切り替える
@@ -118,10 +118,47 @@
   - _Depends: 5.1_
   - _Boundary: UI Layer_
 
-- [ ] 5.3 承認フローの単体テストおよび E2E テストの追加・実行
+- [x] 5.3 承認フローの単体テストおよび E2E テストの追加・実行
   - `e2e/ai-chat-assistant.spec.ts` に、承認フローおよび二重入力ガードを検証するシナリオを追加する
   - 作問指示を送る -> フォームに即座に反映されず承認プレビューが表示されること -> 承認で反映されること / 却下で反映されないこと -> 待機中に入力フォームが disabled になること、の各アサーションを検証する
   - *done基準*: Playwright を用いて更新した E2E テストを実行し、新設された承認フローおよび入力ロックのテストシナリオが正常にパスすること。
   - _Requirements: 3.1, 3.2, 3.3_
   - _Depends: 5.2_
   - _Boundary: Testing_
+
+## 6. Phase 2: Creator/Premium への利用資格改名（2026-07-13、Upstream: quizetika-core 要件33 先行必須）
+
+- [x] 6.1 アクセス判定の Creator/Premium ゲート切り替え
+  - `canAccessAiAuthoring()` の判定条件を `entitlements.hasPaidEntitlements || entitlements.hasUnlimitedAiQuestions` から `entitlements.hasCreatorEntitlements` へ変更する
+  - `ai-authoring-route-helpers.ts` の 403 応答メッセージを「AI 作問は Pro プラン契約者のみ利用できます」から「AI 作問は Creator プラン契約者のみ利用できます」へ更新する
+  - **完了状態**: `player` tier のエンタイトルメントで `canAccessAiAuthoring()` が `false` を返し、`creator`/`premium` では `true` を返すこと。`player` tier ユーザーからの `ai-chat-authoring` API 呼び出しが 403 を返すこと
+  - _Requirements: Boundary Context, 1.1, 6.1_
+  - _Depends: quizetika-core 29.1_
+  - _Boundary: AiAuthoringUtils_
+
+- [x] 6.2 (P) 表示文言 of Creator 表記化
+  - `ai-quiz-pro-upsell.tsx` の見出し「AI アシスタント（Pro 限定）」および本文を Creator 表記へ更新し、`isProUser` props を `isCreatorUser` にリネームする
+  - `useAiChatAssistant.ts` の `UseAiChatAssistantProps.isProUser` を `isCreatorUser` にリネームし、`quiz-editor.tsx` の呼び出し元を追随させる
+  - **完了状態**: `AiQuizProUpsell` の表示文言に「Pro」が含まれず「Creator」表記になっていること
+  - _Requirements: 1.1, 1.2_
+  - _Boundary: UI Layer_
+
+- [x] 6.3 Phase 2 単体・結合テストの追加
+  - `canAccessAiAuthoring()` の単体テストを `hasCreatorEntitlements` ベースの判定に更新する
+  - `AiQuizProUpsell` の表示文言テストを Creator 表記へ更新する
+  - **完了状態**: Phase 2 に関連する全ての Jest テストがグリーンでパスすること
+  - _Requirements: Boundary Context, 1.1, 6.1_
+  - _Depends: 6.1, 6.2_
+  - _Boundary: Testing_
+
+- [x] 6.4 Phase 2 統合検証
+  - 本スペック全体のテストスイートを実行し、ビルドや既存機能への回帰がないことを確認する
+  - **完了状態**: 全ての Jest テストがグリーンでパスし、`npm run build` がエラーなく成功すること
+  - _Depends: 6.3_
+  - _Requirements: Boundary Context, 1.1, 1.2, 6.1_
+
+## Implementation Notes (Phase 2)
+
+- **Upstream 前提**: `quizetika-core` タスク 29.1（`hasCreatorEntitlements` フィールド追加）が完了していること。
+- **実装順序**: 6.1 → 6.2（並行可、6.1 とは独立ファイル）→ 6.3 → 6.4。
+- 関数・クラス名（`canAccessAiAuthoring` 等）は維持し、判定条件と表示文言のみを変更する（`quizetika-core` design.md Phase 41 節の決定と整合）。

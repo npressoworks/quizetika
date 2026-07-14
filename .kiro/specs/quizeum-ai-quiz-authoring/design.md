@@ -425,3 +425,45 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 - **環境変数の秘匿**: `GEMINI_API_KEY` を含むすべてのセンシティブな環境変数はサーバー（API Route）側でのみ保持・使用する。
 - **入力長バリデーション**: プロンプト長（チャット入力）はサーバー側で上限（例：500文字）をチェックし、超過時は即座にリターンする。
 - **認証検証**: API 呼び出しの Bearer トークンを検証し、送信された `userId` が検証済み UID と一致しない場合はアクセスを遮断する。
+
+---
+
+## Phase 2: Creator/Premium への利用資格改名（2026-07-13）
+
+### Overview（本フェーズ）
+`quizetika-core` Phase 41 の tier 多層化に伴い、本機能の利用資格判定を旧 `hasPaidEntitlements`（`pro`/`premium` 決め打ち）から、新設の `hasCreatorEntitlements`（`creator`/`premium` のみ true、`player` は false）へ切り替える。UI/API とも表示文言・エラーメッセージの「Pro」表記を「Creator」に改める。
+
+### Boundary Commitments（Phase 2 差分）
+- **This Spec Owns（変更なし）**: AI チャットアイコン・パネルの表示可否判定 UI、upsell CTA 文言。
+- **Allowed Dependencies（更新）**: `quizetika-core` の `resolveUserEntitlements()` が返す `hasCreatorEntitlements` フィールド（新規）。旧 `hasPaidEntitlements` は本機能の判定には使用しなくなる。
+- **Revalidation Triggers（追加）**: `hasCreatorEntitlements` の定義（tier→capability マッピング）が変更された場合。
+
+### File Structure Plan（Phase 2）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/services/ai-authoring-utils.ts` | Modify | `canAccessAiAuthoring(entitlements)` の判定条件を `entitlements.hasPaidEntitlements \|\| entitlements.hasUnlimitedAiQuestions` から `entitlements.hasCreatorEntitlements` へ変更 |
+| `src/services/ai-authoring-route-helpers.ts` | Modify | 403 応答メッセージ「AI 作問は Pro プラン契約者のみ利用できます」を「AI 作問は Creator プラン契約者のみ利用できます」に更新 |
+| `src/components/quiz/editor/ai-quiz-pro-upsell.tsx` | Modify | 見出し「AI アシスタント（Pro 限定）」および本文「Pro プランでは〜」を Creator 表記へ更新。`isProUser` props は `isCreatorUser` にリネーム |
+| `src/hooks/useAiChatAssistant.ts` | Modify | `UseAiChatAssistantProps.isProUser` を `isCreatorUser` にリネーム（呼び出し元 `quiz-editor.tsx` も追随） |
+
+### Requirements Traceability（Phase 2）
+
+| Requirement | Summary | Components |
+|-------------|---------|------------|
+| Boundary Context | Creator/Premium 限定アクセス制御、Player 対象外 | `AiChatAssistantButton`, `AiChatAssistantPanel`, `ai-authoring-utils` |
+| 1.1–1.2 | 表示条件文言の Creator 化 | `AiQuizProUpsell` |
+| 6.1 | 403 エラーメッセージの Creator 化 | `ai-authoring-route-helpers` |
+
+### Testing Strategy（Phase 2 追加分）
+
+| 種別 | 検証 |
+|---|---|
+| Unit | `canAccessAiAuthoring()` — `player` tier のエンタイトルメントで `false`、`creator`/`premium` で `true` を返すこと |
+| Integration | `AiQuizProUpsell` — 表示文言に「Pro」が含まれず「Creator」表記になっていること |
+| Integration | `ai-chat-authoring` API — `player` tier ユーザーからのリクエストが 403（`pro-required`）で拒否されること |
+
+**Effort**: **S**（判定条件の参照先切り替えと文言更新のみ、新規コンポーネントなし）
+**Risk**: **Low**（`quizetika-core` が提供する新フィールドへの参照切り替えであり、本スペック側のロジック自体は変更しない）
+
+**Document Status（Phase 2 設計）**: 本節に反映。`quizetika-core` design.md Phase 41 節の `hasCreatorEntitlements` 契約と整合済み。

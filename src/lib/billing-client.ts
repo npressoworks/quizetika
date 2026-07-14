@@ -1,8 +1,9 @@
 import { getSupabaseAccessToken } from '@/lib/supabase/auth';
-import type { ProPricesResult } from '@/services/billing-prices';
+import type { PlanPricesResult, PlanPrices } from '@/services/billing-prices';
 import type { PriceInterval } from '@/types/subscription';
 
-export type { ProPriceQuote, ProPricesResult } from '@/services/billing-prices';
+export type { PlanPricesResult, PlanPrices } from '@/services/billing-prices';
+export type PaidPlanTier = 'player' | 'creator';
 
 export type BillingApiErrorCode =
   | 'unauthorized'
@@ -109,7 +110,7 @@ async function postBillingApi(
   return { sessionUrl };
 }
 
-function isValidProPriceQuote(value: unknown): value is ProPricesResult['monthly'] {
+function isValidPriceQuote(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const quote = value as Record<string, unknown>;
   return (
@@ -119,13 +120,19 @@ function isValidProPriceQuote(value: unknown): value is ProPricesResult['monthly
   );
 }
 
-function isValidProPricesResult(value: unknown): value is ProPricesResult {
+function isValidPlanPrices(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
-  const result = value as Record<string, unknown>;
-  return isValidProPriceQuote(result.monthly) && isValidProPriceQuote(result.yearly);
+  const prices = value as Record<string, unknown>;
+  return isValidPriceQuote(prices.monthly) && isValidPriceQuote(prices.yearly);
 }
 
-export async function fetchProPrices(): Promise<ProPricesResult> {
+function isValidPlanPricesResult(value: unknown): value is PlanPricesResult {
+  if (!value || typeof value !== 'object') return false;
+  const result = value as Record<string, unknown>;
+  return isValidPlanPrices(result.player) && isValidPlanPrices(result.creator);
+}
+
+export async function fetchPlanPrices(): Promise<PlanPricesResult> {
   let response: Response;
   try {
     response = await fetch('/api/billing/prices');
@@ -137,21 +144,18 @@ export async function fetchProPrices(): Promise<ProPricesResult> {
     });
   }
 
-  const data = (await response.json().catch(() => ({}))) as ProPricesResult & {
-    error?: string;
-    message?: string;
-  };
+  const rawData = (await response.json().catch(() => ({}))) as any;
 
   if (!response.ok) {
     throw new BillingClientError({
       code: 'unknown',
       message:
-        data.message ?? 'エラーが発生しました。しばらくしてから再度お試しください。',
+        rawData.message ?? 'エラーが発生しました。しばらくしてから再度お試しください。',
       httpStatus: response.status,
     });
   }
 
-  if (!isValidProPricesResult(data)) {
+  if (!isValidPlanPricesResult(rawData)) {
     throw new BillingClientError({
       code: 'unknown',
       message: 'エラーが発生しました。しばらくしてから再度お試しください。',
@@ -159,13 +163,67 @@ export async function fetchProPrices(): Promise<ProPricesResult> {
     });
   }
 
-  return data;
+  return rawData;
 }
 
 export async function startCheckoutSession(
+  plan: 'player' | 'creator',
   priceInterval: PriceInterval
 ): Promise<{ sessionUrl: string }> {
-  return postBillingApi('/api/billing/checkout-session', { priceInterval });
+  return postBillingApi('/api/billing/checkout-session', { priceInterval, plan });
+}
+
+export async function changePlan(
+  targetPlan: 'player' | 'creator'
+): Promise<{ subscriptionTier: string }> {
+  const token = await getSupabaseAccessToken();
+  if (!token) {
+    throw new BillingClientError({
+      code: 'unauthorized',
+      message: 'ログインが必要です',
+    });
+  }
+
+  let response: Response;
+  try {
+    response = await fetch('/api/billing/change-plan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ targetPlan }),
+    });
+  } catch (error) {
+    console.error('[billing-client] network error:', error);
+    throw new BillingClientError({
+      code: 'network',
+      message: '通信に失敗しました。ネットワーク接続を確認して再度お試しください。',
+    });
+  }
+
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    message?: string;
+    subscriptionTier?: string;
+  };
+
+  if (!response.ok) {
+    const apiError = mapErrorResponse(response.status, data);
+    console.error('[billing-client] API error:', apiError);
+    throw new BillingClientError(apiError);
+  }
+
+  const subscriptionTier = data.subscriptionTier;
+  if (!subscriptionTier || typeof subscriptionTier !== 'string') {
+    throw new BillingClientError({
+      code: 'unknown',
+      message: 'エラーが発生しました。しばらくしてから再度お試しください。',
+      httpStatus: response.status,
+    });
+  }
+
+  return { subscriptionTier };
 }
 
 export async function startPortalSession(): Promise<{ sessionUrl: string }> {

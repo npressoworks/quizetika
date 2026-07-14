@@ -3,13 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 
-// computeHasPaidEntitlements のインポート
-// pricing-entitlement 内に定義されている判定関数を利用
-import { PricingUiState } from '@/lib/pricing-entitlement';
+import { computeUserEntitlements } from '@/services/entitlement-shared';
 import type { User } from '@/types';
 import type { SubscriptionStatus, SubscriptionTier } from '@/types/subscription';
-
-const PAID_ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'trialing'];
 
 function computeHasPaidEntitlements(user: User | null): boolean {
   // E2Eテスト用のモック判定
@@ -19,7 +15,10 @@ function computeHasPaidEntitlements(user: User | null): boolean {
       if (e2eMock) {
         const parsed = JSON.parse(e2eMock);
         if (
-          parsed.subscriptionTier === 'pro' &&
+          (parsed.subscriptionTier === 'pro' ||
+            parsed.subscriptionTier === 'player' ||
+            parsed.subscriptionTier === 'creator' ||
+            parsed.subscriptionTier === 'premium') &&
           parsed.subscriptionStatus === 'active'
         ) {
           return true;
@@ -32,14 +31,13 @@ function computeHasPaidEntitlements(user: User | null): boolean {
 
   if (!user) return false;
 
-  const subscriptionTier = user.subscriptionTier ?? 'free';
-  const subscriptionStatus = user.subscriptionStatus ?? null;
+  const entitlements = computeUserEntitlements({
+    subscriptionTier: user.subscriptionTier,
+    subscriptionStatus: user.subscriptionStatus,
+    currentPeriodEnd: user.currentPeriodEnd,
+  });
 
-  return (
-    (subscriptionTier === 'pro' || subscriptionTier === 'premium') &&
-    subscriptionStatus !== null &&
-    PAID_ACTIVE_STATUSES.includes(subscriptionStatus)
-  );
+  return entitlements.hasPaidEntitlements;
 }
 
 export interface UseAdsResult {

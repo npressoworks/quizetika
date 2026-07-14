@@ -1755,11 +1755,11 @@ sequenceDiagram
 
 ### Technology Stack（Phase 13 追加分）
 
-| Layer   | Choice / Version    | Role in Feature                  | Notes                                                 |
-| ------- | ------------------- | -------------------------------- | ----------------------------------------------------- |
-| Backend | `stripe` ^22.2.0    | Checkout / Portal / Webhook 検証 | `new Stripe(secretKey)`、async/await のみ             |
-| Data    | Firestore Admin SDK | 課金フィールド書き込み           | 既存 `getAdminFirestore()` を再利用                   |
-| Config  | 環境変数            | Price ID マッピング              | `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` |
+| Layer   | Choice / Version    | Role in Feature                  | Notes                                                         |
+| ------- | ------------------- | -------------------------------- | ------------------------------------------------------------- |
+| Backend | `stripe` ^22.2.0    | Checkout / Portal / Webhook 検証 | `new Stripe(secretKey)`、async/await のみ                     |
+| Data    | Firestore Admin SDK | 課金フィールド書き込み           | 既存 `getAdminFirestore()` を再利用                           |
+| Config  | 環境変数            | Price ID マッピング              | `STRIPE_PRICE_CREATOR_MONTHLY`, `STRIPE_PRICE_CREATOR_YEARLY` |
 
 Stripe ベストプラクティスに従い、Checkout Sessions API を使用する。`payment_method_types` は指定しない（dynamic payment methods 有効）。
 
@@ -3866,28 +3866,28 @@ sequenceDiagram
 
 ### 4. File Structure Plan（Phase 31）
 
-| ファイル                                       | 操作   | 責務                                                                     |
-| --------------------------------------------- | ------ | ------------------------------------------------------------------------ |
-| `src/services/ai-authoring-types.ts`          | Modify | `MIXED_ALLOWED_QUESTION_TYPES` に `'association'` を追加                  |
-| `src/lib/quiz-format.ts`                      | Modify | `MIXED_ALLOWED_QUESTION_TYPES` に `'association'` を追加                  |
-| `src/services/quiz-validation.ts`             | Modify | `validateQuizForPublish` 内の `mixed` 判定用 `allowedTypes` に `'association'` を追加 |
+| ファイル                                          | 操作   | 責務                                                                                  |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------------------------------- |
+| `src/services/ai-authoring-types.ts`              | Modify | `MIXED_ALLOWED_QUESTION_TYPES` に `'association'` を追加                              |
+| `src/lib/quiz-format.ts`                          | Modify | `MIXED_ALLOWED_QUESTION_TYPES` に `'association'` を追加                              |
+| `src/services/quiz-validation.ts`                 | Modify | `validateQuizForPublish` 内の `mixed` 判定用 `allowedTypes` に `'association'` を追加 |
 | `src/app/api/quiz/ai-generate-questions/route.ts` | Modify | `buildQuestionItemSchema` で `format === 'mixed'` の際に `association` スキーマを追加 |
 
 ### 5. Requirements Traceability（Phase 31）
 
-| Req  | Summary                           | Component                                                       |
-| ---- | --------------------------------- | --------------------------------------------------------------- |
-| 31.1 | 複合形式での「連想」問題許可      | `validateQuizForPublish` 内の `allowedTypes` に `association` を追加 |
-| 31.2 | 複合形式での早押し・ウミガメ制限   | `validateQuizForPublish` の既存制限の維持 (早押し/ウミガメは含めない) |
-| 31.3 | AI作問での「連想」スキーマ追加     | `buildQuestionItemSchema` の `anyOf` に `association` スキーマを追加 |
+| Req  | Summary                          | Component                                                             |
+| ---- | -------------------------------- | --------------------------------------------------------------------- |
+| 31.1 | 複合形式での「連想」問題許可     | `validateQuizForPublish` 内の `allowedTypes` に `association` を追加  |
+| 31.2 | 複合形式での早押し・ウミガメ制限 | `validateQuizForPublish` の既存制限の維持 (早押し/ウミガメは含めない) |
+| 31.3 | AI作問での「連想」スキーマ追加   | `buildQuestionItemSchema` の `anyOf` に `association` スキーマを追加  |
 
 ### 6. Testing Strategy（Phase 31）
 
-| 種別     | 検証                                                                                                                                           |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Unit** | `validateQuizForPublish` — 複合形式（`mixed`）のクイズに `association` 問題が含まれている場合、エラーを返さず通過すること                      |
-| **Unit** | `validateQuizForPublish` — 複合形式のクイズに `quick-press` または `lateral-thinking` が含まれる場合、適切にバリデーションエラーを返すこと          |
-| **Unit** | `mapAiJsonToQuestions` — `format: 'mixed'` にて、AIが生成した連想問題が正常にバリデーションを通過してマッピングされること                        |
+| 種別     | 検証                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Unit** | `validateQuizForPublish` — 複合形式（`mixed`）のクイズに `association` 問題が含まれている場合、エラーを返さず通過すること                  |
+| **Unit** | `validateQuizForPublish` — 複合形式のクイズに `quick-press` または `lateral-thinking` が含まれる場合、適切にバリデーションエラーを返すこと |
+| **Unit** | `mapAiJsonToQuestions` — `format: 'mixed'` にて、AIが生成した連想問題が正常にバリデーションを通過してマッピングされること                  |
 
 **Effort**: **XS** (既存の定数やスキーマ配列への要素追加と検証式の書き換えのみ)
 **Risk**: **Low** (既存の判定文の配列拡張であり、副作用は極めて低い)
@@ -3957,35 +3957,518 @@ sequenceDiagram
 
 ### 5. File Structure Plan（Phase 39）
 
-| ファイル | 操作 | 責務 |
-|---|---|---|
-| `src/services/ng-words.ts` | New | `ng_words` マスタから `is_active = true` の語句一覧を取得する読み取り専用サービス |
-| `src/services/quiz-validation.ts` | Modify | `NG_WORD_LIST` 定数を削除。`containsNgWord`／`validateQuizForPublish` を `ngWords` 引数受け取りに変更 |
-| `src/services/quiz.ts` | Modify | クイズ公開処理内で `listActiveNgWords()` を呼び出し `validateQuizForPublish` へ渡す。取得失敗時は公開処理をエラーで中断 |
+| ファイル                              | 操作   | 責務                                                                                                                              |
+| ------------------------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/ng-words.ts`            | New    | `ng_words` マスタから `is_active = true` の語句一覧を取得する読み取り専用サービス                                                 |
+| `src/services/quiz-validation.ts`     | Modify | `NG_WORD_LIST` 定数を削除。`containsNgWord`／`validateQuizForPublish` を `ngWords` 引数受け取りに変更                             |
+| `src/services/quiz.ts`                | Modify | クイズ公開処理内で `listActiveNgWords()` を呼び出し `validateQuizForPublish` へ渡す。取得失敗時は公開処理をエラーで中断           |
 | `src/components/quiz/quiz-editor.tsx` | Modify | クライアント側事前検証のため NGワード一覧取得を追加。取得失敗時は事前チェックをスキップし、最終防衛線であるサーバー側検証に委ねる |
 
 ### 6. Requirements Traceability（Phase 39）
 
-| Req | Summary | Component |
-|---|---|---|
-| 32.1 | NGワードマスタ参照による禁止語チェック | `ng-words.ts`, `quiz-validation.ts` |
-| 32.2 | 禁止語検出時の公開拒否 | `quiz-validation.ts` |
-| 32.3 | マスタ更新内容の以降の検証への反映 | `ng-words.ts`（キャッシュなし都度取得により自然に満たす） |
-| 32.4 | マスタ取得失敗時の安全側処理 | `quiz.ts`, `ng-words.ts` |
-| 32.5 | マスタ自体のCRUDは対象外 | （`supabase-governance` が担当、[[Out of Boundary]] 参照） |
+| Req  | Summary                                | Component                                                  |
+| ---- | -------------------------------------- | ---------------------------------------------------------- |
+| 32.1 | NGワードマスタ参照による禁止語チェック | `ng-words.ts`, `quiz-validation.ts`                        |
+| 32.2 | 禁止語検出時の公開拒否                 | `quiz-validation.ts`                                       |
+| 32.3 | マスタ更新内容の以降の検証への反映     | `ng-words.ts`（キャッシュなし都度取得により自然に満たす）  |
+| 32.4 | マスタ取得失敗時の安全側処理           | `quiz.ts`, `ng-words.ts`                                   |
+| 32.5 | マスタ自体のCRUDは対象外               | （`supabase-governance` が担当、[[Out of Boundary]] 参照） |
 
 ### 7. Testing Strategy（Phase 39）
 
-| 種別 | 検証 |
-|---|---|
-| Unit | `containsNgWord(text, ngWords)` — 渡された `ngWords` 配列に応じて判定結果が変わり、配列に存在しない語句では検出されないこと |
-| Unit | `validateQuizForPublish(quiz, ngWords)` — `ngWords` 内の語句をタイトル・説明・問題文・解説のいずれかに含む場合に `field: 'ngWord'` のエラーが返ること |
+| 種別        | 検証                                                                                                                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Unit        | `containsNgWord(text, ngWords)` — 渡された `ngWords` 配列に応じて判定結果が変わり、配列に存在しない語句では検出されないこと                                                          |
+| Unit        | `validateQuizForPublish(quiz, ngWords)` — `ngWords` 内の語句をタイトル・説明・問題文・解説のいずれかに含む場合に `field: 'ngWord'` のエラーが返ること                                |
 | Integration | `quiz.ts` — `listActiveNgWords()` が例外をスローした場合、`saveQuiz(quiz, 'published')` がエラーをスローしクイズが公開されないこと（`@/lib/supabase/client` のチェーンモックで検証） |
-| Integration | `quiz.ts` — `ng_words` に新規登録された語句が、次回の `saveQuiz` 呼び出しから検証対象になること（モックの返り値切り替えで検証） |
+| Integration | `quiz.ts` — `ng_words` に新規登録された語句が、次回の `saveQuiz` 呼び出しから検証対象になること（モックの返り値切り替えで検証）                                                      |
 
 **Effort**: **S**（既存の純粋関数シグネチャ変更 + 新規読み取りサービス1つ + 呼び出し元2箇所の更新）
 **Risk**: **Low**（型シグネチャの追加引数化であり、既存の判定ロジック自体は変更しない）
 
 **Document Status（Phase 39 設計）**: 本節に反映。
+
+## Phase 41: 有料プランの多層化と tier 識別子リネーム（2026-07-13）
+
+### Overview（本フェーズ）
+既存の `pro` tier を `creator` へ全面リネーム（内部識別子・DB データ・表示名すべて、既存契約者は無停止で移行）し、Free と Creator の中間価格帯を持つ新有料 tier `player`（広告非表示・ウミガメのスープ AI 質問無制限のみを付与し、クイズ限定公開・AI 作問アシスタントは付与しない）を追加する。判定ロジックを「有料か無料か」の単一フラグから tier ごとの capability 集合モデルへ一般化し、将来の tier 追加（`premium` の正式販売等）が既存ゲート箇所の個別修正なしで行えるようにする。
+
+### Boundary Commitments（Phase 41）
+
+**This Spec Owns**
+- 契約 tier モデル（`free` / `player` / `creator` / `premium`）の定義と、tier→capability マッピングの単一正本。
+- `player` / `creator` それぞれの購読開始（Checkout）・契約管理（Portal）API、および両 tier の月額・年額価格を返す価格取得 API。
+- 既存 `pro` 契約者データの `creator` への無停止移行（DB データリネーム）。
+- Webhook 経由のエンタイトルメント同期における tier 解決ロジック。
+
+**Out of Boundary**
+- `player` / `creator` の具体的な月額・年額金額の決定、および Stripe Dashboard 上の Product/Price 作成そのもの（運用設定、要件33.17）。
+- `/pricing` 画面のプランカード表示・並び順・購読 CTA（`quizetika-billing-subscription-ui` が担当）。
+- AI 作問アシスタントのアクセス制御 UI・upsell 文言（`quizetika-ai-quiz-authoring` が担当）。
+- クイズ公開範囲設定 UI・警告文言（`quizetika-creator-dash-ui` / `quizetika-ui-editor` が担当）。
+- `premium` tier の有料販売および固有特典の定義（拡張点の予約のみ、要件33.19）。
+
+**Allowed Dependencies**
+- Stripe（Checkout Sessions API, Billing Portal API, Webhook）。既存 Phase 13 実装のクライアント（`getStripeClient()`）をそのまま再利用する。
+- Supabase（`users` テーブル、Admin クライアント）。既存 `subscription_tier`（`TEXT`）列をスキーマ変更なしで利用する。
+
+**Revalidation Triggers**
+- `SubscriptionCapability` の集合定義（tier→capability マッピング）が変更された場合、`quizetika-ai-quiz-authoring` と `quizetika-creator-dash-ui` は自身のゲート判定が引き続き正しいか再確認が必要。
+- `/api/billing/prices` または `/api/billing/checkout-session` のリクエスト/レスポンス契約が変更された場合、`quizetika-billing-subscription-ui` は再統合が必要。
+- tier の追加・削除（列挙自体の変更）が発生した場合、全下流仕様（4スペック）は自身の tier 前提を再確認する必要がある。
+
+### Architecture Pattern（Phase 41）
+
+**既存アーキテクチャ分析**: Phase 13 で確立した「Server-authoritative entitlements + Stripe-hosted Checkout/Portal」パターンを維持する。変更の主眼は tier 判定ロジックの一般化であり、Checkout/Portal/Webhook の基本フローは Phase 13 のシーケンスと同一のまま、tier パラメータが追加される。
+
+```mermaid
+graph TB
+    Plans as SubscriptionPlans
+    Ent as EntitlementShared
+    QuizAccess as QuizAccessGate
+    AiAuthoring as AiAuthoringGate
+    Ads as UseAdsHook
+    CheckoutAPI as CheckoutSessionAPI
+    PricesAPI as BillingPricesAPI
+    Webhook as StripeWebhookAPI
+    DB as SupabaseUsers
+
+    Plans --> Ent
+    Ent --> QuizAccess
+    Ent --> AiAuthoring
+    Ent --> Ads
+    CheckoutAPI --> Plans
+    PricesAPI --> Plans
+    Webhook --> Plans
+    Webhook --> DB
+    Ent --> DB
+```
+
+**Key Decisions**:
+- `EntitlementShared`（`entitlement-shared.ts`）を tier→capability 判定の唯一の正本とし、`QuizAccessGate`・`AiAuthoringGate`・`UseAdsHook` は独自の tier 比較を持たずすべてここへ委譲する（現状 `useAds.ts` が独自実装している重複を解消）。
+- `SubscriptionPlans`（`subscription-plans.ts`）は tier→Stripe Price ID のマッピングを tier 引数付き関数として提供し、`CheckoutSessionAPI` と `PricesAPI` の両方から参照される単一正本のまま拡張する。
+
+### Technology Stack（Phase 41 追加分）
+
+| Layer   | Choice / Version                                            | Role in Feature                        | Notes                                |
+| ------- | ----------------------------------------------------------- | -------------------------------------- | ------------------------------------ |
+| Backend | 既存 `stripe` パッケージ（Phase 13 導入）                   | tier 別 Checkout/Portal セッション発行 | 新規依存追加なし                     |
+| Data    | Supabase Postgres（既存 `users.subscription_tier` TEXT 列） | tier データの保持                      | スキーマ変更なし、データリネームのみ |
+
+### Data Models（Phase 41）
+
+#### Domain Model: SubscriptionCapability
+tier ごとに付与される特典を、単一の「有料/無料」二値ではなく capability の集合として表現する。
+
+```typescript
+// src/services/entitlement-shared.ts
+export type SubscriptionCapability =
+  | 'ad_free'
+  | 'unlimited_ai_questions'
+  | 'quiz_visibility_control'
+  | 'ai_authoring_assist';
+
+const TIER_CAPABILITIES: Readonly<Record<SubscriptionTier, ReadonlySet<SubscriptionCapability>>> = {
+  free: new Set(),
+  player: new Set(['ad_free', 'unlimited_ai_questions']),
+  creator: new Set(['ad_free', 'unlimited_ai_questions', 'quiz_visibility_control', 'ai_authoring_assist']),
+  premium: new Set(['ad_free', 'unlimited_ai_questions', 'quiz_visibility_control', 'ai_authoring_assist']),
+};
+```
+- 不変条件: `free` の capability 集合は常に空。tier が有効な有料契約でない場合（`subscriptionStatus` が `active`/`trialing` 以外）は、実際の tier に関わらず `free` の集合として扱う。
+- `premium` は現時点で `creator` と同一集合とする（要件33.3 の拡張点予約。将来 `premium` 固有特典が定義された際にこのマップへ追記するのみで済む）。
+
+#### Logical Data Model
+- `users.subscription_tier`（`TEXT`）: 既存カラムをそのまま使用。許容値が `'free' | 'player' | 'creator' | 'premium'` に拡張される（アプリケーション層の型で担保、DB 制約は追加しない — 既存も CHECK 制約なしのため一貫性を維持）。
+- 既存 `pro` 値を持つ全行を `creator` へ更新する1回限りのデータマイグレーションを実施する（Migration Strategy 参照）。
+
+### Components and Interfaces（Phase 41）
+
+| Component                    | Domain/Layer | Intent                                             | Req Coverage             | Key Dependencies (P0/P1)                           | Contracts  |
+| ---------------------------- | ------------ | -------------------------------------------------- | ------------------------ | -------------------------------------------------- | ---------- |
+| `EntitlementShared`（改修）  | service      | tier→capability 判定の単一正本                     | 33.1, 33.2, 33.14, 33.15 | なし（純粋関数）                                   | Service    |
+| `SubscriptionPlans`（改修）  | lib          | tier 別 Price ID・価格帯マッピング                 | 33.1, 33.4, 33.17        | env Price IDs (P0)                                 | State      |
+| `QuizAccessGate`（改修）     | lib          | 限定公開設定の可否判定                             | 33.14, 33.15             | `EntitlementShared` (P0)                           | Service    |
+| `AiAuthoringGate`（改修）    | service      | AI作問アシスタント利用可否判定                     | 33.14, 33.15             | `EntitlementShared` (P0)                           | Service    |
+| `UseAdsHook`（改修）         | client hook  | 広告表示可否判定                                   | 33.14                    | `EntitlementShared` (P0)                           | Service    |
+| `CheckoutSessionAPI`（改修） | API Route    | tier 別購読開始セッション発行                      | 33.8–33.11               | `SubscriptionPlans` (P0), `EntitlementShared` (P0) | API        |
+| `PortalSessionAPI`（既存）   | API Route    | 契約管理セッション発行（tier非依存のため変更なし） | 33.13                    | `EntitlementShared` (P0)                           | API        |
+| `BillingPricesAPI`（改修）   | API Route    | player・creator 両価格の取得                       | 33.4                     | `SubscriptionPlans` (P0), Stripe (P0)              | API        |
+| `StripeWebhookAPI`（改修）   | API Route    | tier 解決・有料判定の一般化                        | 33.5–33.7, 33.12, 33.16  | `SubscriptionPlans` (P0)                           | API, Event |
+| tier データマイグレーション  | migration    | 既存 `pro` → `creator` の無停止データ移行          | 33.5–33.7                | Supabase (P0)                                      | Batch      |
+
+#### EntitlementShared
+
+| Field        | Detail                                                                                                                                                                              |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Intent       | ユーザーの契約 tier・状態から capability 集合を解決し、既存の呼び出し側フィールド（`hasPaidEntitlements`, `hasUnlimitedAiQuestions`）に加え新規 `hasCreatorEntitlements` を提供する |
+| Requirements | 33.1, 33.2, 33.14, 33.15, 33.16                                                                                                                                                     |
+
+**Dependencies**
+- Inbound: `QuizAccessGate`（限定公開ゲート） — P0 / `AiAuthoringGate`（AI作問ゲート） — P0 / `UseAdsHook`（広告表示） — P0 / `resolveUserEntitlements`（サーバー側解決） — P0
+
+**Contracts**: Service [x] / API [ ] / Event [ ] / Batch [ ] / State [ ]
+
+##### Service Interface
+```typescript
+export interface UserEntitlements {
+  subscriptionTier: SubscriptionTier;
+  subscriptionStatus: SubscriptionStatus | null;
+  currentPeriodEnd: Date | null;
+  hasPaidEntitlements: boolean;      // 既存: 有料 tier（player/creator/premium）かつ有効契約
+  hasUnlimitedAiQuestions: boolean;  // 既存: hasPaidEntitlements || モデレーター免除
+  hasCreatorEntitlements: boolean;   // 新規: quiz_visibility_control / ai_authoring_assist の可否
+}
+
+export function computeUserEntitlements(fields: EntitlementUserFields): UserEntitlements;
+```
+- Preconditions: `fields.subscriptionTier` は `SubscriptionTier` 型の値または未設定（未設定は `free` として解釈、既存動作を維持）。
+- Postconditions: `hasCreatorEntitlements` は `creator`/`premium` tier かつ有効契約の場合のみ `true`。`player` tier では常に `false`。
+- Invariants: `hasPaidEntitlements === true` かつ `hasCreatorEntitlements === true` は `creator`/`premium` でのみ両立し、`player` では `hasPaidEntitlements === true` かつ `hasCreatorEntitlements === false` となる。
+
+**Implementation Notes**
+- Integration: `QuizAccessGate.canAccessProVisibility()` と `AiAuthoringGate.canAccessAiAuthoring()` は `hasPaidEntitlements` 参照を `hasCreatorEntitlements` へ置き換える（モデレーター免除は各ゲート側の既存ロジックを維持）。`UseAdsHook` は独自の `subscriptionTier === 'pro'` 判定を廃止し `computeUserEntitlements().hasPaidEntitlements` を参照する。
+- Validation: `hasPaidEntitlements` を参照している全箇所を洗い出し、限定公開・AI作問の2箇所のみ `hasCreatorEntitlements` へ置き換えたことをタスク完了条件に含める（他は「広告非表示・AI質問無制限」の意味で `hasPaidEntitlements` のままで正しい）。
+- Risks: capability マップの tier 集合定義に誤りがあると全ゲートに波及するため、tier×capability の全組み合わせを単体テストで固定する。
+
+#### SubscriptionPlans
+
+| Field        | Detail                                                  |
+| ------------ | ------------------------------------------------------- |
+| Intent       | tier 別の Stripe Price ID・特典キーマッピングの単一正本 |
+| Requirements | 33.1, 33.4, 33.17                                       |
+
+**Contracts**: Service [x] / API [ ] / Event [ ] / Batch [ ] / State [x]
+
+##### Service Interface
+```typescript
+export interface PaidTierDefinition {
+  tier: 'player' | 'creator' | 'premium';
+  displayName: string;
+  priceIds: { monthly: string; yearly: string };
+  featureKeys: readonly PaidFeatureKey[];
+}
+
+export function getPaidTierDefinitions(): readonly PaidTierDefinition[];
+export function getPriceIdForInterval(tier: 'player' | 'creator', interval: PriceInterval): string;
+export function priceIdToTier(priceId: string): SubscriptionTier | null;
+```
+- Preconditions: `player`/`creator` それぞれの Stripe Price ID が環境変数（`STRIPE_PRICE_PLAYER_MONTHLY` 等）に設定済みであること。
+- Postconditions: `getPriceIdForInterval()` は指定 tier が未定義の場合は例外をスローする（`pro` 決め打ちだった従来動作の tier 引数化）。
+
+**Implementation Notes**
+- Integration: `buildPaidTierDefinitions()` に `player` エントリを追加し、既存 `pro` エントリの `tier` フィールド値を `'creator'` に変更する。Stripe 側の環境変数名（`STRIPE_PRICE_CREATOR_*`）はそのまま維持し、`tier` フィールドの値のみを変更する（環境変数の再作成・Stripe Dashboard 変更は不要）。
+
+#### BillingPricesAPI
+
+| Field        | Detail                                                      |
+| ------------ | ----------------------------------------------------------- |
+| Intent       | player・creator 両 tier の月額・年額価格を1リクエストで返す |
+| Requirements | 33.4                                                        |
+
+**Contracts**: Service [ ] / API [x] / Event [ ] / Batch [ ] / State [ ]
+
+##### API Contract
+| Method | Endpoint            | Request | Response                                              | Errors |
+| ------ | ------------------- | ------- | ----------------------------------------------------- | ------ |
+| GET    | /api/billing/prices | なし    | `{ player: PlanPriceQuote, creator: PlanPriceQuote }` | 500    |
+
+```typescript
+interface PlanPriceQuote {
+  monthly: { amount: number; currency: 'jpy'; label: string };
+  yearly: { amount: number; currency: 'jpy'; label: string };
+  savingsLabel?: string;
+}
+```
+既存 `ProPricesResult`（単一 tier 形状）は破壊的に変更される。呼び出し側は `quizetika-billing-subscription-ui` のみのため、依存順（本スペック → billing-ui）により同時性を担保する。
+
+#### CheckoutSessionAPI
+
+| Field        | Detail                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| Intent       | 指定 tier・課金間隔で Checkout セッションを発行し、tier 間のダウングレード購読開始を拒否する |
+| Requirements | 33.8, 33.9, 33.10, 33.11                                                                     |
+
+**Contracts**: Service [ ] / API [x] / Event [ ] / Batch [ ] / State [ ]
+
+##### API Contract
+| Method | Endpoint                      | Request                                                                 | Response                 | Errors                                                                        |
+| ------ | ----------------------------- | ----------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
+| POST   | /api/billing/checkout-session | `{ plan: 'player' \| 'creator'; priceInterval: 'monthly' \| 'yearly' }` | `{ sessionUrl: string }` | 400（`plan`/`priceInterval` 不正）, 401, 403, 409（重複購読・ダウングレード） |
+
+**Implementation Notes**
+- Integration: `createCheckoutSession()`（`services/subscription.ts`）に `plan` 引数を追加。既存の `AlreadySubscribedError`（409）に加え、`creator` 契約中に `player` を指定した場合は新規 `DowngradeNotAllowedError`（409）をスローする（要件33.11）。
+
+#### StripeWebhookAPI
+
+| Field        | Detail                                                                  |
+| ------------ | ----------------------------------------------------------------------- |
+| Intent       | Stripe Price ID から tier を解決し、有効な有料契約を `users` へ同期する |
+| Requirements | 33.5, 33.6, 33.7, 33.12, 33.16                                          |
+
+**Contracts**: Service [ ] / API [x] / Event [x] / Batch [ ] / State [ ]
+
+**Implementation Notes**
+- Integration: `buildSnapshotFromSubscription()` の有料判定を `mappedTier === 'pro' || mappedTier === 'premium'` から `mappedTier !== 'free'` へ一般化する。これにより tier 追加時にこの箇所の修正が不要になる。
+- Validation: 移行後も既存 Stripe Subscription の Price ID は変更されないため、`priceIdToTier()` が `'creator'` を返すよう `subscription-plans.ts` のマッピングを更新すれば Webhook 側の追加改修は不要。
+
+### File Structure Plan（Phase 41）
+
+| ファイル                                                     | 操作   | 責務                                                                                                                                                                  |
+| ------------------------------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/entitlement-shared.ts`                         | Modify | `SubscriptionCapability` と tier→capability マップを追加。`computeUserEntitlements()` に `hasCreatorEntitlements` を追加                                              |
+| `src/types/subscription.ts`                                  | Modify | `SubscriptionTier` に `'player'` を追加。`UserEntitlements` に `hasCreatorEntitlements: boolean` を追加                                                               |
+| `src/lib/subscription-plans.ts`                              | Modify | `player` tier 定義を追加。既存 `pro` エントリの `tier` を `'creator'` に変更。`getPriceIdForInterval()` を tier 引数付きに変更                                        |
+| `src/lib/quiz-access.ts`                                     | Modify | `canAccessProVisibility()` の判定を `hasPaidEntitlements` から `hasCreatorEntitlements` へ変更。`ProRequiredForVisibilityError` のメッセージ文言を Creator 表記へ更新 |
+| `src/services/ai-authoring-utils.ts`                         | Modify | `canAccessAiAuthoring()` の判定を `hasCreatorEntitlements` ベースへ変更                                                                                               |
+| `src/hooks/useAds.ts`                                        | Modify | 独自の tier 文字列比較を廃止し `computeUserEntitlements()` 呼び出しへ置き換え                                                                                         |
+| `src/services/billing-prices.ts`                             | Modify | `fetchProPricesFromStripe()` を `fetchPlanPricesFromStripe()` に変更し、player・creator 両方の価格を返す                                                              |
+| `src/services/subscription.ts`                               | Modify | `createCheckoutSession()` に `plan` 引数を追加。`DowngradeNotAllowedError` を新規追加                                                                                 |
+| `src/app/api/billing/checkout-session/route.ts`              | Modify | リクエストボディから `plan` を検証・伝搬                                                                                                                              |
+| `src/app/api/billing/prices/route.ts`                        | Modify | 新レスポンス形状（player/creator）を返す                                                                                                                              |
+| `src/services/stripe-webhook.ts`                             | Modify | 有料判定を `mappedTier !== 'free'` に一般化                                                                                                                           |
+| `supabase/migrations/20260720000000_billing_tier_rename.sql` | New    | `UPDATE users SET subscription_tier = 'creator' WHERE subscription_tier = 'pro'`                                                                                      |
+| `src/lib/pricing-entitlement.ts`                             | Modify | `computeHasPaidEntitlements()` の tier 文字列比較を `'player' \| 'creator' \| 'premium'` に拡張                                                                       |
+
+### Requirements Traceability（Phase 41）
+
+| Requirement | Summary                              | Components                                                             | Interfaces                           | Flows      |
+| ----------- | ------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------ | ---------- |
+| 33.1–33.4   | tier モデル拡張・価格順序            | `SubscriptionPlans`, `EntitlementShared`                               | —                                    | —          |
+| 33.5–33.7   | 既存契約者データ移行                 | migration, `SubscriptionPlans`                                         | —                                    | 移行フロー |
+| 33.8–33.13  | 購読開始・契約管理（player/creator） | `CheckoutSessionAPI`, `PortalSessionAPI`                               | `POST /api/billing/checkout-session` | 購読フロー |
+| 33.14–33.16 | エンタイトルメント適用               | `EntitlementShared`, `QuizAccessGate`, `AiAuthoringGate`, `UseAdsHook` | —                                    | —          |
+| 33.17–33.19 | 境界（UI 外・premium 予約）          | —                                                                      | —                                    | —          |
+
+### Migration Strategy（Phase 41）
+
+```mermaid
+flowchart TD
+    A[デプロイ: コード変更適用] --> B[migration 実行: pro to creator UPDATE]
+    B --> C[検証: subscription_tier = pro の件数が0であることを確認]
+    C --> D{0件か}
+    D -->|Yes| E[完了]
+    D -->|No| F[原因調査: 移行漏れ行の個別確認]
+```
+- ロールバックトリガー: migration 実行後に `subscription_tier = 'pro'` の行が残存する場合、原因調査を行い再実行する（UPDATE 文自体は冪等）。
+- 検証チェックポイント: デプロイ後に `SELECT count(*) FROM users WHERE subscription_tier = 'pro'` が 0 件であることを確認する。
+
+### Testing Strategy（Phase 41）
+
+| 種別        | 検証                                                                                                                                                                                                                             |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | `computeUserEntitlements()` — tier×status の全組み合わせ（`free`/`player`/`creator`/`premium` × `active`/`trialing`/その他）で `hasPaidEntitlements`/`hasUnlimitedAiQuestions`/`hasCreatorEntitlements` が仕様通りの値を返すこと |
+| Unit        | `canAccessProVisibility()` / `canAccessAiAuthoring()` — `player` tier では `false`、`creator`/`premium` では `true` を返すこと                                                                                                   |
+| Unit        | `getPriceIdForInterval('player', 'monthly')` / `getPriceIdForInterval('creator', 'yearly')` — 各 tier の正しい Price ID を返すこと                                                                                               |
+| Integration | `POST /api/billing/checkout-session` — `creator` 契約中に `plan: 'player'` を指定すると 409（`DowngradeNotAllowedError`）を返すこと                                                                                              |
+| Integration | `StripeWebhookAPI` — Price ID が `player` にマッピングされる Subscription イベント受信時、`users.subscription_tier` が `'player'` に更新されること                                                                               |
+| Integration | migration — `subscription_tier = 'pro'` の既存行が `UPDATE` 後に `'creator'` へ変わり、他フィールド（`stripe_subscription_id` 等）が変化しないこと                                                                               |
+
+**Effort**: **M**（既存判定ロジックの一般化 + 新規 tier 追加 + データ移行。新規外部依存なし）
+**Risk**: **Medium**（`hasPaidEntitlements` 参照箇所の置き換え漏れが機能ゲートの誤動作に直結するため、全参照箇所の洗い出しが必須）
+
+### 二重課金防止（要件34）
+
+#### Boundary Commitments（要件34 差分）
+
+**This Spec Owns（追加）**
+- 購読開始時の外部決済サービス側ライブ状態確認（DBキャッシュのみに依存しない事前チェック）。
+- Webhook 受信時の重複サブスクリプション検知・自動解約・返金・監査記録。
+
+**Out of Boundary（追加）**
+- 重複解約・返金発生時のユーザー向け通知（メール等、要件34.8）。
+- Webhook イベント自体の配信重複対策（既存の `stripe_processed_events` 冪等処理を流用するのみ）。
+
+#### Architecture（要件34）
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CheckoutAPI as CheckoutSessionAPI
+    participant Stripe
+    participant Webhook as StripeWebhookAPI
+    participant Guard as DuplicateSubscriptionGuard
+    participant DB as SupabaseUsers
+
+    User->>CheckoutAPI: POST checkout-session plan interval
+    CheckoutAPI->>Stripe: subscriptions.list customer status active
+    Stripe-->>CheckoutAPI: 既存有効サブスクリプション一覧
+    alt 既存の有効サブスクリプションあり
+        CheckoutAPI-->>User: 409 already-subscribed
+    else なし
+        CheckoutAPI->>Stripe: checkout.sessions.create
+        Stripe-->>User: redirect Checkout
+    end
+
+    Stripe->>Webhook: customer.subscription.created
+    Webhook->>Guard: checkForDuplicates customerId newSubscriptionId
+    Guard->>Stripe: subscriptions.list customer status active
+    Stripe-->>Guard: 有効サブスクリプション一覧
+    alt 2件以上の有効サブスクリプション
+        Guard->>Stripe: 最古以外を subscriptions.cancel
+        Guard->>Stripe: 解約分の最新請求書を refunds.create
+        Guard->>DB: insert billing_duplicate_subscription_incidents
+        Guard-->>Webhook: 最古のサブスクリプションIDのみ返す
+    else 1件のみ
+        Guard-->>Webhook: そのまま返す
+    end
+    Webhook->>DB: applySubscriptionFromStripe 正のサブスクリプションのみ反映
+```
+
+**Key Decisions**:
+- 購読開始時のチェックは Stripe の `subscriptions.list`（`status: 'active'`, `customer: id`）をライブ参照する。DB の `subscription_tier` はキャッシュとして扱い、購読開始の可否判定には使わない（要件34.1）。
+- Webhook 側の `DuplicateSubscriptionGuard` は「作成日時が最も古いサブスクリプションを正とする」ルールを一貫して適用する。これにより「後から完了した方を自動キャンセル」という運用方針を、同一プランの二重契約・Player/Creator 同時契約の両方に単一ルールで対応できる（要件34.4）。
+- 返金は解約対象サブスクリプションの直近の支払い済み Invoice に紐づく PaymentIntent に対して全額 `refunds.create` を実行する（要件34.5）。
+
+#### File Structure Plan（要件34）
+
+| ファイル                                                             | 操作   | 責務                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/duplicate-subscription-guard.ts`                       | New    | Stripe 顧客の有効サブスクリプション一覧を取得し、2件以上ある場合に最古以外を解約・返金し、監査レコードを挿入する。正となるサブスクリプションIDを返す                                                                               |
+| `src/services/subscription.ts`                                       | Modify | `createCheckoutSession()` で `getOrCreateStripeCustomer()` 後に `stripe.subscriptions.list({ customer, status: 'active' })` を呼び、1件以上あれば `AlreadySubscribedError` をスローする（DB チェックに加えてライブチェックを追加） |
+| `src/services/stripe-webhook.ts`                                     | Modify | `handleStripeSubscriptionEvent()` の冒頭で `duplicate-subscription-guard.ts` の `resolveActiveSubscription()` を呼び出し、返された正のサブスクリプションのみを `applySubscriptionFromStripe()` に渡す                              |
+| `supabase/migrations/20260721000000_billing_duplicate_incidents.sql` | New    | `billing_duplicate_subscription_incidents` テーブル作成（監査記録用、クライアントアクセス不可）                                                                                                                                    |
+
+#### Data Models（要件34）
+
+```sql
+CREATE TABLE billing_duplicate_subscription_incidents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    kept_subscription_id TEXT NOT NULL,
+    canceled_subscription_id TEXT NOT NULL,
+    refunded_amount INTEGER,
+    refund_currency TEXT,
+    detected_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE billing_duplicate_subscription_incidents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY billing_duplicate_subscription_incidents_policy
+    ON billing_duplicate_subscription_incidents FOR ALL USING (FALSE);
+```
+- クライアントからの読み書きは Rules で完全遮断し、Admin クライアント経由の書き込みのみを許可する（既存 `admin_logs` と同一パターン）。
+
+#### Components and Interfaces（要件34）
+
+| Component                                       | Domain/Layer | Intent                                             | Req Coverage | Key Dependencies (P0/P1)         | Contracts      |
+| ----------------------------------------------- | ------------ | -------------------------------------------------- | ------------ | -------------------------------- | -------------- |
+| `DuplicateSubscriptionGuard`                    | service      | 重複サブスクリプションの検知・解約・返金・監査記録 | 34.3–34.7    | Stripe (P0), Supabase Admin (P0) | Service, Batch |
+| `CheckoutSessionAPI`（Phase 41 分から追加改修） | API Route    | Stripe ライブ状態を踏まえた重複購読の事前拒否      | 34.1–34.2    | Stripe (P0)                      | API            |
+
+##### DuplicateSubscriptionGuard Service Interface
+```typescript
+export interface DuplicateSubscriptionResolution {
+  keptSubscriptionId: string;
+  canceledSubscriptionIds: string[];
+}
+
+export async function resolveActiveSubscription(
+  customerId: string,
+  userId: string
+): Promise<DuplicateSubscriptionResolution>;
+```
+- Preconditions: `customerId` は Stripe 上に存在する Customer の ID。
+- Postconditions: 呼び出し後、当該 Customer は Stripe 上で有効なサブスクリプションを最大1件のみ保有する状態になる。重複が解約された場合はその件数分の返金と監査レコード挿入が完了している。
+- Invariants: `keptSubscriptionId` は常に `created` タイムスタンプが最も古いサブスクリプション。
+
+**Implementation Notes**
+- Integration: `resolveActiveSubscription()` は `handleStripeSubscriptionEvent()` の冒頭、`applySubscriptionFromStripe()` 呼び出し前に実行し、戻り値の `keptSubscriptionId` が現在処理中の `subscription.id` と異なる場合は当該 Webhook イベントの適用をスキップする（既に解約されたサブスクリプションの状態を `users` に反映しないため）。
+- Validation: 返金 API 呼び出し失敗時は例外をログに記録し、監査レコードの `refunded_amount` を `NULL` のまま挿入する（解約自体は実行済みとし、返金は運用側の手動フォローに委ねる）。
+- Risks: Stripe API のレート制限・一時障害時に `subscriptions.list` が失敗すると重複検知自体がスキップされる — Webhook はリトライ対象の 500 を返し、Stripe の自動リトライに委ねる。
+
+#### Testing Strategy（要件34）
+
+| 種別        | 検証                                                                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | `resolveActiveSubscription()` — 2件の有効サブスクリプション（作成日時が異なる）を渡した Stripe mock に対し、新しい方が解約・返金され、古い方の ID が返ること                    |
+| Unit        | `resolveActiveSubscription()` — 有効サブスクリプションが1件のみの場合、解約・返金 API が一切呼ばれず、その1件の ID がそのまま返ること                                           |
+| Integration | `createCheckoutSession()` — DB 上は `free` だが Stripe 上に既に有効なサブスクリプションが存在するケース（DBキャッシュ遅延を模擬）で `AlreadySubscribedError` がスローされること |
+| Integration | `handleStripeSubscriptionEvent()` — 重複解約が発生したイベントで `users.subscription_tier` が正のサブスクリプションの tier のみに更新されること                                 |
+| Integration | `billing_duplicate_subscription_incidents` — 重複検知時に1レコード挿入され、`kept_subscription_id` / `canceled_subscription_id` が正しく記録されること                          |
+
+**Effort**: **M**（新規サービス1つ、既存 Checkout/Webhook への統合、監査テーブル追加）
+**Risk**: **High**（実際の返金処理を伴うため、Stripe API 呼び出し順序・冪等性の誤りが実際の金銭的損失に直結する。テストは Stripe mock による網羅的なシナリオ検証を必須とする）
+
+### Player・Creator 間のプラン変更（要件35）
+
+#### Boundary Commitments（要件35）
+
+**This Spec Owns**
+- 既存サブスクリプションのプラン変更 API（`POST /api/billing/change-plan`）。
+- Stripe `subscriptions.update()` による同一サブスクリプション内でのプラン切替と比例配分（proration）。
+
+**Out of Boundary**
+- プラン変更 CTA・確認ダイアログの UI（`quizetika-billing-subscription-ui` 要件12 が担当）。
+- `free` への新規購読・解約フロー（既存の Checkout/Portal がそのまま担当、変更なし）。
+
+**Allowed Dependencies**
+- 既存の `EntitlementShared`・`SubscriptionPlans`（tier→Price ID マッピング）をそのまま再利用する。
+
+**Revalidation Triggers**
+- プラン変更 API のリクエスト/レスポンス契約が変更された場合、`quizetika-billing-subscription-ui` 要件12 は再統合が必要。
+
+#### Architecture（要件35）
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as BillingUI
+    participant ChangePlanAPI
+    participant Stripe
+    participant Webhook as StripeWebhookAPI
+    participant DB as SupabaseUsers
+
+    User->>UI: プラン変更 CTA 実行
+    UI->>ChangePlanAPI: POST change-plan targetPlan Bearer
+    ChangePlanAPI->>DB: 現在の subscription_tier stripe_subscription_id 取得
+    ChangePlanAPI->>Stripe: subscriptions.retrieve 現行サブスクリプション
+    ChangePlanAPI->>Stripe: subscriptions.update items price targetPriceId proration_behavior create_prorations
+    Stripe-->>ChangePlanAPI: 更新後サブスクリプション
+    ChangePlanAPI-->>UI: 200 成功
+    Stripe->>Webhook: customer.subscription.updated
+    Webhook->>DB: applySubscriptionFromStripe 新tier反映
+    UI->>UI: refreshUser で最新プロフィール再取得
+```
+
+**Key Decisions**:
+- Stripe の同一サブスクリプション `items` を新しい Price ID で `update` する方式を採用し、新規サブスクリプションは作成しない（要件35.1, 35.2）。これにより要件34の重複購読検知の対象外となる（新規サブスクリプション作成を伴わないため）。
+- `proration_behavior: 'create_prorations'` を指定し、Stripe 標準の日割り課金・クレジットに従う（要件35.6、ユーザーヒアリングで確定）。
+- API 応答は Stripe 側の同期完了を待たず 200 を返し、実際の tier 反映は既存の Webhook（`customer.subscription.updated`）経由で非同期に行う（Phase 13 以来のパターンを踏襲）。UI 側は `refreshUser` で反映を確認する。
+
+#### File Structure Plan（要件35）
+
+| ファイル                                   | 操作   | 責務                                                                                                                                                                          |
+| ------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/subscription.ts`             | Modify | `changeSubscriptionPlan(uid, targetPlan)` を追加。現行サブスクリプションを取得し `stripe.subscriptions.update()` で Price を切替。同一プラン指定時は `SamePlanError` をスロー |
+| `src/app/api/billing/change-plan/route.ts` | New    | `POST /api/billing/change-plan`。Bearer 認証、`targetPlan: 'player' \| 'creator'` を受け取り `changeSubscriptionPlan()` を呼び出す                                            |
+
+#### Components and Interfaces（要件35）
+
+| Component       | Domain/Layer | Intent                            | Req Coverage | Key Dependencies (P0/P1)              | Contracts |
+| --------------- | ------------ | --------------------------------- | ------------ | ------------------------------------- | --------- |
+| `ChangePlanAPI` | API Route    | Player/Creator 間のプラン変更受付 | 35.1–35.5    | `SubscriptionPlans` (P0), Stripe (P0) | API       |
+
+##### ChangePlanAPI API Contract
+| Method | Endpoint                 | Request                                 | Response                                             | Errors                                                                    |
+| ------ | ------------------------ | --------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| POST   | /api/billing/change-plan | `{ targetPlan: 'player' \| 'creator' }` | `{ tier: 'player' \| 'creator'; status: 'updated' }` | 400（不正な targetPlan）, 401, 403（有料契約なし）, 409（同一プラン指定） |
+
+**Implementation Notes**
+- Integration: `changeSubscriptionPlan()` は `stripe.subscriptions.retrieve()` で現行 `items[0].id` を取得し、`stripe.subscriptions.update(subscriptionId, { items: [{ id: currentItemId, price: targetPriceId }], proration_behavior: 'create_prorations' })` を実行する。
+- Validation: `targetPlan` が現在の `subscription_tier` と同一の場合は Stripe 呼び出し前に `SamePlanError`（409）をスローする（要件35.5）。
+- Risks: `customer.subscription.updated` の Webhook 反映が遅延する間、UI 上の契約状態が一時的に旧プランのまま表示される — 既存の「反映待ち」UX パターン（Phase 2 由来）を UI 側で踏襲する。
+
+#### Testing Strategy（要件35）
+
+| 種別        | 検証                                                                                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | `changeSubscriptionPlan()` — `player`→`creator` 指定で Stripe `subscriptions.update` が正しい Price ID・`proration_behavior` で呼ばれること |
+| Unit        | `changeSubscriptionPlan()` — 現在の tier と同一の `targetPlan` を指定した場合、Stripe API を呼ばず `SamePlanError` をスローすること         |
+| Integration | `POST /api/billing/change-plan` — 有料契約なしユーザーからの呼び出しが 403 を返すこと                                                       |
+| Integration | Webhook — `customer.subscription.updated`（Price 変更）受信時に `users.subscription_tier` が新プランへ更新されること                        |
+
+**Effort**: **S**（既存 Stripe クライアント・Webhook 処理の再利用、新規エンドポイント1つ）
+**Risk**: **Medium**（Stripe `items` 更新のパラメータ誤りは課金額誤りに直結するため、比例配分パラメータのテストを重点的に行う）
+
+**Document Status（Phase 41 設計）**: 本節に反映。二重課金防止（要件34）およびプラン変更（要件35）を含む。
 
 

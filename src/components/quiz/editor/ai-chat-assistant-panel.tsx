@@ -54,7 +54,7 @@ function getJapaneseToolName(name: string): string {
     case 'generateBulkQuestions': return '問題の一括生成';
     case 'createQuestion': return '問題の追加';
     case 'updateQuestion': return '問題の更新';
-    case 'deleteQuestion': return '問題の削除';
+    case 'deleteQuestions': return '問題の削除';
     case 'generateThumbnail': return 'サムネイル画像の自動生成';
     case 'checkQuestion': return '問題の包括チェック';
     case 'checkAllQuestions': return '全問題の一括包括チェック';
@@ -535,7 +535,7 @@ export function AiChatAssistantPanel({
                   // 承認対象のツールかどうか
                   const approvalRequiredTools = [
                     'updateQuestion',
-                    'deleteQuestion',
+                    'deleteQuestions',
                     'generateBulkQuestions',
                     'generateThumbnail'
                   ];

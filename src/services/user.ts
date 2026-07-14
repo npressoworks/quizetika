@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/client';
 import { User, Follow, Badge } from '../types';
 import { resolveSubscriptionTier } from '@/lib/subscription-plans';
 import { Database } from '@/lib/supabase/database.types';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 const supabase = createClient();
 
@@ -79,7 +80,6 @@ export function mapRowToUser(
     stripeSubscriptionId: row.stripe_subscription_id ?? undefined,
     subscriptionStatus: row.subscription_status as any,
     currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : undefined,
-    isPremium: row.is_premium ?? undefined,
     snsLinks: (row.sns_links as User['snsLinks']) ?? undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
@@ -115,7 +115,6 @@ export function mapUserToRow(user: Partial<User>): Database['public']['Tables'][
   if (user.stripeSubscriptionId !== undefined) row.stripe_subscription_id = user.stripeSubscriptionId;
   if (user.subscriptionStatus !== undefined) row.subscription_status = user.subscriptionStatus;
   if (user.currentPeriodEnd !== undefined) row.current_period_end = user.currentPeriodEnd?.toISOString() ?? null;
-  if (user.isPremium !== undefined) row.is_premium = user.isPremium;
   if (user.snsLinks !== undefined) row.sns_links = user.snsLinks as any;
   if (user.createdAt !== undefined) row.created_at = user.createdAt.toISOString();
   if (user.updatedAt !== undefined) row.updated_at = user.updatedAt.toISOString();
@@ -266,6 +265,37 @@ export async function createUser(user: Omit<User, 'createdAt' | 'updatedAt'>): P
 
   if (error) {
     throw new Error(`ユーザーの作成に失敗しました: ${error.message}`);
+  }
+}
+
+/**
+ * メールアドレスからユーザープロフィール情報を取得
+ * @param email メールアドレス
+ */
+export async function getUserProfileByEmail(email: string): Promise<User | null> {
+  if (!email) return null;
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const relations = await fetchUserRelations(data.id);
+  return normalizeUserRecord(mapRowToUser(data, relations));
+}
+
+/**
+ * ユーザーのUIDを更新する（開発環境用または不整合解消用）
+ */
+export async function updateUserUid(oldUid: string, newUid: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ id: newUid, updated_at: new Date().toISOString() })
+    .eq('id', oldUid);
+
+  if (error) {
+    throw new Error(`ユーザーIDの更新に失敗しました: ${error.message}`);
   }
 }
 
@@ -721,5 +751,121 @@ async function syncFollowedGenres(userId: string, genreIds: string[]): Promise<v
     if (error) {
       throw new Error(`フォロー中ジャンルの更新に失敗しました: ${error.message}`);
     }
+  }
+}
+
+/**
+ * 退会済みユーザーのデータを安全にクレンジングおよび匿名化する（Admin権限が必要）
+ * @param customSupabase サーバー側で生成された Supabase Admin Client
+ * @param uid 対象ユーザーのUID
+ */
+export async function cleanUpDeletedUser(customSupabase: SupabaseClient<Database>, uid: string): Promise<void> {
+  if (!uid) {
+    throw new Error('missing-uid');
+  }
+
+  // 1. leaderboard_entries の削除
+  const { error: leaderboardError } = await customSupabase
+    .from('leaderboard_entries')
+    .delete()
+    .eq('user_id', uid);
+  if (leaderboardError) {
+    console.error(`[cleanUpDeletedUser] leaderboard_entries 削除エラー:`, leaderboardError);
+    throw leaderboardError;
+  }
+
+  // 2. follows の削除 (follower_id または following_id が uid)
+  const { error: followsError } = await customSupabase
+    .from('follows')
+    .delete()
+    .or(`follower_id.eq.${uid},following_id.eq.${uid}`);
+  if (followsError) {
+    console.error(`[cleanUpDeletedUser] follows 削除エラー:`, followsError);
+    throw followsError;
+  }
+
+  // 3. bookmarks の削除
+  const { error: bookmarksError } = await customSupabase
+    .from('bookmarks')
+    .delete()
+    .eq('user_id', uid);
+  if (bookmarksError) {
+    console.error(`[cleanUpDeletedUser] bookmarks 削除エラー:`, bookmarksError);
+    throw bookmarksError;
+  }
+
+  // 4. notifications の削除
+  const { error: notificationsError } = await customSupabase
+    .from('notifications')
+    .delete()
+    .eq('user_id', uid);
+  if (notificationsError) {
+    console.error(`[cleanUpDeletedUser] notifications 削除エラー:`, notificationsError);
+    throw notificationsError;
+  }
+
+  // 5. quizzes の匿名化
+  const { error: quizzesError } = await customSupabase
+    .from('quizzes')
+    .update({ author_name: '退会済ユーザー', author_avatar: null })
+    .eq('author_id', uid);
+  if (quizzesError) {
+    console.error(`[cleanUpDeletedUser] quizzes 匿名化エラー:`, quizzesError);
+    throw quizzesError;
+  }
+
+  // 6. questions の匿名化
+  const { error: questionsError } = await customSupabase
+    .from('questions')
+    .update({ author_name: '退会済ユーザー', author_avatar: null })
+    .eq('author_id', uid);
+  if (questionsError) {
+    console.error(`[cleanUpDeletedUser] questions 匿名化エラー:`, questionsError);
+    throw questionsError;
+  }
+
+  // 7. user_badges の削除
+  const { error: userBadgesError } = await customSupabase
+    .from('user_badges')
+    .delete()
+    .eq('user_id', uid);
+  if (userBadgesError) {
+    console.error(`[cleanUpDeletedUser] user_badges 削除エラー:`, userBadgesError);
+    throw userBadgesError;
+  }
+
+  // 8. user_genre_follows の削除
+  const { error: genreFollowsError } = await customSupabase
+    .from('user_genre_follows')
+    .delete()
+    .eq('user_id', uid);
+  if (genreFollowsError) {
+    console.error(`[cleanUpDeletedUser] user_genre_follows 削除エラー:`, genreFollowsError);
+    throw genreFollowsError;
+  }
+
+  // 9. users の匿名化
+  const { error: userError } = await customSupabase
+    .from('users')
+    .update({
+      display_name: '退会済ユーザー',
+      email: `deleted_${uid}@example.com`,
+      avatar_url: null,
+      bio: '',
+      sns_links: {},
+      delete_status: 'deleted',
+      subscription_tier: 'free',
+      stripe_customer_id: null,
+      stripe_subscription_id: null,
+      subscription_status: null,
+      current_period_end: null,
+      reputation_score: 0,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', uid);
+
+  if (userError) {
+    console.error(`[cleanUpDeletedUser] users 匿名化エラー:`, userError);
+    throw userError;
   }
 }

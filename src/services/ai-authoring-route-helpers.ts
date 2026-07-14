@@ -58,7 +58,7 @@ export async function authorizeAiAuthoringRequest(
     return {
       status: 403,
       error: 'pro-required',
-      message: 'AI 作問は Pro プラン契約者のみ利用できます',
+      message: 'AI 作問は Creator プラン契約者のみ利用できます',
     };
   }
 

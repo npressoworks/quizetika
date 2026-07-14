@@ -1,12 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { GenreMetadata, Quiz } from '@/types';
 import { QuizCarousel } from '@/components/explore/quiz-carousel';
 import { GenreCarousel } from '@/components/explore/genre-carousel';
 import { buildSearchUrlQuery } from '@/lib/search-url-state';
 import { HomeSidebar } from '@/components/explore/home-sidebar';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { CheckCircleOutlineOutlined } from '@mui/icons-material';
 
 export interface HomeDiscoveryClientProps {
   initialTrending: Quiz[];
@@ -58,10 +61,32 @@ export function HomeDiscoveryClient({
   genresError = null,
 }: HomeDiscoveryClientProps) {
   const genreLabelById = new Map(initialGenres.map((genre) => [genre.id, genre.displayName]));
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [showDeletedAlert, setShowDeletedAlert] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get('deleted') === 'true') {
+      setShowDeletedAlert(true);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('deleted');
+      const query = params.toString();
+      router.replace(query ? `/?${query}` : '/');
+    }
+  }, [searchParams, router]);
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_300px] items-start w-full">
       <div className="flex flex-col gap-10 min-w-0">
+        {showDeletedAlert && (
+          <Alert variant="default" className="border-primary bg-primary/5 text-foreground animate-in fade-in" data-testid="deleted-success-alert">
+            <CheckCircleOutlineOutlined className="size-5 text-primary" />
+            <AlertTitle className="font-semibold text-primary">退会完了</AlertTitle>
+            <AlertDescription className="text-muted-foreground">
+              退会手続きが完了しました。ご利用ありがとうございました。
+            </AlertDescription>
+          </Alert>
+        )}
         <DiscoverySection
           title="おすすめクイズ"
           seeMoreHref={`/search?${buildSearchUrlQuery({ tab: 'trending' })}`}

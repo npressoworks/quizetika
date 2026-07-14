@@ -30,14 +30,14 @@ export function FreePlanCard({ ctaMode }: FreePlanCardProps) {
   };
 
   return (
-    <Card data-testid="pricing-free-card">
+    <Card data-testid="pricing-free-card" className="flex flex-col h-full">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <PersonOutlined sx={{ fontSize: 24 }} className="text-muted-foreground" />
           {plan.displayName}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4 flex-1">
         <div>
           <p className="text-3xl font-bold">¥0</p>
           <p className="text-sm text-muted-foreground">ずっと無料</p>
@@ -52,26 +52,35 @@ export function FreePlanCard({ ctaMode }: FreePlanCardProps) {
           ))}
         </ul>
 
-        {isCurrentPlan ? (
-          <Badge variant="secondary" data-testid="pricing-free-current">
-            利用中
-          </Badge>
-        ) : ctaMode === 'guest' ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleCta}
-            data-testid="pricing-free-start-btn"
-            aria-label="無料で始める"
-          >
-            無料で始める
-          </Button>
-        ) : (
-          <span className="text-sm text-muted-foreground" data-testid="pricing-free-included">
-            基本プラン
-          </span>
-        )}
+        <div className="mt-auto flex flex-col gap-4">
+          {/* paid-plan-card の注意書きスペースと高さを揃えるため */}
+          <div className="h-5" />
+
+          {isCurrentPlan ? (
+            <div className="flex justify-center w-full">
+              <Badge variant="secondary" data-testid="pricing-free-current">
+                利用中
+              </Badge>
+            </div>
+          ) : ctaMode === 'guest' ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={handleCta}
+              data-testid="pricing-free-start-btn"
+              aria-label="無料で始める"
+            >
+              無料で始める
+            </Button>
+          ) : (
+            <div className="flex justify-center w-full">
+              <span className="text-sm text-muted-foreground" data-testid="pricing-free-included">
+                基本プラン
+              </span>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

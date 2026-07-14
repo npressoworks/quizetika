@@ -371,3 +371,19 @@
 - **懸念2（`suspended` ステータスの統合ステータス表示）**: `quiz-access.ts` の `canViewQuiz` は `suspended` を作成者本人の `draft` とは異なる特別扱いにしている。ユーザー判断により、統合ステータスに独立した5値目（「審査により非表示」）を追加し、requirements.md 要件17に基準3を追加、design.md の `resolveCreatorQuizStatus` を5値ユニオン型に修正した。
 - **軽微指摘（空状態の書き分け）**: 要件15.6（クイズ0件）と要件16.8（絞り込み結果0件）で異なるCTAを出すことを `creator-quiz-management-sections.tsx` の File Structure Plan 行に明記した。
 
+## Design Synthesis: Phase 41 Creator プラン表記への更新（2026-07-13）
+
+### Summary
+- **Discovery Type**: Light（表示文言の更新のみ）
+- **背景**: `quizetika-core` Phase 41 で `pro` tier が `creator` にリネームされる。本スペックが参照する `canAccessProVisibility()` / `ProRequiredForVisibilityError` は識別子を維持する（`quizetika-core` design.md Phase 41 の決定）ため、本スペック側の変更はエラーメッセージ・ツールチップ文言の Creator 表記化のみに限定される。
+
+### Design Decisions
+#### Decision: 識別子は維持し文言のみ更新
+- **Context**: `quizetika-core` が関数・クラス名（`canAccessProVisibility`, `ProRequiredForVisibilityError`）を維持する決定をしたため、本スペック側で対応するコード変更は最小限で済む。
+- **Selected Approach**: `creator-quiz-visibility-toggle.tsx` 内のツールチップ・エラー表示文言のみ「Pro」→「Creator」に置換する。
+- **Rationale**: 識別子リネームまで追随すると `quizetika-core` の決定と重複作業になり、かつ両スペックの実装順序に強い結合が生まれる。文言のみの変更であれば `quizetika-core` の内部判定変更が完了していれば独立して実装できる。
+
+### Document Status（Phase 41）
+- 入力: `quizetika-core` design.md Phase 41 節
+- 出力: `design.md` Phase 41 節、本節
+

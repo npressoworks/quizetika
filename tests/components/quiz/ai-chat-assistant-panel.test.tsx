@@ -10,7 +10,7 @@ import { AiChatAssistantButton } from '@/components/quiz/editor/ai-chat-assistan
 describe('AiChatAssistantButton', () => {
   it('Pro ユーザーでない場合は表示されない', () => {
     const { container } = render(
-      <AiChatAssistantButton isProUser={false} isChatOpen={false} onOpen={jest.fn()} onClose={jest.fn()} />
+      <AiChatAssistantButton isCreatorUser={false} isChatOpen={false} onOpen={jest.fn()} onClose={jest.fn()} />
     );
     expect(container.firstChild).toBeNull();
   });
@@ -19,7 +19,7 @@ describe('AiChatAssistantButton', () => {
     const onOpen = jest.fn();
     const onClose = jest.fn();
     render(
-      <AiChatAssistantButton isProUser={true} isChatOpen={false} onOpen={onOpen} onClose={onClose} />
+      <AiChatAssistantButton isCreatorUser={true} isChatOpen={false} onOpen={onOpen} onClose={onClose} />
     );
 
     const button = screen.getByTestId('ai-chat-assistant-button');

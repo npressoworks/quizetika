@@ -57,7 +57,7 @@ import { useAiChatAssistant } from '@/hooks/useAiChatAssistant';
 import { AiChatAssistantButton } from '@/components/quiz/editor/ai-chat-assistant-button';
 import { AiChatAssistantPanel } from '@/components/quiz/editor/ai-chat-assistant-panel';
 import { Button } from '@/components/ui/button';
-import { hasUnlimitedAiQuestionsForUser } from '@/lib/pricing-entitlement';
+import { hasUnlimitedAiQuestionsForUser, hasAiAuthoringEntitlementsForUser } from '@/lib/pricing-entitlement';
 import type { QuestionEditorHandlers } from '@/components/quiz/editor/question-editor-types';
 import type { GenreMetadata, TagMetadata, FeedbackReport } from '@/types';
 import { getOpenReportsByQuizId, resolveReport, rejectReport } from '@/services/review';
@@ -475,7 +475,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     [questions]
   );
 
-  const canUseAiAuthoring = hasUnlimitedAiQuestionsForUser(user);
+  const canUseAiAuthoring = hasAiAuthoringEntitlementsForUser(user);
   const editorPath = quizId ? `/quiz/${quizId}/edit` : '/quiz/create';
 
   const aiAuthoring = useAiQuizAuthoring({
@@ -488,7 +488,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
 
   const aiChat = useAiChatAssistant({
     userId: user?.id,
-    isProUser: canUseAiAuthoring,
+    isCreatorUser: canUseAiAuthoring,
     quizState: {
       title,
       description,
@@ -1526,7 +1526,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       {canUseAiAuthoring && (
         <>
           <AiChatAssistantButton
-            isProUser={canUseAiAuthoring}
+            isCreatorUser={canUseAiAuthoring}
             isChatOpen={aiChat.isChatOpen}
             onOpen={aiChat.openChatWithIntro}
             onClose={() => aiChat.setIsChatOpen(false)}

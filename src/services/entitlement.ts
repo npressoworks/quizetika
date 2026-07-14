@@ -23,7 +23,7 @@ export async function resolveUserEntitlements(
   const supabase = createAdminClient();
   const { data } = await supabase
     .from('users')
-    .select('subscription_tier, subscription_status, current_period_end, is_premium, moderation_tier')
+    .select('subscription_tier, subscription_status, current_period_end, moderation_tier')
     .eq('id', uid)
     .maybeSingle();
 
@@ -35,7 +35,6 @@ export async function resolveUserEntitlements(
     subscriptionTier: data.subscription_tier as import('@/types/subscription').SubscriptionTier | null,
     subscriptionStatus: data.subscription_status as import('@/types/subscription').SubscriptionStatus | null,
     currentPeriodEnd: data.current_period_end,
-    isPremium: data.is_premium,
     moderationTier: data.moderation_tier as import('./entitlement-shared').EntitlementUserFields['moderationTier'],
   });
 }
@@ -55,7 +54,6 @@ export async function applySubscriptionFromStripe(
       subscription_status: snapshot.subscriptionStatus,
       stripe_customer_id: snapshot.stripeCustomerId,
       stripe_subscription_id: snapshot.stripeSubscriptionId,
-      is_premium: snapshot.isPremium,
       current_period_end: snapshot.currentPeriodEnd ? snapshot.currentPeriodEnd.toISOString() : null,
       updated_at: new Date().toISOString(),
     })
@@ -80,6 +78,5 @@ export async function clearPaidEntitlements(
     subscriptionStatus: 'canceled',
     subscriptionTier: 'free',
     currentPeriodEnd: null,
-    isPremium: false,
   });
 }

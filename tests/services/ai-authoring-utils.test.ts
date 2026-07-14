@@ -5,6 +5,8 @@ import {
   mapAiJsonToQuestions,
   readDailyAuthoringUsage,
   MIXED_ALLOWED_QUESTION_TYPES,
+  canAccessAiAuthoring,
+  assertAiAuthoringAccess,
 } from '@/services/ai-authoring-utils';
 
 describe('checkDailyAuthoringLimit', () => {
@@ -23,6 +25,53 @@ describe('checkDailyAuthoringLimit', () => {
     );
     expect(result.exceeded).toBe(true);
     expect(result.usage.remainingToday).toBe(0);
+  });
+});
+
+describe('canAccessAiAuthoring and assertAiAuthoringAccess', () => {
+  test('player tier のエンタイトルメントでは false を返すこと', () => {
+    const entitlements: any = {
+      subscriptionTier: 'player',
+      hasPaidEntitlements: true,
+      hasCreatorEntitlements: false,
+      isModerator: false,
+    };
+    expect(canAccessAiAuthoring(entitlements)).toBe(false);
+
+    const access = assertAiAuthoringAccess(entitlements, 'uid-player');
+    expect(access.hasPaidEntitlements).toBe(false);
+  });
+
+  test('creator / premium tier およびモデレータでは true を返すこと', () => {
+    // 1. Creator プラン
+    const creatorEntitlements: any = {
+      subscriptionTier: 'creator',
+      hasPaidEntitlements: true,
+      hasCreatorEntitlements: true,
+      isModerator: false,
+    };
+    expect(canAccessAiAuthoring(creatorEntitlements)).toBe(true);
+
+    const creatorAccess = assertAiAuthoringAccess(creatorEntitlements, 'uid-creator');
+    expect(creatorAccess.hasPaidEntitlements).toBe(true);
+
+    // 2. Premium プラン
+    const premiumEntitlements: any = {
+      subscriptionTier: 'premium',
+      hasPaidEntitlements: true,
+      hasCreatorEntitlements: true,
+      isModerator: false,
+    };
+    expect(canAccessAiAuthoring(premiumEntitlements)).toBe(true);
+
+    // 3. モデレータ免除
+    const moderatorEntitlements: any = {
+      subscriptionTier: 'free',
+      hasPaidEntitlements: false,
+      hasCreatorEntitlements: false,
+      isModerator: true,
+    };
+    expect(canAccessAiAuthoring(moderatorEntitlements)).toBe(true);
   });
 });
 

@@ -1276,3 +1276,29 @@ export async function getOpenReportCountsByCreator(
 
 **Document Status（Phase 40 設計）**: 本節に反映。
 
+## Phase 41: Creator プラン表記への更新（2026-07-13）
+
+### Overview（本フェーズ）
+`quizetika-core` Phase 41 の tier リネームに伴い、`CreatorQuizVisibilityToggle` が参照する `canAccessProVisibility()` / `ProRequiredForVisibilityError` の**関数名・クラス名は変更しない**（`quizetika-core` design.md Phase 41 の決定に合わせ、識別子は維持しエラーメッセージ文言のみ更新）。本フェーズは UI 表示文言を「Pro」から「Creator」へ揃える文言更新のみを対象とする。
+
+### Boundary Commitments（Phase 41 差分）
+- **This Spec Owns（変更なし）**: `CreatorQuizVisibilityToggle` の disabled 状態表示・エラーメッセージ表示。
+- **Allowed Dependencies（更新）**: `quizetika-core` の `ProRequiredForVisibilityError.message` が Creator 表記に変わる点、および `canAccessProVisibility()` の内部判定が `hasCreatorEntitlements` ベースに変わる点（関数シグネチャ・戻り値の型は変更なし）。
+
+### File Structure Plan（Phase 41）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/app/creator/quizzes/creator-quiz-visibility-toggle.tsx` | Modify | disabled 時のツールチップ文言・アップグレード導線文言を「Pro プランが必要です」から「Creator プランが必要です」へ更新（要件17 AC7） |
+
+### Testing Strategy（Phase 41 追加分）
+
+| 種別 | 検証 |
+|---|---|
+| Integration | `CreatorQuizVisibilityToggle` — `player` tier エンタイトルメント（`hasCreatorEntitlements: false`）でも `private`/`followers` が disabled 表示され、「Creator プランが必要です」の文言が表示されること |
+
+**Effort**: **S**（表示文言の更新のみ）
+**Risk**: **Low**
+
+**Document Status（Phase 41 設計）**: 本節に反映。関数・クラス識別子は `quizetika-core` design.md Phase 41 節の決定により維持。
+

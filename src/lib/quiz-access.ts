@@ -17,7 +17,7 @@ export class QuizAccessDeniedError extends Error {
 
 export class ProRequiredForVisibilityError extends Error {
   readonly code = 'pro-required-for-visibility' as const;
-  constructor(message = '非公開・フォロワー限定の設定には Pro プランが必要です') {
+  constructor(message = '非公開・フォロワー限定の設定には Creator プランが必要です') {
     super(message);
     this.name = 'ProRequiredForVisibilityError';
   }
@@ -80,8 +80,9 @@ export function canAccessProVisibility(fields: EntitlementUserFields): boolean {
   ) {
     return true;
   }
-  return computeUserEntitlements(fields).hasPaidEntitlements;
+  return computeUserEntitlements(fields).hasCreatorEntitlements;
 }
+
 
 export function assertCanSetQuizVisibilitySync(
   fields: EntitlementUserFields,
