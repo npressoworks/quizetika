@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
@@ -9,6 +9,7 @@ import { exportQuizzes } from '@/services/quiz';
 import type { Quiz } from '@/types';
 import type { UserEntitlements } from '@/types/subscription';
 import type { CreatorQuizManagementFilters } from '@/app/creator/quizzes/creator-quiz-management-client';
+import { GenreCarousel } from '@/components/explore/genre-carousel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,9 @@ import {
   AddCircleOutlined as AddIcon,
   DownloadOutlined as DownloadIcon,
   ErrorOutlineOutlined as AlertCircleIcon,
+  SearchOutlined,
+  CloseOutlined,
+  TuneOutlined,
 } from '@mui/icons-material';
 
 const STATUS_LABELS: Record<CreatorQuizStatus, string> = {
@@ -73,6 +77,47 @@ function isAnyFilterActive(filters: CreatorQuizManagementFilters): boolean {
   );
 }
 
+const DEFAULT_SORT_BY: CreatorQuizManagementFilters['sortBy'] = 'createdAt';
+const DEFAULT_SORT_ORDER: CreatorQuizManagementFilters['sortOrder'] = 'desc';
+
+type FilterChipKey = 'keyword' | 'status' | 'genre' | 'tag' | 'sort';
+
+interface ChipItem {
+  key: FilterChipKey;
+  label: string;
+}
+
+function buildChipItems(
+  filters: CreatorQuizManagementFilters,
+  genreLabelById: Map<string, string>
+): ChipItem[] {
+  const items: ChipItem[] = [];
+
+  if (filters.keyword.trim()) {
+    items.push({ key: 'keyword', label: `キーワード: ${filters.keyword.trim()}` });
+  }
+  if (filters.status) {
+    items.push({ key: 'status', label: `統合ステータス: ${STATUS_LABELS[filters.status]}` });
+  }
+  if (filters.genreId) {
+    items.push({
+      key: 'genre',
+      label: `ジャンル: ${genreLabelById.get(filters.genreId) ?? filters.genreId}`,
+    });
+  }
+  if (filters.tag) {
+    items.push({ key: 'tag', label: `タグ: ${filters.tag}` });
+  }
+  if (filters.sortBy !== DEFAULT_SORT_BY || filters.sortOrder !== DEFAULT_SORT_ORDER) {
+    const sortLabel = SORT_OPTIONS.find(
+      (option) => option.sortBy === filters.sortBy && option.sortOrder === filters.sortOrder
+    )?.label;
+    if (sortLabel) items.push({ key: 'sort', label: `並び替え: ${sortLabel}` });
+  }
+
+  return items;
+}
+
 export interface CreatorQuizManagementSectionsProps {
   quizzes: Quiz[] | null;
   reportCounts: Record<string, number>;
@@ -117,7 +162,36 @@ export function CreatorQuizManagementSections({
 }: CreatorQuizManagementSectionsProps) {
   const router = useRouter();
   const { user } = useAuth();
-  const { genres } = useActiveGenres();
+  const { genres, loading: genresLoading, error: genresError, refetch: refetchGenres, genreLabelById } =
+    useActiveGenres();
+  const [showFilters, setShowFilters] = useState(false);
+
+  const chipItems = useMemo(
+    () => buildChipItems(filters, genreLabelById),
+    [filters, genreLabelById]
+  );
+
+  const handleChipRemove = (key: FilterChipKey) => {
+    switch (key) {
+      case 'keyword':
+        setKeyword('');
+        break;
+      case 'status':
+        setStatus(undefined);
+        break;
+      case 'genre':
+        setGenreId(undefined);
+        break;
+      case 'tag':
+        setTag(undefined);
+        break;
+      case 'sort':
+        setSort(DEFAULT_SORT_BY, DEFAULT_SORT_ORDER);
+        break;
+      default:
+        break;
+    }
+  };
 
   const goToEdit = (quizId: string) => {
     router.push(`/quiz/${quizId}/edit`);
@@ -173,156 +247,196 @@ export function CreatorQuizManagementSections({
         </Button>
       </div>
 
-      <Card data-testid="creator-quiz-management-filters">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">絞り込み・並び替え</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-row flex-wrap items-end gap-4">
-            <div className="flex min-w-[200px] flex-1 flex-col gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">キーワード</span>
-              <Input
-                type="text"
-                value={filters.keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="タイトル・説明文を検索"
-                data-testid="creator-quiz-management-filter-keyword"
-                aria-label="キーワード検索"
-              />
-            </div>
-
-            <div className="flex min-w-[160px] flex-1 flex-col gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">統合ステータス</span>
-              <Select
-                value={filters.status ?? STATUS_FILTER_ALL}
-                onValueChange={(value) =>
-                  setStatus(value === STATUS_FILTER_ALL ? undefined : (value as CreatorQuizStatus))
-                }
+      <section
+        className="flex flex-col gap-4 rounded-xl border bg-card p-6 shadow-sm max-md:p-4"
+        data-testid="creator-quiz-management-filters"
+      >
+        <div className="flex gap-3 max-md:flex-col max-md:items-stretch">
+          <div className="relative flex flex-1 items-center">
+            <SearchOutlined className="pointer-events-none absolute left-4 top-1/2 z-10 size-[18px] -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              value={filters.keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder="タイトル・説明文でクイズを検索..."
+              data-testid="creator-quiz-management-filter-keyword"
+              aria-label="キーワード検索"
+              className="h-12 w-full rounded-lg pr-12 pl-11 focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+            {filters.keyword.trim().length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
+                onClick={() => setKeyword('')}
+                aria-label="キーワードをクリア"
               >
-                <SelectTrigger
-                  className="w-full"
-                  data-testid="creator-quiz-management-filter-status"
+                <CloseOutlined sx={{ fontSize: 18 }} />
+              </Button>
+            )}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-auto min-h-12 shrink-0 self-stretch max-md:justify-center"
+            onClick={() => setShowFilters((prev) => !prev)}
+            data-testid="creator-quiz-management-filter-toggle"
+            aria-expanded={showFilters}
+          >
+            <TuneOutlined sx={{ fontSize: 18 }} />
+            フィルター
+          </Button>
+        </div>
+
+        {chipItems.length > 0 && (
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 px-0 py-2"
+            data-testid="creator-quiz-management-active-filters"
+          >
+            <div className="flex flex-1 flex-wrap gap-2">
+              {chipItems.map((chip) => (
+                <Badge
+                  key={chip.key}
+                  variant="secondary"
+                  className="gap-1.5 py-1 pr-1 pl-3 text-xs"
+                  data-testid={`creator-quiz-management-active-filter-${chip.key}`}
                 >
-                  <SelectValue>
-                    {filters.status
-                      ? STATUS_FILTER_OPTIONS.find((option) => option.value === filters.status)
-                          ?.label
-                      : '未指定'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    value={STATUS_FILTER_ALL}
-                    data-testid="creator-quiz-management-filter-status-option-all"
+                  <span>{chip.label}</span>
+                  <button
+                    type="button"
+                    className="inline-flex rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label={`${chip.label} を解除`}
+                    onClick={() => handleChipRemove(chip.key)}
                   >
-                    未指定
-                  </SelectItem>
-                  {STATUS_FILTER_OPTIONS.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                      data-testid={`creator-quiz-management-filter-status-option-${option.value}`}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    <CloseOutlined sx={{ fontSize: 14 }} aria-hidden />
+                  </button>
+                </Badge>
+              ))}
             </div>
-
-            <div className="flex min-w-[160px] flex-1 flex-col gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">ジャンル</span>
-              <Select
-                value={filters.genreId ?? STATUS_FILTER_ALL}
-                onValueChange={(value) =>
-                  setGenreId(value === STATUS_FILTER_ALL ? undefined : (value ?? undefined))
-                }
-              >
-                <SelectTrigger
-                  className="w-full"
-                  data-testid="creator-quiz-management-filter-genre"
-                >
-                  <SelectValue>
-                    {filters.genreId
-                      ? genres.find((genre) => genre.id === filters.genreId)?.displayName
-                      : '未指定'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem
-                    value={STATUS_FILTER_ALL}
-                    data-testid="creator-quiz-management-filter-genre-option-all"
-                  >
-                    未指定
-                  </SelectItem>
-                  {genres.map((genre) => (
-                    <SelectItem
-                      key={genre.id}
-                      value={genre.id}
-                      data-testid={`creator-quiz-management-filter-genre-option-${genre.id}`}
-                    >
-                      {genre.displayName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex min-w-[160px] flex-1 flex-col gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">タグ</span>
-              <Input
-                type="text"
-                value={filters.tag ?? ''}
-                onChange={(e) => setTag(e.target.value || undefined)}
-                placeholder="タグで絞り込み"
-                data-testid="creator-quiz-management-filter-tag"
-                aria-label="タグで絞り込み"
-              />
-            </div>
-
-            <div className="flex min-w-[220px] flex-1 flex-col gap-2">
-              <span className="text-sm font-semibold text-muted-foreground">並び替え</span>
-              <Select
-                value={currentSortValue}
-                onValueChange={(value) => {
-                  const option = SORT_OPTIONS.find((o) => o.value === value);
-                  if (!option) return;
-                  setSort(option.sortBy, option.sortOrder);
-                }}
-              >
-                <SelectTrigger
-                  className="w-full"
-                  data-testid="creator-quiz-management-sort"
-                >
-                  <SelectValue>
-                    {SORT_OPTIONS.find((option) => option.value === currentSortValue)?.label}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                      data-testid={`creator-quiz-management-sort-option-${option.value}`}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <Button
               type="button"
-              variant="outline"
+              variant="link"
+              size="sm"
+              className="h-auto shrink-0 p-0"
               onClick={clearFilters}
-              data-testid="creator-quiz-management-clear-filters"
             >
-              条件をクリア
+              すべてクリア
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {showFilters && (
+          <div className="flex animate-fade-in flex-col gap-5 border-t pt-4">
+            <div className="flex flex-col gap-2" data-testid="creator-quiz-management-genre-carousel-block">
+              <span className="text-sm font-semibold text-muted-foreground">ジャンル</span>
+              <GenreCarousel
+                genres={genres}
+                loading={genresLoading}
+                error={genresError}
+                selectedGenreId={filters.genreId ?? ''}
+                onSelect={(genreId) => setGenreId(genreId || undefined)}
+                onRetry={refetchGenres}
+              />
+            </div>
+
+            <div className="flex flex-row flex-wrap items-start gap-4" data-testid="creator-quiz-management-filter-row">
+              <div className="flex min-w-[160px] flex-1 flex-col gap-2">
+                <span className="text-sm font-semibold text-muted-foreground">統合ステータス</span>
+                <Select
+                  value={filters.status ?? STATUS_FILTER_ALL}
+                  onValueChange={(value) =>
+                    setStatus(value === STATUS_FILTER_ALL ? undefined : (value as CreatorQuizStatus))
+                  }
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    data-testid="creator-quiz-management-filter-status"
+                  >
+                    <SelectValue>
+                      {filters.status
+                        ? STATUS_FILTER_OPTIONS.find((option) => option.value === filters.status)
+                            ?.label
+                        : '未指定'}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      value={STATUS_FILTER_ALL}
+                      data-testid="creator-quiz-management-filter-status-option-all"
+                    >
+                      未指定
+                    </SelectItem>
+                    {STATUS_FILTER_OPTIONS.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        data-testid={`creator-quiz-management-filter-status-option-${option.value}`}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex min-w-[160px] flex-1 flex-col gap-2">
+                <span className="text-sm font-semibold text-muted-foreground">タグ</span>
+                <Input
+                  type="text"
+                  value={filters.tag ?? ''}
+                  onChange={(e) => setTag(e.target.value || undefined)}
+                  placeholder="タグで絞り込み"
+                  data-testid="creator-quiz-management-filter-tag"
+                  aria-label="タグで絞り込み"
+                />
+              </div>
+
+              <div className="flex min-w-[220px] flex-1 flex-col gap-2">
+                <span className="text-sm font-semibold text-muted-foreground">並び替え</span>
+                <Select
+                  value={currentSortValue}
+                  onValueChange={(value) => {
+                    const option = SORT_OPTIONS.find((o) => o.value === value);
+                    if (!option) return;
+                    setSort(option.sortBy, option.sortOrder);
+                  }}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    data-testid="creator-quiz-management-sort"
+                  >
+                    <SelectValue>
+                      {SORT_OPTIONS.find((option) => option.value === currentSortValue)?.label}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_OPTIONS.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        data-testid={`creator-quiz-management-sort-option-${option.value}`}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={clearFilters}
+                data-testid="creator-quiz-management-clear-filters"
+                className="self-end"
+              >
+                条件をクリア
+              </Button>
+            </div>
+          </div>
+        )}
+      </section>
 
       <Card>
         <CardHeader className="pb-2">
