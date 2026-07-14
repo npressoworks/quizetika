@@ -824,7 +824,27 @@ export async function cleanUpDeletedUser(customSupabase: SupabaseClient<Database
     throw questionsError;
   }
 
-  // 7. users の匿名化
+  // 7. user_badges の削除
+  const { error: userBadgesError } = await customSupabase
+    .from('user_badges')
+    .delete()
+    .eq('user_id', uid);
+  if (userBadgesError) {
+    console.error(`[cleanUpDeletedUser] user_badges 削除エラー:`, userBadgesError);
+    throw userBadgesError;
+  }
+
+  // 8. user_genre_follows の削除
+  const { error: genreFollowsError } = await customSupabase
+    .from('user_genre_follows')
+    .delete()
+    .eq('user_id', uid);
+  if (genreFollowsError) {
+    console.error(`[cleanUpDeletedUser] user_genre_follows 削除エラー:`, genreFollowsError);
+    throw genreFollowsError;
+  }
+
+  // 9. users の匿名化
   const { error: userError } = await customSupabase
     .from('users')
     .update({
@@ -833,10 +853,8 @@ export async function cleanUpDeletedUser(customSupabase: SupabaseClient<Database
       avatar_url: null,
       bio: '',
       sns_links: {},
-      badges: [],
       delete_status: 'deleted',
       subscription_tier: 'free',
-      is_premium: false,
       stripe_customer_id: null,
       stripe_subscription_id: null,
       subscription_status: null,
