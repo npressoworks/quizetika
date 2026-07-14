@@ -56,6 +56,20 @@ describe('DuplicateSubscriptionGuard', () => {
     expect(mockDbInsert).not.toHaveBeenCalled();
   });
 
+  it('アクティブなサブスクリプションがなく、かつ初期契約ステータス（incompleteなど）の場合は何も解約せず空の kept ID と canceled ID 配列を返す', async () => {
+    mockSubscriptionsList.mockResolvedValue({
+      data: [{ id: 'sub_incomplete', status: 'incomplete', created: 100 }],
+    });
+
+    const result = await resolveActiveSubscription('cus_1', 'uid-1');
+    expect(result).toEqual({
+      keptSubscriptionId: '',
+      canceledSubscriptionIds: [],
+    });
+    expect(mockSubscriptionsCancel).not.toHaveBeenCalled();
+    expect(mockDbInsert).not.toHaveBeenCalled();
+  });
+
   it('2つ以上の有効なサブスクリプションがある場合は、最古のものを残して他を解約し、返金・監査ログに記録する', async () => {
     const subOld = { id: 'sub_old', status: 'active', created: 100, latest_invoice: 'inv_old' };
     const subNew = { id: 'sub_new', status: 'active', created: 200, latest_invoice: 'inv_new' };

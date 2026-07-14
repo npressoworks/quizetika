@@ -68,7 +68,7 @@ async function main() {
 
       // 最古の有効な契約を取得
       activeSubs.sort((a, b) => a.created - b.created);
-      const subscription = activeSubs[0];
+      const subscription = activeSubs[0] as Stripe.Subscription;
       const priceId = subscription.items.data[0]?.price?.id;
 
       if (!priceId) {

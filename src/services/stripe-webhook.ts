@@ -150,14 +150,14 @@ export async function handleStripeSubscriptionEvent(
   }
 
   // 重複サブスクリプションの検知と是正
-  let keptSubscriptionId = subscription.id;
+  let canceledSubscriptionIds: string[] = [];
   if (customerId && resolvedUid) {
     const resolution = await resolveActiveSubscription(customerId, resolvedUid);
-    keptSubscriptionId = resolution.keptSubscriptionId;
+    canceledSubscriptionIds = resolution.canceledSubscriptionIds;
   }
 
   // もし現在処理中のイベントが、重複検知によって既に解約されたサブスクリプションであれば適用をスキップ
-  if (keptSubscriptionId !== subscription.id) {
+  if (canceledSubscriptionIds.includes(subscription.id)) {
     console.log(
       `[stripe-webhook] Skipping apply subscription since this is a duplicate canceled subscription: ${subscription.id}`
     );

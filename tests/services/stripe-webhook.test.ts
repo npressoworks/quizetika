@@ -16,6 +16,12 @@ jest.mock('@/services/entitlement', () => ({
   clearPaidEntitlements: (...args: unknown[]) => mockClear(...args),
 }));
 
+const mockResolveActiveSubscription = jest.fn();
+
+jest.mock('@/services/duplicate-subscription-guard', () => ({
+  resolveActiveSubscription: (...args: unknown[]) => mockResolveActiveSubscription(...args),
+}));
+
 jest.mock('@/lib/stripe/server', () => ({
   getStripeClient: () => ({
     customers: {
@@ -76,6 +82,10 @@ describe('stripe-webhook service', () => {
     process.env.STRIPE_PRICE_CREATOR_MONTHLY = 'price_creator_monthly_test';
     process.env.STRIPE_PRICE_CREATOR_YEARLY = 'price_creator_yearly_test';
     mockSubscriptionsList.mockResolvedValue({ data: [] });
+    mockResolveActiveSubscription.mockResolvedValue({
+      keptSubscriptionId: '',
+      canceledSubscriptionIds: [],
+    });
   });
 
   it('active creator subscription から snapshot を構築する', () => {
@@ -83,8 +93,14 @@ describe('stripe-webhook service', () => {
       id: 'sub_1',
       customer: 'cus_1',
       status: 'active',
-      current_period_end: 1782864000,
-      items: { data: [{ price: { id: 'price_creator_monthly_test' } }] },
+      items: {
+        data: [
+          {
+            price: { id: 'price_creator_monthly_test' },
+            current_period_end: 1782864000,
+          },
+        ],
+      },
       metadata: { userId: 'uid-1' },
     } as unknown as Stripe.Subscription;
 
@@ -101,8 +117,14 @@ describe('stripe-webhook service', () => {
       id: 'sub_1',
       customer: 'cus_1',
       status: 'active',
-      current_period_end: 1782864000,
-      items: { data: [{ price: { id: 'price_creator_monthly_test' } }] },
+      items: {
+        data: [
+          {
+            price: { id: 'price_creator_monthly_test' },
+            current_period_end: 1782864000,
+          },
+        ],
+      },
       metadata: { userId: 'uid-1' },
     } as unknown as Stripe.Subscription;
 
@@ -146,8 +168,14 @@ describe('stripe-webhook service', () => {
       id: 'sub_legacy',
       customer: 'cus_legacy',
       status: 'active',
-      current_period_end: 1782864000,
-      items: { data: [{ price: { id: 'price_creator_monthly_test' } }] },
+      items: {
+        data: [
+          {
+            price: { id: 'price_creator_monthly_test' },
+            current_period_end: 1782864000,
+          },
+        ],
+      },
       metadata: {},
     } as unknown as Stripe.Subscription;
 
@@ -164,6 +192,31 @@ describe('stripe-webhook service', () => {
     expect(await isStripeEventProcessed('evt_1')).toBe(false);
     await markStripeEventProcessed('evt_1', 'customer.subscription.updated');
     expect(await isStripeEventProcessed('evt_1')).toBe(true);
+  });
+
+  it('重複サブスクリプション検知により解約されたイベントの場合は適用をスキップする', async () => {
+    const subscription = {
+      id: 'sub_duplicate_canceled',
+      customer: 'cus_1',
+      status: 'active',
+      items: {
+        data: [
+          {
+            price: { id: 'price_creator_monthly_test' },
+            current_period_end: 1782864000,
+          },
+        ],
+      },
+      metadata: { userId: 'uid-1' },
+    } as unknown as Stripe.Subscription;
+
+    mockResolveActiveSubscription.mockResolvedValue({
+      keptSubscriptionId: 'sub_kept_older',
+      canceledSubscriptionIds: ['sub_duplicate_canceled'],
+    });
+
+    await handleStripeSubscriptionEvent(subscription);
+    expect(mockApply).not.toHaveBeenCalled();
   });
 });
 
