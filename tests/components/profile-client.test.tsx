@@ -454,6 +454,9 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
       const quizzesTab = screen.getByRole('tab', { name: /作成したクイズ/ });
       expect(quizzesTab.className).toMatch(/data-active:font-bold/);
       expect(quizzesTab.className).toMatch(/min-h-/);
+      // 選択中タブの下線インジケータは既定(h-0.5)より太く、TabsListのborder-bと重なる位置にすること
+      expect(quizzesTab.className).toMatch(/after:h-\[3px\]/);
+      expect(quizzesTab.className).toMatch(/after:bottom-\[-1px\]/);
 
       const historyTab = screen.getByTestId('profile-tab-history');
       expect(historyTab.className).toMatch(/data-active:font-bold/);
