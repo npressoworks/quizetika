@@ -35,7 +35,6 @@ export interface User {
   stripeSubscriptionId?: string;
   subscriptionStatus?: SubscriptionStatus;
   currentPeriodEnd?: Date;
-  isPremium?: boolean;
   snsLinks?: {
     youtube?: string;
     x?: string;

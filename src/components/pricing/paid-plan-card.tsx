@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckOutlined, AutoAwesomeOutlined } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
@@ -8,16 +8,13 @@ import { getPricingPlanForUi } from '@/lib/pricing-display';
 import type { PricingUiCtaMode } from '@/lib/pricing-entitlement';
 import {
   BillingClientError,
-  fetchPlanPrices,
   redirectToExternalUrl,
   startCheckoutSession,
   startPortalSession,
-  changePlan,
 } from '@/lib/billing-client';
 import type { PlanPrices } from '@/lib/billing-client';
 import type { PriceInterval, SubscriptionTier } from '@/types/subscription';
 import { Button } from '@/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -26,7 +23,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { DowngradeConfirmDialog } from './downgrade-confirm-dialog';
 
 interface PaidPlanCardProps {
   tier: 'player' | 'creator';
@@ -34,12 +30,10 @@ interface PaidPlanCardProps {
   userSubscriptionTier: SubscriptionTier;
   hasPaidEntitlements: boolean;
   refreshUser: () => Promise<void>;
+  selectedInterval: PriceInterval;
+  prices: PlanPrices | null;
+  priceStatus: 'loading' | 'ready' | 'error';
 }
-
-type PaidPlanPriceUiState =
-  | { status: 'loading' }
-  | { status: 'ready'; prices: PlanPrices }
-  | { status: 'error' };
 
 export function PaidPlanCard({
   tier,
@@ -47,68 +41,44 @@ export function PaidPlanCard({
   userSubscriptionTier,
   hasPaidEntitlements,
   refreshUser,
+  selectedInterval,
+  prices,
+  priceStatus,
 }: PaidPlanCardProps) {
   const router = useRouter();
   const plan = getPricingPlanForUi(tier);
-  const [selectedInterval, setSelectedInterval] = useState<PriceInterval>('monthly');
-  const [priceState, setPriceState] = useState<PaidPlanPriceUiState>({ status: 'loading' });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [alreadySubscribed, setAlreadySubscribed] = useState(false);
-  const [isDowngradeDialogOpen, setIsDowngradeDialogOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPrices() {
-      setPriceState({ status: 'loading' });
-      try {
-        const result = await fetchPlanPrices();
-        if (!cancelled) {
-          setPriceState({ status: 'ready', prices: result[tier] });
-        }
-      } catch {
-        if (!cancelled) {
-          setPriceState({ status: 'error' });
-        }
-      }
-    }
-
-    void loadPrices();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [tier]);
 
   const isCurrentPlan = hasPaidEntitlements && userSubscriptionTier === tier;
   const showManageCta = isCurrentPlan || alreadySubscribed;
   const showSwitchCta = hasPaidEntitlements && userSubscriptionTier !== tier;
   
   const isIntervalDisabled =
-    loading || ctaMode === 'loading' || priceState.status !== 'ready';
+    loading || ctaMode === 'loading' || priceStatus !== 'ready';
   const isPortalDisabled = loading || ctaMode === 'loading';
   const isSubscribeDisabled =
     loading ||
     ctaMode === 'loading' ||
-    (priceState.status !== 'ready' && ctaMode === 'subscribe');
+    (priceStatus !== 'ready' && ctaMode === 'subscribe');
   const isSwitchDisabled =
     loading ||
     ctaMode === 'loading' ||
-    priceState.status !== 'ready';
+    priceStatus !== 'ready';
 
   const priceLabel =
-    priceState.status === 'ready'
+    priceStatus === 'ready' && prices
       ? selectedInterval === 'monthly'
-        ? priceState.prices.monthly.label
-        : priceState.prices.yearly.label
-      : priceState.status === 'loading'
+        ? prices.monthly.label
+        : prices.yearly.label
+      : priceStatus === 'loading'
         ? '読み込み中…'
         : '価格を読み込めません';
 
   const savingsLabel =
-    priceState.status === 'ready' && selectedInterval === 'yearly'
-      ? priceState.prices.savingsLabel
+    priceStatus === 'ready' && prices && selectedInterval === 'yearly'
+      ? prices.savingsLabel
       : undefined;
 
   const handleSubscribe = async () => {
@@ -130,7 +100,7 @@ export function PaidPlanCard({
         return;
       }
 
-      if (priceState.status !== 'ready') {
+      if (priceStatus !== 'ready') {
         return;
       }
 
@@ -150,12 +120,12 @@ export function PaidPlanCard({
     }
   };
 
-  const handleSwitchPlan = async () => {
+  const onSwitchCtaClick = async () => {
     setErrorMessage(null);
     setLoading(true);
     try {
-      const result = await changePlan(tier);
-      await refreshUser();
+      const { sessionUrl } = await startPortalSession();
+      redirectToExternalUrl(sessionUrl);
     } catch (error) {
       if (error instanceof BillingClientError) {
         setErrorMessage(error.apiError.message);
@@ -164,23 +134,12 @@ export function PaidPlanCard({
       }
     } finally {
       setLoading(false);
-      setIsDowngradeDialogOpen(false);
-    }
-  };
-
-  const onSwitchCtaClick = () => {
-    if (tier === 'player') {
-      // Creator から Player へのダウングレード
-      setIsDowngradeDialogOpen(true);
-    } else {
-      // Player から Creator へのアップグレード (即時実行)
-      void handleSwitchPlan();
     }
   };
 
   return (
     <>
-      <Card className="border-primary/30" data-testid={`pricing-${tier}-card`}>
+      <Card className="border-primary/30 flex flex-col h-full" data-testid={`pricing-${tier}-card`}>
         <CardHeader>
           <CardTitle className="flex items-center justify-between gap-2">
             <span className="flex items-center gap-2">
@@ -194,41 +153,17 @@ export function PaidPlanCard({
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <ToggleGroup
-            value={[selectedInterval]}
-            onValueChange={(values) => {
-              const next = values[values.length - 1];
-              if (next === 'monthly' || next === 'yearly') setSelectedInterval(next);
-            }}
-            aria-label="料金プランの支払い間隔"
-          >
-            <ToggleGroupItem
-              value="monthly"
-              disabled={isIntervalDisabled}
-              data-testid={`pricing-${tier}-interval-monthly`}
-            >
-              月額
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="yearly"
-              disabled={isIntervalDisabled}
-              data-testid={`pricing-${tier}-interval-yearly`}
-            >
-              年額
-            </ToggleGroupItem>
-          </ToggleGroup>
-
+        <CardContent className="flex flex-col gap-4 flex-1">
           <p
             className={cn(
               'text-3xl font-bold',
-              priceState.status === 'error' && 'text-destructive',
-              priceState.status === 'loading' && 'text-muted-foreground'
+              priceStatus === 'error' && 'text-destructive',
+              priceStatus === 'loading' && 'text-muted-foreground'
             )}
             data-testid={
-              priceState.status === 'error'
+              priceStatus === 'error'
                 ? `pricing-${tier}-price-error`
-                : priceState.status === 'loading'
+                : priceStatus === 'loading'
                   ? `pricing-${tier}-price-loading`
                   : `pricing-${tier}-price-ready`
             }
@@ -246,65 +181,69 @@ export function PaidPlanCard({
             ))}
           </ul>
 
-          {errorMessage && (
-            <p className="text-sm text-destructive" role="alert" data-testid={`pricing-${tier}-error-message`}>
-              {errorMessage}
-            </p>
-          )}
+          <div className="mt-auto flex flex-col gap-4">
+            {errorMessage && (
+              <p className="text-sm text-destructive" role="alert" data-testid={`pricing-${tier}-error-message`}>
+                {errorMessage}
+              </p>
+            )}
 
-          {showManageCta ? (
-            <Button
-              type="button"
-              className="w-full"
-              onClick={handleSubscribe}
-              disabled={isPortalDisabled}
-              data-testid="pricing-portal-btn"
-              aria-label="契約内容を管理する"
-            >
-              {loading ? <CircularProgress size={18} /> : null}
-              契約を管理する
-            </Button>
-          ) : showSwitchCta ? (
-            <div className="flex flex-col gap-2">
+            {/* 注意書きスペースの高さを確保し、ボタン位置を揃える */}
+            <div className="h-5 flex items-center justify-center">
+              {showSwitchCta && tier === 'creator' && (
+                <p className="text-xs text-muted-foreground text-center">
+                  即時切り替えと日割り課金が発生します。
+                </p>
+              )}
+            </div>
+
+            {showManageCta ? (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleSubscribe}
+                disabled={isPortalDisabled}
+                data-testid="pricing-portal-btn"
+                aria-label="契約内容を管理する"
+              >
+                {loading ? <CircularProgress size={18} /> : null}
+                契約を管理する
+              </Button>
+            ) : showSwitchCta ? (
               <Button
                 type="button"
                 className="w-full"
                 onClick={onSwitchCtaClick}
                 disabled={isSwitchDisabled}
                 data-testid="pricing-switch-btn"
-                aria-label={`${plan.displayName}に切り替える`}
+                aria-label={
+                  userSubscriptionTier === 'player' && tier === 'creator'
+                    ? 'Creatorにアップグレードする'
+                    : 'Playerにダウングレードする'
+                }
               >
                 {loading ? <CircularProgress size={18} /> : null}
-                {plan.displayName}に切り替える
+                {userSubscriptionTier === 'player' && tier === 'creator'
+                  ? 'Creatorにアップグレードする'
+                  : 'Playerにダウングレードする'}
               </Button>
-              {tier === 'creator' && (
-                <p className="text-xs text-muted-foreground text-center">
-                  即時切り替えと日割り課金が発生します。
-                </p>
-              )}
-            </div>
-          ) : (
-            <Button
-              type="button"
-              className="w-full"
-              onClick={handleSubscribe}
-              disabled={isSubscribeDisabled}
-              data-testid="pricing-subscribe-btn"
-              aria-label={ctaMode === 'guest' ? `ログインして ${plan.displayName} プランに加入する` : `${plan.displayName} プランに加入する`}
-            >
-              {loading ? <CircularProgress size={18} /> : null}
-              {ctaMode === 'guest' ? 'ログインして加入する' : `${plan.displayName}に加入する`}
-            </Button>
-          )}
+            ) : (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleSubscribe}
+                disabled={isSubscribeDisabled}
+                data-testid="pricing-subscribe-btn"
+                aria-label={ctaMode === 'guest' ? `ログインして ${plan.displayName} プランに加入する` : `${plan.displayName} プランに加入する`}
+              >
+                {loading ? <CircularProgress size={18} /> : null}
+                {ctaMode === 'guest' ? 'ログインして加入する' : `${plan.displayName}に加入する`}
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      <DowngradeConfirmDialog
-        open={isDowngradeDialogOpen}
-        onOpenChange={setIsDowngradeDialogOpen}
-        onConfirm={handleSwitchPlan}
-        loading={loading}
-      />
     </>
   );
 }

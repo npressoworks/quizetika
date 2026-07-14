@@ -320,6 +320,44 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_duplicate_subscription_incidents: {
+        Row: {
+          canceled_subscription_id: string
+          detected_at: string
+          id: string
+          kept_subscription_id: string
+          refund_currency: string | null
+          refunded_amount: number | null
+          user_id: string
+        }
+        Insert: {
+          canceled_subscription_id: string
+          detected_at?: string
+          id?: string
+          kept_subscription_id: string
+          refund_currency?: string | null
+          refunded_amount?: number | null
+          user_id: string
+        }
+        Update: {
+          canceled_subscription_id?: string
+          detected_at?: string
+          id?: string
+          kept_subscription_id?: string
+          refund_currency?: string | null
+          refunded_amount?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_duplicate_subscription_incidents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookmarks: {
         Row: {
           created_at: string
@@ -1577,7 +1615,6 @@ export type Database = {
           following_count: number | null
           id: string
           is_banned: boolean | null
-          is_premium: boolean | null
           last_reputation_calculated_at: string | null
           moderation_tier:
             | Database["public"]["Enums"]["moderation_tier_enum"]
@@ -1610,7 +1647,6 @@ export type Database = {
           following_count?: number | null
           id: string
           is_banned?: boolean | null
-          is_premium?: boolean | null
           last_reputation_calculated_at?: string | null
           moderation_tier?:
             | Database["public"]["Enums"]["moderation_tier_enum"]
@@ -1643,7 +1679,6 @@ export type Database = {
           following_count?: number | null
           id?: string
           is_banned?: boolean | null
-          is_premium?: boolean | null
           last_reputation_calculated_at?: string | null
           moderation_tier?:
             | Database["public"]["Enums"]["moderation_tier_enum"]

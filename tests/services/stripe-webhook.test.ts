@@ -92,7 +92,6 @@ describe('stripe-webhook service', () => {
     expect(snapshot).toMatchObject({
       uid: 'uid-1',
       subscriptionTier: 'creator',
-      isPremium: true,
       stripeSubscriptionId: 'sub_1',
     });
   });

@@ -62,7 +62,6 @@ export function buildSnapshotFromSubscription(
     subscriptionStatus: status,
     subscriptionTier,
     currentPeriodEnd,
-    isPremium: hasPaid,
   };
 }
 

@@ -71,6 +71,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="free"
           hasPaidEntitlements={false}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={readyPrices.creator}
+          priceStatus="ready"
         />
       );
       await waitFor(() => {
@@ -88,6 +91,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="free"
           hasPaidEntitlements={false}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={readyPrices.player}
+          priceStatus="ready"
         />
       );
       await waitFor(() => {
@@ -106,6 +112,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="free"
           hasPaidEntitlements={false}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={readyPrices.player}
+          priceStatus="ready"
         />
       );
       await waitFor(() => {
@@ -119,8 +128,7 @@ describe('PaidPlanCard', () => {
       });
     });
 
-    test('価格取得失敗時はエラー表示とトグル・購読無効', async () => {
-      mockFetchPlanPrices.mockRejectedValue(new Error('fail'));
+    test('価格取得失敗時はエラー表示と購読無効', async () => {
       render(
         <PaidPlanCard
           tier="creator"
@@ -128,6 +136,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="free"
           hasPaidEntitlements={false}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={null}
+          priceStatus="error"
         />
       );
 
@@ -135,7 +146,6 @@ describe('PaidPlanCard', () => {
         expect(screen.getByTestId('pricing-creator-price-error')).toHaveTextContent('価格を読み込めません');
       });
       expect(screen.getByTestId('pricing-subscribe-btn')).toBeDisabled();
-      expect(screen.getByTestId('pricing-creator-interval-monthly')).toBeDisabled();
     });
   });
 
@@ -148,6 +158,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="player"
           hasPaidEntitlements={true}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={readyPrices.player}
+          priceStatus="ready"
         />
       );
       await waitFor(() => {
@@ -159,7 +172,6 @@ describe('PaidPlanCard', () => {
     });
 
     test('価格取得失敗時も、自身と一致する契約中は Portal を有効維持', async () => {
-      mockFetchPlanPrices.mockRejectedValue(new Error('fail'));
       render(
         <PaidPlanCard
           tier="player"
@@ -167,6 +179,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="player"
           hasPaidEntitlements={true}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={null}
+          priceStatus="error"
         />
       );
 
@@ -178,7 +193,9 @@ describe('PaidPlanCard', () => {
   });
 
   describe('プラン変更（切り替え）', () => {
-    test('Player 契約中に Creator カード: 切り替えるボタンを表示 (アップグレード、ダイアログなし)', async () => {
+    test('Player 契約中に Creator カード: 切り替えるボタンを表示 (アップグレードしてポータルへ遷移)', async () => {
+      mockStartPortalSession.mockResolvedValue({ sessionUrl: 'https://billing.stripe.com/portal/session-1' });
+
       render(
         <PaidPlanCard
           tier="creator"
@@ -186,6 +203,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="player"
           hasPaidEntitlements={true}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={readyPrices.creator}
+          priceStatus="ready"
         />
       );
 
@@ -193,17 +213,20 @@ describe('PaidPlanCard', () => {
         expect(screen.getByTestId('pricing-switch-btn')).toBeInTheDocument();
         expect(screen.getByTestId('pricing-switch-btn')).not.toBeDisabled();
       });
+      expect(screen.getByTestId('pricing-switch-btn')).toHaveTextContent('Creatorにアップグレードする');
       expect(screen.getByText('即時切り替えと日割り課金が発生します。')).toBeInTheDocument();
 
       fireEvent.click(screen.getByTestId('pricing-switch-btn'));
 
       await waitFor(() => {
-        expect(mockChangePlan).toHaveBeenCalledWith('creator');
-        expect(mockRefreshUser).toHaveBeenCalled();
+        expect(mockStartPortalSession).toHaveBeenCalled();
+        expect(mockRedirectToExternalUrl).toHaveBeenCalledWith('https://billing.stripe.com/portal/session-1');
       });
     });
 
-    test('Creator 契約中に Player カード: 切り替えるボタンを表示 (ダウングレード、ダイアログ表示)', async () => {
+    test('Creator 契約中に Player カード: 切り替えるボタンを表示 (ダウングレードしてポータルへ遷移)', async () => {
+      mockStartPortalSession.mockResolvedValue({ sessionUrl: 'https://billing.stripe.com/portal/session-2' });
+
       render(
         <PaidPlanCard
           tier="player"
@@ -211,6 +234,9 @@ describe('PaidPlanCard', () => {
           userSubscriptionTier="creator"
           hasPaidEntitlements={true}
           refreshUser={mockRefreshUser}
+          selectedInterval="monthly"
+          prices={readyPrices.player}
+          priceStatus="ready"
         />
       );
 
@@ -218,24 +244,13 @@ describe('PaidPlanCard', () => {
         expect(screen.getByTestId('pricing-switch-btn')).toBeInTheDocument();
         expect(screen.getByTestId('pricing-switch-btn')).not.toBeDisabled();
       });
+      expect(screen.getByTestId('pricing-switch-btn')).toHaveTextContent('Playerにダウングレードする');
 
-      // ダウングレード時は即座に API を呼ばずダイアログを出す
       fireEvent.click(screen.getByTestId('pricing-switch-btn'));
-      expect(mockChangePlan).not.toHaveBeenCalled();
-
-      // ダイアログが出現することを確認
-      const dialog = await screen.findByTestId('downgrade-confirm-dialog');
-      expect(dialog).toBeInTheDocument();
-      // 失われる特典が表示される
-      expect(screen.getByTestId('lost-feature-quiz_visibility_control')).toBeInTheDocument();
-      expect(screen.getByTestId('lost-feature-ai_quiz_authoring')).toBeInTheDocument();
-
-      // 確定ボタンを押す
-      fireEvent.click(screen.getByTestId('confirm-downgrade-btn'));
 
       await waitFor(() => {
-        expect(mockChangePlan).toHaveBeenCalledWith('player');
-        expect(mockRefreshUser).toHaveBeenCalled();
+        expect(mockStartPortalSession).toHaveBeenCalled();
+        expect(mockRedirectToExternalUrl).toHaveBeenCalledWith('https://billing.stripe.com/portal/session-2');
       });
     });
   });

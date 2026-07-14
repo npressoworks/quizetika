@@ -102,6 +102,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     mockVerify.mockResolvedValue('uid-pro');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
+      hasCreatorEntitlements: true,
       hasUnlimitedAiQuestions: true,
     });
     mockGenerateContent.mockResolvedValue({
@@ -139,6 +140,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     mockVerify.mockResolvedValue('uid-free');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: false,
+      hasCreatorEntitlements: false,
       hasUnlimitedAiQuestions: false,
     });
     const res = await POST(
@@ -154,6 +156,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
   test('日次上限は 429', async () => {
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
+      hasCreatorEntitlements: true,
       hasUnlimitedAiQuestions: false,
     });
     counterState.questions = { count: 100, counter_date: '2026-06-10' };

@@ -79,7 +79,6 @@ export function mapRowToUser(
     stripeSubscriptionId: row.stripe_subscription_id ?? undefined,
     subscriptionStatus: row.subscription_status as any,
     currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : undefined,
-    isPremium: row.is_premium ?? undefined,
     snsLinks: (row.sns_links as User['snsLinks']) ?? undefined,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
@@ -115,7 +114,6 @@ export function mapUserToRow(user: Partial<User>): Database['public']['Tables'][
   if (user.stripeSubscriptionId !== undefined) row.stripe_subscription_id = user.stripeSubscriptionId;
   if (user.subscriptionStatus !== undefined) row.subscription_status = user.subscriptionStatus;
   if (user.currentPeriodEnd !== undefined) row.current_period_end = user.currentPeriodEnd?.toISOString() ?? null;
-  if (user.isPremium !== undefined) row.is_premium = user.isPremium;
   if (user.snsLinks !== undefined) row.sns_links = user.snsLinks as any;
   if (user.createdAt !== undefined) row.created_at = user.createdAt.toISOString();
   if (user.updatedAt !== undefined) row.updated_at = user.updatedAt.toISOString();
@@ -266,6 +264,37 @@ export async function createUser(user: Omit<User, 'createdAt' | 'updatedAt'>): P
 
   if (error) {
     throw new Error(`ユーザーの作成に失敗しました: ${error.message}`);
+  }
+}
+
+/**
+ * メールアドレスからユーザープロフィール情報を取得
+ * @param email メールアドレス
+ */
+export async function getUserProfileByEmail(email: string): Promise<User | null> {
+  if (!email) return null;
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const relations = await fetchUserRelations(data.id);
+  return normalizeUserRecord(mapRowToUser(data, relations));
+}
+
+/**
+ * ユーザーのUIDを更新する（開発環境用または不整合解消用）
+ */
+export async function updateUserUid(oldUid: string, newUid: string): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ id: newUid, updated_at: new Date().toISOString() })
+    .eq('id', oldUid);
+
+  if (error) {
+    throw new Error(`ユーザーIDの更新に失敗しました: ${error.message}`);
   }
 }
 

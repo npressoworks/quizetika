@@ -136,15 +136,10 @@ export async function createCheckoutSession(
 export async function createPortalSession(
   input: CreatePortalSessionInput
 ): Promise<{ sessionUrl: string }> {
-  const entitlements = await resolveUserEntitlements(input.uid);
-  if (!entitlements.hasPaidEntitlements) {
-    throw new NoActiveSubscriptionError();
-  }
-
   const supabase = createAdminClient();
   const { data: userRow } = await supabase
     .from('users')
-    .select('stripe_customer_id')
+    .select('stripe_customer_id, stripe_subscription_id')
     .eq('id', input.uid)
     .maybeSingle();
 
@@ -158,10 +153,23 @@ export async function createPortalSession(
   }
 
   const stripe = getStripeClient();
-  const session = await stripe.billingPortal.sessions.create({
+  const stripeSubscriptionId = userRow.stripe_subscription_id;
+
+  const sessionParams: any = {
     customer: stripeCustomerId,
     return_url: `${getAppBaseUrl()}/pricing`,
-  });
+  };
+
+  if (stripeSubscriptionId) {
+    sessionParams.flow_data = {
+      type: 'subscription_update',
+      subscription_update: {
+        subscription: stripeSubscriptionId,
+      },
+    };
+  }
+
+  const session = await stripe.billingPortal.sessions.create(sessionParams);
 
   return { sessionUrl: session.url };
 }

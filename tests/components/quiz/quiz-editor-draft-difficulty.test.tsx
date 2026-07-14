@@ -37,6 +37,7 @@ jest.mock('@/context/auth-context', () => ({
 
 jest.mock('@/lib/pricing-entitlement', () => ({
   hasUnlimitedAiQuestionsForUser: () => false,
+  hasAiAuthoringEntitlementsForUser: () => false,
 }));
 
 jest.mock('@/services/quiz', () => ({

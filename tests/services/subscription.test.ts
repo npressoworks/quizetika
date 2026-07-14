@@ -73,8 +73,8 @@ describe('SubscriptionService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.keys(userRows).forEach((k) => delete userRows[k]);
-    userRows['uid-free'] = { stripe_customer_id: null };
-    userRows['uid-pro'] = { stripe_customer_id: 'cus_existing' };
+    userRows['uid-free'] = { stripe_customer_id: null, stripe_subscription_id: null };
+    userRows['uid-pro'] = { stripe_customer_id: 'cus_existing', stripe_subscription_id: 'sub_existing' };
 
     process.env.STRIPE_PRICE_PLAYER_MONTHLY = 'price_player_monthly_test';
     process.env.STRIPE_PRICE_PLAYER_YEARLY = 'price_player_yearly_test';
@@ -160,20 +160,23 @@ describe('SubscriptionService', () => {
     ).rejects.toBeInstanceOf(AlreadySubscribedError);
   });
 
-  it('active pro ユーザーは Portal URL を取得できる', async () => {
-    mockResolveEntitlements.mockResolvedValue({
-      hasPaidEntitlements: true,
-    });
-
+  it('stripe_customer_id を持つユーザーは Portal URL を取得できる', async () => {
     const result = await createPortalSession({ uid: 'uid-pro' });
     expect(result.sessionUrl).toBe('https://billing.stripe.test/portal');
+    expect(mockPortalCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer: 'cus_existing',
+        flow_data: {
+          type: 'subscription_update',
+          subscription_update: {
+            subscription: 'sub_existing',
+          },
+        },
+      })
+    );
   });
 
-  it('free ユーザーの Portal は 404 相当エラー', async () => {
-    mockResolveEntitlements.mockResolvedValue({
-      hasPaidEntitlements: false,
-    });
-
+  it('stripe_customer_id を持たないユーザーの Portal はエラー', async () => {
     await expect(createPortalSession({ uid: 'uid-free' })).rejects.toBeInstanceOf(
       NoActiveSubscriptionError
     );

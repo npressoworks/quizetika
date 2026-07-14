@@ -79,6 +79,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     mockVerify.mockResolvedValue('uid-pro');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: true,
+      hasCreatorEntitlements: true,
       hasUnlimitedAiQuestions: false,
     });
     mockStreamText.mockReturnValue({
@@ -109,6 +110,7 @@ describe('POST /api/quiz/ai-chat-authoring', () => {
     mockVerify.mockResolvedValue('uid-free');
     mockResolveEntitlements.mockResolvedValue({
       hasPaidEntitlements: false,
+      hasCreatorEntitlements: false,
       hasUnlimitedAiQuestions: false,
     });
     const res = await POST(

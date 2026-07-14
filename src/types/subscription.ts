@@ -45,6 +45,5 @@ export interface StripeSubscriptionSnapshot {
   subscriptionStatus: SubscriptionStatus | null;
   subscriptionTier: SubscriptionTier;
   currentPeriodEnd: Date | null;
-  isPremium: boolean;
 }
 

@@ -140,20 +140,6 @@ export function checkAiTurnLimits(input: AiTurnLimitCheckInput): AiTurnLimitChec
   };
 }
 
-/**
- * @deprecated Phase 17: checkAiTurnLimits を使用
- */
-export function isAiTurnLimitExceeded(
-  currentTurnCount: number,
-  isPremium: boolean
-): boolean {
-  return checkAiTurnLimits({
-    perQuizCount: currentTurnCount,
-    globalDailyCount: 0,
-    hasUnlimitedAiQuestions: isPremium,
-  }).exceeded;
-}
-
 /* ==========================================================================
    AIプロンプト構築
    ========================================================================== */

@@ -24,6 +24,10 @@ export const PRICING_PLANS_DISPLAY: readonly PricingPlanDisplay[] = [
         id: 'limited_ai_questions',
         label: 'ウミガメAIへの質問は同一クイズ30回/日・全クイズ横断150回/日まで',
       },
+      {
+        id: 'ad_enabled',
+        label: '広告表示あり',
+      },
     ],
   },
   {

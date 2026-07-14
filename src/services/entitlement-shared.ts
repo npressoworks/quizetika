@@ -17,7 +17,6 @@ export interface EntitlementUserFields {
   subscriptionTier?: SubscriptionTier | null;
   subscriptionStatus?: SubscriptionStatus | null;
   currentPeriodEnd?: Date | { toDate(): Date } | string | null;
-  isPremium?: boolean | null;
   moderationTier?: User['moderationTier'];
 }
 

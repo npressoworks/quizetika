@@ -20,6 +20,10 @@ describe('pricing-display', () => {
     expect(limited).toBeDefined();
     expect(limited?.label).toContain('30回');
     expect(limited?.label).toContain('150回');
+
+    const adEnabled = plan.featureBullets.find((f) => f.id === 'ad_enabled');
+    expect(adEnabled).toBeDefined();
+    expect(adEnabled?.label).toBe('広告表示あり');
   });
 
   test('getPricingPlanForUi: Player プランの表示情報', () => {
