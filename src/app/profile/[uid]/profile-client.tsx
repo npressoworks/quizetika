@@ -453,10 +453,10 @@ export function ProfileClient() {
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as ProfileContentTab)}
           >
-            <TabsList className="mb-6">
+            <TabsList variant="line" className="mb-6 w-full justify-start border-b border-border">
               <TabsTrigger
                 value="quizzes"
-                className="min-h-9 gap-2 px-3 font-medium data-active:bg-primary data-active:text-primary-foreground data-active:font-semibold data-active:shadow-sm"
+                className="min-h-9 gap-2 px-3 font-medium data-active:font-bold"
               >
                 <GridViewOutlined sx={{ fontSize: 18 }} />
                 作成したクイズ ({quizzesCount})
@@ -464,7 +464,7 @@ export function ProfileClient() {
               {isMyProfile && (
                 <TabsTrigger
                   value="history"
-                  className="min-h-9 gap-2 px-3 font-medium data-active:bg-primary data-active:text-primary-foreground data-active:font-semibold data-active:shadow-sm"
+                  className="min-h-9 gap-2 px-3 font-medium data-active:font-bold"
                   data-testid="profile-tab-history"
                 >
                   <HistoryOutlined sx={{ fontSize: 18 }} />

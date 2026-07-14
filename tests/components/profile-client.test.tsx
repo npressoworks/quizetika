@@ -442,18 +442,21 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
   });
 
   describe('プロフィールタブの視認性向上（Phase 30）', () => {
-    it('選択中タブと非選択タブを区別する強調スタイルが適用されていること', async () => {
+    it('X風の下線タブ（line バリアント）で選択中タブが強調表示されること', async () => {
       render(<ProfileClient />);
       await waitFor(() => {
         expect(screen.getByText('テストユーザー')).toBeInTheDocument();
       });
 
+      const tabList = screen.getByRole('tablist');
+      expect(tabList).toHaveAttribute('data-variant', 'line');
+
       const quizzesTab = screen.getByRole('tab', { name: /作成したクイズ/ });
-      expect(quizzesTab.className).toMatch(/data-active:bg-primary/);
+      expect(quizzesTab.className).toMatch(/data-active:font-bold/);
       expect(quizzesTab.className).toMatch(/min-h-/);
 
       const historyTab = screen.getByTestId('profile-tab-history');
-      expect(historyTab.className).toMatch(/data-active:bg-primary/);
+      expect(historyTab.className).toMatch(/data-active:font-bold/);
     });
 
     it('タブ切替時に選択状態がアクティブなタブへ反映されること（タブ構成は変更しない）', async () => {
