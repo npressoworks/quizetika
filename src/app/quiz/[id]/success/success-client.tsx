@@ -10,7 +10,7 @@ import {
   ContentCopyOutlined,
   PlayArrowOutlined,
   ListAltOutlined,
-  AddOutlined,
+  AddCircleOutlined,
   SmsOutlined,
   WarningAmberOutlined
 } from '@mui/icons-material';
@@ -225,7 +225,7 @@ export const SuccessClient: React.FC<SuccessClientProps> = ({ quizId }) => {
               className="btn btn-outline"
               style={{ width: '100%' }}
             >
-              <AddOutlined sx={{ fontSize: 18 }} />
+              <AddCircleOutlined sx={{ fontSize: 18 }} />
               新しいクイズを新規作成する
             </button>
           </div>
