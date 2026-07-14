@@ -259,3 +259,45 @@ export async function changeSubscriptionPlan(
   return priceIdToTier(newPriceId ?? '') ?? targetPlan;
 }
 
+/**
+ * ユーザーの有効な Stripe サブスクリプションを即時キャンセルする
+ */
+export async function cancelUserSubscription(uid: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('stripe_customer_id, stripe_subscription_id')
+    .eq('id', uid)
+    .maybeSingle();
+
+  if (!userRow) {
+    throw new UserNotFoundError();
+  }
+
+  const stripeSubscriptionId = userRow.stripe_subscription_id;
+  const stripeCustomerId = userRow.stripe_customer_id;
+
+  const stripe = getStripeClient();
+
+  if (stripeSubscriptionId) {
+    try {
+      await stripe.subscriptions.cancel(stripeSubscriptionId);
+    } catch (err) {
+      console.warn(`[cancelUserSubscription] Failed to cancel subscription ID ${stripeSubscriptionId}:`, err);
+    }
+  } else if (stripeCustomerId) {
+    try {
+      const subs = await stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        status: 'active',
+      });
+      for (const sub of subs.data) {
+        await stripe.subscriptions.cancel(sub.id);
+      }
+    } catch (err) {
+      console.warn(`[cancelUserSubscription] Failed to list or cancel subscriptions for customer ${stripeCustomerId}:`, err);
+    }
+  }
+}
+
+

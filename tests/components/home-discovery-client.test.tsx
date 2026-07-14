@@ -7,8 +7,14 @@ import { render, screen } from '@testing-library/react';
 import { HomeDiscoveryClient } from '@/app/home-discovery-client';
 
 const push = jest.fn();
+const replace = jest.fn();
+const mockGet = jest.fn(() => null);
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace }),
+  useSearchParams: () => ({
+    get: mockGet,
+    toString: () => '',
+  }),
 }));
 
 jest.mock('@/context/auth-context', () => ({

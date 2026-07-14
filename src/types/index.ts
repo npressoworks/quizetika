@@ -26,7 +26,7 @@ export interface User {
   reputationHistory: ReputationEventLog[]; // スコア変動履歴 (直近30件)
   lastReputationCalculatedAt: Date | null; // 変動バッチ計算日時
   totalFailedQuestionsCount: number; // 未復習の間違い問題の総数
-  deleteStatus: 'active' | 'delete_pending'; // 退会状態
+  deleteStatus: 'active' | 'delete_pending' | 'deleted'; // 退会状態
   isBanned?: boolean;      // BANフラグ
   bannedReason?: string;   // BAN理由
   bannedAt?: Date;         // BAN日時

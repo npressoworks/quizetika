@@ -49,7 +49,44 @@
 
 ### 進捗更新（2026-07-09・Phase 36 完了）
 
-ローカル Supabase（`http://127.0.0.1:54321`）に対し `npm run migrate:legacy-storage`（ドライラン）を実行し、移行対象の残存 Firebase Storage URL が `0件` であることを確認。続けて `npm run verify:legacy-storage-migration -- final` を実行し、残存ゼロ・ビルド・テスト成功を経て `next.config.ts`/`storage.ts`/`storage-path.ts` のフォールバックコードを自動撤去（`RESULT: PASS`）。撤去後の状態で `npm run build`・`npm run test` を再実行しリグレッションなしを確認。`supabase-cleanup` の識別子リネーム（Task 6.1/6.2/6.3）も `npm run verify:firebase-removed` で再検証済み。両スペックとも `spec.json.phase` を `implementation-complete` に更新。Firebase残存痕跡の払拭（Phase 36）は本更新をもって完結。
+ローカル Supabase（`http://127.0.0.1:54321`）に対し `npm run migrate:legacy-storage`（ドライラン）を実行し、移行対象 of 残存 Firebase Storage URL が `0件` であることを確認。続けて `npm run verify:legacy-storage-migration -- final` を実行し、残存ゼロ・ビルド・テスト成功を経て `next.config.ts`/`storage.ts`/`storage-path.ts` のフォールバックコードを自動撤去（`RESULT: PASS`）。撤去後の状態で `npm run build`・`npm run test` を再実行しリグレッションなしを確認。`supabase-cleanup` の識別子リネーム（Task 6.1/6.2/6.3）も `npm run verify:firebase-removed` で再検証済み。両スペックとも `spec.json.phase` を `implementation-complete` に更新。Firebase残存痕跡の払拭（Phase 36）は本更新をもって完結。
 
 なお `src/components/quiz/quiz-editor.tsx` の `CANONICAL_TAGS`（Out of Scope として保持予定だった `'Firebase'` タグ）は、本フェーズ着手前の別コミットで既に配列ごと削除されていたことが判明した（`src/` 全体を検索しても現存しない）。本フェーズが変更した範囲には含まれず、既存の無関係なドリフトとして記録のみ行う。
+
+---
+
+## Phase 37: ユーザー退会時のデータクレンジングと匿名化（2026-07-14 ディスカバリー）
+
+### Overview（本フェーズ）
+ユーザー退会時、現在のシステムでは `delete_status` を `'delete_pending'` に更新して Stripe サブスクを解約するのみで、コンテンツ（クイズ、問題）の匿名化やリーダーボードからの削除、Supabase Auth 側からのアカウント物理削除といったデータクレンジング処理が行われていない。単純に `users` レコードを物理削除すると、外部キー制約の `ON DELETE CASCADE` によりクイズも消失してしまう。本フェーズでは、クイズや問題を「退会済ユーザー」のものとして残したまま、個人情報の匿名化とリーダーボード等からの削除、および Auth アカウントの物理削除を同一の API フロー内で同期的に実行する仕組みを導入する。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: API内同期クレンジング（Approach A）
+- **Why**: 外部の非同期キューやデータベーストリガー等の複雑な仕組みを導入せず、API Route (`/api/user/delete-account`) のフロー内にクレンジング処理（関連データの削除、クイズ/問題の著者名匿名化、`users` の匿名化、Auth からの削除）を統合することで、アーキテクチャがシンプルになり、テストやエラーハンドリングが容易になる。
+- **Rejected alternatives**:
+  - PostgreSQL トリガーと Supabase Edge Functions による非同期クレンジング: 応答速度は向上するが、管理するコンポーネントが増え、テスト容易性が低下する。現状のデータ規模では同期処理で十分に対応可能。
+
+### Scope（本フェーズ）
+- **In**:
+  - `users.delete_status` チェック制約の拡張（`'deleted'` の許容）。
+  - 退会 API `/api/user/delete-account` の拡張によるクレンジング処理の同期実行。
+  - `leaderboard_entries` から該当ユーザーのレコード削除。
+  - `quizzes` および `questions` のキャッシュ項目（`author_name` / `author_avatar`）の匿名化更新。
+  - `follows`、`bookmarks`、`notifications` の該当ユーザー関連レコードの削除。
+  - `users` レコードの個人情報のクリアおよび `delete_status = 'deleted'` への更新。
+  - Supabase Auth 上のユーザーアカウント物理削除。
+- **Out**:
+  - 管理者によるユーザーBAN処理の変更。
+  - ユーザーが作成したクイズ自体や、他のユーザーが残したプレイ履歴（attempts）の削除。
+
+### Constraints（本フェーズ）
+- Supabase Auth の削除には `service_role` 権限（Admin Client）が必要。
+- 退会ユーザーの `email` の一意性を保つため、更新後の値には `deleted_{uid}@example.com` の形式を使用する。
+
+### Boundary Strategy（本フェーズ）
+- **quizeum-account-deletion-cleansing（新規）**: クレンジングマイグレーション、API拡張、データ匿名化・削除ロジック、Auth削除処理の一切を所有。
+
+## Specs (dependency order)
+- [ ] quizeum-account-deletion-cleansing -- 退会ユーザーのクイズや問題を残したまま、個人情報の匿名化、リーダーボード削除、不要データ削除、および Auth 物理削除を同期的に行う。Dependencies: supabase-cleanup
+
 

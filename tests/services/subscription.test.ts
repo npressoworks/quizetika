@@ -6,6 +6,7 @@ import {
   createPortalSession,
   getOrCreateStripeCustomer,
   changeSubscriptionPlan,
+  cancelUserSubscription,
   NoActiveSubscriptionError,
   UserNotFoundError,
 } from '@/services/subscription';
@@ -15,6 +16,7 @@ const mockPortalCreate = jest.fn();
 const mockCustomerCreate = jest.fn();
 const mockSubscriptionsList = jest.fn();
 const mockSubscriptionsUpdate = jest.fn();
+const mockSubscriptionsCancel = jest.fn();
 const mockResolveEntitlements = jest.fn();
 
 jest.mock('@/lib/stripe/server', () => ({
@@ -25,10 +27,12 @@ jest.mock('@/lib/stripe/server', () => ({
     subscriptions: {
       list: mockSubscriptionsList,
       update: mockSubscriptionsUpdate,
+      cancel: mockSubscriptionsCancel,
     },
   }),
   getAppBaseUrl: () => 'http://localhost:3000',
 }));
+
 
 jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (...args: unknown[]) => mockResolveEntitlements(...args),
@@ -267,4 +271,39 @@ describe('SubscriptionService', () => {
       );
     });
   });
+
+  describe('cancelUserSubscription', () => {
+    it('存在しないユーザーは UserNotFoundError', async () => {
+      await expect(cancelUserSubscription('uid-missing')).rejects.toBeInstanceOf(
+        UserNotFoundError
+      );
+    });
+
+    it('stripe_subscription_id がある場合、Stripe に対して直接 cancel が呼ばれること', async () => {
+      mockSubscriptionsCancel.mockResolvedValue({});
+
+      await cancelUserSubscription('uid-pro');
+
+      expect(mockSubscriptionsCancel).toHaveBeenCalledWith('sub_existing');
+    });
+
+    it('stripe_subscription_id がなく stripe_customer_id がある場合、リストしてから解約されること', async () => {
+      userRows['uid-no-sub-id'] = { stripe_customer_id: 'cus_no_sub_id', stripe_subscription_id: null } as any;
+      mockSubscriptionsList.mockResolvedValue({
+        data: [{ id: 'sub_fetched_1' }, { id: 'sub_fetched_2' }],
+      });
+      mockSubscriptionsCancel.mockResolvedValue({});
+
+      await cancelUserSubscription('uid-no-sub-id');
+
+      expect(mockSubscriptionsList).toHaveBeenCalledWith({
+        customer: 'cus_no_sub_id',
+        status: 'active',
+      });
+      expect(mockSubscriptionsCancel).toHaveBeenCalledTimes(2);
+      expect(mockSubscriptionsCancel).toHaveBeenNthCalledWith(1, 'sub_fetched_1');
+      expect(mockSubscriptionsCancel).toHaveBeenNthCalledWith(2, 'sub_fetched_2');
+    });
+  });
 });
+

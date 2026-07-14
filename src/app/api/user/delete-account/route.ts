@@ -2,18 +2,18 @@
  * 即時退会API Route
  * POST /api/user/delete-account
  *
- * 対象ユーザーの users.delete_status を Supabase サーバークライアント（Admin）で
- * 'delete_pending' に更新する。ユーザーコンテンツの匿名化やアカウントの物理削除
- * （Supabase Auth 側では supabase.auth.admin.deleteUser 相当）は本APIの対象外とし、
- * 別途の非同期クレンジング処理に委ねる。
+ * 対象ユーザーの Stripe サブスクを解約し、データベースの個人情報を匿名化・クレンジングした上で、
+ * Supabase Auth からアカウントを物理削除する。
  *
- * Requirements: 5.1, 5.2
+ * Requirements: 1.1, 1.2, 1.3, 5.1, 5.2
  * Boundary: DeleteAccountAPI
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { createAdminClient } from '@/lib/supabase/server';
+import { cancelUserSubscription } from '@/services/subscription';
+import { cleanUpDeletedUser } from '@/services/user';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -33,15 +33,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'unauthorized', message: '認証に失敗したか、権限がありません。' }, { status: 401 });
     }
 
-    // delete_status を delete_pending に設定（第三者からの読み取りを即時ブロック）
-    const supabase = createAdminClient();
-    const { error } = await supabase
-      .from('users')
-      .update({ delete_status: 'delete_pending', updated_at: new Date().toISOString() })
-      .eq('id', uid);
+    // 1. サブスクリプションの解約処理
+    try {
+      await cancelUserSubscription(uid);
+    } catch (subError) {
+      console.error(`[delete-account] サブスクリプションの解約に失敗しました (ユーザーUID: ${uid}):`, subError);
+    }
 
-    if (error) {
-      throw error;
+    // Admin Client の作成
+    const supabase = createAdminClient();
+
+    // 2. データベースのクレンジングおよび匿名化処理の実行
+    try {
+      await cleanUpDeletedUser(supabase, uid);
+    } catch (dbError) {
+      console.error(`[delete-account] データベースのクレンジングに失敗しました (ユーザーUID: ${uid}):`, dbError);
+      throw dbError; // Auth削除を実行させないためにエラーをスロー
+    }
+
+    // 3. Supabase Auth からアカウントを物理削除
+    try {
+      const { error: authError } = await supabase.auth.admin.deleteUser(uid);
+      if (authError) {
+        throw authError;
+      }
+    } catch (authError) {
+      console.error(`[delete-account] Supabase Auth からのユーザー削除に失敗しました (ユーザーUID: ${uid}):`, authError);
+      return NextResponse.json({ error: 'auth-deletion-failed', message: '認証情報の削除に失敗しました。' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
