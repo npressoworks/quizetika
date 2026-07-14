@@ -40,7 +40,7 @@ import { ReportUserDialog } from '@/components/profile/report-user-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge as UiBadge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, UnderlineTabsList, UnderlineTabsTrigger, TabsContent } from '@/components/ui/underline-tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
@@ -453,25 +453,18 @@ export function ProfileClient() {
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as ProfileContentTab)}
           >
-            <TabsList variant="line" className="mb-6 w-full justify-start border-b border-border">
-              <TabsTrigger
-                value="quizzes"
-                className="min-h-9 gap-2 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[1px] group-data-horizontal/tabs:after:h-[3px]"
-              >
+            <UnderlineTabsList className="mb-6">
+              <UnderlineTabsTrigger value="quizzes">
                 <GridViewOutlined sx={{ fontSize: 18 }} />
                 作成したクイズ ({quizzesCount})
-              </TabsTrigger>
+              </UnderlineTabsTrigger>
               {isMyProfile && (
-                <TabsTrigger
-                  value="history"
-                  className="min-h-9 gap-2 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[1px] group-data-horizontal/tabs:after:h-[3px]"
-                  data-testid="profile-tab-history"
-                >
+                <UnderlineTabsTrigger value="history" data-testid="profile-tab-history">
                   <HistoryOutlined sx={{ fontSize: 18 }} />
                   プレイ履歴
-                </TabsTrigger>
+                </UnderlineTabsTrigger>
               )}
-            </TabsList>
+            </UnderlineTabsList>
 
             {isMyProfile && (
               <TabsContent value="history" data-testid="profile-tab-content-history">
