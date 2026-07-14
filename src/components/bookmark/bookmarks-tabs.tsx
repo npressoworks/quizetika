@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { BookmarkTab } from '@/hooks/useBookmarkFeed';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, UnderlineTabsList, UnderlineTabsTrigger } from '@/components/ui/underline-tabs';
 
 interface BookmarksTabsProps {
   activeTab: BookmarkTab;
@@ -21,13 +21,13 @@ export function BookmarksTabs({ activeTab, onTabChange }: BookmarksTabsProps) {
       onValueChange={(value) => onTabChange(value as BookmarkTab)}
       className="mb-6"
     >
-      <TabsList data-testid="bookmarks-tabs">
+      <UnderlineTabsList data-testid="bookmarks-tabs">
         {TABS.map((tab) => (
-          <TabsTrigger key={tab.id} value={tab.id} data-testid={tab.testId}>
+          <UnderlineTabsTrigger key={tab.id} value={tab.id} data-testid={tab.testId}>
             {tab.label}
-          </TabsTrigger>
+          </UnderlineTabsTrigger>
         ))}
-      </TabsList>
+      </UnderlineTabsList>
     </Tabs>
   );
 }

@@ -16,20 +16,20 @@ import {
 import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
 import { FeedbackSkeleton } from '@/components/quiz/feedback-skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, UnderlineTabsList, UnderlineTabsTrigger, TabsContent } from '@/components/ui/underline-tabs';
 import { PlayerDashboardClient } from './player-dashboard-client';
 
 export function CreatorDashboardClient() {
   return (
     <Tabs defaultValue="player" className="w-full">
-      <TabsList className="mb-8 w-full max-w-[400px]">
-        <TabsTrigger value="player" data-testid="dashboard-tab-player" className="flex-1 py-2">
+      <UnderlineTabsList className="mb-8 w-full">
+        <UnderlineTabsTrigger value="player" data-testid="dashboard-tab-player" className="flex-1 justify-center">
           プレイヤー
-        </TabsTrigger>
-        <TabsTrigger value="creator" data-testid="dashboard-tab-creator" className="flex-1 py-2">
+        </UnderlineTabsTrigger>
+        <UnderlineTabsTrigger value="creator" data-testid="dashboard-tab-creator" className="flex-1 justify-center">
           作家
-        </TabsTrigger>
-      </TabsList>
+        </UnderlineTabsTrigger>
+      </UnderlineTabsList>
       <TabsContent value="player" className="space-y-10 focus-visible:outline-none">
         <PlayerDashboardClient />
       </TabsContent>

@@ -25,7 +25,7 @@ import { NotificationsSkeleton } from '@/components/ui/notifications-skeleton';
 import { Button } from '@/components/ui/button';
 import { CardContent, Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, UnderlineTabsList, UnderlineTabsTrigger, TabsContent } from '@/components/ui/underline-tabs';
 import { AnnouncementsTab } from './announcements-tab';
 
 // ページング用カーソル（Supabase では created_at のISO文字列を使用する）
@@ -218,24 +218,24 @@ export function NotificationsClient() {
   return (
     <CardContent data-testid="notifications-page-container" className="pt-2">
       <Tabs defaultValue="personal">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="personal" data-testid="personal-tab-trigger">
+        <UnderlineTabsList className="mb-6">
+          <UnderlineTabsTrigger value="personal" data-testid="personal-tab-trigger">
             通知
             {currentUser && unreadNotifCount > 0 && (
               <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground font-bold shrink-0">
                 {unreadNotifCount}
               </span>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="announcements" data-testid="announcements-tab-trigger">
+          </UnderlineTabsTrigger>
+          <UnderlineTabsTrigger value="announcements" data-testid="announcements-tab-trigger">
             運営からのお知らせ
             {unreadAnnCount > 0 && (
               <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground font-bold shrink-0">
                 {unreadAnnCount}
               </span>
             )}
-          </TabsTrigger>
-        </TabsList>
+          </UnderlineTabsTrigger>
+        </UnderlineTabsList>
 
         <TabsContent value="personal">
           {!currentUser ? (

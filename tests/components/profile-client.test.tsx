@@ -73,6 +73,16 @@ jest.mock('@/hooks/useActiveGenres', () => ({
   }),
 }));
 
+jest.mock('@/hooks/useActiveTags', () => ({
+  useActiveTags: jest.fn().mockReturnValue({
+    tags: [],
+    loading: false,
+    error: null,
+    tagLabelById: new Map(),
+    refetch: jest.fn(),
+  }),
+}));
+
 // 共通UI用の IntersectionObserver の簡易モック
 class IntersectionObserverMock {
   observe() {}
@@ -139,7 +149,7 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
     });
 
     // 検索入力欄が存在すること
-    const searchInput = screen.getByTestId('profile-quiz-search-input');
+    const searchInput = screen.getByPlaceholderText(/タイトル、説明文、作成者、タグでクイズを検索/);
     expect(searchInput).toBeInTheDocument();
 
     // 25件あるので、初期20件ロードされた状態になり、「もっと見る」ボタンが存在すること
@@ -154,7 +164,7 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
       expect(screen.getByText('クイズタイトル 1')).toBeInTheDocument();
     });
 
-    const searchInput = screen.getByTestId('profile-quiz-search-input');
+    const searchInput = screen.getByPlaceholderText(/タイトル、説明文、作成者、タグでクイズを検索/);
 
     // 「history」というキーワードで検索
     fireEvent.change(searchInput, { target: { value: 'history' } });
