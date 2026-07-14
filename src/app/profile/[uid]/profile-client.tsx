@@ -454,12 +454,19 @@ export function ProfileClient() {
             onValueChange={(v) => setActiveTab(v as ProfileContentTab)}
           >
             <TabsList className="mb-6">
-              <TabsTrigger value="quizzes" className="gap-2">
+              <TabsTrigger
+                value="quizzes"
+                className="min-h-9 gap-2 px-3 font-medium data-active:bg-primary data-active:text-primary-foreground data-active:font-semibold data-active:shadow-sm"
+              >
                 <GridViewOutlined sx={{ fontSize: 18 }} />
                 作成したクイズ ({quizzesCount})
               </TabsTrigger>
               {isMyProfile && (
-                <TabsTrigger value="history" className="gap-2" data-testid="profile-tab-history">
+                <TabsTrigger
+                  value="history"
+                  className="min-h-9 gap-2 px-3 font-medium data-active:bg-primary data-active:text-primary-foreground data-active:font-semibold data-active:shadow-sm"
+                  data-testid="profile-tab-history"
+                >
                   <HistoryOutlined sx={{ fontSize: 18 }} />
                   プレイ履歴
                 </TabsTrigger>

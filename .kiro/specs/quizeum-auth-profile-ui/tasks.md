@@ -409,7 +409,7 @@
   - _Requirements: 16.5, 16.6, 16.7, 16.8, 16.9_
   - _Boundary: ProfileEditClient_
 
-- [ ] 15.6 (P) プロフィールタブの視認性向上スタイル適用
+- [x] 15.6 (P) プロフィールタブの視認性向上スタイル適用
   - `src/app/profile/[uid]/profile-client.tsx` の `TabsList` / `TabsTrigger` に `className` を追加し、選択中タブと非選択タブのコントラストを強化し、モバイル幅でのタップ領域を拡大する。共有 `src/components/ui/tabs.tsx` 自体は変更しない。
   - **完了状態**: 選択中のタブが背景色・下線等で非選択タブと明確に区別でき、タブの件数表示・タブ数（2タブ構成）は変更されていないこと。
   - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_

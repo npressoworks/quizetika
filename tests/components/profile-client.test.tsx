@@ -440,4 +440,43 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
       });
     });
   });
+
+  describe('プロフィールタブの視認性向上（Phase 30）', () => {
+    it('選択中タブと非選択タブを区別する強調スタイルが適用されていること', async () => {
+      render(<ProfileClient />);
+      await waitFor(() => {
+        expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+      });
+
+      const quizzesTab = screen.getByRole('tab', { name: /作成したクイズ/ });
+      expect(quizzesTab.className).toMatch(/data-active:bg-primary/);
+      expect(quizzesTab.className).toMatch(/min-h-/);
+
+      const historyTab = screen.getByTestId('profile-tab-history');
+      expect(historyTab.className).toMatch(/data-active:bg-primary/);
+    });
+
+    it('タブ切替時に選択状態がアクティブなタブへ反映されること（タブ構成は変更しない）', async () => {
+      render(<ProfileClient />);
+      await waitFor(() => {
+        expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+      });
+
+      const quizzesTab = screen.getByRole('tab', { name: /作成したクイズ/ });
+      const historyTab = screen.getByTestId('profile-tab-history');
+
+      expect(quizzesTab).toHaveAttribute('aria-selected', 'true');
+      expect(historyTab).toHaveAttribute('aria-selected', 'false');
+
+      fireEvent.click(historyTab);
+
+      await waitFor(() => {
+        expect(historyTab).toHaveAttribute('aria-selected', 'true');
+      });
+      expect(quizzesTab).toHaveAttribute('aria-selected', 'false');
+
+      // タブは「作成したクイズ」「プレイ履歴」の2つのみで構成されること
+      expect(screen.getAllByRole('tab')).toHaveLength(2);
+    });
+  });
 });
