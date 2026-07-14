@@ -22,6 +22,7 @@
 - **Phase 27**: 「作成したクイズ」タブ内でのキーワード検索とページングUI（1ページあたり9件）、共通クイズカード `QuizCard` の適用とブックマーク状態解決およびトグル機能。
 - **Phase 28**: 好きなジャンルの複数選択・保存UI（編集画面）およびアイコン画像付きジャンルチップ表示（詳細画面）。
 - **Phase 29**: プロフィールメニュー表示名を「マイページ」に変更し、PCサイドバーおよびモバイルヘッダーのドロップダウンメニューにダッシュボードリンクを追加する。また、他人のプロフィール画面において本人のプレイ履歴が露出しないよう、表示制御を厳格化する。
+- **Phase 30**: プロフィール編集画面からアバター画像を選択・プレビュー・アップロード・保存できるUIを追加する。プロフィール詳細画面のコンテンツタブ（作成したクイズ／プレイ履歴）の選択状態の視認性を向上させる。
 
 ### Non-Goals
 - クイズプレイ・作成・モデレーション画面（各専用スペック）。
@@ -29,6 +30,7 @@
 - 他ユーザープロフィールからのプレイ履歴閲覧。
 - **Phase 8**: リスト作成・編集・`listType` 選択 UI（`quizetika-creator-dash-ui`）。ブックマーク3タブ・問題リストプレイ（`quizetika-play-flow-ui`）。
 - **Phase 23**: `/profile/[uid]/likes` ルートの削除・404化、`LikesClient` / `ReactionService` の改修、リアクションデータのマイグレーション、E2E F-407 の削除本体（直接実装候補 `remove-reaction-history-e2e` が担当。本スペックは導線削除とテスト方針の整合のみ）。
+- **Phase 30**: アバター画像のクロップ・回転等の画像編集機能。差し替え前アバター画像の Storage 上の物理削除・クレンジング（`quizetika-account-deletion-cleansing` 等が担当）。共有 `components/ui/tabs.tsx` のグローバルなスタイル変更（他画面のタブ利用箇所への影響回避のため対象外）。
 
 ---
 
@@ -45,11 +47,13 @@
 - **Phase 27**: `ProfileClient` — 「作成したクイズ」タブ内でのクライアントサイド検索・ページング状態管理およびUI描画、共通 `QuizCard` のアタッチとブックマーク状態のトグル・遷移処理。
 - **Phase 28**: `ProfileEditClient` における好きなジャンル（`followedGenres`）の複数選択および保存、`ProfileClient` における好きなジャンルチップ（マスタ解決後の表示名・アイコン）の表示。
 - **Phase 29**: `Sidebar` および `Header` 内のアバタードロップダウンメニューUIの拡張（ダッシュボードリンク追加）、および `Sidebar` メニューの表示名変更。他人のプロフィール画面におけるプレイ履歴タブコンテンツのレンダリングガード。
+- **Phase 30**: `ProfileEditClient` におけるアバター画像の選択・検証・プレビュー・アップロード・保存、および保存後の `AuthContext.refreshUser()` によるヘッダー/サイドバー表示の即時反映。`ProfileClient` のコンテンツタブ（`TabsList`/`TabsTrigger`）に対する視覚強調スタイルの追加（タブ構成自体は変更しない）。
 
 ### Out of Boundary
 - Firestoreセキュリティルール、バッジ自動付与サーバー処理。
 - プレイ履歴のクエリ実装・`PlayHistoryPage` 生成（`quizetika-core` / `GET /api/user/play-history`）。
 - **Phase 8**: `listType` の付与・リスト CRUD・問題リスト編集 UI（`quizetika-creator-dash-ui`）。リスト詳細の `listType` 分岐表示本体（`quizetika-play-flow-ui` の `/list/[id]` — 本スペックはプロフィールカードからの遷移のみ）。
+- **Phase 30**: アバター画像のクロップ・回転、旧アバター画像の Storage 物理削除、共有 `components/ui/tabs.tsx` のグローバル変更、コンテンツタブの構成変更（要件11が正本）。
 
 ### Allowed Dependencies
 - **`quizetika-core`**: `UserService`, `AuthContext`, **`PlayHistoryPage` / `PlayHistoryEntry` 型（`@/types`）**
@@ -57,11 +61,13 @@
 - **`@mui/icons-material`**
 - **`metadata_genres`**: `useActiveGenres`（`@/hooks/useActiveGenres`）を呼び出し、ジャンルの表示名とアイコン画像を解決する。
 - **Phase 8**: `getQuizListsByAuthor`（`@/services/quiz-list`）、`resolveListType`（`@/types`）。任意フィルタ時は既取得配列のクライアント絞り込みを優先（再フェッチは `options.listType` 利用可だが初版は不要）。
+- **Phase 30**: Supabase Storage（`createClient().storage`、既存 `uploadQuizCover` と同一パターン）。`AuthContext.refreshUser()`（既存・`quizetika-core` 境界外の UI 側フック）。
 
 ### Revalidation Triggers
 - `UserService` / Firebase Auth インターフェース変更。
 - `PlayHistoryPage` レスポンス形状またはカーソル形式の変更。
 - **Phase 8**: `QuizList.listType` / `questionIds` スキーマ変更、`getQuizListsByAuthor` のフィルタ契約変更、`resolveListType` 後方互換規則の変更。
+- **Phase 30**: `UpdateProfileData` の `avatarUrl` フィールド契約変更、Supabase Storage バケット構成（`users/{uid}/...`）の変更、`AuthContext.refreshUser()` のシグネチャ変更。
 
 ---
 
@@ -1053,6 +1059,166 @@ export function ProfileClient() {
 #### B. `tests/components/header-profile-popup.test.tsx` の修正
 - ヘッダードロップダウンの展開時テストに「ダッシュボード」リンクが存在することを検証するアサーションを追加します：
   - `expect(screen.getByTestId('header-dashboard-link')).toBeInTheDocument();` を追加。
+
+---
+
+## Phase 30: アバター画像変更とプロフィールタブ視認性向上（2026-07-14）
+
+### 1. Overview
+プロフィール編集画面（`/profile/edit`）からアバター画像を変更できるアップロードUIを追加する（要件16）。加えて、プロフィール詳細画面（`/profile/[uid]`）のコンテンツタブ（「作成したクイズ」「プレイ履歴」）の選択状態の視認性を向上させる（要件17）。アバター画像は既存の `uploadQuizCover` / `getUserAvatarPath`（`src/services/storage.ts`）と同一のクライアント直接アップロードパターン（Supabase Storage）を踏襲し、新規サーバーエンドポイントは追加しない。タブ改善は `ProfileClient` のみを対象とし、共有 `components/ui/tabs.tsx`（他11箇所で利用）は変更しない。
+
+### 2. Boundary Commitments（Phase 30）
+
+| This Phase Owns | Out of Boundary |
+| --- | --- |
+| `/profile/edit` からのアバター画像選択・検証・プレビュー・アップロード・保存（要件16.1–16.9） | アバター画像のクロップ・回転等の画像編集機能 |
+| 保存後のアバターURL反映（プロフィール画面・ヘッダー/サイドバーのドロップダウン、`AuthContext.refreshUser()` 経由） | 差し替え前アバター画像の Storage 上の物理削除・クレンジング（`quizetika-account-deletion-cleansing` 等） |
+| `src/lib/avatar-upload.ts` の共有検証ロジック（形式・サイズ） | 共有 `components/ui/tabs.tsx` のグローバルなスタイル変更（他画面のタブへ影響するため対象外） |
+| `ProfileClient` のコンテンツタブの視覚強調スタイル（要件17） | タブの追加・削除・並び替え、タブ構成自体の変更（要件11が正本、本フェーズはスタイルのみ） |
+
+### 3. File Structure Plan（Phase 30）
+
+| ファイル | 操作 | 責務 |
+| --- | --- | --- |
+| `src/lib/avatar-upload.ts` | **New** | アバター画像の許可形式（PNG/JPEG/GIF）・上限サイズ（5MB）のクライアント／サービス共通検証（`genre-icon-upload.ts` と同一パターン） |
+| `src/services/storage.ts` | **Modify** | `uploadUserAvatar(file, uid): Promise<string>` を追加。`assertAvatarFileValid` を通し `getUserAvatarPath` へアップロードして公開URLを返す（`uploadQuizCover` と同型） |
+| `src/services/user.ts` | **Modify** | `UpdateProfileData` に `avatarUrl?: string` を追加。`updateProfile()` が `data.avatarUrl !== undefined` のとき `updates.avatarUrl` に反映する（`mapUserToRow` は既に `avatarUrl` 対応済みのため変更不要） |
+| `src/app/profile/edit/profile-edit-client.tsx` | **Modify** | アバター選択・プレビュー用の state とハンドラ追加、保存フローへの `uploadUserAvatar` 統合、保存成功後の `refreshUser()` 呼び出し |
+| `src/app/profile/[uid]/profile-client.tsx` | **Modify** | `TabsList` / `TabsTrigger` への `className` 追加によるアクティブ状態の視覚強調・タップ領域拡大（タブ数・タブ切替ロジックは変更しない） |
+
+### 4. アバター画像変更（要件16）設計
+
+#### 状態管理とデータフロー
+- `ProfileEditClient` に `avatarFile: File | null`、`avatarPreviewUrl: string | null`、`avatarError: string | null` を追加する。
+- 初期表示: `currentUser.avatarUrl`（未設定時はデフォルトアバター）を表示する。
+- `handleAvatarChange(file)`: `validateAvatarFile` で検証する。失敗時は `avatarError` に許可形式または上限サイズを明示したメッセージを設定し、`avatarFile` / `avatarPreviewUrl` は更新しない（要件16.3, 16.4）。成功時は `URL.createObjectURL(file)` でプレビューを生成し `avatarFile` に保持する。**この時点ではアップロードを行わず、選択とプレビューのみに留める**（要件16.2）。
+- `handleSubmit`: `submitting` 中に以下を順次実行する。
+  1. `avatarFile` が存在する場合のみ `uploadUserAvatar(avatarFile, currentUser.id)` を呼び出し、返却された公開URLを `avatarUrl` として保持する。
+  2. `updateProfile(currentUser.id, { displayName, bio, avatarUrl, followedGenres, snsLinks })` を呼び出す（`avatarFile` が無い場合は `avatarUrl` を渡さず、既存値を保持する。要件16.8）。
+  3. 成功時、`useAuth().refreshUser()` を呼び出してヘッダー/サイドバーのアバター表示を最新化した上で（要件16.9）、`/profile/{uid}` へ遷移する。
+- アップロード〜保存が進行中の間は保存ボタンを disable し、「保存中...」表示を維持する（既存 `submitting` state を流用。要件16.6）。
+- アップロードまたは `updateProfile` が失敗した場合、`submitError` に日本語メッセージを表示する。この時点では実際のアバター表示（`AuthContext` / DB上の値）は未確定のプレビューのみで変更されていないため、失敗時も表示中のアバターは変更前の状態のままとなる（要件16.7）。
+
+#### インターフェース
+
+```typescript
+// src/lib/avatar-upload.ts
+export const AVATAR_ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/gif'] as const;
+export type AvatarMimeType = (typeof AVATAR_ALLOWED_MIME_TYPES)[number];
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+export const AVATAR_ACCEPT = '.png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif';
+
+export type AvatarValidationResult = { ok: true } | { ok: false; error: string };
+
+export function validateAvatarFile(file: File): AvatarValidationResult;
+export function assertAvatarFileValid(file: File): void;
+```
+
+```typescript
+// src/services/storage.ts（追加）
+export async function uploadUserAvatar(file: File | Blob, uid: string): Promise<string>;
+```
+
+```typescript
+// src/services/user.ts（UpdateProfileData 拡張）
+export interface UpdateProfileData {
+  displayName: string;
+  bio: string;
+  avatarUrl?: string; // 追加（Phase 30）
+  followedGenres?: string[];
+  snsLinks?: {
+    youtube?: string;
+    x?: string;
+    instagram?: string;
+    tiktok?: string;
+  };
+}
+```
+
+#### `data-testid` 契約
+| 要素 | test id |
+| --- | --- |
+| アバター変更用ファイル入力 | `profile-avatar-upload-input` |
+| プレビュー領域 | `profile-avatar-preview` |
+
+#### アバター変更フロー
+```mermaid
+sequenceDiagram
+    actor User as ユーザー
+    participant Edit as ProfileEditClient
+    participant Validate as avatar-upload
+    participant Storage as uploadUserAvatar
+    participant UserSvc as updateProfile
+    participant Auth as AuthContext
+
+    User->>Edit: 画像ファイルを選択
+    Edit->>Validate: validateAvatarFile(file)
+    alt 検証NG
+        Validate-->>Edit: error
+        Edit->>User: エラーメッセージ表示（保存不可）
+    else 検証OK
+        Validate-->>Edit: ok
+        Edit->>User: プレビュー表示
+        User->>Edit: 保存を実行
+        Edit->>Storage: uploadUserAvatar(file, uid)
+        Storage-->>Edit: avatarUrl
+        Edit->>UserSvc: updateProfile(uid, { ..., avatarUrl })
+        UserSvc-->>Edit: 完了
+        Edit->>Auth: refreshUser()
+        Auth-->>Edit: 最新のユーザー情報
+        Edit->>User: プロフィール画面へ遷移
+    end
+```
+
+### 5. プロフィールコンテンツタブの視認性向上（要件17）設計
+- `src/app/profile/[uid]/profile-client.tsx` の `TabsList` / `TabsTrigger` にのみ追加の `className` を渡し、視覚強調を適用する。共有 `components/ui/tabs.tsx` 自体は変更しない（他11箇所のタブ利用箇所への影響を避けるため。要件17.6・本フェーズの Out of Boundary）。
+- 強調内容: 選択中タブと非選択タブの背景・文字色コントラストの強化、選択インジケータ（下線または塗りつぶし背景）の明確化、モバイル幅での最小タップ高さの確保（既存 `h-8` のタブリストに対し、タブトリガー自体の縦パディングを広げる）。
+- 各 `TabsTrigger` は既存のアイコン＋ラベル（＋「作成したクイズ」タブの件数表示）構成を維持する（要件17.4）。
+- 選択状態のスクリーンリーダー／キーボード判別は、`@base-ui/react/tabs`（`TabsPrimitive.Tab`）が自動付与する `aria-selected` 属性とフォーカスリング（既存 `focus-visible:ring-*`）により充足する。追加の ARIA 実装は不要（要件17.5）。
+
+### 6. Requirements Traceability（Phase 30）
+
+| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
+| :--- | :--- | :--- | :--- | :--- |
+| 3.4 | 編集画面にアバター変更操作を表示 | `ProfileEditClient` | アバタープレビュー領域＋変更操作 | アバター変更フロー |
+| 16.1 | アバター表示と変更操作の表示 | `ProfileEditClient` | 現在のアバター＋変更操作 | — |
+| 16.2 | 選択画像のプレビュー表示（保存前は変更しない） | `ProfileEditClient` | `handleAvatarChange`, `URL.createObjectURL` | アバター変更フロー |
+| 16.3 | 許可されない形式のエラー表示 | `ProfileEditClient`, `avatar-upload` | `validateAvatarFile` | アバター変更フロー |
+| 16.4 | 上限サイズ超過のエラー表示 | `ProfileEditClient`, `avatar-upload` | `validateAvatarFile` | アバター変更フロー |
+| 16.5 | 保存実行時のアップロードとURL更新・遷移 | `ProfileEditClient` | `uploadUserAvatar`, `updateProfile` | アバター変更フロー |
+| 16.6 | アップロード中の保存操作無効化 | `ProfileEditClient` | `submitting` state | — |
+| 16.7 | 失敗時の変更前アバター維持とエラー表示 | `ProfileEditClient` | `submitError` | アバター変更フロー |
+| 16.8 | 画像未変更時の既存アバター保持 | `ProfileEditClient`, `updateProfile` | `avatarUrl` 未指定時は不変 | — |
+| 16.9 | 保存完了後の表示反映（プロフィール・ヘッダー等） | `ProfileEditClient`, `AuthContext` | `refreshUser()` | アバター変更フロー |
+| 16.10 | E2E用 `data-testid` 契約 | `ProfileEditClient` | `profile-avatar-upload-input`, `profile-avatar-preview` | テスト支援 |
+| 17.1 | タブの選択状態の視覚的区別 | `ProfileClient` | `TabsList`/`TabsTrigger` className | — |
+| 17.2 | タブ切替時の視覚状態の即時反映 | `ProfileClient` | `data-active` 属性（既存 Tabs 実装） | — |
+| 17.3 | モバイルでの十分なタップ領域 | `ProfileClient` | `TabsTrigger` className（padding） | — |
+| 17.4 | タブラベルの件数表示維持 | `ProfileClient` | 既存の件数表示ロジック（要件12.1 由来） | — |
+| 17.5 | キーボード／スクリーンリーダーでの選択状態判別 | `ProfileClient` | `aria-selected`（`@base-ui/react/tabs` 既定動作） | — |
+| 17.6 | タブ構成自体は変更しない | `ProfileClient` | Out of Boundary | — |
+
+### 7. Testing Strategy（Phase 30）
+
+#### 手動確認
+- プロフィール編集画面でアバター画像を選択すると、保存前にプレビューが表示され、既存のアバター表示（プロフィール画面・ヘッダー）は変更されないこと。
+- 許可されない形式（例: SVG）や5MBを超える画像を選択した場合、保存を行わずエラーメッセージが表示されること。
+- アバターを変更して保存すると、プロフィール画面・ヘッダー・サイドバーのアバターが新しい画像に更新されること。
+- アバターを変更せずに表示名のみ変更して保存した場合、アバター画像が変化しないこと。
+- アップロード中は保存ボタンが無効化され、「保存中...」等の進行中表示が出ること。
+- アップロード失敗（ネットワークエラー等）時、変更前のアバターが維持され、エラーメッセージが表示されること。
+- プロフィール画面のタブ切り替え時、選択中のタブが非選択タブと明確に区別できること。モバイル幅でタブが押しやすいサイズであること。
+
+#### 単体テスト
+- `avatar-upload.test.ts`: 許可形式・非許可形式・上限サイズ内外の各ケースで `validateAvatarFile` が期待どおりの結果を返すこと（`genre-icon-upload.test.ts` と同型のテストケース構成）。
+
+#### E2Eテスト
+- `data-testid="profile-avatar-upload-input"` でファイルを選択し、`data-testid="profile-avatar-preview"` にプレビューが表示されることを検証する。
+- 保存後、`/profile/{uid}` へ遷移し、アバター画像のURLが更新されていることを検証する（`img[alt=displayName]` の `src` 属性変化等）。
+
+### 8. Risks & Mitigations
+- **アップロード失敗時の二重送信**: ネットワーク断等でアップロードのみ成功し `updateProfile` が失敗した場合、Storage 上に孤立画像が残る可能性がある。旧画像削除と同様に本フェーズでは対象外とし、将来のクレンジング処理（`quizetika-account-deletion-cleansing` 等）の対象候補として `research.md` に記録する。
+- **プレビューの Object URL リーク**: `URL.createObjectURL` で生成したプレビューURLは、コンポーネントアンマウント時または新しいファイル選択時に `URL.revokeObjectURL` で解放する。
 
 
 

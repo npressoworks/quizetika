@@ -370,3 +370,62 @@
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
   - _Depends: 14.1, 14.2, 14.3_
   - _Boundary: Integration_
+
+### 15. Phase 30: アバター画像変更とプロフィールタブ視認性向上（2026-07-14）
+
+- [ ] 15.1 アバター画像検証ライブラリの実装
+  - `src/lib/avatar-upload.ts` に、許可される画像形式（PNG/JPEG/GIF）と上限サイズ（5MB）を検証する純関数（`validateAvatarFile`, `assertAvatarFileValid`）を実装する。
+  - **完了状態**: 許可形式内・許可形式外・サイズ超過の各ケースで、検証関数が期待どおりの ok/error 結果を返すこと。
+  - _Requirements: 16.3, 16.4_
+  - _Boundary: avatar-upload_
+
+- [ ] 15.2 (P) アバター画像アップロード関数の実装
+  - `src/services/storage.ts` に `uploadUserAvatar(file, uid)` を追加し、`assertAvatarFileValid` による検証を通した上で `getUserAvatarPath` のパスへ Supabase Storage にアップロードし、公開URLを返す。
+  - **完了状態**: 有効な画像ファイルを渡すと公開URLが返り、不正な画像を渡すと検証エラーが送出されること。
+  - _Depends: 15.1_
+  - _Requirements: 16.5_
+  - _Boundary: storage-service_
+
+- [ ] 15.3 (P) プロフィール更新データへのアバターURL項目追加
+  - `src/services/user.ts` の `UpdateProfileData` に `avatarUrl?: string` を追加し、`updateProfile()` が `avatarUrl` が指定された場合のみ更新対象に含めるようにする。
+  - **完了状態**: `avatarUrl` を指定して `updateProfile` を呼ぶとユーザーレコードのアバターURLが更新され、指定しない場合は既存値が変更されないこと。
+  - _Requirements: 16.8_
+  - _Boundary: user-service_
+
+- [ ] 15.4 (P) プロフィール編集画面へのアバター選択・プレビューUIの統合
+  - `src/app/profile/edit/profile-edit-client.tsx` に `avatarFile` / `avatarPreviewUrl` / `avatarError` の状態管理と、ファイル選択ハンドラ（`validateAvatarFile` による検証呼び出し）を実装する。
+  - ファイル入力に `data-testid="profile-avatar-upload-input"`、プレビュー領域に `data-testid="profile-avatar-preview"` を付与する。
+  - 新しいファイル選択時およびコンポーネントのアンマウント時に、直前の `URL.createObjectURL` プレビューURLを `URL.revokeObjectURL` で解放する。
+  - **完了状態**: 有効な画像を選択すると保存前のプレビューが表示され、既存の保存済みアバターは変更されないこと。不正な画像を選択すると保存前にエラーメッセージが表示されプレビューは更新されないこと。
+  - _Depends: 15.1_
+  - _Requirements: 3.4, 16.1, 16.2, 16.3, 16.4, 16.10_
+  - _Boundary: ProfileEditClient_
+
+- [ ] 15.5 保存フローへのアバターアップロード統合と表示反映
+  - `handleSubmit` にて、`avatarFile` が存在する場合のみ `uploadUserAvatar` を呼び出してURLを取得し、`updateProfile` へ `avatarUrl` として渡す。アップロード中は保存ボタンを無効化する。
+  - 保存成功後、`useAuth().refreshUser()` を呼び出してからプロフィール画面へ遷移する。失敗時は変更前のアバター表示を維持したままエラーメッセージを表示する。
+  - **完了状態**: アバターを変更して保存すると、プロフィール画面・ヘッダー・サイドバーのアバター表示が更新後の画像に切り替わること。アバター未変更で他項目のみ保存した場合はアバターが変化しないこと。アップロード失敗時は変更前のアバターが維持されエラーが表示されること。
+  - _Depends: 15.2, 15.3, 15.4_
+  - _Requirements: 16.5, 16.6, 16.7, 16.8, 16.9_
+  - _Boundary: ProfileEditClient_
+
+- [ ] 15.6 (P) プロフィールタブの視認性向上スタイル適用
+  - `src/app/profile/[uid]/profile-client.tsx` の `TabsList` / `TabsTrigger` に `className` を追加し、選択中タブと非選択タブのコントラストを強化し、モバイル幅でのタップ領域を拡大する。共有 `src/components/ui/tabs.tsx` 自体は変更しない。
+  - **完了状態**: 選択中のタブが背景色・下線等で非選択タブと明確に区別でき、タブの件数表示・タブ数（2タブ構成）は変更されていないこと。
+  - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_
+  - _Boundary: ProfileClient-Tabs_
+
+- [ ] 15.7 (P) アバター検証ライブラリの単体テスト
+  - `avatar-upload.test.ts` を作成し、許可形式内・許可形式外・サイズ超過の各ケースを検証する。
+  - **完了状態**: 追加した単体テストスイートがすべてグリーン（PASS）であること。
+  - _Depends: 15.1_
+  - _Requirements: 16.3, 16.4_
+  - _Boundary: Testing_
+
+- [ ] 15.8 Phase 30 統合検証とE2Eテスト
+  - アバター選択→プレビュー→保存→プロフィール/ヘッダー反映のフローと、不正ファイル時のエラー表示、未変更時のアバター保持、タブの選択状態の視覚的区別を手動またはPlaywrightで検証する。
+  - `npm test` および `npm run build` がグリーンであることを確認する。
+  - **完了状態**: Phase 30 関連のテスト・ビルドがすべてグリーンであり、手動/E2E確認項目がすべて満たされていること。
+  - _Depends: 15.5, 15.6, 15.7_
+  - _Requirements: 3.4, 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 16.7, 16.8, 16.9, 16.10, 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_
+  - _Boundary: Integration_

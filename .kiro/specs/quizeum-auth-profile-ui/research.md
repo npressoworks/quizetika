@@ -214,4 +214,64 @@
 - **ドロップダウンメニューの配置バランス**: PCとモバイルでそれぞれドロップダウンに項目を追加する際、順番が不整合にならないよう揃える。
   - **緩和策**: 両ドロップダウンで「管理者メニュー」「カスタムクイズ」「ダッシュボード」「マイページ」「設定」「ログアウト」の論理的順序になるよう調整する。
 
+---
+
+# Phase 30: アバター画像変更とプロフィールタブ視認性向上（2026-07-14）
+
+## Summary
+- **Feature**: プロフィール編集画面からのアバター画像変更（要件16）、プロフィールコンテンツタブの視認性向上（要件17）
+- **Discovery Scope**: Extension（Light）— 既存のクライアント直接アップロードパターンとタブコンポーネントを流用
+- **Key Findings**:
+  - `src/services/storage.ts` に `uploadQuizCover`（クイズカバー）と同型のクライアント直接アップロード関数が既に存在し、`getUserAvatarPath(uid, extension)` というアバター専用パスヘルパーも既に定義済み（未使用）。同パターンを `uploadUserAvatar` として追加すれば新規サーバーエンドポイントは不要。
+  - `src/services/user.ts` の `mapUserToRow` は既に `user.avatarUrl` を `avatar_url` へマッピング済み。ギャップは `UpdateProfileData`（`updateProfile()` の入力型）に `avatarUrl` が未定義な点のみ。
+  - `AuthContext` に `refreshUser()`（「プロフィール更新時などの手動リロード用」とコメント済み）が既に用意されており、ヘッダー/サイドバーのアバター即時反映に利用できる。
+  - `components/ui/tabs.tsx`（`@base-ui/react/tabs` ラッパー）は12箇所で共有利用されている。プロフィールタブのみの視覚改善は共有コンポーネント本体ではなく `ProfileClient` 側の `className` 上書きで実現するのが安全。
+
+## Research Log
+
+### アバターアップロードの既存パターン
+- **Context**: 要件16 — アバター画像変更の実装方式選定。
+- **Sources Consulted**: `src/services/storage.ts`（`uploadImage`, `uploadQuizCover`, `getUserAvatarPath`）、`src/lib/genre-icon-upload.ts`、`src/components/quiz/quiz-editor.tsx`（`pendingThumbnailBlob` → `uploadQuizCover` パターン）、`src/app/admin/genres/admin-genres-client.tsx`（管理者専用の一時アップロードAPI経由パターン）。
+- **Findings**: 管理者ジャンルアイコンは `/api/genres/upload-icon` を介した一時アップロード＋確定パターンだが、これは管理者権限チェックが必要な運用のため。クイズカバーは一般ユーザーが自身の所有物（クイズ）に対しクライアントから直接 Supabase Storage へアップロードする方式であり、アバター（ユーザー自身の所有物）はこちらのパターンにより近い。
+- **Implications**: `uploadUserAvatar(file, uid)` を `uploadQuizCover` と同型で追加し、`users/{uid}/avatar_{timestamp}.{ext}` パスへ直接アップロードする。サーバーAPIルートの新規追加は不要。
+- **Status**: 設計確定。
+
+### `UpdateProfileData` への `avatarUrl` 追加箇所
+- **Context**: アップロード後のURLをユーザーレコードへ永続化する経路の確認。
+- **Findings**: `updateProfile(uid, data: UpdateProfileData)` は `displayName` / `bio` / `snsLinks` / `followedGenres` のみを `updates` に積んで `updateUserProfile` へ渡す。`mapUserToRow` 自体は `avatarUrl` 対応済みのため、`UpdateProfileData` 型と `updateProfile()` 関数本体に `avatarUrl` の受け渡しを追加するだけで済む。
+- **Implications**: `src/services/user.ts` の変更は最小（型定義1行＋条件分岐1箇所）。
+- **Status**: 設計確定。
+
+### タブ視認性向上の適用範囲
+- **Context**: 要件17 — 「もっとわかりやすいタブ」の具体化。
+- **Findings**: `components/ui/tabs.tsx` は 12 ファイルから import されており、グローバル変更は他画面（admin, dashboard, search, notifications 等）に副作用を及ぼす。
+- **Alternatives**: (A) 共有 `tabs.tsx` のデフォルトスタイルを強化する（全画面へ影響） (B) `ProfileClient` の `TabsList`/`TabsTrigger` にのみ `className` を追加する（プロフィール限定）。
+- **Selected**: (B) — 要件17の範囲はプロフィール画面のみであり、他画面への意図しない見た目変更を避けるため。
+- **Status**: 設計確定。
+
+## Design Decisions
+
+### Decision: アバター上限サイズは 5MB
+- **Rationale**: 既存の類似アップロードはジャンルアイコン 2MB（小さな装飾画像）、クイズカバー 10MB（詳細画面の主要ビジュアル）。アバターは正方形の小〜中サイズ画像であり、両者の中間かつ許容範囲として 5MB を採用。
+- **Trade-offs**: 将来的にモバイル回線での体感速度が問題になった場合、さらに引き下げる余地がある（Revalidation Trigger 対象外の軽微な調整のため設計変更は不要）。
+
+### Decision: プレビューは保存確定まで非破壊
+- **Rationale**: 要件16.2・16.7 — 保存前に誤って別画像を選んでも既存アバターに影響を与えないようにするため、`avatarFile` はローカル state のみで保持し、保存実行時にのみアップロード・永続化する。
+- **Trade-offs**: 選択のたびにアップロードする即時反映方式に比べ実装はシンプルだが、保存を押すまでアップロードが行われないため保存操作自体に若干の待ち時間が生じる（許容範囲）。
+
+### Decision: 旧アバター画像の物理削除は対象外
+- **Rationale**: 要件定義の境界コンテキストで明示的に対象外としたとおり、`deleteImage`（`src/services/storage.ts`）を用いた旧画像削除は退会クレンジング等の別スペックと重複しうるため、本フェーズでは実施しない。
+- **Trade-offs**: アバターを頻繁に変更するユーザーでは Storage 上に孤立画像が蓄積するが、機能上の実害はない（将来のクレンジング処理対象として Risks に記録）。
+
+## Risks & Mitigations
+- **アップロード成功・DB更新失敗の不整合** — Storage に孤立画像が残るが、`avatarUrl` は更新されないため表示上の実害はない。将来のクレンジング/ガベージコレクション処理の検討対象として記録。
+- **Object URL のメモリリーク** — `URL.createObjectURL` の解放漏れ。実装時に `URL.revokeObjectURL` をアンマウント時・再選択時に呼ぶことを徹底する。
+- **タブ視覚改善の他画面への波及** — 共有 `tabs.tsx` を変更しないことで回避済み。
+
+## References
+- `src/services/storage.ts` — `uploadQuizCover`, `getUserAvatarPath`, `deleteImage`
+- `src/services/user.ts` — `UpdateProfileData`, `updateProfile`, `mapUserToRow`
+- `src/context/auth-context.tsx` — `refreshUser`
+- `src/lib/genre-icon-upload.ts` — 検証ロジックの参照パターン
+- `src/components/ui/tabs.tsx` — 共有タブコンポーネント（12箇所で利用）
 
