@@ -379,7 +379,7 @@
   - _Requirements: 16.3, 16.4_
   - _Boundary: avatar-upload_
 
-- [ ] 15.2 (P) アバター画像アップロード関数の実装
+- [x] 15.2 (P) アバター画像アップロード関数の実装
   - `src/services/storage.ts` に `uploadUserAvatar(file, uid)` を追加し、`assertAvatarFileValid` による検証を通した上で `getUserAvatarPath` のパスへ Supabase Storage にアップロードし、公開URLを返す。
   - **完了状態**: 有効な画像ファイルを渡すと公開URLが返り、不正な画像を渡すと検証エラーが送出されること。
   - _Depends: 15.1_
