@@ -35,6 +35,22 @@ describe('UnderlineTabsList / UnderlineTabsTrigger', () => {
     expect(tabA.className).toMatch(/after:bottom-\[1px\]/);
   });
 
+  it('ラベルと太線の間の余白が、呼び出し側のpadding指定に関わらず確保されること', () => {
+    render(
+      <Tabs value="a">
+        <UnderlineTabsList>
+          {/* 呼び出し側が py-3 等でトリガー自身のpaddingを上書きしても、内側ラベルのmarginは潰れないこと */}
+          <UnderlineTabsTrigger value="a" className="py-3">
+            タブA
+          </UnderlineTabsTrigger>
+        </UnderlineTabsList>
+      </Tabs>
+    );
+
+    const label = screen.getByText('タブA');
+    expect(label.className).toMatch(/mb-2/);
+  });
+
   it('タブを切り替えると選択状態が更新されること', () => {
     render(<Sample />);
 

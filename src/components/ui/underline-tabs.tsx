@@ -24,16 +24,23 @@ function UnderlineTabsList({
 
 function UnderlineTabsTrigger({
   className,
+  children,
   ...props
 }: React.ComponentProps<typeof TabsTrigger>) {
   return (
     <TabsTrigger
       className={cn(
-        "min-h-9 gap-2 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[1px] group-data-horizontal/tabs:after:h-[3px]",
+        "min-h-9 px-3 font-medium data-active:font-bold group-data-horizontal/tabs:after:bottom-[1px] group-data-horizontal/tabs:after:h-[3px]",
         className
       )}
       {...props}
-    />
+    >
+      {/*
+       * ラベルと下線インジケータの間隔は、呼び出し側が TabsTrigger 自体の
+       * padding（例: py-3）を上書きしても潰れないよう、内側要素の margin で確保する。
+       */}
+      <span className="mb-2 flex items-center gap-2">{children}</span>
+    </TabsTrigger>
   )
 }
 
