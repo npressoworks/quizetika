@@ -209,7 +209,7 @@ interface LayoutWrapperProps {
   * 1024px以上では幅275pxでロゴ、アイコン、ラベルテキストを表示する。
   * 768px〜1023pxでは幅70pxでアイコンのみを表示する。
   * 767px以下では非表示にする。
-  * 最下部にプロフィールアバターとユーザー名を表示し、クリック時に「マイページ遷移」「ログアウト」等を含むドロップダウン（ポップアップ）を上方向に展開する。
+  * 最下部にプロフィールアバターとユーザー名を表示し、クリック時に「プロフィール遷移」「ログアウト」等を含むドロップダウン（ポップアップ）を上方向に展開する。
 
 ##### Interface Definition
 ```typescript
@@ -381,7 +381,7 @@ function isSearchActive(pathname: string | null): boolean {
 
 ログインユーザー向けに Sidebar 主要ナビへ「リスト」（`/lists`）と「カスタムクイズ」（`/my-quiz`）を追加し、Sidebar フッターのアカウントポップアップに「設定」（`/settings`）を挿入する。未ログイン時はリスト・カスタムクイズを非表示とし、既存のログインボタン導線を維持する。
 
-モバイル（767px 以下）では BottomNav を 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、**Header のアバタータップで Sidebar と同型のプロフィールポップアップ（シート）** を開き、リスト・カスタムクイズ・設定・マイページ・ログアウトへ到達できるようにする。BottomNav のプロフィールタップは従来どおりマイページ直行を維持し、Header アバターがモバイル専用の拡張メニュー入口となる。
+モバイル（767px 以下）では BottomNav を 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、**Header のアバタータップで Sidebar と同型のプロフィールポップアップ（シート）** を開き、リスト・カスタムクイズ・設定・プロフィール・ログアウトへ到達できるようにする。BottomNav のプロフィールタップは従来どおりプロフィール直行を維持し、Header アバターがモバイル専用の拡張メニュー入口となる。
 
 `layout.tsx` への `ThemeProvider` 統合は **本フェーズのスコープ外** とし、`quizetika-user-settings-ui` が Provider を所有する。本スペックはシェル（Sidebar / Header / BottomNav / LayoutWrapper）のナビ整合のみを担当する。
 
@@ -392,7 +392,7 @@ function isSearchActive(pathname: string | null): boolean {
 | Sidebar ログイン時「リスト」「カスタムクイズ」項目追加             | リスト探索ページ UI（`quizetika-lists-discovery-ui`）               |
 | Sidebar ポップアップ「設定」リンク（`/settings`）                  | カスタムクイズページ UI（`quizetika-my-quiz-ui`）                   |
 | `isListsActive` / `isMyQuizActive` active 判定                     | 設定ページ・ThemeProvider（`quizetika-user-settings-ui`）           |
-| `data-testid`: `nav-lists`, `nav-my-quiz`, `sidebar-settings-link` | マイページからのリアクション履歴削除（`quizetika-auth-profile-ui`） |
+| `data-testid`: `nav-lists`, `nav-my-quiz`, `sidebar-settings-link` | プロフィールからのリアクション履歴削除（`quizetika-auth-profile-ui`） |
 | モバイル Header プロフィールポップアップ（代替到達手段）           | `layout.tsx` への ThemeProvider 追加                                |
 
 **layout.tsx 協調メモ**: `quizetika-user-settings-ui` が `ThemeProvider` と inline テーマ初期化 script を `layout.tsx` に追加する。本フェーズでは `layout.tsx` を変更しない（ThemeProvider 未導入状態でも Sidebar / Header のナビ拡張は独立して実装可能）。両スペックのマージ順は user-settings → sidebar-layout を推奨。
@@ -423,7 +423,7 @@ if (user) {
 ```tsx
 <Link href={`/profile/${user.id}`} className={styles.popupItem} onClick={() => setPopupOpen(false)}>
   <UserIcon size={18} />
-  <span>マイページ</span>
+  <span>プロフィール</span>
 </Link>
 <Link
   href="/settings"
@@ -438,7 +438,7 @@ if (user) {
 <button onClick={handleLogout} ...>ログアウト</button>
 ```
 
-- 「設定」は **マイページの直下・区切り線（`<hr>`）の上** に配置（Req 6.8）
+- 「設定」は **プロフィールの直下・区切り線（`<hr>`）の上** に配置（Req 6.8）
 - クリック時: `/settings` へ遷移し `setPopupOpen(false)`（Req 6.9）
 - `/settings` 表示中の Sidebar 主要ナビ active 化は **任意**（Req 6.11）。初版は active なしでよい
 
@@ -470,7 +470,7 @@ if (user) {
   <div className={styles.profileSheet} data-testid="header-profile-popup">
     <Link href="/lists" data-testid="header-nav-lists" onClick={close}>リスト</Link>
     <Link href="/my-quiz" data-testid="header-nav-my-quiz" onClick={close}>カスタムクイズ</Link>
-    <Link href={`/profile/${user.id}`} onClick={close}>マイページ</Link>
+    <Link href={`/profile/${user.id}`} onClick={close}>プロフィール</Link>
     <Link href="/settings" data-testid="header-settings-link" onClick={close}>設定</Link>
     <button onClick={handleLogout}>ログアウト</button>
   </div>
@@ -524,7 +524,7 @@ const isNavItemActive = (href: string): boolean => {
 | ------------------------------------------ | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `src/components/layout/sidebar.tsx`        | **Modify**        | リスト・カスタムクイズ menuItems、設定ポップアップ、`isNavItemActive` 拡張、`Settings`/`List`/`ClipboardList` import |
 | `src/components/layout/sidebar.module.css` | **Modify**        | （必要時）ナビ項目増のスクロール・余白調整                                                                           |
-| `src/components/layout/header.tsx`         | **Modify**        | モバイルアバター → ポップアップシート、リスト・カスタムクイズ・設定・マイページ・ログアウト                          |
+| `src/components/layout/header.tsx`         | **Modify**        | モバイルアバター → ポップアップシート、リスト・カスタムクイズ・設定・プロフィール・ログアウト                          |
 | `src/components/layout/header.module.css`  | **Modify**        | ポップアップシート・バックドロップ・avatarBtn スタイル                                                               |
 | `src/components/layout/bottom-nav.tsx`     | **—**             | Phase 23 変更なし（5 項目維持）                                                                                      |
 | `tests/components/sidebar.test.tsx`        | **Modify**        | リスト・カスタムクイズ表示/非表示、active、設定リンク、testid                                                        |
@@ -575,7 +575,7 @@ const isNavItemActive = (href: string): boolean => {
 
 **現状（実装ギャップ）**: `sidebar.tsx` に `nav-lists`（`/lists`）が残存し、`header.tsx` のプロフィールポップアップに `header-nav-lists` が残存している。`/lists` はルート削除済みのため 404 を返すが、ナビからの遷移は UX 上のデッドリンクとなる。
 
-**変更後**: ログイン時 Sidebar は「カスタムクイズ」のみリスト関連項目を持たず（リスト項目なし）、Header ポップアップはカスタムクイズ・マイページ・設定・ログアウトのみ。BottomNav は変更なし（5 項目維持）。
+**変更後**: ログイン時 Sidebar は「カスタムクイズ」のみリスト関連項目を持たず（リスト項目なし）、Header ポップアップはカスタムクイズ・プロフィール・設定・ログアウトのみ。BottomNav は変更なし（5 項目維持）。
 
 ### 2. Boundary Commitments（Phase 26）
 
@@ -621,7 +621,7 @@ if (user) {
 
 ```tsx
 <Link href="/my-quiz" data-testid="header-nav-my-quiz" onClick={close}>カスタムクイズ</Link>
-<Link href={`/profile/${user.id}`} onClick={close}>マイページ</Link>
+<Link href={`/profile/${user.id}`} onClick={close}>プロフィール</Link>
 <Link href="/settings" data-testid="header-settings-link" onClick={close}>設定</Link>
 <button onClick={handleLogout}>ログアウト</button>
 ```
@@ -720,7 +720,7 @@ if (user) {
 - 配置位置: ダッシュボード（`/creator/dashboard`）リンクの下、クイズを作る（`/quiz/create`）リンクの上。
 
 #### Sidebar アカウントポップアップ（`sidebar.tsx`）
-ドロップダウンメニューの先頭（マイページの上）に「管理者メニュー」を表示します。
+ドロップダウンメニューの先頭（プロフィールの上）に「管理者メニュー」を表示します。
 
 ```tsx
 <DropdownMenuContent
@@ -749,7 +749,7 @@ if (user) {
     }
   >
     <UserIcon size={18} />
-    <span>マイページ</span>
+    <span>プロフィール</span>
   </DropdownMenuItem>
 ...
 ```
@@ -1000,7 +1000,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 | 9.3 | 切り替え状態を永続化せずデフォルト通常表示とすること                     | `layout-wrapper.tsx`                |
 | 9.4 | ミニサイドバー時のナビ項目のツールチップ表示                             | `sidebar.tsx`                       |
 | 9.5 | ミニサイドバー時のプロフィールアバターホバー時のユーザー名表示           | `sidebar.tsx`                       |
-| 9.6 | プロフィールアイコンクリック時の直接マイページ遷移（ドロップダウン廃止） | `sidebar.tsx`                       |
+| 9.6 | プロフィールアイコンクリック時の直接プロフィール遷移（ドロップダウン廃止） | `sidebar.tsx`                       |
 | 9.7 | トグルボタンへの `data-testid="sidebar-toggle-btn"` 付与                 | `sidebar.tsx`                       |
 
 ### 6. Testing Strategy（Phase 28）
@@ -1010,7 +1010,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 | **Component** | 初期状態でサイドバーが通常表示（275px）であること。                                                                                                    |
 | **Component** | トグルボタン（`sidebar-toggle-btn`）をクリックすると、サイドバーがミニ表示（70px）に縮小されること。                                                   |
 | **Component** | ミニ表示時、ナビゲーションアイテムおよびアバター領域に `group` とツールチップ用の絶対配置要素が存在すること。                                          |
-| **Component** | アバター（`sidebar-profile-btn`）をクリックした際、ドロップダウンメニューが開かず、直接マイページへ遷移する構造になっていること。                      |
+| **Component** | アバター（`sidebar-profile-btn`）をクリックした際、ドロップダウンメニューが開かず、直接プロフィールへ遷移する構造になっていること。                      |
 | **E2E**       | PC表示（1200px）でトグルボタンをクリックした際、`LayoutWrapper` に対応する縮小余白クラス（`lg:pl-[70px]`）が適用され、レイアウトが崩れないことを確認。 |
 
 **Effort**: **S**（1日）

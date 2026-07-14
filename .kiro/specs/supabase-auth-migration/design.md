@@ -127,5 +127,5 @@ export async function verifySupabaseAccessToken(token: string | null): Promise<s
   - テスト対象となる API ルート（`ai-authoring`、`give-up-lateral` 等）内の `verifyFirebaseIdToken` を `verifySupabaseAccessToken` のモックに差し替え、疎通を確認すること。
 
 ### Manual Verification
-- 開発環境（Docker ローカル Supabase）を用いて、Google またはダミー認証（Email/Password）を実行し、正常に `auth-context` が更新され、マイページへのリダイレクトが成功すること。
+- 開発環境（Docker ローカル Supabase）を用いて、Google またはダミー認証（Email/Password）を実行し、正常に `auth-context` が更新され、プロフィールへのリダイレクトが成功すること。
 - BAN クッキーの有効期間およびミドルウェアでの検知リダイレクトが動作すること。

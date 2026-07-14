@@ -327,7 +327,7 @@ test.describe('高度なクイズ機能 E2Eテスト', () => {
     const profileBtn = page.locator('[data-testid="sidebar-profile-btn"]').first();
     if (await profileBtn.isVisible()) {
       await profileBtn.click({ force: true });
-      const myPageLink = page.locator('text=マイページ');
+      const myPageLink = page.locator('text=プロフィール');
       if (await myPageLink.isVisible()) {
         await myPageLink.click();
       }

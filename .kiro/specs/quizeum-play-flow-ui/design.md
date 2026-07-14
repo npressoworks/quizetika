@@ -63,7 +63,7 @@
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizetika-creator-dash-ui` に委ねます）。
 - 管理者モデレーション、タグ・ジャンル仮想マージなどの自治ガバナンスUI（`quizetika-moderation-governance-ui`が担当）。
-- **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizetika-core`）。マイページのプレイ履歴UI（`quizetika-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
+- **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizetika-core`）。プロフィールのプレイ履歴UI（`quizetika-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
 - **Phase 6**: `metadata-resolution`・Firestore Rules・canonical 書き込み（`quizetika-core`）。クイズエディタのジャンルセレクト（`quizetika-creator-dash-ui`）。
 - **Phase 8**: リスト作成・`listType` 選択・問題のリストへの追加 UI（`quizetika-creator-dash-ui`）。`bookmarksCount` 更新・`attempts` 書き込みロジック（`quizetika-core`）。プロフィールのリストタイプ表示（`quizetika-auth-profile-ui`）。
 - **Phase 10**: `listActiveTags`（存続タグのみ・`quizetika-core` 要件 16）・`searchQuizzes.tags` AND 合成（`quizetika-core` 要件 16）。ジャンル／タグ一覧ページへの検索バー新設。クイズ詳細・プレイ画面の難易度表示変更。タグ新設申請・マージ UI（`quizetika-moderation-governance-ui`）。

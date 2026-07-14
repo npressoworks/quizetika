@@ -147,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
       },
       {
         href: `/profile/${user.id}`,
-        label: 'マイページ',
+        label: 'プロフィール',
         icon: <PersonOutlined sx={{ fontSize: 22 }} />,
         activeIcon: <Person sx={{ fontSize: 22 }} />,
         testId: 'nav-profile',

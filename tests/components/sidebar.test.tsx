@@ -63,7 +63,7 @@ describe('Sidebar Component', () => {
     expect(screen.getByTestId('nav-my-quiz')).toBeInTheDocument();
     expect(screen.getAllByText('通知')[0]).toBeInTheDocument();
     expect(screen.getAllByText('ブックマーク')[0]).toBeInTheDocument();
-    expect(screen.getAllByText('マイページ')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('プロフィール')[0]).toBeInTheDocument();
     expect(screen.getAllByText('クイズを作る')[0]).toBeInTheDocument();
     expect(screen.getAllByText('ダッシュボード')[0]).toBeInTheDocument();
 
@@ -241,7 +241,7 @@ describe('Sidebar Component', () => {
     const searchTooltip = screen.getAllByText('検索').find((el) => el.classList.contains('absolute'));
     expect(searchTooltip).toBeInTheDocument();
 
-    const profileTooltip = screen.getAllByText('マイページ').find((el) => el.classList.contains('absolute'));
+    const profileTooltip = screen.getAllByText('プロフィール').find((el) => el.classList.contains('absolute'));
     expect(profileTooltip).toBeInTheDocument();
 
     const avatarTooltip = screen.getAllByText('ななみ').find((el) => el.classList.contains('absolute'));

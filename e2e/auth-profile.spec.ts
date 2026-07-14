@@ -34,7 +34,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     
     // 9. プロフィール画面（/profile/[userId]）へ遷移することを確認
@@ -110,7 +110,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     await expect(page).toHaveURL(/\/profile\//);
 
@@ -150,7 +150,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     await e2eLoginBtn.click();
     await expect(page).toHaveURL('/');
 
-    // 2. マイページへ遷移
+    // 2. プロフィールへ遷移
     const navProfile = page.getByTestId('nav-profile');
     if (await navProfile.isVisible({ timeout: 10000 })) {
       await navProfile.click();
@@ -158,7 +158,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     await expect(page).toHaveURL(/\/profile\//);
 
@@ -215,7 +215,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     await e2eLoginBtn.click();
     await expect(page).toHaveURL('/');
 
-    // 2. マイページへ遷移
+    // 2. プロフィールへ遷移
     const navProfile = page.getByTestId('nav-profile');
     if (await navProfile.isVisible({ timeout: 10000 })) {
       await navProfile.click();
@@ -223,7 +223,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     await expect(page).toHaveURL(/\/profile\//);
 

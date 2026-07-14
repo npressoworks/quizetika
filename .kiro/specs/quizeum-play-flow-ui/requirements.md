@@ -68,7 +68,7 @@
 - **対象外（Out of scope）**:
   - Gemini APIを利用した判定サーバーサイドロジック、リーダーボード永続化、`attempts` への書き込み（`quizetika-core` が担当）。
   - クイズ作成者向けのクイズ・クイズリスト作成・編集画面（`quizetika-creator-dash-ui` が担当）。
-  - マイページのプレイ履歴一覧（`quizetika-auth-profile-ui` が担当）。
+  - プロフィールのプレイ履歴一覧（`quizetika-auth-profile-ui` が担当）。
   - プラットフォーム総合リーダーボード（`/leaderboard`）の集計ロジック変更。
   - **Phase 8**: 作問エディタの過去クイズ検索・参照リンク UI（`quizetika-creator-dash-ui`）。
   - **Phase 26**: リスト探索・作成・編集・詳細 UI（`quizetika-creator-dash-ui` / `quizetika-lists-discovery-ui`）。Sidebar「リスト」ナビ（`quizetika-sidebar-layout`）。

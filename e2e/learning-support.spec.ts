@@ -241,11 +241,11 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
   });
 
   test('プロフィール画面で弱点克服セクション（間違い問題の復習）へのリンクが確認できること', async ({ page }) => {
-    // 1. ログイン済みのマイページに移動
+    // 1. ログイン済みのプロフィールに移動
     await ensureLoggedIn(page);
     await page.goto('/');
 
-    // サイドバーの「マイページ」リンクをクリックする
+    // サイドバーの「プロフィール」リンクをクリックする
     const myPageLink = page.getByTestId('nav-profile');
     await expect(myPageLink).toBeVisible();
     await myPageLink.click();

@@ -47,9 +47,9 @@
 **Objective:** As a デスクトップユーザー, I want 画面左側に固定されたナビゲーションメニューから各機能へ素早くアクセスできること, so that 広い画面を有効活用して快適にアプリを操作できる。
 
 #### Acceptance Criteria
-1. While 画面幅が1024px以上であるとき, the Sidebar Component shall ナビゲーション項目（ロゴ、ホーム、**検索**、通知、ブックマーク、作問、ダッシュボード、マイページ、ログアウト）をテキストラベル付きで縦に固定表示する。
+1. While 画面幅が1024px以上であるとき, the Sidebar Component shall ナビゲーション項目（ロゴ、ホーム、**検索**、通知、ブックマーク、作問、ダッシュボード、プロフィール、ログアウト）をテキストラベル付きで縦に固定表示する。
 2. While 画面幅が768px以上1023px以下であるとき, the Sidebar Component shall テキストラベルを非表示にし、アイコンのみで縦に固定表示する。
-3. When ユーザーが未ログイン状態であるとき, the Sidebar Component shall 通知、ブックマーク、作問、ダッシュボード、マイページ、ログアウトの項目を非表示にし、代わりにログインボタンを配置する。
+3. When ユーザーが未ログイン状態であるとき, the Sidebar Component shall 通知、ブックマーク、作問、ダッシュボード、プロフィール、ログアウトの項目を非表示にし、代わりにログインボタンを配置する。
 4. When ユーザーがログイン状態であるとき, the Sidebar Component shall ログイン中ユーザーのアバター画像と表示名をフッター領域に表示する。
 5. While 現在のパスがメニュー項目のリンク先と一致しているとき, the Sidebar Component shall 対象のメニュー項目をアクティブ状態としてハイライト表示する。
 6. When ユーザーが Sidebar の「ホーム」項目をクリックしたとき, the Sidebar Component shall ディスカバリーホーム（`/`）へ遷移すること。
@@ -62,7 +62,7 @@
 **Objective:** As a モバイルユーザー, I want 画面下部のナビゲーションバーから主要画面へ親指1タップで遷移できること, so that スマホでの片手操作がスムーズに行える。
 
 #### Acceptance Criteria
-1. While 画面幅が767px以下かつユーザーがログイン状態であるとき, the Bottom Navigation Component shall **ホーム**（`/`）、**検索**（`/search`）、通知、ブックマーク、プロフィール（マイページ）の主要リンクを画面下部に固定表示する。
+1. While 画面幅が767px以下かつユーザーがログイン状態であるとき, the Bottom Navigation Component shall **ホーム**（`/`）、**検索**（`/search`）、通知、ブックマーク、プロフィール（プロフィール）の主要リンクを画面下部に固定表示する。
 2. While 画面幅が767px以下かつユーザーが未ログイン状態であるとき, the Bottom Navigation Component shall 通知、ブックマーク、プロフィールのリンクを非表示にし、**ホーム**（`/`）および**検索**（`/search`）リンクを画面下部に固定表示する。
 3. While 現在のパスが `/search` または `/search/` であるとき, the Bottom Navigation Component shall 検索リンクをアクティブ状態としてハイライト表示する。
 4. While 現在のパスが `/` であるとき, the Bottom Navigation Component shall ホームリンクをアクティブ状態としてハイライト表示する。
@@ -111,7 +111,7 @@
 7. The Sidebar Component shall 「リスト」項目に `data-testid="nav-lists"`、「カスタムクイズ」項目に `data-testid="nav-my-quiz"` を付与すること。
 
 **アカウントポップアップ（設定導線）**
-8. When ログインユーザーが Sidebar フッターのアカウントボタンを操作しポップアップを開いたとき, the Sidebar Component shall 「マイページ」リンクの下、区切り線の上に「設定」リンク（`/settings`）を表示すること。
+8. When ログインユーザーが Sidebar フッターのアカウントボタンを操作しポップアップを開いたとき, the Sidebar Component shall 「プロフィール」リンクの下、区切り線の上に「設定」リンク（`/settings`）を表示すること。
 9. When ユーザーがポップアップ内の「設定」をクリックしたとき, the Sidebar Component shall 設定画面（`/settings`）へ遷移し、ポップアップを閉じること。
 10. The Sidebar Component shall ポップアップ内の「設定」リンクに `data-testid="sidebar-settings-link"` を付与すること。
 11. While 現在のパスが `/settings` または `/settings/` で始まるとき, the Sidebar Component shall ポップアップを開いた状態の視覚的強調は不要とし、主要ナビのアクティブ表示は設計で任意とする（設定はポップアップ経由のため、主要ナビ項目のアクティブ化は必須としない）。
@@ -124,7 +124,7 @@
 14. The Sidebar Component shall [リスト探索ページの検索・公開/非公開タブ UI を本要件の範囲に含めない（`quizetika-lists-discovery-ui` が担当）]。
 15. The Sidebar Component shall [カスタムクイズのフィルタ・出題数・プレイ開始 UI を本要件の範囲に含めない（`quizetika-my-quiz-ui` が担当）]。
 16. The Sidebar Component shall [設定ページのテーマ切替 UI および ThemeProvider 実装を本要件の範囲に含めない（`quizetika-user-settings-ui` が担当）]。
-17. The Sidebar Component shall [マイページからのリアクション履歴導線削除を本要件の範囲に含めない（`quizetika-auth-profile-ui` が担当）]。
+17. The Sidebar Component shall [プロフィールからのリアクション履歴導線削除を本要件の範囲に含めない（`quizetika-auth-profile-ui` が担当）]。
 
 ### Requirement 7: リストナビ項目の除去（Phase 26）
 **Objective:** As a ログインユーザー, I want 廃止されたリスト機能へのナビ導線が表示されないこと, so that 存在しない画面へ遷移しようとする混乱を避けられる。
@@ -140,7 +140,7 @@
 **Header プロフィールポップアップ（モバイル）**
 5. The Header Component shall プロフィールポップアップ内の「リスト」（`/lists`）リンクを表示してはならない。
 6. The Header Component shall `data-testid="header-nav-lists"` を付与してはならない。
-7. When ログインユーザーが Header プロフィールポップアップを開いたとき, the Header Component shall 「カスタムクイズ」「マイページ」「設定」「ログアウト」への導線を引き続き提供すること。
+7. When ログインユーザーが Header プロフィールポップアップを開いたとき, the Header Component shall 「カスタムクイズ」「プロフィール」「設定」「ログアウト」への導線を引き続き提供すること。
 
 **アクティブ判定・ユーティリティ**
 8. The Navigation Layout shall `/lists` および `/lists/` 配下パス向けの active 判定ロジック（`isListsActive` 等）を実装してはならない。

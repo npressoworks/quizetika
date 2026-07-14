@@ -93,13 +93,13 @@ Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時
 ## Phase 23: リスト・カスタムクイズ・設定ナビ拡張（2026-06-09）
 
 ### Summary
-ログイン時 Sidebar に `/lists`・`/my-quiz` を追加。アカウントポップアップに `/settings` をマイページと区切り線の間に配置。モバイルは BottomNav 5 項目維持のため、Header アバターのプロフィールポップアップでリスト・カスタムクイズ・設定への代替到達を提供。`layout.tsx` / ThemeProvider は `quizetika-user-settings-ui` が所有。
+ログイン時 Sidebar に `/lists`・`/my-quiz` を追加。アカウントポップアップに `/settings` をプロフィールと区切り線の間に配置。モバイルは BottomNav 5 項目維持のため、Header アバターのプロフィールポップアップでリスト・カスタムクイズ・設定への代替到達を提供。`layout.tsx` / ThemeProvider は `quizetika-user-settings-ui` が所有。
 
 ### Discovery Type
 **Light（拡張）** — 既存 Sidebar / Header / BottomNav パターンの延長。新規ルート（`/lists`, `/my-quiz`, `/settings`）は隣接スペックが提供予定。
 
 ### Key Findings
-1. **Sidebar 現状**: `menuItems` はホーム・検索・Pro + ログイン時通知・ブックマーク。ポップアップはマイページ → 区切り → ログアウトのみ。`isNavItemActive` は `/` と `/search` の排他制御済み。
+1. **Sidebar 現状**: `menuItems` はホーム・検索・Pro + ログイン時通知・ブックマーク。ポップアップはプロフィール → 区切り → ログアウトのみ。`isNavItemActive` は `/` と `/search` の排他制御済み。
 2. **Header 現状**: モバイルアバターは `/profile/${user.id}` 直行 Link。ポップアップ未実装。Phase 23 で Sidebar 同型シート追加が最小差分。
 3. **BottomNav 現状**: ログイン時 5 アイコン（ホーム・検索・通知・ブックマーク・プロフィール）。6 項目化は過密のため非採用。
 4. **user-settings 協調**: Req 6.1 で ThemeProvider は `layout.tsx` 配下。sidebar-layout はナビリンクのみ追加し Provider を触らない。
@@ -107,8 +107,8 @@ Sidebar / BottomNav に `/search` 導線を追加。BottomNav はログイン時
 ### Design Decisions
 1. **Icons** — リスト: `List`、カスタムクイズ: `ClipboardList`（`BookMarked` は代替候補）。
 2. **Active** — `pathname.startsWith('/lists')` / `startsWith('/my-quiz')`。設定は主要ナビ外のため active 任意。
-3. **Popup 設定** — `sidebar-settings-link`、`href="/settings"`、マイページ直下・`<hr>` 上。
-4. **Mobile（推奨 A）** — Header アバター → ポップアップ（リスト・カスタムクイズ・設定・マイページ・ログアウト）。BottomNav プロフィールは直行維持。
+3. **Popup 設定** — `sidebar-settings-link`、`href="/settings"`、プロフィール直下・`<hr>` 上。
+4. **Mobile（推奨 A）** — Header アバター → ポップアップ（リスト・カスタムクイズ・設定・プロフィール・ログアウト）。BottomNav プロフィールは直行維持。
 5. **Mobile 代替** — B: BottomNav 長押し、C: 6–7 項目、D: ハンバーガー復活 — いずれも非推奨と記録。
 6. **Out of scope** — 各ページ UI、ThemeProvider、`layout.tsx` 変更。
 

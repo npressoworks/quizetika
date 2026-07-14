@@ -146,7 +146,7 @@ export const Header: React.FC = () => {
                     }
                   >
                     <PersonOutlined sx={{ fontSize: 18 }} />
-                    <span>マイページ</span>
+                    <span>プロフィール</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     render={

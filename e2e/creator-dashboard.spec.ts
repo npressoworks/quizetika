@@ -57,7 +57,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
     if (await avatarBtn.isVisible()) {
       await avatarBtn.click({ force: true });
       
-      const myPageLink = page.locator('text=マイページ');
+      const myPageLink = page.locator('text=プロフィール');
       if (await myPageLink.isVisible()) {
         await myPageLink.click();
       }

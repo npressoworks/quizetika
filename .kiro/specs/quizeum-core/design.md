@@ -99,7 +99,7 @@
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
 - クイズデータの一括JSONインポートは行わず、手動によるエクスポート（ダウンロード）パッケージ生成のみを担当します。
 - プラットフォーム総合リーダーボード（`/leaderboard`）の集計・表示。
-- マイページ／プロフィール画面のプレイ履歴UIレイアウト（`quizetika-auth-profile-ui`）。
+- プロフィール／プロフィール画面のプレイ履歴UIレイアウト（`quizetika-auth-profile-ui`）。
 - クイズ詳細画面のリーダーボードタブUI（`quizetika-play-flow-ui`）。
 - 管理者向けBAN/UNBAN操作画面のUIレイアウトおよび表示コンポーネント（`quizetika-admin-users-ui` が担当）。
 - **Phase 6**: ホーム/エディタ/ジャンル一覧の UI、ジャンル新設・マージ画面のレイアウト、既存クイズの一括 `genre` 物理書き換え、Cloud Functions への投票移行。

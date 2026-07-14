@@ -21,7 +21,7 @@
 - **Phase 23**: 本人プロフィール `profileActions` からリアクション履歴リンク（Heart アイコン付き）の削除。編集・弱点克服等の現行有効導線は維持。
 - **Phase 27**: 「作成したクイズ」タブ内でのキーワード検索とページングUI（1ページあたり9件）、共通クイズカード `QuizCard` の適用とブックマーク状態解決およびトグル機能。
 - **Phase 28**: 好きなジャンルの複数選択・保存UI（編集画面）およびアイコン画像付きジャンルチップ表示（詳細画面）。
-- **Phase 29**: プロフィールメニュー表示名を「マイページ」に変更し、PCサイドバーおよびモバイルヘッダーのドロップダウンメニューにダッシュボードリンクを追加する。また、他人のプロフィール画面において本人のプレイ履歴が露出しないよう、表示制御を厳格化する。
+- **Phase 29**: プロフィールメニュー表示名を「プロフィール」に変更し、PCサイドバーおよびモバイルヘッダーのドロップダウンメニューにダッシュボードリンクを追加する。また、他人のプロフィール画面において本人のプレイ履歴が露出しないよう、表示制御を厳格化する。
 - **Phase 30**: プロフィール編集画面からアバター画像を選択・プレビュー・アップロード・保存できるUIを追加する。プロフィール詳細画面のコンテンツタブ（作成したクイズ／プレイ履歴）の選択状態の視認性を向上させる。
 
 ### Non-Goals
@@ -139,10 +139,10 @@ src/
 - `src/app/profile/[uid]/profile-client.tsx` — ユーザーの `followedGenres` に対し、マスタ解決を行って好きなジャンルをアイコン付きのチップで表示するUIの追加。
 
 ### Modified Files（Phase 29）
-- `src/components/layout/sidebar.tsx` — メニュー項目のラベルを「プロフィール」から「マイページ」に変更。アバターのドロップダウンにダッシュボードへのリンクを追加。
+- `src/components/layout/sidebar.tsx` — メニュー項目のラベルを「プロフィール」から「プロフィール」に変更。アバターのドロップダウンにダッシュボードへのリンクを追加。
 - `src/components/layout/header.tsx` — アバターのドロップダウンにダッシュボードへのリンクを追加。
 - `src/app/profile/[uid]/profile-client.tsx` — `TabsContent value="history"` を `isMyProfile` でガード。
-- `tests/components/sidebar.test.tsx` — 「プロフィール」のアサーションを「マイページ」に変更。ドロップダウンのテストにダッシュボードリンクを追加。
+- `tests/components/sidebar.test.tsx` — 「プロフィール」のアサーションを「プロフィール」に変更。ドロップダウンのテストにダッシュボードリンクを追加。
 - `tests/components/header-profile-popup.test.tsx` — ドロップダウンのテストにダッシュボードリンクを追加。
 
 ### Modified Files（既存）
@@ -852,7 +852,7 @@ import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
 | 14.5 | ジャンル未設定かつ本人時の登録促し表示 | `ProfileClient` | 好きなジャンルが0件かつマイプロフィールの場合に登録リンクを表示する | 詳細表示フロー |
 | 14.6 | ジャンル未設定かつ他人時の表示領域非表示 | `ProfileClient` | 好きなジャンルが0件かつ他ユーザーの場合は領域全体を非表示とする | 詳細表示フロー |
 | 14.7 | E2E用 `data-testid` 契約 | `ProfileClient`, `ProfileEditClient` | `profile-genre-select` と `profile-favorite-genres` を付与 | テスト支援 |
-| 15.1 | メニュー項目の「マイページ」表記変更 | `Sidebar` | メニュー項目定義を「マイページ」に変更する | 表示フロー |
+| 15.1 | メニュー項目の「プロフィール」表記変更 | `Sidebar` | メニュー項目定義を「プロフィール」に変更する | 表示フロー |
 | 15.2 | アバタードロップダウンへのダッシュボードリンク追加 | `Sidebar`, `Header` | ドロップダウンメニューに `/creator/dashboard` へのリンクを追加する | ドロップダウンUI |
 | 15.3 | 他人プロフィールでのプレイ履歴非レンダリング | `ProfileClient` | `isMyProfile` が `false` の場合にプレイ履歴コンテンツエリアを描画しない | データガード |
 | 15.4 | 本人プロフィールでのプレイ履歴表示 | `ProfileClient` | `isMyProfile` が `true` かつ該当タブ選択時にプレイ履歴を描画する | 表示フロー |
@@ -985,16 +985,16 @@ export function ProfileClient() {
 
 ---
 
-## Phase 29: マイページ表記変更、ダッシュボードリンク追加、およびプレイ履歴表示ガード設計（2026-06-28）
+## Phase 29: プロフィール表記変更、ダッシュボードリンク追加、およびプレイ履歴表示ガード設計（2026-06-28）
 
 ### 1. 変更詳細設計
 
 #### A. サイドバー表示変更 (`src/components/layout/sidebar.tsx`)
-- `menuItems` 内のオブジェクト定義を修正し、ナビゲーションラベルを「マイページ」に変更します：
+- `menuItems` 内のオブジェクト定義を修正し、ナビゲーションラベルを「プロフィール」に変更します：
   ```typescript
   {
     href: `/profile/${user.id}`,
-    label: 'マイページ',
+    label: 'プロフィール',
     icon: <PersonOutlined sx={{ fontSize: 22 }} />,
     activeIcon: <Person sx={{ fontSize: 22 }} />,
     testId: 'nav-profile',
@@ -1033,7 +1033,7 @@ export function ProfileClient() {
     <span>ダッシュボード</span>
   </DropdownMenuItem>
   ```
-  ※ カスタムクイズとマイページの間に挿入します。
+  ※ カスタムクイズとプロフィールの間に挿入します。
 
 #### C. プロフィール画面でのプレイ履歴ガード (`src/app/profile/[uid]/profile-client.tsx`)
 - 他人のプロフィールでプレイ履歴コンテンツが初期化またはマウントされるのを防ぐため、 `TabsContent` のレンダリング自体を `isMyProfile` で条件分岐させます：
@@ -1048,11 +1048,11 @@ export function ProfileClient() {
 ### 2. テストの修正と追加
 
 #### A. `tests/components/sidebar.test.tsx` の修正
-- メニュー項目のテキスト期待値を「プロフィール」から「マイページ」に変更します：
+- メニュー項目のテキスト期待値を「プロフィール」から「プロフィール」に変更します：
   - `expect(screen.getAllByText('プロフィール')[0]).toBeInTheDocument();`
-    → `expect(screen.getAllByText('マイページ')[0]).toBeInTheDocument();`
+    → `expect(screen.getAllByText('プロフィール')[0]).toBeInTheDocument();`
   - `const profileTooltip = screen.getAllByText('プロフィール').find((el) => el.classList.contains('absolute'));`
-    → `const profileTooltip = screen.getAllByText('マイページ').find((el) => el.classList.contains('absolute'));`
+    → `const profileTooltip = screen.getAllByText('プロフィール').find((el) => el.classList.contains('absolute'));`
 - ドロップダウンの展開時テストに「ダッシュボード」リンクが存在することを検証するアサーションを追加します：
   - `expect(screen.getByTestId('sidebar-dashboard-link')).toBeInTheDocument();` を追加。
 
@@ -1171,8 +1171,9 @@ sequenceDiagram
 ```
 
 ### 5. プロフィールコンテンツタブの視認性向上（要件17）設計
-- `src/app/profile/[uid]/profile-client.tsx` の `TabsList` / `TabsTrigger` にのみ追加の `className` を渡し、視覚強調を適用する。共有 `components/ui/tabs.tsx` 自体は変更しない（他11箇所のタブ利用箇所への影響を避けるため。要件17.6・本フェーズの Out of Boundary）。
-- 強調内容: 選択中タブと非選択タブの背景・文字色コントラストの強化、選択インジケータ（下線または塗りつぶし背景）の明確化、モバイル幅での最小タップ高さの確保（既存 `h-8` のタブリストに対し、タブトリガー自体の縦パディングを広げる）。
+- `src/app/profile/[uid]/profile-client.tsx` の `TabsList` / `TabsTrigger` にのみ追加の `className`／`variant` を渡し、視覚強調を適用する。共有 `components/ui/tabs.tsx` 自体は変更しない（他11箇所のタブ利用箇所への影響を避けるため。要件17.6・本フェーズの Out of Boundary）。
+- **採用スタイル（X/Twitterのプロフィールタブに準拠）**: `components/ui/tabs.tsx` に既存実装済みの `TabsList` `variant="line"` を採用する。背景を持たない下線（アンダーバー）方式のタブとし、選択中タブは `after:` 疑似要素による下線バーが不透明化して表示され、文字色が非選択タブの `text-foreground/60`（ミュート）から `text-foreground`（フル濃度）に変化する。これに加えて `TabsTrigger` へ `data-active:font-bold` を付与し、選択中タブの太字化による追加の強調を行う。`TabsList` には `border-b border-border` を付与し、タブ行全体の下に一本の区切り線を通す（Xの見た目に合わせた全幅ディバイダー）。
+- タップ領域: `TabsTrigger` に `min-h-9` を付与し、背景スタイル（`variant`）に依存せずモバイル幅での最小タップ高さを確保する（要件17.3）。
 - 各 `TabsTrigger` は既存のアイコン＋ラベル（＋「作成したクイズ」タブの件数表示）構成を維持する（要件17.4）。
 - 選択状態のスクリーンリーダー／キーボード判別は、`@base-ui/react/tabs`（`TabsPrimitive.Tab`）が自動付与する `aria-selected` 属性とフォーカスリング（既存 `focus-visible:ring-*`）により充足する。追加の ARIA 実装は不要（要件17.5）。
 

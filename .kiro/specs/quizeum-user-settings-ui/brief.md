@@ -1,10 +1,10 @@
 # Brief: quizetika-user-settings-ui
 
 ## Problem
-ユーザーは表示テーマ（ダーク/ライト）などのアプリ設定を変更したいが、現状はアカウントポップアップに「マイページ」「ログアウト」のみで、**設定画面もテーマ切替も存在しない**。アプリは `variables.css` のダークトークン固定で、ライトモード用の定義がない。
+ユーザーは表示テーマ（ダーク/ライト）などのアプリ設定を変更したいが、現状はアカウントポップアップに「プロフィール」「ログアウト」のみで、**設定画面もテーマ切替も存在しない**。アプリは `variables.css` のダークトークン固定で、ライトモード用の定義がない。
 
 ## Current State
-- Sidebar フッターのアカウントポップアップ: マイページ / ログアウト（`sidebar.tsx`）
+- Sidebar フッターのアカウントポップアップ: プロフィール / ログアウト（`sidebar.tsx`）
 - `/profile/edit`: 表示名・自己紹介のみ
 - `src/styles/variables.css`: `:root` にダーク/neon トークンのみ
 - `layout.tsx` に ThemeProvider なし
