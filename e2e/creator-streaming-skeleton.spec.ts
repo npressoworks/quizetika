@@ -17,7 +17,7 @@ test.describe('クリエイター画面 Streaming / Suspense スケルトン E2E
     await expect(page.getByTestId('stats-section')).toBeVisible({ timeout: 15000 });
   });
 
-  test('作成クイズ管理画面（/creator/quizzes）で読み込みスケルトンが消えコンテンツが表示されること', async ({ page }) => {
+  test('作成したクイズ画面（/creator/quizzes）で読み込みスケルトンが消えコンテンツが表示されること', async ({ page }) => {
     await page.goto('/creator/quizzes');
     await page.waitForLoadState('domcontentloaded');
 

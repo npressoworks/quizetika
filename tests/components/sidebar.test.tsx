@@ -148,7 +148,7 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('ログアウト')).toBeInTheDocument();
   });
 
-  it('ログイン時は主要メニューに「作成クイズ管理」への導線を表示し、/creator/quizzes でアクティブ表示になる', () => {
+  it('ログイン時は主要メニューに「作成したクイズ」への導線を表示し、/creator/quizzes でアクティブ表示になる', () => {
     mockUser = { id: 'user-123', displayName: 'ななみ', avatarUrl: 'avatar.png' };
     mockPathname = '/creator/quizzes';
     render(<Sidebar />);

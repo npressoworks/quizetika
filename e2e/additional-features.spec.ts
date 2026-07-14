@@ -371,7 +371,7 @@ test.describe('追加機能・複合テスト E2Eテスト', () => {
         if (await saveDraftBtn.isVisible()) {
           await saveDraftBtn.click();
 
-          // 作成クイズ管理画面（/creator/quizzes）に遷移することを確認
+          // 作成したクイズ画面（/creator/quizzes）に遷移することを確認
           await expect(page).toHaveURL(/\/creator\/quizzes/);
 
           // 5. 作成したクイズが一覧に表示されることを確認（要件19.1）

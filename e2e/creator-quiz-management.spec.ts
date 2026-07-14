@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * 作成クイズ管理画面（/creator/quizzes）のスモークE2Eテスト（Phase 40, タスク14.12）。
+ * 作成したクイズ画面（/creator/quizzes）のスモークE2Eテスト（Phase 40, タスク14.12）。
  *
  * 事前に本テスト専用のクイズを新規作成し、既知・決定的なデータとして
  * 検索・絞り込み・並び替え・編集導線・公開範囲切り替えUIの非表示を検証する
@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
  *
  * _Requirements: 15.1, 15.2, 15.4, 15.6, 16.7, 16.8, 17.2, 17.3, 17.9, 18.3, 19.1, 19.3_
  */
-test.describe('作成クイズ管理画面 (/creator/quizzes) E2Eスモークテスト', () => {
+test.describe('作成したクイズ画面 (/creator/quizzes) E2Eスモークテスト', () => {
   test('一覧表示→検索→絞り込み→並び替え→新規作成導線→編集導線→指摘バッジ→編集画面遷移の一連のフロー', async ({
     page,
   }) => {
@@ -40,14 +40,14 @@ test.describe('作成クイズ管理画面 (/creator/quizzes) E2Eスモークテ
 
     const q1Textarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
     await expect(q1Textarea).toBeVisible();
-    await q1Textarea.fill('作成クイズ管理画面E2Eテスト用の問題文です。');
+    await q1Textarea.fill('作成したクイズ画面E2Eテスト用の問題文です。');
 
     const saveDraftBtn = page.locator('text=下書き保存').first();
     await expect(saveDraftBtn).toBeVisible();
     await saveDraftBtn.click();
     await expect(page).toHaveURL(/\/creator\/quizzes/, { timeout: 15000 });
 
-    // ── 1. 作成クイズ管理画面に遷移済み。一覧に表示されることを確認（要件15.1, 15.4） ──
+    // ── 1. 作成したクイズ画面に遷移済み。一覧に表示されることを確認（要件15.1, 15.4） ──
     await expect(page.getByTestId('creator-quiz-management-page')).toBeVisible({
       timeout: 15000,
     });

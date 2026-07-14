@@ -260,13 +260,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                 <ListAltOutlined sx={{ fontSize: 22 }} />
               )}
             </span>
-            <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作成クイズ管理</span>
+            <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作成したクイズ</span>
             {/* ミニ表示時にホバーで表示されるツールチップ */}
             <span className={cn(
               "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
               isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
             )}>
-              作成クイズ管理
+              作成したクイズ
             </span>
           </Link>
         )}
@@ -392,7 +392,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                 }
               >
                 <ListAltOutlined sx={{ fontSize: 18 }} />
-                <span>作成クイズ管理</span>
+                <span>作成したクイズ</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 render={
