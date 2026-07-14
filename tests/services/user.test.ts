@@ -379,6 +379,34 @@ describe('updateProfile', () => {
     await expect(updateProfile(uid, data)).rejects.toThrow('プロフィールのバリデーションに失敗しました');
     expect(mockSupabase.update).not.toHaveBeenCalled();
   });
+
+  test('正常系（Phase 30）: avatarUrl が指定された場合は avatar_url を更新対象に含める', async () => {
+    const data: UpdateProfileData = {
+      displayName: '山田太郎',
+      bio: '自己紹介',
+      avatarUrl: 'https://project.supabase.co/storage/v1/object/public/users/test-uid/avatar_1.png',
+    };
+
+    await updateProfile(uid, data);
+
+    expect(mockSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        avatar_url: 'https://project.supabase.co/storage/v1/object/public/users/test-uid/avatar_1.png',
+      })
+    );
+  });
+
+  test('正常系（Phase 30）: avatarUrl が未指定の場合は avatar_url を更新対象に含めない', async () => {
+    const data: UpdateProfileData = {
+      displayName: '山田太郎',
+      bio: '自己紹介',
+    };
+
+    await updateProfile(uid, data);
+
+    const updatePayload = mockSupabase.update.mock.calls[0][0];
+    expect(updatePayload).not.toHaveProperty('avatar_url');
+  });
 });
 
 describe('UserService - followUser', () => {

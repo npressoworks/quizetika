@@ -386,7 +386,7 @@
   - _Requirements: 16.5_
   - _Boundary: storage-service_
 
-- [ ] 15.3 (P) プロフィール更新データへのアバターURL項目追加
+- [x] 15.3 (P) プロフィール更新データへのアバターURL項目追加
   - `src/services/user.ts` の `UpdateProfileData` に `avatarUrl?: string` を追加し、`updateProfile()` が `avatarUrl` が指定された場合のみ更新対象に含めるようにする。
   - **完了状態**: `avatarUrl` を指定して `updateProfile` を呼ぶとユーザーレコードのアバターURLが更新され、指定しない場合は既存値が変更されないこと。
   - _Requirements: 16.8_

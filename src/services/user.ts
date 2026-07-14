@@ -12,6 +12,7 @@ const supabase = createClient();
 export interface UpdateProfileData {
   displayName: string;
   bio: string;
+  avatarUrl?: string;
   followedGenres?: string[];
   snsLinks?: {
     youtube?: string;
@@ -468,6 +469,10 @@ export async function updateProfile(uid: string, data: UpdateProfileData): Promi
     bio: data.bio,
     updatedAt: new Date(),
   };
+
+  if (data.avatarUrl !== undefined) {
+    updates.avatarUrl = data.avatarUrl;
+  }
 
   if (data.snsLinks !== undefined) {
     const snsLinks: Record<string, string> = {};
