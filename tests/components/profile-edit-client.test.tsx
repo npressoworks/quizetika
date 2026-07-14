@@ -242,6 +242,93 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
     });
   });
 
+  it('アバターを選択して保存すると、アップロードされたURLでプロフィールが更新され、refreshUser呼び出し後に遷移すること', async () => {
+    const { uploadUserAvatar } = require('@/services/storage');
+    (uploadUserAvatar as jest.Mock).mockResolvedValue('https://example.com/new-avatar.png');
+    (updateProfile as jest.Mock).mockResolvedValue(true);
+
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
+    const file = makePngFile();
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute('src', mockPreviewUrl);
+    });
+
+    const saveButton = screen.getByRole('button', { name: /保存/ });
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    await waitFor(() => {
+      expect(uploadUserAvatar).toHaveBeenCalledWith(file, 'user-1');
+      expect(updateProfile).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({ avatarUrl: 'https://example.com/new-avatar.png' })
+      );
+      expect(mockRefreshUser).toHaveBeenCalled();
+      expect(mockPush).toHaveBeenCalledWith('/profile/user-1');
+    });
+  });
+
+  it('アバターを変更せずに保存した場合、uploadUserAvatarを呼ばずavatarUrlを更新対象に含めないこと', async () => {
+    const { uploadUserAvatar } = require('@/services/storage');
+    (updateProfile as jest.Mock).mockResolvedValue(true);
+
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const saveButton = screen.getByRole('button', { name: /保存/ });
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    await waitFor(() => {
+      expect(updateProfile).toHaveBeenCalled();
+    });
+    expect(uploadUserAvatar).not.toHaveBeenCalled();
+    const updateCallArg = (updateProfile as jest.Mock).mock.calls[0][1];
+    expect(updateCallArg).not.toHaveProperty('avatarUrl');
+  });
+
+  it('アバターのアップロードに失敗した場合、変更前のアバター表示を維持したままエラーを表示し、遷移しないこと', async () => {
+    const { uploadUserAvatar } = require('@/services/storage');
+    (uploadUserAvatar as jest.Mock).mockRejectedValue(new Error('アップロードに失敗しました。'));
+
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
+    const file = makePngFile();
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    const saveButton = screen.getByRole('button', { name: /保存/ });
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('アップロードに失敗しました。')).toBeInTheDocument();
+    });
+    expect(updateProfile).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalledWith('/profile/user-1');
+  });
+
   it('許可されていない形式の画像を選択すると保存前にエラーが表示され、プレビューは変わらないこと', async () => {
     render(<ProfileEditClient />);
 

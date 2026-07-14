@@ -11,6 +11,7 @@ import {
   ProfileValidationError
 } from '@/services/user';
 import { validateAvatarFile, AVATAR_ACCEPT } from '@/lib/avatar-upload';
+import { uploadUserAvatar } from '@/services/storage';
 import { ErrorOutlined, SaveOutlined, ArrowBackOutlined } from '@mui/icons-material';
 import { ProfileEditSkeleton } from '@/components/profile/profile-skeleton';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ import { cn } from '@/lib/utils';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 
 export function ProfileEditClient() {
-  const { user: currentUser, loading: authLoading } = useAuth();
+  const { user: currentUser, loading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
 
   const [displayName, setDisplayName] = useState('');
@@ -163,12 +164,19 @@ export function ProfileEditClient() {
     setSubmitError('');
 
     try {
+      let avatarUrl: string | undefined;
+      if (avatarFile) {
+        avatarUrl = await uploadUserAvatar(avatarFile, currentUser.id);
+      }
+
       await updateProfile(currentUser.id, {
         displayName,
         bio,
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
         followedGenres: selectedGenres,
         snsLinks: { youtube, x, instagram, tiktok }
       });
+      await refreshUser();
       router.push(`/profile/${currentUser.id}`);
     } catch (err: unknown) {
       console.error('Profile update failed:', err);
