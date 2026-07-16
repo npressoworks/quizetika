@@ -3497,7 +3497,7 @@ export interface QuizShareSectionProps {
 - コンテンツ: `DropdownMenuContent` に `data-testid="quiz-detail-share-menu"` を付与（要件28.11改定）。内部に3つの `DropdownMenuItem`：
   - X共有: `render={<a href={buildTwitterShareUrl(...)} target="_blank" rel="noopener noreferrer" />}`（`header.tsx` の外部リンクパターンと同型）。選択時は既定どおりメニューを閉じる。
   - LINE共有: 同様に `render={<a href={buildLineShareUrl(...)} target="_blank" rel="noopener noreferrer" />}`。
-  - URLコピー: `onClick` ハンドラで `event.preventDefault()`（Base UI Menu.Item の既定クローズ動作を抑止する手段。Base UI の `Menu.Item` は `closeOnClick`相当のプロパティが無い実装のため、`onClick` 内で選択後の状態を `copied` にして再レンダーし、メニューが開いたままラベルを差し替える。3秒後の `setTimeout` で `copied` を `false` に戻すと同時に、メニューの `open` state を制御用の `useState` に格上げして `false` にし、メニューを閉じる。
+  - URLコピー: `DropdownMenuItem` に `closeOnClick={false}`（Base UI `Menu.Item` の既定クローズ動作を抑止する正規のプロパティ。`node_modules/@base-ui/react/menu/item/MenuItem.d.ts` で確認済み。`DropdownMenuItem` は未知のpropsを `{...props}` でそのまま転送するため、追加のラッパー変更は不要）を指定し、`onClick` 内で `copied` state を `true` にしてラベルを差し替える。3秒後の `setTimeout` で `copied` を `false` に戻すと同時に、メニューの `open` state（制御用の `useState`）を `false` にして閉じる。
 - `open`／`onOpenChange` は `DropdownMenu` の制御下に置き、`QuizShareSection` 内の `useState<boolean>` で管理する（コピー完了後の自動クローズのため、非制御コンポーネントではなく制御コンポーネントとして扱う）。
 - `shareUrl` 算出・クリップボードコピー成功/失敗の分岐（要件28.4, 28.5）はPhase 39の実装をそのまま踏襲する。
 
@@ -3537,8 +3537,7 @@ export interface QuizShareSectionProps {
 | **E2E** | `e2e/seo-sharing.spec.ts`（F-703再改訂） — 共有アイコンボタンをクリックしてメニューを展開し、X/LINEリンクの `href` を直接検証すること。 |
 
 ### Risks & Mitigations（Phase 40）
-- **リスク**: Base UI `Menu.Item` に標準の「選択後もメニューを開いたままにする」プロパティが無いため、`onClick` 内での独自の `open` state 制御が必要になり、ライブラリの既定動作と競合する可能性がある。
-  - **緩和**: 実装タスクの初手でBase UI `Menu` の `open`/`onOpenChange` 制御パターンをローカルで検証し、期待どおりの挙動（コピー時は開いたまま、X/LINE選択時は閉じる）にならない場合は、コピー操作のみメニュー内アイテムではなく別要素（例: メニュー下部の固定ボタン）に分離する代替案を検討する。
+- **（32.1実装で解消）** 当初、Base UI `Menu.Item` に「選択後もメニューを開いたままにする」標準プロパティが無いと想定していたが、実装時に `closeOnClick?: boolean`（既定 `true`）という正規のプロパティが存在することを確認した。URLコピー項目に `closeOnClick={false}` を指定するのみで、`event.preventDefault()` 等のワークアラウンドは不要だった。
 - **リスク**: ヘッダー内のスペースが限られており、ブックマークボタンと共有アイコンボタンの横並び配置でモバイル幅において窮屈になる可能性がある。
   - **緩和**: 両ボタンとも既存の丸型アイコンボタンスタイル（`bookmarkBtn` 相当のサイズ）を踏襲し、`gap` を用いた横並びレイアウトとする。実装タスクでモバイル幅での視認性を確認する。
 

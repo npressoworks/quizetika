@@ -1,8 +1,14 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ContentCopyOutlined, SmsOutlined } from '@mui/icons-material';
+import { ContentCopyOutlined, ShareOutlined, SmsOutlined } from '@mui/icons-material';
 import { buildTwitterShareUrl, buildLineShareUrl } from '@/lib/social-share';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export interface QuizShareSectionProps {
   quizId: string;
@@ -10,24 +16,23 @@ export interface QuizShareSectionProps {
 }
 
 const classes = {
-  section: 'w-full rounded-xl border border-border bg-muted/20 p-5',
-  title: 'mb-4 text-base font-bold text-foreground',
-  buttons: 'flex flex-col gap-2 sm:flex-row sm:flex-wrap',
-  btnShare:
-    'relative inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors',
-  btnX: 'bg-foreground text-background hover:opacity-90',
-  btnLine: 'bg-[#06C755] text-white hover:opacity-90',
-  btnCopy: 'border border-border bg-background text-foreground hover:bg-muted',
-  copyToast:
-    'absolute -top-10 left-1/2 -translate-x-1/2 rounded bg-foreground px-3 py-1 text-xs text-background',
+  section: 'w-full',
+  trigger:
+    'inline-flex items-center justify-center rounded-full border border-border bg-background p-2 text-foreground transition-colors hover:bg-muted',
+  menuContent: 'w-[220px]',
+  menuItem: 'gap-2',
 } as const;
 
+const COPY_FEEDBACK_DURATION_MS = 3000;
+
 /**
- * クイズ詳細画面向けのSNS共有セクション。
- * X共有・LINE共有・URLコピーの3操作を提供する（要件28）。
+ * クイズ詳細画面向けのSNS共有メニュー。
+ * 共有アイコンボタン押下で展開するドロップダウンメニューから、
+ * X共有・LINE共有・URLコピーの3操作を提供する（要件28、Phase 40）。
  */
 export const QuizShareSection: React.FC<QuizShareSectionProps> = ({ quizId, quizTitle }) => {
   const [shareUrl, setShareUrl] = useState('');
+  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -56,49 +61,82 @@ export const QuizShareSection: React.FC<QuizShareSectionProps> = ({ quizId, quiz
         if (copyTimeoutRef.current) {
           clearTimeout(copyTimeoutRef.current);
         }
-        copyTimeoutRef.current = setTimeout(() => setCopied(false), 3000);
+        copyTimeoutRef.current = setTimeout(() => {
+          setCopied(false);
+          setOpen(false);
+        }, COPY_FEEDBACK_DURATION_MS);
       }
     } catch (err) {
       console.error('URLのコピーに失敗しました:', err);
     }
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    // コピー完了フィードバック表示中は、外側クリックやEscape以外の理由での
+    // クローズ要求（例: コピー項目自身の再クリック直後の内部状態変化）でも
+    // フィードバックが即座に消えないよう、明示的な自動クローズ（setTimeout側）
+    // にのみ閉じる責務を寄せる。ユーザーが再度アイコンを押す・外側をクリックする・
+    // Escapeを押す操作は通常どおり Base UI の open state 変更として届くため許可する。
+    setOpen(nextOpen);
+  };
+
   return (
     <div className={classes.section} data-testid="quiz-detail-share-section">
-      <h2 className={classes.title}>このクイズをシェアする</h2>
-      <div className={classes.buttons}>
-        <a
-          href={buildTwitterShareUrl(quizTitle, shareUrl)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${classes.btnShare} ${classes.btnX}`}
+      <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              className={classes.trigger}
+              data-testid="quiz-detail-share-trigger"
+              aria-label="このクイズをシェアする"
+            />
+          }
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-          </svg>
-          Xでシェア
-        </a>
-
-        <a
-          href={buildLineShareUrl(shareUrl)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${classes.btnShare} ${classes.btnLine}`}
-        >
-          <SmsOutlined sx={{ fontSize: 18 }} />
-          LINEで送る
-        </a>
-
-        <button
-          type="button"
-          onClick={handleCopyUrl}
-          className={`${classes.btnShare} ${classes.btnCopy}`}
-        >
-          <ContentCopyOutlined sx={{ fontSize: 18 }} />
-          URLをコピー
-          {copied && <span className={classes.copyToast}>コピーしました！</span>}
-        </button>
-      </div>
+          <ShareOutlined sx={{ fontSize: 20 }} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className={classes.menuContent} data-testid="quiz-detail-share-menu">
+          <DropdownMenuItem
+            className={classes.menuItem}
+            render={
+              <a
+                href={buildTwitterShareUrl(quizTitle, shareUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="quiz-detail-share-x"
+              />
+            }
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+            <span>Xでシェア</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className={classes.menuItem}
+            render={
+              <a
+                href={buildLineShareUrl(shareUrl)}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="quiz-detail-share-line"
+              />
+            }
+          >
+            <SmsOutlined sx={{ fontSize: 16 }} />
+            <span>LINEで送る</span>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className={classes.menuItem}
+            closeOnClick={false}
+            onClick={handleCopyUrl}
+            data-testid="quiz-detail-share-copy"
+          >
+            <ContentCopyOutlined sx={{ fontSize: 16 }} />
+            <span>{copied ? 'コピーしました' : 'URLをコピー'}</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };

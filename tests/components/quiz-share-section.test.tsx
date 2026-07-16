@@ -3,7 +3,7 @@
  */
 import '@testing-library/jest-dom';
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { QuizShareSection } from '@/components/quiz/quiz-share-section';
 
 describe('QuizShareSection', () => {
@@ -23,14 +23,29 @@ describe('QuizShareSection', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders the container with the E2E identification attribute', () => {
+  const openMenu = () => {
+    fireEvent.click(screen.getByTestId('quiz-detail-share-trigger'));
+  };
+
+  it('renders the trigger with the E2E identification attribute and menu hidden initially', () => {
     render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
-    expect(screen.getByTestId('quiz-detail-share-section')).toBeInTheDocument();
+    expect(screen.getByTestId('quiz-detail-share-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('quiz-detail-share-menu')).not.toBeInTheDocument();
+  });
+
+  it('opens the menu when the trigger is clicked', () => {
+    render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
+
+    openMenu();
+
+    expect(screen.getByTestId('quiz-detail-share-menu')).toBeInTheDocument();
   });
 
   it('renders X share link with correct href, target and rel', () => {
     render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
-    const link = screen.getByRole('link', { name: /X/i });
+    openMenu();
+
+    const link = screen.getByTestId('quiz-detail-share-x');
     expect(link).toHaveAttribute('href', expect.stringContaining('twitter.com/intent/tweet'));
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
@@ -38,7 +53,9 @@ describe('QuizShareSection', () => {
 
   it('renders LINE share link with correct href, target and rel', () => {
     render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
-    const link = screen.getByRole('link', { name: /LINE/i });
+    openMenu();
+
+    const link = screen.getByTestId('quiz-detail-share-line');
     expect(link).toHaveAttribute(
       'href',
       expect.stringContaining('social-plugins.line.me/lineit/share')
@@ -47,7 +64,7 @@ describe('QuizShareSection', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('copies the share URL to the clipboard, shows feedback, and hides it after 3 seconds', async () => {
+  it('copies the share URL to the clipboard, keeps the menu open with feedback, and closes it after 3 seconds', async () => {
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
@@ -56,27 +73,30 @@ describe('QuizShareSection', () => {
     });
 
     render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
-    const copyButton = screen.getByRole('button', { name: /コピー/ });
+    openMenu();
 
+    const copyItem = screen.getByTestId('quiz-detail-share-copy');
     await act(async () => {
-      copyButton.click();
+      fireEvent.click(copyItem);
       await Promise.resolve();
     });
 
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('/quiz/quiz-1'));
     expect(screen.getByText(/コピーしました/)).toBeInTheDocument();
+    // メニューは開いたまま
+    expect(screen.getByTestId('quiz-detail-share-menu')).toBeInTheDocument();
 
     await act(async () => {
       jest.advanceTimersByTime(2999);
     });
 
-    expect(screen.getByText(/コピーしました/)).toBeInTheDocument();
+    expect(screen.getByTestId('quiz-detail-share-menu')).toBeInTheDocument();
 
     await act(async () => {
       jest.advanceTimersByTime(1);
     });
 
-    expect(screen.queryByText(/コピーしました/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('quiz-detail-share-menu')).not.toBeInTheDocument();
   });
 
   it('does not call clipboard.writeText and never shows feedback when navigator.clipboard is unavailable', async () => {
@@ -87,10 +107,11 @@ describe('QuizShareSection', () => {
     });
 
     render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
-    const copyButton = screen.getByRole('button', { name: /コピー/ });
+    openMenu();
 
+    const copyItem = screen.getByTestId('quiz-detail-share-copy');
     await act(async () => {
-      copyButton.click();
+      fireEvent.click(copyItem);
       await Promise.resolve();
     });
 
@@ -113,10 +134,11 @@ describe('QuizShareSection', () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
 
     render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
-    const copyButton = screen.getByRole('button', { name: /コピー/ });
+    openMenu();
 
+    const copyItem = screen.getByTestId('quiz-detail-share-copy');
     await act(async () => {
-      copyButton.click();
+      fireEvent.click(copyItem);
       await Promise.resolve();
       await Promise.resolve();
     });
