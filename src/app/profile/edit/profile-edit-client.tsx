@@ -12,6 +12,7 @@ import {
 } from '@/services/user';
 import { validateAvatarFile, AVATAR_ACCEPT } from '@/lib/avatar-upload';
 import { uploadUserAvatar } from '@/services/storage';
+import { ImageCropper } from '@/components/ui/image-cropper';
 import { ErrorOutlined, SaveOutlined, ArrowBackOutlined } from '@mui/icons-material';
 import { ProfileEditSkeleton } from '@/components/profile/profile-skeleton';
 import { Button } from '@/components/ui/button';
@@ -48,9 +49,11 @@ export function ProfileEditClient() {
   const [submitError, setSubmitError] = useState('');
 
   const [existingAvatarUrl, setExistingAvatarUrl] = useState('');
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarCroppedBlob, setAvatarCroppedBlob] = useState<Blob | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState('');
+  const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
 
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -81,11 +84,29 @@ export function ProfileEditClient() {
     }
 
     setAvatarError('');
+    setCropSourceUrl(URL.createObjectURL(file));
+    setIsCropModalOpen(true);
+  };
+
+  const handleCropComplete = (blob: Blob) => {
     if (avatarPreviewUrl) {
       URL.revokeObjectURL(avatarPreviewUrl);
     }
-    setAvatarFile(file);
-    setAvatarPreviewUrl(URL.createObjectURL(file));
+    if (cropSourceUrl) {
+      URL.revokeObjectURL(cropSourceUrl);
+    }
+    setAvatarPreviewUrl(URL.createObjectURL(blob));
+    setAvatarCroppedBlob(blob);
+    setIsCropModalOpen(false);
+    setCropSourceUrl(null);
+  };
+
+  const handleCropCancel = () => {
+    if (cropSourceUrl) {
+      URL.revokeObjectURL(cropSourceUrl);
+    }
+    setIsCropModalOpen(false);
+    setCropSourceUrl(null);
   };
 
   useEffect(() => {
@@ -93,8 +114,11 @@ export function ProfileEditClient() {
       if (avatarPreviewUrl) {
         URL.revokeObjectURL(avatarPreviewUrl);
       }
+      if (cropSourceUrl) {
+        URL.revokeObjectURL(cropSourceUrl);
+      }
     };
-  }, [avatarPreviewUrl]);
+  }, [avatarPreviewUrl, cropSourceUrl]);
 
   // 外側クリックでサジェストを閉じる
   useEffect(() => {
@@ -165,8 +189,8 @@ export function ProfileEditClient() {
 
     try {
       let avatarUrl: string | undefined;
-      if (avatarFile) {
-        avatarUrl = await uploadUserAvatar(avatarFile, currentUser.id);
+      if (avatarCroppedBlob) {
+        avatarUrl = await uploadUserAvatar(avatarCroppedBlob, currentUser.id);
       }
 
       await updateProfile(currentUser.id, {
@@ -246,6 +270,19 @@ export function ProfileEditClient() {
               {avatarError && (
                 <span className="text-xs text-destructive">{avatarError}</span>
               )}
+              <ImageCropper
+                imageSrc={cropSourceUrl ?? ''}
+                isOpen={isCropModalOpen}
+                aspect={1}
+                cropShape="round"
+                maxWidth={512}
+                maxHeight={512}
+                confirmTestId="profile-avatar-crop-confirm"
+                cancelTestId="profile-avatar-crop-cancel"
+                onError={setAvatarError}
+                onClose={handleCropCancel}
+                onCropComplete={handleCropComplete}
+              />
             </div>
 
             <div className="flex flex-col gap-2">

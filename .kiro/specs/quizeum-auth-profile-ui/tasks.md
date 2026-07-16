@@ -459,7 +459,7 @@
   - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.6, 18.8_
   - _Boundary: ImageCropper-Testing_
 
-- [ ] 16.4 (P) `ProfileEditClient`へのトリミングフロー統合
+- [x] 16.4 (P) `ProfileEditClient`へのトリミングフロー統合
   - `avatarFile: File | null` ステートを `avatarCroppedBlob: Blob | null` に置き換え、`cropSourceUrl`/`isCropModalOpen` ステートを追加する。
   - `handleAvatarChange` を、検証成功後に選択画像のObject URLで `ImageCropper` モーダル（`aspect={1}` `cropShape="round"` `maxWidth={512}` `maxHeight={512}` `confirmTestId="profile-avatar-crop-confirm"` `cancelTestId="profile-avatar-crop-cancel"` `onError`）を開くように変更する。
   - `handleCropComplete`/`handleCropCancel` ハンドラを実装する。確定時は切り抜き結果のプレビュー反映と `avatarCroppedBlob` への保持、キャンセル時は変更前のアバター表示維持と選択直後のObject URLの解放を行う。
