@@ -441,7 +441,7 @@
   - _Requirements: 18.1, 18.2, 18.3, 18.4_
   - _Boundary: ImageCropper_
 
-- [ ] 16.2 `ImageCropper`のエラー通知・テスト識別子のProps化
+- [x] 16.2 `ImageCropper`のエラー通知・テスト識別子のProps化
   - `quality` Prop（デフォルト `0.85`）を追加し、`canvas.toBlob` の第3引数に反映する。
   - `confirmTestId`/`cancelTestId` Prop（デフォルト `'image-cropper-confirm'`/`'image-cropper-cancel'`）を追加し、確定・キャンセルボタンの `data-testid` に反映する。
   - `onError` Prop（任意のコールバック）を追加し、切り抜き処理失敗時に指定があれば呼び出し、未指定時は既存の `alert()` 表示にフォールバックする。

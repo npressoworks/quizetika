@@ -44,7 +44,8 @@ async function getCroppedImg(
   pixelCrop: Area,
   aspect: number = DEFAULT_ASPECT,
   maxWidth: number = 1920,
-  maxHeight: number = 1005
+  maxHeight: number = 1005,
+  quality: number = 0.85
 ): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -86,7 +87,7 @@ async function getCroppedImg(
     targetHeight
   );
 
-  // JPEG 形式、画質 0.85 で Blob をエクスポート
+  // JPEG 形式、指定画質で Blob をエクスポート
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
@@ -97,7 +98,7 @@ async function getCroppedImg(
         resolve(blob);
       },
       'image/jpeg',
-      0.85
+      quality
     );
   });
 }
@@ -111,6 +112,10 @@ export interface ImageCropperProps {
   cropShape?: 'rect' | 'round'; // 既定値: 'rect'
   maxWidth?: number; // 既定値: 1920
   maxHeight?: number; // 既定値: 1005
+  quality?: number; // 既定値: 0.85（JPEG エクスポート品質）
+  confirmTestId?: string; // 既定値: 'image-cropper-confirm'
+  cancelTestId?: string; // 既定値: 'image-cropper-cancel'
+  onError?: (message: string) => void; // 未指定時は alert() にフォールバック
 }
 
 export function ImageCropper({
@@ -122,6 +127,10 @@ export function ImageCropper({
   cropShape = 'rect',
   maxWidth = 1920,
   maxHeight = 1005,
+  quality = 0.85,
+  confirmTestId = 'image-cropper-confirm',
+  cancelTestId = 'image-cropper-cancel',
+  onError,
 }: ImageCropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -171,13 +180,19 @@ export function ImageCropper({
         croppedAreaPixels,
         aspect,
         maxWidth,
-        maxHeight
+        maxHeight,
+        quality
       );
       onCropComplete(croppedBlob);
       onClose();
     } catch (error) {
       console.error('画像の切り抜き処理に失敗しました:', error);
-      alert('画像のトリミングに失敗しました。ファイル破損などの可能性があります。');
+      const message = '画像のトリミングに失敗しました。ファイル破損などの可能性があります。';
+      if (onError) {
+        onError(message);
+      } else {
+        alert(message);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -245,6 +260,7 @@ export function ImageCropper({
             variant="outline"
             onClick={onClose}
             disabled={isProcessing}
+            data-testid={cancelTestId}
           >
             キャンセル
           </Button>
@@ -252,6 +268,7 @@ export function ImageCropper({
             type="button"
             onClick={handleConfirm}
             disabled={isProcessing}
+            data-testid={confirmTestId}
           >
             {isProcessing ? '処理中…' : '確定'}
           </Button>
