@@ -1771,7 +1771,7 @@
   - _Depends: 30.1, 30.3_
   - _Boundary: Testing_
 
-- [ ] 30.7 (P) Phase 42 結合テストの追加
+- [x] 30.7 (P) Phase 42 結合テストの追加
   - `customer.subscription.updated`（`past_due`）受信時の tier 維持、`past_due → active` 復帰時の `hasPaidEntitlements` 再付与、`GET /api/cron/sync-subscriptions` の認可・実行結合テストを追加する
   - 完了状態: Phase 42 関連の全結合テストがグリーンであること
   - _Requirements: 36.1, 36.3, 36.4, 36.6, 36.7_
