@@ -1737,7 +1737,7 @@
   - _Requirements: 36.1, 36.2, 36.4, 36.5_
   - _Boundary: StripeWebhookAPI_
 
-- [ ] 30.2 (P) 是正監査テーブルの追加
+- [x] 30.2 (P) 是正監査テーブルの追加
   - `billing_reconciliation_corrections` テーブルを作成する Supabase migration を追加する（クライアントアクセス不可、RLSで拒否）
   - 完了状態: migration 適用後にテーブルが存在し、Admin クライアント以外からの読み書きが RLS で拒否されること
   - _Requirements: 36.9_
