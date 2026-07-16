@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createAdminClient } from '@/lib/supabase/server';
 import { normalizeElapsedSeconds } from '@/lib/format-play-elapsed';
 import { buildVerifyTruthPrompt, parseTruthVerifyResponse } from '@/services/verify-truth-utils';
@@ -22,7 +22,7 @@ import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/au
 import type { Question } from '@/types';
 import type { Database } from '@/lib/supabase/database.types';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
 
 type QuestionRow = Database['public']['Tables']['questions']['Row'];
 
@@ -101,7 +101,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'no-context' }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest' });
     const prompt = buildVerifyTruthPrompt(
       lateralQuestion.aiContextDetails,
       truthSummary,
@@ -112,8 +111,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let advice: string | null = null;
 
     try {
-      const result = await model.generateContent(prompt);
-      const parsed = parseTruthVerifyResponse(result.response.text());
+      const result = await genAI.models.generateContent({
+        model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
+        contents: prompt,
+      });
+      const parsed = parseTruthVerifyResponse(result.text ?? '');
       isCorrect = parsed.isCorrect;
       advice = parsed.advice;
     } catch (aiError) {

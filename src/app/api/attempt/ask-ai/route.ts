@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createAdminClient } from '@/lib/supabase/server';
 import {
   findCachedAnswer,
@@ -29,7 +29,7 @@ import type { Database } from '@/lib/supabase/database.types';
 import { extractBearerToken, verifySupabaseAccessToken } from '@/lib/supabase/auth-verify';
 import { resolveUserEntitlements } from '@/services/entitlement';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
 
 type QuestionRow = Database['public']['Tables']['questions']['Row'];
 
@@ -200,15 +200,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
-      systemInstruction: buildAiSystemInstruction(aiContextDetails),
-    });
-
     const mappedHistory = mapHistoryToGeminiContents(history);
-    const chat = model.startChat({
+    const chat = genAI.chats.create({
+      model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
       history: mappedHistory,
-      generationConfig: {
+      config: {
+        systemInstruction: buildAiSystemInstruction(aiContextDetails),
         maxOutputTokens: 200,
       },
     });
@@ -217,8 +214,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     let aiComment = '判断できませんでした。';
 
     try {
-      const result = await chat.sendMessage(questionText);
-      const responseText = result.response.text();
+      const result = await chat.sendMessage({ message: questionText });
+      const responseText = result.text ?? '';
       const parsed = parseAiResponse(responseText);
       answerType = parsed.answerType;
       aiComment = parsed.aiComment;

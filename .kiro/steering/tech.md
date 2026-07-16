@@ -12,7 +12,7 @@ Next.js（App Router）によるフルスタックフロントエンドで、バ
 - **UI Library**: React 19.2.4
 - **Runtime**: Node.js 20+
 - **Database / Auth**: Supabase（PostgreSQL + `@supabase/supabase-js` 2.x / `@supabase/ssr`）が認証・データ・ストレージ全ドメインを担当
-- **AI**: Gemini API (`@google/generative-ai` 0.24.1)
+- **AI**: Gemini API を用途別に2系統併用（下記「主要な技術決定」参照） — `@google/genai`（テキスト生成: ウミガメのスープ対話・AI問題生成・真相判定／画像生成: サムネイル・ジャンルアイコン、公式統一SDK）、Vercel AI SDK `ai` + `@ai-sdk/google` + `@ai-sdk/react`（AIチャット作問のストリーミング）。旧SDK `@google/generative-ai` は2026-07-17に `@google/genai` へ全面移行済みで依存関係から除去されている
 - **Payments**: Stripe (`stripe` ^22 / `@stripe/stripe-js` ^9) — サーバー側 Webhook + クライアント側 Checkout
 - **Analytics**: PostHog (`posthog-js` ^1) — プロダクト分析・イベントトラッキング
 - **Ads**: Google AdSense (`NEXT_PUBLIC_ADSENSE_CLIENT_ID`) + 自前動画広告モーダル
@@ -25,6 +25,10 @@ Next.js（App Router）によるフルスタックフロントエンドで、バ
 - **Drag & Drop**: @dnd-kit (Core / Sortable)
 - **Sanitizer**: Isomorphic DOMPurify (XSS防止のためのHTMLサニタイズ)
 - **Icons**: Material Icons
+- **Image Cropping**: `react-easy-crop` — `src/components/ui/image-cropper.tsx`（アバター円形/OGP比率クロップ共通コンポーネント）に集約
+- **Server Image Processing**: `sharp` — サムネイル等のリサイズ・フォーマット変換をAPI Route内で実行
+- **Charts**: `recharts` — `src/components/charts/`（クリエイター統計）、`src/components/ui/chart.tsx`（shadcn chart ラッパー）
+- **Schema Validation**: `zod` — AI関連API Route（`ai-chat-authoring` 等）でのリクエスト/ツール引数スキーマ検証に使用。それ以外の入力検証は原則「型安全性」節の手動バリデーション方針に従う
 
 ## 開発標準 (Development Standards)
 
@@ -77,11 +81,15 @@ npm run gen:types
 - **`onAuthStateChange` は購読直後に `INITIAL_SESSION` を発火**: `AuthProvider` 側で個別に `getSession()` を呼んで初期化する必要はない（二重実行によるレースで初回ユーザー作成が重複INSERTになりうる）。
 - **Firebase → Supabase 段階移行（完了・ドメイン単位カットオーバー）**: 一括移行ではなく `.kiro/specs/supabase-*`（foundation → auth-migration → core-data → gameplay/governance/storage-migration → cleanup の順）でドメインごとに移行した。全ドメインの移行完了後、`supabase-cleanup` スペックにより `firebase`/`firebase-admin` パッケージと初期化コードをリポジトリから完全に除去し、Supabase 単独構成に一本化した。
 - **RDB 正規化の徹底（core-data）**: Firestore ドキュメント構造をそのまま PostgreSQL に転写しない。文字列連結の疑似ドキュメントID（例: `follower_id + '_' + following_id`）は複合主キーに、配列/JSONB による埋め込み（バッジ・フォロー中ジャンル・タグ・問題構成）は中間テーブル（`user_badges`, `user_genre_follows`, `quiz_tags`, `quiz_questions` 等）に正規化する。サービス層の TypeScript インターフェースは変更せず、内部クエリのみを差し替えるブラックボックス置換を徹底する。
+- **Gemini 連携は用途別に2系統を使い分ける**: (1) `@google/genai`（公式統一SDK） — ウミガメのスープ対話判定・AI問題生成・真相判定などの単発/マルチターンのテキスト生成（`genAI.models.generateContent` / `genAI.chats.create`）、およびサムネイル/ジャンルアイコン等の画像生成を伴う処理を一括で担当する、(2) Vercel AI SDK（`ai` + `@ai-sdk/google` + `@ai-sdk/react`） — AIチャット作問のようなストリーミング・マルチターン・ツール呼び出しが必要なUXに使用する。新規AI機能を追加する際は、単発/マルチターン生成・画像生成/ストリーミング会話のいずれに近いかで既存2系統から選ぶ（新規SDK追加は原則不要）。旧SDK `@google/generative-ai` は Google により非推奨化されたため使用しない。
+- **画像クロップの共通化**: アバター（正円）・クイズカバーOGP（1.91:1）など複数ドメインで発生するクライアント側クロップ処理は `react-easy-crop` をラップした `src/components/ui/image-cropper.tsx` に集約し、`aspect` / `cropShape` / `maxWidth` / `maxHeight` などを呼び出し側からProps化して差分を吸収する。
 
 ---
 _updated_at: 2026-07-05 — supabase-cleanup 完了に伴い Supabase 単独構成の記述に更新_
 _updated_at: 2026-07-06 — e2e-suite-stabilization 完了に伴い、Failure Ledger + ベースライン差分検証によるE2Eスイート安定化パターンを追記_
 _updated_at: 2026-07-09 — OAuth PKCEコールバック実装（`/api/auth/callback`）に伴い、OAuthリダイレクトパターンおよびRLS INSERTポリシー要件・`onAuthStateChange`初期化パターンを追記_
 _updated_at: 2026-07-14 — 複数有料プラン（Player/Creator）拡張およびプラン変更（アップグレード・ダウングレード確認）統合に伴いStripe課金フローと広告動的スキップロジックを更新_
+_updated_at: 2026-07-17 — Sync: AIチャット作問（Vercel AI SDK）・`@google/genai`画像生成・`react-easy-crop`アバタークロップ・`recharts`/`zod`等、コードベースに存在しステアリング未記載だった技術要素を追記_
+_updated_at: 2026-07-17 — 旧SDK `@google/generative-ai` を全ドメイン（ask-ai/verify-truth/ai-generate-questions）で `@google/genai` に置き換え、依存関係から除去。AI節を2系統構成に更新_
 
 _Document standards and patterns, not every dependency_

@@ -84,7 +84,7 @@ graph TB
 * **`bigquery-export` Edge Function**: Deno 環境で動作するサーバーレス関数。Google Cloud サービスアカウント認証（OAuth 2.0 / RS256 JWT署名）を用いて BigQuery にバッチ送信（`insertAll`）し、成功した行を `sent` に更新します。
 
 ### 2.5 外部サービス (Third-Party APIs)
-* **Google Gemini API (`@google/generative-ai`)**: 水平思考クイズの対話質問に対する返答と、真相要約提出時の意味判定を担当します。
+* **Google Gemini API (`@google/genai`)**: 水平思考クイズの対話質問に対する返答と、真相要約提出時の意味判定、AI問題生成、サムネイル/ジャンルアイコン画像生成を担当します。
 * **Stripe API**: 料金プランの決済（Checkout Session）、購読管理（Customer Portal）、サブスクリプション契約情報の管理を担当します。
 * **PostHog**: プロダクト分析、イベントの収集・集計プラットフォーム。
 * **Google BigQuery (GCP)**: AI学習データの蓄積および分析用データウェアハウス。`raw_events` テーブル（追記専用、日次パーティショニング）に生イベントを格納し、論理ビューによって重複排除や版整合（クイズの履歴変化）を行って学習データセットを抽出します。

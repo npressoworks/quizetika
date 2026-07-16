@@ -62,15 +62,13 @@ jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (uid: any) => mockResolveEntitlements(uid),
 }));
 
-const mockGetGenerativeModel = jest.fn().mockReturnValue({
-  generateContent: (req: any) => mockGenerateContent(req),
-});
-
-jest.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: (modelName: any) => mockGetGenerativeModel(modelName),
+jest.mock('@google/genai', () => ({
+  GoogleGenAI: jest.fn().mockImplementation(() => ({
+    models: {
+      generateContent: (req: any) => mockGenerateContent(req),
+    },
   })),
-  SchemaType: {
+  Type: {
     OBJECT: 'OBJECT',
     ARRAY: 'ARRAY',
     STRING: 'STRING',
@@ -106,7 +104,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
       hasUnlimitedAiQuestions: true,
     });
     mockGenerateContent.mockResolvedValue({
-      response: { text: () => JSON.stringify(makeGeminiQuestions()) },
+      text: JSON.stringify(makeGeminiQuestions()),
     });
   });
 
@@ -175,7 +173,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
     const invalid = makeGeminiQuestions();
     invalid[0].questionText = '短';
     mockGenerateContent.mockResolvedValue({
-      response: { text: () => JSON.stringify(invalid) },
+      text: JSON.stringify(invalid),
     });
     const res = await POST(
       makeRequest({
@@ -189,20 +187,17 @@ describe('POST /api/quiz/ai-generate-questions', () => {
 
   test('sorting 形式のスキーマには choices や correctTextAnswerList が含まれない', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify(
-            Array.from({ length: 10 }, (_, i) => ({
-              type: 'sorting',
-              questionText: `並べ替え問題テスト${i}です`,
-              explanation: `解説テスト${i}です`,
-              sortingItems: [
-                { text: 'A', correctOrder: 0 },
-                { text: 'B', correctOrder: 1 },
-              ],
-            }))
-          ),
-      },
+      text: JSON.stringify(
+        Array.from({ length: 10 }, (_, i) => ({
+          type: 'sorting',
+          questionText: `並べ替え問題テスト${i}です`,
+          explanation: `解説テスト${i}です`,
+          sortingItems: [
+            { text: 'A', correctOrder: 0 },
+            { text: 'B', correctOrder: 1 },
+          ],
+        }))
+      ),
     });
 
     const res = await POST(
@@ -216,7 +211,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
 
     expect(mockGenerateContent).toHaveBeenCalled();
     const callArgs = mockGenerateContent.mock.calls[0][0];
-    const schema = callArgs.generationConfig.responseSchema.items;
+    const schema = callArgs.config.responseSchema.items;
 
     // sorting 形式のプロパティから choices と correctTextAnswerList が排除されていることを検証
     expect(schema.properties.sortingItems).toBeDefined();
@@ -227,20 +222,17 @@ describe('POST /api/quiz/ai-generate-questions', () => {
 
   test('mixed 形式のスキーマは anyOf で4つの問題タイプを定義している', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: {
-        text: () =>
-          JSON.stringify(
-            Array.from({ length: 10 }, (_, i) => ({
-              type: 'multiple-choice',
-              questionText: `問題文テスト${i}です`,
-              explanation: `解説文テスト${i}です`,
-              choices: [
-                { choiceText: 'A', isCorrect: true },
-                { choiceText: 'B', isCorrect: false },
-              ],
-            }))
-          ),
-      },
+      text: JSON.stringify(
+        Array.from({ length: 10 }, (_, i) => ({
+          type: 'multiple-choice',
+          questionText: `問題文テスト${i}です`,
+          explanation: `解説文テスト${i}です`,
+          choices: [
+            { choiceText: 'A', isCorrect: true },
+            { choiceText: 'B', isCorrect: false },
+          ],
+        }))
+      ),
     });
 
     const res = await POST(
@@ -254,7 +246,7 @@ describe('POST /api/quiz/ai-generate-questions', () => {
 
     expect(mockGenerateContent).toHaveBeenCalled();
     const callArgs = mockGenerateContent.mock.calls[0][0];
-    const schema = callArgs.generationConfig.responseSchema.items;
+    const schema = callArgs.config.responseSchema.items;
 
     // anyOf が定義されており、各タイプが含まれていることを検証
     expect(schema.anyOf).toBeDefined();

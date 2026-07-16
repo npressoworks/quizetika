@@ -76,11 +76,11 @@ jest.mock('@/lib/supabase/auth-verify', () => ({
   verifySupabaseAccessToken: (...args: unknown[]) => mockVerify(...args),
 }));
 
-jest.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: () => ({
+jest.mock('@google/genai', () => ({
+  GoogleGenAI: jest.fn().mockImplementation(() => ({
+    models: {
       generateContent: (...args: unknown[]) => mockGenerateContent(...args),
-    }),
+    },
   })),
 }));
 
@@ -103,7 +103,7 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
 
   it('常に Gemini を呼び出し、プロンプトにエッセンスキーワードを含める', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: { text: () => 'VERDICT: INCORRECT\nREASON: MISSING_ESSENCE' },
+      text: 'VERDICT: INCORRECT\nREASON: MISSING_ESSENCE',
     });
 
     const summary = '男は遭難しウミガメのスープを飲んだ';
@@ -112,7 +112,7 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
     );
 
     expect(mockGenerateContent).toHaveBeenCalledTimes(1);
-    const prompt = mockGenerateContent.mock.calls[0][0] as string;
+    const prompt = mockGenerateContent.mock.calls[0][0].contents as string;
     expect(prompt).toContain('ウミガメ');
     expect(prompt).toContain('遭難');
     expect(prompt).toContain('文字列の完全一致を合格条件としない');
@@ -128,7 +128,7 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
 
   it('キーワードが要約に全て含まれていても AI 判定結果に従う（バイパスなし）', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: { text: () => 'VERDICT: INCORRECT\nREASON: UNRELATED' },
+      text: 'VERDICT: INCORRECT\nREASON: UNRELATED',
     });
 
     const summary = '男は遭難し、ウミガメのスープを飲んだ';
@@ -144,7 +144,7 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
 
   it('AI が CORRECT のとき合格レスポンスを返し、RPCへ経過秒数と総問題数を渡す', async () => {
     mockGenerateContent.mockResolvedValue({
-      response: { text: () => 'VERDICT: CORRECT\nお見事！' },
+      text: 'VERDICT: CORRECT\nお見事！',
     });
 
     const res = await POST(

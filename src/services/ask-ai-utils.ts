@@ -8,7 +8,7 @@
  * Requirements: 4.6, 4.7, 4.10
  */
 
-import { Content } from '@google/generative-ai';
+import { Content } from '@google/genai';
 import { AiQuestion } from '../types';
 
 /* ==========================================================================
