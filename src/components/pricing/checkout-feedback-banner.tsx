@@ -12,7 +12,7 @@ interface CheckoutFeedbackBannerProps {
 }
 
 const MESSAGES: Record<CheckoutFeedbackVariant, string> = {
-  success: 'Pro プランへの加入が完了しました。ご利用ありがとうございます！',
+  success: '有料プランへの加入が完了しました。ご利用ありがとうございます！',
   canceled: '購入手続きはキャンセルされました。いつでも再度お申し込みいただけます。',
 };
 

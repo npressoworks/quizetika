@@ -467,3 +467,82 @@ export function useAiChatAssistant(props: UseAiChatAssistantProps): UseAiChatAss
 **Risk**: **Low**（`quizetika-core` が提供する新フィールドへの参照切り替えであり、本スペック側のロジック自体は変更しない）
 
 **Document Status（Phase 2 設計）**: 本節に反映。`quizetika-core` design.md Phase 41 節の `hasCreatorEntitlements` 契約と整合済み。
+
+---
+
+## Phase 3: チャットパネルのレスポンシブ全画面表示と入力欄操作性の改善（2026-07-16）
+
+### Overview（Phase 3）
+
+モバイル相当の狭い画面幅では、`AiChatAssistantPanel` を画面右側のスライドインパネルではなく画面全体を覆う全画面表示に切り替え、閉じる操作をヘッダー上部にのみ配置する（下部等への重複配置は行わない）。あわせてメッセージ入力欄を単一行の `input` から複数行対応の可変高さ入力欄に変更し、デスクトップ幅では Enter キーで送信・Shift+Enter で改行、モバイル幅では誤送信防止のため送信ボタン押下でのみ送信できるようにする。日本語入力（IME）の変換確定用 Enter は送信として扱わない。また、AI ツール提案への承認・却下待機中は「AIが思考中」ローディングインジケータを表示しない。
+
+新規コンポーネント・新規外部依存はなく、既存の `AiChatAssistantPanel` と `ai-chat-assistant.module.css` のみを変更する UI 挙動改修（Simple Addition）である。
+
+### Boundary Commitments（Phase 3 差分）
+
+- **This Spec Owns（追加）**: チャットパネルのレスポンシブレイアウト切り替え（CSS ブレークポイントによる全画面表示）、メッセージ入力欄のキーボードイベント処理（Enter 送信 / Shift+Enter 改行 / IME 変換確定ガード / モバイル送信ボタン限定）、入力内容の行数に応じた入力欄の自動拡張、ツール承認待機中のローディングインジケータ非表示制御、モバイル全画面表示中のフローティング起動ボタン（`AiChatAssistantButton`）の表示制御（閉じる操作の重複防止）。
+- **Out of Boundary（追加）**: エディタ本体のレスポンシブレイアウト（`quizetika-ui-editor` が所有）には立ち入らない。
+- **Allowed Dependencies（変更なし）**: Phase 1/2 の依存関係を継続。新規ライブラリの追加は行わない。
+- **Revalidation Triggers（追加）**: プロジェクト共通で使用されているモバイルブレークポイント値（既存パターン: `max-width: 767px` / `768px`）が変更された場合、本フェーズで固定した CSS 側の閾値と JS 側判定ロジックの同期を再確認する必要がある。
+
+### File Structure Plan（Phase 3）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/components/quiz/editor/ai-chat-assistant-panel.tsx` | Modify | 入力欄を `<input>` から、既存の共通コンポーネント `AutoGrowTextarea`（`src/components/ui/auto-grow-textarea.tsx`、`quiz-metadata-section.tsx` 等で採用済みの行数連動オートリサイズ実装）に置き換える。`onKeyDown` を `AutoGrowTextarea` に渡し、Enter 送信・Shift+Enter 改行（デフォルト動作）・IME 変換確定ガード・モバイル幅判定による送信抑止を実装。ローディングインジケータの表示条件に `!hasPendingApproval` を追加。 |
+| `src/components/ui/auto-grow-textarea.tsx` | Reuse（変更なし） | 入力内容の行数に応じた高さ自動調整（Requirement 7.5）を提供する既存共通コンポーネント。本フェーズでは新規に実装せず、そのまま採用する。 |
+| `src/components/quiz/editor/ai-chat-assistant.module.css` | Modify | プロジェクト既存のモバイルブレークポイント規約（`max-width: 768px`）に合わせた `@media` クエリを追加し、`.panel` をモバイル幅で画面全体を覆う全画面表示に切り替える。`.input` を可変高さの `textarea` 向けスタイル（最大高さ・内部スクロール）に調整する。同じ `@media` 条件下で `.floatingButtonOpen`（`isChatOpen` 時のフローティング起動ボタン）に `display: none` を適用し、チャットパネルのヘッダー閉じるボタンとの重複表示を防止する。 |
+
+### System Flows（Phase 3）
+
+#### メッセージ入力欄の Enter キー処理
+
+```mermaid
+flowchart TD
+    KeyDown[Enterキー押下を検知] --> IsComposing{IME変換確定中か}
+    IsComposing -- Yes --> NoSend[送信せずIME確定として処理を継続]
+    IsComposing -- No --> IsShift{Shiftキー同時押下か}
+    IsShift -- Yes --> InsertNewline[入力欄に改行を挿入]
+    IsShift -- No --> IsMobile{モバイル幅の画面か}
+    IsMobile -- Yes --> WaitButton[送信せず送信ボタン押下を待つ]
+    IsMobile -- No --> Submit[メッセージを送信する]
+```
+
+**Key Decisions**:
+
+- IME 変換確定中の Enter 判定は `KeyboardEvent.isComposing`（ネイティブイベント）で検出し、日本語変換候補の確定操作を誤って送信と解釈しない。
+- モバイル幅判定は `window.matchMedia` を用い、CSS 側の `@media (max-width: 768px)` と同じ閾値（768px）を参照する。両者は別ファイル（CSS Modules と TSX）に存在するため、値を変更する際は両方を同時に更新する必要がある（Revalidation Triggers 参照）。
+- 送信は `<form>` の `requestSubmit()` を呼び出す形で既存の `handleSubmit`（フォーム submit イベントハンドラー）をそのまま再利用し、送信ロジック自体（`useAiChatAssistant.ts`）には変更を加えない。
+- 入力欄の行数連動オートリサイズ（Requirement 7.5）は、新規実装ではなく既存の共通コンポーネント `AutoGrowTextarea`（`src/components/ui/auto-grow-textarea.tsx`）をそのまま採用する（Build vs Adopt: 既にプロジェクト内の複数箇所で実績のある解決策が存在するため、`AiChatAssistantPanel` 側での重複実装を避ける）。`onKeyDown` は同コンポーネントの `...rest` props 経由で透過的に渡せるため、キーボードハンドリングの実装に支障はない。
+- 既存の `AiChatAssistantButton` は `isChatOpen` 時にアイコンが閉じるボタン相当（`CloseOutlined`、`aria-label="AIアシスタントを閉じる"`）に切り替わる仕様のため、モバイル全画面表示時にそのまま表示され続けるとヘッダーの閉じるボタンと重複してしまう（要件 1.9 違反）。JS 側でのビューポート監視・条件付きレンダリングを新設せず、`.floatingButtonOpen` に対する `@media (max-width: 768px) { display: none; }` を CSS Modules 側に追加するのみで解決する（`AiChatAssistantButton` 自体の TSX 変更は不要）。
+
+### Requirements Traceability（Phase 3）
+
+| Requirement | Summary | Components |
+|-------------|---------|------------|
+| 1.8 | モバイル幅でのチャットパネル全画面表示 | `AiChatAssistantPanel`, `ai-chat-assistant.module.css` |
+| 1.9 | 閉じる操作をヘッダー上部にのみ配置（モバイル幅ではフローティング起動ボタンを非表示化し重複を防止） | `AiChatAssistantPanel`, `ai-chat-assistant.module.css` |
+| 3.7 | 承認待機中は「AIが思考中」を非表示 | `AiChatAssistantPanel` |
+| 7.1 | デスクトップ幅でのEnter送信 | `AiChatAssistantPanel` |
+| 7.2 | Shift+Enterでの改行挿入 | `AiChatAssistantPanel` |
+| 7.3 | IME変換確定Enterの送信除外 | `AiChatAssistantPanel` |
+| 7.4 | モバイル幅での送信ボタン限定送信 | `AiChatAssistantPanel` |
+| 7.5 | 複数行入力時の入力欄自動拡張 | `AiChatAssistantPanel`, `ai-chat-assistant.module.css` |
+
+### Testing Strategy（Phase 3 追加分）
+
+| 種別 | 検証 |
+|---|---|
+| Component/Unit | 入力欄で Shift キーを伴わない Enter キー押下（デスクトップ幅）を検知した際に `handleSubmit` 相当の送信処理が呼び出されること。 |
+| Component/Unit | Shift+Enter キー押下時にメッセージが送信されず、入力欄内に改行が挿入されること。 |
+| Component/Unit | `isComposing` が真の状態（IME変換確定）での Enter キー押下ではメッセージが送信されないこと。 |
+| Component/Unit | モバイル幅（`matchMedia` が一致する状態）では Enter キー押下のみでは送信されず、送信ボタン押下でのみ送信されること。 |
+| Component/Unit | 複数行の入力（改行を含む）に応じて入力欄の高さが拡張されること。 |
+| Component/Unit | `pendingApprovals` が空でない状態では `isGenerating` が真であっても「AIが思考中」インジケータがレンダリングされないこと。 |
+| E2E | ビューポート幅をモバイル相当に変更した状態でチャットパネルを開くと画面全体を覆う表示になり、閉じる操作がヘッダー上部にのみ表示されること（フローティング起動ボタンが非表示化され、下部を含め重複した閉じるボタンが存在しないこと）。 |
+| E2E | デスクトップ幅では従来どおり右側スライドインパネル表示が維持されること（回帰確認）。 |
+
+**Effort**: **S**（既存コンポーネント2ファイルの改修のみ、新規コンポーネント・新規API・新規依存関係なし）
+**Risk**: **Low**（UI表示条件とキーボードイベントハンドリングの追加であり、既存のチャット送信ロジック・ツール承認フローには変更を加えない）
+
+**Document Status（Phase 3 設計）**: 本節に反映。既存コンポーネント（`AiChatAssistantPanel`）の変更のみで完結し、Phase 1/2 で定義した Boundary Commitments・API 契約・データモデルとの矛盾はない。
