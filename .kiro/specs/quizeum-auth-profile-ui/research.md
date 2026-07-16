@@ -275,3 +275,102 @@
 - `src/lib/genre-icon-upload.ts` — 検証ロジックの参照パターン
 - `src/components/ui/tabs.tsx` — 共有タブコンポーネント（12箇所で利用）
 
+---
+
+# Gap Analysis: Phase 31 — アバター画像の円形トリミング機能（2026-07-16）
+
+## 1. 現状調査サマリ
+
+### 既存資産（再利用可能）
+| 資産 | パス | 現状の実装内容 |
+|---|---|---|
+| `ImageCropper` コンポーネント | `src/components/ui/image-cropper.tsx` | `react-easy-crop`（`^6.0.2`）ベース。`CROP_ASPECT = 1.91` が**モジュールレベル定数としてハードコード**されており、`aspect`・`cropShape` は現状 Props 化されていない。`calculateTargetDimensions(width, height, maxWidth=1920, maxHeight=1005)` も内部で `CROP_ASPECT` を直接参照して分岐しており、正方形（1:1）・512px上限への対応には引数拡張が必須。 |
+| クロップ確定→Blob生成ロジック | 同上 `getCroppedImg()` | Canvas 2D APIで `pixelCrop` を切り出し、`calculateTargetDimensions` でリサイズ計算後に再描画、`canvas.toBlob(..., 'image/jpeg', 0.85)` でJPEG化。ロジック自体はアスペクト比非依存で流用可能。 |
+| ズーム制御（`minZoom`初期化） | 同上 `onMediaLoaded` | コンテナ・メディアサイズから最小ズームを算出し「枠にぴったり収まる」制御を実現。要件18-3のロジックと同一パターン。既存ロジックはアスペクト比のみに依存し、正方形にもそのまま適用可能。 |
+| アバター検証 | `src/lib/avatar-upload.ts` | `validateAvatarFile`/`assertAvatarFileValid`（PNG/JPEG/GIF、5MB上限）。クロップ前の選択時点のゲートとして流用可能、変更不要。 |
+| アバターアップロード | `src/services/storage.ts` `uploadUserAvatar(file, uid)` (L87-105) | `assertAvatarFileValid` 通過後にそのまま Supabase Storage へアップロード。`File \| Blob` 対応済みのため、クロップ後のJPEG Blobを渡す形にすればそのまま利用可能（関数シグネチャ変更不要）。 |
+| プロフィール編集フロー | `src/app/profile/edit/profile-edit-client.tsx` | `handleAvatarChange`(L72-89) は検証後に直接 `URL.createObjectURL` でプレビュー。`handleSubmit`(L159-187) は保存時に無条件で `uploadUserAvatar(avatarFile, ...)` を呼び出す。クロップモーダルを挟む改修が必要。 |
+| クイズ側の呼び出しパターン参考 | `src/components/quiz/editor/quiz-metadata-section.tsx` (L17, L47, L78, L124, L228) | ファイル選択→`ImageCropper`表示→`onCropComplete`でBlobを親に伝播、というUIパターンの実例。profile側もほぼ同型の統合が可能。 |
+| 既存テスト | `tests/components/image-cropper.test.tsx`（`calculateTargetDimensions`の純関数テストのみ）、`tests/lib/avatar-upload.test.ts`、`tests/components/profile-edit-client.test.tsx` | クロップ結果のE2E/RTLテストはまだ存在しない。`calculateTargetDimensions`のテストは1.91:1固定を前提にしているため、汎用化時に既存テストのシグネチャ互換性を壊さないよう注意。 |
+
+### Requirement-to-Asset マップ（要件18）
+
+| 要件18 AC | 対応資産 | ギャップ種別 |
+|---|---|---|
+| AC1: 選択時にトリミングモーダル表示（円形枠・ズーム・位置調整） | `ImageCropper` + `react-easy-crop`（`cropShape="round"` 標準サポート） | **Constraint**: `cropShape`未Props化 → 拡張が必要（Missing機能ではなくConstraint） |
+| AC2: 正方形(1:1)領域への制約 | `CROP_ASPECT`定数のハードコード | **Missing**: `aspect` のProps化が必要 |
+| AC3: 短辺フィットの最小ズーム初期化 | `onMediaLoaded`ロジック | 既存ロジックがアスペクト比非依存で動作 → **Constraint（軽微）**: `CROP_ASPECT`参照箇所をProps値に置換するのみ |
+| AC4: 512px上限・JPEG変換 | `calculateTargetDimensions`のデフォルト引数(1920/1005) | **Missing**: 呼び出し側で`maxWidth=512, maxHeight=512`を渡せるようにする拡張が必要。関数内部の`CROP_ASPECT`比較ロジックがアスペクト比引数化されていないと1:1では不正確な分岐になりうる |
+| AC5: キャンセル時に変更前維持 | `ImageCropper`の`onClose`、`profile-edit-client.tsx`の既存パターン | 既存パターンをそのまま踏襲可能 |
+| AC6: 失敗時エラー表示 | `ImageCropper`内`handleConfirm`のcatch（現状`alert()`使用） | **Constraint**: クイズ側は`alert()`によるエラー表示。profile側の他エラー表示は`avatarError`ステート+インライン表示パターン。UIパターンの不一致があり、汎用化時にコールバック化（`onError`）等の設計判断が必要 |
+| AC7: トリミング後画像のみアップロード対象 | `profile-edit-client.tsx`の`avatarFile`/`handleSubmit` | **Missing**: 現状`avatarFile: File`をそのまま保持する設計。クロップ後は`Blob`を保持する形へのstate型変更が必要（quiz側`pendingThumbnailBlob`と同型パターンあり） |
+| AC8: testid付与 | 新規 | **Missing**: 新規追加のみ |
+
+### 未知・要調査事項（Research Needed）
+- **`ImageCropper`汎用化の後方互換性**: `calculateTargetDimensions`は`tests/components/image-cropper.test.tsx`で直接importされ1.91:1前提でテストされている。アスペクト比を引数化する場合、既存テストのシグネチャ（`calculateTargetDimensions(width, height, maxWidth, maxHeight)`）を壊さない形（例: 第5引数に`aspect`を追加、または別名の汎用関数を新設）を設計フェーズで確定する必要がある。
+- **円形マスクの出力画像**: `cropShape="round"`はUI表示上のマスクのみで、実際に`canvas.toBlob`で書き出される画像データは常に**正方形**（角がある）。要件18-4は正方形切り出し+JPEG変換を明記済みだが、円形PNG透過切り出しを行わないことを設計書で改めて明示する必要がある。
+- **エラー表示方式の統一**: クイズ側`ImageCropper`は`alert()`、profile編集画面は既存の`avatarError`インラインステートパターン。汎用化時にコールバックProps化（`onError?: (message: string) => void`）するか、`alert()`のまま許容するかは設計判断。
+
+## 2. 実装アプローチの選択肢
+
+### Option A: `ImageCropper` を汎用化して両ドメインで共有
+**内容**: `image-cropper.tsx`に`aspect`・`cropShape`・`maxWidth`/`maxHeight`・`quality`をPropsとして追加し、デフォルト値を現行のOGP仕様(1.91/`rect`/1920/1005/0.85)に設定。quiz側は無変更で動作し続け、profile側は`aspect={1}` `cropShape="round"` `maxWidth={512}` `maxHeight={512}`を明示的に渡す。
+
+- ✅ 単一の実装・テスト対象で保守性が高い。クイズ側の実績あるロジック（`minZoom`計算等）をそのまま享受できる。
+- ✅ 新規ファイル最小限（`profile-edit-client.tsx`の改修 + `image-cropper.tsx`の拡張のみ）。
+- ❌ `image-cropper.tsx`は`quizetika-quiz-image-upload`スペックの所有物（Boundary Commitments: "This Spec Owns"）。他specが同一ファイルを拡張するのは越境になるため、設計フェーズで所有権の再定義（共有UIプリミティブとして両spec間で合意された拡張、と明記するか）が必要。
+- ❌ `calculateTargetDimensions`のテスト（1.91:1前提）に影響するため、シグネチャ変更時の後方互換確認が必要。
+
+### Option B: profile専用の新規コンポーネントとして複製・特化
+**内容**: `src/components/ui/avatar-cropper.tsx`（仮）を新規作成し、`react-easy-crop`を用いて円形・1:1専用のロジックを実装。`ImageCropper`のコードパターン（`getCroppedImg`, `onMediaLoaded`のズーム計算）を参考にしつつ、正方形・512px専用にシンプル化して複製。
+
+- ✅ `quizeum-auth-profile-ui`のBoundary内で完結し、他specのファイルに触れない。設計・実装のindependenceが高い。
+- ✅ クイズ側の将来変更（OGP比率変更等）による意図しない影響を受けない。
+- ❌ Canvas切り抜き・リサイズロジックの重複（保守コスト増、将来的なバグ修正の二重対応リスク）。
+- ❌ 「クイズサムネのアップロード同様のロジックで」という当初要望の趣旨（ロジック共有）からはやや外れる。
+
+### Option C: ハイブリッド — 共通ロジックのみ抽出し、UIコンポーネントは分離
+**内容**: `getCroppedImg`/`calculateTargetDimensions`相当の純粋なCanvas処理ロジックを`src/lib/image-crop.ts`（仮、汎用ヘルパー）に抽出し、アスペクト比・出力サイズを引数化。`ImageCropper`（quiz用）と新規のprofile用コンポーネントは、それぞれこの共通ヘルパーを呼び出しつつ、UIのProps・Dialog構成は独立させる。
+
+- ✅ ロジックの重複を避けつつ、UIコンポーネントの所有権はspec境界を跨がない。
+- ✅ 将来他ドメイン（ジャンルアイコン等）でクロップUIが必要になった場合の拡張性が高い。
+- ❌ 新規ファイル（`src/lib/image-crop.ts`）が増え、既存`ImageCropper`のリファクタも伴うため実装ボリュームはOption A/Bの中間。
+- ❌ `image-cropper.tsx`側のリファクタが必須になるため、`quizetika-quiz-image-upload`スペックとの調整（Revalidation Triggers該当）が発生する可能性がある。
+
+## 3. 実装複雑度とリスク
+
+- **Effort**: **S〜M（2〜4日）** — 既存パターン（`react-easy-crop`、Canvas処理、遅延Blob管理）が確立済みで新規技術導入は不要。主な作業はProps拡張・呼び出し側の状態管理変更・テスト追加。
+- **Risk**: **Low〜Medium**
+  - Low要因: 使用ライブラリ（`react-easy-crop`）は`package.json`に既存導入済みで`cropShape="round"`は標準サポート。Canvas APIによる正方形切り出しは技術的に自明。
+  - Medium要因: `image-cropper.tsx`の所有権がspec境界を跨ぐ可能性（Option A選択時）、および既存の`calculateTargetDimensions`テストとの後方互換確保が必要な点。
+
+## 4. 設計フェーズへの推奨事項
+
+- **推奨アプローチ**: **Option A（`ImageCropper`汎用化）**を軸に、design.mdの Boundary Commitments で `image-cropper.tsx` の所有権を「共有UIプリミティブとして両spec間で合意された拡張」と明記する（quiz側の既存契約・デフォルト値を破壊しないことをRevalidation Triggersとして明示）。Option C（ロジック抽出）は、将来的な再利用箇所が増えるまでは過剰設計と判断し見送り候補とする。
+- **設計時に確定すべき事項**:
+  1. `calculateTargetDimensions`のシグネチャ拡張方法（アスペクト比引数追加 vs オーバーロード）と既存テストへの影響
+  2. クロップ結果画像の出力形式（正方形JPEG + CSS円形表示の継続、円形PNG透過切り出しは行わない、の明記）
+  3. エラー表示方式の統一（`alert()` vs コールバックProps化）
+  4. `avatarFile: File`ステートを`Blob`ベースに変更する際の型・命名（quiz側`pendingThumbnailBlob`との命名整合）
+- **Research Needed（設計フェーズで解消）**: 上記「未知・要調査事項」3点。
+
+## Design Synthesis（設計フェーズで確定・2026-07-16）
+
+- **Generalization**: `ImageCropper` の「アスペクト比固定のトリミングモーダル」という能力を一般化し、`aspect`/`cropShape`/`maxWidth`/`maxHeight`/`quality`/`onError`/`confirmTestId`/`cancelTestId` をPropsとして抽出した。クイズ用途（1.91:1・矩形）はデフォルト値として無変更のまま残り、profile用途（1:1・円形）は明示的なProps指定で対応する。将来別ドメイン（ジャンルアイコン等）で同様のクロップUIが必要になった場合も、同じPropsの枠組みで拡張可能。
+- **Build vs Adopt**: 円形クロップUIは新規ライブラリを導入せず、既存導入済み `react-easy-crop`（`^6.0.2`）の標準機能 `cropShape="round"` を採用した（Adopt）。Canvas切り抜き・リサイズロジックも既存の `getCroppedImg`/`calculateTargetDimensions` をパラメータ化して再利用し、新規実装は行わない。
+- **Simplification**: Gap分析で提示したOption C（共通ロジックを`src/lib/`へ抽出する案）は、現時点で再利用箇所がquiz/profileの2箇所に留まるため見送り、Option A（`ImageCropper`直接汎用化）を採用した。エラー表示も新規UIパターンを増やさず、既存の`avatarError`インライン表示（profile）と`alert()`（quiz、無変更）をそれぞれ`onError`コールバックの有無で切り替えるだけに留めた。
+
+## 確定した設計判断（Decision Log）
+
+### Decision: `ImageCropper` をProps拡張で汎用化（Option A採用）
+- **Rationale**: ロジック重複を避けつつ実装ボリュームを最小化できる。既存Propsにすべてデフォルト値を設定することでクイズ側の呼び出しを無変更のまま維持できる。
+- **Trade-offs**: `image-cropper.tsx` の所有権が `quizetika-quiz-image-upload` と `quizeum-auth-profile-ui` の2spec間で共有される。design.mdのRevalidation TriggersにProps契約変更を明記して緩和。
+
+### Decision: クロップ結果は正方形JPEG（円形PNG透過切り出しは行わない）
+- **Rationale**: `cropShape="round"`はUI表示上のマスクに過ぎず、実データの円形切り抜きにはCanvas上でのクリッピングパス処理が別途必要になり複雑化する。既存のアバター表示は`rounded-full object-cover`のCSSで円形に見せているため、正方形JPEGのままで要件を満たせる。
+- **Trade-offs**: 将来的に円形以外の背景（非正方形コンテナ等）にアバターを配置する場合はCSS側で改めて対応が必要になるが、現状のアバター表示要件では発生しない。
+
+### Decision: `avatarFile: File` を `avatarCroppedBlob: Blob` に置換
+- **Rationale**: 要件18-7（トリミング後画像のみをアップロード対象とする）を型レベルで保証する。quiz側の`pendingThumbnailBlob`と命名思想を揃えた。
+- **Trade-offs**: なし（Phase 30時点の型を置き換えるのみで、他箇所からの参照はない）。
+

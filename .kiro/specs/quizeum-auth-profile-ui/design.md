@@ -23,6 +23,7 @@
 - **Phase 28**: 好きなジャンルの複数選択・保存UI（編集画面）およびアイコン画像付きジャンルチップ表示（詳細画面）。
 - **Phase 29**: プロフィールメニュー表示名を「プロフィール」に変更し、PCサイドバーおよびモバイルヘッダーのドロップダウンメニューにダッシュボードリンクを追加する。また、他人のプロフィール画面において本人のプレイ履歴が露出しないよう、表示制御を厳格化する。
 - **Phase 30**: プロフィール編集画面からアバター画像を選択・プレビュー・アップロード・保存できるUIを追加する。プロフィール詳細画面のコンテンツタブ（作成したクイズ／プレイ履歴）の選択状態の視認性を向上させる。
+- **Phase 31**: アバター画像の選択操作に円形のトリミング（クロップ）UIを追加する。`quizetika-quiz-image-upload` の `ImageCropper` をアスペクト比・クロップ形状・出力解像度をProps化した共有コンポーネントへ汎用化し、正方形（1:1）・円形マスク・一辺512px上限で再利用する。
 
 ### Non-Goals
 - クイズプレイ・作成・モデレーション画面（各専用スペック）。
@@ -30,7 +31,8 @@
 - 他ユーザープロフィールからのプレイ履歴閲覧。
 - **Phase 8**: リスト作成・編集・`listType` 選択 UI（`quizetika-creator-dash-ui`）。ブックマーク3タブ・問題リストプレイ（`quizetika-play-flow-ui`）。
 - **Phase 23**: `/profile/[uid]/likes` ルートの削除・404化、`LikesClient` / `ReactionService` の改修、リアクションデータのマイグレーション、E2E F-407 の削除本体（直接実装候補 `remove-reaction-history-e2e` が担当。本スペックは導線削除とテスト方針の整合のみ）。
-- **Phase 30**: アバター画像のクロップ・回転等の画像編集機能。差し替え前アバター画像の Storage 上の物理削除・クレンジング（`quizetika-account-deletion-cleansing` 等が担当）。共有 `components/ui/tabs.tsx` のグローバルなスタイル変更（他画面のタブ利用箇所への影響回避のため対象外）。
+- **Phase 30（Phase 31 で円形トリミングのみ対象内化）**: アバター画像の回転・フィルタ等、円形トリミング以外の画像編集機能。差し替え前アバター画像の Storage 上の物理削除・クレンジング（`quizetika-account-deletion-cleansing` 等が担当）。共有 `components/ui/tabs.tsx` のグローバルなスタイル変更（他画面のタブ利用箇所への影響回避のため対象外）。
+- **Phase 31**: 円形以外のアスペクト比・クロップ形状の提供。`ImageCropper` の `quizetika-quiz-image-upload` 側デフォルト契約（1.91:1・矩形・1920x1005・JPEG品質0.85）の変更。
 
 ---
 
@@ -48,12 +50,14 @@
 - **Phase 28**: `ProfileEditClient` における好きなジャンル（`followedGenres`）の複数選択および保存、`ProfileClient` における好きなジャンルチップ（マスタ解決後の表示名・アイコン）の表示。
 - **Phase 29**: `Sidebar` および `Header` 内のアバタードロップダウンメニューUIの拡張（ダッシュボードリンク追加）、および `Sidebar` メニューの表示名変更。他人のプロフィール画面におけるプレイ履歴タブコンテンツのレンダリングガード。
 - **Phase 30**: `ProfileEditClient` におけるアバター画像の選択・検証・プレビュー・アップロード・保存、および保存後の `AuthContext.refreshUser()` によるヘッダー/サイドバー表示の即時反映。`ProfileClient` のコンテンツタブ（`TabsList`/`TabsTrigger`）に対する視覚強調スタイルの追加（タブ構成自体は変更しない）。
+- **Phase 31**: `ProfileEditClient` におけるアバター選択後のトリミングモーダル統合（クロップ確定結果の Blob 保持・アップロード対象化）。`src/components/ui/image-cropper.tsx`（`ImageCropper`）の `aspect` / `cropShape` / `maxWidth` / `maxHeight` / `quality` / `confirmTestId` / `cancelTestId` / `onError` Props化（`quizetika-quiz-image-upload` と共有するプリミティブとしての拡張。既存のOGP用デフォルト値・呼び出し契約は変更しない）。
 
 ### Out of Boundary
 - Firestoreセキュリティルール、バッジ自動付与サーバー処理。
 - プレイ履歴のクエリ実装・`PlayHistoryPage` 生成（`quizetika-core` / `GET /api/user/play-history`）。
 - **Phase 8**: `listType` の付与・リスト CRUD・問題リスト編集 UI（`quizetika-creator-dash-ui`）。リスト詳細の `listType` 分岐表示本体（`quizetika-play-flow-ui` の `/list/[id]` — 本スペックはプロフィールカードからの遷移のみ）。
-- **Phase 30**: アバター画像のクロップ・回転、旧アバター画像の Storage 物理削除、共有 `components/ui/tabs.tsx` のグローバル変更、コンテンツタブの構成変更（要件11が正本）。
+- **Phase 30（Phase 31 で円形トリミングのみ対象内化）**: アバター画像の回転等の円形トリミング以外の画像編集、旧アバター画像の Storage 物理削除、共有 `components/ui/tabs.tsx` のグローバル変更、コンテンツタブの構成変更（要件11が正本）。
+- **Phase 31**: 円形以外のクロップ形状・アスペクト比のUI提供。クロップ結果の透過PNG出力（正方形JPEGのままCSS `rounded-full` で円形表示する既存方式を継続する）。
 
 ### Allowed Dependencies
 - **`quizetika-core`**: `UserService`, `AuthContext`, **`PlayHistoryPage` / `PlayHistoryEntry` 型（`@/types`）**
@@ -62,12 +66,14 @@
 - **`metadata_genres`**: `useActiveGenres`（`@/hooks/useActiveGenres`）を呼び出し、ジャンルの表示名とアイコン画像を解決する。
 - **Phase 8**: `getQuizListsByAuthor`（`@/services/quiz-list`）、`resolveListType`（`@/types`）。任意フィルタ時は既取得配列のクライアント絞り込みを優先（再フェッチは `options.listType` 利用可だが初版は不要）。
 - **Phase 30**: Supabase Storage（`createClient().storage`、既存 `uploadQuizCover` と同一パターン）。`AuthContext.refreshUser()`（既存・`quizetika-core` 境界外の UI 側フック）。
+- **Phase 31**: `src/components/ui/image-cropper.tsx`（`quizetika-quiz-image-upload` が所有する既存コンポーネント。本フェーズはProps拡張のみを行い、既存のデフォルト値・エクスポート契約を破壊しない形で汎用化する）。`react-easy-crop` の `cropShape="round"` 機能（追加ライブラリ導入なし、既存導入版 `^6.0.2` で対応済み）。
 
 ### Revalidation Triggers
 - `UserService` / Firebase Auth インターフェース変更。
 - `PlayHistoryPage` レスポンス形状またはカーソル形式の変更。
 - **Phase 8**: `QuizList.listType` / `questionIds` スキーマ変更、`getQuizListsByAuthor` のフィルタ契約変更、`resolveListType` 後方互換規則の変更。
 - **Phase 30**: `UpdateProfileData` の `avatarUrl` フィールド契約変更、Supabase Storage バケット構成（`users/{uid}/...`）の変更、`AuthContext.refreshUser()` のシグネチャ変更。
+- **Phase 31**: `ImageCropper` の Props シグネチャ変更（`aspect`/`cropShape`/`maxWidth`/`maxHeight`/`quality`のデフォルト値変更を含む）、`calculateTargetDimensions` の引数シグネチャ変更（`quizetika-quiz-image-upload` 側の再検証が必要）。
 
 ---
 
@@ -1221,5 +1227,159 @@ sequenceDiagram
 - **アップロード失敗時の二重送信**: ネットワーク断等でアップロードのみ成功し `updateProfile` が失敗した場合、Storage 上に孤立画像が残る可能性がある。旧画像削除と同様に本フェーズでは対象外とし、将来のクレンジング処理（`quizetika-account-deletion-cleansing` 等）の対象候補として `research.md` に記録する。
 - **プレビューの Object URL リーク**: `URL.createObjectURL` で生成したプレビューURLは、コンポーネントアンマウント時または新しいファイル選択時に `URL.revokeObjectURL` で解放する。
 
+---
 
+## Phase 31: アバター画像の円形トリミング機能（2026-07-16）
 
+### 1. Overview
+プロフィール編集画面（`/profile/edit`）のアバター画像選択操作に、円形のトリミング（クロップ）UIを追加する（要件18）。`quizetika-quiz-image-upload` が所有する `ImageCropper`（`src/components/ui/image-cropper.tsx`）を、アスペクト比・クロップ形状・出力解像度・エラー通知・確定/キャンセルの `data-testid` をProps化した共有UIプリミティブへ汎用化し、profile側は `aspect={1}` `cropShape="round"` `maxWidth={512}` `maxHeight={512}` を指定して再利用する。クイズカバー画像側の呼び出し（`quiz-metadata-section.tsx`）は無指定時の既存デフォルト値（1.91・矩形・1920×1005・品質0.85・`alert()` エラー表示）がそのまま適用されるため、動作・出力に変更は生じない。
+
+### 2. Boundary Commitments（Phase 31）
+
+| This Phase Owns | Out of Boundary |
+| --- | --- |
+| `ProfileEditClient` におけるトリミングモーダルの統合（選択→クロップ→プレビュー→保存フローへの組み込み） | 円形以外のクロップ形状・アスペクト比のUI提供 |
+| `ImageCropper` の `aspect` / `cropShape` / `maxWidth` / `maxHeight` / `quality` / `confirmTestId` / `cancelTestId` / `onError` Props化（既存デフォルト値は変更しない） | クロップ結果の透過PNG出力（正方形JPEG + CSS円形表示を継続） |
+| `calculateTargetDimensions` のアスペクト比引数化（既存2引数呼び出しの後方互換を維持） | アバター画像の回転・フィルタ等、円形トリミング以外の画像編集機能（Phase 30 Out of Boundary を継続） |
+| — | 旧アバター画像の Storage 物理削除・クレンジング（Phase 30 Out of Boundary を継続） |
+
+### 3. File Structure Plan（Phase 31）
+
+| ファイル | 操作 | 責務 |
+| --- | --- | --- |
+| `src/components/ui/image-cropper.tsx` | **Modify** | `CROP_ASPECT` 定数参照箇所を `aspect` Prop（デフォルト`1.91`）に置換。`cropShape`（デフォルト`'rect'`）、`maxWidth`/`maxHeight`（デフォルト`1920`/`1005`）、`quality`（デフォルト`0.85`）、`confirmTestId`/`cancelTestId`（デフォルト`'image-cropper-confirm'`/`'image-cropper-cancel'`）、`onError`（デフォルト未指定時は既存の`alert()`にフォールバック）をPropsとして追加。`calculateTargetDimensions`・`getCroppedImg`にアスペクト比引数を追加（デフォルト値により既存呼び出しは無変更で動作） |
+| `src/app/profile/edit/profile-edit-client.tsx` | **Modify** | `avatarFile`（`File` 型）を `avatarCroppedBlob`（`Blob` 型、null許容）に置き換え。選択時に `ImageCropper` モーダルを開く `cropSourceUrl` / `isCropModalOpen` state を追加。`handleAvatarChange`・`handleCropComplete`・`handleCropCancel` ハンドラを実装し、保存フローで `avatarCroppedBlob` をアップロード対象とする |
+| `tests/components/image-cropper.test.tsx` | **Modify** | `calculateTargetDimensions` の新引数（アスペクト比）に対応したテストケースを追加（既存の1.91:1前提テストはデフォルト値のまま維持） |
+| `tests/components/profile-edit-client.test.tsx` | **Modify** | クロップモーダル統合後のフロー（選択→クロップ確定/キャンセル→保存）に合わせてアサーションを更新 |
+
+### 4. アバター画像の円形トリミング（要件18）設計
+
+#### `ImageCropper` の汎用化
+既存のモジュールレベル定数 `CROP_ASPECT = 1.91` を、コンポーネント外部からデフォルト値として参照可能な `DEFAULT_ASPECT = 1.91` に変更し、実際のクロップ比率は Props の `aspect`（未指定時 `DEFAULT_ASPECT`）を使用する。`cropSize` 計算・`minZoom` 算出（`onMediaLoaded`）・`react-easy-crop` への `aspect` 指定は、すべて Props値を参照するように置換する。
+
+`calculateTargetDimensions` と `getCroppedImg` は、アスペクト比・出力上限をパラメータ化する。**新規引数はいずれもデフォルト値付きで末尾寄りに追加し、既存の2引数呼び出し（`tests/components/image-cropper.test.tsx` および内部呼び出し）の挙動を変更しない**。
+
+```typescript
+// src/components/ui/image-cropper.tsx（変更後シグネチャ）
+export function calculateTargetDimensions(
+  width: number,
+  height: number,
+  aspect: number = DEFAULT_ASPECT,
+  maxWidth: number = 1920,
+  maxHeight: number = 1005
+): { width: number; height: number };
+
+export interface ImageCropperProps {
+  imageSrc: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onCropComplete: (croppedBlob: Blob) => void;
+  aspect?: number;              // 既定値: 1.91（OGP）
+  cropShape?: 'rect' | 'round';  // 既定値: 'rect'
+  maxWidth?: number;             // 既定値: 1920
+  maxHeight?: number;            // 既定値: 1005
+  quality?: number;              // 既定値: 0.85
+  confirmTestId?: string;        // 既定値: 'image-cropper-confirm'
+  cancelTestId?: string;         // 既定値: 'image-cropper-cancel'
+  onError?: (message: string) => void; // 既定値: 未指定時は alert() にフォールバック（既存挙動を維持）
+}
+```
+
+- `quiz-metadata-section.tsx` の既存呼び出しはPropsを追加しないため、`aspect=1.91` `cropShape='rect'` `maxWidth=1920` `maxHeight=1005` `quality=0.85` `onError`未指定（`alert()`）のまま動作する。挙動・出力に変更は生じない。
+- profile側の呼び出しは `aspect={1}` `cropShape="round"` `maxWidth={512}` `maxHeight={512}` `confirmTestId="profile-avatar-crop-confirm"` `cancelTestId="profile-avatar-crop-cancel"` `onError={setAvatarError}` を指定する。
+- `cropShape="round"` は `react-easy-crop` の標準機能であり、UI上の円形マスク表示のみを行う。`canvas.toBlob` で書き出される実データは常に正方形（角のある）JPEGであり、円形の透過切り抜きは行わない（要件18-4に準拠。プロフィール上の円形表示は既存の `rounded-full object-cover` CSSクラスによって継続される）。
+
+#### `ProfileEditClient` の状態管理とデータフロー
+- `avatarFile: File | null` を廃止し、`avatarCroppedBlob: Blob | null` に置き換える（クロップ確定後の画像のみを保持する設計。要件18-7）。
+- 新規 state: `cropSourceUrl: string | null`（クロップモーダルに渡す選択直後の元画像 Object URL）、`isCropModalOpen: boolean`。
+- `handleAvatarChange(file)`: `validateAvatarFile` で検証する。失敗時は `avatarError` を設定し、モーダルを開かない（既存Phase 30の挙動を維持）。成功時は `avatarError` をクリアし、`URL.createObjectURL(file)` を `cropSourceUrl` に設定して `isCropModalOpen = true` にする（**この時点ではプレビュー・アップロード対象を変更しない**。要件18-1）。
+- `handleCropComplete(blob)`: 直前の `avatarPreviewUrl` があれば `URL.revokeObjectURL` で解放し、`cropSourceUrl` も解放する。新しいプレビューURLを `URL.createObjectURL(blob)` で生成して `avatarPreviewUrl` に設定し、`avatarCroppedBlob = blob` とする。`isCropModalOpen = false`、`cropSourceUrl = null` に戻す（要件18-4）。
+- `handleCropCancel()`: `cropSourceUrl` を解放し、`isCropModalOpen = false`、`cropSourceUrl = null` に戻す。`avatarPreviewUrl` / `avatarCroppedBlob` は変更しない（変更前のアバター表示を維持。要件18-5）。
+- `onError`（`ImageCropper` からのコールバック）: `avatarError` に切り抜き失敗メッセージを設定する。モーダルは開いたまま維持し、ユーザーが再操作できるようにする（要件18-6）。
+- `handleSubmit`: Phase 30 の `avatarFile` 参照を `avatarCroppedBlob` に置き換える。`avatarCroppedBlob` が存在する場合のみ `uploadUserAvatar(avatarCroppedBlob, currentUser.id)` を呼び出す（要件18-7）。以降のフロー（`updateProfile` への `avatarUrl` 反映、`refreshUser()`、遷移）はPhase 30の設計をそのまま踏襲する。
+
+#### `data-testid` 契約（Phase 31 追加分）
+| 要素 | test id |
+| --- | --- |
+| トリミング確定ボタン（プロフィール文脈） | `profile-avatar-crop-confirm` |
+| トリミングキャンセルボタン（プロフィール文脈） | `profile-avatar-crop-cancel` |
+
+#### アバター選択〜トリミング〜保存フロー
+```mermaid
+sequenceDiagram
+    actor User as ユーザー
+    participant Edit as ProfileEditClient
+    participant Validate as avatar-upload
+    participant Cropper as ImageCropper
+    participant Storage as uploadUserAvatar
+    participant UserSvc as updateProfile
+
+    User->>Edit: 画像ファイルを選択
+    Edit->>Validate: validateAvatarFile(file)
+    alt 検証NG
+        Validate-->>Edit: error
+        Edit->>User: エラーメッセージ表示（モーダルを開かない）
+    else 検証OK
+        Validate-->>Edit: ok
+        Edit->>Cropper: isOpen=true, aspect=1, cropShape=round
+        User->>Cropper: ズーム・位置調整
+        alt キャンセル
+            User->>Cropper: キャンセル操作
+            Cropper-->>Edit: onClose
+            Edit->>User: 変更前のアバター表示を維持
+        else 確定
+            User->>Cropper: 確定操作
+            alt 切り抜き失敗
+                Cropper-->>Edit: onError(message)
+                Edit->>User: エラー表示（モーダルは開いたまま）
+            else 切り抜き成功
+                Cropper-->>Edit: onCropComplete(blob)
+                Edit->>User: 切り抜き結果をプレビュー表示
+                User->>Edit: 保存を実行
+                Edit->>Storage: uploadUserAvatar(blob, uid)
+                Storage-->>Edit: avatarUrl
+                Edit->>UserSvc: updateProfile(uid, { ..., avatarUrl })
+                UserSvc-->>Edit: 完了
+                Edit->>User: プロフィール画面へ遷移
+            end
+        end
+    end
+```
+
+### 5. Requirements Traceability（Phase 31）
+
+| 要件 ID | 要件サマリー | 該当コンポーネント | インターフェース / 責務 | フロー / 挙動 |
+| :--- | :--- | :--- | :--- | :--- |
+| 3.4 | 編集画面にアバター変更操作を表示 | `ProfileEditClient` | アバタープレビュー領域＋変更操作（Phase 30継続） | アバター選択〜トリミング〜保存フロー |
+| 16.2 | 選択画像のトリミングUI経由のプレビュー表示 | `ProfileEditClient`, `ImageCropper` | `handleAvatarChange` → クロップモーダル → `handleCropComplete` | アバター選択〜トリミング〜保存フロー |
+| 18.1 | 選択時のトリミングモーダル表示（円形枠・ズーム・位置調整） | `ImageCropper` | `aspect={1}` `cropShape="round"` | アバター選択〜トリミング〜保存フロー |
+| 18.2 | トリミング範囲の正方形(1:1)制約と円形枠プレビュー | `ImageCropper` | `aspect` Prop、`cropShape="round"` | — |
+| 18.3 | 短辺フィットの最小ズーム初期化 | `ImageCropper` | `onMediaLoaded`（Props化された`aspect`を参照） | — |
+| 18.4 | トリミング確定時の正方形切り出し・512px上限縮小・JPEG変換 | `ImageCropper` | `getCroppedImg`, `calculateTargetDimensions(w,h,1,512,512)` | アバター選択〜トリミング〜保存フロー |
+| 18.5 | キャンセル時の変更前アバター維持 | `ProfileEditClient` | `handleCropCancel` | アバター選択〜トリミング〜保存フロー |
+| 18.6 | 切り抜き失敗時のエラー表示 | `ImageCropper`, `ProfileEditClient` | `onError` コールバック | アバター選択〜トリミング〜保存フロー |
+| 18.7 | トリミング後画像のみをアップロード対象とする | `ProfileEditClient` | `avatarCroppedBlob`, `uploadUserAvatar` | アバター選択〜トリミング〜保存フロー |
+| 18.8 | トリミング確定/キャンセルの `data-testid` 契約 | `ImageCropper` | `confirmTestId`, `cancelTestId` | テスト支援 |
+
+### 6. Testing Strategy（Phase 31）
+
+#### 手動確認
+- プロフィール編集画面でアバター画像を選択すると、円形のトリミングモーダルが開き、ズーム・位置調整ができること。
+- トリミングを確定すると、モーダルが閉じてアバター領域に円形表示（`rounded-full`）で切り抜き結果がプレビューされ、保存前は既存のアバターが変更されないこと。
+- トリミングをキャンセルすると、モーダルが閉じて変更前のアバター表示が維持され、再度ファイル選択からやり直せること。
+- クイズ編集画面（`/quiz/[id]/edit` 等）でのカバー画像トリミング（1.91:1・矩形）が、本フェーズの変更後も従来どおり動作すること（回帰確認）。
+
+#### 単体テスト
+- `image-cropper.test.tsx`: `calculateTargetDimensions` に `aspect=1` を渡した場合、正方形の512px上限縮小が正しく計算されること（既存の1.91:1前提テストは引数省略時のデフォルト値でグリーンのまま維持されること）。
+- `image-cropper.test.tsx`（RTLレンダリングテスト追加）: `ImageCropper` に `aspect={1}` `cropShape="round"` `confirmTestId="profile-avatar-crop-confirm"` `cancelTestId="profile-avatar-crop-cancel"` を指定してレンダリングした際、`react-easy-crop` の `Cropper` へ `aspect=1` `cropShape="round"` が実際に渡っていること、および確定・キャンセルボタンにそれぞれ指定した `data-testid` が反映されていることを検証する。Props省略時（クイズ用途）は `aspect=1.91` `cropShape="rect"` かつデフォルト `image-cropper-confirm` / `image-cropper-cancel` の `data-testid` が使われることも合わせて検証する。
+- `image-cropper.test.tsx`（`onError` 配線テスト）: `getCroppedImg` が例外を投げるケースをモックし、`onError` Prop指定時はコールバックが呼ばれモーダルが開いたままであること、`onError` 未指定時は既存どおり `alert()` が呼ばれること（`window.alert` をモック化して検証）を確認する。
+
+#### E2Eテスト
+- `data-testid="profile-avatar-upload-input"` でファイルを選択後、トリミングモーダルが表示されることを検証する。
+- `data-testid="profile-avatar-crop-confirm"` をクリックすると、モーダルが閉じて `data-testid="profile-avatar-preview"` に切り抜き結果が反映されることを検証する。
+- `data-testid="profile-avatar-crop-cancel"` をクリックすると、モーダルが閉じてアバター表示が変更前のまま維持されることを検証する。
+
+### 7. Risks & Mitigations
+- **クイズ側への意図しない影響**: `ImageCropper` の汎用化リファクタが `quiz-metadata-section.tsx` の既存呼び出しに影響しないよう、すべての新規Propsにデフォルト値を設定し、既存の2引数 `calculateTargetDimensions` 呼び出しも含めて回帰テスト（`tests/components/image-cropper.test.tsx` 全件、クイズカバー画像アップロードのE2E）を実施する。
+- **モーダル多重管理の複雑化**: `ProfileEditClient` に `cropSourceUrl` / `isCropModalOpen` / `avatarCroppedBlob` / `avatarPreviewUrl` の複数 state が増える。Object URL の解放漏れを防ぐため、`cropSourceUrl` と `avatarPreviewUrl` それぞれの生成・解放タイミングを明確に分離する（Phase 30 の既存パターンを踏襲）。
+- **`image-cropper.tsx` の所有権共有**: 本ファイルは `quizetika-quiz-image-upload` が所有するが、本フェーズでPropsの後方互換拡張を行う。将来 `quizetika-quiz-image-upload` 側でデフォルト契約（1.91:1・矩形・1920×1005等）を変更する場合は、本スペックへの影響有無を確認すること（Revalidation Trigger登録済み）。
