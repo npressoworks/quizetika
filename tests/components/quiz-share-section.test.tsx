@@ -67,6 +67,36 @@ describe('QuizShareSection', () => {
     expect(screen.getByText(/コピーしました/)).toBeInTheDocument();
 
     await act(async () => {
+      jest.advanceTimersByTime(2999);
+    });
+
+    expect(screen.getByText(/コピーしました/)).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
+
+    expect(screen.queryByText(/コピーしました/)).not.toBeInTheDocument();
+  });
+
+  it('does not call clipboard.writeText and never shows feedback when navigator.clipboard is unavailable', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+
+    render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
+    const copyButton = screen.getByRole('button', { name: /コピー/ });
+
+    await act(async () => {
+      copyButton.click();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/コピーしました/)).not.toBeInTheDocument();
+
+    await act(async () => {
       jest.advanceTimersByTime(3000);
     });
 
