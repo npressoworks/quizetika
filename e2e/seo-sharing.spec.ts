@@ -119,18 +119,23 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
   test('F-703: SNSワンクリック共有機能が正常に動作すること', async ({ page }) => {
     await ensureQuizAndNavigate(page);
 
-    // 2. 共有セクションが確実に表示されることを検証する（要件28.1, 28.11）
-    const shareSection = page.getByTestId('quiz-detail-share-section');
-    await expect(shareSection).toBeVisible();
+    // 2. 共有アイコンボタン（トリガー）が確実に表示されることを検証する（要件28.1, 28.11）
+    const shareTrigger = page.getByTestId('quiz-detail-share-trigger');
+    await expect(shareTrigger).toBeVisible();
 
-    // 3. X共有リンクが、X（Twitter）の投稿作成インテントURLを指すことを直接検証する（要件28.2）
-    const xShareLink = shareSection.locator('a').filter({ hasText: /Xでシェア/ }).first();
+    // 3. トリガーをクリックし、共有メニューが展開されることを検証する（要件28.1a）
+    await shareTrigger.click();
+    const shareMenu = page.getByTestId('quiz-detail-share-menu');
+    await expect(shareMenu).toBeVisible();
+
+    // 4. X共有リンクが、X（Twitter）の投稿作成インテントURLを指すことを直接検証する（要件28.2）
+    const xShareLink = shareMenu.getByTestId('quiz-detail-share-x');
     await expect(xShareLink).toBeVisible();
     const xShareHref = await xShareLink.getAttribute('href');
     expect(xShareHref).toContain('twitter.com');
 
-    // 4. LINE共有リンクが、LINEの共有インテントURLを指すことを直接検証する（要件28.3）
-    const lineShareLink = shareSection.locator('a').filter({ hasText: /LINEで送る/ }).first();
+    // 5. LINE共有リンクが、LINEの共有インテントURLを指すことを直接検証する（要件28.3）
+    const lineShareLink = shareMenu.getByTestId('quiz-detail-share-line');
     await expect(lineShareLink).toBeVisible();
     const lineShareHref = await lineShareLink.getAttribute('href');
     expect(lineShareHref).toContain('line.me');
