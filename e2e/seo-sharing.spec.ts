@@ -145,15 +145,25 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
 
       // プレイページへ遷移することを確認
       await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
-      // 3. クイズをプレイ（簡易的に最初の選択肢をクリック）
-      const firstOption = page.locator('button[class*="optionBtn"]').first()
-        .or(page.locator('button').filter({ hasText: /選択肢|答え|useState/ }).first());
+      // 3. クイズをプレイ（最初の選択肢を選び、解答を確定する）
+      // 選択肢UIはshadcn RadioGroup（role="radio"）で実装されており、旧CSSモジュール時代の
+      // button[class*="optionBtn"] は現在のマークアップに存在しない
+      const firstOption = page.getByRole('radio').first();
       await expect(firstOption).toBeVisible({ timeout: 5000 });
       await firstOption.click();
 
-      const submitBtn = page.locator('button').filter({ hasText: /次へ|提出|完了/ }).first();
-      await expect(submitBtn).toBeVisible({ timeout: 5000 });
-      await submitBtn.click();
+      const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
+      await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+      await confirmBtn.click();
+
+      // 回答後の正誤フィードバック表示を待つ（要件17.4-17.5）
+      await expect(page.getByTestId('play-answer-feedback')).toBeVisible({ timeout: 5000 });
+
+      // このテストは単一問題のクイズを前提とするため、最終問題向けの
+      // 「結果を見る」ボタン（要件17.13）が表示されることを確認する
+      const viewResultsBtn = page.getByTestId('play-view-results');
+      await expect(viewResultsBtn).toBeVisible({ timeout: 5000 });
+      await viewResultsBtn.click();
       // 4. 結果画面へ遷移することを確認
       await expect(page).toHaveURL(/\/quiz\/[\w-]+\/result/);
 
