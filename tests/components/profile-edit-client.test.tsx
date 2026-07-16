@@ -8,6 +8,44 @@ import { ProfileEditClient } from '@/app/profile/edit/profile-edit-client';
 import { getUser, updateProfile } from '@/services/user';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 
+// ImageCropper は Canvas/Image のブラウザ実測処理（jsdom未実装）に依存するため、
+// ProfileEditClient 側のクロップフロー統合（モーダル表示→確定/キャンセル）検証に
+// 必要な最小限のスタブに差し替える。クロップ処理そのものの単体検証は
+// tests/components/image-cropper.test.tsx が担う。
+const mockCroppedBlob = new Blob(['cropped-avatar-data'], { type: 'image/jpeg' });
+
+jest.mock('@/components/ui/image-cropper', () => {
+  const ReactActual = jest.requireActual('react');
+  return {
+    __esModule: true,
+    ImageCropper: (props: any) => {
+      if (!props.isOpen) return null;
+      return ReactActual.createElement(
+        'div',
+        { 'data-testid': 'mock-image-cropper' },
+        ReactActual.createElement(
+          'button',
+          {
+            type: 'button',
+            'data-testid': props.confirmTestId || 'image-cropper-confirm',
+            onClick: () => props.onCropComplete(mockCroppedBlob),
+          },
+          'confirm'
+        ),
+        ReactActual.createElement(
+          'button',
+          {
+            type: 'button',
+            'data-testid': props.cancelTestId || 'image-cropper-cancel',
+            onClick: () => props.onClose(),
+          },
+          'cancel'
+        )
+      );
+    },
+  };
+});
+
 const mockPush = jest.fn();
 const mockRouter = { push: mockPush };
 jest.mock('next/navigation', () => ({
@@ -211,6 +249,18 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
     return file;
   }
 
+  // ファイル選択→クロップモーダル表示→確定操作までを一括で行うヘルパー
+  async function selectFileAndConfirmCrop(file: File) {
+    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+    const confirmButton = await screen.findByTestId('profile-avatar-crop-confirm');
+    await act(async () => {
+      fireEvent.click(confirmButton);
+    });
+  }
+
   it('初期表示で既存のアバター画像がプレビュー領域に表示されること', async () => {
     render(<ProfileEditClient />);
 
@@ -223,7 +273,7 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
     expect(preview).toHaveAttribute('src', 'https://example.com/existing-avatar.png');
   });
 
-  it('有効な画像を選択すると保存前にプレビューが更新されること', async () => {
+  it('有効な画像を選択するとクロップモーダルが表示され、確定するとプレビューが更新されること', async () => {
     render(<ProfileEditClient />);
 
     await waitFor(() => {
@@ -237,9 +287,23 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
       fireEvent.change(input, { target: { files: [file] } });
     });
 
+    // 選択直後は即座にプレビューへ反映されず、クロップモーダルが表示されること
+    const confirmButton = await screen.findByTestId('profile-avatar-crop-confirm');
+    expect(confirmButton).toBeInTheDocument();
+    expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute(
+      'src',
+      'https://example.com/existing-avatar.png'
+    );
+
+    // クロップ確定操作を行う
+    await act(async () => {
+      fireEvent.click(confirmButton);
+    });
+
     await waitFor(() => {
       expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute('src', mockPreviewUrl);
     });
+    expect(screen.queryByTestId('profile-avatar-crop-confirm')).not.toBeInTheDocument();
   });
 
   it('アバターを選択して保存すると、アップロードされたURLでプロフィールが更新され、refreshUser呼び出し後に遷移すること', async () => {
@@ -253,11 +317,8 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
       expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
     });
 
-    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
     const file = makePngFile();
-    await act(async () => {
-      fireEvent.change(input, { target: { files: [file] } });
-    });
+    await selectFileAndConfirmCrop(file);
     await waitFor(() => {
       expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute('src', mockPreviewUrl);
     });
@@ -268,7 +329,7 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
     });
 
     await waitFor(() => {
-      expect(uploadUserAvatar).toHaveBeenCalledWith(file, 'user-1');
+      expect(uploadUserAvatar).toHaveBeenCalledWith(mockCroppedBlob, 'user-1');
       expect(updateProfile).toHaveBeenCalledWith(
         'user-1',
         expect.objectContaining({ avatarUrl: 'https://example.com/new-avatar.png' })
@@ -311,11 +372,8 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
       expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
     });
 
-    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
     const file = makePngFile();
-    await act(async () => {
-      fireEvent.change(input, { target: { files: [file] } });
-    });
+    await selectFileAndConfirmCrop(file);
 
     const saveButton = screen.getByRole('button', { name: /保存/ });
     await act(async () => {
@@ -327,6 +385,73 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
     });
     expect(updateProfile).not.toHaveBeenCalled();
     expect(mockPush).not.toHaveBeenCalledWith('/profile/user-1');
+  });
+
+  it('クロップ確定操作後、切り抜き結果（Blob）がアップロード対象になり保存時にuploadUserAvatarへ渡されること', async () => {
+    const { uploadUserAvatar } = require('@/services/storage');
+    (uploadUserAvatar as jest.Mock).mockResolvedValue('https://example.com/cropped-avatar.png');
+    (updateProfile as jest.Mock).mockResolvedValue(true);
+
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const file = makePngFile();
+    await selectFileAndConfirmCrop(file);
+
+    const saveButton = screen.getByRole('button', { name: /保存/ });
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    await waitFor(() => {
+      // 元の File ではなく、クロップ確定によって生成された Blob がアップロード対象になること
+      expect(uploadUserAvatar).toHaveBeenCalledWith(mockCroppedBlob, 'user-1');
+      expect(uploadUserAvatar).not.toHaveBeenCalledWith(file, 'user-1');
+    });
+  });
+
+  it('クロップキャンセル操作後は変更前のアバターが維持され、保存時にuploadUserAvatarが呼ばれないこと', async () => {
+    const { uploadUserAvatar } = require('@/services/storage');
+    (updateProfile as jest.Mock).mockResolvedValue(true);
+
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
+    const file = makePngFile();
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    const cancelButton = await screen.findByTestId('profile-avatar-crop-cancel');
+    await act(async () => {
+      fireEvent.click(cancelButton);
+    });
+
+    // モーダルが閉じ、変更前のアバターが維持されていること
+    expect(screen.queryByTestId('profile-avatar-crop-cancel')).not.toBeInTheDocument();
+    expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute(
+      'src',
+      'https://example.com/existing-avatar.png'
+    );
+
+    const saveButton = screen.getByRole('button', { name: /保存/ });
+    await act(async () => {
+      fireEvent.click(saveButton);
+    });
+
+    await waitFor(() => {
+      expect(updateProfile).toHaveBeenCalled();
+    });
+    expect(uploadUserAvatar).not.toHaveBeenCalled();
+    const updateCallArg = (updateProfile as jest.Mock).mock.calls[0][1];
+    expect(updateCallArg).not.toHaveProperty('avatarUrl');
   });
 
   it('許可されていない形式の画像を選択すると保存前にエラーが表示され、プレビューは変わらないこと', async () => {
