@@ -13,6 +13,7 @@ import { usePlayedQuizIds } from '@/hooks/usePlayedQuizIds';
 import { resolveQuizFormat } from '@/lib/quiz-format';
 import { formatReviewScorePercent } from '@/services/review-utils';
 import { FormatLabel } from '@/components/quiz/format-label';
+import { QuizShareSection } from '@/components/quiz/quiz-share-section';
 import { detailClasses as styles } from './detail-classes';
 
 import { getQuiz } from '@/services/quiz';
@@ -273,6 +274,9 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
         <div className={styles.description}>
           <p>{quiz.description}</p>
         </div>
+
+        {/* 共有 */}
+        <QuizShareSection quizId={quiz.id} quizTitle={quiz.title} />
 
         {/* プレイ */}
         <div className={styles.playSection}>
