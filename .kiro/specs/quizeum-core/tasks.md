@@ -1764,7 +1764,7 @@
   - _Requirements: 36.7_
   - _Depends: 30.4_
 
-- [ ] 30.6 (P) Phase 42 単体テストの追加
+- [x] 30.6 (P) Phase 42 単体テストの追加
   - `buildSnapshotFromSubscription` のtier維持、`computeUserEntitlements` の回帰確認、`reconcileSubscriptions` の是正・エラースキップの単体テストを整理・追加する
   - 完了状態: Phase 42 で変更・追加した全関数の単体テストがグリーンであること
   - _Requirements: 36.1, 36.2, 36.5, 36.8, 36.10_

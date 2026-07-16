@@ -54,6 +54,30 @@ describe('EntitlementService', () => {
     expect(entitlements.hasUnlimitedAiQuestions).toBe(false);
   });
 
+  it('支払い失敗中（past_due）の creator は tier を維持したままエンタイトルメントが false になる（要件36.5回帰確認）', () => {
+    const entitlements = computeUserEntitlements({
+      subscriptionTier: 'creator',
+      subscriptionStatus: 'past_due',
+    });
+    expect(entitlements.subscriptionTier).toBe('creator');
+    expect(entitlements.subscriptionStatus).toBe('past_due');
+    expect(entitlements.hasPaidEntitlements).toBe(false);
+    expect(entitlements.hasUnlimitedAiQuestions).toBe(false);
+    expect(entitlements.hasCreatorEntitlements).toBe(false);
+  });
+
+  it('支払い失敗中（past_due）の player は tier を維持したままエンタイトルメントが false になる（要件36.5回帰確認）', () => {
+    const entitlements = computeUserEntitlements({
+      subscriptionTier: 'player',
+      subscriptionStatus: 'past_due',
+    });
+    expect(entitlements.subscriptionTier).toBe('player');
+    expect(entitlements.subscriptionStatus).toBe('past_due');
+    expect(entitlements.hasPaidEntitlements).toBe(false);
+    expect(entitlements.hasUnlimitedAiQuestions).toBe(false);
+    expect(entitlements.hasCreatorEntitlements).toBe(false);
+  });
+
   it('モデレーターは契約なしでも hasUnlimitedAiQuestions が true', () => {
     const entitlements = computeUserEntitlements({
       subscriptionTier: 'free',
