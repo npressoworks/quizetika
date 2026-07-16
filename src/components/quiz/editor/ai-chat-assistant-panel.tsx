@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AutoAwesomeOutlined, CloseOutlined, SendOutlined, LanguageOutlined, CheckOutlined, ReplayOutlined } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
+import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import styles from './ai-chat-assistant.module.css';
 
 interface Message {
@@ -43,6 +44,12 @@ interface AiChatAssistantPanelProps {
   }>;
   approveToolCall: (toolCallId: string) => void;
   rejectToolCall: (toolCallId: string) => void;
+  /** サムネイル生成ツール呼び出しごとの実生成の進捗状態 */
+  thumbnailGenerations: Record<string, {
+    status: 'generating' | 'ready' | 'error';
+    imageUrl?: string;
+    errorMessage?: string;
+  }>;
   /** イントロメッセージのアクションボタンからメッセージおよび入力ヒントをセットする */
   onSuggest: (localMessage: string, inputHint: string) => void;
   /** 会話履歴をリセットしてイントロメッセージを表示する */
@@ -87,13 +94,6 @@ const INTRO_ACTIONS = [
     inputHint: '（問題番号）の問題を修正して',
   },
   {
-    id: 'delete',
-    icon: '🗑️',
-    label: '問題を削除',
-    localMessage: '**問題を削除**するには、削除したい問題を指定してください：\n\n> 「（問題番号 または ID）の問題を削除して」\n\n**例：**\n- 「1問目の問題を削除して」\n- 「最後の問題を削除して」\n\n削除前にプレビューが表示され、確認してからエディタに反映されます！',
-    inputHint: '（問題番号）の問題を削除して',
-  },
-  {
     id: 'thumbnail',
     icon: '🖼️',
     label: 'サムネイル生成',
@@ -114,11 +114,12 @@ export function AiChatAssistantPanel({
   pendingApprovals,
   approveToolCall,
   rejectToolCall,
+  thumbnailGenerations,
   onSuggest,
   onReset,
 }: AiChatAssistantPanelProps) {
   const historyRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // プレビューポップアップの状態管理
   const [previewModal, setPreviewModal] = useState<{
@@ -220,6 +221,24 @@ export function AiChatAssistantPanel({
     : false;
 
   const hasPendingApproval = Object.keys(pendingApprovals).length > 0;
+
+  // Enterキー押下時の送信/改行の分岐処理（Requirements 7.1-7.4）
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter') return;
+
+    // IME変換確定中のEnterキー押下は送信として扱わない (Requirement 7.3)
+    if (e.nativeEvent.isComposing) return;
+
+    // Shift+Enterはデフォルトの改行挿入動作のままとする (Requirement 7.2)
+    if (e.shiftKey) return;
+
+    // モバイル幅（CSS 側 @media (max-width: 768px) と同一閾値）ではEnterキー押下では送信しない (Requirement 7.4)
+    if (window.matchMedia('(max-width: 768px)').matches) return;
+
+    // デスクトップ幅・Shiftなし・IME変換確定中でない場合は送信する (Requirement 7.1)
+    e.preventDefault();
+    formRef.current?.requestSubmit();
+  };
 
   const getJapaneseFormatName = (type: string) => {
     switch (type) {
@@ -428,8 +447,16 @@ export function AiChatAssistantPanel({
         return (
           <div className={styles.questionPreview}>
             <div className={styles.previewBadge}>カバー画像生成</div>
-            <p className={isModal ? 'text-base' : 'text-xs'}>AIカバー画像を生成してエディタに設定します。</p>
-            {args.prompt && <p className={`${textBaseClass} text-muted-foreground`}>指示: {args.prompt}</p>}
+            {args.imageUrl ? (
+              <img
+                src={args.imageUrl}
+                alt="生成されたサムネイル"
+                style={{ width: '100%', borderRadius: 8, marginTop: 4 }}
+              />
+            ) : (
+              <p className={isModal ? 'text-base' : 'text-xs'}>AIカバー画像を生成してエディタに設定します。</p>
+            )}
+            {args.userInstruction && <p className={`${textBaseClass} text-muted-foreground`}>指示: {args.userInstruction}</p>}
           </div>
         );
       }
@@ -526,6 +553,8 @@ export function AiChatAssistantPanel({
                   const isSearch = tool.toolName === 'googleSearch';
                   const pending = pendingApprovals[tool.toolCallId];
                   const isPendingApproval = isCall && !!pending;
+                  const isThumbnail = tool.toolName === 'generateThumbnail';
+                  const thumbGen = isThumbnail ? thumbnailGenerations[tool.toolCallId] : undefined;
 
                   // 承認・却下の確定状態
                   const isApproved = tool.state === 'result' && tool.result?.success === true;
@@ -543,6 +572,11 @@ export function AiChatAssistantPanel({
 
                   // 状態に応じた表示文言
                   const labelText = (() => {
+                    if (isThumbnail && isPendingApproval) {
+                      if (!thumbGen || thumbGen.status === 'generating') return 'サムネイル画像を生成中…';
+                      if (thumbGen.status === 'error') return 'サムネイル画像の生成に失敗しました';
+                      return 'サムネイル画像が完成しました。反映しますか？';
+                    }
                     if (isApprovalRequired) {
                       if (isPendingApproval) return `${getJapaneseToolName(tool.toolName)}の承認待ち…`;
                       if (isApproved) return `${getJapaneseToolName(tool.toolName)}を反映しました`;
@@ -553,6 +587,10 @@ export function AiChatAssistantPanel({
                   })();
 
                   const statusClass = (() => {
+                    if (isThumbnail && isPendingApproval) {
+                      if (thumbGen?.status === 'error') return styles.toolError;
+                      return styles.toolWarning || '';
+                    }
                     if (isCall && !isPendingApproval) return '';
                     if (isPendingApproval) return styles.toolWarning || '';
                     if (isApproved) return styles.toolSuccess;
@@ -563,7 +601,15 @@ export function AiChatAssistantPanel({
                   return (
                     <div key={tool.toolCallId} className="flex flex-col">
                       <div className={`${styles.toolInvocation} ${statusClass}`}>
-                        {isCall && !isPendingApproval ? (
+                        {isThumbnail && isPendingApproval ? (
+                          (!thumbGen || thumbGen.status === 'generating') ? (
+                            <CircularProgress size={12} />
+                          ) : thumbGen.status === 'error' ? (
+                            <CloseOutlined sx={{ fontSize: 12 }} className="text-destructive" />
+                          ) : (
+                            <AutoAwesomeOutlined sx={{ fontSize: 12 }} className="text-amber-500" style={{ animation: 'pulse 2s infinite' }} />
+                          )
+                        ) : isCall && !isPendingApproval ? (
                           <CircularProgress size={12} />
                         ) : isPendingApproval ? (
                           <AutoAwesomeOutlined sx={{ fontSize: 12 }} className="text-amber-500" style={{ animation: 'pulse 2s infinite' }} />
@@ -576,7 +622,54 @@ export function AiChatAssistantPanel({
                       </div>
 
                       {/* 承認待ち時のプレビュー＆ボタン */}
-                      {isPendingApproval && (
+                      {isPendingApproval && isThumbnail && (
+                        <div className={styles.approvalContainer}>
+                          {(!thumbGen || thumbGen.status === 'generating') && (
+                            <div className={styles.approvalPreviewButton} style={{ cursor: 'default' }}>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <CircularProgress size={14} />
+                                <span>画像を生成しています。数十秒ほどお待ちください…</span>
+                              </div>
+                            </div>
+                          )}
+                          {thumbGen?.status === 'error' && (
+                            <div className={styles.approvalPreviewButton} style={{ cursor: 'default' }}>
+                              <p className="text-xs text-destructive">{thumbGen.errorMessage || '画像の生成に失敗しました'}</p>
+                            </div>
+                          )}
+                          {thumbGen?.status === 'ready' && thumbGen.imageUrl && (
+                            <button
+                              type="button"
+                              className={styles.approvalPreviewButton}
+                              onClick={() => setPreviewModal({ toolName: tool.toolName, args: { ...tool.args, imageUrl: thumbGen.imageUrl } })}
+                              title="クリックして拡大"
+                            >
+                              <div className={styles.previewTitle}>🖼️ 生成された画像 <span className={styles.previewExpandHint}>(タップで拡大)</span></div>
+                              {renderToolPreview(tool.toolName, { ...tool.args, imageUrl: thumbGen.imageUrl })}
+                            </button>
+                          )}
+                          <div className={styles.approvalActions}>
+                            <button
+                              type="button"
+                              className={styles.approveButton}
+                              onClick={() => approveToolCall(tool.toolCallId)}
+                              disabled={thumbGen?.status !== 'ready'}
+                            >
+                              フォームに反映する
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.rejectButton}
+                              onClick={() => rejectToolCall(tool.toolCallId)}
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 承認待ち時のプレビュー＆ボタン（サムネイル以外） */}
+                      {isPendingApproval && !isThumbnail && (
                         <div className={styles.approvalContainer}>
                           {/* クリックで拡大プレビューを開くカード */}
                           <button
@@ -639,7 +732,7 @@ export function AiChatAssistantPanel({
           })}
 
         {/* Streaming/Loading Indicator */}
-        {isGenerating && (
+        {isGenerating && !hasPendingApproval && (
           <div className={styles.loadingContainer}>
             <div className={styles.dot} />
             <div className={styles.dot} />
@@ -651,10 +744,8 @@ export function AiChatAssistantPanel({
 
       {/* Footer Form */}
       <div className={styles.footer}>
-        <form onSubmit={handleSubmit} className={styles.inputForm}>
-          <input
-            ref={inputRef}
-            type="text"
+        <form ref={formRef} onSubmit={handleSubmit} className={styles.inputForm}>
+          <AutoGrowTextarea
             className={styles.input}
             placeholder={
               isLimitReached
@@ -665,7 +756,9 @@ export function AiChatAssistantPanel({
             }
             value={input || ''}
             onChange={handleInputChange}
+            onKeyDown={handleInputKeyDown}
             disabled={isGenerating || isLimitReached || hasPendingApproval}
+            minRows={1}
           />
           <button
             type="submit"

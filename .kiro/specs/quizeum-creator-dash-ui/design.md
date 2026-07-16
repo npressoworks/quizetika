@@ -1092,7 +1092,7 @@ export function consumeTestPlayDraftForEditor(
 
 ---
 
-## Phase 40: 作成クイズ管理画面（2026-07-12）
+## Phase 40: 作成したクイズ画面（2026-07-12）
 
 ### 1. Overview
 

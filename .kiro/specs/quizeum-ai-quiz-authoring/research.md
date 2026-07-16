@@ -142,3 +142,58 @@
 - **入力**: `quizetika-core` design.md Phase 41 節（`hasCreatorEntitlements` 契約）
 - **出力**: `design.md` Phase 2 節、本節
   * *リスク要因*: Vercel AI SDK の `useChat` におけるツールコール解決の最大タイムアウト時間や、保留中にチャットがリセットされた場合のクリーンアップ処理の検証が必要。また、複数の一括生成（`generateBulkQuestions`）と単一処理のプレビュー表示出し分けを綺麗に行う必要がある。
+
+---
+
+## Design Synthesis: Phase 3 レスポンシブ全画面表示と入力欄操作性の改善（2026-07-16）
+
+### Summary
+
+- **Discovery Type**: Light（Simple Addition — 既存 `AiChatAssistantPanel` / `ai-chat-assistant.module.css` の表示条件・イベントハンドリング改修のみ、新規コンポーネント・新規外部依存なし）
+- **背景**: モバイル利用時のチャットパネルUXと、メッセージ入力の改行・送信操作性、ツール承認待機中のローディング表示を改善する要求（discovery `/kiro-discovery` → Path A: 既存スペック拡張）。
+
+### Research Log（Phase 3）
+
+#### 既存コンポーネントの現状確認
+
+- **Context**: `AiChatAssistantPanel`（`src/components/quiz/editor/ai-chat-assistant-panel.tsx`）と対応 CSS Modules（`ai-chat-assistant.module.css`）を直接確認。
+- **Findings**:
+  - 入力欄は現在 `<input type="text">` の単一行フィールド。`handleInputChange` の型シグネチャ（`useAiChatAssistant.ts`）はすでに `HTMLInputElement | HTMLTextAreaElement` のユニオン型になっており、`textarea` への変更は既存フックのインターフェース変更を要さない。
+  - プロジェクト内に行数連動オートリサイズを実装済みの共通コンポーネント `AutoGrowTextarea`（`src/components/ui/auto-grow-textarea.tsx`）が既に存在し、`quiz-metadata-section.tsx` の説明文入力や `question-card.tsx`、`lateral-thinking-editor.tsx` で採用実績がある（`tests/components/auto-grow-textarea.test.tsx` でテスト済み）。`value`/`onChange`/`minRows` に加え、`onKeyDown` を含む任意の `textarea` 属性を `...rest` 経由で透過的に受け取れる設計になっている。
+  - ローディングインジケータ（「AIが思考中」）は `isGenerating` のみを条件に表示されており、`hasPendingApproval`（承認待ちツールコールの有無）は考慮されていない。
+  - `.panel` の CSS は `position: fixed` で幅 `500px` の右サイドパネルとして常に固定されており、モバイル向けの `@media` クエリは未定義。
+  - 閉じるボタンはヘッダー（`.header` / `.headerActions`）にのみ存在し、他の位置には配置されていない（要件 1.9 は既存実装を壊さないための明示的な制約として機能する）。
+- **Implications**: 新規状態管理やAPI変更は不要。`ai-chat-assistant-panel.tsx` の JSX/イベントハンドラーと `ai-chat-assistant.module.css` の変更のみで全要件を満たせる。
+
+#### プロジェクト共通のモバイルブレークポイント規約
+
+- **Context**: レスポンシブ切り替えの閾値をプロジェクトの既存慣習に合わせる必要がある。
+- **Sources Consulted**: `src/app/page.module.css`（`@media (max-width: 767px)`）、`src/app/quiz/create/create.module.css`（`@media (max-width: 768px)`）。
+- **Findings**: プロジェクト内では `767px`〜`768px` 付近がモバイル判定の慣習的な閾値として使われている（統一された共有定数は存在しない）。
+- **Implications**: 本フェーズでも `768px` を採用し、CSS 側の `@media (max-width: 768px)` と JS 側の `window.matchMedia('(max-width: 768px)')` の両方で同じ値を用いる。値の変更時は両ファイルの同期が必要である旨を design.md の Revalidation Triggers に明記した。
+
+### Design Decisions（Phase 3）
+
+#### Decision: モバイル幅判定を CSS の `@media` と JS の `matchMedia` の二重実装にする
+
+- **Context**: チャットパネルの全画面レイアウト切り替えは CSS のみで実現可能だが、Enter キー送信の抑止判定は実行時にJSで行う必要がある。
+- **Alternatives Considered**:
+  1. リサイズ監視フック（`useState` + `resize` イベントリスナー）でモバイル判定を一元化し、CSS側もインラインスタイルで制御する。
+  2. CSS の `@media` とJSの `matchMedia` を個別に保持し、値（768px）だけを一致させる。
+- **Selected Approach**: 2 を採用。
+- **Rationale**: 本フェーズはレイアウト切り替え（CSSのみで完結可能）とキー入力抑止（JS判定が必須）という異なる関心事であり、共通の状態管理フックを新設するとリサイズイベントリスナーの追加やクリーンアップ処理など、単純なUI改修に対して過剰な複雑さを持ち込むことになる（Simplification）。既存プロジェクトも共有ブレークポイント定数を持たずファイル単位で閾値を定義する慣習であるため、この二重実装は既存パターンからの逸脱ではない。
+- **Trade-offs**: 閾値変更時に2箇所の手動同期が必要というリスクがあるが、design.md の Revalidation Triggers に明記することで軽減する。
+- **Follow-up**: 実装時、`matchMedia` のクエリ文字列と CSS Modules の `@media` 条件式が完全に一致していることをコードレビューで確認する。
+
+#### Decision: 送信トリガーは既存 `<form>` の `requestSubmit()` を再利用
+
+- **Context**: `textarea` の `onKeyDown` から送信を発火させる必要がある。
+- **Selected Approach**: `<form>` に `ref` を付与し、送信条件を満たした場合に `formRef.current?.requestSubmit()` を呼び出すことで、既存の `onSubmit={handleSubmit}` をそのまま経由させる。
+- **Rationale**: `useAiChatAssistant.ts` 側の送信ロジック（バリデーション、`sendMessage` 呼び出し）を変更せずに済み、Boundary（このスペックはUIのみを所有し、送信ロジックの契約は変更しない）を維持できる。
+
+### Risks & Mitigations（Phase 3）
+
+- **CSS・JS 間のブレークポイント値の乖離**: 将来どちらか一方だけが変更され、レイアウト切り替えとキー入力抑止のタイミングがずれるリスク。
+  - *対策*: design.md の Revalidation Triggers に明記し、実装タスクで両ファイルの値を同時に変更するようレビューする。
+- **`textarea` 化による既存レイアウトへの影響**: 単一行 `input` から可変高さ `textarea` への変更により、フッターや送信ボタンとの垂直位置ズレが発生する可能性。
+  - *対策*: `.sendButton` の `align-self: center` を維持しつつ、`.input` の最大高さと `align-items` をCSSで調整することで対応する（実装タスクで確認）。

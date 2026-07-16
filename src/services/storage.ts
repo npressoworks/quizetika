@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import { assertGenreIconFileValid } from '../lib/genre-icon-upload';
+import { assertAvatarFileValid } from '../lib/avatar-upload';
 import { resolveBucketAndPath, parseSupabasePublicUrl } from '../lib/storage-path';
 
 /**
@@ -75,6 +76,32 @@ export function getQuestionImagePath(quizId: string, questionId: string, extensi
 export function getUserAvatarPath(uid: string, extension: string = 'png'): string {
   const timestamp = Date.now();
   return `users/${uid}/avatar_${timestamp}.${extension}`;
+}
+
+/**
+ * ユーザーアバター画像を Supabase Storage にアップロードする
+ * @param file アップロードする画像データ（File または Blob）
+ * @param uid ユーザーのドキュメントID
+ * @returns アップロード後の公開URL
+ */
+export async function uploadUserAvatar(file: File | Blob, uid: string): Promise<string> {
+  assertAvatarFileValid(file as File);
+
+  const contentType = file.type || 'image/jpeg';
+  const extension = contentType === 'image/jpeg' ? 'jpeg' : contentType === 'image/gif' ? 'gif' : 'png';
+  const path = getUserAvatarPath(uid, extension);
+  const { bucket, objectPath } = resolveBucketAndPath(path);
+
+  const supabase = createClient();
+  const { error } = await supabase.storage.from(bucket).upload(objectPath, file, {
+    contentType,
+  });
+  if (error) {
+    throw error;
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+  return data.publicUrl;
 }
 
 /**

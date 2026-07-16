@@ -147,7 +147,7 @@ test.describe('AI チャットアシスタント E2E', () => {
       await startBtn.click();
 
       // チャット送信
-      const input = page.locator('input[placeholder="AIに指示を送る..."]');
+      const input = page.locator('textarea[placeholder="AIに指示を送る..."]');
       await input.fill('テストメッセージ');
       await page.keyboard.press('Enter');
 
@@ -243,7 +243,7 @@ test.describe('AI チャットアシスタント E2E', () => {
 
       // チャットに入力して送信
       const chatPanel = page.getByTestId('ai-chat-assistant-panel');
-      const input = chatPanel.locator('input[type="text"]');
+      const input = chatPanel.locator('textarea');
       await input.fill('首都に関する問題を1問作成して');
       await page.keyboard.press('Enter');
 
@@ -333,7 +333,7 @@ test.describe('AI チャットアシスタント E2E', () => {
 
       // チャットに入力して送信
       const chatPanel = page.getByTestId('ai-chat-assistant-panel');
-      const input = chatPanel.locator('input[type="text"]');
+      const input = chatPanel.locator('textarea');
       await input.fill('却下する問題を作成して');
       await page.keyboard.press('Enter');
 
@@ -353,6 +353,67 @@ test.describe('AI チャットアシスタント E2E', () => {
 
       // エディタに問題が反映されていない（画面上に見つからない）ことを確認
       await expect(page.locator('body')).not.toContainText('却下される問題テキスト');
+    });
+
+    test('Phase 3: モバイル幅ではチャットパネルが全画面表示になり、閉じるボタンがヘッダーにのみ存在すること (Requirements 1.8, 1.9)', async ({ page }) => {
+      // モバイル相当のビューポート幅（CSS 側 @media (max-width: 768px) の閾値内）に設定
+      await page.setViewportSize({ width: 375, height: 812 });
+
+      await page.goto('/quiz/create');
+      await page.waitForLoadState('domcontentloaded');
+
+      // チャット起動ボタンからパネルを開く
+      const chatBtn = page.getByTestId('ai-chat-assistant-button');
+      await expect(chatBtn).toBeVisible({ timeout: 15000 });
+      await chatBtn.click();
+
+      const chatPanel = page.getByTestId('ai-chat-assistant-panel');
+      await expect(chatPanel).toHaveAttribute('data-open', 'true');
+
+      // パネルが画面全体を覆う全画面表示になっていること（幅がビューポート幅とほぼ一致）
+      const panelBox = await chatPanel.boundingBox();
+      expect(panelBox).not.toBeNull();
+      expect(panelBox!.width).toBeGreaterThanOrEqual(370);
+
+      // 閉じるボタンはヘッダー上部にのみ存在し、表示されていること
+      const closeBtn = page.getByTestId('ai-chat-close-button');
+      await expect(closeBtn).toBeVisible();
+      await expect(closeBtn).toHaveCount(1);
+
+      // フローティング起動ボタンは全画面表示中は非表示（display: none）になり、
+      // ヘッダー以外に重複した閉じる操作が存在しないことを保証する (Requirement 1.9)
+      await expect(chatBtn).not.toBeVisible();
+
+      // 閉じるボタンでパネルを閉じられること
+      await closeBtn.click();
+      await expect(chatPanel).toHaveAttribute('data-open', 'false');
+    });
+
+    test('Phase 3 回帰: デスクトップ幅では従来どおりスライドインパネルとフローティングボタンが維持されること', async ({ page }) => {
+      // デスクトップ相当のビューポート幅（CSS 側ブレークポイント 768px を超える）に設定
+      await page.setViewportSize({ width: 1280, height: 800 });
+
+      await page.goto('/quiz/create');
+      await page.waitForLoadState('domcontentloaded');
+
+      const chatBtn = page.getByTestId('ai-chat-assistant-button');
+      await expect(chatBtn).toBeVisible({ timeout: 15000 });
+      await chatBtn.click();
+
+      const chatPanel = page.getByTestId('ai-chat-assistant-panel');
+      await expect(chatPanel).toHaveAttribute('data-open', 'true');
+
+      // デスクトップ幅では全画面ではなく右側スライドインパネル（固定幅 500px）として表示されること
+      const panelBox = await chatPanel.boundingBox();
+      expect(panelBox).not.toBeNull();
+      expect(panelBox!.width).toBeLessThan(1280);
+
+      // フローティングボタンはパネル表示中も引き続き表示されている（閉じるボタンとして機能）こと（回帰確認）
+      await expect(chatBtn).toBeVisible();
+
+      // フローティングボタン経由でも閉じられること（従来の挙動）
+      await chatBtn.click();
+      await expect(chatPanel).toHaveAttribute('data-open', 'false');
     });
   });
 });

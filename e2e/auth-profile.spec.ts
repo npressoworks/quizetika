@@ -34,7 +34,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     
     // 9. プロフィール画面（/profile/[userId]）へ遷移することを確認
@@ -110,7 +110,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     await expect(page).toHaveURL(/\/profile\//);
 
@@ -150,7 +150,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     await e2eLoginBtn.click();
     await expect(page).toHaveURL('/');
 
-    // 2. マイページへ遷移
+    // 2. プロフィールへ遷移
     const navProfile = page.getByTestId('nav-profile');
     if (await navProfile.isVisible({ timeout: 10000 })) {
       await navProfile.click();
@@ -158,7 +158,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     await expect(page).toHaveURL(/\/profile\//);
 
@@ -215,7 +215,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     await e2eLoginBtn.click();
     await expect(page).toHaveURL('/');
 
-    // 2. マイページへ遷移
+    // 2. プロフィールへ遷移
     const navProfile = page.getByTestId('nav-profile');
     if (await navProfile.isVisible({ timeout: 10000 })) {
       await navProfile.click();
@@ -223,7 +223,7 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
       const headerProfileBtn = page.getByTestId('header-profile-btn');
       await expect(headerProfileBtn).toBeVisible({ timeout: 10000 });
       await headerProfileBtn.click();
-      await page.locator('[data-testid="header-profile-popup"] >> text=マイページ').click();
+      await page.locator('[data-testid="header-profile-popup"] >> text=プロフィール').click();
     }
     await expect(page).toHaveURL(/\/profile\//);
 
@@ -287,5 +287,74 @@ test.describe('ユーザー認証・プロフィール管理 E2Eテスト', () =
     await expect(page.getByTestId('profile-favorite-genres')).toHaveCount(0);
 
     await context.close();
+  });
+
+  test('アバター画像選択→円形トリミングモーダル表示→確定操作でプレビューに反映されること', async ({ page }) => {
+    // 1. プロフィール編集画面へ直接遷移(認証状態は setup プロジェクトが引き継ぐ)
+    await page.goto('/profile/edit');
+
+    const avatarPreview = page.getByTestId('profile-avatar-preview');
+    await expect(avatarPreview).toBeVisible();
+    const srcBeforeUpload = await avatarPreview.getAttribute('src');
+
+    // 2. ダミーのPNG画像 (1px x 1px) をアバターアップロード用inputにセット
+    const dummyImageBuffer = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const fileInput = page.getByTestId('profile-avatar-upload-input');
+    await fileInput.setInputFiles({
+      name: 'avatar-test.png',
+      mimeType: 'image/png',
+      buffer: dummyImageBuffer,
+    });
+
+    // 3. 円形トリミングモーダルの「確定」ボタンが表示されることを確認
+    const confirmBtn = page.getByTestId('profile-avatar-crop-confirm');
+    await expect(confirmBtn).toBeVisible();
+
+    // 4. 「確定」ボタンをクリックしてトリミングを確定
+    await confirmBtn.click();
+
+    // 5. モーダルが閉じ、プレビューの src が変化していることを確認
+    await expect(confirmBtn).not.toBeVisible();
+    await expect(async () => {
+      const srcAfterConfirm = await avatarPreview.getAttribute('src');
+      expect(srcAfterConfirm).not.toBe(srcBeforeUpload);
+      expect(srcAfterConfirm).toContain('blob:');
+    }).toPass({ timeout: 5000 });
+  });
+
+  test('アバター画像選択→キャンセル操作でアバターが変更前のまま維持されること', async ({ page }) => {
+    // 1. プロフィール編集画面へ直接遷移
+    await page.goto('/profile/edit');
+
+    const avatarPreview = page.getByTestId('profile-avatar-preview');
+    await expect(avatarPreview).toBeVisible();
+    const srcBeforeUpload = await avatarPreview.getAttribute('src');
+
+    // 2. ダミーのPNG画像 (1px x 1px) をアバターアップロード用inputにセット
+    const dummyImageBuffer = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const fileInput = page.getByTestId('profile-avatar-upload-input');
+    await fileInput.setInputFiles({
+      name: 'avatar-test-cancel.png',
+      mimeType: 'image/png',
+      buffer: dummyImageBuffer,
+    });
+
+    // 3. 円形トリミングモーダルの「キャンセル」ボタンが表示されることを確認
+    const cancelBtn = page.getByTestId('profile-avatar-crop-cancel');
+    await expect(cancelBtn).toBeVisible();
+
+    // 4. 「キャンセル」ボタンをクリックしてトリミングを取りやめる
+    await cancelBtn.click();
+
+    // 5. モーダルが閉じ、プレビューの src が変更前のまま維持されていることを確認
+    await expect(cancelBtn).not.toBeVisible();
+    const srcAfterCancel = await avatarPreview.getAttribute('src');
+    expect(srcAfterCancel).toBe(srcBeforeUpload);
   });
 });

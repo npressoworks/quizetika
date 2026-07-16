@@ -158,6 +158,55 @@ describe('uploadQuizCover', () => {
   });
 });
 
+describe('uploadUserAvatar', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('正常系: 許可されたMIMEタイプかつサイズ制限内のファイルをユーザーアバターパスへアップロードできること', async () => {
+    const { uploadUserAvatar } = require('../../src/services/storage');
+
+    const mockFile = { type: 'image/png', size: 1024 } as any;
+    const uid = 'user-123';
+
+    mockUpload.mockResolvedValue({ data: { path: 'user-123/avatar.png' }, error: null });
+    mockGetPublicUrl.mockReturnValue({
+      data: { publicUrl: 'https://project.supabase.co/storage/v1/object/public/users/user-123/avatar_1.png' },
+    });
+
+    const url = await uploadUserAvatar(mockFile, uid);
+
+    expect(url).toBe('https://project.supabase.co/storage/v1/object/public/users/user-123/avatar_1.png');
+    expect(mockStorageFrom).toHaveBeenCalledWith('users');
+    expect(mockUpload).toHaveBeenCalledWith(
+      expect.stringMatching(/^user-123\/avatar_\d+\.png$/),
+      mockFile,
+      { contentType: 'image/png' }
+    );
+  });
+
+  test('異常系: SVG形式のファイルはエラーをスローすること', async () => {
+    const { uploadUserAvatar } = require('../../src/services/storage');
+    const mockFile = { type: 'image/svg+xml', size: 500 } as any;
+
+    await expect(uploadUserAvatar(mockFile, 'user-123')).rejects.toThrow(
+      'PNG, JPEG, GIF ファイルのみアップロード可能です。'
+    );
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  test('異常系: 5MBを超えるファイルはエラーをスローすること', async () => {
+    const { uploadUserAvatar } = require('../../src/services/storage');
+    const largeSize = 5.1 * 1024 * 1024;
+    const mockFile = { type: 'image/png', size: largeSize } as any;
+
+    await expect(uploadUserAvatar(mockFile, 'user-123')).rejects.toThrow(
+      'ファイルサイズは 5MB 以下にしてください。'
+    );
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+});
+
 test('assertGenreIconFileValid はガード関数として存在する（既存維持の確認）', () => {
   expect(typeof assertGenreIconFileValid).toBe('function');
 });

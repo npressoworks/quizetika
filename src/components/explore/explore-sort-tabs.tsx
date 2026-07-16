@@ -2,7 +2,7 @@
 
 import React from 'react';
 import type { QuizListSort } from '@/services/quiz';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, UnderlineTabsList, UnderlineTabsTrigger } from '@/components/ui/underline-tabs';
 
 export interface ExploreSortTabsProps {
   activeSort: QuizListSort;
@@ -22,18 +22,18 @@ export function ExploreSortTabs({ activeSort, onSortChange }: ExploreSortTabsPro
       onValueChange={(value) => onSortChange(value as QuizListSort)}
       data-testid="explore-sort-tabs"
     >
-      <TabsList variant="line" className="h-auto w-full justify-start gap-6 rounded-none border-b bg-transparent p-0">
+      <UnderlineTabsList className="h-auto gap-6 p-0">
         {TABS.map((tab) => (
-          <TabsTrigger
+          <UnderlineTabsTrigger
             key={tab.id}
             value={tab.id}
             data-testid={`explore-sort-${tab.id}`}
-            className="rounded-none px-2 py-3 data-active:bg-transparent"
+            className="rounded-none px-2 py-3"
           >
             {tab.label}
-          </TabsTrigger>
+          </UnderlineTabsTrigger>
         ))}
-      </TabsList>
+      </UnderlineTabsList>
     </Tabs>
   );
 }

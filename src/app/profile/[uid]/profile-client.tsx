@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, notFound, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
+import { useActiveTags } from '@/hooks/useActiveTags';
 import {
   getUser,
   followUser,
@@ -12,6 +13,7 @@ import {
   isFollowing
 } from '@/services/user';
 import { ProfileQuizzesPanel } from '@/components/profile/profile-quizzes-panel';
+import { UnifiedSearchField } from '@/components/explore/unified-search-field';
 import { QuizCard } from '@/components/quiz/quiz-card';
 import { toggleBookmark, getBookmarkedQuizIds } from '@/services/bookmark';
 import { getSnsLogoUrl } from '@/services/storage';
@@ -40,10 +42,9 @@ import { ReportUserDialog } from '@/components/profile/report-user-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Badge as UiBadge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, UnderlineTabsList, UnderlineTabsTrigger, TabsContent } from '@/components/ui/underline-tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 type ProfileContentTab = 'quizzes' | 'history';
@@ -93,6 +94,8 @@ export function ProfileClient() {
   const [quizzesCount, setQuizzesCount] = useState(0);
   const [followingState, setFollowingState] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileContentTab>('quizzes');
+  const [quizSearchQuery, setQuizSearchQuery] = useState('');
+  const [quizSearchTagChips, setQuizSearchTagChips] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [submittingFollow, setSubmittingFollow] = useState(false);
   const [isDeletedPending, setIsDeletedPending] = useState(false);
@@ -102,6 +105,7 @@ export function ProfileClient() {
   const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(new Set());
 
   const { genres, loading: genresLoading } = useActiveGenres();
+  const { tags, loading: tagsLoading, error: tagsError, tagLabelById } = useActiveTags();
   const favoriteGenres = genres.filter(g => profileUser?.followedGenres?.includes(g.id));
 
   useEffect(() => {
@@ -453,18 +457,37 @@ export function ProfileClient() {
             value={activeTab}
             onValueChange={(v) => setActiveTab(v as ProfileContentTab)}
           >
-            <TabsList className="mb-6">
-              <TabsTrigger value="quizzes" className="gap-2">
+            {activeTab === 'quizzes' && (
+              <div className="mb-4">
+                <UnifiedSearchField
+                  tagChips={quizSearchTagChips}
+                  onTagChipsChange={setQuizSearchTagChips}
+                  keyword={quizSearchQuery}
+                  onKeywordChange={setQuizSearchQuery}
+                  tags={tags}
+                  tagsLoading={tagsLoading}
+                  tagsError={tagsError}
+                  tagLabelById={tagLabelById}
+                  onClearAll={() => {
+                    setQuizSearchQuery('');
+                    setQuizSearchTagChips([]);
+                  }}
+                />
+              </div>
+            )}
+
+            <UnderlineTabsList className="mb-6">
+              <UnderlineTabsTrigger value="quizzes">
                 <GridViewOutlined sx={{ fontSize: 18 }} />
                 作成したクイズ ({quizzesCount})
-              </TabsTrigger>
+              </UnderlineTabsTrigger>
               {isMyProfile && (
-                <TabsTrigger value="history" className="gap-2" data-testid="profile-tab-history">
+                <UnderlineTabsTrigger value="history" data-testid="profile-tab-history">
                   <HistoryOutlined sx={{ fontSize: 18 }} />
                   プレイ履歴
-                </TabsTrigger>
+                </UnderlineTabsTrigger>
               )}
-            </TabsList>
+            </UnderlineTabsList>
 
             {isMyProfile && (
               <TabsContent value="history" data-testid="profile-tab-content-history">
@@ -480,6 +503,8 @@ export function ProfileClient() {
                 onBookmarkToggle={handleBookmarkToggle}
                 onPlayClick={handleCardClick}
                 onQuizzesCountChange={setQuizzesCount}
+                searchQuery={quizSearchQuery}
+                tagChips={quizSearchTagChips}
               />
             </TabsContent>
 

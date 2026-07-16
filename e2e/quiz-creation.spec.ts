@@ -67,7 +67,7 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
     await expect(saveDraftBtn).toBeVisible();
     await saveDraftBtn.click();
 
-    // アラートの表示と作成クイズ管理画面（/creator/quizzes）への遷移を確認
+    // アラートの表示と作成したクイズ画面（/creator/quizzes）への遷移を確認
     await expect.poll(() => dialogMessage).toContain('下書きを保存しました');
     await expect(page).toHaveURL(/\/creator\/quizzes/);
 

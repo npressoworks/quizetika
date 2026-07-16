@@ -10,6 +10,9 @@ import {
   validateProfileData,
   ProfileValidationError
 } from '@/services/user';
+import { validateAvatarFile, AVATAR_ACCEPT } from '@/lib/avatar-upload';
+import { uploadUserAvatar } from '@/services/storage';
+import { ImageCropper } from '@/components/ui/image-cropper';
 import { ErrorOutlined, SaveOutlined, ArrowBackOutlined } from '@mui/icons-material';
 import { ProfileEditSkeleton } from '@/components/profile/profile-skeleton';
 import { Button } from '@/components/ui/button';
@@ -27,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 
 export function ProfileEditClient() {
-  const { user: currentUser, loading: authLoading } = useAuth();
+  const { user: currentUser, loading: authLoading, refreshUser } = useAuth();
   const router = useRouter();
 
   const [displayName, setDisplayName] = useState('');
@@ -45,6 +48,13 @@ export function ProfileEditClient() {
   const [errors, setErrors] = useState<ProfileValidationError[]>([]);
   const [submitError, setSubmitError] = useState('');
 
+  const [existingAvatarUrl, setExistingAvatarUrl] = useState('');
+  const [avatarCroppedBlob, setAvatarCroppedBlob] = useState<Blob | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState('');
+  const [cropSourceUrl, setCropSourceUrl] = useState<string | null>(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const { genres, loading: genresLoading } = useActiveGenres();
@@ -61,6 +71,54 @@ export function ProfileEditClient() {
   const handleGenreRemove = (genreId: string) => {
     setSelectedGenres(prev => prev.filter(id => id !== genreId));
   };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const validation = validateAvatarFile(file);
+    if (!validation.ok) {
+      setAvatarError(validation.error);
+      return;
+    }
+
+    setAvatarError('');
+    setCropSourceUrl(URL.createObjectURL(file));
+    setIsCropModalOpen(true);
+  };
+
+  const handleCropComplete = (blob: Blob) => {
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+    }
+    if (cropSourceUrl) {
+      URL.revokeObjectURL(cropSourceUrl);
+    }
+    setAvatarPreviewUrl(URL.createObjectURL(blob));
+    setAvatarCroppedBlob(blob);
+    setIsCropModalOpen(false);
+    setCropSourceUrl(null);
+  };
+
+  const handleCropCancel = () => {
+    if (cropSourceUrl) {
+      URL.revokeObjectURL(cropSourceUrl);
+    }
+    setIsCropModalOpen(false);
+    setCropSourceUrl(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+      if (cropSourceUrl) {
+        URL.revokeObjectURL(cropSourceUrl);
+      }
+    };
+  }, [avatarPreviewUrl, cropSourceUrl]);
 
   // 外側クリックでサジェストを閉じる
   useEffect(() => {
@@ -93,6 +151,7 @@ export function ProfileEditClient() {
         if (userData) {
           setDisplayName(userData.displayName || '');
           setBio(userData.bio || '');
+          setExistingAvatarUrl(userData.avatarUrl || '');
           setSelectedGenres(userData.followedGenres || []);
           if (userData.snsLinks) {
             setYoutube(userData.snsLinks.youtube || '');
@@ -129,12 +188,19 @@ export function ProfileEditClient() {
     setSubmitError('');
 
     try {
+      let avatarUrl: string | undefined;
+      if (avatarCroppedBlob) {
+        avatarUrl = await uploadUserAvatar(avatarCroppedBlob, currentUser.id);
+      }
+
       await updateProfile(currentUser.id, {
         displayName,
         bio,
+        ...(avatarUrl !== undefined ? { avatarUrl } : {}),
         followedGenres: selectedGenres,
         snsLinks: { youtube, x, instagram, tiktok }
       });
+      await refreshUser();
       router.push(`/profile/${currentUser.id}`);
     } catch (err: unknown) {
       console.error('Profile update failed:', err);
@@ -179,6 +245,46 @@ export function ProfileEditClient() {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            <div className="flex flex-col items-center gap-3">
+              <img
+                data-testid="profile-avatar-preview"
+                src={avatarPreviewUrl || existingAvatarUrl || '/default-avatar.png'}
+                alt={displayName}
+                className="size-24 rounded-full border border-border object-cover"
+              />
+              <Label
+                htmlFor="avatar-upload-input"
+                className="inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-input bg-secondary px-3 text-sm font-medium text-secondary-foreground hover:bg-secondary/80"
+              >
+                画像を変更する
+              </Label>
+              <input
+                id="avatar-upload-input"
+                data-testid="profile-avatar-upload-input"
+                type="file"
+                accept={AVATAR_ACCEPT}
+                className="hidden"
+                disabled={submitting}
+                onChange={handleAvatarChange}
+              />
+              {avatarError && (
+                <span className="text-xs text-destructive">{avatarError}</span>
+              )}
+              <ImageCropper
+                imageSrc={cropSourceUrl ?? ''}
+                isOpen={isCropModalOpen}
+                aspect={1}
+                cropShape="round"
+                maxWidth={512}
+                maxHeight={512}
+                confirmTestId="profile-avatar-crop-confirm"
+                cancelTestId="profile-avatar-crop-cancel"
+                onError={setAvatarError}
+                onClose={handleCropCancel}
+                onCropComplete={handleCropComplete}
+              />
+            </div>
+
             <div className="flex flex-col gap-2">
               <Label htmlFor="displayName">表示名</Label>
               <Input

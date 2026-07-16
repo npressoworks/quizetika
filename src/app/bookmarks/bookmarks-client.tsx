@@ -59,8 +59,6 @@ export function BookmarksClient() {
 
   return (
     <div data-testid="bookmarks-page-container">
-      <BookmarksTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
       <BookmarkSearchSection
         filters={filters}
         onChange={setFilters}
@@ -74,6 +72,8 @@ export function BookmarksClient() {
         tagsError={tagsError}
         tagLabelById={tagLabelById}
       />
+
+      <BookmarksTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
       {activeTab === 'quiz' && (
         <BookmarkQuizGrid

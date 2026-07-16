@@ -7,6 +7,7 @@ export const detailClasses = {
   detailCard:
     'flex flex-col gap-6 rounded-xl border border-border bg-card p-8',
   header: 'flex items-start justify-between gap-4',
+  headerActions: 'flex items-center gap-2',
   titleArea: 'flex flex-col gap-2',
   genre:
     'inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary',

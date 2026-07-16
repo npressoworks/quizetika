@@ -8,6 +8,24 @@ import { ProfileQuizzesPanel } from '@/components/profile/profile-quizzes-panel'
 import { getQuizzesByAuthor, getQuizzesByAuthorPage } from '@/services/quiz';
 import { useAds } from '@/hooks/useAds';
 
+// searchQuery は呼び出し側（プロフィール画面ではタブの上の検索欄）が管理する制御プロパティのため、
+// テストでは検索欄を持つラッパーで検証する。
+function ProfileQuizzesPanelHarness(
+  props: Omit<React.ComponentProps<typeof ProfileQuizzesPanel>, 'searchQuery'>
+) {
+  const [searchQuery, setSearchQuery] = React.useState('');
+  return (
+    <>
+      <input
+        data-testid="profile-quiz-search-input"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+      <ProfileQuizzesPanel {...props} searchQuery={searchQuery} />
+    </>
+  );
+}
+
 jest.mock('@/services/quiz', () => ({
   getQuizzesByAuthor: jest.fn(),
   getQuizzesByAuthorPage: jest.fn(),
@@ -83,7 +101,7 @@ describe('ProfileQuizzesPanel', () => {
 
   it('検索キーワード入力時に一括取得 getQuizzesByAuthor に切り替わり、クライアントフィルタが機能する', async () => {
     render(
-      <ProfileQuizzesPanel
+      <ProfileQuizzesPanelHarness
         authorId="user-1"
         isMyProfile={false}
         bookmarkedIds={new Set()}

@@ -112,6 +112,54 @@ describe('stripe-webhook service', () => {
     });
   });
 
+  it('past_due ステータスの creator subscription でも subscriptionTier は creator のまま維持される', () => {
+    const subscription = {
+      id: 'sub_past_due',
+      customer: 'cus_1',
+      status: 'past_due',
+      items: {
+        data: [
+          {
+            price: { id: 'price_creator_monthly_test' },
+            current_period_end: 1782864000,
+          },
+        ],
+      },
+      metadata: { userId: 'uid-1' },
+    } as unknown as Stripe.Subscription;
+
+    const snapshot = buildSnapshotFromSubscription(subscription, 'uid-1');
+    expect(snapshot).toMatchObject({
+      uid: 'uid-1',
+      subscriptionTier: 'creator',
+      subscriptionStatus: 'past_due',
+    });
+  });
+
+  it('past_due ステータスの player subscription でも subscriptionTier は player のまま維持される', () => {
+    const subscription = {
+      id: 'sub_past_due_player',
+      customer: 'cus_2',
+      status: 'past_due',
+      items: {
+        data: [
+          {
+            price: { id: 'price_player_monthly_test' },
+            current_period_end: 1782864000,
+          },
+        ],
+      },
+      metadata: { userId: 'uid-2' },
+    } as unknown as Stripe.Subscription;
+
+    const snapshot = buildSnapshotFromSubscription(subscription, 'uid-2');
+    expect(snapshot).toMatchObject({
+      uid: 'uid-2',
+      subscriptionTier: 'player',
+      subscriptionStatus: 'past_due',
+    });
+  });
+
   it('subscription.updated で applySubscriptionFromStripe を呼ぶ', async () => {
     const subscription = {
       id: 'sub_1',

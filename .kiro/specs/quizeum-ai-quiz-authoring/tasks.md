@@ -162,3 +162,52 @@
 - **Upstream 前提**: `quizetika-core` タスク 29.1（`hasCreatorEntitlements` フィールド追加）が完了していること。
 - **実装順序**: 6.1 → 6.2（並行可、6.1 とは独立ファイル）→ 6.3 → 6.4。
 - 関数・クラス名（`canAccessAiAuthoring` 等）は維持し、判定条件と表示文言のみを変更する（`quizetika-core` design.md Phase 41 節の決定と整合）。
+
+## 7. Phase 3: レスポンシブ全画面表示と入力欄操作性の改善（2026-07-16）
+
+- [x] 7.1 (P) チャットパネルのレスポンシブ全画面レイアウトとフローティングボタン非表示制御の実装
+  - 既存のモバイルブレークポイント規約（`max-width: 768px`）に合わせた `@media` クエリを `.panel` に追加し、対象幅で画面全体を覆う全画面レイアウトに切り替える
+  - 同じ `@media` 条件下で `.floatingButtonOpen` に `display: none` を適用し、チャット起動フローティングボタンをパネル表示中は非表示にする
+  - `.input`（`AutoGrowTextarea` に適用されるクラス）に、最大高さと内部スクロール（`overflow-y: auto`）を持つスタイルを追加する
+  - モバイル幅判定の閾値（768px）は、7.2 で実装する `window.matchMedia` 側の判定と同じ値を用いること（値が乖離するとレイアウト切り替えとキー入力抑止のタイミングがずれるため、実装後に相互レビューする）
+  - 観察可能な完了条件: ビューポート幅を768px以下に変更してチャットパネルを開くと、パネルが画面全体を覆い、フローティングボタンが非表示になり、デスクトップ幅（768px超）では従来のスライドインパネル・ボタン表示が維持されること
+  - _Requirements: 1.8, 1.9_
+  - _Boundary: CSS Modules (ai-chat-assistant.module.css)_
+
+- [x] 7.2 (P) メッセージ入力欄の textarea 化とオートリサイズの適用
+  - メッセージ入力欄を単一行の `<input>` から、既存の共通コンポーネント `AutoGrowTextarea`（`src/components/ui/auto-grow-textarea.tsx`）に置き換える（新規のリサイズロジックは実装せず、既存コンポーネントの行数連動オートリサイズをそのまま利用する）
+  - 観察可能な完了条件: メッセージ入力欄が複数行の `textarea` として表示され、改行を含む入力に応じて表示高さが自動的に拡張されること
+  - _Requirements: 7.5_
+  - _Boundary: UI Layer (AiChatAssistantPanel)_
+
+- [x] 7.3 メッセージ送信のキーボード操作性実装とローディング表示条件の修正
+  - `<form>` に ref を付与し、Enterキー押下時（Shiftキー同時押下なし、IME変換確定中でない、かつビューポート幅がモバイル相当（`window.matchMedia('(max-width: 768px)')`）でない場合）に `requestSubmit()` を呼び出して送信する処理を `AutoGrowTextarea` の `onKeyDown` に実装する
+  - Shift+Enterキー押下時は送信を行わずデフォルトの改行挿入動作のままとし、IME変換確定中のEnterキー押下（`nativeEvent.isComposing`）およびモバイル幅では送信を行わない分岐を実装する
+  - ローディングインジケータ（「AIが思考中」）の表示条件に `!hasPendingApproval` を追加し、ツール承認待機中は表示しないようにする
+  - 観察可能な完了条件: デスクトップ幅でEnterキーのみを押下するとメッセージが送信され、Shift+Enterでは改行のみが挿入され、モバイル幅ではEnterキー押下では送信されず送信ボタン押下でのみ送信され、ツール承認待機中は「AIが思考中」インジケータが表示されないこと
+  - _Depends: 7.2_
+  - _Requirements: 3.7, 7.1, 7.2, 7.3, 7.4_
+  - _Boundary: UI Layer (AiChatAssistantPanel)_
+
+- [x] 7.4 Phase 3 単体/コンポーネントテストの追加
+  - 入力欄のキーボードイベントハンドリング（Enter送信、Shift+Enter改行、IME変換確定ガード、モバイル幅での送信抑止）のコンポーネントテストを `tests/components/quiz/ai-chat-assistant-panel.test.tsx` に追加する
+  - 複数行入力時の入力欄高さ拡張（`AutoGrowTextarea` 経由）、および `pendingApprovals` が空でない場合に「AIが思考中」が表示されないことを検証するテストケースを追加する
+  - 観察可能な完了条件: 追加したテストケースを含む `ai-chat-assistant-panel.test.tsx` のテストスイートを実行し、すべてグリーンでパスすること
+  - _Depends: 7.1, 7.2, 7.3_
+  - _Requirements: 1.8, 1.9, 3.7, 7.1, 7.2, 7.3, 7.4, 7.5_
+  - _Boundary: Testing_
+
+- [x] 7.5 Phase 3 E2Eテストの追加・実行
+  - `e2e/ai-chat-assistant.spec.ts` に、ビューポート幅をモバイル相当に変更した状態でチャットパネルを開き、全画面表示に切り替わること、閉じる操作がヘッダー上部にのみ存在しフローティングボタンが非表示であることを検証するシナリオを追加する
+  - デスクトップ幅では従来どおりのスライドインパネル・フローティングボタン表示が維持されることを検証する回帰シナリオを追加する
+  - 観察可能な完了条件: Playwrightで追加シナリオを実行し、モバイル全画面表示・閉じるボタンの重複なし・デスクトップ回帰のすべてのアサーションがパスすること
+  - _Depends: 7.4_
+  - _Requirements: 1.8, 1.9_
+  - _Boundary: Testing_
+
+## Implementation Notes (Phase 3)
+
+- **実装順序**: 7.1・7.2 は独立ファイル（CSS Modules と TSX）のため並行実装可能。7.2 完了後に 7.3（キーボードハンドリング）を実装し、7.4 → 7.5 の順で検証する。
+- **Build vs Adopt**: 入力欄のオートリサイズは新規実装せず、既存の共通コンポーネント `AutoGrowTextarea`（`quiz-metadata-section.tsx` 等で採用実績あり）をそのまま利用する（design.md research.md 参照）。
+- 7.1 の CSS 側 `@media (max-width: 768px)` と 7.3 の JS 側 `window.matchMedia('(max-width: 768px)')` は同一の閾値（768px）を用いること。値を変更する場合は両方を同時に更新する。
+- **教訓（7.2→7.5）**: 7.2 でメッセージ入力欄を `<input>` から `AutoGrowTextarea`（`<textarea>`）へ置き換えた際、`e2e/ai-chat-assistant.spec.ts` 内の既存E2E（承認フロー等）が `input[type="text"]` セレクタのまま取り残され、7.5 のE2E実行時に3件のタイムアウト失敗として顕在化した。UI要素のタグ名を変更するタスクでは、Jestコンポーネントテストだけでなく同一コンポーネントを参照するE2Eセレクタの棚卸しも変更対象に含めるべきだった。

@@ -31,7 +31,7 @@ import {
   ChevronLeft,
   ChevronRight,
   SettingsOutlined,
-  ExitToAppOutlined,
+  LogoutOutlined,
 } from '@mui/icons-material';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { cn } from '@/lib/utils';
@@ -49,10 +49,9 @@ import { isNavItemActive } from './nav-active';
 import { getUnreadNotificationsCount } from '@/services/notification';
 
 const navLinkBase =
-  'flex items-center gap-4 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground md:max-lg:justify-center md:max-lg:px-3';
+  'flex items-center gap-4 rounded-lg px-4 py-3 text-base font-medium text-muted-foreground transition-colors hover:bg-white hover:text-foreground dark:hover:bg-white/10 md:max-lg:justify-center md:max-lg:px-3';
 
-const navLinkActive =
-  'active bg-accent/10 font-semibold text-accent-foreground md:max-lg:rounded-lg';
+const navLinkActive = 'active font-semibold text-primary md:max-lg:rounded-lg';
 
 export interface SidebarProps {
   isCollapsed?: boolean;
@@ -147,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
       },
       {
         href: `/profile/${user.id}`,
-        label: 'マイページ',
+        label: 'プロフィール',
         icon: <PersonOutlined sx={{ fontSize: 22 }} />,
         activeIcon: <Person sx={{ fontSize: 22 }} />,
         testId: 'nav-profile',
@@ -260,13 +259,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                 <ListAltOutlined sx={{ fontSize: 22 }} />
               )}
             </span>
-            <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作成クイズ管理</span>
+            <span className={cn("nav-label max-lg:hidden", isCollapsed && "lg:hidden")}>作成したクイズ</span>
             {/* ミニ表示時にホバーで表示されるツールチップ */}
             <span className={cn(
               "absolute left-full ml-3 z-[100] hidden bg-popover text-popover-foreground px-2 py-1 rounded text-xs pointer-events-none whitespace-nowrap border border-border shadow-md",
               isCollapsed ? "md:group-hover:block" : "md:max-lg:group-hover:block"
             )}>
-              作成クイズ管理
+              作成したクイズ
             </span>
           </Link>
         )}
@@ -392,7 +391,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
                 }
               >
                 <ListAltOutlined sx={{ fontSize: 18 }} />
-                <span>作成クイズ管理</span>
+                <span>作成したクイズ</span>
               </DropdownMenuItem>
               <DropdownMenuItem
                 render={
@@ -408,7 +407,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggle 
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
-                <ExitToAppOutlined sx={{ fontSize: 18 }} />
+                <LogoutOutlined sx={{ fontSize: 18 }} />
                 <span>ログアウト</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

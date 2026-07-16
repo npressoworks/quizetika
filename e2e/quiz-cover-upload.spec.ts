@@ -83,7 +83,7 @@ test.describe('クイズカバー画像アップロード E2Eテスト', () => {
     await expect(saveDraftBtn).toBeVisible();
     await saveDraftBtn.click();
 
-    // アラートメッセージと、作成クイズ管理画面（/creator/quizzes）への遷移が完了したことを確認
+    // アラートメッセージと、作成したクイズ画面（/creator/quizzes）への遷移が完了したことを確認
     await expect.poll(() => dialogMessage).toContain('下書きを保存しました');
     await expect(page).toHaveURL(/\/creator\/quizzes/);
   });

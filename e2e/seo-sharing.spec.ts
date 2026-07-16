@@ -53,6 +53,69 @@ async function ensureQuizAndNavigate(page: any) {
   await page.waitForURL(/\/quiz\/[\w-]+$/);
 }
 
+// 単一選択式（通常形式）のクイズを毎回新規作成し、その詳細ページへ遷移するヘルパー。
+// ensureQuizAndNavigate はホーム画面の「最初のクイズカード」を無条件に採用するため、
+// 早押し・ウミガメのスープ等の非選択式クイズがたまたま先頭に来ると、プレイ→選択肢選択→
+// 結果画面という手順を前提とするテストが不安定になる（クイズ選定方法起因の既存の不安定性）。
+// このヘルパーは常に自分専用の単一選択式クイズを新規作成することで、出題形式を決定的にする。
+async function createSingleChoiceQuizAndNavigate(page: any) {
+  await page.goto('/');
+  // 動画広告モーダルによるクリック干渉（1/3確率でのランダム表示）を避けるため、
+  // ensureQuizAndNavigate と同様に広告を無効化してからクイズ作成・プレイ導線へ進む
+  await page.evaluate(() => {
+    window.localStorage.setItem('e2e-mock-ads-disabled', 'true');
+  });
+
+  await page.goto('/quiz/create');
+  const loginBtn = page.locator('#e2e-test-login-btn');
+  try {
+    await loginBtn.waitFor({ state: 'visible', timeout: 3000 });
+    if (await loginBtn.isVisible()) {
+      await loginBtn.click();
+      await page.waitForTimeout(1000);
+    }
+  } catch (e) {}
+
+  await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
+  const quizTitle = `[SEO TEST] 単一選択式クイズ ${Date.now()}`;
+  await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+  await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動シード（単一選択式・1問）');
+
+  // ジャンルの選択（公開時に必須）
+  const genreInput = page.getByTestId('genre-editor-search-input');
+  if (await genreInput.isVisible().catch(() => false)) {
+    await genreInput.click();
+    const genreOption = page.getByTestId('genre-editor-search-option-science-technology');
+    if (await genreOption.isVisible().catch(() => false)) {
+      await genreOption.click();
+    }
+  }
+
+  // 第1問の問題文（公開時に必須）
+  const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
+  await qTextarea.waitFor({ state: 'visible', timeout: 5000 });
+  await qTextarea.fill('E2Eテスト用の単一選択式問題です。正しい選択肢を選んでください。');
+
+  // 選択肢（通常の単一選択式・4択、1つ目を正解として使用する）
+  const choiceInputs = page.locator('[class*="choiceRow"] input[type="text"]');
+  await choiceInputs.first().waitFor({ state: 'visible', timeout: 5000 });
+  await choiceInputs.nth(0).fill('useState');
+  await choiceInputs.nth(1).fill('useEffect');
+  await choiceInputs.nth(2).fill('useContext');
+  await choiceInputs.nth(3).fill('useRef');
+
+  // 公開申請
+  page.once('dialog', async (dialog: any) => {
+    await dialog.accept();
+  });
+  await page.locator('button').filter({ hasText: /^公開$/ }).first().click();
+  await page.waitForURL(/\/quiz\/[\w-]+\/success$/, { timeout: 15000 });
+
+  const quizId = page.url().match(/\/quiz\/([\w-]+)\/success$/)?.[1];
+  await page.goto(`/quiz/${quizId}`);
+  await expect(page).toHaveURL(/\/quiz\/[\w-]+$/);
+}
+
 test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト', () => {
   
   test('F-701: SEO/OGPメタデータが動的に埋め込まれていること', async ({ page }) => {
@@ -116,59 +179,79 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
     await customContext.close();
   });
 
-  test('F-703: SNSワンクリック共有機能が正常に動作すること', async ({ page, context }) => {
+  test('F-703: SNSワンクリック共有機能が正常に動作すること', async ({ page }) => {
     await ensureQuizAndNavigate(page);
 
-    // 2. 共有ボタンを確認
-    const shareBtn = page.locator('button').filter({ hasText: /共有|シェア|Share/ }).first();
-    
-    if (await shareBtn.isVisible()) {
+    // 2. 共有アイコンボタン（トリガー）が確実に表示されることを検証する（要件28.1, 28.11）
+    const shareTrigger = page.getByTestId('quiz-detail-share-trigger');
+    await expect(shareTrigger).toBeVisible();
+
+    // 3. トリガーをクリックし、共有メニューが展開されることを検証する（要件28.1a）
+    await shareTrigger.click();
+    const shareMenu = page.getByTestId('quiz-detail-share-menu');
+    await expect(shareMenu).toBeVisible();
+
+    // 4. X共有リンクが、X（Twitter）の投稿作成インテントURLを指すことを直接検証する（要件28.2）
+    const xShareLink = shareMenu.getByTestId('quiz-detail-share-x');
+    await expect(xShareLink).toBeVisible();
+    const xShareHref = await xShareLink.getAttribute('href');
+    expect(xShareHref).toContain('twitter.com');
+
+    // 5. LINE共有リンクが、LINEの共有インテントURLを指すことを直接検証する（要件28.3）
+    const lineShareLink = shareMenu.getByTestId('quiz-detail-share-line');
+    await expect(lineShareLink).toBeVisible();
+    const lineShareHref = await lineShareLink.getAttribute('href');
+    expect(lineShareHref).toContain('line.me');
+  });
+  test('クイズ結果画面: SNS共有機能が正常に動作すること', async ({ page }) => {
+    // ホーム画面の「最初のクイズカード」に依存すると、他のE2Eテストが作成した
+    // 早押し・ウミガメのスープ等の非選択式クイズがたまたま先頭に来た場合に
+    // 本テストの手順（選択肢選択→解答確定）が成立しなくなるため、
+    // 自分専用の単一選択式クイズを毎回新規作成して出題形式を決定的にする
+    await createSingleChoiceQuizAndNavigate(page);
+
+    // 2. プレイボタンをクリック
+    // button 要素をテキスト（/プレイ|始める/）で絞り込むと、クイズランキング欄の
+    // 「初回プレイ」タブ（role="tab" の button）も一致してしまい、Suspenseによる
+    // 非同期レンダリング順序次第でどちらが先にDOMへ現れるかが変動するため、
+    // data-analytics 属性による確定的なロケータを用いる
+    const playBtn = page.locator('[data-analytics="quiz-play-start-detail"]');
+    await expect(playBtn).toBeVisible({ timeout: 10000 });
+    await playBtn.click();
+
+    // プレイページへ遷移することを確認
+    await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
+    // 3. クイズをプレイ（最初の選択肢を選び、解答を確定する）
+    // 選択肢UIはshadcn RadioGroup（role="radio"）で実装されており、旧CSSモジュール時代の
+    // button[class*="optionBtn"] は現在のマークアップに存在しない
+    const firstOption = page.getByRole('radio').first();
+    await expect(firstOption).toBeVisible({ timeout: 5000 });
+    await firstOption.click();
+
+    const confirmBtn = page.getByRole('button', { name: '解答を確定する' });
+    await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+    await confirmBtn.click();
+
+    // 回答後の正誤フィードバック表示を待つ（要件17.4-17.5）
+    await expect(page.getByTestId('play-answer-feedback')).toBeVisible({ timeout: 5000 });
+
+    // このテストは単一問題のクイズを前提とするため、最終問題向けの
+    // 「結果を見る」ボタン（要件17.13）が表示されることを確認する
+    const viewResultsBtn = page.getByTestId('play-view-results');
+    await expect(viewResultsBtn).toBeVisible({ timeout: 5000 });
+    await viewResultsBtn.click();
+    // 4. 結果画面へ遷移することを確認
+    await expect(page).toHaveURL(/\/quiz\/[\w-]+\/result/);
+
+    // 5. 結果画面で共有ボタンを確認
+    const resultShareBtn = page.locator('button').filter({ hasText: /共有|シェア/ }).first();
+
+    if (await resultShareBtn.isVisible()) {
       // 共有ボタンをクリック
-      await shareBtn.click();
+      await resultShareBtn.click();
 
       // 共有メニューが表示されることを確認
       await page.waitForTimeout(300);
-
-      // X（旧Twitter）共有ボタン
-      const xShareBtn = page.locator('a').filter({ hasText: /X|Twitter/ }).first();
-      if (await xShareBtn.isVisible()) {
-        const shareUrl = await xShareBtn.getAttribute('href');
-        expect(shareUrl).toContain('twitter');
-      }
-    }
-  });
-  test('クイズ結果画面: SNS共有機能が正常に動作すること', async ({ page }) => {
-    await ensureQuizAndNavigate(page);
-
-    // 2. プレイボタンをクリック
-    const playBtn = page.locator('button').filter({ hasText: /プレイ|始める/ }).first();
-    if (await playBtn.isVisible()) {
-      await playBtn.click();
-
-      // プレイページへ遷移することを確認
-      await expect(page).toHaveURL(/\/quiz\/[\w-]+\/play/);
-      // 3. クイズをプレイ（簡易的に最初の選択肢をクリック）
-      const firstOption = page.locator('button[class*="optionBtn"]').first()
-        .or(page.locator('button').filter({ hasText: /選択肢|答え|useState/ }).first());
-      await expect(firstOption).toBeVisible({ timeout: 5000 });
-      await firstOption.click();
-
-      const submitBtn = page.locator('button').filter({ hasText: /次へ|提出|完了/ }).first();
-      await expect(submitBtn).toBeVisible({ timeout: 5000 });
-      await submitBtn.click();
-      // 4. 結果画面へ遷移することを確認
-      await expect(page).toHaveURL(/\/quiz\/[\w-]+\/result/);
-
-      // 5. 結果画面で共有ボタンを確認
-      const resultShareBtn = page.locator('button').filter({ hasText: /共有|シェア/ }).first();
-      
-      if (await resultShareBtn.isVisible()) {
-        // 共有ボタンをクリック
-        await resultShareBtn.click();
-
-        // 共有メニューが表示されることを確認
-        await page.waitForTimeout(300);
-      }
     }
   });
 
@@ -281,10 +364,10 @@ test.describe('パフォーマンス・SEO・ソーシャル共有 E2Eテスト'
       if (await saveDraftBtn.isVisible()) {
         await saveDraftBtn.click();
 
-        // 作成クイズ管理画面（/creator/quizzes）に遷移することを確認
+        // 作成したクイズ画面（/creator/quizzes）に遷移することを確認
         await expect(page).toHaveURL(/\/creator\/quizzes/);
 
-        // 5. 作成クイズ管理画面から作成したクイズの詳細ページへアクセス
+        // 5. 作成したクイズ画面から作成したクイズの詳細ページへアクセス
         // (一覧の「編集する」ボタンで編集画面URLからクイズIDを取得し、詳細ページへ直接遷移する)
         const managementList = page.getByTestId('creator-quiz-management-list');
         await expect(managementList.getByText(quizTitle)).toBeVisible({ timeout: 15000 });

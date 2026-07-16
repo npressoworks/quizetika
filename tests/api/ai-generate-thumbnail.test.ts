@@ -1,5 +1,6 @@
 import { POST } from '@/app/api/quiz/ai-generate-thumbnail/route';
 import { NextRequest } from 'next/server';
+import sharp from 'sharp';
 
 const mockVerify = jest.fn();
 const mockResolveEntitlements = jest.fn();
@@ -90,7 +91,13 @@ describe('POST /api/quiz/ai-generate-thumbnail', () => {
       candidates: [
         {
           content: {
-            parts: [{ inlineData: { data: Buffer.from('png').toString('base64'), mimeType: 'image/png' } }],
+            // 1x1 の透過 PNG（sharp によるクロップ処理を通すため、有効な PNG バイナリである必要がある）
+            parts: [{
+              inlineData: {
+                data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+                mimeType: 'image/png',
+              },
+            }],
           },
         },
       ],
@@ -123,6 +130,21 @@ describe('POST /api/quiz/ai-generate-thumbnail', () => {
       p_counter_key: 'thumbnail',
       p_today: '2026-06-10',
     });
+
+    // OGP 推奨サイズ（1200x630）へクロップされたバッファがアップロードされていること
+    const uploadedBuffer = mockUpload.mock.calls[0][0] as Buffer;
+    const metadata = await sharp(uploadedBuffer).metadata();
+    expect(metadata.width).toBe(1200);
+    expect(metadata.height).toBe(630);
+
+    // Gemini へのリクエストで 16:9 のアスペクト比を指定していること
+    expect(mockGenerateContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({
+          imageConfig: expect.objectContaining({ aspectRatio: '16:9' }),
+        }),
+      })
+    );
   });
 
   test('非 Pro は 403', async () => {

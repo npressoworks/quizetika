@@ -13,8 +13,6 @@ import type {
   SubscriptionTier,
 } from '@/types/subscription';
 
-const PAID_ACTIVE_STATUSES: SubscriptionStatus[] = ['active', 'trialing'];
-
 export function resolveUidFromSubscription(
   subscription: Stripe.Subscription
 ): string | null {
@@ -41,11 +39,7 @@ export function buildSnapshotFromSubscription(
   }
 
   const status = subscription.status as SubscriptionStatus;
-  const hasPaid =
-    mappedTier !== 'free' &&
-    PAID_ACTIVE_STATUSES.includes(status);
-
-  const subscriptionTier: SubscriptionTier = hasPaid ? mappedTier : 'free';
+  const subscriptionTier: SubscriptionTier = mappedTier;
   const customerId =
     typeof subscription.customer === 'string'
       ? subscription.customer

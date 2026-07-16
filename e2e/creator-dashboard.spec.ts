@@ -13,7 +13,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
     // ダッシュボードページが表示されることを確認
     await expect(page.locator('h1').filter({ hasText: /ダッシュボード|クイズ管理/ }).first()).toBeVisible();
 
-    // 2. 簡易クイズ一覧は撤去され、作成クイズ管理画面（/creator/quizzes）への導線が表示されることを確認（要件19.1, 19.4）
+    // 2. 簡易クイズ一覧は撤去され、作成したクイズ画面（/creator/quizzes）への導線が表示されることを確認（要件19.1, 19.4）
     await expect(page.getByTestId('creator-dashboard-manage-quizzes-link')).toBeVisible({ timeout: 15000 });
 
     // 3. ダッシュボードに統計情報が表示されることを確認
@@ -57,7 +57,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
     if (await avatarBtn.isVisible()) {
       await avatarBtn.click({ force: true });
       
-      const myPageLink = page.locator('text=マイページ');
+      const myPageLink = page.locator('text=プロフィール');
       if (await myPageLink.isVisible()) {
         await myPageLink.click();
       }
@@ -282,7 +282,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
         if (await saveDraftBtn.isVisible()) {
           await saveDraftBtn.click();
 
-          // 作成クイズ管理画面（/creator/quizzes）に遷移することを確認
+          // 作成したクイズ画面（/creator/quizzes）に遷移することを確認
           await expect(page).toHaveURL(/\/creator\/quizzes/);
 
           // 4. 新しく作成したクイズが一覧に表示されることを確認（要件19.1）

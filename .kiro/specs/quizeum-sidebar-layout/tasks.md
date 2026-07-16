@@ -29,7 +29,7 @@
 - [x] 2.2 (P) サイドバーのメニュー動的表示とアバターポップアップの実装
   - 認証状態と現在のアクティブパスを監視し、メニュー項目を動的に切り替える。
   - 未ログイン時はログインボタンを表示し、ログイン時はホーム、通知、ブックマーク、作問、ダッシュボード等の各メニューを縦に並べる。現在のアクティブパスに合致するメニューをハイライトする。
-  - フッター部分にログインユーザーのアバターと表示名を表示し、クリック時に上方向へ「マイページ」「ログアウト」などのポップアップを展開する。ログアウト押下時は認証サインアウト処理を実行し、ホーム画面へリダイレクトする。
+  - フッター部分にログインユーザーのアバターと表示名を表示し、クリック時に上方向へ「プロフィール」「ログアウト」などのポップアップを展開する。ログアウト押下時は認証サインアウト処理を実行し、ホーム画面へリダイレクトする。
   - *検証結果*: ログイン／未ログインの状態でサイドバーの表示項目が正しく出し分けられ、アクティブなパスがハイライトされ、ログアウト時にリダイレクト処理が成功すること。
   - _Requirements: 1.3, 1.4, 1.5_
   - _Boundary: Sidebar_
@@ -126,7 +126,7 @@
   - _Boundary: Sidebar_
 
 - [x] 6.2 サイドバーアカウントポップアップへの設定リンク
-  - フッターアカウントボタンで開くポップアップに、「マイページ」の直下・区切り線（`<hr>`）の上に「設定」（`/settings`）リンクを追加する（`Settings` アイコン、`data-testid="sidebar-settings-link"`）
+  - フッターアカウントボタンで開くポップアップに、「プロフィール」の直下・区切り線（`<hr>`）の上に「設定」（`/settings`）リンクを追加する（`Settings` アイコン、`data-testid="sidebar-settings-link"`）
   - クリック時は `/settings` へ遷移しポップアップを閉じる
   - `/settings` 表示中の Sidebar 主要ナビ active 化は初版では行わない（任意）
   - **完了状態**: ポップアップを開くと `sidebar-settings-link` が表示され、クリックで `/settings` へ遷移してポップアップが閉じること
@@ -136,9 +136,9 @@
 
 - [x] 6.3 (P) モバイル Header プロフィールポップアップ
   - 767px 以下かつログイン時、Header アバターの `<Link>` 直行を廃止し、Sidebar と同型のポップアップシート入口（`data-testid="header-profile-btn"`）に変更する
-  - ポップアップ（`data-testid="header-profile-popup"`）にリスト・カスタムクイズ・マイページ・設定・ログアウトを表示し、到達先は Sidebar と同一ルート（`/lists`・`/my-quiz`・`/settings`・`/profile/${user.id}`）とする
+  - ポップアップ（`data-testid="header-profile-popup"`）にリスト・カスタムクイズ・プロフィール・設定・ログアウトを表示し、到達先は Sidebar と同一ルート（`/lists`・`/my-quiz`・`/settings`・`/profile/${user.id}`）とする
   - `data-testid="header-nav-lists"`、`header-nav-my-quiz`、`header-settings-link` を付与する
-  - BottomNav は 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、プロフィールタップは引き続きマイページ直行とする
+  - BottomNav は 5 項目（ホーム・検索・通知・ブックマーク・プロフィール）のまま維持し、プロフィールタップは引き続きプロフィール直行とする
   - **完了状態**: 375px 幅で Header アバタータップ → ポップアップから「リスト」「カスタムクイズ」「設定」へ遷移できること
   - _Requirements: 6.12, 6.13_
   - _Boundary: Header_
@@ -172,7 +172,7 @@
 - **実装順**: 6.1 と 6.3 は並行可。6.2 は 6.1 完了後。6.4 は 6.1–6.3 完了後。6.5 は 6.1–6.3 完了後（6.4 と並行可）。6.5* は任意。
 - **BottomNav**: Phase 23 では変更なし。モバイルのリスト・カスタムクイズ・設定到達は Header ポップアップ（案 A）が担う。
 - **layout.tsx**: `ThemeProvider` 統合は `quizetika-user-settings-ui` が担当。本フェーズでは `layout.tsx` を変更しない。
-- **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizetika-lists-discovery-ui`）、6.15 カスタムクイズ UI（`quizetika-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizetika-user-settings-ui`）、6.17 マイページリアクション履歴削除（`quizetika-auth-profile-ui`）。
+- **隣接スペック境界（タスク対象外）**: 6.14 リスト探索 UI（`quizetika-lists-discovery-ui`）、6.15 カスタムクイズ UI（`quizetika-my-quiz-ui`）、6.16 設定・ThemeProvider（`quizetika-user-settings-ui`）、6.17 プロフィールリアクション履歴削除（`quizetika-auth-profile-ui`）。
 - **要件カバレッジ**: 6.1–6.13 を 6.1–6.5 にマッピング。6.14–6.17 は Out of scope として Implementation Notes に記録。
 
 ---
@@ -182,7 +182,7 @@
 - [x] 7.1 Sidebar および Header からリストナビを除去
   - `sidebar.tsx`: ログイン時 `menuItems` から「リスト」（`/lists`）を削除し、`List` アイコン import および `data-testid="nav-lists"` を除去する
   - `header.tsx`: プロフィールポップアップから「リスト」リンクおよび `data-testid="header-nav-lists"` を削除する
-  - カスタムクイズ（`nav-my-quiz` / `header-nav-my-quiz`）・設定（`sidebar-settings-link` / `header-settings-link`）・マイページ・ログアウト導線は維持する
+  - カスタムクイズ（`nav-my-quiz` / `header-nav-my-quiz`）・設定（`sidebar-settings-link` / `header-settings-link`）・プロフィール・ログアウト導線は維持する
   - **完了状態**: ログイン状態で Sidebar／Header にリスト項目が表示されず、カスタムクイズ・設定へは従来どおり遷移できること
   - _Requirements: 7.1, 7.2, 7.3, 7.5, 7.6, 7.7_
   - _Boundary: Sidebar, Header_
@@ -237,7 +237,7 @@
   - _Boundary: Sidebar_
 
 - [x] 8.2 (P) Sidebar アカウントポップアップおよび Header プロフィールポップアップへの管理者メニューリンク追加
-  - `sidebar.tsx` のアカウントドロップダウンメニューの先頭（マイページの上）に「管理者メニュー」リンク（遷移先: `/admin`）を追加する（`data-testid="sidebar-admin-link"`）。
+  - `sidebar.tsx` のアカウントドロップダウンメニューの先頭（プロフィールの上）に「管理者メニュー」リンク（遷移先: `/admin`）を追加する（`data-testid="sidebar-admin-link"`）。
   - `header.tsx` のプロフィールドロップダウンメニューの先頭（カスタムクイズの上）に「管理者メニュー」リンク（遷移先: `/admin`）を追加する（`data-testid="header-admin-link"`）。
   - どちらも `isAdminUser(user)` 判定に基づいて表示を制御する。
   - *検証結果*: 管理者ユーザーでログインした際、PC用 Sidebar のアバターポップアップおよびモバイル用 Header のアバターポップアップの先頭に「管理者メニュー」リンクが表示され、クリックで `/admin` に遷移すること。非管理者ユーザーや未ログイン時には表示されないこと。
@@ -281,10 +281,10 @@
   - _Requirements: 9.2, 9.3_
   - _Boundary: LayoutWrapper, Sidebar_
 
-- [x] 9.2 (P) サイドバー折りたたみトグルボタンと直接マイページ遷移の実装
+- [x] 9.2 (P) サイドバー折りたたみトグルボタンと直接プロフィール遷移の実装
   - サイドバーの右境界線上に、折りたたみ状態を切り替えるためのトグルボタン（`data-testid="sidebar-toggle-btn"`）を配置し、状態に応じて左右の矢印アイコン（`ChevronLeft`/`ChevronRight`）を切り替える。
   - ログイン時のアバターと名前を表示するアカウント領域におけるドロップダウンメニュー（ポップアップ）を廃止し、クリック時に直接ユーザーのプロフィールページ（`/profile/[userId]`）へ遷移するリンク構造へ変更する。
-  - **完了状態**: サイドバー上のトグルボタンをクリックすると折りたたみ表示がトグルすること。また、アバターをクリックしたときにポップアップが開かず、直接マイページへ遷移すること。
+  - **完了状態**: サイドバー上のトグルボタンをクリックすると折りたたみ表示がトグルすること。また、アバターをクリックしたときにポップアップが開かず、直接プロフィールへ遷移すること。
   - _Requirements: 9.1, 9.6, 9.7_
   - _Boundary: Sidebar_
 
@@ -298,7 +298,7 @@
 - [x] 9.4 Phase 28 ナビゲーションおよびレイアウトのテスト更新
   - 単体テスト（`sidebar.test.tsx` など）におけるアバタークリック時のポップアップメニュー表示の検証を削除し、直接プロフィールページへリンクしているアサーションを追加する。
   - 単体テストに、トグルボタンの存在検証とクリック時の切り替え、およびミニ表示時のツールチップ要素の表示確認テストを追加する。
-  - E2Eテスト（`e2e/layout.spec.ts` など）において、PCサイズでトグルボタンをクリックした際の表示サイズと余白の縮小、およびアバタークリック時のマイページ遷移を検証するシナリオを追加する。
+  - E2Eテスト（`e2e/layout.spec.ts` など）において、PCサイズでトグルボタンをクリックした際の表示サイズと余白の縮小、およびアバタークリック時のプロフィール遷移を検証するシナリオを追加する。
   - **完了状態**: 関連するすべての Jest 単体テストおよび Playwright E2E テストがローカル環境で 100% パスすること。
   - _Requirements: 9.1–9.7_
   - _Depends: 9.1, 9.2, 9.3_

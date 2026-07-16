@@ -251,6 +251,7 @@ describe('CreatorQuizManagementSections', () => {
     render(
       <CreatorQuizManagementSections {...baseProps({ quizzes: [], setTag })} />
     );
+    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-toggle'));
     fireEvent.change(screen.getByTestId('creator-quiz-management-filter-tag'), {
       target: { value: 'js' },
     });
@@ -264,6 +265,7 @@ describe('CreatorQuizManagementSections', () => {
         {...baseProps({ quizzes: [], clearFilters })}
       />
     );
+    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-toggle'));
     fireEvent.click(screen.getByTestId('creator-quiz-management-clear-filters'));
     expect(clearFilters).toHaveBeenCalled();
   });
@@ -275,6 +277,7 @@ describe('CreatorQuizManagementSections', () => {
         {...baseProps({ quizzes: [], setStatus })}
       />
     );
+    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-toggle'));
     fireEvent.click(screen.getByTestId('creator-quiz-management-filter-status'));
     fireEvent.keyDown(
       screen.getByTestId('creator-quiz-management-filter-status-option-public'),
@@ -283,18 +286,15 @@ describe('CreatorQuizManagementSections', () => {
     expect(setStatus).toHaveBeenCalledWith('public');
   });
 
-  it('ジャンル絞り込みセレクトが useActiveGenres 由来の候補で setGenreId を呼び出すこと', () => {
+  it('ジャンルカルーセルが useActiveGenres 由来の候補で setGenreId を呼び出すこと', () => {
     const setGenreId = jest.fn();
     render(
       <CreatorQuizManagementSections
         {...baseProps({ quizzes: [], setGenreId })}
       />
     );
-    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-genre'));
-    fireEvent.keyDown(
-      screen.getByTestId('creator-quiz-management-filter-genre-option-genre-1'),
-      { key: 'Enter' }
-    );
+    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-toggle'));
+    fireEvent.click(screen.getByTestId('genre-carousel-card-genre-1'));
     expect(setGenreId).toHaveBeenCalledWith('genre-1');
   });
 
@@ -303,6 +303,7 @@ describe('CreatorQuizManagementSections', () => {
     render(
       <CreatorQuizManagementSections {...baseProps({ quizzes: [], setSort })} />
     );
+    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-toggle'));
     fireEvent.click(screen.getByTestId('creator-quiz-management-sort'));
     fireEvent.keyDown(
       screen.getByTestId('creator-quiz-management-sort-option-playCount-desc'),
@@ -311,7 +312,7 @@ describe('CreatorQuizManagementSections', () => {
     expect(setSort).toHaveBeenCalledWith('playCount', 'desc');
   });
 
-  it('統合ステータス・ジャンル・並び替えセレクトは選択中の値を生の文字列ではなく日本語ラベルで表示すること', () => {
+  it('統合ステータス・並び替えセレクトは選択中の値を生の文字列ではなく日本語ラベルで表示し、ジャンルカルーセルは選択中カードが押下状態になること', () => {
     render(
       <CreatorQuizManagementSections
         {...baseProps({
@@ -326,12 +327,14 @@ describe('CreatorQuizManagementSections', () => {
         })}
       />
     );
+    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-toggle'));
     expect(screen.getByTestId('creator-quiz-management-filter-status')).toHaveTextContent('公開');
     expect(screen.getByTestId('creator-quiz-management-filter-status')).not.toHaveTextContent(
       'public'
     );
-    expect(screen.getByTestId('creator-quiz-management-filter-genre')).toHaveTextContent(
-      'プログラミング'
+    expect(screen.getByTestId('genre-carousel-card-genre-1')).toHaveAttribute(
+      'aria-pressed',
+      'true'
     );
     expect(screen.getByTestId('creator-quiz-management-sort')).toHaveTextContent(
       'プレイ回数が多い順'
@@ -339,6 +342,31 @@ describe('CreatorQuizManagementSections', () => {
     expect(screen.getByTestId('creator-quiz-management-sort')).not.toHaveTextContent(
       'playCount-desc'
     );
+  });
+
+  it('選択中の絞り込み条件がアクティブフィルタチップとして表示され、個別に解除できること', () => {
+    const setStatus = jest.fn();
+    render(
+      <CreatorQuizManagementSections
+        {...baseProps({
+          quizzes: [],
+          setStatus,
+          filters: { ...DEFAULT_FILTERS, status: 'public', keyword: 'テスト' },
+        })}
+      />
+    );
+    expect(screen.getByTestId('creator-quiz-management-active-filter-status')).toHaveTextContent(
+      '公開'
+    );
+    expect(screen.getByTestId('creator-quiz-management-active-filter-keyword')).toHaveTextContent(
+      'テスト'
+    );
+    fireEvent.click(
+      within(screen.getByTestId('creator-quiz-management-active-filter-status')).getByRole(
+        'button'
+      )
+    );
+    expect(setStatus).toHaveBeenCalledWith(undefined);
   });
 
   it('下書き・凍結ステータスの行には公開範囲切り替えスロットが表示されないこと', () => {
@@ -377,6 +405,7 @@ describe('CreatorQuizManagementSections', () => {
     render(<CreatorQuizManagementSections {...baseProps({ quizzes: [makeQuiz({ id: 'q1' })] })} />);
     expect(screen.getByTestId('creator-quiz-management-list')).toBeInTheDocument();
     expect(screen.getByTestId('creator-quiz-management-filters')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('creator-quiz-management-filter-toggle'));
     expect(screen.getByTestId('creator-quiz-management-sort')).toBeInTheDocument();
   });
 });

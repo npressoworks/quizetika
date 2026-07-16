@@ -10,7 +10,7 @@
   - _Boundary: CSS-Tokens_
 - [x] 1.2 共通Headerレイアウトコンポーネントの実装
   - `src/components/layout/header.tsx` を作成し、アプリケーション全体のヘッダーをレスポンシブかつ美しいデザインで実装する。
-  - 認証状態（`useAuth`）を監視し、未ログイン時は「ログイン」ボタン、ログイン時はアバター画像とドロップダウンメニュー（マイページ、通知、ログアウト等）を動的に表示する。
+  - 認証状態（`useAuth`）を監視し、未ログイン時は「ログイン」ボタン、ログイン時はアバター画像とドロップダウンメニュー（プロフィール、通知、ログアウト等）を動的に表示する。
   - _Requirements: 1.3, 2.1_
   - _Boundary: Header-Component_
 
@@ -342,12 +342,12 @@
   - _Depends: 13.5_
   - _Boundary: Integration_
 
-### 14. Phase 29: マイページ表記変更、ダッシュボードリンク追加、およびプレイ履歴表示ガード（2026-06-28）
+### 14. Phase 29: プロフィール表記変更、ダッシュボードリンク追加、およびプレイ履歴表示ガード（2026-06-28）
 
-- [ ] 14.1 (P) プロフィール関連メニューの「マイページ」表記への変更
-  - `src/components/layout/sidebar.tsx` 内 of `menuItems` 配列 of オブジェクト定義で、ラベル `label: 'プロフィール'` を `label: 'マイページ'` に変更する。
-  - `tests/components/sidebar.test.tsx` of 中 of 「プロフィール」期待値を含むテスト（2箇所）を「マイページ」に書き換え、テストがパスすることを確認する。
-  - **完了状態**: サイドバー上で「プロフィール」 of 代わりに「マイページ」と描画され、テストスイートがパスすること。
+- [ ] 14.1 (P) プロフィール関連メニューの「プロフィール」表記への変更
+  - `src/components/layout/sidebar.tsx` 内 of `menuItems` 配列 of オブジェクト定義で、ラベル `label: 'プロフィール'` を `label: 'プロフィール'` に変更する。
+  - `tests/components/sidebar.test.tsx` of 中 of 「プロフィール」期待値を含むテスト（2箇所）を「プロフィール」に書き換え、テストがパスすることを確認する。
+  - **完了状態**: サイドバー上で「プロフィール」 of 代わりに「プロフィール」と描画され、テストスイートがパスすること。
   - _Requirements: 15.1_
   - _Boundary: Sidebar-Rename_
 
@@ -369,4 +369,128 @@
   - **完了状態**: 全テストおよび本番ビルドがグリーン（PASS）であること。
   - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5_
   - _Depends: 14.1, 14.2, 14.3_
+  - _Boundary: Integration_
+
+### 15. Phase 30: アバター画像変更とプロフィールタブ視認性向上（2026-07-14）
+
+- [x] 15.1 アバター画像検証ライブラリの実装
+  - `src/lib/avatar-upload.ts` に、許可される画像形式（PNG/JPEG/GIF）と上限サイズ（5MB）を検証する純関数（`validateAvatarFile`, `assertAvatarFileValid`）を実装する。
+  - **完了状態**: 許可形式内・許可形式外・サイズ超過の各ケースで、検証関数が期待どおりの ok/error 結果を返すこと。
+  - _Requirements: 16.3, 16.4_
+  - _Boundary: avatar-upload_
+
+- [x] 15.2 (P) アバター画像アップロード関数の実装
+  - `src/services/storage.ts` に `uploadUserAvatar(file, uid)` を追加し、`assertAvatarFileValid` による検証を通した上で `getUserAvatarPath` のパスへ Supabase Storage にアップロードし、公開URLを返す。
+  - **完了状態**: 有効な画像ファイルを渡すと公開URLが返り、不正な画像を渡すと検証エラーが送出されること。
+  - _Depends: 15.1_
+  - _Requirements: 16.5_
+  - _Boundary: storage-service_
+
+- [x] 15.3 (P) プロフィール更新データへのアバターURL項目追加
+  - `src/services/user.ts` の `UpdateProfileData` に `avatarUrl?: string` を追加し、`updateProfile()` が `avatarUrl` が指定された場合のみ更新対象に含めるようにする。
+  - **完了状態**: `avatarUrl` を指定して `updateProfile` を呼ぶとユーザーレコードのアバターURLが更新され、指定しない場合は既存値が変更されないこと。
+  - _Requirements: 16.8_
+  - _Boundary: user-service_
+
+- [x] 15.4 (P) プロフィール編集画面へのアバター選択・プレビューUIの統合
+  - `src/app/profile/edit/profile-edit-client.tsx` に `avatarFile` / `avatarPreviewUrl` / `avatarError` の状態管理と、ファイル選択ハンドラ（`validateAvatarFile` による検証呼び出し）を実装する。
+  - ファイル入力に `data-testid="profile-avatar-upload-input"`、プレビュー領域に `data-testid="profile-avatar-preview"` を付与する。
+  - 新しいファイル選択時およびコンポーネントのアンマウント時に、直前の `URL.createObjectURL` プレビューURLを `URL.revokeObjectURL` で解放する。
+  - **完了状態**: 有効な画像を選択すると保存前のプレビューが表示され、既存の保存済みアバターは変更されないこと。不正な画像を選択すると保存前にエラーメッセージが表示されプレビューは更新されないこと。
+  - _Depends: 15.1_
+  - _Requirements: 3.4, 16.1, 16.2, 16.3, 16.4, 16.10_
+  - _Boundary: ProfileEditClient_
+
+- [x] 15.5 保存フローへのアバターアップロード統合と表示反映
+  - `handleSubmit` にて、`avatarFile` が存在する場合のみ `uploadUserAvatar` を呼び出してURLを取得し、`updateProfile` へ `avatarUrl` として渡す。アップロード中は保存ボタンを無効化する。
+  - 保存成功後、`useAuth().refreshUser()` を呼び出してからプロフィール画面へ遷移する。失敗時は変更前のアバター表示を維持したままエラーメッセージを表示する。
+  - **完了状態**: アバターを変更して保存すると、プロフィール画面・ヘッダー・サイドバーのアバター表示が更新後の画像に切り替わること。アバター未変更で他項目のみ保存した場合はアバターが変化しないこと。アップロード失敗時は変更前のアバターが維持されエラーが表示されること。
+  - _Depends: 15.2, 15.3, 15.4_
+  - _Requirements: 16.5, 16.6, 16.7, 16.8, 16.9_
+  - _Boundary: ProfileEditClient_
+
+- [x] 15.6 (P) プロフィールタブの視認性向上スタイル適用
+  - `src/app/profile/[uid]/profile-client.tsx` の `TabsList` / `TabsTrigger` に `className` を追加し、選択中タブと非選択タブのコントラストを強化し、モバイル幅でのタップ領域を拡大する。共有 `src/components/ui/tabs.tsx` 自体は変更しない。
+  - **完了状態**: 選択中のタブが背景色・下線等で非選択タブと明確に区別でき、タブの件数表示・タブ数（2タブ構成）は変更されていないこと。
+  - _Requirements: 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_
+  - _Boundary: ProfileClient-Tabs_
+
+- [x] 15.7 (P) アバター検証ライブラリの単体テスト
+  - `avatar-upload.test.ts` を作成し、許可形式内・許可形式外・サイズ超過の各ケースを検証する。
+  - **完了状態**: 追加した単体テストスイートがすべてグリーン（PASS）であること。
+  - _Depends: 15.1_
+  - _Requirements: 16.3, 16.4_
+  - _Boundary: Testing_
+
+- [x] 15.8 Phase 30 統合検証とE2Eテスト
+  - アバター選択→プレビュー→保存→プロフィール/ヘッダー反映のフローと、不正ファイル時のエラー表示、未変更時のアバター保持、タブの選択状態の視覚的区別を手動またはPlaywrightで検証する。
+  - `npm test` および `npm run build` がグリーンであることを確認する。
+  - **完了状態**: Phase 30 関連のテスト・ビルドがすべてグリーンであり、手動/E2E確認項目がすべて満たされていること。
+  - **実施結果（2026-07-14）**: `npx jest`（全261スイート・1693テスト）PASS。`npm run build` PASS（`/profile/edit`, `/profile/[uid]` を含む全ルートのビルド成功）。アバター選択→プレビュー→保存→反映、失敗時のロールバック表示、未変更時のavatarUrl非送信、タブの視覚強調・アクセシビリティ状態は RTL 統合テスト（`profile-edit-client.test.tsx` 9件、`profile-client.test.tsx` 14件）で検証済み。
+  - _Depends: 15.5, 15.6, 15.7_
+  - _Requirements: 3.4, 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 16.7, 16.8, 16.9, 16.10, 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_
+  - _Boundary: Integration_
+
+### 16. Phase 31: アバター画像の円形トリミング機能（2026-07-16）
+
+- [x] 16.1 `ImageCropper`のアスペクト比・クロップ形状・出力解像度のProps化
+  - モジュールレベル定数 `CROP_ASPECT` を `aspect` Prop（デフォルト `1.91`）に置換し、クロップ枠サイズ・最小ズーム算出（`onMediaLoaded`）・`react-easy-crop` への指定をすべて Props 経由の値に変更する。
+  - `calculateTargetDimensions` と `getCroppedImg` にアスペクト比引数を追加し、`maxWidth`/`maxHeight` もコンポーネント側から Props として受け取れるようにする（デフォルト値は現行の `1920`/`1005` を維持し、既存の2引数呼び出しの挙動を変えない）。
+  - `cropShape` Prop（デフォルト `'rect'`）を追加し、`react-easy-crop` の `Cropper` へそのまま伝播する。
+  - **観測可能な完了状態**: `aspect={1}` `cropShape="round"` を指定してレンダリングすると正方形の円形マスクのクロップ枠が表示され、Props省略時は従来どおり1.91:1の矩形クロップ枠が表示される。
+  - _Requirements: 18.1, 18.2, 18.3, 18.4_
+  - _Boundary: ImageCropper_
+
+- [x] 16.2 `ImageCropper`のエラー通知・テスト識別子のProps化
+  - `quality` Prop（デフォルト `0.85`）を追加し、`canvas.toBlob` の第3引数に反映する。
+  - `confirmTestId`/`cancelTestId` Prop（デフォルト `'image-cropper-confirm'`/`'image-cropper-cancel'`）を追加し、確定・キャンセルボタンの `data-testid` に反映する。
+  - `onError` Prop（任意のコールバック）を追加し、切り抜き処理失敗時に指定があれば呼び出し、未指定時は既存の `alert()` 表示にフォールバックする。
+  - **観測可能な完了状態**: `onError` 未指定時に切り抜き失敗を発生させると `alert()` が呼ばれ、`onError` 指定時は `alert()` が呼ばれずコールバックにエラーメッセージが渡る。
+  - _Depends: 16.1_
+  - _Requirements: 18.6, 18.8_
+  - _Boundary: ImageCropper_
+
+- [x] 16.3 (P) `image-cropper.test.tsx`へのProps配線検証テスト追加
+  - `calculateTargetDimensions` に `aspect=1` を渡した場合、正方形512px上限縮小が正しく計算されることを検証する単体テストを追加する。
+  - `ImageCropper` に `aspect={1}` `cropShape="round"` `confirmTestId`/`cancelTestId` を指定してレンダリングし、`react-easy-crop` の `Cropper` へ実際に `aspect=1` `cropShape="round"` が渡ること、確定・キャンセルボタンに指定した `data-testid` が反映されることをRTLで検証する。
+  - `onError` 未指定時は `window.alert` が呼ばれ、指定時は `onError` コールバックが呼ばれ `alert` が呼ばれないことをモックで検証する。
+  - **観測可能な完了状態**: 追加したテストケースがすべてグリーン（PASS）であり、既存の1.91:1前提テストも引数省略時のデフォルト値でグリーンのまま維持される。
+  - _Depends: 16.1, 16.2_
+  - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.6, 18.8_
+  - _Boundary: ImageCropper-Testing_
+
+- [x] 16.4 (P) `ProfileEditClient`へのトリミングフロー統合
+  - `avatarFile: File | null` ステートを `avatarCroppedBlob: Blob | null` に置き換え、`cropSourceUrl`/`isCropModalOpen` ステートを追加する。
+  - `handleAvatarChange` を、検証成功後に選択画像のObject URLで `ImageCropper` モーダル（`aspect={1}` `cropShape="round"` `maxWidth={512}` `maxHeight={512}` `confirmTestId="profile-avatar-crop-confirm"` `cancelTestId="profile-avatar-crop-cancel"` `onError`）を開くように変更する。
+  - `handleCropComplete`/`handleCropCancel` ハンドラを実装する。確定時は切り抜き結果のプレビュー反映と `avatarCroppedBlob` への保持、キャンセル時は変更前のアバター表示維持と選択直後のObject URLの解放を行う。
+  - `handleSubmit` の保存フローを、`avatarFile` ではなく `avatarCroppedBlob` が存在する場合のみ `uploadUserAvatar` を呼び出すように更新する。
+  - **観測可能な完了状態**: プロフィール編集画面でアバター画像を選択すると円形トリミングモーダルが開き、確定するとアバター領域に円形プレビューが反映され、保存するとトリミング後の画像のみがアップロードされる。
+  - _Depends: 16.1, 16.2_
+  - _Requirements: 3.4, 16.2, 18.1, 18.5, 18.7_
+  - _Boundary: ProfileEditClient_
+
+- [x] 16.5 `profile-edit-client.test.tsx`のクロップフロー対応更新
+  - アバター関連アサーションを、選択直後の直接プレビューを前提とする既存記述から、クロップモーダル表示→確定/キャンセル操作を経たフローに更新する。
+  - クロップ確定操作をシミュレートした後に切り抜き結果がアップロード対象になること、キャンセル操作後は変更前のアバターが維持されることを検証するテストケースを追加する。
+  - **観測可能な完了状態**: 更新後のテストスイートが全件グリーン（PASS）である。
+  - _Depends: 16.4_
+  - _Requirements: 16.2, 18.5, 18.6, 18.7_
+  - _Boundary: ProfileEditClient-Testing_
+
+- [x] 16.6 アバタークロップE2Eシナリオ追加とクイズ側回帰確認
+  - `e2e/auth-profile.spec.ts` に、アバター画像選択→円形トリミングモーダル表示→確定操作→プレビュー反映、および選択→キャンセル操作→アバター不変の2シナリオを追加する。
+  - クイズ編集画面のカバー画像トリミング（1.91:1・矩形）の既存E2Eシナリオを実行し、本フェーズの変更後も従来どおり動作することを確認する（回帰確認）。
+  - **観測可能な完了状態**: 追加したE2Eシナリオおよび既存のクイズカバー画像トリミングE2Eがすべてパスする。
+  - _Depends: 16.3, 16.5_
+  - _Requirements: 18.1, 18.4, 18.5, 18.8_
+  - _Boundary: E2E-auth-profile_
+
+- [x] 16.7 Phase 31 統合検証
+  - `npm test` および `npm run build` を実行し、Phase 31 関連の単体テスト・結合テストおよび全体スイートがグリーンであることを確認する。
+  - 要件18の全受け入れ基準（18.1〜18.8）および要件3.4・16.2がタスクとテストで充足されていることを requirements.md と突合して確認する。
+  - **確認事項（16.5レビューでの指摘）**: `ProfileEditClient`側の`onError`配線（要件18.6の一部。切り抜き失敗時に`setAvatarError`が呼ばれモーダルは開いたまま維持される）を検証する単体テストが現状不足している（`ImageCropper`単体側の`onError`検証はtask 16.3でカバー済みだが、`ProfileEditClient`統合側は未カバー）。本タスクで手動確認または追加テストにより18.6の充足を最終確認すること。
+  - **観測可能な完了状態**: 全テスト・ビルドが成功し、Phase 31 の要件がすべて実装・検証済みであること。
+  - **実施結果（2026-07-17）**: `ProfileEditClient`側の`onError`配線テストを`tests/components/profile-edit-client.test.tsx`に追加（エラー表示・モーダル維持・アバター不変を検証）。`npx jest tests/components/profile-edit-client.test.tsx tests/components/image-cropper.test.tsx`（23件）PASS。`npm test`全体（1758件）は1757件PASS、失敗1件は`checkout-feedback-banner.test.tsx`でcommit 368f767由来のPhase 31と無関係な既存の文言不整合（`git log`で確認済み）。`npm run build`成功。要件18(18.1〜18.8)・3.4・16.2の全ACがコード・テストで充足されていることを確認。
+  - _Depends: 16.6_
+  - _Requirements: 3.4, 16.2, 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8_
   - _Boundary: Integration_

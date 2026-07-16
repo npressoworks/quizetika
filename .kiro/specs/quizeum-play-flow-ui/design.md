@@ -63,7 +63,7 @@
 ### Non-Goals
 - クイズおよびクイズリストの作成・編集UIそのもの（ただし、詳細画面での作成者判定ボタン表示と、編集画面における他ユーザーによる直接アクセス時の認可保護ガード処理は本スペックで担当し、実際のエディタ処理自体は `quizetika-creator-dash-ui` に委ねます）。
 - 管理者モデレーション、タグ・ジャンル仮想マージなどの自治ガバナンスUI（`quizetika-moderation-governance-ui`が担当）。
-- **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizetika-core`）。マイページのプレイ履歴UI（`quizetika-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
+- **Phase 5**: `leaderboardFirstPlay` / `leaderboardReplay` の更新・マージ・順位判定（`quizetika-core`）。プロフィールのプレイ履歴UI（`quizetika-auth-profile-ui`）。プラットフォーム総合 `/leaderboard` の集計ロジック変更。
 - **Phase 6**: `metadata-resolution`・Firestore Rules・canonical 書き込み（`quizetika-core`）。クイズエディタのジャンルセレクト（`quizetika-creator-dash-ui`）。
 - **Phase 8**: リスト作成・`listType` 選択・問題のリストへの追加 UI（`quizetika-creator-dash-ui`）。`bookmarksCount` 更新・`attempts` 書き込みロジック（`quizetika-core`）。プロフィールのリストタイプ表示（`quizetika-auth-profile-ui`）。
 - **Phase 10**: `listActiveTags`（存続タグのみ・`quizetika-core` 要件 16）・`searchQuizzes.tags` AND 合成（`quizetika-core` 要件 16）。ジャンル／タグ一覧ページへの検索バー新設。クイズ詳細・プレイ画面の難易度表示変更。タグ新設申請・マージ UI（`quizetika-moderation-governance-ui`）。
@@ -3357,3 +3357,188 @@ interface AttemptLeaderboardSelfService {
   - **緩和**: 既存 `getLeaderboard` がゲストでも匿名でTOP5を取得できている実績から同一ポリシーが適用されると推定されるが、実装タスクでローカル環境にて確認する。
 
 **Document Status（Phase 38 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。
+
+---
+
+## Phase 39: クイズ詳細画面のSNS共有（2026-07-16）
+
+### 1. Overview
+
+クイズ詳細画面（`/quiz/[id]`）に、X（旧Twitter）共有・LINE共有・URLコピーの3つの共有操作を追加する（要件28）。共有先の挙動は、投稿完了画面（`/quiz/[id]/success`、`quizetika-ui-quiz-lifecycle` が所有する `SuccessClient`）の既存実装（Xインテントリンク・LINE共有リンク・`navigator.clipboard` によるURLコピーとトースト表示）と同一パターンとし、利用者が同種の共有操作として認識できるようにする。
+
+共有URL生成ロジック（X/LINEインテントURLの組み立て）は `SuccessClient` 内にインライン実装されているが、`SuccessClient` 自体は `quizetika-ui-quiz-lifecycle` の所有物であり本スペックから変更できない（境界）。そこで、URL生成部分のみを新規の純粋関数モジュールへ切り出し、クイズ詳細画面側の新規コンポーネントから利用する。`SuccessClient` 側の改修（このモジュールへの寄せ替え）は本フェーズのスコープに含めない。
+
+### Non-Goals（Phase 39）
+- 投稿完了画面（`/quiz/[id]/success`）自体の実装変更（`SuccessClient` の共有ロジックを新モジュールへ移行することを含む）。
+- X・LINE・URLコピー以外の共有チャネル（Instagram、メール等）の追加。
+- 共有アクションのクリック計測・分析トラッキングの実装。
+
+### 2. Boundary Commitments（Phase 39）
+
+| Owns | Out of Boundary |
+| --- | --- |
+| クイズ詳細画面（`QuizDetailClient`）への共有セクション追加・配置 | 投稿完了画面（`SuccessClient`）自体の実装変更（`quizetika-ui-quiz-lifecycle` が担当） |
+| X/LINE共有URL生成の純粋関数（`src/lib/social-share.ts`、新規） | X・LINE・URLコピー以外の新規共有チャネルの追加 |
+| クリップボードへのURLコピーとコピー完了フィードバックのUI | 共有アクションの分析・トラッキング実装 |
+
+### 3. Architecture: 共有URL生成とコンポーネント契約
+
+`src/lib/social-share.ts` に、`SuccessClient` の既存実装と同一の組み立て規則（Xは投稿文＋URL、LINEはURLのみ、いずれも `encodeURIComponent` でエンコード）に従う純粋関数を新設する。フレームワーク非依存・副作用なしとし、単体テストで直接検証できるようにする。
+
+```typescript
+// src/lib/social-share.ts
+export function buildTwitterShareUrl(quizTitle: string, shareUrl: string): string;
+export function buildLineShareUrl(shareUrl: string): string;
+```
+- Preconditions: `shareUrl` は `origin` を含む絶対URLであること。`quizTitle` は空文字を許容する（未取得時は呼び出し側で空文字を渡す）。
+- Postconditions: 戻り値は各プラットフォームのWeb共有インテントの絶対URLであり、`quizTitle`・`shareUrl` は `encodeURIComponent` でエンコードされていること。
+- Invariants: 純粋関数（ネットワークI/O・DOM操作を行わない）。
+
+共有セクションの表示は新規の `QuizShareSection` コンポーネントが担う。
+
+```typescript
+// src/components/quiz/quiz-share-section.tsx
+export interface QuizShareSectionProps {
+  quizId: string;
+  quizTitle: string;
+}
+```
+- `shareUrl` は `${window.location.origin}/quiz/${quizId}` としてクライアント側でのみ算出する（`SuccessClient` と同一パターン。SSR時点では `origin` が確定しないため）。
+- URLコピーは `navigator.clipboard.writeText` を使用し、成功時のみ `copied` state を `true` にして3秒後に自動的に `false` へ戻す（`SuccessClient` の `handleCopyUrl` と同一の時間・挙動）。失敗時は `catch` でエラーをログ出力するのみとし、`copied` を更新しない（要件28.5、フィードバックを表示しない）。
+- タイマーはコンポーネントのアンマウント時に `clearTimeout` すること（`SuccessClient` には無いアンマウント後 `setState` 抑止を追加する軽微な改善）。
+
+**Contracts**: Service [x] / API [ ] / Event [ ] / Batch [ ] / State [x]（ローカルUI状態のみ）
+
+### 4. File Structure Plan（Phase 39）
+
+| ファイル | 操作 | 責務 |
+| --- | --- | --- |
+| `src/lib/social-share.ts` | **New** | `buildTwitterShareUrl` / `buildLineShareUrl` の純粋関数（X/LINE共有URL生成） |
+| `src/components/quiz/quiz-share-section.tsx` | **New** | クイズ詳細画面向け共有セクションUI（X共有・LINE共有・URLコピーの3ボタン、コピー完了フィードバック）。コンテナに `data-testid="quiz-detail-share-section"` を付与 |
+| `src/app/quiz/[id]/quiz-detail-client.tsx` | **Modify** | 説明セクション直下（タグセクションの手前）に `<QuizShareSection quizId={quiz.id} quizTitle={quiz.title} />` を配置 |
+| `tests/lib/social-share.test.ts` | **New** | `buildTwitterShareUrl` / `buildLineShareUrl` のURLエンコード・構造検証（タイトル・URLが正しくエンコードされ埋め込まれること） |
+| `tests/components/quiz-share-section.test.tsx` | **New** | X/LINEボタンの `href`・`target="_blank"`・`rel="noopener noreferrer"`検証、URLコピー成功時のフィードバック表示と3秒後の非表示、`clipboard.writeText` 失敗時にフィードバックを表示しないことの検証（`clipboard` モック） |
+| `tests/components/quiz-detail-client.test.tsx` | **Modify** | `QuizShareSection` がクイズ詳細画面に描画されることの検証を追加 |
+| `e2e/seo-sharing.spec.ts` | **Modify** | F-703（SNSワンクリック共有機能）のソフトアサーション（`if (isVisible())` による条件付き検証）を、`data-testid="quiz-detail-share-section"` を用いた確定的な検証に置き換える。X共有リンクの `href` に `twitter.com` を含むこと、LINE共有リンクの `href` に `line.me` を含むことを直接検証する |
+
+### 5. Requirements Traceability（Phase 39）
+
+| Req | Summary | Component |
+| --- | --- | --- |
+| 28.1 | 共有操作（X・LINE・URLコピー）の表示 | `QuizShareSection` |
+| 28.2 | X共有ボタン押下時の投稿作成画面遷移 | `QuizShareSection`, `buildTwitterShareUrl` |
+| 28.3 | LINE共有ボタン押下時の共有画面遷移 | `QuizShareSection`, `buildLineShareUrl` |
+| 28.4 | URLコピーとコピー完了フィードバック | `QuizShareSection` |
+| 28.5 | コピー失敗時にフィードバックを表示しない | `QuizShareSection` |
+| 28.6 | 共有対象URLはクイズ詳細画面自身 | `QuizShareSection`（`shareUrl` 算出） |
+| 28.7 | 投稿完了画面と同一の共有先・挙動 | `buildTwitterShareUrl`, `buildLineShareUrl`（`SuccessClient` と同一組み立て規則） |
+| 28.8 | 投稿完了画面自体の変更は対象外 | Out of boundary |
+| 28.9 | X・LINE・URLコピー以外の新規チャネル追加は対象外 | Out of boundary |
+| 28.10 | 共有アクションの分析・トラッキングは対象外 | Out of boundary |
+| 28.11 | 共有セクションの `data-testid` | `QuizShareSection` |
+
+### 6. Testing Strategy（Phase 39）
+
+| 種別 | 検証 |
+| --- | --- |
+| **Unit** | `buildTwitterShareUrl` — クイズタイトルとURLが`encodeURIComponent`でエンコードされ、`twitter.com/intent/tweet` 形式のURLに埋め込まれること。 |
+| **Unit** | `buildLineShareUrl` — URLがエンコードされ、`social-plugins.line.me/lineit/share` 形式のURLに埋め込まれること。 |
+| **Component** | `QuizShareSection` — X/LINEリンクの `href`・`target="_blank"`・`rel="noopener noreferrer"` を検証すること。 |
+| **Component** | `QuizShareSection` — コピーボタン押下で `clipboard.writeText` が呼ばれ、コピー完了フィードバックが表示され、3秒後に非表示になること（タイマーモック使用）。 |
+| **Component** | `QuizShareSection` — `clipboard.writeText` が reject したとき、コピー完了フィードバックを表示しないこと。 |
+| **Integration** | `QuizDetailClient` — クイズデータ読み込み完了後、`quiz.id`・`quiz.title` を props として `QuizShareSection` が描画されること。 |
+| **E2E** | `e2e/seo-sharing.spec.ts`（F-703改訂） — クイズ詳細画面で `data-testid="quiz-detail-share-section"` が表示され、X共有リンクの `href` に `twitter.com`、LINE共有リンクの `href` に `line.me` を含むこと。 |
+
+### Risks & Mitigations（Phase 39）
+- **リスク**: `navigator.clipboard` は非セキュアコンテキスト（HTTP）やブラウザ設定によって利用できない場合がある。
+  - **緩和**: `SuccessClient` と同様に `if (navigator.clipboard)` で存在チェックを行い、利用不可時は要件28.5と同様にフィードバックを表示しないのみとする（新規のフォールバックUIは実装しない）。
+- **リスク**: `QuizShareSection` と `SuccessClient` の共有ロジックが将来的に乖離し、二重メンテナンスになる可能性がある。
+  - **緩和**: URL生成部分のみ `social-share.ts` に切り出し、将来 `SuccessClient` 側が同モジュールへ移行する際の受け皿とする（本フェーズでは `SuccessClient` 自体は変更しない、Non-Goals参照）。
+
+**Document Status（Phase 39 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。
+
+---
+
+## Phase 40: クイズ詳細共有UIのアイコン+メニュー方式への改定（2026-07-16）
+
+### 1. Overview
+
+Phase 39で実装したクイズ詳細画面のSNS共有UI（説明セクション直下に常時表示されるX/LINE/URLコピーの3ボタン）を、ブックマークボタン隣に配置する共有アイコンボタンと、そのクリックで展開するドロップダウンメニュー（X共有・LINE共有・URLコピーの3項目）の方式へ改定する（要件28.1〜28.1c、28.11 改定）。共有先の遷移先URL・組み立て規則（`src/lib/social-share.ts`）自体は変更しない。
+
+メニューのUIプリミティブは、このリポジトリで既に採用実績のある `src/components/ui/dropdown-menu.tsx`（Base UI Menu ラッパー、`src/components/layout/header.tsx` 等で使用中）を用いる。新規UIライブラリの追加は不要。
+
+**コピー操作時のメニュー挙動（設計判断）**: 標準的なメニューは項目選択時に自動的に閉じるが、Phase 39のコピー完了フィードバック（「コピーしました」を一定時間表示）をそのまま活かすため、URLコピー項目のみ選択時のデフォルトの自動クローズを抑止し、メニューを開いたまま項目ラベルを「コピーしました」に一定時間差し替えたのち、自動的にメニューを閉じる。X共有・LINE共有項目は外部タブを開く通常の選択操作として、選択時にメニューを閉じる。
+
+### Non-Goals（Phase 40）
+- 共有先（X・LINE・URLコピー）の遷移先URL・組み立て規則の変更（`social-share.ts` は変更しない）。
+- 投稿完了画面（`SuccessClient`）の実装変更。
+- X・LINE・URLコピー以外の共有チャネルの追加。
+
+### 2. Boundary Commitments（Phase 40）
+
+| Owns | Out of Boundary |
+| --- | --- |
+| `QuizShareSection` の表示方式変更（常時表示3ボタン → アイコン+ドロップダウンメニュー） | `social-share.ts` の共有URL生成ロジック（変更なし、Phase 39のまま） |
+| 共有アイコンボタンのクイズ詳細画面ヘッダー（ブックマークボタン隣）への配置 | 投稿完了画面（`SuccessClient`）の実装（引き続き変更しない） |
+| メニューの開閉制御・コピー時の自動クローズ抑止ロジック | 新規UIプリミティブの追加（既存 `dropdown-menu.tsx` を再利用） |
+
+### 3. Architecture: `QuizShareSection` のメニュー化
+
+`QuizShareSectionProps`（`quizId: string; quizTitle: string;`）は変更しない。内部実装を、常時表示のボタン群から `DropdownMenu` / `DropdownMenuTrigger` / `DropdownMenuContent` / `DropdownMenuItem`（`src/components/ui/dropdown-menu.tsx`）を用いた構成へ置き換える。
+
+```typescript
+// src/components/quiz/quiz-share-section.tsx（Phase 40 改定、シグネチャ変更なし）
+export interface QuizShareSectionProps {
+  quizId: string;
+  quizTitle: string;
+}
+```
+- トリガー: `DropdownMenuTrigger` でラップした共有アイコンボタン。`data-testid="quiz-detail-share-trigger"` を付与（要件28.11改定）。
+- コンテンツ: `DropdownMenuContent` に `data-testid="quiz-detail-share-menu"` を付与（要件28.11改定）。内部に3つの `DropdownMenuItem`：
+  - X共有: `render={<a href={buildTwitterShareUrl(...)} target="_blank" rel="noopener noreferrer" />}`（`header.tsx` の外部リンクパターンと同型）。選択時は既定どおりメニューを閉じる。
+  - LINE共有: 同様に `render={<a href={buildLineShareUrl(...)} target="_blank" rel="noopener noreferrer" />}`。
+  - URLコピー: `DropdownMenuItem` に `closeOnClick={false}`（Base UI `Menu.Item` の既定クローズ動作を抑止する正規のプロパティ。`node_modules/@base-ui/react/menu/item/MenuItem.d.ts` で確認済み。`DropdownMenuItem` は未知のpropsを `{...props}` でそのまま転送するため、追加のラッパー変更は不要）を指定し、`onClick` 内で `copied` state を `true` にしてラベルを差し替える。3秒後の `setTimeout` で `copied` を `false` に戻すと同時に、メニューの `open` state（制御用の `useState`）を `false` にして閉じる。
+- `open`／`onOpenChange` は `DropdownMenu` の制御下に置き、`QuizShareSection` 内の `useState<boolean>` で管理する（コピー完了後の自動クローズのため、非制御コンポーネントではなく制御コンポーネントとして扱う）。
+- `shareUrl` 算出・クリップボードコピー成功/失敗の分岐（要件28.4, 28.5）はPhase 39の実装をそのまま踏襲する。
+
+**Contracts**: Service [x]（`social-share.ts` 再利用、変更なし） / API [ ] / Event [ ] / Batch [ ] / State [x]（メニュー開閉状態・コピー完了状態のローカルUI状態）
+
+### 4. File Structure Plan（Phase 40）
+
+| ファイル | 操作 | 責務 |
+| --- | --- | --- |
+| `src/components/quiz/quiz-share-section.tsx` | **Modify** | 常時表示ボタン群を `DropdownMenu` 構成へ置き換え。トリガーに `data-testid="quiz-detail-share-trigger"`、メニューに `data-testid="quiz-detail-share-menu"` を付与。コピー時のメニュー開閉制御ロジックを追加 |
+| `src/app/quiz/[id]/quiz-detail-client.tsx` | **Modify** | `<QuizShareSection>` の配置を、説明セクション直下からヘッダー内のブックマークボタン隣（`.header` 内、`bookmarkBtn` の直前または直後）へ移動 |
+| `src/app/quiz/[id]/detail-classes.ts` | **Modify** | ヘッダー内でブックマークボタンと共有アイコンボタンを横並びに配置するための軽微なレイアウトクラス調整（必要な場合のみ） |
+| `tests/components/quiz-share-section.test.tsx` | **Modify** | Phase 39時点のテストを、メニュー開閉（トリガークリックで表示、外側クリック/Escapeで非表示）、メニュー内でのX/LINE/URLコピー操作、コピー成功時にメニューが開いたままラベルが差し替わり3秒後に自動的に閉じることの検証へ全面的に更新 |
+| `tests/components/quiz-detail-client.test.tsx` | **Modify** | `QuizShareSection` の描画検証を、新しいtestid（`quiz-detail-share-trigger`）を用いた検証に更新 |
+| `e2e/seo-sharing.spec.ts` | **Modify** | F-703を、共有アイコンボタンのクリックによるメニュー展開を経てX/LINEリンクを検証する手順へ更新 |
+
+### 5. Requirements Traceability（Phase 40）
+
+| Req | Summary | Component |
+| --- | --- | --- |
+| 28.1（改定） | 共有アイコンボタンの表示（3操作は非表示のまま） | `QuizShareSection` |
+| 28.1a | アイコン押下でメニュー展開 | `QuizShareSection`（`DropdownMenu`） |
+| 28.1b | メニュー外クリック・Escapeで閉じる | `DropdownMenuContent`（Base UI既定動作） |
+| 28.1c | アイコン再押下でメニューを閉じる | `QuizShareSection`（`open` state） |
+| 28.2〜28.7 | 共有先の遷移・挙動（変更なし） | `QuizShareSection`, `social-share.ts` |
+| 28.11（改定） | トリガー・メニューの `data-testid` | `QuizShareSection` |
+
+### 6. Testing Strategy（Phase 40）
+
+| 種別 | 検証 |
+| --- | --- |
+| **Component** | `QuizShareSection` — トリガー押下でメニュー（`data-testid="quiz-detail-share-menu"`）が表示されること。初期状態では非表示であること。 |
+| **Component** | `QuizShareSection` — メニュー内のX/LINE項目の `href`・`target`・`rel` が要件どおりであること。 |
+| **Component** | `QuizShareSection` — URLコピー項目押下でクリップボードにコピーされ、メニューが開いたままラベルが「コピーしました」に差し替わり、3秒後にメニューが自動的に閉じること（タイマーモック使用）。 |
+| **Component** | `QuizShareSection` — `clipboard.writeText` が reject したとき、ラベルが差し替わらないこと。 |
+| **Integration** | `QuizDetailClient` — ヘッダー内のブックマークボタン隣に共有アイコンボタンが描画されること。 |
+| **E2E** | `e2e/seo-sharing.spec.ts`（F-703再改訂） — 共有アイコンボタンをクリックしてメニューを展開し、X/LINEリンクの `href` を直接検証すること。 |
+
+### Risks & Mitigations（Phase 40）
+- **（32.1実装で解消）** 当初、Base UI `Menu.Item` に「選択後もメニューを開いたままにする」標準プロパティが無いと想定していたが、実装時に `closeOnClick?: boolean`（既定 `true`）という正規のプロパティが存在することを確認した。URLコピー項目に `closeOnClick={false}` を指定するのみで、`event.preventDefault()` 等のワークアラウンドは不要だった。
+- **リスク**: ヘッダー内のスペースが限られており、ブックマークボタンと共有アイコンボタンの横並び配置でモバイル幅において窮屈になる可能性がある。
+  - **緩和**: 両ボタンとも既存の丸型アイコンボタンスタイル（`bookmarkBtn` 相当のサイズ）を踏襲し、`gap` を用いた横並びレイアウトとする。実装タスクでモバイル幅での視認性を確認する。
+
+**Document Status（Phase 40 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。

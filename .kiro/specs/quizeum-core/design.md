@@ -99,7 +99,7 @@
 - 外部APIへの直接のクライアント通信（AI呼び出しなど）はSecurity Rulesで拒否され、すべてNext.js API Routeを経由します。
 - クイズデータの一括JSONインポートは行わず、手動によるエクスポート（ダウンロード）パッケージ生成のみを担当します。
 - プラットフォーム総合リーダーボード（`/leaderboard`）の集計・表示。
-- マイページ／プロフィール画面のプレイ履歴UIレイアウト（`quizetika-auth-profile-ui`）。
+- プロフィール／プロフィール画面のプレイ履歴UIレイアウト（`quizetika-auth-profile-ui`）。
 - クイズ詳細画面のリーダーボードタブUI（`quizetika-play-flow-ui`）。
 - 管理者向けBAN/UNBAN操作画面のUIレイアウトおよび表示コンポーネント（`quizetika-admin-users-ui` が担当）。
 - **Phase 6**: ホーム/エディタ/ジャンル一覧の UI、ジャンル新設・マージ画面のレイアウト、既存クイズの一括 `genre` 物理書き換え、Cloud Functions への投票移行。
@@ -4470,5 +4470,226 @@ sequenceDiagram
 **Risk**: **Medium**（Stripe `items` 更新のパラメータ誤りは課金額誤りに直結するため、比例配分パラメータのテストを重点的に行う）
 
 **Document Status（Phase 41 設計）**: 本節に反映。二重課金防止（要件34）およびプラン変更（要件35）を含む。
+
+## Phase 42: 支払い失敗時の状態遷移と失効検知の安全網（2026-07-16）
+
+### Overview（本フェーズ）
+現行実装（`buildSnapshotFromSubscription`）は、Stripe から届いた契約イベントの `status` が `active`/`trialing` 以外（`past_due` 等）のとき、契約 tier を即座に `free` へ書き換えている。この結果、支払いが一時的に失敗しただけで DB 上の tier が失われ、Stripe 側で契約が実際には存続しているにもかかわらず UI・サーバー双方が「無契約」として扱う。本フェーズでは、tier とステータスを独立させ、tier は Stripe の実際の契約内容を反映し続け、エンタイトルメントの可否は既存の `computeUserEntitlements`（ステータスベースのゲート、Phase 13/41）にのみ委ねるよう是正する。あわせて、Webhook 通知が何らかの理由で届かなかった場合に備え、Stripe 側の実契約状態とローカル DB の定期突合・是正を行う安全網（1日1回のバッチ処理）を追加する。
+
+### Boundary Commitments（Phase 42）
+
+**This Spec Owns**
+- `StripeWebhookAPI`（`buildSnapshotFromSubscription`）における tier とステータスの分離：契約 tier は Price ID から解決される実際の tier を保持し、`free` への書き換えは契約が真に終了した場合（`customer.subscription.deleted` 経由の `clearPaidEntitlements`）に限定する。
+- 定期整合性チェック（Stripe 実契約状態とローカル DB の突合・是正・監査記録）とその起動契約（1日1回、日本時間午前4時台）。
+
+**Out of Boundary**
+- 支払い失敗中であることをユーザーへ知らせる画面表示・バナー・メール通知（`quizetika-billing-subscription-ui` および運用対応が担当）。
+- 定期処理の起動基盤そのもの（スケジューラのプロバイダ選定・設定ファイルは本設計で確定するが、起動契機の運用監視ダッシュボード等は対象外）。
+- 支払い失敗が一定期間継続した場合の督促・強制解約ポリシーの新設（Stripe 標準の解約タイミングに従う）。
+
+**Allowed Dependencies**
+- 既存 Stripe クライアント（`getStripeClient()`）、`priceIdToTier()`（`subscription-plans.ts`）、`applySubscriptionFromStripe()` / `clearPaidEntitlements()`（`entitlement.ts`）を再利用する。
+- ホスティング基盤（Vercel）が提供する Cron 機能を、定期処理の起動契機として利用する。
+
+**Revalidation Triggers**
+- `buildSnapshotFromSubscription()` の tier 決定ロジック変更により、契約 tier とエンタイトルメント（`hasPaidEntitlements` 等）が乖離しうる状態（`past_due` 中は tier が `player`/`creator` のまま維持される）が新たに発生する。tier の生値のみを参照して契約中バッジ等を表示している下流 UI（`quizetika-billing-subscription-ui`）は、`hasPaidEntitlements` / `subscriptionStatus` を併用した表示ロジックへの見直しが必要になる可能性がある。
+- 定期整合性チェックのリクエスト/レスポンス契約・起動スケジュールの変更。
+
+### Architecture Pattern（Phase 42）
+
+**既存アーキテクチャ分析**: Phase 13 で確立した「Server-authoritative entitlements」パターンを維持する。変更点は (1) Webhook 内の tier 決定ロジックの是正、(2) 定期実行される新規バッチエンドポイントの追加、の2点のみで、Checkout/Portal の既存フローには影響しない。
+
+```mermaid
+graph TB
+    Cron[Vercel Cron] --> SyncAPI[SyncSubscriptionsCronAPI]
+    SyncAPI --> Recon[SubscriptionReconciliationService]
+    Recon --> DB[SupabaseUsers]
+    Recon --> Stripe[Stripe API]
+    Recon --> Audit[BillingReconciliationCorrections]
+    Stripe --> Webhook[StripeWebhookAPI]
+    Webhook --> Ent[EntitlementShared]
+    Webhook --> DB
+```
+
+**Key Decisions**:
+- `buildSnapshotFromSubscription()` から「非アクティブ状態なら tier を `free` に強制する」分岐を削除し、常に `priceIdToTier()` が解決した tier をそのまま `subscriptionTier` として返す。ステータスは Stripe から届いた値をそのまま記録する。エンタイトルメントの可否判定は既存の `computeUserEntitlements()`（`PAID_ACTIVE_STATUSES = ['active', 'trialing']` によるゲート）にすべて委ねる。これにより Phase 13 以来重複していた「tier 側でも有効性を判定する」ロジックを排除する（要件36.1, 36.2, 36.5）。
+- 契約が真に終了する経路（`customer.subscription.deleted`）は既存の `handleStripeSubscriptionEvent` の `canceled` 分岐・`clearPaidEntitlements()` をそのまま維持し、本フェーズでは変更しない（要件36.4）。
+- 支払い成功後の復帰は、Stripe が発行する後続の `customer.subscription.updated`（`status: active` 等）が既存の Webhook 経路でそのまま処理されることで実現する。新規の専用ハンドラは設けない（要件36.3）。
+- 定期整合性チェックは、既存の手動スクリプト（`scripts/sync-subscriptions.ts`）と同一の判定ロジック（Stripe 上の有効サブスクリプション一覧取得 → 最古の1件を正とする）を `SubscriptionReconciliationService` としてアプリケーションコードへ昇格し、Vercel Cron から日次で自動起動する（要件36.6–36.9）。既存スクリプトは手動の緊急対応用途として残置する。
+- Vercel Cron はスケジュールを UTC で解釈するため、日本時間午前4時台の起動は `vercel.json` 上で UTC 19:00（前日）として設定する。
+
+### Technology Stack（Phase 42 追加分）
+
+| Layer                    | Choice / Version                 | Role in Feature                    | Notes                              |
+| ------------------------ | --------------------------------- | ----------------------------------- | ----------------------------------- |
+| Infrastructure / Runtime | Vercel Cron（`vercel.json`）      | 定期整合性チェックの日次起動        | 新規依存追加なし（ホスティング基盤の標準機能） |
+| Backend                  | 既存 `stripe` パッケージ（Phase 13） | 実契約状態の取得                    | 新規依存追加なし                    |
+| Data                     | Supabase Postgres（既存 `users` テーブル + 新規監査テーブル） | 是正結果の反映・監査記録 | 新規テーブル1件追加 |
+
+### System Flows（Phase 42）
+
+```mermaid
+sequenceDiagram
+    participant Cron as Vercel Cron
+    participant API as SyncSubscriptionsCronAPI
+    participant Recon as SubscriptionReconciliationService
+    participant DB as SupabaseUsers
+    participant Stripe
+
+    Cron->>API: GET 04:00 JST 日次
+    API->>API: Authorization Bearer CRON_SECRET 検証
+    alt 検証失敗
+        API-->>Cron: 401
+    else 検証成功
+        API->>Recon: reconcileSubscriptions
+        loop stripe_customer_id が設定された全ユーザー（ページング）
+            Recon->>Stripe: subscriptions.list customer status all
+            alt Stripe 呼び出し失敗
+                Recon->>Recon: エラーを記録しこのユーザーをスキップ
+            else 成功
+                Recon->>Recon: ローカル状態と実契約状態を比較
+                alt 乖離あり
+                    Recon->>DB: applySubscriptionFromStripe または clearPaidEntitlements
+                    Recon->>DB: 是正監査レコード挿入
+                else 一致
+                    Recon->>Recon: 対象外
+                end
+            end
+        end
+        Recon-->>API: 処理件数 是正件数 スキップ件数
+        API-->>Cron: 200 サマリ
+    end
+```
+- 個々のユーザーに対する Stripe API 呼び出しが失敗した場合は、そのユーザーのみをスキップして次のユーザーの処理を継続する（1件のスキップが安全網全体を止めない）。ユーザー一覧の取得自体が失敗するなど処理全体に影響する致命的エラーの場合のみ、バッチ全体を中断しエラーを記録する。次回の日次実行時には対象を絞らず全件を再評価するため、スキップされたユーザーも翌日以降に再評価される（要件36.10）。
+
+### Data Models（Phase 42）
+
+```sql
+CREATE TABLE billing_reconciliation_corrections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    previous_tier TEXT NOT NULL,
+    previous_status TEXT,
+    corrected_tier TEXT NOT NULL,
+    corrected_status TEXT,
+    detected_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE billing_reconciliation_corrections ENABLE ROW LEVEL SECURITY;
+CREATE POLICY billing_reconciliation_corrections_policy
+    ON billing_reconciliation_corrections FOR ALL USING (FALSE);
+```
+- クライアントからの読み書きは Rules で完全遮断し、Admin クライアント経由の書き込みのみを許可する（`billing_duplicate_subscription_incidents` と同一パターン、要件36.9）。
+
+### Components and Interfaces（Phase 42）
+
+| Component                             | Domain/Layer | Intent                                                | Req Coverage | Key Dependencies (P0/P1)                     | Contracts   |
+| -------------------------------------- | ------------- | ------------------------------------------------------ | ------------- | ---------------------------------------------- | ------------ |
+| `StripeWebhookAPI`（改修）             | API Route     | tier とステータスを分離して同期する                    | 36.1–36.5     | `SubscriptionPlans` (P0)                       | API, Event   |
+| `SubscriptionReconciliationService`（新規） | service       | Stripe 実契約状態とローカル状態の突合・是正・監査記録 | 36.6, 36.8, 36.9, 36.10 | Stripe (P0), Supabase Admin (P0)     | Batch        |
+| `SyncSubscriptionsCronAPI`（新規）      | API Route     | 定期整合性チェックの起動エンドポイント                  | 36.6, 36.7    | `SubscriptionReconciliationService` (P0)       | API, Batch   |
+
+#### StripeWebhookAPI（改修差分）
+
+| Field        | Detail                                                                 |
+| ------------ | ----------------------------------------------------------------------- |
+| Intent       | tier を Stripe の実契約に一致させ続け、有効性判定をステータスのみに委ねる |
+| Requirements | 36.1, 36.2, 36.4, 36.5                                                  |
+
+**Contracts**: Service [ ] / API [x] / Event [x] / Batch [ ] / State [ ]
+
+**Implementation Notes**
+- Integration: `buildSnapshotFromSubscription()` の `subscriptionTier: hasPaid ? mappedTier : 'free'` を `subscriptionTier: mappedTier` に変更し、`hasPaid` 変数とその算出を削除する。`subscriptionStatus` は現行どおり Stripe の `status` をそのまま格納する。
+- Validation: `computeUserEntitlements()`（`entitlement-shared.ts`）が `subscriptionStatus` を用いた有効性判定を単独で担っていることを既存ユニットテストで再確認し、tier 生値を直接エンタイトルメント判定に使っている呼び出し箇所が存在しないことを確認する。
+- Risks: `subscription_tier` の生値のみを参照している下流表示コード（バッジ等）がある場合、`past_due` 中も「契約中」表記のまま残る見た目上の副作用が生じる。表示側の対応は `quizetika-billing-subscription-ui` の担当範囲とし、本設計では Revalidation Trigger として明示するに留める。
+
+#### SubscriptionReconciliationService
+
+| Field        | Detail                                                                                       |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| Intent       | `stripe_customer_id` を持つ全ユーザーについて Stripe 上の実契約状態とローカル DB を突合し、乖離があれば是正する |
+| Requirements | 36.6, 36.8, 36.9, 36.10                                                                          |
+
+**Dependencies**
+- Outbound: Stripe API（`subscriptions.list`） — P0 / `applySubscriptionFromStripe()`, `clearPaidEntitlements()`（`entitlement.ts`） — P0 / Supabase Admin（`users`, `billing_reconciliation_corrections`） — P0
+
+**Contracts**: Service [x] / API [ ] / Event [ ] / Batch [x] / State [ ]
+
+##### Service Interface
+```typescript
+export interface ReconciliationSummary {
+  evaluatedCount: number;
+  correctedCount: number;
+  skippedCount: number;
+}
+
+export async function reconcileSubscriptions(): Promise<ReconciliationSummary>;
+```
+- Preconditions: なし（内部で `stripe_customer_id IS NOT NULL` のユーザーをページング取得する）。
+- Postconditions: 乖離が検出された全ユーザーの `subscription_tier` / `subscription_status` / `current_period_end` が Stripe 側の実状態に一致し、是正1件につき `billing_reconciliation_corrections` に1レコードが挿入されている。
+- Invariants: 個別ユーザーの処理失敗は他ユーザーの処理継続を妨げない。
+
+**Implementation Notes**
+- Integration: 判定ロジックは `scripts/sync-subscriptions.ts` と同一（Stripe の `active`/`trialing`/`past_due` を有効とみなし、複数ある場合は最古の1件を正とする、`priceIdToTier()` で tier を解決）。既存スクリプトはコードを重複させず、本サービスを呼び出す形に揃えることが望ましいが、手動運用ツールとしての独立実行性を優先し、本フェーズでは既存スクリプトの改修は必須としない。
+- Validation: ローカル DB の `subscription_tier` / `subscription_status` が Stripe 側の解決結果と完全一致する場合は是正・監査記録のいずれも行わない（無駄な書き込みを避ける）。
+- Risks: 対象ユーザー数が将来大きく増加した場合、単一 Cron 実行内で全件を処理しきれない可能性がある（Vercel Function の実行時間上限）。現時点のユーザー規模では単一実行で十分だが、規模拡大時はページ単位での分割実行（複数回の Cron 起動 or キュー化）への切替を検討する（Open Question として残す）。
+
+#### SyncSubscriptionsCronAPI
+
+| Field        | Detail                                                        |
+| ------------ | ---------------------------------------------------------------- |
+| Intent       | Vercel Cron からの日次起動を受け付け、認可検証後に整合性チェックを実行する |
+| Requirements | 36.6, 36.7                                                        |
+
+**Contracts**: Service [ ] / API [x] / Event [ ] / Batch [x] / State [ ]
+
+##### API Contract
+| Method | Endpoint                        | Request | Response                                        | Errors |
+| ------ | -------------------------------- | ------- | ------------------------------------------------ | ------ |
+| GET    | /api/cron/sync-subscriptions     | なし    | `{ evaluatedCount: number; correctedCount: number; skippedCount: number }` | 401（`CRON_SECRET` 不一致）, 500 |
+
+**Implementation Notes**
+- Integration: リクエストの `Authorization` ヘッダーが `Bearer ${process.env.CRON_SECRET}` と一致することを検証してから `reconcileSubscriptions()` を呼び出す（Vercel が `CRON_SECRET` 環境変数設定時に自動付与するヘッダーと同一パターン）。`runtime = 'nodejs'`（Stripe SDK 利用のため Edge 不可、`StripeWebhookAPI` と同一制約）。
+- Validation: `CRON_SECRET` 環境変数が未設定の場合は常に 401 を返し、認可検証をバイパスしない。
+
+### File Structure Plan（Phase 42）
+
+| ファイル                                                                    | 操作   | 責務                                                                                                   |
+| ----------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------- |
+| `src/services/stripe-webhook.ts`                                              | Modify | `buildSnapshotFromSubscription()` の tier 決定ロジックを是正（`hasPaid` 分岐を削除し常に `mappedTier` を採用） |
+| `src/services/subscription-reconciliation.ts`                                 | New    | `reconcileSubscriptions()`：Stripe 実契約状態とローカル DB の突合・是正・監査記録                          |
+| `src/app/api/cron/sync-subscriptions/route.ts`                                | New    | `GET /api/cron/sync-subscriptions`。`CRON_SECRET` 検証後に `reconcileSubscriptions()` を呼び出す           |
+| `vercel.json`                                                                  | New    | `crons` 設定（`/api/cron/sync-subscriptions` を UTC 19:00＝日本時間4時台に日次起動）                        |
+| `supabase/migrations/20260723000000_billing_reconciliation_corrections.sql`   | New    | `billing_reconciliation_corrections` テーブル作成（監査記録用、クライアントアクセス不可）                  |
+
+### Requirements Traceability（Phase 42）
+
+| Requirement | Summary                          | Components                                                        | Interfaces                          | Flows              |
+| ----------- | ---------------------------------- | -------------------------------------------------------------------- | ------------------------------------- | -------------------- |
+| 36.1–36.2   | 支払い失敗時の tier 維持・エンタイトルメント非付与 | `StripeWebhookAPI`, `EntitlementShared`（既存）                     | —                                    | Webhook フロー        |
+| 36.3        | 支払い成功時の復帰                 | `StripeWebhookAPI`（既存経路）                                        | —                                    | Webhook フロー        |
+| 36.4        | 失効時の free 復帰                 | `StripeWebhookAPI`（既存 `clearPaidEntitlements` 経路、変更なし）     | —                                    | Webhook フロー        |
+| 36.5        | tier とステータスの独立参照        | `EntitlementShared`（既存）                                           | —                                    | —                    |
+| 36.6–36.7   | 定期整合性チェックの起動           | `SyncSubscriptionsCronAPI`                                            | `GET /api/cron/sync-subscriptions`   | 整合性チェックフロー |
+| 36.8        | 乖離検出時の是正                   | `SubscriptionReconciliationService`                                   | —                                    | 整合性チェックフロー |
+| 36.9        | 是正の監査記録                     | `SubscriptionReconciliationService`, `billing_reconciliation_corrections` | —                                | 整合性チェックフロー |
+| 36.10       | 実行時エラーの安全な扱い           | `SubscriptionReconciliationService`                                   | —                                    | 整合性チェックフロー |
+| 36.11–36.13 | 境界（UI 通知・実行基盤選定・督促ポリシー除外） | —                                                        | —                                    | Out of boundary       |
+
+### Testing Strategy（Phase 42）
+
+| 種別        | 検証                                                                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit        | `buildSnapshotFromSubscription()` — `status: 'past_due'` かつ `creator` にマッピングされる Price ID を渡した場合、`subscriptionTier` が `'creator'` のまま、`subscriptionStatus` が `'past_due'` になること（`'free'` へ書き換えられないこと） |
+| Unit        | `computeUserEntitlements()` — `subscriptionTier: 'creator'` かつ `subscriptionStatus: 'past_due'` の組み合わせで `hasPaidEntitlements` / `hasCreatorEntitlements` が `false` を返すこと（既存ロジックの回帰確認） |
+| Unit        | `reconcileSubscriptions()` — ローカル DB が `creator`/`active` だが Stripe 上に有効なサブスクリプションが存在しないユーザーに対し、`free` へ是正し監査レコードを1件挿入すること |
+| Unit        | `reconcileSubscriptions()` — 対象ユーザーの一部で Stripe API 呼び出しが失敗した場合、そのユーザーをスキップして残りのユーザーの処理を継続すること |
+| Integration | `GET /api/cron/sync-subscriptions` — `Authorization` ヘッダーが不正または欠落している場合に 401 を返すこと                                        |
+| Integration | `GET /api/cron/sync-subscriptions` — 正しい `CRON_SECRET` を伴うリクエストで整合性チェックが実行され、是正件数を含むサマリが返ること              |
+| Integration | Webhook — `customer.subscription.updated`（`past_due`）受信後、`users.subscription_tier` が変更前の値のまま、`users.subscription_status` のみ `'past_due'` に更新されること |
+
+**Effort**: **S**（既存ロジックの簡素化1箇所、既存監査テーブルパターンの再利用、新規 Cron エンドポイント1つ）
+**Risk**: **Medium**（tier 決定ロジックの変更が既存の下流表示コードの前提を崩す可能性があるため、`subscription_tier` の生値を直接参照している箇所の洗い出しが必須。是正バッチは実際の契約状態を書き換えるため、誤判定は課金・エンタイトルメントの誤動作に直結する）
+
+**Document Status（Phase 42 設計）**: 本節に反映。支払い失敗時のステータス反映是正（要件36.1–36.5）および失効検知の安全網（要件36.6–36.10）を含む。
 
 

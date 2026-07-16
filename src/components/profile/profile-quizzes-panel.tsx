@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { QuizCard } from '@/components/quiz/quiz-card';
 import { AdsenseInlineAd } from '@/components/ads/adsense-inline-ad';
 import { InfiniteScrollLoader } from '@/components/ui/infinite-scroll-loader';
-import { Input } from '@/components/ui/input';
 import { useAds } from '@/hooks/useAds';
 import { getQuizzesByAuthor, getQuizzesByAuthorPage } from '@/services/quiz';
 import type { Quiz } from '@/types';
@@ -16,6 +15,28 @@ interface ProfileQuizzesPanelProps {
   onBookmarkToggle: (quizId: string) => Promise<void>;
   onPlayClick: (quizId: string) => void;
   onQuizzesCountChange?: (count: number) => void;
+  searchQuery?: string;
+  tagChips?: string[];
+}
+
+function filterQuizzesByKeywordAndTags(quizzes: Quiz[], keyword: string, tagChips: string[]): Quiz[] {
+  let result = quizzes;
+
+  if (tagChips.length > 0) {
+    result = result.filter((quiz) => tagChips.every((tag) => quiz.tags?.includes(tag)));
+  }
+
+  const kw = keyword.toLowerCase().trim();
+  if (kw !== '') {
+    result = result.filter(quiz =>
+      quiz.title.toLowerCase().includes(kw) ||
+      (quiz.description || '').toLowerCase().includes(kw) ||
+      quiz.genre.toLowerCase().includes(kw) ||
+      quiz.tags.some(tag => tag.toLowerCase().includes(kw))
+    );
+  }
+
+  return result;
 }
 
 export function ProfileQuizzesPanel({
@@ -25,10 +46,11 @@ export function ProfileQuizzesPanel({
   onBookmarkToggle,
   onPlayClick,
   onQuizzesCountChange,
+  searchQuery = '',
+  tagChips = [],
 }: ProfileQuizzesPanelProps) {
   const { showAds } = useAds();
 
-  const [searchQuery, setSearchQuery] = useState('');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -39,10 +61,12 @@ export function ProfileQuizzesPanel({
   const [allQuizzesForSearch, setAllQuizzesForSearch] = useState<Quiz[] | null>(null);
   const [searchOffset, setSearchOffset] = useState(20);
 
-  // 検索クエリ空時の段階フェッチの初期化
+  const isSearching = searchQuery.trim() !== '' || tagChips.length > 0;
+
+  // 検索条件なし時の段階フェッチの初期化
   useEffect(() => {
     async function initPageLoad() {
-      if (searchQuery.trim() !== '') return;
+      if (isSearching) return;
 
       try {
         setLoading(true);
@@ -62,13 +86,12 @@ export function ProfileQuizzesPanel({
     }
 
     initPageLoad();
-  }, [authorId, isMyProfile, searchQuery]);
+  }, [authorId, isMyProfile, isSearching]);
 
-  // 検索クエリ入力時の処理
+  // 検索条件入力時の処理
   useEffect(() => {
     async function handleSearch() {
-      const q = searchQuery.toLowerCase().trim();
-      if (q === '') return;
+      if (!isSearching) return;
 
       try {
         setLoading(true);
@@ -78,12 +101,7 @@ export function ProfileQuizzesPanel({
           setAllQuizzesForSearch(allQuizzes);
         }
 
-        const filtered = allQuizzes.filter(quiz =>
-          quiz.title.toLowerCase().includes(q) ||
-          (quiz.description || '').toLowerCase().includes(q) ||
-          quiz.genre.toLowerCase().includes(q) ||
-          quiz.tags.some(tag => tag.toLowerCase().includes(q))
-        );
+        const filtered = filterQuizzesByKeywordAndTags(allQuizzes, searchQuery, tagChips);
 
         setQuizzes(filtered.slice(0, 20));
         setSearchOffset(20);
@@ -97,13 +115,12 @@ export function ProfileQuizzesPanel({
     }
 
     handleSearch();
-  }, [authorId, isMyProfile, searchQuery, allQuizzesForSearch]);
+  }, [authorId, isMyProfile, isSearching, searchQuery, tagChips, allQuizzesForSearch]);
 
   const loadMore = async () => {
     if (loading || loadingMore || !hasMore) return;
 
-    const q = searchQuery.toLowerCase().trim();
-    if (q === '') {
+    if (!isSearching) {
       // 段階フェッチの追加ロード
       try {
         setLoadingMore(true);
@@ -125,12 +142,7 @@ export function ProfileQuizzesPanel({
     } else {
       // 検索モード（インメモリ）の追加ロード
       if (!allQuizzesForSearch) return;
-      const filtered = allQuizzesForSearch.filter(quiz =>
-        quiz.title.toLowerCase().includes(q) ||
-        (quiz.description || '').toLowerCase().includes(q) ||
-        quiz.genre.toLowerCase().includes(q) ||
-        quiz.tags.some(tag => tag.toLowerCase().includes(q))
-      );
+      const filtered = filterQuizzesByKeywordAndTags(allQuizzesForSearch, searchQuery, tagChips);
 
       const nextOffset = searchOffset + 20;
       setQuizzes(filtered.slice(0, nextOffset));
@@ -164,18 +176,6 @@ export function ProfileQuizzesPanel({
 
   return (
     <div id="profile-quizzes-container" className="flex flex-col gap-6">
-      {/* 検索入力欄 */}
-      <div className="max-w-md">
-        <Input
-          type="text"
-          placeholder="クイズを検索（タイトル、説明、ジャンル、タグ）"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          data-testid="profile-quiz-search-input"
-          className="w-full"
-        />
-      </div>
-
       {loading && quizzes.length === 0 ? (
         <InfiniteScrollLoader
           hasMore={true}

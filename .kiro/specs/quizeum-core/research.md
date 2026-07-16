@@ -1251,3 +1251,78 @@ Option A（既存機能の拡張）が最も一貫性があり、無駄のない
 ## Risks & Mitigations（要件35 追記）
 - **API 呼び出しパラメータ誤りによる誤課金** — `subscriptions.update()` の `items`/`proration_behavior` パラメータ誤りは実際の請求額に直結する。軽減策: Stripe mock を用いた単体テストでパラメータの正確性を重点検証する。
 - **UI側の確認ダイアログをスキップした直接 API 呼び出し** — API 自体が無条件実行のため、UI 側の確認ダイアログを経由しない不正なクライアントからの呼び出しでは確認なしにダウングレードが実行され得る。軽減策: 本要件では認証済み本人操作であることのみを保証し、確認 UX の徹底は `quizetika-billing-subscription-ui` 側のタスクとする（Out of Boundary として明記済み）。
+
+# Research & Design Decisions: quizetika-core — Phase 42 支払い失敗時の状態遷移と失効検知の安全網（2026-07-16）
+
+## Summary
+- **Feature**: `quizetika-core` Phase 42（要件36）
+- **Discovery Scope**: Extension（既存 Stripe Webhook 基盤の是正 + 定期バッチ処理の新規追加）
+- **主要な発見**:
+  - `stripe-webhook.ts` の `buildSnapshotFromSubscription()` は `subscriptionTier: hasPaid ? mappedTier : 'free'` という実装になっており、`status` が `active`/`trialing` 以外（`past_due` 等）の場合、契約 tier を即座に `free` へ書き換えていた。ユーザーからの依頼時点の想定（「tier は維持されステータスのみ変わる」）とは異なり、現行コードは既に tier ごと失っていたことが判明。
+  - `entitlement-shared.ts` の `computeUserEntitlements()` は `subscriptionTier`（DB の生値）と `subscriptionStatus` を独立した入力として受け取り、`hasPaidEntitlements` 等の可否判定は `PAID_ACTIVE_STATUSES = ['active', 'trialing']` によるステータスゲートのみで行っている。tier の生値そのものは可否判定に使われていないため、`buildSnapshotFromSubscription()` 側の tier 書き換えは元来不要な二重判定だった。
+  - `pricing-entitlement.ts` の全ヘルパー（`hasProVisibilityEntitlementsForUser` 等）は `computeUserEntitlements()` に完全委譲しており、tier 生値を直接エンタイトルメント判定に使っている呼び出し箇所は見つからなかった。
+  - 手動スクリプト `scripts/sync-subscriptions.ts` は Stripe 側を正として tier を決定するロジック（`active`/`trialing`/`past_due` を有効とみなし最古の1件を採用）を既に実装済みだが、手動実行のみで自動化されていない。
+  - 本プロジェクトのホスティング先は Vercel（ユーザー確認済み）であり、`vercel.json` および `.vercel` ディレクトリは未作成。Vercel Cron はスケジュールを UTC で解釈するため、日本時間午前4時台の起動には UTC 19:00（前日）を指定する必要がある。
+
+## Research Log
+
+### tier 書き換えロジックの実態確認
+- **Context**: ユーザー要望（過去の支払い失敗時に tier を維持しステータスのみ変更する設計）が、現行実装とどう異なるかを確認する必要があった。
+- **Sources Consulted**: `src/services/stripe-webhook.ts`（`buildSnapshotFromSubscription`, `handleStripeSubscriptionEvent`）, `src/app/api/webhooks/stripe/route.ts`, `src/services/entitlement.ts`, `src/services/entitlement-shared.ts`, `src/lib/pricing-entitlement.ts`。
+- **Findings**:
+  - `buildSnapshotFromSubscription()` は `hasPaid = mappedTier !== 'free' && PAID_ACTIVE_STATUSES.includes(status)` を計算し、`subscriptionTier: hasPaid ? mappedTier : 'free'` を返す。つまり `past_due` 等の非アクティブ状態では tier が即座に `free` へ落ちる。
+  - `handleStripeSubscriptionEvent()` 内で `status === 'canceled'` の分岐は `buildSnapshotFromSubscription()` を経由せず `clearPaidEntitlements()` を直接呼ぶ別経路であり、契約の真の終了とその他の非アクティブ状態（`past_due` 等）は元々コード上分離されていた。
+  - `computeUserEntitlements()` は tier とステータスを独立変数として受け取り、可否判定はステータスのみに依存する。tier の生値は「表示用の現在契約プラン」としての意味のみを持つ設計であり、tier を `free` に書き換える必要は判定ロジック上ない。
+- **Implications**: `buildSnapshotFromSubscription()` から「非アクティブなら tier を free にする」分岐を削除し、常に `mappedTier` を採用する変更が、要件36.1/36.2/36.5 を満たす最小かつ唯一の修正である（Simplification: 既存の重複判定を除去）。
+
+### 定期整合性チェックの実行基盤
+- **Context**: Webhook 不達時の安全網として、1日1回・日本時間午前4時台に実行する定期処理が必要（要件36.6, 36.7）。
+- **Sources Consulted**: リポジトリ内 `vercel.json` / `.vercel` の有無（未存在を確認）、`scripts/sync-subscriptions.ts`（既存の手動整合性チェックロジック）、ユーザーへのヒアリング（本番ホスティングは Vercel）。
+- **Findings**:
+  - 本番ホスティングが Vercel であることをユーザーに確認済み。Vercel Cron は `vercel.json` の `crons` フィールドで設定し、指定した API Route を GET リクエストで定期起動する。
+  - Vercel は `CRON_SECRET` 環境変数を設定すると、Cron からのリクエストに自動的に `Authorization: Bearer <CRON_SECRET>` ヘッダーを付与する。エンドポイント側でこの値を検証することで、外部からの不正起動を防止できる（`StripeWebhookAPI` の Stripe 署名検証とは異なる認可方式だが、同種の「サーバー間限定エンドポイント」パターン）。
+  - Vercel Cron のスケジュールは UTC 基準で解釈されるため、日本時間 4:00 の起動には `0 19 * * *`（UTC 19:00）を指定する必要がある（日付またぎに注意）。
+  - `scripts/sync-subscriptions.ts` は既に「Stripe 上の有効サブスクリプション一覧取得 → 最古の1件を正として tier を決定 → DB 更新」というロジックを実装済みであり、これをアプリケーションコード（`src/services/`）へ昇格させることで重複実装を避けられる。
+- **Implications**: 新規サービス関数 `reconcileSubscriptions()` を追加し、既存スクリプトと同一の判定ロジックを流用する。起動契機は `vercel.json` の Cron 設定 + `CRON_SECRET` 検証を行う新規 API Route とする。
+
+## Architecture Pattern Evaluation（Phase 42）
+
+| Option | 説明 | 強み | リスク・制約 | 備考 |
+|--------|------|------|--------------|------|
+| tier 決定ロジックの是正（zeroing 削除） | `buildSnapshotFromSubscription()` から free 書き換え分岐を削除し、tier とステータスを完全分離 | 既存の `computeUserEntitlements()` ステータスゲートと責務が重複しなくなる。変更箇所が1関数のみ | tier 生値のみを参照する下流表示コードがあれば見た目上の不整合が生じ得る（Revalidation Trigger として明記） | 選定 |
+| tier は変更せず新規 `pendingDowngrade` フラグを追加 | 既存の tier zeroing は残し、猶予状態を示す別フィールドを追加 | 既存ロジックに手を加えない | フィールドが1つ増え、`computeUserEntitlements()` 側でも新フィールドを考慮する改修が必要になり複雑化。要件が求める「tier とステータスの独立参照」という単純なモデルに反する | 却下 |
+| Vercel Cron + API Route | ホスティング基盤標準の Cron 機能を利用 | 新規インフラ依存なし、`CRON_SECRET` による標準的な認可パターンが確立している | Vercel の Cron 実行時間・頻度制約（プランによる上限）に依存する | 選定 |
+| Supabase Edge Function の pg_cron | DB 側のスケジューラを利用 | Webhook 処理と分離できる | 本プロジェクトの実行基盤（Vercel）と別のスケジューラを併用することになり、運用・監視の分散を招く。ホスティングが Vercel である以上、Vercel Cron の方が既存の API Route 資産（Stripe クライアント初期化等）をそのまま再利用できる | 却下 |
+
+## Design Decisions（Phase 42）
+
+### Decision: tier とステータスの完全分離（zeroing ロジックの削除）
+- **Context**: 支払い失敗時に tier ごと失われる現行実装は、ユーザーが想定していた「tier は維持されエンタイトルメントのみ非活性化される」設計と乖離していた。
+- **Alternatives Considered**:
+  1. `buildSnapshotFromSubscription()` はそのままに、読み取り側で tier を復元する仕組みを追加（却下: 書き込み側で誤った値を保存しつつ読み取り側で補正するのは二重管理になり複雑）。
+  2. 書き込み側（`buildSnapshotFromSubscription()`）の tier zeroing を削除し、常に実際の tier を記録する（選定）。
+- **Selected Approach**: 案2。`hasPaid` 変数とその分岐を削除し、`subscriptionTier: mappedTier` を常に採用する。
+- **Rationale**: `computeUserEntitlements()` が既にステータスベースの可否判定を単独で担っており、tier 側でも同じ判定をすることは冗長かつ不整合の原因だった（Generalization/Simplification 原則）。
+- **Trade-offs**: `subscription_tier` の生値のみを参照している下流 UI（もしあれば）は、`past_due` 中も「契約中」の表示のままになる副作用が生じる。この対応は `quizetika-billing-subscription-ui` の担当範囲であり、本設計では Revalidation Trigger として明記するに留める。
+- **Follow-up**: `quizetika-billing-subscription-ui` 側で、契約状態バッジ等が tier 生値だけでなく `hasPaidEntitlements` / `subscriptionStatus` も考慮した表示になっているか確認が必要（本スペックのタスクには含めない）。
+
+### Decision: 定期整合性チェックは既存手動スクリプトのロジックを昇格
+- **Context**: Webhook 不達時の安全網として自動実行される定期処理が必要だが、判定ロジック自体は `scripts/sync-subscriptions.ts` で既に検証済み。
+- **Selected Approach**: `scripts/sync-subscriptions.ts` と同一の判定ロジック（Stripe の `active`/`trialing`/`past_due` を有効とみなし最古の1件を正とする）を `src/services/subscription-reconciliation.ts` の `reconcileSubscriptions()` として実装し、新規 Cron API Route から呼び出す。既存スクリプトはコード共有を必須とせず、手動の緊急対応ツールとして独立実行性を維持したまま残置する。
+- **Rationale**: 判定ロジックは既に手動運用で実績があり、新規に設計し直す必要がない（Build vs Adopt: 既存ロジックの Adopt）。
+- **Trade-offs**: スクリプトとサービス関数でロジックが将来乖離するリスクがあるが、手動スクリプトは緊急時のみの利用に限定されるため許容範囲と判断。
+
+### Decision: 個別ユーザーのエラーはスキップ、致命的エラーのみバッチ中断
+- **Context**: 要件36.10「実行中にエラーが発生した場合、安全に中断し次回全件再評価する」を、日次バッチのどの粒度に適用するかが論点だった。
+- **Selected Approach**: 個々のユーザーに対する Stripe API 呼び出し失敗はそのユーザーをスキップして処理を継続し、ユーザー一覧取得など全体に影響する致命的エラーの場合のみバッチ全体を中断する。いずれの場合も次回日次実行では対象を絞らず全件を再評価する。
+- **Rationale**: 単一ユーザーの一時的な Stripe API エラーで安全網全体が毎日止まってしまうと、安全網としての実効性が失われる。要件が求める「次回実行時に全対象を再評価する」という冪等性は、この粒度分けでも満たされる。
+- **Trade-offs**: スキップされたユーザーは是正が最大1日遅延する可能性があるが、安全網はあくまで Webhook 到達後の二次防御であり許容範囲。
+
+## Risks & Mitigations（Phase 42）
+- **tier 生値のみを参照する下流コードの取りこぼし** — `subscription_tier` を直接参照し `hasPaidEntitlements` を経由しない表示・判定コードが将来追加された場合、`past_due` 中に誤って有料特典が見えてしまうリスク。軽減策: `hasPaidEntitlements` / `hasCreatorEntitlements` を経由しない tier 直接参照箇所がないか、実装時に既存コードベースを grep で再確認する。
+- **是正バッチの誤判定による課金・エンタイトルメントの誤動作** — `reconcileSubscriptions()` の判定ロジックに誤りがあると、正常な契約者が誤って `free` に是正されるなど実害が生じる。軽減策: Stripe mock を用いたユニットテストで一致/不一致の全パターンを検証し、監査テーブルで是正内容を事後追跡可能にする。
+- **対象ユーザー数増加時の実行時間超過** — 将来ユーザー数が大きく増えた場合、単一 Cron 実行で全件処理しきれない可能性。軽減策: 現時点では規模的に問題ないと判断し単純な全件走査とするが、Open Question として規模拡大時のページ分割実行方式への切替検討を残す。
+
+## References（Phase 42）
+- 既存実装: `src/services/stripe-webhook.ts`, `src/services/entitlement.ts`, `src/services/entitlement-shared.ts`, `src/lib/pricing-entitlement.ts`, `scripts/sync-subscriptions.ts`, `src/app/api/webhooks/stripe/route.ts`
+- ユーザーヒアリング: 本番ホスティングは Vercel（2026-07-16 確認）

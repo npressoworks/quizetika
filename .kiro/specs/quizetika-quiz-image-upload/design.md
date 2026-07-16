@@ -22,6 +22,8 @@
 - クライアントサイドでの画像検証、アスペクト比 1.91:1 (OGP規格) への切り出し、解像度上限制限、JPEG変換ロジック
 - Firebase Storage への遅延アップロード処理
 
+> **共有拡張の記録（`quizeum-auth-profile-ui` Phase 31, 2026-07-16）**: `image-cropper.tsx` は本specの所有物として維持しつつ、`quizeum-auth-profile-ui` がアバター円形トリミング用に `aspect` / `cropShape` / `maxWidth` / `maxHeight` / `quality` / `onError` / `confirmTestId` / `cancelTestId` をPropsとして追加する後方互換拡張を行った（全Propsにデフォルト値あり、本specの呼び出し・出力契約は無変更）。本spec側で `image-cropper.tsx` のデフォルト値・呼び出しシグネチャを変更する場合は、`quizeum-auth-profile-ui` の Revalidation Triggers に従い影響有無を確認すること。
+
 ### Out of Boundary
 - コアのクイズ保存処理（Firestore への `thumbnailUrl` の保存自体は既存のエディタ・コアロジックをそのまま使用する）
 

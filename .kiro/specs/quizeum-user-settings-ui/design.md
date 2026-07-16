@@ -57,7 +57,7 @@
 - `variables.css` の `:root` にダークトークンが定義済み。`[data-theme='light']` ブロックはプレースホルダーとして存在するが、全画面でライト表示を検証した実績はない。
 - `globals.css` の `body` 背景は `rgba(157, 78, 221, ...)` 等のハードコードグラデーションを含み、ライトテーマ時に不整合が生じる可能性がある。
 - `layout.tsx` は Server Component。`AuthProvider` → `LayoutWrapper` の構造。テーマ Provider は未導入。
-- Sidebar ポップアップ（`sidebar.tsx`）は「マイページ」「ログアウト」のみ。`popupItem` + `glass-card` パターンが確立済み（sidebar-layout design 参照）。
+- Sidebar ポップアップ（`sidebar.tsx`）は「プロフィール」「ログアウト」のみ。`popupItem` + `glass-card` パターンが確立済み（sidebar-layout design 参照）。
 
 ### Architecture Pattern & Boundary Map
 テーマは **DOM 属性 + CSS 変数** を唯一の描画ソースとし、React Context は UI 同期とユーザー操作の入口とする。初回描画は **inline script** で `localStorage` を同期的に読み、`document.documentElement.dataset.theme` を設定してフラッシュを防ぐ。
@@ -140,7 +140,7 @@ e2e/
 ```
 
 ### Modified Files（本スペック実装範囲外だが依存・連携）
-- `src/components/layout/sidebar.tsx` — **`quizetika-sidebar-layout`** が「設定」`popupItem`（`/settings`）をマイページとログアウトの間に追加
+- `src/components/layout/sidebar.tsx` — **`quizetika-sidebar-layout`** が「設定」`popupItem`（`/settings`）をプロフィールとログアウトの間に追加
 
 ### Coordination: layout.tsx 所有境界
 
@@ -349,12 +349,12 @@ export function useTheme(): ThemeContextValue;
 ```tsx
 <Link href={`/profile/${user.id}`} className={styles.popupItem}>
   <UserIcon size={18} />
-  <span>マイページ</span>
+  <span>プロフィール</span>
 </Link>
 <hr className={styles.divider} />
 ```
 
-sidebar-layout Phase 23 で同型の「設定」項目を **マイページの下・divider の上** に追加する想定:
+sidebar-layout Phase 23 で同型の「設定」項目を **プロフィールの下・divider の上** に追加する想定:
 
 ```tsx
 <Link href="/settings" className={styles.popupItem} data-testid="sidebar-settings-link">

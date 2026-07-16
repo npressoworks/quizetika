@@ -507,8 +507,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     aiAuthoring.usageThumbnail
       ? aiAuthoring.usageThumbnail.limit === null ||
         aiAuthoring.usageThumbnail.remainingToday === null
-        ? `本日のサムネ: 無制限（${aiAuthoring.usageThumbnail.usedToday}回使用）`
-        : `本日のサムネ残り: ${aiAuthoring.usageThumbnail.remainingToday}/${aiAuthoring.usageThumbnail.limit}回`
+        ? `本日の生成上限: 無制限（${aiAuthoring.usageThumbnail.usedToday}回使用）`
+        : `本日の生成上限: ${aiAuthoring.usageThumbnail.remainingToday}/${aiAuthoring.usageThumbnail.limit}回`
       : undefined;
 
   const handleLinkReferenceQuestion = (question: Question) => {
@@ -1543,6 +1543,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
             pendingApprovals={aiChat.pendingApprovals}
             approveToolCall={aiChat.approveToolCall}
             rejectToolCall={aiChat.rejectToolCall}
+            thumbnailGenerations={aiChat.thumbnailGenerations}
             onSuggest={(localMessage, inputHint) => {
               aiChat.appendLocalMessage(localMessage);
               aiChat.fillInput(inputHint);

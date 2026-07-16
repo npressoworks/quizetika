@@ -51,13 +51,15 @@ test.describe('AI クイズ作問 E2E', () => {
     }
   });
 
-  test('サムネ: title/description 未入力時はボタン disabled', async ({ page }) => {
+  test('サムネ: title/description 未入力時はボタンは有効だが入力を促すメッセージが表示される', async ({ page }) => {
     await page.goto('/quiz/create');
     await page.waitForLoadState('domcontentloaded');
 
     const thumbBtn = page.getByTestId('ai-thumbnail-generate-button');
     if (await thumbBtn.count() > 0) {
-      await expect(thumbBtn).toBeDisabled();
+      await expect(thumbBtn).toBeEnabled();
+      await thumbBtn.click();
+      await expect(page.getByText('タイトルと説明文を入力するとサムネイルを生成できます')).toBeVisible();
     }
   });
 });

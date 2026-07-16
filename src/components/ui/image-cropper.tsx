@@ -13,12 +13,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { AddOutlined, RemoveOutlined } from '@mui/icons-material';
 
-const CROP_ASPECT = 1.91; // OGP 推奨比率
+const DEFAULT_ASPECT = 1.91; // OGP 推奨比率
 
-// 解像度制限(FHD)および1.91:1(OGP)アスペクト比維持のための寸法計算関数
+// 解像度制限(FHD)およびアスペクト比維持のための寸法計算関数
 export function calculateTargetDimensions(
   width: number,
   height: number,
+  aspect: number = DEFAULT_ASPECT,
   maxWidth: number = 1920,
   maxHeight: number = 1005 // 1920 / 1.91 = 1005.23... (四捨五入して 1005)
 ): { width: number; height: number } {
@@ -26,12 +27,12 @@ export function calculateTargetDimensions(
   let targetHeight = height;
 
   if (targetWidth > maxWidth || targetHeight > maxHeight) {
-    if (targetWidth / targetHeight >= CROP_ASPECT) {
+    if (targetWidth / targetHeight >= aspect) {
       targetWidth = maxWidth;
-      targetHeight = Math.round(maxWidth / CROP_ASPECT);
+      targetHeight = Math.round(maxWidth / aspect);
     } else {
       targetHeight = maxHeight;
-      targetWidth = Math.round(maxHeight * CROP_ASPECT);
+      targetWidth = Math.round(maxHeight * aspect);
     }
   }
   return { width: targetWidth, height: targetHeight };
@@ -40,7 +41,11 @@ export function calculateTargetDimensions(
 // Canvasを用いて切り抜き・縮小(FHD制限)・JPEG変換を行うヘルパー関数
 async function getCroppedImg(
   imageSrc: string,
-  pixelCrop: Area
+  pixelCrop: Area,
+  aspect: number = DEFAULT_ASPECT,
+  maxWidth: number = 1920,
+  maxHeight: number = 1005,
+  quality: number = 0.85
 ): Promise<Blob> {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
@@ -60,7 +65,10 @@ async function getCroppedImg(
   // クロップ対象のオリジナル幅・高さから目標のFHD以下サイズを計算
   const { width: targetWidth, height: targetHeight } = calculateTargetDimensions(
     pixelCrop.width,
-    pixelCrop.height
+    pixelCrop.height,
+    aspect,
+    maxWidth,
+    maxHeight
   );
 
   canvas.width = targetWidth;
@@ -79,7 +87,7 @@ async function getCroppedImg(
     targetHeight
   );
 
-  // JPEG 形式、画質 0.85 で Blob をエクスポート
+  // JPEG 形式、指定画質で Blob をエクスポート
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
@@ -90,7 +98,7 @@ async function getCroppedImg(
         resolve(blob);
       },
       'image/jpeg',
-      0.85
+      quality
     );
   });
 }
@@ -100,6 +108,14 @@ export interface ImageCropperProps {
   isOpen: boolean;
   onClose: () => void;
   onCropComplete: (croppedBlob: Blob) => void;
+  aspect?: number; // 既定値: 1.91（OGP）
+  cropShape?: 'rect' | 'round'; // 既定値: 'rect'
+  maxWidth?: number; // 既定値: 1920
+  maxHeight?: number; // 既定値: 1005
+  quality?: number; // 既定値: 0.85（JPEG エクスポート品質）
+  confirmTestId?: string; // 既定値: 'image-cropper-confirm'
+  cancelTestId?: string; // 既定値: 'image-cropper-cancel'
+  onError?: (message: string) => void; // 未指定時は alert() にフォールバック
 }
 
 export function ImageCropper({
@@ -107,6 +123,14 @@ export function ImageCropper({
   isOpen,
   onClose,
   onCropComplete,
+  aspect = DEFAULT_ASPECT,
+  cropShape = 'rect',
+  maxWidth = 1920,
+  maxHeight = 1005,
+  quality = 0.85,
+  confirmTestId = 'image-cropper-confirm',
+  cancelTestId = 'image-cropper-cancel',
+  onError,
 }: ImageCropperProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -124,8 +148,8 @@ export function ImageCropper({
     const containerH = containerRef.current.clientHeight;
 
     // クロップ領域をコンテナ全幅に設定（高さはアスペクト比で制限）
-    const cropW = Math.min(containerW, containerH * CROP_ASPECT);
-    const cropH = cropW / CROP_ASPECT;
+    const cropW = Math.min(containerW, containerH * aspect);
+    const cropH = cropW / aspect;
     setCropSize({ width: cropW, height: cropH });
 
     // mediaSize.width/height = 画像の実際の表示サイズ(zoom=1時点)
@@ -137,7 +161,7 @@ export function ImageCropper({
     setMinZoom(computedMinZoom);
     setZoom(computedMinZoom);
     setCrop({ x: 0, y: 0 });
-  }, []);
+  }, [aspect]);
 
   const onCropCompleteCallback = useCallback(
     (_croppedArea: Area, croppedAreaPixelsData: Area) => {
@@ -151,12 +175,24 @@ export function ImageCropper({
 
     try {
       setIsProcessing(true);
-      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+      const croppedBlob = await getCroppedImg(
+        imageSrc,
+        croppedAreaPixels,
+        aspect,
+        maxWidth,
+        maxHeight,
+        quality
+      );
       onCropComplete(croppedBlob);
       onClose();
     } catch (error) {
       console.error('画像の切り抜き処理に失敗しました:', error);
-      alert('画像のトリミングに失敗しました。ファイル破損などの可能性があります。');
+      const message = '画像のトリミングに失敗しました。ファイル破損などの可能性があります。';
+      if (onError) {
+        onError(message);
+      } else {
+        alert(message);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -181,7 +217,8 @@ export function ImageCropper({
               zoom={zoom}
               minZoom={minZoom}
               maxZoom={Math.max(minZoom + 2, 3)}
-              aspect={CROP_ASPECT}
+              aspect={aspect}
+              cropShape={cropShape}
               cropSize={cropSize}
               onCropChange={setCrop}
               onCropComplete={onCropCompleteCallback}
@@ -223,6 +260,7 @@ export function ImageCropper({
             variant="outline"
             onClick={onClose}
             disabled={isProcessing}
+            data-testid={cancelTestId}
           >
             キャンセル
           </Button>
@@ -230,6 +268,7 @@ export function ImageCropper({
             type="button"
             onClick={handleConfirm}
             disabled={isProcessing}
+            data-testid={confirmTestId}
           >
             {isProcessing ? '処理中…' : '確定'}
           </Button>
