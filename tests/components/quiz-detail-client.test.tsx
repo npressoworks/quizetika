@@ -438,9 +438,6 @@ describe('QuizDetailClient - Phase 40 共有トリガー＋メニュー', () => 
   it('クイズ詳細画面に共有トリガーが描画され、クリックするとメニューが開き、正しいクイズID・タイトルで共有リンクが生成される', async () => {
     render(<QuizDetailClient quiz={makeQuiz({ id: 'quiz-42', title: '共有テストクイズ' })} />);
 
-    const shareSection = screen.getByTestId('quiz-detail-share-section');
-    expect(shareSection).toBeInTheDocument();
-
     const trigger = screen.getByTestId('quiz-detail-share-trigger');
     expect(trigger).toBeInTheDocument();
     expect(screen.queryByTestId('quiz-detail-share-menu')).not.toBeInTheDocument();

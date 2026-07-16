@@ -81,7 +81,7 @@ export const QuizShareSection: React.FC<QuizShareSectionProps> = ({ quizId, quiz
   };
 
   return (
-    <div className={classes.section} data-testid="quiz-detail-share-section">
+    <div className={classes.section}>
       <DropdownMenu open={open} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger
           render={
