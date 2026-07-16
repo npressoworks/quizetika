@@ -1751,7 +1751,7 @@
   - _Depends: 30.2_
   - _Boundary: SubscriptionReconciliationService_
 
-- [ ] 30.4 定期整合性チェック起動APIの実装
+- [x] 30.4 定期整合性チェック起動APIの実装
   - `GET /api/cron/sync-subscriptions` を新規作成し、`Authorization: Bearer CRON_SECRET` を検証したうえで `reconcileSubscriptions()` を呼び出し、処理件数・是正件数・スキップ件数を返す（`runtime = 'nodejs'`）
   - 完了状態: `Authorization` ヘッダーが不正または欠落時に401、正しい `CRON_SECRET` で200とサマリJSONが返る統合テストがグリーンであること
   - _Requirements: 36.6, 36.7_
