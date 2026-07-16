@@ -49,6 +49,12 @@ export interface UseAiChatAssistantResult {
   }>;
   approveToolCall: (toolCallId: string) => void;
   rejectToolCall: (toolCallId: string) => void;
+  /** サムネイル生成ツール呼び出しごとの実生成の進捗状態 */
+  thumbnailGenerations: Record<string, {
+    status: 'generating' | 'ready' | 'error';
+    imageUrl?: string;
+    errorMessage?: string;
+  }>;
 }
 
 // クライアント側 Zod バリデーション用スキーマ
@@ -102,6 +108,11 @@ export function useAiChatAssistant({
   }>>({});
   const pendingResolvesRef = React.useRef<Record<string, (result: any) => void>>({});
   const addToolResultRef = React.useRef<any>(null);
+  const [thumbnailGenerations, setThumbnailGenerations] = useState<Record<string, {
+    status: 'generating' | 'ready' | 'error';
+    imageUrl?: string;
+    errorMessage?: string;
+  }>>({});
 
   const userIdRef = React.useRef(userId);
   const quizStateRef = React.useRef(quizState);
@@ -154,12 +165,94 @@ export function useAiChatAssistant({
         return;
       }
 
+      // サムネイル生成は「承認してから生成」ではなく「生成してから反映確認」の流れにするため専用処理
+      if (toolCall.toolName === 'generateThumbnail') {
+        return new Promise((resolve) => {
+          pendingResolvesRef.current[toolCall.toolCallId] = resolve;
+
+          setPendingApprovals((prev) => ({
+            ...prev,
+            [toolCall.toolCallId]: {
+              toolCallId: toolCall.toolCallId,
+              toolName: toolCall.toolName,
+              args: toolCall.input,
+              resolve,
+            },
+          }));
+
+          setThumbnailGenerations((prev) => ({
+            ...prev,
+            [toolCall.toolCallId]: { status: 'generating' },
+          }));
+
+          (async () => {
+            const title = quizStateRef.current.title?.trim() || '';
+            const description = quizStateRef.current.description?.trim() || '';
+            const userInstruction = ((toolCall.input as any)?.userInstruction || '').trim();
+
+            // タイトル・説明文が未入力でも、チャットでの指示があればそれをもとに生成する
+            if (!userInstruction && (!title || !description)) {
+              setThumbnailGenerations((prev) => ({
+                ...prev,
+                [toolCall.toolCallId]: {
+                  status: 'error',
+                  errorMessage: 'タイトルと説明文を入力するか、チャットでどんな画像にしたいか指示してください',
+                },
+              }));
+              return;
+            }
+
+            try {
+              const token = await getSupabaseAccessToken();
+              const res = await fetch('/api/quiz/ai-generate-thumbnail', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                  title,
+                  description,
+                  userId: userIdRef.current,
+                  userInstruction,
+                }),
+              });
+              const data = await res.json();
+
+              if (!res.ok) {
+                setThumbnailGenerations((prev) => ({
+                  ...prev,
+                  [toolCall.toolCallId]: {
+                    status: 'error',
+                    errorMessage: data.message || '画像の生成に失敗しました',
+                  },
+                }));
+                return;
+              }
+
+              setThumbnailGenerations((prev) => ({
+                ...prev,
+                [toolCall.toolCallId]: { status: 'ready', imageUrl: data.thumbnailUrl },
+              }));
+            } catch (err) {
+              console.error('[useAiChatAssistant] Thumbnail generation error:', err);
+              setThumbnailGenerations((prev) => ({
+                ...prev,
+                [toolCall.toolCallId]: {
+                  status: 'error',
+                  errorMessage: '画像の生成に失敗しました',
+                },
+              }));
+            }
+          })();
+        });
+      }
+
       // 承認フローを必要とするクライアント操作ツール一覧
       const approvalRequiredTools = [
         'updateQuestion',
         'deleteQuestions',
         'generateBulkQuestions',
-        'generateThumbnail'
       ];
 
       // 対象のツールであれば即時解決せず、Promise を返して pendingApprovals に退避
@@ -398,16 +491,16 @@ export function useAiChatAssistant({
         }
 
         case 'generateThumbnail': {
-          const args = pending.args as any;
-          // クイズ情報 + ユーザー指示を合わせたプロンプトを構築
+          const generation = thumbnailGenerations[toolCallId];
+          if (!generation || generation.status !== 'ready' || !generation.imageUrl) {
+            resultPayload = { success: false, error: 'not-ready', message: '画像がまだ生成されていません' };
+            break;
+          }
           const quizTitle = quizStateRef.current.title || 'クイズ';
-          const quizDesc = quizStateRef.current.description || '';
-          const userInstruction = args.userInstruction || '';
-          const mockUrl = `/images/ai-generated-${Math.random().toString(36).substring(2, 11)}.jpg`;
-          setThumbnailUrl(mockUrl);
+          setThumbnailUrl(generation.imageUrl);
           resultPayload = {
             success: true,
-            thumbnailUrl: mockUrl,
+            thumbnailUrl: generation.imageUrl,
             message: `「${quizTitle}」のカバー画像を生成してエディタに適用しました`,
           };
           break;
@@ -546,5 +639,6 @@ export function useAiChatAssistant({
     pendingApprovals,
     approveToolCall,
     rejectToolCall,
+    thumbnailGenerations,
   };
 }

@@ -17,8 +17,13 @@ export const maxDuration = 60;
 const imageModelId =
   process.env.GEMINI_IMAGE_MODEL_ID ?? 'gemini-2.5-flash-image';
 
-function buildThumbnailPrompt(title: string, description: string): string {
-  return `クイズのサムネイル画像を生成してください。タイトル: ${title}。説明: ${description}。魅力的なクイズカバー画像。テキストは最小限。`;
+function buildThumbnailPrompt(title: string, description: string, userInstruction: string): string {
+  const contextLines = [
+    title ? `タイトル: ${title}` : null,
+    description ? `説明: ${description}` : null,
+    userInstruction ? `追加指示: ${userInstruction}` : null,
+  ].filter(Boolean);
+  return `クイズのサムネイル画像を生成してください。${contextLines.join('。')}。魅力的なクイズカバー画像。テキストは最小限。`;
 }
 
 function extractImageBuffer(response: {
@@ -38,11 +43,12 @@ function extractImageBuffer(response: {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const { title, description, quizId, userId } = body as {
+    const { title, description, quizId, userId, userInstruction } = body as {
       title?: string;
       description?: string;
       quizId?: string;
       userId?: string;
+      userInstruction?: string;
     };
 
     if (!userId) {
@@ -52,7 +58,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (!title?.trim() || !description?.trim()) {
+    const trimmedUserInstruction = userInstruction?.trim() || '';
+
+    // タイトル・説明文がなくても、チャットでの追加指示があればそれをもとに生成する
+    if (!trimmedUserInstruction && (!title?.trim() || !description?.trim())) {
       return NextResponse.json(
         { error: 'missing-params', message: 'タイトルと説明文を入力してください' },
         { status: 400 }
@@ -85,15 +94,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const trimmedTitle = title.trim();
-    const trimmedDescription = description.trim();
+    const trimmedTitle = title?.trim() || '';
+    const trimmedDescription = description?.trim() || '';
 
     let imageBuffer: Buffer | null = null;
     try {
       const genAiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
       const response = await genAiClient.models.generateContent({
         model: imageModelId,
-        contents: buildThumbnailPrompt(trimmedTitle, trimmedDescription),
+        contents: buildThumbnailPrompt(trimmedTitle, trimmedDescription, trimmedUserInstruction),
       });
       imageBuffer = extractImageBuffer(response);
     } catch (aiError) {

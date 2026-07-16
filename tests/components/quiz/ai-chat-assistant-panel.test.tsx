@@ -49,6 +49,7 @@ describe('AiChatAssistantPanel', () => {
     pendingApprovals: {} as Record<string, { toolCallId: string; toolName: string; args: any; resolve: (result: any) => void }>,
     approveToolCall: jest.fn(),
     rejectToolCall: jest.fn(),
+    thumbnailGenerations: {} as Record<string, { status: 'generating' | 'ready' | 'error'; imageUrl?: string; errorMessage?: string }>,
     // イントロアクションボタン用
     onSuggest: jest.fn(),
     // リセットボタン用

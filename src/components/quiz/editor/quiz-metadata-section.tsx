@@ -87,6 +87,7 @@ export function QuizMetadataSection({
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImageSrc, setSelectedImageSrc] = useState<string | null>(null);
   const [localUploadError, setLocalUploadError] = useState<string | null>(null);
+  const [aiThumbnailMissingFields, setAiThumbnailMissingFields] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -130,6 +131,15 @@ export function QuizMetadataSection({
         setSelectedImageSrc(null);
       }
     }
+  };
+
+  const handleAiThumbnailClick = () => {
+    if (!title.trim() || !description.trim()) {
+      setAiThumbnailMissingFields(true);
+      return;
+    }
+    setAiThumbnailMissingFields(false);
+    onAiThumbnailGenerate?.();
   };
 
   const handleCropperClose = () => {
@@ -232,8 +242,8 @@ export function QuizMetadataSection({
                   variant="secondary"
                   size="sm"
                   data-testid="ai-thumbnail-generate-button"
-                  disabled={isAiThumbnailGenerating || !title.trim() || !description.trim()}
-                  onClick={onAiThumbnailGenerate}
+                  disabled={isAiThumbnailGenerating}
+                  onClick={handleAiThumbnailClick}
                   className="w-fit"
                 >
                   {isAiThumbnailGenerating ? (
@@ -244,12 +254,18 @@ export function QuizMetadataSection({
                   ) : (
                     <>
                       <AutoAwesomeOutlined sx={{ fontSize: 16 }} className="mr-2" />
-                      AI でサムネイル生成
+                      AIでサムネイル生成
                     </>
                   )}
                 </Button>
                 {!title.trim() || !description.trim() ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p
+                    className={
+                      aiThumbnailMissingFields
+                        ? 'text-xs text-destructive font-semibold'
+                        : 'text-xs text-muted-foreground'
+                    }
+                  >
                     タイトルと説明文を入力するとサムネイルを生成できます
                   </p>
                 ) : null}
