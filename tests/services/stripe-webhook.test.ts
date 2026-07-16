@@ -112,6 +112,30 @@ describe('stripe-webhook service', () => {
     });
   });
 
+  it('past_due ステータスの creator subscription でも subscriptionTier は creator のまま維持される', () => {
+    const subscription = {
+      id: 'sub_past_due',
+      customer: 'cus_1',
+      status: 'past_due',
+      items: {
+        data: [
+          {
+            price: { id: 'price_creator_monthly_test' },
+            current_period_end: 1782864000,
+          },
+        ],
+      },
+      metadata: { userId: 'uid-1' },
+    } as unknown as Stripe.Subscription;
+
+    const snapshot = buildSnapshotFromSubscription(subscription, 'uid-1');
+    expect(snapshot).toMatchObject({
+      uid: 'uid-1',
+      subscriptionTier: 'creator',
+      subscriptionStatus: 'past_due',
+    });
+  });
+
   it('subscription.updated で applySubscriptionFromStripe を呼ぶ', async () => {
     const subscription = {
       id: 'sub_1',

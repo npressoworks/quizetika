@@ -1727,3 +1727,66 @@
 - 実装順: 29.1 / 29.2（並行可、Foundation）→ 29.3 / 29.4 / 29.5（29.1依存、並行可）・29.6（29.2依存）・29.8（29.2依存）・29.10（29.2依存）・29.11 / 29.12 / 29.13（並行可、独立）→ 29.7（29.6依存）・29.9（29.8依存）→ 29.14（29.8依存）・29.15（29.10, 29.12依存）・29.16（29.8依存、`subscription.ts` を共有するため29.8完了後に着手）→ 29.17（29.16依存）→ 29.18 / 29.19（並行可）→ 29.20。
 - 29.8 と 29.16 はいずれも `src/services/subscription.ts` を変更するため、ファイル競合を避けるべく 29.16 は 29.8 完了後に着手する（並行不可）。
 - 二重課金防止（29.12, 29.14, 29.15）は実際の返金処理を伴うため、実装時は Stripe mock による網羅的なシナリオ検証を最優先する。
+
+### 30. Phase 42: 支払い失敗時の状態遷移と失効検知の安全網 (2026-07-16)
+
+- [x] 30.1 (P) Webhookのtier決定ロジック是正
+  - `buildSnapshotFromSubscription()` の `hasPaid` 分岐を削除し、常に `mappedTier` を `subscriptionTier` として採用するよう変更する
+  - `subscriptionStatus` は Stripe から届いた値をそのまま格納する（変更なし）
+  - 完了状態: `status: 'past_due'` で `creator` にマッピングされる Price ID を持つイベントに対し、`subscriptionTier` が `'creator'` のまま、`subscriptionStatus` が `'past_due'` になる単体テストがグリーンであること
+  - _Requirements: 36.1, 36.2, 36.4, 36.5_
+  - _Boundary: StripeWebhookAPI_
+
+- [ ] 30.2 (P) 是正監査テーブルの追加
+  - `billing_reconciliation_corrections` テーブルを作成する Supabase migration を追加する（クライアントアクセス不可、RLSで拒否）
+  - 完了状態: migration 適用後にテーブルが存在し、Admin クライアント以外からの読み書きが RLS で拒否されること
+  - _Requirements: 36.9_
+  - _Boundary: Migration_
+
+- [ ] 30.3 定期整合性チェックサービスの実装
+  - `stripe_customer_id` を持つ全ユーザーをページング取得し、Stripe 実契約状態（active/trialing/past_due を有効とみなし最古1件を正とする）と比較、乖離があれば `applySubscriptionFromStripe()`/`clearPaidEntitlements()` で是正し監査レコードを挿入する `reconcileSubscriptions()` を新規実装する
+  - 個別ユーザーの Stripe API 呼び出し失敗はそのユーザーをスキップし処理継続、ユーザー一覧取得等の致命的エラー時はバッチを中断する
+  - 完了状態: ローカルDBが `creator`/`active` だが Stripe 上に有効サブスクリプションが存在しないユーザーに対し `free` へ是正し監査レコードが1件挿入される単体テスト、および一部ユーザーで API 呼び出し失敗時に残りのユーザー処理が継続される単体テストがグリーンであること
+  - _Requirements: 36.6, 36.8, 36.9, 36.10_
+  - _Depends: 30.2_
+  - _Boundary: SubscriptionReconciliationService_
+
+- [ ] 30.4 定期整合性チェック起動APIの実装
+  - `GET /api/cron/sync-subscriptions` を新規作成し、`Authorization: Bearer CRON_SECRET` を検証したうえで `reconcileSubscriptions()` を呼び出し、処理件数・是正件数・スキップ件数を返す（`runtime = 'nodejs'`）
+  - 完了状態: `Authorization` ヘッダーが不正または欠落時に401、正しい `CRON_SECRET` で200とサマリJSONが返る統合テストがグリーンであること
+  - _Requirements: 36.6, 36.7_
+  - _Depends: 30.3_
+  - _Boundary: SyncSubscriptionsCronAPI_
+
+- [ ] 30.5 Vercel Cronスケジュール設定
+  - `vercel.json` を新規作成し、`/api/cron/sync-subscriptions` を UTC 19:00（日本時間4時台）に日次起動する `crons` 設定を追加する
+  - 完了状態: `vercel.json` の `crons` 配列に対象パスと `schedule: '0 19 * * *'` が定義されていること
+  - _Requirements: 36.7_
+  - _Depends: 30.4_
+
+- [ ] 30.6 (P) Phase 42 単体テストの追加
+  - `buildSnapshotFromSubscription` のtier維持、`computeUserEntitlements` の回帰確認、`reconcileSubscriptions` の是正・エラースキップの単体テストを整理・追加する
+  - 完了状態: Phase 42 で変更・追加した全関数の単体テストがグリーンであること
+  - _Requirements: 36.1, 36.2, 36.5, 36.8, 36.10_
+  - _Depends: 30.1, 30.3_
+  - _Boundary: Testing_
+
+- [ ] 30.7 (P) Phase 42 結合テストの追加
+  - `customer.subscription.updated`（`past_due`）受信時の tier 維持、`past_due → active` 復帰時の `hasPaidEntitlements` 再付与、`GET /api/cron/sync-subscriptions` の認可・実行結合テストを追加する
+  - 完了状態: Phase 42 関連の全結合テストがグリーンであること
+  - _Requirements: 36.1, 36.3, 36.4, 36.6, 36.7_
+  - _Depends: 30.1, 30.4_
+  - _Boundary: Testing_
+
+- [ ] 30.8 Phase 42 統合検証
+  - コア全体のテストスイートとビルドを実行し、既存の `canceled` 分岐・エンタイトルメント判定に回帰がないことを確認する
+  - 完了状態: 全 Jest テストがグリーンでパスし、`npm run build` がエラーなく成功すること
+  - _Requirements: 36.1, 36.2, 36.3, 36.4, 36.5_
+  - _Depends: 30.6, 30.7_
+  - _Boundary: Integration_
+
+## Implementation Notes (Phase 42)
+
+- 実装順: 30.1 / 30.2（並行可、Foundation）→ 30.3（30.2依存）→ 30.4（30.3依存）→ 30.5（30.4依存）→ 30.6 / 30.7（並行可、それぞれ30.1・30.3 および 30.1・30.4 に依存）→ 30.8。
+- 30.3 は既存の `applySubscriptionFromStripe()` / `clearPaidEntitlements()` をそのまま呼び出すのみで 30.1 の変更内容には依存しないため、30.1 と並行して着手できる（30.2 完了後）。
+- 要件36.11–36.13（ユーザー通知UI・実行基盤選定・督促ポリシー新設）は Out of Boundary のため、意図的にタスク化していない（design.md Phase 42「Out of Boundary」参照）。
