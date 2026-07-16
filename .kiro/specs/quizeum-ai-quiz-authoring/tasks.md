@@ -180,7 +180,7 @@
   - _Requirements: 7.5_
   - _Boundary: UI Layer (AiChatAssistantPanel)_
 
-- [ ] 7.3 メッセージ送信のキーボード操作性実装とローディング表示条件の修正
+- [x] 7.3 メッセージ送信のキーボード操作性実装とローディング表示条件の修正
   - `<form>` に ref を付与し、Enterキー押下時（Shiftキー同時押下なし、IME変換確定中でない、かつビューポート幅がモバイル相当（`window.matchMedia('(max-width: 768px)')`）でない場合）に `requestSubmit()` を呼び出して送信する処理を `AutoGrowTextarea` の `onKeyDown` に実装する
   - Shift+Enterキー押下時は送信を行わずデフォルトの改行挿入動作のままとし、IME変換確定中のEnterキー押下（`nativeEvent.isComposing`）およびモバイル幅では送信を行わない分岐を実装する
   - ローディングインジケータ（「AIが思考中」）の表示条件に `!hasPendingApproval` を追加し、ツール承認待機中は表示しないようにする

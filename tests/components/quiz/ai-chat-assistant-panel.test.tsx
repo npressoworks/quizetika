@@ -210,4 +210,102 @@ describe('AiChatAssistantPanel', () => {
     fireEvent.click(rejectBtn);
     expect(rejectToolCall).toHaveBeenCalledWith('call-reject-test');
   });
+
+  describe('入力欄のキーボード操作性（Requirements 7.1-7.4）', () => {
+    const mockMatchMedia = (matches: boolean) => {
+      window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+        matches,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      }));
+    };
+
+    let requestSubmitSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      // jsdom は HTMLFormElement.prototype.requestSubmit を実装していないため用意する
+      if (!HTMLFormElement.prototype.requestSubmit) {
+        HTMLFormElement.prototype.requestSubmit = function () {
+          this.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        };
+      }
+      requestSubmitSpy = jest.spyOn(HTMLFormElement.prototype, 'requestSubmit');
+    });
+
+    afterEach(() => {
+      requestSubmitSpy.mockRestore();
+    });
+
+    it('デスクトップ幅でShiftなし・IME変換確定中でないEnterキー押下は送信される (Requirement 7.1)', () => {
+      mockMatchMedia(false);
+      render(<AiChatAssistantPanel {...defaultProps} input="テストメッセージ" />);
+
+      const input = screen.getByPlaceholderText('AIに指示を送る...');
+      fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', shiftKey: false, isComposing: false });
+
+      expect(requestSubmitSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('Shift+Enterキー押下では送信されない (Requirement 7.2)', () => {
+      mockMatchMedia(false);
+      render(<AiChatAssistantPanel {...defaultProps} input="テストメッセージ" />);
+
+      const input = screen.getByPlaceholderText('AIに指示を送る...');
+      fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', shiftKey: true, isComposing: false });
+
+      expect(requestSubmitSpy).not.toHaveBeenCalled();
+    });
+
+    it('IME変換確定中（isComposing）のEnterキー押下では送信されない (Requirement 7.3)', () => {
+      mockMatchMedia(false);
+      render(<AiChatAssistantPanel {...defaultProps} input="テストメッセージ" />);
+
+      const input = screen.getByPlaceholderText('AIに指示を送る...');
+      fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', shiftKey: false, isComposing: true });
+
+      expect(requestSubmitSpy).not.toHaveBeenCalled();
+    });
+
+    it('モバイル幅ではEnterキー押下のみでは送信されない (Requirement 7.4)', () => {
+      mockMatchMedia(true);
+      render(<AiChatAssistantPanel {...defaultProps} input="テストメッセージ" />);
+
+      const input = screen.getByPlaceholderText('AIに指示を送る...');
+      fireEvent.keyDown(input, { key: 'Enter', code: 'Enter', shiftKey: false, isComposing: false });
+
+      expect(requestSubmitSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  it('ツール承認待機中は isGenerating が真であっても「AIが思考中」インジケータが表示されない (Requirement 3.7)', () => {
+    const pendingApprovals = {
+      'call-pending': {
+        toolCallId: 'call-pending',
+        toolName: 'generateBulkQuestions',
+        args: { questions: [] },
+        resolve: jest.fn(),
+      },
+    };
+
+    render(
+      <AiChatAssistantPanel
+        {...defaultProps}
+        isGenerating={true}
+        pendingApprovals={pendingApprovals}
+      />
+    );
+
+    expect(screen.queryByText('AIが思考中...')).not.toBeInTheDocument();
+  });
+
+  it('ツール承認待機中でない場合は isGenerating が真であれば「AIが思考中」インジケータが表示される', () => {
+    render(<AiChatAssistantPanel {...defaultProps} isGenerating={true} />);
+
+    expect(screen.getByText('AIが思考中...')).toBeInTheDocument();
+  });
 });

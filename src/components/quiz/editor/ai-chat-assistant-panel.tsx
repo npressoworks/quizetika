@@ -126,6 +126,7 @@ export function AiChatAssistantPanel({
   onReset,
 }: AiChatAssistantPanelProps) {
   const historyRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   // プレビューポップアップの状態管理
   const [previewModal, setPreviewModal] = useState<{
@@ -227,6 +228,24 @@ export function AiChatAssistantPanel({
     : false;
 
   const hasPendingApproval = Object.keys(pendingApprovals).length > 0;
+
+  // Enterキー押下時の送信/改行の分岐処理（Requirements 7.1-7.4）
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter') return;
+
+    // IME変換確定中のEnterキー押下は送信として扱わない (Requirement 7.3)
+    if (e.nativeEvent.isComposing) return;
+
+    // Shift+Enterはデフォルトの改行挿入動作のままとする (Requirement 7.2)
+    if (e.shiftKey) return;
+
+    // モバイル幅（CSS 側 @media (max-width: 768px) と同一閾値）ではEnterキー押下では送信しない (Requirement 7.4)
+    if (window.matchMedia('(max-width: 768px)').matches) return;
+
+    // デスクトップ幅・Shiftなし・IME変換確定中でない場合は送信する (Requirement 7.1)
+    e.preventDefault();
+    formRef.current?.requestSubmit();
+  };
 
   const getJapaneseFormatName = (type: string) => {
     switch (type) {
@@ -720,7 +739,7 @@ export function AiChatAssistantPanel({
           })}
 
         {/* Streaming/Loading Indicator */}
-        {isGenerating && (
+        {isGenerating && !hasPendingApproval && (
           <div className={styles.loadingContainer}>
             <div className={styles.dot} />
             <div className={styles.dot} />
@@ -732,7 +751,7 @@ export function AiChatAssistantPanel({
 
       {/* Footer Form */}
       <div className={styles.footer}>
-        <form onSubmit={handleSubmit} className={styles.inputForm}>
+        <form ref={formRef} onSubmit={handleSubmit} className={styles.inputForm}>
           <AutoGrowTextarea
             className={styles.input}
             placeholder={
@@ -744,6 +763,7 @@ export function AiChatAssistantPanel({
             }
             value={input || ''}
             onChange={handleInputChange}
+            onKeyDown={handleInputKeyDown}
             disabled={isGenerating || isLimitReached || hasPendingApproval}
             minRows={1}
           />
