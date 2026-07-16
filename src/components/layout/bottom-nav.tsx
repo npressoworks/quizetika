@@ -8,7 +8,9 @@ import {
   HomeOutlined,
   Home,
   SearchOutlined,
+  Search,
   NotificationsOutlined,
+  Notifications,
   BookmarkBorderOutlined,
   Bookmark,
   PersonOutlined,
@@ -18,7 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { isHomeActive, isSearchActive } from './nav-active';
 
 const bottomNavLinkBase =
-  'flex h-full flex-1 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground';
+  'flex h-full flex-1 items-center justify-center text-muted-foreground transition-colors hover:bg-white hover:text-foreground dark:hover:bg-white/10';
 
 const bottomNavLinkActive = 'active text-primary';
 
@@ -37,7 +39,11 @@ export const BottomNav: React.FC = () => {
         className={cn(bottomNavLinkBase, isHomeActive(pathname) && bottomNavLinkActive)}
         data-testid="bottom-nav-home"
       >
-        <Home sx={{ fontSize: 22 }} />
+        {isHomeActive(pathname) ? (
+          <Home sx={{ fontSize: 22 }} />
+        ) : (
+          <HomeOutlined sx={{ fontSize: 22 }} />
+        )}
       </Link>
 
       <Link
@@ -45,7 +51,11 @@ export const BottomNav: React.FC = () => {
         className={cn(bottomNavLinkBase, isSearchActive(pathname) && bottomNavLinkActive)}
         data-testid="bottom-nav-search"
       >
-        <SearchOutlined sx={{ fontSize: 22 }} />
+        {isSearchActive(pathname) ? (
+          <Search sx={{ fontSize: 22 }} />
+        ) : (
+          <SearchOutlined sx={{ fontSize: 22 }} />
+        )}
       </Link>
 
       {user ? (
@@ -55,7 +65,11 @@ export const BottomNav: React.FC = () => {
             className={cn(bottomNavLinkBase, pathname === '/notifications' && bottomNavLinkActive)}
             data-testid="bottom-nav-notifications"
           >
-            <NotificationsOutlined sx={{ fontSize: 22 }} />
+            {pathname === '/notifications' ? (
+              <Notifications sx={{ fontSize: 22 }} />
+            ) : (
+              <NotificationsOutlined sx={{ fontSize: 22 }} />
+            )}
           </Link>
 
           <Link
@@ -63,7 +77,11 @@ export const BottomNav: React.FC = () => {
             className={cn(bottomNavLinkBase, pathname === '/bookmarks' && bottomNavLinkActive)}
             data-testid="bottom-nav-bookmarks"
           >
-            <Bookmark sx={{ fontSize: 22 }} />
+            {pathname === '/bookmarks' ? (
+              <Bookmark sx={{ fontSize: 22 }} />
+            ) : (
+              <BookmarkBorderOutlined sx={{ fontSize: 22 }} />
+            )}
           </Link>
 
           <Link
