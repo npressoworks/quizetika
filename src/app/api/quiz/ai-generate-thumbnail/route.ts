@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import sharp from 'sharp';
 import {
   authorizeAiAuthoringRequest,
   type AuthoringAuthFailure,
@@ -16,6 +17,10 @@ export const maxDuration = 60;
 
 const imageModelId =
   process.env.GEMINI_IMAGE_MODEL_ID ?? 'gemini-2.5-flash-image';
+
+// OGP 推奨サイズ（1200x630, 1.91:1）
+const OGP_IMAGE_WIDTH = 1200;
+const OGP_IMAGE_HEIGHT = 630;
 
 function buildThumbnailPrompt(title: string, description: string, userInstruction: string): string {
   const contextLines = [
@@ -103,6 +108,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const response = await genAiClient.models.generateContent({
         model: imageModelId,
         contents: buildThumbnailPrompt(trimmedTitle, trimmedDescription, trimmedUserInstruction),
+        config: {
+          imageConfig: {
+            aspectRatio: '16:9',
+          },
+        },
       });
       imageBuffer = extractImageBuffer(response);
     } catch (aiError) {
@@ -114,6 +124,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (!imageBuffer) {
+      return NextResponse.json(
+        { error: 'ai-unavailable', message: '画像の生成に失敗しました' },
+        { status: 503 }
+      );
+    }
+
+    // OGP 推奨比率（1.91:1）に合わせて中央基準でクロップ・リサイズする
+    try {
+      imageBuffer = await sharp(imageBuffer)
+        .resize(OGP_IMAGE_WIDTH, OGP_IMAGE_HEIGHT, { fit: 'cover', position: 'centre' })
+        .png()
+        .toBuffer();
+    } catch (cropError) {
+      console.error('[ai-generate-thumbnail] 画像クロップエラー:', cropError);
       return NextResponse.json(
         { error: 'ai-unavailable', message: '画像の生成に失敗しました' },
         { status: 503 }
