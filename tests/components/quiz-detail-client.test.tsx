@@ -3,7 +3,7 @@
  */
 import '@testing-library/jest-dom';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QuizDetailClient } from '@/app/quiz/[id]/quiz-detail-client';
 import type { Quiz } from '@/types';
 
@@ -422,7 +422,7 @@ describe('QuizDetailClient - play status', () => {
   });
 });
 
-describe('QuizDetailClient - Phase 39 共有セクション', () => {
+describe('QuizDetailClient - Phase 40 共有トリガー＋メニュー', () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({
       user: null,
@@ -435,14 +435,23 @@ describe('QuizDetailClient - Phase 39 共有セクション', () => {
     });
   });
 
-  it('クイズ詳細画面に共有セクションが描画され、正しいクイズID・タイトルで共有リンクが生成される', async () => {
+  it('クイズ詳細画面に共有トリガーが描画され、クリックするとメニューが開き、正しいクイズID・タイトルで共有リンクが生成される', async () => {
     render(<QuizDetailClient quiz={makeQuiz({ id: 'quiz-42', title: '共有テストクイズ' })} />);
 
     const shareSection = screen.getByTestId('quiz-detail-share-section');
     expect(shareSection).toBeInTheDocument();
 
-    const xLink = await screen.findByRole('link', { name: /Xでシェア/ });
-    const lineLink = screen.getByRole('link', { name: /LINEで送る/ });
+    const trigger = screen.getByTestId('quiz-detail-share-trigger');
+    expect(trigger).toBeInTheDocument();
+    expect(screen.queryByTestId('quiz-detail-share-menu')).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+
+    const menu = await screen.findByTestId('quiz-detail-share-menu');
+    expect(menu).toBeInTheDocument();
+
+    const xLink = await screen.findByTestId('quiz-detail-share-x');
+    const lineLink = screen.getByTestId('quiz-detail-share-line');
 
     expect(xLink.getAttribute('href')).toContain(encodeURIComponent('http://localhost/quiz/quiz-42'));
     expect(xLink.getAttribute('href')).toContain(encodeURIComponent('共有テストクイズ'));
