@@ -64,6 +64,24 @@
   visibility: visible;
 }
 
+/* モバイル相当の狭い画面幅では、スライドインパネルではなく画面全体を覆う全画面表示に切り替える (Requirement 1.8) */
+@media (max-width: 768px) {
+  .panel {
+    width: 100%;
+    max-width: 100%;
+    border-left: none;
+  }
+
+  /*
+   * 全画面表示中はチャットパネルのヘッダー閉じるボタンのみを閉じる操作として残し、
+   * フローティング起動ボタン（isChatOpen 時は閉じるアイコンに切り替わる）を非表示にして
+   * 閉じる操作の重複配置を防止する (Requirement 1.9)
+   */
+  .floatingButtonOpen {
+    display: none;
+  }
+}
+
 .header {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-light);
@@ -270,6 +288,10 @@
   font-size: 0.9rem;
   outline: none;
   transition: all 0.2s;
+  /* AutoGrowTextarea 化（複数行入力）に備え、一定の高さを超えたら内部スクロールに切り替える (Requirement 7.5) */
+  max-height: 160px;
+  overflow-y: auto;
+  resize: none;
 }
 
 .input:focus {
