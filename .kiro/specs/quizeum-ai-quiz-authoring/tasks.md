@@ -189,7 +189,7 @@
   - _Requirements: 3.7, 7.1, 7.2, 7.3, 7.4_
   - _Boundary: UI Layer (AiChatAssistantPanel)_
 
-- [ ] 7.4 Phase 3 単体/コンポーネントテストの追加
+- [x] 7.4 Phase 3 単体/コンポーネントテストの追加
   - 入力欄のキーボードイベントハンドリング（Enter送信、Shift+Enter改行、IME変換確定ガード、モバイル幅での送信抑止）のコンポーネントテストを `tests/components/quiz/ai-chat-assistant-panel.test.tsx` に追加する
   - 複数行入力時の入力欄高さ拡張（`AutoGrowTextarea` 経由）、および `pendingApprovals` が空でない場合に「AIが思考中」が表示されないことを検証するテストケースを追加する
   - 観察可能な完了条件: 追加したテストケースを含む `ai-chat-assistant-panel.test.tsx` のテストスイートを実行し、すべてグリーンでパスすること

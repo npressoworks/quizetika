@@ -282,6 +282,32 @@ describe('AiChatAssistantPanel', () => {
     });
   });
 
+  it('複数行の入力内容に応じて入力欄（AutoGrowTextarea）の高さがパネル経由で拡張される (Requirement 7.5)', () => {
+    const { container, rerender } = render(
+      <AiChatAssistantPanel {...defaultProps} input="" />
+    );
+
+    const textarea = screen.getByPlaceholderText('AIに指示を送る...') as HTMLTextAreaElement;
+    // AutoGrowTextarea 側の syncHeight は scrollHeight を参照して高さを決定するため、
+    // jsdom ではレイアウト計算が行われない scrollHeight をモックする。
+    Object.defineProperty(textarea, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return 96;
+      },
+    });
+
+    rerender(
+      <AiChatAssistantPanel
+        {...defaultProps}
+        input={'1行目\n2行目\n3行目\n4行目'}
+      />
+    );
+
+    expect(textarea.style.height).toBe('96px');
+    expect(container.querySelector('textarea')).toBe(textarea);
+  });
+
   it('ツール承認待機中は isGenerating が真であっても「AIが思考中」インジケータが表示されない (Requirement 3.7)', () => {
     const pendingApprovals = {
       'call-pending': {
