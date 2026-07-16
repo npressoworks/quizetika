@@ -3357,3 +3357,102 @@ interface AttemptLeaderboardSelfService {
   - **緩和**: 既存 `getLeaderboard` がゲストでも匿名でTOP5を取得できている実績から同一ポリシーが適用されると推定されるが、実装タスクでローカル環境にて確認する。
 
 **Document Status（Phase 38 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。
+
+---
+
+## Phase 39: クイズ詳細画面のSNS共有（2026-07-16）
+
+### 1. Overview
+
+クイズ詳細画面（`/quiz/[id]`）に、X（旧Twitter）共有・LINE共有・URLコピーの3つの共有操作を追加する（要件28）。共有先の挙動は、投稿完了画面（`/quiz/[id]/success`、`quizetika-ui-quiz-lifecycle` が所有する `SuccessClient`）の既存実装（Xインテントリンク・LINE共有リンク・`navigator.clipboard` によるURLコピーとトースト表示）と同一パターンとし、利用者が同種の共有操作として認識できるようにする。
+
+共有URL生成ロジック（X/LINEインテントURLの組み立て）は `SuccessClient` 内にインライン実装されているが、`SuccessClient` 自体は `quizetika-ui-quiz-lifecycle` の所有物であり本スペックから変更できない（境界）。そこで、URL生成部分のみを新規の純粋関数モジュールへ切り出し、クイズ詳細画面側の新規コンポーネントから利用する。`SuccessClient` 側の改修（このモジュールへの寄せ替え）は本フェーズのスコープに含めない。
+
+### Non-Goals（Phase 39）
+- 投稿完了画面（`/quiz/[id]/success`）自体の実装変更（`SuccessClient` の共有ロジックを新モジュールへ移行することを含む）。
+- X・LINE・URLコピー以外の共有チャネル（Instagram、メール等）の追加。
+- 共有アクションのクリック計測・分析トラッキングの実装。
+
+### 2. Boundary Commitments（Phase 39）
+
+| Owns | Out of Boundary |
+| --- | --- |
+| クイズ詳細画面（`QuizDetailClient`）への共有セクション追加・配置 | 投稿完了画面（`SuccessClient`）自体の実装変更（`quizetika-ui-quiz-lifecycle` が担当） |
+| X/LINE共有URL生成の純粋関数（`src/lib/social-share.ts`、新規） | X・LINE・URLコピー以外の新規共有チャネルの追加 |
+| クリップボードへのURLコピーとコピー完了フィードバックのUI | 共有アクションの分析・トラッキング実装 |
+
+### 3. Architecture: 共有URL生成とコンポーネント契約
+
+`src/lib/social-share.ts` に、`SuccessClient` の既存実装と同一の組み立て規則（Xは投稿文＋URL、LINEはURLのみ、いずれも `encodeURIComponent` でエンコード）に従う純粋関数を新設する。フレームワーク非依存・副作用なしとし、単体テストで直接検証できるようにする。
+
+```typescript
+// src/lib/social-share.ts
+export function buildTwitterShareUrl(quizTitle: string, shareUrl: string): string;
+export function buildLineShareUrl(shareUrl: string): string;
+```
+- Preconditions: `shareUrl` は `origin` を含む絶対URLであること。`quizTitle` は空文字を許容する（未取得時は呼び出し側で空文字を渡す）。
+- Postconditions: 戻り値は各プラットフォームのWeb共有インテントの絶対URLであり、`quizTitle`・`shareUrl` は `encodeURIComponent` でエンコードされていること。
+- Invariants: 純粋関数（ネットワークI/O・DOM操作を行わない）。
+
+共有セクションの表示は新規の `QuizShareSection` コンポーネントが担う。
+
+```typescript
+// src/components/quiz/quiz-share-section.tsx
+export interface QuizShareSectionProps {
+  quizId: string;
+  quizTitle: string;
+}
+```
+- `shareUrl` は `${window.location.origin}/quiz/${quizId}` としてクライアント側でのみ算出する（`SuccessClient` と同一パターン。SSR時点では `origin` が確定しないため）。
+- URLコピーは `navigator.clipboard.writeText` を使用し、成功時のみ `copied` state を `true` にして3秒後に自動的に `false` へ戻す（`SuccessClient` の `handleCopyUrl` と同一の時間・挙動）。失敗時は `catch` でエラーをログ出力するのみとし、`copied` を更新しない（要件28.5、フィードバックを表示しない）。
+- タイマーはコンポーネントのアンマウント時に `clearTimeout` すること（`SuccessClient` には無いアンマウント後 `setState` 抑止を追加する軽微な改善）。
+
+**Contracts**: Service [x] / API [ ] / Event [ ] / Batch [ ] / State [x]（ローカルUI状態のみ）
+
+### 4. File Structure Plan（Phase 39）
+
+| ファイル | 操作 | 責務 |
+| --- | --- | --- |
+| `src/lib/social-share.ts` | **New** | `buildTwitterShareUrl` / `buildLineShareUrl` の純粋関数（X/LINE共有URL生成） |
+| `src/components/quiz/quiz-share-section.tsx` | **New** | クイズ詳細画面向け共有セクションUI（X共有・LINE共有・URLコピーの3ボタン、コピー完了フィードバック）。コンテナに `data-testid="quiz-detail-share-section"` を付与 |
+| `src/app/quiz/[id]/quiz-detail-client.tsx` | **Modify** | 説明セクション直下（タグセクションの手前）に `<QuizShareSection quizId={quiz.id} quizTitle={quiz.title} />` を配置 |
+| `tests/lib/social-share.test.ts` | **New** | `buildTwitterShareUrl` / `buildLineShareUrl` のURLエンコード・構造検証（タイトル・URLが正しくエンコードされ埋め込まれること） |
+| `tests/components/quiz-share-section.test.tsx` | **New** | X/LINEボタンの `href`・`target="_blank"`・`rel="noopener noreferrer"`検証、URLコピー成功時のフィードバック表示と3秒後の非表示、`clipboard.writeText` 失敗時にフィードバックを表示しないことの検証（`clipboard` モック） |
+| `tests/components/quiz-detail-client.test.tsx` | **Modify** | `QuizShareSection` がクイズ詳細画面に描画されることの検証を追加 |
+| `e2e/seo-sharing.spec.ts` | **Modify** | F-703（SNSワンクリック共有機能）のソフトアサーション（`if (isVisible())` による条件付き検証）を、`data-testid="quiz-detail-share-section"` を用いた確定的な検証に置き換える。X共有リンクの `href` に `twitter.com` を含むこと、LINE共有リンクの `href` に `line.me` を含むことを直接検証する |
+
+### 5. Requirements Traceability（Phase 39）
+
+| Req | Summary | Component |
+| --- | --- | --- |
+| 28.1 | 共有操作（X・LINE・URLコピー）の表示 | `QuizShareSection` |
+| 28.2 | X共有ボタン押下時の投稿作成画面遷移 | `QuizShareSection`, `buildTwitterShareUrl` |
+| 28.3 | LINE共有ボタン押下時の共有画面遷移 | `QuizShareSection`, `buildLineShareUrl` |
+| 28.4 | URLコピーとコピー完了フィードバック | `QuizShareSection` |
+| 28.5 | コピー失敗時にフィードバックを表示しない | `QuizShareSection` |
+| 28.6 | 共有対象URLはクイズ詳細画面自身 | `QuizShareSection`（`shareUrl` 算出） |
+| 28.7 | 投稿完了画面と同一の共有先・挙動 | `buildTwitterShareUrl`, `buildLineShareUrl`（`SuccessClient` と同一組み立て規則） |
+| 28.8 | 投稿完了画面自体の変更は対象外 | Out of boundary |
+| 28.9 | X・LINE・URLコピー以外の新規チャネル追加は対象外 | Out of boundary |
+| 28.10 | 共有アクションの分析・トラッキングは対象外 | Out of boundary |
+| 28.11 | 共有セクションの `data-testid` | `QuizShareSection` |
+
+### 6. Testing Strategy（Phase 39）
+
+| 種別 | 検証 |
+| --- | --- |
+| **Unit** | `buildTwitterShareUrl` — クイズタイトルとURLが`encodeURIComponent`でエンコードされ、`twitter.com/intent/tweet` 形式のURLに埋め込まれること。 |
+| **Unit** | `buildLineShareUrl` — URLがエンコードされ、`social-plugins.line.me/lineit/share` 形式のURLに埋め込まれること。 |
+| **Component** | `QuizShareSection` — X/LINEリンクの `href`・`target="_blank"`・`rel="noopener noreferrer"` を検証すること。 |
+| **Component** | `QuizShareSection` — コピーボタン押下で `clipboard.writeText` が呼ばれ、コピー完了フィードバックが表示され、3秒後に非表示になること（タイマーモック使用）。 |
+| **Component** | `QuizShareSection` — `clipboard.writeText` が reject したとき、コピー完了フィードバックを表示しないこと。 |
+| **Integration** | `QuizDetailClient` — クイズデータ読み込み完了後、`quiz.id`・`quiz.title` を props として `QuizShareSection` が描画されること。 |
+| **E2E** | `e2e/seo-sharing.spec.ts`（F-703改訂） — クイズ詳細画面で `data-testid="quiz-detail-share-section"` が表示され、X共有リンクの `href` に `twitter.com`、LINE共有リンクの `href` に `line.me` を含むこと。 |
+
+### Risks & Mitigations（Phase 39）
+- **リスク**: `navigator.clipboard` は非セキュアコンテキスト（HTTP）やブラウザ設定によって利用できない場合がある。
+  - **緩和**: `SuccessClient` と同様に `if (navigator.clipboard)` で存在チェックを行い、利用不可時は要件28.5と同様にフィードバックを表示しないのみとする（新規のフォールバックUIは実装しない）。
+- **リスク**: `QuizShareSection` と `SuccessClient` の共有ロジックが将来的に乖離し、二重メンテナンスになる可能性がある。
+  - **緩和**: URL生成部分のみ `social-share.ts` に切り出し、将来 `SuccessClient` 側が同モジュールへ移行する際の受け皿とする（本フェーズでは `SuccessClient` 自体は変更しない、Non-Goals参照）。
+
+**Document Status（Phase 39 設計）**: 本節に反映。`spec.json` → `phase: design-generated`。

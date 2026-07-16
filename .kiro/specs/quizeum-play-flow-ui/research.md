@@ -1161,3 +1161,54 @@ Phase 11 目標:
 **Simplification**
 - `QuizDualLeaderboard` の `quiz` prop・内部 `getQuiz()` 呼び出しを完全に廃止した。このコンポーネントは元々 `quiz` オブジェクトのうち `leaderboardFirstPlay`/`leaderboardReplay`（既に壊れていたフィールド）しか使っておらず、`useQuizLeaderboard` フックへの一本化によって不要なフェッチ・不要な抽象化を1つ削減できた。
 - `Quiz.leaderboardFirstPlay`/`leaderboardReplay`/`leaderboard` フィールド自体の型からの削除は、影響範囲（`quiz-editor.tsx`, `quiz-play-client.tsx`, `test-play.ts` 等の複数フィクスチャ）が本フェーズの目的（自分の順位表示）に対して不釣り合いに広いため、意図的にスコープ外とした（design.md Non-Goals 参照）。死んだ参照経路として無害に残置し、将来のクリーンアップ候補として記録するに留める。
+
+---
+
+# Phase 39: クイズ詳細画面のSNS共有（2026-07-16）
+
+## Summary
+- **Feature**: `quizetika-play-flow-ui`（要件28）
+- **Discovery Scope**: Simple Addition — 投稿完了画面（`SuccessClient`）に既存実装済みの共有パターンを、クイズ詳細画面へ横展開する。新規外部依存・新規APIなし。
+- **Key Findings**:
+  - `SuccessClient`（`src/app/quiz/[id]/success/success-client.tsx`）に、X共有・LINE共有・URLコピー（3秒トースト）の実装が既に存在し、そのまま参照パターンとして流用できる。
+  - `SuccessClient` は `quizetika-ui-quiz-lifecycle` の所有物（design.md該当箇所: `SuccessClient | Page | 投稿完了 | 2.6`）であり、本スペックから直接変更することは境界違反となる。
+  - `e2e/seo-sharing.spec.ts` の F-703 テストが既にクイズ詳細画面への共有機能を想定して書かれていたが、`if (await shareBtn.isVisible())` によるソフトアサーションのため、機能が存在しない現状でも常にパスしてしまう「空検証」状態だった。
+
+## Research Log
+
+### クイズ詳細画面・投稿完了画面の共有実装調査
+- **Context**: 「結果画面準拠」で共有ボタンを追加する依頼を受け、参照実装の所在と挙動を特定する必要があった。
+- **Sources Consulted**: `src/app/quiz/[id]/success/success-client.tsx`、`src/app/quiz/[id]/quiz-detail-client.tsx`、`.kiro/specs/quizeum-ui-quiz-lifecycle/design.md`、`.kiro/specs/quizeum-play-flow-ui/requirements.md`
+- **Findings**:
+  - ユーザーの言う「結果画面」は実際には投稿完了画面（`/quiz/[id]/success`）を指すことが対話で確定した（プレイ結果画面 `/quiz/[id]/result` には共有UIが存在しない）。
+  - `SuccessClient` の共有実装: `getTwitterShareUrl()` は `https://twitter.com/intent/tweet?text=...&url=...`、`getLineShareUrl()` は `https://social-plugins.line.me/lineit/share?url=...`。URLコピーは `navigator.clipboard.writeText` + 3秒タイマーでのトースト表示。
+  - `quiz-detail-client.tsx` の所有specは当初 `quizetika-ui-quiz-lifecycle` と誤認したが、同specのBoundary Contextに「新機能追加・ルート変更・API/認可ロジック変更」が明示的にOut of scopeと記載されており誤りと判明。`quizetika-play-flow-ui` の要件2（クイズ詳細画面）が実機能の正本であることを確認した。
+- **Implications**: 新規ロジックは `quizetika-play-flow-ui` 配下に実装し、`SuccessClient` は変更しない。共有URL生成部分のみ独立モジュール化し、将来的な統合の受け皿とする。
+
+### 既存E2Eテストのソフトアサーション調査
+- **Context**: Testing Strategy 立案のため、共有機能に関する既存テストの有無を確認した。
+- **Sources Consulted**: `e2e/seo-sharing.spec.ts`
+- **Findings**: F-703「SNSワンクリック共有機能が正常に動作すること」テストが `ensureQuizAndNavigate` でクイズ詳細画面へ遷移した上で共有ボタンを探索しているが、`if (isVisible())` により要素が存在しない場合は無検証でパスする。
+- **Implications**: 新規実装後、このテストを `data-testid="quiz-detail-share-section"` を用いた確定的な検証へ更新するタスクを設計に含めた（design.md File Structure Plan Phase 39参照）。
+
+## Design Decisions
+
+### Decision: 共有URL生成ロジックの切り出し先
+- **Context**: `SuccessClient` の共有ロジックと重複を避けつつ、`SuccessClient` 自体は変更できない（他spec所有）という制約下でどう実装するか。
+- **Alternatives Considered**:
+  1. `QuizShareSection` 内にX/LINE URL生成をインライン実装する（`SuccessClient` と同様の書き方をそのまま複製）。
+  2. `src/lib/social-share.ts` に純粋関数として切り出し、`QuizShareSection` から呼び出す。
+- **Selected Approach**: Option 2。
+- **Rationale**: 単体テストで独立検証しやすく、将来 `quizetika-ui-quiz-lifecycle` 側が `SuccessClient` をこのモジュールへ移行する際の受け皿にもなる（ただし本フェーズではその移行自体は実施しない）。
+- **Trade-offs**: 新規ファイルが1つ増えるが、関数2つのみの小さなモジュールでありオーバーエンジニアリングには当たらない。
+- **Follow-up**: `quizetika-ui-quiz-lifecycle` 側で `SuccessClient` の改修が必要になった際、本モジュールへの統合を検討候補として申し送る（本スペックのタスクには含めない）。
+
+## Risks & Mitigations
+- `navigator.clipboard` が非セキュアコンテキストで利用不可な場合がある — `SuccessClient` と同じ存在チェックパターンを踏襲し、新規フォールバックは作らない。
+- `SuccessClient` と `QuizShareSection` のロジックが将来乖離するリスク — URL生成部分のみ共通モジュール化することで最小限に抑える。
+
+## Document Status
+- **入力**: `requirements.md` 要件28、`success-client.tsx`、`quiz-detail-client.tsx`、`quizeum-ui-quiz-lifecycle/design.md`、`e2e/seo-sharing.spec.ts`
+- **手法**: Grep/Read によるコードベース調査（Light Discovery / Simple Addition）
+- **分析日**: 2026-07-16
+- **外部Web調査**: 不要（既存の社内実装パターンの横展開のみ、新規外部APIなし）
