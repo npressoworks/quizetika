@@ -9,11 +9,16 @@ import { calculateTargetDimensions, ImageCropper } from '@/components/ui/image-c
 
 // react-easy-crop はブラウザ実測（ResizeObserver 等）に依存するため、
 // ImageCropper 自身のロジック検証に必要な最小限のスタブに差し替える。
+// mockCapturedCropperProps は Cropper へ実際に渡された Props を検証するために記録する
+// （jest.mock ファクトリ内から参照するため babel-plugin-jest-hoist の制約上 "mock" 接頭辞が必要）。
+let mockCapturedCropperProps: any = null;
+
 jest.mock('react-easy-crop', () => {
   const ReactActual = jest.requireActual('react');
   return {
     __esModule: true,
     default: function MockCropper(props: any) {
+      mockCapturedCropperProps = props;
       ReactActual.useEffect(() => {
         props.onMediaLoaded?.({ width: 400, height: 400 });
         props.onCropComplete?.(
@@ -110,6 +115,7 @@ describe('ImageCropper Component', () => {
   beforeEach(() => {
     toBlobShouldFail = false;
     capturedQuality = undefined;
+    mockCapturedCropperProps = null;
     toBlobMock = jest.fn(function (
       this: HTMLCanvasElement,
       callback: (blob: Blob | null) => void,
@@ -151,6 +157,36 @@ describe('ImageCropper Component', () => {
     expect(screen.getByTestId('custom-cancel')).toBeInTheDocument();
     expect(screen.queryByTestId('image-cropper-confirm')).not.toBeInTheDocument();
     expect(screen.queryByTestId('image-cropper-cancel')).not.toBeInTheDocument();
+  });
+
+  test('aspect={1} cropShape="round" を指定した場合、react-easy-crop の Cropper へ実際に aspect=1 cropShape="round" が渡り、指定した data-testid が反映されること', () => {
+    render(
+      <ImageCropper
+        {...baseProps}
+        onCropComplete={jest.fn()}
+        onClose={jest.fn()}
+        aspect={1}
+        cropShape="round"
+        confirmTestId="profile-avatar-crop-confirm"
+        cancelTestId="profile-avatar-crop-cancel"
+      />
+    );
+
+    expect(mockCapturedCropperProps).not.toBeNull();
+    expect(mockCapturedCropperProps.aspect).toBe(1);
+    expect(mockCapturedCropperProps.cropShape).toBe('round');
+    expect(screen.getByTestId('profile-avatar-crop-confirm')).toBeInTheDocument();
+    expect(screen.getByTestId('profile-avatar-crop-cancel')).toBeInTheDocument();
+  });
+
+  test('aspect/cropShape 未指定時（クイズ用途）は Cropper へ既定値 aspect=1.91 cropShape="rect" が渡ること', () => {
+    render(<ImageCropper {...baseProps} onCropComplete={jest.fn()} onClose={jest.fn()} />);
+
+    expect(mockCapturedCropperProps).not.toBeNull();
+    expect(mockCapturedCropperProps.aspect).toBe(1.91);
+    expect(mockCapturedCropperProps.cropShape).toBe('rect');
+    expect(screen.getByTestId('image-cropper-confirm')).toBeInTheDocument();
+    expect(screen.getByTestId('image-cropper-cancel')).toBeInTheDocument();
   });
 
   test('quality Prop が canvas.toBlob の第3引数に反映されること', async () => {

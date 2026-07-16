@@ -450,7 +450,7 @@
   - _Requirements: 18.6, 18.8_
   - _Boundary: ImageCropper_
 
-- [ ] 16.3 (P) `image-cropper.test.tsx`へのProps配線検証テスト追加
+- [x] 16.3 (P) `image-cropper.test.tsx`へのProps配線検証テスト追加
   - `calculateTargetDimensions` に `aspect=1` を渡した場合、正方形512px上限縮小が正しく計算されることを検証する単体テストを追加する。
   - `ImageCropper` に `aspect={1}` `cropShape="round"` `confirmTestId`/`cancelTestId` を指定してレンダリングし、`react-easy-crop` の `Cropper` へ実際に `aspect=1` `cropShape="round"` が渡ること、確定・キャンセルボタンに指定した `data-testid` が反映されることをRTLで検証する。
   - `onError` 未指定時は `window.alert` が呼ばれ、指定時は `onError` コールバックが呼ばれ `alert` が呼ばれないことをモックで検証する。
