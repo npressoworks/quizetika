@@ -1743,7 +1743,7 @@
   - _Requirements: 36.9_
   - _Boundary: Migration_
 
-- [ ] 30.3 定期整合性チェックサービスの実装
+- [x] 30.3 定期整合性チェックサービスの実装
   - `stripe_customer_id` を持つ全ユーザーをページング取得し、Stripe 実契約状態（active/trialing/past_due を有効とみなし最古1件を正とする）と比較、乖離があれば `applySubscriptionFromStripe()`/`clearPaidEntitlements()` で是正し監査レコードを挿入する `reconcileSubscriptions()` を新規実装する
   - 個別ユーザーの Stripe API 呼び出し失敗はそのユーザーをスキップし処理継続、ユーザー一覧取得等の致命的エラー時はバッチを中断する
   - 完了状態: ローカルDBが `creator`/`active` だが Stripe 上に有効サブスクリプションが存在しないユーザーに対し `free` へ是正し監査レコードが1件挿入される単体テスト、および一部ユーザーで API 呼び出し失敗時に残りのユーザー処理が継続される単体テストがグリーンであること
