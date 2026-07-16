@@ -40,6 +40,15 @@ jest.mock('@/components/ui/image-cropper', () => {
             onClick: () => props.onClose(),
           },
           'cancel'
+        ),
+        ReactActual.createElement(
+          'button',
+          {
+            type: 'button',
+            'data-testid': 'mock-image-cropper-trigger-error',
+            onClick: () => props.onError && props.onError('画像のトリミングに失敗しました。ファイル破損などの可能性があります。'),
+          },
+          'trigger-error'
         )
       );
     },
@@ -471,6 +480,46 @@ describe('ProfileEditClient - アバター画像変更（Phase 30）', () => {
     await waitFor(() => {
       expect(screen.getByText(/PNG, JPEG, GIF/)).toBeInTheDocument();
     });
+    expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute(
+      'src',
+      'https://example.com/existing-avatar.png'
+    );
+  });
+
+  it('クロップ処理中にImageCropperのonErrorが呼ばれた場合、エラーメッセージが表示されモーダルは開いたまま維持されること', async () => {
+    render(<ProfileEditClient />);
+
+    await waitFor(() => {
+      expect(screen.getByText('プロフィールの編集')).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId('profile-avatar-upload-input') as HTMLInputElement;
+    const file = makePngFile();
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    // クロップモーダルが表示されていること
+    expect(await screen.findByTestId('profile-avatar-crop-confirm')).toBeInTheDocument();
+
+    // ImageCropper側のonErrorを発火（切り抜き失敗を模擬）
+    const triggerErrorButton = screen.getByTestId('mock-image-cropper-trigger-error');
+    await act(async () => {
+      fireEvent.click(triggerErrorButton);
+    });
+
+    // エラーメッセージが表示されること
+    await waitFor(() => {
+      expect(
+        screen.getByText('画像のトリミングに失敗しました。ファイル破損などの可能性があります。')
+      ).toBeInTheDocument();
+    });
+
+    // モーダルは開いたまま維持されること（isCropModalOpenがfalseにならない）
+    expect(screen.getByTestId('profile-avatar-crop-confirm')).toBeInTheDocument();
+    expect(screen.getByTestId('mock-image-cropper')).toBeInTheDocument();
+
+    // 既存アバターのプレビューは変わらないこと
     expect(screen.getByTestId('profile-avatar-preview')).toHaveAttribute(
       'src',
       'https://example.com/existing-avatar.png'

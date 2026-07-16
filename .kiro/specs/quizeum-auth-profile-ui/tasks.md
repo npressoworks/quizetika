@@ -485,11 +485,12 @@
   - _Requirements: 18.1, 18.4, 18.5, 18.8_
   - _Boundary: E2E-auth-profile_
 
-- [ ] 16.7 Phase 31 統合検証
+- [x] 16.7 Phase 31 統合検証
   - `npm test` および `npm run build` を実行し、Phase 31 関連の単体テスト・結合テストおよび全体スイートがグリーンであることを確認する。
   - 要件18の全受け入れ基準（18.1〜18.8）および要件3.4・16.2がタスクとテストで充足されていることを requirements.md と突合して確認する。
   - **確認事項（16.5レビューでの指摘）**: `ProfileEditClient`側の`onError`配線（要件18.6の一部。切り抜き失敗時に`setAvatarError`が呼ばれモーダルは開いたまま維持される）を検証する単体テストが現状不足している（`ImageCropper`単体側の`onError`検証はtask 16.3でカバー済みだが、`ProfileEditClient`統合側は未カバー）。本タスクで手動確認または追加テストにより18.6の充足を最終確認すること。
   - **観測可能な完了状態**: 全テスト・ビルドが成功し、Phase 31 の要件がすべて実装・検証済みであること。
+  - **実施結果（2026-07-17）**: `ProfileEditClient`側の`onError`配線テストを`tests/components/profile-edit-client.test.tsx`に追加（エラー表示・モーダル維持・アバター不変を検証）。`npx jest tests/components/profile-edit-client.test.tsx tests/components/image-cropper.test.tsx`（23件）PASS。`npm test`全体（1758件）は1757件PASS、失敗1件は`checkout-feedback-banner.test.tsx`でcommit 368f767由来のPhase 31と無関係な既存の文言不整合（`git log`で確認済み）。`npm run build`成功。要件18(18.1〜18.8)・3.4・16.2の全ACがコード・テストで充足されていることを確認。
   - _Depends: 16.6_
   - _Requirements: 3.4, 16.2, 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8_
   - _Boundary: Integration_
