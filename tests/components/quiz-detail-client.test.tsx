@@ -421,3 +421,31 @@ describe('QuizDetailClient - play status', () => {
     expect(screen.queryByTestId('quiz-detail-play-status')).not.toBeInTheDocument();
   });
 });
+
+describe('QuizDetailClient - Phase 39 共有セクション', () => {
+  beforeEach(() => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      authUser: null,
+      loading: false,
+    });
+    mockUsePlayedQuizIds.mockReturnValue({
+      playedQuizIds: null,
+      loading: false,
+    });
+  });
+
+  it('クイズ詳細画面に共有セクションが描画され、正しいクイズID・タイトルで共有リンクが生成される', async () => {
+    render(<QuizDetailClient quiz={makeQuiz({ id: 'quiz-42', title: '共有テストクイズ' })} />);
+
+    const shareSection = screen.getByTestId('quiz-detail-share-section');
+    expect(shareSection).toBeInTheDocument();
+
+    const xLink = await screen.findByRole('link', { name: /Xでシェア/ });
+    const lineLink = screen.getByRole('link', { name: /LINEで送る/ });
+
+    expect(xLink.getAttribute('href')).toContain(encodeURIComponent('http://localhost/quiz/quiz-42'));
+    expect(xLink.getAttribute('href')).toContain(encodeURIComponent('共有テストクイズ'));
+    expect(lineLink.getAttribute('href')).toContain(encodeURIComponent('http://localhost/quiz/quiz-42'));
+  });
+});
