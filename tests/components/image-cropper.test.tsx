@@ -22,4 +22,11 @@ describe('calculateTargetDimensions', () => {
     expect(result.height).toBe(1005);
     expect(result.width).toBe(1920); // 1005 * 1.91 = 1919.55 -> 1920
   });
+
+  test('aspect引数に1（正方形）とmaxWidth/maxHeight=512を指定した場合、512px上限で正方形に縮小されること', () => {
+    const size = { width: 1000, height: 1000 };
+    const result = calculateTargetDimensions(size.width, size.height, 1, 512, 512);
+    expect(result.width).toBe(512);
+    expect(result.height).toBe(512);
+  });
 });

@@ -430,3 +430,65 @@
   - _Depends: 15.5, 15.6, 15.7_
   - _Requirements: 3.4, 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 16.7, 16.8, 16.9, 16.10, 17.1, 17.2, 17.3, 17.4, 17.5, 17.6_
   - _Boundary: Integration_
+
+### 16. Phase 31: アバター画像の円形トリミング機能（2026-07-16）
+
+- [x] 16.1 `ImageCropper`のアスペクト比・クロップ形状・出力解像度のProps化
+  - モジュールレベル定数 `CROP_ASPECT` を `aspect` Prop（デフォルト `1.91`）に置換し、クロップ枠サイズ・最小ズーム算出（`onMediaLoaded`）・`react-easy-crop` への指定をすべて Props 経由の値に変更する。
+  - `calculateTargetDimensions` と `getCroppedImg` にアスペクト比引数を追加し、`maxWidth`/`maxHeight` もコンポーネント側から Props として受け取れるようにする（デフォルト値は現行の `1920`/`1005` を維持し、既存の2引数呼び出しの挙動を変えない）。
+  - `cropShape` Prop（デフォルト `'rect'`）を追加し、`react-easy-crop` の `Cropper` へそのまま伝播する。
+  - **観測可能な完了状態**: `aspect={1}` `cropShape="round"` を指定してレンダリングすると正方形の円形マスクのクロップ枠が表示され、Props省略時は従来どおり1.91:1の矩形クロップ枠が表示される。
+  - _Requirements: 18.1, 18.2, 18.3, 18.4_
+  - _Boundary: ImageCropper_
+
+- [ ] 16.2 `ImageCropper`のエラー通知・テスト識別子のProps化
+  - `quality` Prop（デフォルト `0.85`）を追加し、`canvas.toBlob` の第3引数に反映する。
+  - `confirmTestId`/`cancelTestId` Prop（デフォルト `'image-cropper-confirm'`/`'image-cropper-cancel'`）を追加し、確定・キャンセルボタンの `data-testid` に反映する。
+  - `onError` Prop（任意のコールバック）を追加し、切り抜き処理失敗時に指定があれば呼び出し、未指定時は既存の `alert()` 表示にフォールバックする。
+  - **観測可能な完了状態**: `onError` 未指定時に切り抜き失敗を発生させると `alert()` が呼ばれ、`onError` 指定時は `alert()` が呼ばれずコールバックにエラーメッセージが渡る。
+  - _Depends: 16.1_
+  - _Requirements: 18.6, 18.8_
+  - _Boundary: ImageCropper_
+
+- [ ] 16.3 (P) `image-cropper.test.tsx`へのProps配線検証テスト追加
+  - `calculateTargetDimensions` に `aspect=1` を渡した場合、正方形512px上限縮小が正しく計算されることを検証する単体テストを追加する。
+  - `ImageCropper` に `aspect={1}` `cropShape="round"` `confirmTestId`/`cancelTestId` を指定してレンダリングし、`react-easy-crop` の `Cropper` へ実際に `aspect=1` `cropShape="round"` が渡ること、確定・キャンセルボタンに指定した `data-testid` が反映されることをRTLで検証する。
+  - `onError` 未指定時は `window.alert` が呼ばれ、指定時は `onError` コールバックが呼ばれ `alert` が呼ばれないことをモックで検証する。
+  - **観測可能な完了状態**: 追加したテストケースがすべてグリーン（PASS）であり、既存の1.91:1前提テストも引数省略時のデフォルト値でグリーンのまま維持される。
+  - _Depends: 16.1, 16.2_
+  - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.6, 18.8_
+  - _Boundary: ImageCropper-Testing_
+
+- [ ] 16.4 (P) `ProfileEditClient`へのトリミングフロー統合
+  - `avatarFile: File | null` ステートを `avatarCroppedBlob: Blob | null` に置き換え、`cropSourceUrl`/`isCropModalOpen` ステートを追加する。
+  - `handleAvatarChange` を、検証成功後に選択画像のObject URLで `ImageCropper` モーダル（`aspect={1}` `cropShape="round"` `maxWidth={512}` `maxHeight={512}` `confirmTestId="profile-avatar-crop-confirm"` `cancelTestId="profile-avatar-crop-cancel"` `onError`）を開くように変更する。
+  - `handleCropComplete`/`handleCropCancel` ハンドラを実装する。確定時は切り抜き結果のプレビュー反映と `avatarCroppedBlob` への保持、キャンセル時は変更前のアバター表示維持と選択直後のObject URLの解放を行う。
+  - `handleSubmit` の保存フローを、`avatarFile` ではなく `avatarCroppedBlob` が存在する場合のみ `uploadUserAvatar` を呼び出すように更新する。
+  - **観測可能な完了状態**: プロフィール編集画面でアバター画像を選択すると円形トリミングモーダルが開き、確定するとアバター領域に円形プレビューが反映され、保存するとトリミング後の画像のみがアップロードされる。
+  - _Depends: 16.1, 16.2_
+  - _Requirements: 3.4, 16.2, 18.1, 18.5, 18.7_
+  - _Boundary: ProfileEditClient_
+
+- [ ] 16.5 `profile-edit-client.test.tsx`のクロップフロー対応更新
+  - アバター関連アサーションを、選択直後の直接プレビューを前提とする既存記述から、クロップモーダル表示→確定/キャンセル操作を経たフローに更新する。
+  - クロップ確定操作をシミュレートした後に切り抜き結果がアップロード対象になること、キャンセル操作後は変更前のアバターが維持されることを検証するテストケースを追加する。
+  - **観測可能な完了状態**: 更新後のテストスイートが全件グリーン（PASS）である。
+  - _Depends: 16.4_
+  - _Requirements: 16.2, 18.5, 18.6, 18.7_
+  - _Boundary: ProfileEditClient-Testing_
+
+- [ ] 16.6 アバタークロップE2Eシナリオ追加とクイズ側回帰確認
+  - `e2e/auth-profile.spec.ts` に、アバター画像選択→円形トリミングモーダル表示→確定操作→プレビュー反映、および選択→キャンセル操作→アバター不変の2シナリオを追加する。
+  - クイズ編集画面のカバー画像トリミング（1.91:1・矩形）の既存E2Eシナリオを実行し、本フェーズの変更後も従来どおり動作することを確認する（回帰確認）。
+  - **観測可能な完了状態**: 追加したE2Eシナリオおよび既存のクイズカバー画像トリミングE2Eがすべてパスする。
+  - _Depends: 16.3, 16.5_
+  - _Requirements: 18.1, 18.4, 18.5, 18.8_
+  - _Boundary: E2E-auth-profile_
+
+- [ ] 16.7 Phase 31 統合検証
+  - `npm test` および `npm run build` を実行し、Phase 31 関連の単体テスト・結合テストおよび全体スイートがグリーンであることを確認する。
+  - 要件18の全受け入れ基準（18.1〜18.8）および要件3.4・16.2がタスクとテストで充足されていることを requirements.md と突合して確認する。
+  - **観測可能な完了状態**: 全テスト・ビルドが成功し、Phase 31 の要件がすべて実装・検証済みであること。
+  - _Depends: 16.6_
+  - _Requirements: 3.4, 16.2, 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8_
+  - _Boundary: Integration_
