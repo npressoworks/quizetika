@@ -71,11 +71,18 @@ describe('AiChatAssistantPanel', () => {
 
   it('メッセージ履歴と入力フォームが正しく表示される', () => {
     render(<AiChatAssistantPanel {...defaultProps} />);
-    
+
     expect(screen.getByText('こんにちは')).toBeInTheDocument();
     expect(screen.getByText('作問をお願いします')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('AIに指示を送る...')).toBeInTheDocument();
     expect(screen.getByText('10/100回使用中')).toBeInTheDocument(); // 利用制限の表記
+  });
+
+  it('メッセージ入力欄が textarea（AutoGrowTextarea）として描画される', () => {
+    render(<AiChatAssistantPanel {...defaultProps} />);
+
+    const input = screen.getByPlaceholderText('AIに指示を送る...');
+    expect(input.tagName).toBe('TEXTAREA');
   });
 
   it('閉じるボタンのクリックで onClose を呼ぶ', () => {

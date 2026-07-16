@@ -174,7 +174,7 @@
   - _Requirements: 1.8, 1.9_
   - _Boundary: CSS Modules (ai-chat-assistant.module.css)_
 
-- [ ] 7.2 (P) メッセージ入力欄の textarea 化とオートリサイズの適用
+- [x] 7.2 (P) メッセージ入力欄の textarea 化とオートリサイズの適用
   - メッセージ入力欄を単一行の `<input>` から、既存の共通コンポーネント `AutoGrowTextarea`（`src/components/ui/auto-grow-textarea.tsx`）に置き換える（新規のリサイズロジックは実装せず、既存コンポーネントの行数連動オートリサイズをそのまま利用する）
   - 観察可能な完了条件: メッセージ入力欄が複数行の `textarea` として表示され、改行を含む入力に応じて表示高さが自動的に拡張されること
   - _Requirements: 7.5_

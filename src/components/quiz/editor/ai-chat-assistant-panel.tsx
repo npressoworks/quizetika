@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AutoAwesomeOutlined, CloseOutlined, SendOutlined, LanguageOutlined, CheckOutlined, ReplayOutlined } from '@mui/icons-material';
 import { CircularProgress } from '@mui/material';
 import { MarkdownContent } from '@/components/markdown/markdown-content';
+import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import styles from './ai-chat-assistant.module.css';
 
 interface Message {
@@ -125,7 +126,6 @@ export function AiChatAssistantPanel({
   onReset,
 }: AiChatAssistantPanelProps) {
   const historyRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   // プレビューポップアップの状態管理
   const [previewModal, setPreviewModal] = useState<{
@@ -733,9 +733,7 @@ export function AiChatAssistantPanel({
       {/* Footer Form */}
       <div className={styles.footer}>
         <form onSubmit={handleSubmit} className={styles.inputForm}>
-          <input
-            ref={inputRef}
-            type="text"
+          <AutoGrowTextarea
             className={styles.input}
             placeholder={
               isLimitReached
@@ -747,6 +745,7 @@ export function AiChatAssistantPanel({
             value={input || ''}
             onChange={handleInputChange}
             disabled={isGenerating || isLimitReached || hasPendingApproval}
+            minRows={1}
           />
           <button
             type="submit"
