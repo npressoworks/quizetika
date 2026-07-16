@@ -124,6 +124,43 @@ describe('QuizShareSection', () => {
     expect(screen.queryByText(/コピーしました/)).not.toBeInTheDocument();
   });
 
+  it('closes the menu when clicking outside of it', () => {
+    render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
+    openMenu();
+
+    expect(screen.getByTestId('quiz-detail-share-menu')).toBeInTheDocument();
+
+    act(() => {
+      fireEvent.mouseDown(document.body);
+    });
+
+    expect(screen.queryByTestId('quiz-detail-share-menu')).not.toBeInTheDocument();
+  });
+
+  it('closes the menu when the Escape key is pressed', () => {
+    render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
+    openMenu();
+
+    expect(screen.getByTestId('quiz-detail-share-menu')).toBeInTheDocument();
+
+    act(() => {
+      fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
+    });
+
+    expect(screen.queryByTestId('quiz-detail-share-menu')).not.toBeInTheDocument();
+  });
+
+  it('closes the menu when the trigger is clicked again while open', () => {
+    render(<QuizShareSection quizId="quiz-1" quizTitle="テストクイズ" />);
+    openMenu();
+
+    expect(screen.getByTestId('quiz-detail-share-menu')).toBeInTheDocument();
+
+    openMenu();
+
+    expect(screen.queryByTestId('quiz-detail-share-menu')).not.toBeInTheDocument();
+  });
+
   it('does not show the copy feedback when clipboard.writeText rejects', async () => {
     const writeText = jest.fn().mockRejectedValue(new Error('denied'));
     Object.defineProperty(navigator, 'clipboard', {
