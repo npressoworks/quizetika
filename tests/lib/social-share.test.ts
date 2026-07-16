@@ -19,6 +19,18 @@ describe('social-share', () => {
       expect(url).toContain(encodeURIComponent(shareUrl));
     });
 
+    test('URLに日本語や記号が含まれる場合でも正しくエンコードされ、復元可能であること', () => {
+      const title = '記号&日本語混在タイトル';
+      const shareUrl = 'https://example.com/quiz/日本語スラッグ?q=検索 語&tag=あ/い#断片';
+      const url = buildTwitterShareUrl(title, shareUrl);
+
+      const parsed = new URL(url);
+      expect(parsed.searchParams.get('url')).toBe(shareUrl);
+      expect(parsed.searchParams.get('text')).toContain(title);
+      expect(url).toContain(encodeURIComponent(shareUrl));
+      expect(url).not.toContain(' ');
+    });
+
     test('空文字タイトルでも例外を投げず、投稿文にクイズタイトル部分が空で埋め込まれること', () => {
       const url = buildTwitterShareUrl('', 'https://example.com/quiz/empty-title');
       expect(url.startsWith('https://twitter.com/intent/tweet?')).toBe(true);
@@ -47,6 +59,16 @@ describe('social-share', () => {
       expect(parsed.origin + parsed.pathname).toBe('https://social-plugins.line.me/lineit/share');
       expect(parsed.searchParams.get('url')).toBe(shareUrl);
       expect(url).toContain(encodeURIComponent(shareUrl));
+    });
+
+    test('URLに日本語や記号が含まれる場合でも正しくエンコードされ、復元可能であること', () => {
+      const shareUrl = 'https://example.com/quiz/日本語スラッグ?q=検索 語&tag=あ/い#断片';
+      const url = buildLineShareUrl(shareUrl);
+
+      const parsed = new URL(url);
+      expect(parsed.searchParams.get('url')).toBe(shareUrl);
+      expect(url).toContain(encodeURIComponent(shareUrl));
+      expect(url).not.toContain(' ');
     });
 
     test('副作用を持たず、同一入力に対して常に同一の出力を返すこと（純粋関数）', () => {
