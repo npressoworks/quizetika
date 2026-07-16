@@ -1758,7 +1758,7 @@
   - _Depends: 30.3_
   - _Boundary: SyncSubscriptionsCronAPI_
 
-- [ ] 30.5 Vercel Cronスケジュール設定
+- [x] 30.5 Vercel Cronスケジュール設定
   - `vercel.json` を新規作成し、`/api/cron/sync-subscriptions` を UTC 19:00（日本時間4時台）に日次起動する `crons` 設定を追加する
   - 完了状態: `vercel.json` の `crons` 配列に対象パスと `schedule: '0 19 * * *'` が定義されていること
   - _Requirements: 36.7_
