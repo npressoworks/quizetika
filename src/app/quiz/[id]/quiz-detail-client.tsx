@@ -155,17 +155,20 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
           </span>
           <h1 className={styles.title}>{quiz.title}</h1>
         </div>
-        <button
-          className={`${styles.bookmarkBtn} ${bookmarked ? styles.bookmarked : ''}`}
-          onClick={handleBookmarkToggle}
-          disabled={bookmarkLoading}
-          title="ブックマーク"
-          data-analytics="quiz-bookmark-toggle"
-        >
-          {bookmarked
-            ? <BookmarkRounded sx={{ fontSize: 20 }} className="fill-primary text-primary" />
-            : <BookmarkBorderOutlined sx={{ fontSize: 20 }} />}
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            className={`${styles.bookmarkBtn} ${bookmarked ? styles.bookmarked : ''}`}
+            onClick={handleBookmarkToggle}
+            disabled={bookmarkLoading}
+            title="ブックマーク"
+            data-analytics="quiz-bookmark-toggle"
+          >
+            {bookmarked
+              ? <BookmarkRounded sx={{ fontSize: 20 }} className="fill-primary text-primary" />
+              : <BookmarkBorderOutlined sx={{ fontSize: 20 }} />}
+          </button>
+          <QuizShareSection quizId={quiz.id} quizTitle={quiz.title} />
+        </div>
       </div>
 
         {/* バッジ・メタ情報 */}
@@ -274,9 +277,6 @@ export function QuizDetailClient({ quizId, quiz: quizProp }: QuizDetailClientPro
         <div className={styles.description}>
           <p>{quiz.description}</p>
         </div>
-
-        {/* 共有 */}
-        <QuizShareSection quizId={quiz.id} quizTitle={quiz.title} />
 
         {/* プレイ */}
         <div className={styles.playSection}>
