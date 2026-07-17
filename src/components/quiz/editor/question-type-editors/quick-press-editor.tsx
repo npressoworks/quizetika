@@ -20,7 +20,7 @@ export function QuickPressEditor({ qIdx, question, validationErrors, handlers }:
             <input
               type="text"
               className={editorClasses.input}
-              placeholder="例: useState"
+              placeholder="例: 富士山"
               value={ans}
               onChange={(e) => handlers.onTextAnswerChange(qIdx, aIdx, e.target.value)}
             />

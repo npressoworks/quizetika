@@ -23,7 +23,7 @@ test.describe('クイズ作成・管理 E2Eテスト', () => {
 
     // 4. 基本情報（タイトル、説明）の入力
     const quizTitle = `[TEST] E2E自動クイズ_${Date.now().toString().slice(-4)}`;
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(quizTitle);
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('これはPlaywrightのE2Eテストによって自動作成されたクイズです。');
 
     // 4.5 ジャンルの選択（下書き保存時にも必須のため選択する）

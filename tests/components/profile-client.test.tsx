@@ -162,8 +162,14 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
   });
 
   it('検索キーワードによってクイズがフィルタリングされ、一括フェッチからインメモリ表示されること', async () => {
+    jest.useFakeTimers();
     render(<ProfileClient />);
     
+    // 初期のデータロードが解決されるまで待機（fakeTimers下ではPromise解決を進めるため、少しタイマーを進めるなどが必要）
+    await act(async () => {
+      jest.advanceTimersByTime(100);
+    });
+
     await waitFor(() => {
       expect(screen.getByText('クイズタイトル 1')).toBeInTheDocument();
     });
@@ -172,6 +178,11 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
 
     // 「history」というキーワードで検索
     fireEvent.change(searchInput, { target: { value: 'history' } });
+
+    // デバウンス時間 (300ms) を進める
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
 
     // 一括フェッチ getQuizzesByAuthor が呼ばれることを確認
     await waitFor(() => {
@@ -184,6 +195,8 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
       expect(screen.getByText('クイズタイトル 2')).toBeInTheDocument();
       expect(screen.queryByText('クイズタイトル 1')).not.toBeInTheDocument();
     });
+
+    jest.useRealTimers();
   });
 
   it('初期20件が表示され、「もっと見る」をクリックすると追加の 5件が表示されること', async () => {

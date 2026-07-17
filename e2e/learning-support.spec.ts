@@ -60,7 +60,7 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
     const quizTitle = `[TEST] E2E学習モード_${Date.now().toString().slice(-4)}`;
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(quizTitle);
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('学習支援E2Eテスト用クイズです。');
 
     // 第1問の入力
@@ -160,7 +160,7 @@ test.describe('学習・資格対策支援 E2Eテスト', () => {
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
     const quizTitle = `[TEST] E2Eフラッシュ_${Date.now().toString().slice(-4)}`;
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(quizTitle);
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('フラッシュカードE2Eテスト用クイズです。');
 
     // 第1問の入力

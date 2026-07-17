@@ -22,7 +22,7 @@ test.describe('作成したクイズ画面 (/creator/quizzes) E2Eスモークテ
       page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()
     ).toBeVisible({ timeout: 15000 });
 
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(quizTitle);
 
     const genreSearchInput = page.getByTestId('genre-editor-search-input');
     await expect(genreSearchInput).toBeVisible();

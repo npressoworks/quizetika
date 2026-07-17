@@ -72,10 +72,10 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
       {question.correctTextAnswerList.map((ans, aIdx) => {
         const answerFieldProps =
           textInputMode === 'numeric'
-            ? getTextInputFieldProps(question, { placeholder: '例: 3.14' })
+            ? getTextInputFieldProps(question, { placeholder: '例: 3776' })
             : textInputMode === 'char-count'
               ? getTextInputFieldProps(question)
-              : { type: 'text' as const, placeholder: '例: useState' };
+              : { type: 'text' as const, placeholder: '例: 富士山' };
         const answerHasError =
           filterValidationErrors(validationErrors, {
             field: 'questions',
