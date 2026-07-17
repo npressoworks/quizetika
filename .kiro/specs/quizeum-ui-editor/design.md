@@ -444,10 +444,10 @@ Phase 24 ではクイズエディタとリストエディタの両方を shadcn 
 
 ### 2. Boundary Commitments（Phase 26）
 
-| Owns                                   | Out                                    |
-| -------------------------------------- | -------------------------------------- |
-| リストエディタコンポーネント削除の確認 | Core `quiz-list` サービス削除          |
-| エディタ E2E からリストシナリオ除去    | ブックマーク・探索 UI（play-flow）     |
+| Owns                                   | Out                                            |
+| -------------------------------------- | ---------------------------------------------- |
+| リストエディタコンポーネント削除の確認 | Core `quiz-list` サービス削除                  |
+| エディタ E2E からリストシナリオ除去    | ブックマーク・探索 UI（play-flow）             |
 | クイズエディタ Phase 24 成果の維持     | クリエイターダッシュボード CTA（creator-dash） |
 
 **This Spec Owns（Phase 26 改定後）**
@@ -637,7 +637,7 @@ Phase 24 Migration Strategy の **Phase 4（ListEditor + AttachPanel）** およ
 
 ### 3. 表示ラベルと言語設計
 * `src/lib/quiz-format-labels.ts`
-  * `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕式・記述式・並び替え・連想を自由に組み合わせ可能」へ変更します。
+  * `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕問題・記述式・並び替え・連想を自由に組み合わせ可能」へ変更します。
 
 ### 4. File Structure Plan（Phase 31）
 

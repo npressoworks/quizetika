@@ -131,7 +131,7 @@ describe('buildMyQuizQuestionPool', () => {
       tags: ['react'],
       canonicalGenreId: 'web',
     });
-    const question = makeQuestion({ id: 'meta-q', questionText: '〇×問題' });
+    const question = makeQuestion({ id: 'meta-q', questionText: '〇✕問題' });
 
     (searchAuthorQuizzes as jest.Mock).mockResolvedValue({
       quizzes: [quiz],
@@ -147,7 +147,7 @@ describe('buildMyQuizQuestionPool', () => {
 
     expect(result[0]).toMatchObject({
       questionId: 'meta-q',
-      questionText: '〇×問題',
+      questionText: '〇✕問題',
       parentQuizId: 'quiz-meta',
       parentQuizTitle: 'テストクイズ',
       source: 'own',

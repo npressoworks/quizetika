@@ -30,6 +30,15 @@ export function MultipleChoiceEditor({ qIdx, question, validationErrors, handler
           <input
             type="text"
             className={editorClasses.input}
+            placeholder={
+              cIdx === 0
+                ? '例: 富士山 (正解の例)'
+                : cIdx === 1
+                  ? '例: 北岳'
+                  : cIdx === 2
+                    ? '例: 奥穂高岳'
+                    : '例: 選択肢を入力'
+            }
             value={choice.choiceText}
             onChange={(e) => handlers.onChoiceTextChange(qIdx, cIdx, e.target.value)}
           />

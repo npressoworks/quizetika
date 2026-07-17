@@ -19,30 +19,40 @@ export function SortingQuestionEditor({ qIdx, question, validationErrors, handle
         items={question.sortingItems}
         showIndex={false}
         onReorder={(reordered) => handlers.onSortingItemsReorder(qIdx, reordered)}
-        renderItemContent={(item) => (
-          <div className={editorClasses.choiceRow}>
-            <input
-              type="text"
-              className={editorClasses.input}
-              value={item.text}
-              onChange={(e) => {
-                const itemIdx = question.sortingItems!.findIndex((s) => s.id === item.id);
-                if (itemIdx >= 0) handlers.onSortingItemTextChange(qIdx, itemIdx, e.target.value);
-              }}
-            />
-            <button
-              type="button"
-              className={editorClasses.removeQuestionBtn}
-              onClick={() => {
-                const itemIdx = question.sortingItems!.findIndex((s) => s.id === item.id);
-                if (itemIdx >= 0) handlers.onRemoveSortingItem(qIdx, itemIdx);
-              }}
-              title="この要素を削除"
-            >
-              <DeleteOutlineOutlined sx={{ fontSize: 18 }} />
-            </button>
-          </div>
-        )}
+        renderItemContent={(item) => {
+          const itemIdx = question.sortingItems!.findIndex((s) => s.id === item.id);
+          return (
+            <div className={editorClasses.choiceRow}>
+              <input
+                type="text"
+                className={editorClasses.input}
+                placeholder={
+                  itemIdx === 0
+                    ? '例: 本能寺の変 (古い順の例)'
+                    : itemIdx === 1
+                      ? '例: 関ヶ原の戦い'
+                      : itemIdx === 2
+                        ? '例: 大坂の陣'
+                        : '例: 要素を入力'
+                }
+                value={item.text}
+                onChange={(e) => {
+                  if (itemIdx >= 0) handlers.onSortingItemTextChange(qIdx, itemIdx, e.target.value);
+                }}
+              />
+              <button
+                type="button"
+                className={editorClasses.removeQuestionBtn}
+                onClick={() => {
+                  if (itemIdx >= 0) handlers.onRemoveSortingItem(qIdx, itemIdx);
+                }}
+                title="この要素を削除"
+              >
+                <DeleteOutlineOutlined sx={{ fontSize: 18 }} />
+              </button>
+            </div>
+          );
+        }}
       />
       <button
         type="button"

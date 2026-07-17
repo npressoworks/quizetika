@@ -903,7 +903,7 @@ src/app/api/webhooks/stripe/           — Missing
 
 ---
 
-## Phase 20: 〇×問題形式（`true-false`）（2026-06-09）
+## Phase 20: 〇✕問題形式（`true-false`）（2026-06-09）
 
 ### Summary
 `true-false` は型・バリデーション・採点経路が既存。ギャップは `Quiz.format` 未登録、`resolveQuizFormat` が単一形式を `mixed` に落とす、ラベル／探索未整備。専用 lib `true-false-defaults.ts` で固定「〇」「✕」生成を集約し、既存 `choices` + `isChoiceAnswerCorrect` を維持。
@@ -1287,12 +1287,12 @@ Option A（既存機能の拡張）が最も一貫性があり、無駄のない
 
 ## Architecture Pattern Evaluation（Phase 42）
 
-| Option | 説明 | 強み | リスク・制約 | 備考 |
-|--------|------|------|--------------|------|
-| tier 決定ロジックの是正（zeroing 削除） | `buildSnapshotFromSubscription()` から free 書き換え分岐を削除し、tier とステータスを完全分離 | 既存の `computeUserEntitlements()` ステータスゲートと責務が重複しなくなる。変更箇所が1関数のみ | tier 生値のみを参照する下流表示コードがあれば見た目上の不整合が生じ得る（Revalidation Trigger として明記） | 選定 |
-| tier は変更せず新規 `pendingDowngrade` フラグを追加 | 既存の tier zeroing は残し、猶予状態を示す別フィールドを追加 | 既存ロジックに手を加えない | フィールドが1つ増え、`computeUserEntitlements()` 側でも新フィールドを考慮する改修が必要になり複雑化。要件が求める「tier とステータスの独立参照」という単純なモデルに反する | 却下 |
-| Vercel Cron + API Route | ホスティング基盤標準の Cron 機能を利用 | 新規インフラ依存なし、`CRON_SECRET` による標準的な認可パターンが確立している | Vercel の Cron 実行時間・頻度制約（プランによる上限）に依存する | 選定 |
-| Supabase Edge Function の pg_cron | DB 側のスケジューラを利用 | Webhook 処理と分離できる | 本プロジェクトの実行基盤（Vercel）と別のスケジューラを併用することになり、運用・監視の分散を招く。ホスティングが Vercel である以上、Vercel Cron の方が既存の API Route 資産（Stripe クライアント初期化等）をそのまま再利用できる | 却下 |
+| Option                                              | 説明                                                                                          | 強み                                                                                           | リスク・制約                                                                                                                                                                                                                     | 備考 |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| tier 決定ロジックの是正（zeroing 削除）             | `buildSnapshotFromSubscription()` から free 書き換え分岐を削除し、tier とステータスを完全分離 | 既存の `computeUserEntitlements()` ステータスゲートと責務が重複しなくなる。変更箇所が1関数のみ | tier 生値のみを参照する下流表示コードがあれば見た目上の不整合が生じ得る（Revalidation Trigger として明記）                                                                                                                       | 選定 |
+| tier は変更せず新規 `pendingDowngrade` フラグを追加 | 既存の tier zeroing は残し、猶予状態を示す別フィールドを追加                                  | 既存ロジックに手を加えない                                                                     | フィールドが1つ増え、`computeUserEntitlements()` 側でも新フィールドを考慮する改修が必要になり複雑化。要件が求める「tier とステータスの独立参照」という単純なモデルに反する                                                       | 却下 |
+| Vercel Cron + API Route                             | ホスティング基盤標準の Cron 機能を利用                                                        | 新規インフラ依存なし、`CRON_SECRET` による標準的な認可パターンが確立している                   | Vercel の Cron 実行時間・頻度制約（プランによる上限）に依存する                                                                                                                                                                  | 選定 |
+| Supabase Edge Function の pg_cron                   | DB 側のスケジューラを利用                                                                     | Webhook 処理と分離できる                                                                       | 本プロジェクトの実行基盤（Vercel）と別のスケジューラを併用することになり、運用・監視の分散を招く。ホスティングが Vercel である以上、Vercel Cron の方が既存の API Route 資産（Stripe クライアント初期化等）をそのまま再利用できる | 却下 |
 
 ## Design Decisions（Phase 42）
 

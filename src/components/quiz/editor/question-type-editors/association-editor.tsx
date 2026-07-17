@@ -20,7 +20,15 @@ export function AssociationEditor({ qIdx, question, validationErrors, handlers }
           <input
             type="text"
             className={editorClasses.input}
-            placeholder={`例: ヒント ${hIdx + 1} の内容`}
+            placeholder={
+              hIdx === 0
+                ? '例: 日本の昔話の主人公です'
+                : hIdx === 1
+                  ? '例: 桃から生まれました'
+                  : hIdx === 2
+                    ? '例: きびだんごで動物をお供にします'
+                    : `例: ヒント ${hIdx + 1} の内容`
+            }
             value={hint}
             onChange={(e) => handlers.onAssociationHintTextChange(qIdx, hIdx, e.target.value)}
           />
@@ -58,7 +66,7 @@ export function AssociationEditor({ qIdx, question, validationErrors, handlers }
               <input
                 type="text"
                 className={editorClasses.input}
-                placeholder="例: 正解文字列"
+                placeholder="例: 桃太郎"
                 value={ans}
                 onChange={(e) => handlers.onTextAnswerChange(qIdx, aIdx, e.target.value)}
               />

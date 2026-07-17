@@ -1039,7 +1039,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     if (!type) return '';
     switch (type) {
       case 'multiple-choice': return '選択式';
-      case 'true-false': return '〇✕式';
+      case 'true-false': return '〇✕問題';
       case 'text-input': return '記述式';
       case 'quick-press': return '早押し';
       case 'sorting': return '並び替え';

@@ -28,7 +28,7 @@
 - **Phase 12**: 作問エディタ主要テキストエリアの自動伸長、過去自作クイズ検索の問題文・正解テキスト対応、参照リンク成功メッセージ、問題文ヒット時の自動展開、リンク解除、テストプレイ復帰時の問題数保持。
 - **Phase 13**: 作問エディタの難易度スライダー入力の 1〜5 制限と表示の更新。
 
-**Phase 20（2026-06-09）**: 〇×問題（`true-false`）を出題形式として選択可能にし、正解トグル（「〇が正解」「×が正解」）のみの作問 UI を追加する。選択肢テキストの自由編集は行わない（永続化・正規化は `quizetika-core` の `true-false-defaults.ts` が担当）。
+**Phase 20（2026-06-09）**: 〇✕問題（`true-false`）を出題形式として選択可能にし、正解トグル（「〇が正解」「×が正解」）のみの作問 UI を追加する。選択肢テキストの自由編集は行わない（永続化・正規化は `quizetika-core` の `true-false-defaults.ts` が担当）。
 
 ### Non-Goals
 - クイズデータのJSONインポート機能（仕様変更により機能が完全に廃止されたため、インポートに関連するUIエリアは一切設置しません）。
@@ -52,7 +52,7 @@
 - **テキストエリア自動伸長（Phase 12）**: `AutoGrowTextarea` コンポーネントと `QuizEditor` への適用（説明・問題文・真相・解説）。
 - **参照検索 UX 改善（Phase 12）**: 検索プレースホルダー更新、リンク／リンク解除成功インライン通知（7.13, 7.16）、問題文ヒット時のアコーディオン自動展開（7.15）。
 - **テストプレイ復帰（Phase 12）**: `sessionStorage` ドラフト of consume と `skipServerQuizLoadRef` による通常ロード抑止（要件 9）。
-- **〇×作問 UI（Phase 20）**: 出題形式カード「〇×式」、複合形式の問題タイプ「〇×」、`TrueFalseCorrectToggle` 正解トグル、形式一括変換。
+- **〇×作問 UI（Phase 20）**: 出題形式カード「〇✕問題」、複合形式の問題タイプ「〇×」、`TrueFalseCorrectToggle` 正解トグル、形式一括変換。
 - **間違い指摘解決 UI & API バグ修正（Phase 28）**: 指摘キューカード上の「解決済みにする」アクションの提供、解決処理中の二重送信防止用非活性化、クライアント状態更新、および `resolveReport` による通知作成のバグ修正（`userId` / `type: 'correction_resolved'` への修正と `sender` 情報付与）。
 
 ### Out of Boundary
@@ -481,7 +481,7 @@ sequenceDiagram
 | 13.4        | 基本統計カード                           | `PlayerDashboardClient`                                                   | StatsGridSection                                | -                        |
 | 13.5        | よくプレイするジャンル／タグ表示         | `PlayerDashboardClient`                                                   | GenreTagFrequencySection                        | -                        |
 | 13.6        | 正答率の高いジャンル／タグ表示           | `PlayerDashboardClient`                                                   | GenreTagAccuracySection                         | -                        |
-| 13.7        | 直近最大100件の完了したattempts取得       | `PlayerDashboardClient`                                                   | `listUserPlayHistory`                           | -                        |
+| 13.7        | 直近最大100件の完了したattempts取得      | `PlayerDashboardClient`                                                   | `listUserPlayHistory`                           | -                        |
 | 13.8        | 日別プレイ数・プレイモード割合グラフ     | `PlayerDashboardClient`                                                   | `AnalyticsChart`, `SelectionPie`                | -                        |
 | 13.9        | アクセシビリティ・テスト用testidの付与   | `PlayerDashboardClient`                                                   | `data-testid`                                   | -                        |
 
@@ -496,7 +496,7 @@ sequenceDiagram
 | `QuizEditor`                       | UI / Page      | クイズの新規作成・編集、タグ警告、Zod検証、テストプレイ復帰   | 1.1–1.6, 5.1–5.7, 7.16, 8.1–8.5, 9.1–9.7 | `QuizService`, `GenreEditorSelect`, `AutoGrowTextarea`, `test-play.ts` | FormState      |
 | `AutoGrowTextarea`                 | UI / Component | 内容に応じた textarea 高さ同期                                | 8.1–8.5                                  | —                                                                      | Controlled     |
 | `GenreEditorSelect`                | UI / Component | マスタ駆動ジャンル `<select>`                                 | 5.1–5.6                                  | `useActiveGenres`                                                      | Controlled     |
-| `CreatorDashboard`                 | UI / Page      | クリエイターアナリティクス、指摘解決、クイズエクスポート              | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6             | `ReviewService`, `QuizService`, `FeedbackSection`                      | State          |
+| `CreatorDashboard`                 | UI / Page      | クリエイターアナリティクス、指摘解決、クイズエクスポート      | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6             | `ReviewService`, `QuizService`, `FeedbackSection`                      | State          |
 | `QuizListDetail`                   | UI / Page      | クイズリストの閲覧、プレイ開始トラッキング                    | 3.1, 3.2, 3.3                            | `QuizListService`, `useAuth`                                           | State          |
 | `QuizListEditor`                   | UI / Page      | リストの新規作成・編集、listType 分岐、アタッチ、エクスポート | 4.1–4.3, 6.1–6.3, 6.10                   | `QuizListService`                                                      | State          |
 | `ListTypeSelector`                 | UI / Component | 新規リストの `quiz` / `question` 選択                         | 6.1, 6.2                                 | —                                                                      | Controlled     |
@@ -834,7 +834,7 @@ export function consumeTestPlayDraftForEditor(
 
 | 要件 ID | 要件サマリー                             | 該当コンポーネント                                                | インターフェース / 責務                                       | フロー / 挙動                                             |
 | :------ | :--------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ | :-------------------------------------------------------- |
-| 10.1    | クリエイターダッシュボードの静的先行表示         | `src/app/creator/dashboard/page.tsx`                              | Server Component としてヘッダー等の枠組みを即時レンダリング。 | ユーザーアクセス時に即時描画・配信                        |
+| 10.1    | クリエイターダッシュボードの静的先行表示 | `src/app/creator/dashboard/page.tsx`                              | Server Component としてヘッダー等の枠組みを即時レンダリング。 | ユーザーアクセス時に即時描画・配信                        |
 | 10.2    | 累計統計データのスケルトン表示           | `src/components/charts/stats-skeleton.tsx`                        | 統計データのロード中、カード用のスケルトンを表示する。        | `data-testid="stats-skeleton"` を付与                     |
 | 10.3    | 累計統計データのコンテンツ置換           | `src/app/creator/dashboard/page.tsx`                              | データロード完了後、統計カードを実データに差し替える。        | `<Suspense>` による非同期制御                             |
 | 10.4    | 作成クイズ一覧のスケルトン表示           | `src/components/quiz/quiz-list-skeleton.tsx`                      | 自作クイズ一覧の取得中、リスト用のスケルトンを表示する。      | `data-testid="quiz-list-skeleton"` を付与                 |
@@ -853,13 +853,13 @@ export function consumeTestPlayDraftForEditor(
 
 ---
 
-## Phase 20: 〇×問題の作問 UI（2026-06-09）
+## Phase 20: 〇✕問題の作問 UI（2026-06-09）
 
 ### 1. Boundary Commitments
 
 | Owns                                                   | Out of Boundary               |
 | ------------------------------------------------------ | ----------------------------- |
-| 出題形式カード「〇×式」                                | 選択肢永続化正規化（core）    |
+| 出題形式カード「〇✕問題」                              | 選択肢永続化正規化（core）    |
 | 複合形式トグル「〇×」                                  | プレイ回答パネル（play-flow） |
 | `TrueFalseCorrectToggle`                               | 公開検証ロジック（core）      |
 | `handleFormatChange` / `handleToggleQuestionType` 拡張 |                               |
@@ -868,7 +868,7 @@ export function consumeTestPlayDraftForEditor(
 
 **出題形式カード**（既存グリッドに1枚追加）:
 ```typescript
-{ id: 'true-false', label: '〇×式', icon: '⭕' }
+{ id: 'true-false', label: '〇✕問題', icon: '⭕' }
 ```
 `format` state 型に `'true-false'` を追加。選択時は全問題を `true-false` に固定し、問題タイプトグルを非表示（選択式と同パターン）。
 
@@ -898,18 +898,18 @@ export function consumeTestPlayDraftForEditor(
 | `src/components/quiz/true-false-correct-toggle.tsx`        | **New**    | 正解トグル UI                                      |
 | `src/components/quiz/true-false-correct-toggle.module.css` | **New**    | トグルスタイル                                     |
 | `src/components/quiz/quiz-editor.tsx`                      | **Modify** | 形式カード・トグル・`addDefaultQuestion`・形式変換 |
-| `src/components/quiz/quiz-editor.module.css`               | **Modify** | 〇×式カード（既存グリッド流用可）                  |
+| `src/components/quiz/quiz-editor.module.css`               | **Modify** | 〇✕問題カード（既存グリッド流用可）                |
 | `e2e/quiz-creation.spec.ts`                                | **Modify** | 〇×形式作問→保存                                   |
 
 ### 4. Requirements Traceability（Phase 20）
 
-| Req         | Summary           | Component                |
-| ----------- | ----------------- | ------------------------ |
-| 11.1–11.3   | 全体形式「〇×式」 | `QuizEditor` format grid |
-| 11.4–11.5   | 複合トグル        | `typeToggle`             |
-| 11.6–11.9   | 正解トグル・保存  | `TrueFalseCorrectToggle` |
-| 11.10–11.11 | 参照・複合変換    | `QuizEditor`             |
-| 11.14       | testid            | 上記                     |
+| Req         | Summary             | Component                |
+| ----------- | ------------------- | ------------------------ |
+| 11.1–11.3   | 全体形式「〇✕問題」 | `QuizEditor` format grid |
+| 11.4–11.5   | 複合トグル          | `typeToggle`             |
+| 11.6–11.9   | 正解トグル・保存    | `TrueFalseCorrectToggle` |
+| 11.10–11.11 | 参照・複合変換      | `QuizEditor`             |
+| 11.14       | testid              | 上記                     |
 
 ### 5. Testing Strategy（Phase 20）
 
@@ -986,11 +986,11 @@ export function consumeTestPlayDraftForEditor(
 
 ### 2. Boundary Commitments（Phase 27）
 
-| Owns | Out of Boundary |
-|---|---|
+| Owns                                   | Out of Boundary                                                         |
+| -------------------------------------- | ----------------------------------------------------------------------- |
 | `/creator/dashboard` のタブ切り替え UI | `attempts`（プレイ履歴）の Firestore 側自動集計（クライアント側で行う） |
-| `PlayerDashboardClient` の実装 | `useActiveGenres` などの既存ジャンルマスタ解決処理自体 |
-| `player-stats.ts` による集計ロジック | 100件を超える全件プレイデータのフェッチ |
+| `PlayerDashboardClient` の実装         | `useActiveGenres` などの既存ジャンルマスタ解決処理自体                  |
+| `player-stats.ts` による集計ロジック   | 100件を超える全件プレイデータのフェッチ                                 |
 
 ### 3. UI Design
 
@@ -1027,21 +1027,21 @@ export function consumeTestPlayDraftForEditor(
 
 ### 4. File Structure Plan（Phase 27）
 
-| ファイル | 操作 | 責務 |
-|---|---|---|
-| `src/lib/player-stats.ts` | **New** | 完了した attempts と紐づく quizzes から、基本統計、日別推移、モード割合、ジャンル・タグの頻度・正答率を集計する純関数 |
-| `src/app/creator/dashboard/player-dashboard-client.tsx` | **New** | プレイヤー統計データの非同期フェッチ（直近100件 attempts & 紐づく quizzes）、集計実行、およびプレイヤーダッシュボード UI のレンダリング |
-| `src/app/creator/dashboard/page.tsx` | **Modify** | 画面のタイトルを「ダッシュボード」に更新（「クリエイターダッシュボード」から変更） |
-| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `Tabs` コンポーネントを導入し、プレイヤーとクリエイターのダッシュボードの表示を切り替え（`PlayerDashboardClient` / `CreatorDashboardClient`） |
-| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | プレイヤーダッシュボード用の統計グリッド、ジャンル/タグ分析表示用のUIコンポーネントを定義 |
+| ファイル                                                | 操作       | 責務                                                                                                                                          |
+| ------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/player-stats.ts`                               | **New**    | 完了した attempts と紐づく quizzes から、基本統計、日別推移、モード割合、ジャンル・タグの頻度・正答率を集計する純関数                         |
+| `src/app/creator/dashboard/player-dashboard-client.tsx` | **New**    | プレイヤー統計データの非同期フェッチ（直近100件 attempts & 紐づく quizzes）、集計実行、およびプレイヤーダッシュボード UI のレンダリング       |
+| `src/app/creator/dashboard/page.tsx`                    | **Modify** | 画面のタイトルを「ダッシュボード」に更新（「クリエイターダッシュボード」から変更）                                                            |
+| `src/app/creator/dashboard/dashboard-client.tsx`        | **Modify** | `Tabs` コンポーネントを導入し、プレイヤーとクリエイターのダッシュボードの表示を切り替え（`PlayerDashboardClient` / `CreatorDashboardClient`） |
+| `src/app/creator/dashboard/dashboard-sections.tsx`      | **Modify** | プレイヤーダッシュボード用の統計グリッド、ジャンル/タグ分析表示用のUIコンポーネントを定義                                                     |
 
 ### 5. Testing Strategy（Phase 27）
 
-| 種別 | 検証 |
-|---|---|
+| 種別          | 検証                                                                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Component** | `src/lib/player-stats.ts` の単体テスト：ダミーの attempts/quizzes から期待通りの集計値、よくプレイするジャンル、正答率、グラフデータが出力されることを検証。 |
-| **E2E** | ダッシュボードページでデフォルトで「プレイヤー」が表示されること、タブクリックで「クリエイター」ダッシュボードに切り替わること。 |
-| **E2E** | プレイヤーダッシュボードに、基本統計、グラフ、ジャンル・タグ分析が期待通り表示されること（モックデータを利用）。 |
+| **E2E**       | ダッシュボードページでデフォルトで「プレイヤー」が表示されること、タブクリックで「クリエイター」ダッシュボードに切り替わること。                             |
+| **E2E**       | プレイヤーダッシュボードに、基本統計、グラフ、ジャンル・タグ分析が期待通り表示されること（モックデータを利用）。                                             |
 
 **Effort**: **M**（2日）
 
@@ -1056,11 +1056,11 @@ export function consumeTestPlayDraftForEditor(
 
 ### 2. Boundary Commitments（Phase 28）
 
-| Owns | Out of Boundary |
-|---|---|
-| 指摘カード上の「解決済みにする」ボタンの実装と二重送信防止 (`resolvingId` による活性制御) | プレイヤー側の通知画面での表示制御（既存の通知一覧UIがそのまま使用されます） |
-| コールバックを通じたダッシュボード上の指摘キューのクライアント状態同期 | Firestoreセキュリティルールの新規登録（既存の `feedbackReports` の `resolved` 更新ルールおよび `notifications` の `create` ルールをそのまま利用） |
-| `src/services/review.ts` 内の `resolveReport` のバグ修正（通知オブジェクトのスキーマ適合） | |
+| Owns                                                                                       | Out of Boundary                                                                                                                                   |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 指摘カード上の「解決済みにする」ボタンの実装と二重送信防止 (`resolvingId` による活性制御)  | プレイヤー側の通知画面での表示制御（既存の通知一覧UIがそのまま使用されます）                                                                      |
+| コールバックを通じたダッシュボード上の指摘キューのクライアント状態同期                     | Firestoreセキュリティルールの新規登録（既存の `feedbackReports` の `resolved` 更新ルールおよび `notifications` の `create` ルールをそのまま利用） |
+| `src/services/review.ts` 内の `resolveReport` のバグ修正（通知オブジェクトのスキーマ適合） |                                                                                                                                                   |
 
 ### 3. UI Design
 
@@ -1073,18 +1073,18 @@ export function consumeTestPlayDraftForEditor(
 
 ### 4. File Structure Plan（Phase 28）
 
-| ファイル | 操作 | 責務 |
-|---|---|---|
-| `src/services/review.ts` | **Modify** | `resolveReport` の通知ペイロードのバグ修正（`recipientId -> userId`、`type: 'report_resolved' -> 'correction_resolved'`、`quizId/quizTitle -> targetId/targetTitle` への変更、および `senderId/senderName/senderAvatar` の追加）。 |
-| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `FeedbackSection` に `onResolve` props を追加。各指摘カードに「解決済みにする」ボタンを配置し、クリック時に非同期処理を実行するハンドラを実装。ボタン非活性状態（`resolvingId`）のローカル制御。 |
-| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `CreatorDashboardClientInner` 側に `handleResolveFeedback` ハンドラを定義。Firestoreの更新成功後に `feedbacks` 状態から該当の指摘を `filter` で除外するステート更新を行い、`FeedbackSection` に `onResolve` として渡す。 |
+| ファイル                                           | 操作       | 責務                                                                                                                                                                                                                               |
+| -------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/review.ts`                           | **Modify** | `resolveReport` の通知ペイロードのバグ修正（`recipientId -> userId`、`type: 'report_resolved' -> 'correction_resolved'`、`quizId/quizTitle -> targetId/targetTitle` への変更、および `senderId/senderName/senderAvatar` の追加）。 |
+| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `FeedbackSection` に `onResolve` props を追加。各指摘カードに「解決済みにする」ボタンを配置し、クリック時に非同期処理を実行するハンドラを実装。ボタン非活性状態（`resolvingId`）のローカル制御。                                   |
+| `src/app/creator/dashboard/dashboard-client.tsx`   | **Modify** | `CreatorDashboardClientInner` 側に `handleResolveFeedback` ハンドラを定義。Firestoreの更新成功後に `feedbacks` 状態から該当の指摘を `filter` で除外するステート更新を行い、`FeedbackSection` に `onResolve` として渡す。           |
 
 ### 5. Testing Strategy（Phase 28）
 
-| 種別 | 検証 |
-|---|---|
+| 種別     | 検証                                                                                                                                                                                                                                                                                                           |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Unit** | `tests/services/review.test.ts` に `resolveReport` の単体テストを追加。モックされた Firestore に対し、指定された指摘 ID が `resolved` に更新されること、および作成される通知オブジェクトに `userId`, `type: 'correction_resolved'`, `targetId`, `targetTitle`, `senderId` が正しく含まれていることを検証する。 |
-| **E2E** | `e2e/creator-dashboard.spec.ts` の「指摘・修正フロー」テストを拡張。ダッシュボード上で「解決済みにする」ボタン（`resolve-feedback-btn-{id}`）をクリックした際に、ローディング非活性が機能し、成功後に指摘カードが画面上から即座に消失することを確認する。 |
+| **E2E**  | `e2e/creator-dashboard.spec.ts` の「指摘・修正フロー」テストを拡張。ダッシュボード上で「解決済みにする」ボタン（`resolve-feedback-btn-{id}`）をクリックした際に、ローディング非活性が機能し、成功後に指摘カードが画面上から即座に消失することを確認する。                                                      |
 
 **Effort**: **S**（1日）
 
@@ -1100,13 +1100,13 @@ export function consumeTestPlayDraftForEditor(
 
 ### 2. Boundary Commitments（Phase 40）
 
-| Owns | Out of Boundary |
-|---|---|
-| `/creator/quizzes` ページ本体（一覧・検索・絞り込み・並び替え・空/エラー状態） | 指摘の解決・却下操作 UI 本体（要件14の編集画面サイドバー・モーダルが担当） |
-| 統合ステータス（公開/限定公開/非公開/下書き）の導出・表示・切替 UI | `visibility` 判定・Pro 制限ロジックの正本（`quizetika-core` / `src/lib/quiz-access.ts` が担当。本スペックは呼び出しとエラー表示のみ） |
-| クイズ検索・絞り込み（キーワード/統合ステータス/ジャンル/タグ）・並び替えの lib 拡張 | アナリティクスグラフ・個別問題解答割合・プレイヤー統計（クリエイターダッシュボードが引き続き担当） |
-| クイズ単位の未解決指摘件数集計・バッジ表示・編集画面への導線 | クイズの削除機能（本フェーズでは提供しない） |
-| クリエイターダッシュボードの簡易クイズ一覧セクション撤去と本画面への導線への置換 | `updateQuiz` 自体の実装・バリデーション（`quizetika-core` が担当。本スペックは呼び出し元） |
+| Owns                                                                                 | Out of Boundary                                                                                                                       |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `/creator/quizzes` ページ本体（一覧・検索・絞り込み・並び替え・空/エラー状態）       | 指摘の解決・却下操作 UI 本体（要件14の編集画面サイドバー・モーダルが担当）                                                            |
+| 統合ステータス（公開/限定公開/非公開/下書き）の導出・表示・切替 UI                   | `visibility` 判定・Pro 制限ロジックの正本（`quizetika-core` / `src/lib/quiz-access.ts` が担当。本スペックは呼び出しとエラー表示のみ） |
+| クイズ検索・絞り込み（キーワード/統合ステータス/ジャンル/タグ）・並び替えの lib 拡張 | アナリティクスグラフ・個別問題解答割合・プレイヤー統計（クリエイターダッシュボードが引き続き担当）                                    |
+| クイズ単位の未解決指摘件数集計・バッジ表示・編集画面への導線                         | クイズの削除機能（本フェーズでは提供しない）                                                                                          |
+| クリエイターダッシュボードの簡易クイズ一覧セクション撤去と本画面への導線への置換     | `updateQuiz` 自体の実装・バリデーション（`quizetika-core` が担当。本スペックは呼び出し元）                                            |
 
 ### 3. Architecture
 
@@ -1130,34 +1130,34 @@ graph LR
 
 ### 4. File Structure Plan（Phase 40）
 
-| ファイル | 操作 | 責務 |
-|---|---|---|
-| `src/app/creator/quizzes/page.tsx` | **New** | Server Component。静的フレーム（見出し・新規作成ボタン）を先行レンダリングし `CreatorQuizManagementClient` を配置（Phase 12 と同じ Streaming パターン）。 |
-| `src/app/creator/quizzes/creator-quiz-management-client.tsx` | **New** | `'use client'`。認証ガード（未認証は `/login?redirect=/creator/quizzes`）、`searchAuthorQuizzes`（拡張後）と `getOpenReportCountsByCreator` の並列フェッチ、キーワード・統合ステータス・ジャンル・タグ・並び替えのローカル state 管理、ローディング/エラー/空状態の分岐。 |
-| `src/app/creator/quizzes/creator-quiz-management-sections.tsx` | **New** | 表示専用コンポーネント群：フィルタバー（`data-testid="creator-quiz-management-filters"`）、並び替えセレクト（`data-testid="creator-quiz-management-sort"`）、一覧行（`data-testid="creator-quiz-management-list"`）、スケルトン。空状態は2種類を区別して実装する: (1) 作成クイズが0件（要件15.6、CTAは「クイズを新規作成する」）、(2) 絞り込み結果が0件（要件16.8、CTAは「条件をクリア」）。 |
-| `src/app/creator/quizzes/creator-quiz-visibility-toggle.tsx` | **New** | `'use client'`。統合ステータスが公開済みのクイズに対する公開/限定公開/非公開の切替 UI（`Select` + disabled + アップグレード導線）。`updateQuiz` 呼び出しと `ProRequiredForVisibilityError` の try/catch を内包。 |
-| `src/lib/creator-quiz-status.ts` | **New** | 純関数 `resolveCreatorQuizStatus(quiz): CreatorQuizStatus` と型定義。`resolveQuizVisibility`（既存）を内部利用。 |
-| `src/lib/author-quiz-search.ts` | **Modify** | `SearchAuthorQuizzesParams` に `genreId?: string`, `status?: CreatorQuizStatus`, `sortBy?: 'title' \| 'playCount' \| 'createdAt'`, `sortOrder?: 'asc' \| 'desc'` を追加。`filterAuthorQuizzes` / `filterAuthorQuizzesWithQuestions` にジャンル・統合ステータス条件を追加し、新規 `sortAuthorQuizzes(quizzes, sortBy, sortOrder)` を追加。ジャンル絞り込みは `quiz.canonicalGenreId === genreId` の完全一致のみを対象とし、`genreId` 指定時は `canonicalGenreId` が空または現行マスタ外（要件5.5のレガシー・マージ保留クイズ）を結果から除外する（`genreId` 未指定時は全件を対象に含める）。 |
-| `src/services/author-quiz-search.ts` | **Modify** | `searchAuthorQuizzes` が拡張後のパラメータを `filterAuthorQuizzesWithQuestions` / `sortAuthorQuizzes` へ橋渡しするよう更新（DB クエリ自体は無変更）。 |
-| `src/services/review.ts` | **Modify** | `getOpenReportCountsByCreator(creatorId: string): Promise<Record<string, number>>` を追加。既存の `getReportsForCreator` と同一クエリ条件（`status: 'open'`）で `quiz_id` ごとに件数集計する。 |
-| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `QuizListSection`（`creator-quiz-list`）の呼び出しを撤去し、`/creator/quizzes` への導線カード（`data-testid="creator-dashboard-manage-quizzes-link"`）に置換。 |
-| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `QuizListSection` の描画を管理画面への導線カードに置換。`getQuizzesByAuthor` 呼び出しと `quizzes` state は `computeDashboardStats`（統計カード）が引き続き参照するため維持する。 |
-| `e2e/creator-dashboard.spec.ts` | **Modify** | `creator-quiz-list`/`quiz-card` を直接 assert していた既存ケースを、導線カードの存在確認に置き換え。 |
-| `e2e/creator-quiz-management.spec.ts` | **New** | `/creator/quizzes` のスモークテスト（一覧表示・検索・並び替え・公開範囲切替・指摘バッジ→編集画面遷移）。 |
-| `tests/lib/creator-quiz-status.test.ts` | **New** | `resolveCreatorQuizStatus` の単体テスト（draft/published×public/followers/private の全組み合わせ）。 |
-| `tests/services/author-quiz-search.test.ts` | **Modify** | ジャンル・統合ステータス絞り込みおよび `sortAuthorQuizzes` のテストケースを追加（既存の `filterAuthorQuizzes` 系テストが配置されているファイル）。 |
-| `tests/services/review.test.ts` | **Modify** | `getOpenReportCountsByCreator` の単体テストを追加（複数クイズ・0件クイズ混在ケース）。 |
+| ファイル                                                       | 操作       | 責務                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/creator/quizzes/page.tsx`                             | **New**    | Server Component。静的フレーム（見出し・新規作成ボタン）を先行レンダリングし `CreatorQuizManagementClient` を配置（Phase 12 と同じ Streaming パターン）。                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `src/app/creator/quizzes/creator-quiz-management-client.tsx`   | **New**    | `'use client'`。認証ガード（未認証は `/login?redirect=/creator/quizzes`）、`searchAuthorQuizzes`（拡張後）と `getOpenReportCountsByCreator` の並列フェッチ、キーワード・統合ステータス・ジャンル・タグ・並び替えのローカル state 管理、ローディング/エラー/空状態の分岐。                                                                                                                                                                                                                                                                                                                   |
+| `src/app/creator/quizzes/creator-quiz-management-sections.tsx` | **New**    | 表示専用コンポーネント群：フィルタバー（`data-testid="creator-quiz-management-filters"`）、並び替えセレクト（`data-testid="creator-quiz-management-sort"`）、一覧行（`data-testid="creator-quiz-management-list"`）、スケルトン。空状態は2種類を区別して実装する: (1) 作成クイズが0件（要件15.6、CTAは「クイズを新規作成する」）、(2) 絞り込み結果が0件（要件16.8、CTAは「条件をクリア」）。                                                                                                                                                                                                |
+| `src/app/creator/quizzes/creator-quiz-visibility-toggle.tsx`   | **New**    | `'use client'`。統合ステータスが公開済みのクイズに対する公開/限定公開/非公開の切替 UI（`Select` + disabled + アップグレード導線）。`updateQuiz` 呼び出しと `ProRequiredForVisibilityError` の try/catch を内包。                                                                                                                                                                                                                                                                                                                                                                            |
+| `src/lib/creator-quiz-status.ts`                               | **New**    | 純関数 `resolveCreatorQuizStatus(quiz): CreatorQuizStatus` と型定義。`resolveQuizVisibility`（既存）を内部利用。                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `src/lib/author-quiz-search.ts`                                | **Modify** | `SearchAuthorQuizzesParams` に `genreId?: string`, `status?: CreatorQuizStatus`, `sortBy?: 'title' \| 'playCount' \| 'createdAt'`, `sortOrder?: 'asc' \| 'desc'` を追加。`filterAuthorQuizzes` / `filterAuthorQuizzesWithQuestions` にジャンル・統合ステータス条件を追加し、新規 `sortAuthorQuizzes(quizzes, sortBy, sortOrder)` を追加。ジャンル絞り込みは `quiz.canonicalGenreId === genreId` の完全一致のみを対象とし、`genreId` 指定時は `canonicalGenreId` が空または現行マスタ外（要件5.5のレガシー・マージ保留クイズ）を結果から除外する（`genreId` 未指定時は全件を対象に含める）。 |
+| `src/services/author-quiz-search.ts`                           | **Modify** | `searchAuthorQuizzes` が拡張後のパラメータを `filterAuthorQuizzesWithQuestions` / `sortAuthorQuizzes` へ橋渡しするよう更新（DB クエリ自体は無変更）。                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `src/services/review.ts`                                       | **Modify** | `getOpenReportCountsByCreator(creatorId: string): Promise<Record<string, number>>` を追加。既存の `getReportsForCreator` と同一クエリ条件（`status: 'open'`）で `quiz_id` ごとに件数集計する。                                                                                                                                                                                                                                                                                                                                                                                              |
+| `src/app/creator/dashboard/dashboard-sections.tsx`             | **Modify** | `QuizListSection`（`creator-quiz-list`）の呼び出しを撤去し、`/creator/quizzes` への導線カード（`data-testid="creator-dashboard-manage-quizzes-link"`）に置換。                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `src/app/creator/dashboard/dashboard-client.tsx`               | **Modify** | `QuizListSection` の描画を管理画面への導線カードに置換。`getQuizzesByAuthor` 呼び出しと `quizzes` state は `computeDashboardStats`（統計カード）が引き続き参照するため維持する。                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `e2e/creator-dashboard.spec.ts`                                | **Modify** | `creator-quiz-list`/`quiz-card` を直接 assert していた既存ケースを、導線カードの存在確認に置き換え。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `e2e/creator-quiz-management.spec.ts`                          | **New**    | `/creator/quizzes` のスモークテスト（一覧表示・検索・並び替え・公開範囲切替・指摘バッジ→編集画面遷移）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `tests/lib/creator-quiz-status.test.ts`                        | **New**    | `resolveCreatorQuizStatus` の単体テスト（draft/published×public/followers/private の全組み合わせ）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/services/author-quiz-search.test.ts`                    | **Modify** | ジャンル・統合ステータス絞り込みおよび `sortAuthorQuizzes` のテストケースを追加（既存の `filterAuthorQuizzes` 系テストが配置されているファイル）。                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/services/review.test.ts`                                | **Modify** | `getOpenReportCountsByCreator` の単体テストを追加（複数クイズ・0件クイズ混在ケース）。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ### 5. Components and Interfaces（Phase 40）
 
-| Component | Domain/Layer | Intent | Req Coverage | Key Dependencies (P0/P1) | Contracts |
-|-----------|--------------|--------|---------------|--------------------------|-----------|
-| `CreatorQuizManagementClient` | UI (Client) | データ取得オーケストレーションと状態管理 | 15, 16, 18 | `searchAuthorQuizzes`(P0), `getOpenReportCountsByCreator`(P0), `useAuth`(P0) | Service |
-| `CreatorQuizManagementSections` | UI (Presentational) | 一覧・フィルタ・並び替え UI の表示 | 15, 16, 17, 18 | `CreatorQuizManagementClient`(P0) | — |
-| `CreatorQuizVisibilityToggle` | UI (Client) | 公開範囲切替と Pro 制限エラー表示 | 17 | `updateQuiz`(P0), `quiz-access.ts`(P0) | Service |
-| `resolveCreatorQuizStatus` | lib (純関数) | 統合ステータス導出 | 17.1 | `resolveQuizVisibility`(P0) | — |
-| `sortAuthorQuizzes` | lib (純関数) | 並び替え | 16.11-16.14 | — | — |
-| `getOpenReportCountsByCreator` | service | クイズ単位の未解決指摘件数集計 | 18.1 | Supabase `feedback_reports`(P0) | Service |
+| Component                       | Domain/Layer        | Intent                                   | Req Coverage   | Key Dependencies (P0/P1)                                                     | Contracts |
+| ------------------------------- | ------------------- | ---------------------------------------- | -------------- | ---------------------------------------------------------------------------- | --------- |
+| `CreatorQuizManagementClient`   | UI (Client)         | データ取得オーケストレーションと状態管理 | 15, 16, 18     | `searchAuthorQuizzes`(P0), `getOpenReportCountsByCreator`(P0), `useAuth`(P0) | Service   |
+| `CreatorQuizManagementSections` | UI (Presentational) | 一覧・フィルタ・並び替え UI の表示       | 15, 16, 17, 18 | `CreatorQuizManagementClient`(P0)                                            | —         |
+| `CreatorQuizVisibilityToggle`   | UI (Client)         | 公開範囲切替と Pro 制限エラー表示        | 17             | `updateQuiz`(P0), `quiz-access.ts`(P0)                                       | Service   |
+| `resolveCreatorQuizStatus`      | lib (純関数)        | 統合ステータス導出                       | 17.1           | `resolveQuizVisibility`(P0)                                                  | —         |
+| `sortAuthorQuizzes`             | lib (純関数)        | 並び替え                                 | 16.11-16.14    | —                                                                            | —         |
+| `getOpenReportCountsByCreator`  | service             | クイズ単位の未解決指摘件数集計           | 18.1           | Supabase `feedback_reports`(P0)                                              | Service   |
 
 #### `resolveCreatorQuizStatus`（`src/lib/creator-quiz-status.ts`）
 
@@ -1192,10 +1192,10 @@ export function resolveCreatorQuizStatus(
 
 #### `CreatorQuizVisibilityToggle`
 
-| Field | Detail |
-|-------|--------|
-| Intent | 公開済みクイズの公開範囲を Select で切替え、Pro 制限を表示する |
-| Requirements | 17.3, 17.4, 17.5, 17.6, 17.7 |
+| Field        | Detail                                                         |
+| ------------ | -------------------------------------------------------------- |
+| Intent       | 公開済みクイズの公開範囲を Select で切替え、Pro 制限を表示する |
+| Requirements | 17.3, 17.4, 17.5, 17.6, 17.7                                   |
 
 **Responsibilities & Constraints**
 - `status === 'draft'`（または `suspended`）の場合はコンポーネント自体を描画しない（要件17.2、呼び出し側の `CreatorQuizManagementSections` が判定）。
@@ -1254,23 +1254,23 @@ export async function getOpenReportCountsByCreator(
 
 ### 7. Error Handling（Phase 40）
 
-| ケース | 対応 |
-|---|---|
-| 一覧取得（`searchAuthorQuizzes`）失敗 | `CreatorQuizManagementClient` がエラー状態を保持し、`CreatorQuizManagementSections` にエラーメッセージ + 再試行ボタンを表示（要件15.4） |
-| 指摘件数取得（`getOpenReportCountsByCreator`）失敗 | 一覧取得自体は継続表示し、バッジのみ「取得失敗」を示す非強調表示にフォールバック（一覧全体をブロックしない） |
-| 公開範囲切替時の `ProRequiredForVisibilityError` | `CreatorQuizVisibilityToggle` がエラーメッセージとアップグレード導線を表示し、表示値を切替前に戻す（要件17.7） |
-| 公開範囲切替時のその他のエラー（ネットワーク等） | 汎用エラーメッセージを表示し、表示値を切替前に戻す |
+| ケース                                             | 対応                                                                                                                                    |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 一覧取得（`searchAuthorQuizzes`）失敗              | `CreatorQuizManagementClient` がエラー状態を保持し、`CreatorQuizManagementSections` にエラーメッセージ + 再試行ボタンを表示（要件15.4） |
+| 指摘件数取得（`getOpenReportCountsByCreator`）失敗 | 一覧取得自体は継続表示し、バッジのみ「取得失敗」を示す非強調表示にフォールバック（一覧全体をブロックしない）                            |
+| 公開範囲切替時の `ProRequiredForVisibilityError`   | `CreatorQuizVisibilityToggle` がエラーメッセージとアップグレード導線を表示し、表示値を切替前に戻す（要件17.7）                          |
+| 公開範囲切替時のその他のエラー（ネットワーク等）   | 汎用エラーメッセージを表示し、表示値を切替前に戻す                                                                                      |
 
 ### 8. Testing Strategy（Phase 40）
 
-| 種別 | 検証 |
-|---|---|
-| **Unit** | `tests/lib/creator-quiz-status.test.ts`: `resolveCreatorQuizStatus` が `suspended`・draft・published×public/followers/private の全組み合わせで期待する5値を返すこと（`suspended` が `draft` 判定より優先されること）。 |
-| **Unit** | `tests/lib/author-quiz-search.test.ts`: ジャンル・統合ステータスの絞り込みが AND で合成されること、`sortAuthorQuizzes` が3基準×昇順/降順で正しい順序を返すこと、`canonicalGenreId` が空/現行マスタ外のクイズがジャンル絞り込み指定時のみ除外されること。 |
-| **Unit** | `tests/services/review.test.ts`: `getOpenReportCountsByCreator` が複数クイズにまたがる指摘を正しく集計し、指摘0件のクイズがキーに含まれないこと。 |
-| **Integration** | `CreatorQuizVisibilityToggle` が Pro 未満エンタイトルメントで `private`/`followers` を disabled 表示し、`updateQuiz` が `ProRequiredForVisibilityError` を throw した場合にエラー表示へフォールバックすること（`updateQuiz` をモック）。 |
-| **E2E** | `e2e/creator-quiz-management.spec.ts`: `/creator/quizzes` で一覧表示→キーワード検索→統合ステータス/ジャンル/タグ絞り込み→並び替え→「クイズを新規作成する」導線→編集導線→指摘バッジクリックで編集画面へ遷移、の一連のスモークフロー。 |
-| **E2E** | `e2e/creator-dashboard.spec.ts`（更新）: ダッシュボードに `creator-quiz-list` が存在しないこと、`creator-dashboard-manage-quizzes-link` が `/creator/quizzes` へ遷移すること。 |
+| 種別            | 検証                                                                                                                                                                                                                                                     |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Unit**        | `tests/lib/creator-quiz-status.test.ts`: `resolveCreatorQuizStatus` が `suspended`・draft・published×public/followers/private の全組み合わせで期待する5値を返すこと（`suspended` が `draft` 判定より優先されること）。                                   |
+| **Unit**        | `tests/lib/author-quiz-search.test.ts`: ジャンル・統合ステータスの絞り込みが AND で合成されること、`sortAuthorQuizzes` が3基準×昇順/降順で正しい順序を返すこと、`canonicalGenreId` が空/現行マスタ外のクイズがジャンル絞り込み指定時のみ除外されること。 |
+| **Unit**        | `tests/services/review.test.ts`: `getOpenReportCountsByCreator` が複数クイズにまたがる指摘を正しく集計し、指摘0件のクイズがキーに含まれないこと。                                                                                                        |
+| **Integration** | `CreatorQuizVisibilityToggle` が Pro 未満エンタイトルメントで `private`/`followers` を disabled 表示し、`updateQuiz` が `ProRequiredForVisibilityError` を throw した場合にエラー表示へフォールバックすること（`updateQuiz` をモック）。                 |
+| **E2E**         | `e2e/creator-quiz-management.spec.ts`: `/creator/quizzes` で一覧表示→キーワード検索→統合ステータス/ジャンル/タグ絞り込み→並び替え→「クイズを新規作成する」導線→編集導線→指摘バッジクリックで編集画面へ遷移、の一連のスモークフロー。                     |
+| **E2E**         | `e2e/creator-dashboard.spec.ts`（更新）: ダッシュボードに `creator-quiz-list` が存在しないこと、`creator-dashboard-manage-quizzes-link` が `/creator/quizzes` へ遷移すること。                                                                           |
 
 **Effort**: **M**（3〜4日）
 
@@ -1287,14 +1287,14 @@ export async function getOpenReportCountsByCreator(
 
 ### File Structure Plan（Phase 41）
 
-| ファイル | 操作 | 責務 |
-|---|---|---|
+| ファイル                                                     | 操作   | 責務                                                                                                                                |
+| ------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `src/app/creator/quizzes/creator-quiz-visibility-toggle.tsx` | Modify | disabled 時のツールチップ文言・アップグレード導線文言を「Pro プランが必要です」から「Creator プランが必要です」へ更新（要件17 AC7） |
 
 ### Testing Strategy（Phase 41 追加分）
 
-| 種別 | 検証 |
-|---|---|
+| 種別        | 検証                                                                                                                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Integration | `CreatorQuizVisibilityToggle` — `player` tier エンタイトルメント（`hasCreatorEntitlements: false`）でも `private`/`followers` が disabled 表示され、「Creator プランが必要です」の文言が表示されること |
 
 **Effort**: **S**（表示文言の更新のみ）
@@ -1312,12 +1312,12 @@ export async function getOpenReportCountsByCreator(
 
 ### 2. Boundary Commitments（Phase 42）
 
-| Owns | Out of Boundary |
-|---|---|
+| Owns                                                       | Out of Boundary                                                                                          |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `computePlayerStats` の `tagCloud`/`keywordCloud` 集計拡張 | プレイ履歴（attempts）取得・クイズ読み込み処理本体（`listUserPlayHistory` / `getQuiz` は既存のまま利用） |
-| タイトルキーワード抽出ロジック（`src/lib/word-cloud.ts`） | 形態素解析ライブラリの導入（`Intl.Segmenter` 標準 API のみ使用） |
-| ワードクラウド描画コンポーネントとダッシュボードセクション | d3-cloud 等ワードクラウド専用ライブラリの導入 |
-| タグ／キーワード切り替えタブ・色凡例・空状態表示 | サーバー側（RPC/API route）での新規集計。ジャンル語の混入（対象はタグとタイトルキーワードのみ） |
+| タイトルキーワード抽出ロジック（`src/lib/word-cloud.ts`）  | 形態素解析ライブラリの導入（`Intl.Segmenter` 標準 API のみ使用）                                         |
+| ワードクラウド描画コンポーネントとダッシュボードセクション | d3-cloud 等ワードクラウド専用ライブラリの導入                                                            |
+| タグ／キーワード切り替えタブ・色凡例・空状態表示           | サーバー側（RPC/API route）での新規集計。ジャンル語の混入（対象はタグとタイトルキーワードのみ）          |
 
 - **Allowed Dependencies**: `PlayHistoryEntry` / `Quiz`（`src/types`）、`listUserPlayHistory`（`src/services/attempt.ts`）、`getQuiz`（`src/services/quiz.ts`）、shadcn `Card`/`Tabs`、ブラウザ/Node 標準の `Intl.Segmenter`。
 - **Revalidation Triggers**: 集計元が直近100件から全件へ拡大される場合（サーバー側集計への移行を再検討）。`Intl.Segmenter` 非対応環境の利用実績が確認された場合（フォールバック品質の再評価）。
@@ -1369,40 +1369,40 @@ interface WordCloudProps {
 
 ### 5. File Structure Plan（Phase 42）
 
-| ファイル | 操作 | 責務 |
-|---|---|---|
-| `src/lib/word-cloud.ts` | **New** | `WordCloudItem` 型定義と `extractTitleKeywords`（`Intl.Segmenter` 分かち書き + ストップワード/短語/記号フィルタ + フォールバック）。純関数のみ |
-| `src/lib/player-stats.ts` | **Modify** | `PlayerStats` に `tagCloud`/`keywordCloud` を追加。`quizMap` 値型に `title` を追加し、既存 `tagStatsMap` の上位30件露出とキーワード集計（quizId 単位キャッシュ、1 attempt 1 カウント）を実装 |
-| `src/components/charts/word-cloud.tsx` | **New** | 自作 CSS ワードクラウド描画（sqrt サイズスケール、正答率色区分、決定的シャッフル、title ツールチップ）。既存 charts コンポーネントの規約（`'use client'`、テーマ CSS 変数）に従う |
-| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `PlayerWordCloudSection` を追加（`data-testid="player-word-cloud"`、タグ/キーワード Tabs、色凡例、「データがありません」空状態） |
-| `src/app/creator/dashboard/player-dashboard-client.tsx` | **Modify** | `quizMap` 構築時に `title` を追加し、`PlayerChartsSection` と `PlayerGenreTagAnalysisSection` の間に `PlayerWordCloudSection` を挿入 |
+| ファイル                                                | 操作       | 責務                                                                                                                                                                                         |
+| ------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/word-cloud.ts`                                 | **New**    | `WordCloudItem` 型定義と `extractTitleKeywords`（`Intl.Segmenter` 分かち書き + ストップワード/短語/記号フィルタ + フォールバック）。純関数のみ                                               |
+| `src/lib/player-stats.ts`                               | **Modify** | `PlayerStats` に `tagCloud`/`keywordCloud` を追加。`quizMap` 値型に `title` を追加し、既存 `tagStatsMap` の上位30件露出とキーワード集計（quizId 単位キャッシュ、1 attempt 1 カウント）を実装 |
+| `src/components/charts/word-cloud.tsx`                  | **New**    | 自作 CSS ワードクラウド描画（sqrt サイズスケール、正答率色区分、決定的シャッフル、title ツールチップ）。既存 charts コンポーネントの規約（`'use client'`、テーマ CSS 変数）に従う            |
+| `src/app/creator/dashboard/dashboard-sections.tsx`      | **Modify** | `PlayerWordCloudSection` を追加（`data-testid="player-word-cloud"`、タグ/キーワード Tabs、色凡例、「データがありません」空状態）                                                             |
+| `src/app/creator/dashboard/player-dashboard-client.tsx` | **Modify** | `quizMap` 構築時に `title` を追加し、`PlayerChartsSection` と `PlayerGenreTagAnalysisSection` の間に `PlayerWordCloudSection` を挿入                                                         |
 
 ### 6. Requirements Traceability（Phase 42）
 
-| 要件 | 実現コンポーネント |
-|---|---|
-| 20.1 | `PlayerWordCloudSection`（`data-testid="player-word-cloud"`） |
-| 20.2, 20.3 | `PlayerWordCloudSection` 内 shadcn `Tabs`（defaultValue="tags"、クライアント側状態のみで切り替え） |
-| 20.4 | `player-dashboard-client.tsx`（既存の直近100件 attempts + quizMap をそのまま入力に使用） |
-| 20.5 | `computePlayerStats` の `tagCloud`（上位30件） |
-| 20.6 | `computePlayerStats` の `keywordCloud` + `extractTitleKeywords` |
-| 20.7 | `extractTitleKeywords` のフィルタ（ストップワード・記号・数字・短語除外） |
-| 20.8 | attempt ループでの `Set` ベース 1 カウント集計 |
-| 20.9 | `word-cloud.tsx` の sqrt フォントサイズスケール |
-| 20.10, 20.11 | `word-cloud.tsx` の正答率バケット色分け（3回未満は muted） |
-| 20.12 | `PlayerWordCloudSection` の色凡例 |
-| 20.13 | 各語 `<span>` の `title` 属性ツールチップ |
-| 20.14 | 文字列ハッシュによる決定的シャッフル |
-| 20.15 | `PlayerWordCloudSection` の空状態表示（既存「データがありません」パターン踏襲） |
+| 要件         | 実現コンポーネント                                                                                 |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| 20.1         | `PlayerWordCloudSection`（`data-testid="player-word-cloud"`）                                      |
+| 20.2, 20.3   | `PlayerWordCloudSection` 内 shadcn `Tabs`（defaultValue="tags"、クライアント側状態のみで切り替え） |
+| 20.4         | `player-dashboard-client.tsx`（既存の直近100件 attempts + quizMap をそのまま入力に使用）           |
+| 20.5         | `computePlayerStats` の `tagCloud`（上位30件）                                                     |
+| 20.6         | `computePlayerStats` の `keywordCloud` + `extractTitleKeywords`                                    |
+| 20.7         | `extractTitleKeywords` のフィルタ（ストップワード・記号・数字・短語除外）                          |
+| 20.8         | attempt ループでの `Set` ベース 1 カウント集計                                                     |
+| 20.9         | `word-cloud.tsx` の sqrt フォントサイズスケール                                                    |
+| 20.10, 20.11 | `word-cloud.tsx` の正答率バケット色分け（3回未満は muted）                                         |
+| 20.12        | `PlayerWordCloudSection` の色凡例                                                                  |
+| 20.13        | 各語 `<span>` の `title` 属性ツールチップ                                                          |
+| 20.14        | 文字列ハッシュによる決定的シャッフル                                                               |
+| 20.15        | `PlayerWordCloudSection` の空状態表示（既存「データがありません」パターン踏襲）                    |
 
 ### 7. Testing Strategy（Phase 42）
 
-| 種別 | 検証 |
-|---|---|
-| **Unit** | `tests/lib/word-cloud.test.ts`（新規）: `extractTitleKeywords` — ストップワード（「クイズ」等）除外、記号・数字のみ除外、2文字未満除外、同一タイトル内重複の除去、`Intl.Segmenter` 未定義時のフォールバック動作。 |
-| **Unit** | `tests/lib/player-stats.test.ts`（拡張）: `tagCloud`/`keywordCloud` — count 降順・同数時タグ名昇順、上位30件上限、1 attempt 1 カウント、accuracy 算出値、空 attempts 時に `[]`。既存ケースの `quizMap` に `title` を追加。 |
+| 種別          | 検証                                                                                                                                                                                                                                    |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Unit**      | `tests/lib/word-cloud.test.ts`（新規）: `extractTitleKeywords` — ストップワード（「クイズ」等）除外、記号・数字のみ除外、2文字未満除外、同一タイトル内重複の除去、`Intl.Segmenter` 未定義時のフォールバック動作。                       |
+| **Unit**      | `tests/lib/player-stats.test.ts`（拡張）: `tagCloud`/`keywordCloud` — count 降順・同数時タグ名昇順、上位30件上限、1 attempt 1 カウント、accuracy 算出値、空 attempts 時に `[]`。既存ケースの `quizMap` に `title` を追加。              |
 | **Component** | `word-cloud.tsx` / `PlayerWordCloudSection`: 最大 count の語が最大フォントサイズになること、count 3回未満の語が muted クラスになること、空配列で「データがありません」が表示されること、タブ切り替えでタグ↔キーワードが差し替わること。 |
-| **E2E** | `e2e/creator-dashboard.spec.ts`（拡張）: プレイヤータブに `player-word-cloud` セクションが表示され、タブ操作でキーワード表示に切り替わること。 |
+| **E2E**       | `e2e/creator-dashboard.spec.ts`（拡張）: プレイヤータブに `player-word-cloud` セクションが表示され、タブ操作でキーワード表示に切り替わること。                                                                                          |
 
 **Effort**: **S–M**（1–2日）
 **Risk**: **Low**（純クライアント集計・依存追加なし・既存データフローの延長）

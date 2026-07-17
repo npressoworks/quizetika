@@ -269,7 +269,7 @@ function TestPlayClient() {
   const getQuestionTypeLabel = (type: Question['type']) => {
     switch (type) {
       case 'multiple-choice': return '選択式';
-      case 'true-false': return '〇✕式';
+      case 'true-false': return '〇✕問題';
       case 'text-input': return '記述式';
       case 'quick-press': return '早押し';
       case 'sorting': return '並び替え';
@@ -420,224 +420,224 @@ function TestPlayClient() {
           />
         ) : (
           <>
-        {currentQuestion.type === 'true-false' && (
-          <TrueFalseAnswerPanel
-            question={currentQuestion}
-            onConfirm={submitAnswer}
-            disabled={feedbackPending}
-          />
-        )}
-
-        {currentQuestion.type === 'multiple-choice' && (
-          <ChoiceAnswerPanel
-            question={currentQuestion}
-            onConfirm={submitAnswer}
-            initialAnswer={questionAnswers[currentQuestion.id]}
-            disabled={feedbackPending}
-          />
-        )}
-
-        {currentQuestion.type === 'text-input' && (() => {
-          const inputProps = getTextInputFieldProps(currentQuestion);
-          return (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const input = (e.currentTarget.elements.namedItem('textAnswer') as HTMLInputElement).value;
-                submitAnswer(input);
-                e.currentTarget.reset();
-              }}
-              className={styles.inputForm}
-            >
-              <input
-                type={inputProps.type}
-                name="textAnswer"
-                className={styles.textInput}
-                placeholder={inputProps.placeholder}
-                inputMode={inputProps.inputMode}
-                maxLength={inputProps.maxLength}
-                minLength={inputProps.minLength}
-                required
-                autoComplete="off"
+            {currentQuestion.type === 'true-false' && (
+              <TrueFalseAnswerPanel
+                question={currentQuestion}
+                onConfirm={submitAnswer}
+                disabled={feedbackPending}
               />
-              <button type="submit" className="btn btn-primary">送信</button>
-            </form>
-          );
-        })()}
+            )}
 
-        {currentQuestion.type === 'sorting' && (
-          <div className={styles.sortingArea}>
-            <p className={styles.sortingHint}>ドラッグハンドルで要素を正しい順序に並べ替えてください。</p>
-            <SortableSortingList
-              items={sortingItems}
-              listClassName={styles.sortingList}
-              onReorder={(items) =>
-                setSortingItems(
-                  items.map((item, idx) => ({
-                    id: item.id,
-                    text: item.text,
-                    correctOrder: item.correctOrder ?? idx,
-                  }))
-                )
-              }
-              renderItemContent={(item) => (
-                <span className={styles.sortingItemText}>{item.text}</span>
-              )}
-            />
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ width: '100%', marginTop: '20px' }}
-              onClick={() => {
-                const sortedIds = sortingItems.map((item) => item.id).join(',');
-                submitAnswer(sortedIds);
-              }}
-            >
-              並び替えを確定して解答する
-            </button>
-          </div>
-        )}
+            {currentQuestion.type === 'multiple-choice' && (
+              <ChoiceAnswerPanel
+                question={currentQuestion}
+                onConfirm={submitAnswer}
+                initialAnswer={questionAnswers[currentQuestion.id]}
+                disabled={feedbackPending}
+              />
+            )}
 
-        {currentQuestion.type === 'association' && (
-          <div className={styles.associationArea}>
-            <div className={styles.associationHintsList}>
-              {currentQuestion.associationHints
-                ?.slice(0, activeHintIdx + 1)
-                .map((hint, idx) => (
-                  <div key={idx} className={styles.associationHintItem}>
-                    <span className={styles.associationHintLabel}>ヒント {idx + 1}:</span>
-                    <span className={styles.associationHintText}>{hint}</span>
-                  </div>
-                ))}
-            </div>
-            {currentQuestion.associationHints && activeHintIdx < currentQuestion.associationHints.length - 1 && (
+            {currentQuestion.type === 'text-input' && (() => {
+              const inputProps = getTextInputFieldProps(currentQuestion);
+              return (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = (e.currentTarget.elements.namedItem('textAnswer') as HTMLInputElement).value;
+                    submitAnswer(input);
+                    e.currentTarget.reset();
+                  }}
+                  className={styles.inputForm}
+                >
+                  <input
+                    type={inputProps.type}
+                    name="textAnswer"
+                    className={styles.textInput}
+                    placeholder={inputProps.placeholder}
+                    inputMode={inputProps.inputMode}
+                    maxLength={inputProps.maxLength}
+                    minLength={inputProps.minLength}
+                    required
+                    autoComplete="off"
+                  />
+                  <button type="submit" className="btn btn-primary">送信</button>
+                </form>
+              );
+            })()}
+
+            {currentQuestion.type === 'sorting' && (
+              <div className={styles.sortingArea}>
+                <p className={styles.sortingHint}>ドラッグハンドルで要素を正しい順序に並べ替えてください。</p>
+                <SortableSortingList
+                  items={sortingItems}
+                  listClassName={styles.sortingList}
+                  onReorder={(items) =>
+                    setSortingItems(
+                      items.map((item, idx) => ({
+                        id: item.id,
+                        text: item.text,
+                        correctOrder: item.correctOrder ?? idx,
+                      }))
+                    )
+                  }
+                  renderItemContent={(item) => (
+                    <span className={styles.sortingItemText}>{item.text}</span>
+                  )}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ width: '100%', marginTop: '20px' }}
+                  onClick={() => {
+                    const sortedIds = sortingItems.map((item) => item.id).join(',');
+                    submitAnswer(sortedIds);
+                  }}
+                >
+                  並び替えを確定して解答する
+                </button>
+              </div>
+            )}
+
+            {currentQuestion.type === 'association' && (
+              <div className={styles.associationArea}>
+                <div className={styles.associationHintsList}>
+                  {currentQuestion.associationHints
+                    ?.slice(0, activeHintIdx + 1)
+                    .map((hint, idx) => (
+                      <div key={idx} className={styles.associationHintItem}>
+                        <span className={styles.associationHintLabel}>ヒント {idx + 1}:</span>
+                        <span className={styles.associationHintText}>{hint}</span>
+                      </div>
+                    ))}
+                </div>
+                {currentQuestion.associationHints && activeHintIdx < currentQuestion.associationHints.length - 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: '100%', marginBottom: '20px' }}
+                    onClick={() => setActiveHintIdx((prev) => prev + 1)}
+                  >
+                    次のヒントを表示する (残り {currentQuestion.associationHints.length - 1 - activeHintIdx} 件)
+                  </button>
+                )}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const input = (e.currentTarget.elements.namedItem('associationAnswer') as HTMLInputElement).value;
+                    submitAnswer(input);
+                    e.currentTarget.reset();
+                  }}
+                  className={styles.inputForm}
+                >
+                  <input
+                    type="text"
+                    name="associationAnswer"
+                    className={styles.textInput}
+                    placeholder="連想される答えを入力してください..."
+                    required
+                    autoComplete="off"
+                  />
+                  <button type="submit" className="btn btn-accent">解答を送信</button>
+                </form>
+              </div>
+            )}
+
+            {currentQuestion.type === 'lateral-thinking' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div
+                  style={{
+                    background: 'rgba(255, 183, 3, 0.08)',
+                    border: '1px solid rgba(255, 183, 3, 0.25)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  テストプレイでは AI 判定は利用できません。公開後にご確認ください。
+                  {judgeable
+                    ? ' 真相キーワードによるローカル判定のみ可能です。'
+                    : ' 真相キーワードが未設定のため、正誤判定はできません。'}
+                </div>
+                {judgeable && (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const passed = checkTruthKeywordsLocally(
+                        lateralTruth,
+                        currentQuestion.truthKeywords ?? []
+                      );
+                      setLateralFeedback(
+                        passed
+                          ? 'キーワード一致 — 正解と判定しました。'
+                          : 'キーワードが一致しませんでした。'
+                      );
+                      if (passed) {
+                        setTimeout(() => handleAnswerSubmit(lateralTruth), 800);
+                      }
+                    }}
+                  >
+                    <textarea
+                      className={styles.textInput}
+                      style={{ width: '100%', minHeight: '100px', marginBottom: '12px' }}
+                      placeholder="真相の要約を入力（キーワード部分一致で判定）..."
+                      value={lateralTruth}
+                      onChange={(e) => setLateralTruth(e.target.value)}
+                    />
+                    <button type="submit" className="btn btn-accent" disabled={!lateralTruth.trim()}>
+                      真相を判定する
+                    </button>
+                  </form>
+                )}
+                {lateralFeedback && (
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{lateralFeedback}</p>
+                )}
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => handleAnswerSubmit('')}
+                >
+                  {judgeable ? '判定をスキップして次へ' : '次の問題へ'}
+                </button>
+              </div>
+            )}
+
+            {!judgeable && currentQuestion.type !== 'lateral-thinking' && currentQuestion.explanation && (
+              <div
+                style={{
+                  marginTop: '20px',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  border: '1px solid var(--border-light)',
+                }}
+              >
+                <strong style={{ display: 'block', marginBottom: '8px' }}>💡 解説:</strong>
+                <div className="prose max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.explanation) }} />
+              </div>
+            )}
+
+            {!judgeable && currentQuestion.type !== 'lateral-thinking' && (
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ width: '100%', marginBottom: '20px' }}
-                onClick={() => setActiveHintIdx((prev) => prev + 1)}
+                style={{ width: '100%', marginTop: '20px' }}
+                onClick={() => handleAnswerSubmit('')}
               >
-                次のヒントを表示する (残り {currentQuestion.associationHints.length - 1 - activeHintIdx} 件)
+                判定をスキップして次へ
               </button>
             )}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const input = (e.currentTarget.elements.namedItem('associationAnswer') as HTMLInputElement).value;
-                submitAnswer(input);
-                e.currentTarget.reset();
-              }}
-              className={styles.inputForm}
-            >
-              <input
-                type="text"
-                name="associationAnswer"
-                className={styles.textInput}
-                placeholder="連想される答えを入力してください..."
-                required
-                autoComplete="off"
-              />
-              <button type="submit" className="btn btn-accent">解答を送信</button>
-            </form>
-          </div>
-        )}
 
-        {currentQuestion.type === 'lateral-thinking' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div
-              style={{
-                background: 'rgba(255, 183, 3, 0.08)',
-                border: '1px solid rgba(255, 183, 3, 0.25)',
-                borderRadius: '8px',
-                padding: '12px',
-                fontSize: '0.9rem',
-              }}
-            >
-              テストプレイでは AI 判定は利用できません。公開後にご確認ください。
-              {judgeable
-                ? ' 真相キーワードによるローカル判定のみ可能です。'
-                : ' 真相キーワードが未設定のため、正誤判定はできません。'}
-            </div>
-            {judgeable && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const passed = checkTruthKeywordsLocally(
-                    lateralTruth,
-                    currentQuestion.truthKeywords ?? []
-                  );
-                  setLateralFeedback(
-                    passed
-                      ? 'キーワード一致 — 正解と判定しました。'
-                      : 'キーワードが一致しませんでした。'
-                  );
-                  if (passed) {
-                    setTimeout(() => handleAnswerSubmit(lateralTruth), 800);
-                  }
-                }}
+            {showSkipInCard && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                data-testid="play-skip-question"
+                style={{ width: '100%', marginTop: '16px' }}
+                onClick={handleSkipQuestion}
               >
-                <textarea
-                  className={styles.textInput}
-                  style={{ width: '100%', minHeight: '100px', marginBottom: '12px' }}
-                  placeholder="真相の要約を入力（キーワード部分一致で判定）..."
-                  value={lateralTruth}
-                  onChange={(e) => setLateralTruth(e.target.value)}
-                />
-                <button type="submit" className="btn btn-accent" disabled={!lateralTruth.trim()}>
-                  真相を判定する
-                </button>
-              </form>
+                わからない（スキップ）
+              </button>
             )}
-            {lateralFeedback && (
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{lateralFeedback}</p>
-            )}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => handleAnswerSubmit('')}
-            >
-              {judgeable ? '判定をスキップして次へ' : '次の問題へ'}
-            </button>
-          </div>
-        )}
-
-        {!judgeable && currentQuestion.type !== 'lateral-thinking' && currentQuestion.explanation && (
-          <div
-            style={{
-              marginTop: '20px',
-              padding: '16px',
-              borderRadius: '8px',
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid var(--border-light)',
-            }}
-          >
-            <strong style={{ display: 'block', marginBottom: '8px' }}>💡 解説:</strong>
-            <div className="prose max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(currentQuestion.explanation) }} />
-          </div>
-        )}
-
-        {!judgeable && currentQuestion.type !== 'lateral-thinking' && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ width: '100%', marginTop: '20px' }}
-            onClick={() => handleAnswerSubmit('')}
-          >
-            判定をスキップして次へ
-          </button>
-        )}
-
-        {showSkipInCard && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            data-testid="play-skip-question"
-            style={{ width: '100%', marginTop: '16px' }}
-            onClick={handleSkipQuestion}
-          >
-            わからない（スキップ）
-          </button>
-        )}
           </>
         )}
       </div>

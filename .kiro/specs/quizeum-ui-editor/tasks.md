@@ -266,7 +266,7 @@
   - _Boundary: QuizEditorContent_
 
 - [x] 13.3 複合形式の説明テキスト更新
-  - `src/lib/quiz-format-labels.ts` の `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕式・記述式・並び替え・連想を自由に組み合わせ可能」へ更新する
+  - `src/lib/quiz-format-labels.ts` の `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕問題・記述式・並び替え・連想を自由に組み合わせ可能」へ更新する
   - **完了状態**: エディタ画面などで複合形式の説明が更新され、連想問題が組み合わせ可能であることが表示されること
   - _Requirements: 31.3_
   - _Boundary: QuizFormatLabels_
