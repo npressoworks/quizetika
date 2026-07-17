@@ -1,125 +1,141 @@
 import {
-  areNumericAnswersEqual,
-  getTextInputFieldProps,
-  isTextInputAnswerCorrect,
+  toHalfWidthAlphanumeric,
+  toFullWidthKatakana,
   normalizeTextAnswer,
-  parseNumericAnswer,
-  resolveTextInputMode,
-} from '../../src/services/text-answer-utils';
-import { Question } from '../../src/types';
-
-function makeTextQuestion(overrides: Partial<Question> = {}): Question {
-  return {
-    id: 'q1',
-    type: 'text-input',
-    questionText: 'test',
-    explanation: 'explanation',
-    imageUrl: null,
-    hint: null,
-    limitTime: null,
-    correctTextAnswerList: ['useState'],
-    correctCount: 0,
-    incorrectCount: 0,
-    ...overrides,
-  };
-}
+  isTextInputAnswerCorrect,
+  getTextInputFieldProps,
+} from '@/services/text-answer-utils';
+import { Question } from '@/types';
 
 describe('text-answer-utils', () => {
+  describe('toHalfWidthAlphanumeric', () => {
+    it('converts full-width alphanumeric to half-width', () => {
+      expect(toHalfWidthAlphanumeric('ＡＢＣ１２３ａｂｃ')).toBe('ABC123abc');
+      expect(toHalfWidthAlphanumeric('富士山')).toBe('富士山');
+    });
+  });
+
+  describe('toFullWidthKatakana', () => {
+    it('converts half-width katakana to full-width', () => {
+      expect(toFullWidthKatakana('ｱｲｳｴｵ')).toBe('アイウエオ');
+      expect(toFullWidthKatakana('ｶﾞｯﾂ')).toBe('ガッツ');
+      expect(toFullWidthKatakana('ﾊﾟﾊﾟ')).toBe('パパ');
+      expect(toFullWidthKatakana('ｳﾞｧ')).toBe('ヴァ');
+      expect(toFullWidthKatakana('ｰ')).toBe('ー');
+    });
+  });
+
   describe('normalizeTextAnswer', () => {
-    it('trims, lowercases, and removes spaces', () => {
-      expect(normalizeTextAnswer('  Use State  ')).toBe('usestate');
-    });
-  });
-
-  describe('parseNumericAnswer', () => {
-    it('parses integers and decimals', () => {
-      expect(parseNumericAnswer('42')).toBe(42);
-      expect(parseNumericAnswer('3.14')).toBe(3.14);
-      expect(parseNumericAnswer('-2.5')).toBe(-2.5);
-    });
-
-    it('parses full-width digits and decimal point', () => {
-      expect(parseNumericAnswer('３．１４')).toBe(3.14);
-      expect(parseNumericAnswer('－１０')).toBe(-10);
-    });
-
-    it('strips commas and full-width spaces', () => {
-      expect(parseNumericAnswer('1,000')).toBe(1000);
-      expect(parseNumericAnswer('1,234.56')).toBe(1234.56);
-      expect(parseNumericAnswer('　42　')).toBe(42);
-    });
-
-    it('returns null for non-numeric input', () => {
-      expect(parseNumericAnswer('abc')).toBeNull();
-      expect(parseNumericAnswer('')).toBeNull();
-      expect(parseNumericAnswer('3.14.15')).toBeNull();
-    });
-  });
-
-  describe('areNumericAnswersEqual', () => {
-    it('treats near-equal floats as equal', () => {
-      expect(areNumericAnswersEqual(3.14, 3.1400000000000001)).toBe(true);
-      expect(areNumericAnswersEqual(42, 42.0)).toBe(true);
-      expect(areNumericAnswersEqual(3.14, 3.15)).toBe(false);
+    it('normalizes spaces, casing, and full-width/half-width characters', () => {
+      expect(normalizeTextAnswer('  ＡｂＣ  ')).toBe('abc');
+      expect(normalizeTextAnswer('ｱｲ ｳｴ　ｵ')).toBe('アイウエオ'); // 全角・半角スペースの除去
     });
   });
 
   describe('isTextInputAnswerCorrect', () => {
-    it('matches normalized text answers in text mode', () => {
-      const q = makeTextQuestion({ correctTextAnswerList: ['Use State'] });
-      expect(isTextInputAnswerCorrect('use state', q)).toBe(true);
-      expect(isTextInputAnswerCorrect('wrong', q)).toBe(false);
+    const baseQuestion: Question = {
+      id: 'q1',
+      type: 'text-input',
+      questionText: 'Test Question',
+      explanation: 'Test Explanation',
+      imageUrl: null,
+      hint: null,
+      limitTime: null,
+      correctCount: 0,
+      incorrectCount: 0,
+    };
+
+    it('validates kanji mode correctly', () => {
+      const q: Question = {
+        ...baseQuestion,
+        textInputMode: 'kanji',
+        correctTextAnswerList: ['富士山', '山々'],
+      };
+      expect(isTextInputAnswerCorrect('富士山', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('山々', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('ふじさん', q)).toBe(false); // ひらがなNG
+      expect(isTextInputAnswerCorrect('富士山1', q)).toBe(false); // 数字NG
     });
 
-    it('compares numeric answers in numeric mode', () => {
-      const q = makeTextQuestion({
+    it('validates katakana mode correctly', () => {
+      const q: Question = {
+        ...baseQuestion,
+        textInputMode: 'katakana',
+        correctTextAnswerList: ['ピカチュウ', 'ラーメン'],
+      };
+      expect(isTextInputAnswerCorrect('ピカチュウ', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('ﾋﾟｶﾁｭｳ', q)).toBe(true); // 自動全角変換でOK
+      expect(isTextInputAnswerCorrect('ラーメン', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('ぴかちゅう', q)).toBe(false); // ひらがなNG
+      expect(isTextInputAnswerCorrect('ピカチュウA', q)).toBe(false); // 英字NG
+    });
+
+    it('validates alphabet mode correctly', () => {
+      const q: Question = {
+        ...baseQuestion,
+        textInputMode: 'alphabet',
+        correctTextAnswerList: ['Apple', 'banana'],
+      };
+      expect(isTextInputAnswerCorrect('Apple', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('apple', q)).toBe(true); // 大文字小文字同一視
+      expect(isTextInputAnswerCorrect('Ａｐｐｌｅ', q)).toBe(true); // 自動半角でOK
+      expect(isTextInputAnswerCorrect('りんご', q)).toBe(false); // 日本語NG
+    });
+
+    it('validates numeric mode correctly', () => {
+      const q: Question = {
+        ...baseQuestion,
         textInputMode: 'numeric',
-        correctTextAnswerList: ['42', '42.0'],
-      });
-      expect(isTextInputAnswerCorrect('42', q)).toBe(true);
-      expect(isTextInputAnswerCorrect('3.14', makeTextQuestion({
-        textInputMode: 'numeric',
-        correctTextAnswerList: ['3.14'],
-      }))).toBe(true);
-      expect(isTextInputAnswerCorrect('３．１４', makeTextQuestion({
-        textInputMode: 'numeric',
-        correctTextAnswerList: ['3.14'],
-      }))).toBe(true);
-      expect(isTextInputAnswerCorrect('1,000', makeTextQuestion({
-        textInputMode: 'numeric',
-        correctTextAnswerList: ['1000'],
-      }))).toBe(true);
+        correctTextAnswerList: ['123', '-4.5'],
+      };
+      expect(isTextInputAnswerCorrect('123', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('１２３', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('-4.5', q)).toBe(true);
+      expect(isTextInputAnswerCorrect('ー４．５', q)).toBe(true); // 全角記号の正規化
+      expect(isTextInputAnswerCorrect('123.00', q)).toBe(true); // 数値として等価
       expect(isTextInputAnswerCorrect('abc', q)).toBe(false);
     });
 
-    it('requires exact character count in char-count mode', () => {
-      const q = makeTextQuestion({
-        textInputMode: 'char-count',
+    it('applies char length validation when specified', () => {
+      const q: Question = {
+        ...baseQuestion,
+        textInputMode: 'free',
         textInputCharCount: 4,
-        correctTextAnswerList: ['abcd', 'ABCD'],
-      });
-      expect(isTextInputAnswerCorrect('abcd', q)).toBe(true);
-      expect(isTextInputAnswerCorrect('abc', q)).toBe(false);
-      expect(isTextInputAnswerCorrect('abcde', q)).toBe(false);
+        correctTextAnswerList: ['富士山山', 'Apple'], // Appleは5文字なので不一致にする
+      };
+      expect(isTextInputAnswerCorrect('富士山山', q)).toBe(true); // 4文字で一致
+      expect(isTextInputAnswerCorrect('富士山', q)).toBe(false); // 3文字不一致
+      expect(isTextInputAnswerCorrect('Apple', q)).toBe(false); // 5文字不一致
+    });
+
+    it('does not apply char length validation when unspecified', () => {
+      const q: Question = {
+        ...baseQuestion,
+        textInputMode: 'free',
+        textInputCharCount: undefined,
+        correctTextAnswerList: ['富士山'],
+      };
+      expect(isTextInputAnswerCorrect('富士山', q)).toBe(true);
     });
   });
 
   describe('getTextInputFieldProps', () => {
-    it('returns numeric placeholder for numeric mode', () => {
-      expect(getTextInputFieldProps({ textInputMode: 'numeric' }).placeholder).toContain('小数');
-    });
+    it('returns appropriate properties based on mode and char count', () => {
+      const q1 = { textInputMode: 'numeric' as const, textInputCharCount: undefined };
+      expect(getTextInputFieldProps(q1)).toEqual({
+        type: 'text',
+        inputMode: 'decimal',
+        placeholder: '数値で入力してください...',
+      });
 
-    it('returns length constraints for char-count mode', () => {
-      const props = getTextInputFieldProps({ textInputMode: 'char-count', textInputCharCount: 5 });
-      expect(props.maxLength).toBe(5);
-      expect(props.minLength).toBe(5);
-      expect(props.placeholder).toContain('5文字');
-    });
-  });
-
-  describe('resolveTextInputMode', () => {
-    it('defaults to text when unset', () => {
-      expect(resolveTextInputMode({})).toBe('text');
+      const q2 = { textInputMode: 'katakana' as const, textInputCharCount: 4 };
+      expect(getTextInputFieldProps(q2)).toEqual({
+        type: 'text',
+        inputMode: undefined,
+        maxLength: 4,
+        minLength: 4,
+        placeholder: '4文字で入力してください...',
+      });
     });
   });
 });

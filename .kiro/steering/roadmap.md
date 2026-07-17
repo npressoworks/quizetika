@@ -108,6 +108,41 @@
 - **Shared seams to watch**: quizeum-moderation-governance-ui / supabase-governance / quizeum-auth-profile-ui の原実装に対する一時的オーバーレイであり、凍結解除時に原仕様へ復帰できる形を保つ
 
 ## Specs (dependency order)
-- [ ] quizeum-governance-freeze -- コミュニティガバナンス（マージ・ジャンル投票）の一時凍結。admin専用化・RPC限定・ティアバッジ非表示。Dependencies: supabase-governance, quizeum-moderation-governance-ui
+- [ ] quizeum-governance-freeze -- コミュニティガバナンス（マージ・ジャンル投票）の一時凍結。admin専用化・RPC限定・ティアバッジ非表示. Dependencies: supabase-governance, quizeum-moderation-governance-ui
+- [ ] quizetika-text-validation-enhancement -- 記述式クイズの入力検証強化（文字種・文字数指定の統合と半角自動変換）. Dependencies: quizetika-ui-editor, quizetika-play-flow-ui
+
+---
+
+## Phase 39: 記述式クイズの入力検証強化（文字種・文字数指定の統合と半角自動変換）（2026-07-18 ディスカバリー）
+
+### Overview（本フェーズ）
+記述式クイズにおいて、従来の「文字数指定モード」を廃止し、より柔軟な「文字種指定（フリー、漢字、カタカナ、アルファベット、数字）」を導入する。文字数指定は排他的なモードではなく、すべての文字種で任意に設定可能なオプション（固定長制限または制限なし）として統合する。さらに、アルファベット・数字の自動半角変換、および半角カタカナの全角カタカナへの自動変換を行い、入力時の表記揺れによる誤判定を防ぐ。本仕様は作問画面（エディタ）と実際のクイズ画面の両方に適用する。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: 共通サービスロジックの統合とUI連動（アプローチA）
+- **Why**: 変換処理や正誤判定ロジックを `text-answer-utils.ts` に集約し、作問時のバリデーション（`quiz-validation.ts`）とクイズ解答画面で完全に共有することで、エディタとプレイヤーでの挙動の乖離を防ぎ、堅牢な動作を担保するため。
+- **Rejected alternatives**:
+  - 各UI層での個別ガード: コード重複が発生し、作問時と回答時の判定ロジックの乖離から不正解バグが生じるリスクが高いため却下。
+
+### Scope（本フェーズ）
+- **In**:
+  - `TextInputMode` の型定義変更（`'free' | 'kanji' | 'katakana' | 'alphabet' | 'numeric'`）。
+  - `text-answer-utils.ts` での自動変換（英数字の半角化、半角カタカナの全角カナ化）と文字種・文字数バリデーションの実装。
+  - 作問エディタでの文字種選択（トグル/セレクト）およびオプションとしての文字数入力欄の表示。
+  - 作問時正解候補への入力値自動変換の適用と、保存時バリデーション（`quiz-validation.ts`）の変更。
+  - クイズ解答画面での解答正規化（半角・全角変換）の適用と、入力欄の属性（`inputMode`, `maxLength`）の動的制御。
+  - 既存のクイズデータ（`textInputMode` が `'text' | 'numeric' | 'char-count'`）を新仕様へマッピングする後方互換処理。
+- **Out**:
+  - 記述式以外の問題タイプ（選択式、並び替え、連想、ウミガメのスープ）の入力検証変更。
+  - 漢字の辞書チェック（常用漢字以外の制限など。Unicode範囲判定に留める）。
+
+### Constraints（本フェーズ）
+- 既存のクイズデータにおいて、`textInputMode === 'char-count'` のものは、新仕様の `textInputMode = 'free'` かつ `textInputCharCount` を維持する形に自動マッピングし、データ破損を防ぐ。
+- 自動変換は全角半角の表記揺れを補正するものであり、意図しない文字の消失を防ぐ。
+
+### Boundary Strategy（本フェーズ）
+- **quizetika-text-validation-enhancement（新規）**: 記述式検証の共通ロジック、エディタUI、回答画面UI、バリデーション処理の一式を所有。
+- **Shared seams**: 既存の `Question` 型定義の拡張および既存クイズデータとの後方互換マッピング。
+
 
 
