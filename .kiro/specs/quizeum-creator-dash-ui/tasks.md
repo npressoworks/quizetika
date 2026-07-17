@@ -643,7 +643,7 @@
   - _Depends: 16.1_
   - _Boundary: player-stats_
 
-- [ ] 16.3 (P) ワードクラウド描画コンポーネントの実装
+- [x] 16.3 (P) ワードクラウド描画コンポーネントの実装
   - `src/components/charts/word-cloud.tsx` を新規作成する（`'use client'`、`WordCloudItem[]` を受け取り flex-wrap 中央寄せで `<span>` を描画）。
   - フォントサイズは `min + (max - min) * sqrt(count / maxCount)`（0.75rem〜2.25rem）で算出し、プレイ回数3回以上の語は正答率バケット（80%以上 / 60–79% / 40–59% / 40%未満）で色分け、3回未満は muted（データ不足）とする。light/dark 両テーマで可読なクラスを使用する。
   - 語の並びは文字列ハッシュによる決定的シャッフルとし（`Math.random` 不使用）、各語の `title` 属性に「{count}回プレイ・正答率{accuracy}%」（3回未満は「データ不足」）を付与する。
@@ -673,5 +673,7 @@
 - **実装順序**: 16.1 →（16.2 ∥ 16.3）→ 16.4 → 16.5。16.2 と 16.3 は `WordCloudItem` 型（16.1）確定後、別ファイル・別境界のため並行可能。
 - **依存追加なし**: ワードクラウド専用ライブラリ・形態素解析ライブラリは導入しない（design.md Phase 42 Boundary Commitments）。
 - **16.2 の既知の一時状態**: `quizMap` の `title` を必須型にしたため、16.4 完了まで `npx tsc --noEmit` が `player-dashboard-client.tsx` で TS2345 を1件報告する（16.4 の呼び出し元修正で解消）。
+- **既存の無関係なテスト失敗**: `tests/components/profile-client.test.tsx` が `useWeeklyTrends.ts` の `fetch is not defined` により本フェーズ着手前から失敗している（16.5 の全体検証時はこの1件を既知として扱う）。
+- **並行作業の混在注意**: 作業ツリーに別スペック由来の未コミット変更（`quizeum-play-flow-ui` spec、`home-discovery-client.tsx` 等）が存在する。コミットは明示的ファイル指定のみで行うこと。
 
 
