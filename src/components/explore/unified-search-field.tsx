@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState, useCallback } from 'react';
 import { SearchOutlined, CloseOutlined } from '@mui/icons-material';
 import { filterTagSuggestions } from '@/lib/filter-tag-suggestions';
 import { normalizeTag } from '@/services/quiz-validation';
@@ -17,6 +17,7 @@ export interface UnifiedSearchFieldProps {
   onTagChipsChange: (chips: string[]) => void;
   keyword: string;
   onKeywordChange: (value: string) => void;
+  onSearchStateChange?: (tagChips: string[], keyword: string) => void;
   tags: TagMetadata[];
   tagsLoading: boolean;
   tagsError: string | null;
@@ -33,6 +34,7 @@ export function UnifiedSearchField({
   onTagChipsChange,
   keyword,
   onKeywordChange,
+  onSearchStateChange,
   tags,
   tagsLoading,
   tagsError,
@@ -45,15 +47,49 @@ export function UnifiedSearchField({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
 
+  // 入力中のローカルステート
+  const [localKeyword, setLocalKeyword] = useState(keyword);
+
+  // 外部から keyword prop が変わったら（クリア時や初期ロード等）ローカルステートを同期
+  useEffect(() => {
+    setLocalKeyword(keyword);
+  }, [keyword]);
+
+  // デバウンス用のタイマー参照
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // デバウンスして親の onKeywordChange を呼ぶ
+  const debouncedKeywordChange = useCallback(
+    (val: string) => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      debounceTimerRef.current = setTimeout(() => {
+        onKeywordChange(val);
+      }, 300);
+    },
+    [onKeywordChange]
+  );
+
+  // アンマウント時にタイマーをクリア
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
   const { recentKeywords, addRecentKeyword } = useSearchHistory();
   const { keywords: weeklyKeywords, loading: loadingWeekly, error: errorWeekly } = useWeeklyTopSearch();
 
+  // localKeyword を使ってサジェストを計算（即時反映）
   const suggestions = useMemo(
-    () => filterTagSuggestions(tags, keyword),
-    [tags, keyword]
+    () => filterTagSuggestions(tags, localKeyword),
+    [tags, localKeyword]
   );
 
-  const showClear = keyword.trim().length > 0 || tagChips.length > 0;
+  const showClear = localKeyword.trim().length > 0 || tagChips.length > 0;
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -67,7 +103,7 @@ export function UnifiedSearchField({
 
   useEffect(() => {
     setHighlight(0);
-  }, [keyword, suggestions.length]);
+  }, [localKeyword, suggestions.length]);
 
   const tryAddChip = (raw: string): boolean => {
     let token = raw.trim();
@@ -85,10 +121,18 @@ export function UnifiedSearchField({
 
   const pickTag = (tagId: string) => {
     addRecentKeyword(tagId);
-    if (!tagChips.includes(tagId)) {
-      onTagChipsChange([...tagChips, tagId]);
+    const nextChips = tagChips.includes(tagId) ? tagChips : [...tagChips, tagId];
+    // 即時確定
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-    onKeywordChange('');
+    setLocalKeyword('');
+    if (onSearchStateChange) {
+      onSearchStateChange(nextChips, '');
+    } else {
+      onTagChipsChange(nextChips);
+      onKeywordChange('');
+    }
     setOpen(false);
   };
 
@@ -99,61 +143,77 @@ export function UnifiedSearchField({
       <SearchOutlined className="pointer-events-none absolute left-4 top-1/2 z-10 size-[18px] -translate-y-1/2 text-muted-foreground" />
       <div className="flex min-h-12 w-full items-center rounded-lg border border-input bg-background py-1.5 pr-12 pl-11 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-          <div className="flex flex-wrap gap-1.5" data-testid="search-tag-chips">
-            {tagChips.map((chip) => (
-              <Badge key={chip} variant="secondary" className="gap-1 py-0.5 pr-1 pl-2 text-xs" data-testid="search-tag-chip">
-                {tagLabelById.get(chip) ?? chip}
-                <button
-                  type="button"
-                  className="inline-flex rounded-full p-0.5 hover:bg-muted"
-                  aria-label={`タグ ${tagLabelById.get(chip) ?? chip} を削除`}
-                  onClick={() => removeChip(chip)}
-                >
-                  ×
-                </button>
-              </Badge>
-            ))}
-          </div>
+
           <Input
             id={inputId}
             type="text"
             className="h-8 min-w-[120px] flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
             placeholder="タイトル、説明文、作成者、タグでクイズを検索..."
-            value={keyword}
+            value={localKeyword}
             disabled={disabled}
             autoComplete="off"
             onFocus={() => setOpen(true)}
             onChange={(e) => {
-              onKeywordChange(e.target.value);
+              const val = e.target.value;
+              setLocalKeyword(val);
               setOpen(true);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'ArrowDown' && open && suggestions.length > 0) {
+              const hasActiveSuggestions = open && localKeyword.trim().length > 0 && !suggestDisabled;
+              const totalSuggestions = suggestions.length + 1;
+              if (e.key === 'ArrowDown' && hasActiveSuggestions) {
                 e.preventDefault();
-                setHighlight((h) => Math.min(h + 1, suggestions.length - 1));
+                setHighlight((h) => Math.min(h + 1, totalSuggestions - 1));
                 return;
               }
-              if (e.key === 'ArrowUp' && open && suggestions.length > 0) {
+              if (e.key === 'ArrowUp' && hasActiveSuggestions) {
                 e.preventDefault();
                 setHighlight((h) => Math.max(h - 1, 0));
                 return;
               }
               if (e.key === 'Enter') {
                 e.preventDefault();
-                const trimmed = keyword.trim();
-                if (open && suggestions.length > 0) {
-                  pickTag(suggestions[highlight].id);
-                } else if (tryAddChip(keyword)) {
+                const trimmed = localKeyword.trim();
+                const hasActive = open && trimmed.length > 0 && !suggestDisabled;
+                if (hasActive) {
+                  if (highlight === 0) {
+                    if (trimmed) {
+                      addRecentKeyword(trimmed);
+                      if (debounceTimerRef.current) {
+                        clearTimeout(debounceTimerRef.current);
+                      }
+                      onKeywordChange(trimmed);
+                      setOpen(false);
+                    }
+                  } else {
+                    const tagIndex = highlight - 1;
+                    if (suggestions[tagIndex]) {
+                      pickTag(suggestions[tagIndex].id);
+                    }
+                  }
+                } else if (tryAddChip(localKeyword)) {
+                  if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                  }
+                  setLocalKeyword('');
                   onKeywordChange('');
                 } else if (trimmed) {
                   addRecentKeyword(trimmed);
+                  if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                  }
+                  onKeywordChange(trimmed); // 即時更新
                   setOpen(false);
                 }
                 return;
               }
               if (e.key === ' ') {
-                if (tryAddChip(keyword)) {
+                if (tryAddChip(localKeyword)) {
                   e.preventDefault();
+                  if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                  }
+                  setLocalKeyword('');
                   onKeywordChange('');
                 }
               }
@@ -170,7 +230,13 @@ export function UnifiedSearchField({
           variant="ghost"
           size="icon-sm"
           className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
-          onClick={onClearAll}
+          onClick={() => {
+            if (debounceTimerRef.current) {
+              clearTimeout(debounceTimerRef.current);
+            }
+            setLocalKeyword('');
+            onClearAll();
+          }}
           aria-label="クリア"
           data-testid="search-clear-btn"
         >
@@ -178,7 +244,7 @@ export function UnifiedSearchField({
         </Button>
       )}
 
-      {open && !keyword.trim() && tagChips.length === 0 && (
+      {open && !localKeyword.trim() && tagChips.length === 0 && (
         <div className={cn(suggestPanelClass, 'max-h-80')} data-testid="search-smart-suggest" role="listbox">
           {recentKeywords.length > 0 && (
             <div data-testid="recent-keywords-section" className="py-1 not-last:border-b not-last:border-border">
@@ -196,6 +262,10 @@ export function UnifiedSearchField({
                       if (isTag) {
                         pickTag(word);
                       } else {
+                        if (debounceTimerRef.current) {
+                          clearTimeout(debounceTimerRef.current);
+                        }
+                        setLocalKeyword(word);
                         onKeywordChange(word);
                         setOpen(false);
                       }
@@ -223,6 +293,10 @@ export function UnifiedSearchField({
                       onMouseDown={(e) => {
                         e.preventDefault();
                         addRecentKeyword(word);
+                        if (debounceTimerRef.current) {
+                          clearTimeout(debounceTimerRef.current);
+                        }
+                        setLocalKeyword(word);
                         onKeywordChange(word);
                         setOpen(false);
                       }}
@@ -237,30 +311,57 @@ export function UnifiedSearchField({
         </div>
       )}
 
-      {open && keyword.trim().length > 0 && !suggestDisabled && suggestions.length > 0 && (
+      {open && localKeyword.trim().length > 0 && !suggestDisabled && (
         <ul className={suggestPanelClass} role="listbox">
-          {suggestions.map((item, i) => (
-            <li
-              key={item.id}
-              role="option"
-              aria-selected={i === highlight}
-              className={cn(
-                'cursor-pointer px-3 py-2.5 text-sm',
-                i === highlight && 'bg-muted'
-              )}
-              data-testid={`search-suggest-tag-${item.id}`}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                pickTag(item.id);
-              }}
-            >
-              <span className="mr-1.5 text-xs text-muted-foreground">タグ</span>
-              {item.tagName ?? item.id}
-            </li>
-          ))}
+          <li
+            role="option"
+            aria-selected={highlight === 0}
+            className={cn(
+              'cursor-pointer px-3 py-2.5 text-sm font-medium border-b border-border flex items-center gap-2',
+              highlight === 0 && 'bg-muted'
+            )}
+            data-testid="search-suggest-query"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              const trimmed = localKeyword.trim();
+              if (trimmed) {
+                addRecentKeyword(trimmed);
+                if (debounceTimerRef.current) {
+                  clearTimeout(debounceTimerRef.current);
+                }
+                onKeywordChange(trimmed);
+                setOpen(false);
+              }
+            }}
+          >
+            <SearchOutlined sx={{ fontSize: 16 }} className="text-muted-foreground" />
+            <span>「{localKeyword}」を検索</span>
+          </li>
+          {suggestions.map((item, i) => {
+            const listIndex = i + 1;
+            return (
+              <li
+                key={item.id}
+                role="option"
+                aria-selected={listIndex === highlight}
+                className={cn(
+                  'cursor-pointer px-3 py-2.5 text-sm',
+                  listIndex === highlight && 'bg-muted'
+                )}
+                data-testid={`search-suggest-tag-${item.id}`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pickTag(item.id);
+                }}
+              >
+                <span className="mr-1.5 text-xs text-muted-foreground">タグ</span>
+                {item.tagName ?? item.id}
+              </li>
+            );
+          })}
         </ul>
       )}
-      {open && keyword.trim().length > 0 && tagsError && (
+      {open && localKeyword.trim().length > 0 && tagsError && (
         <p className="mt-1 text-xs text-destructive" role="alert">
           {tagsError}
         </p>

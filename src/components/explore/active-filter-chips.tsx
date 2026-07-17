@@ -142,7 +142,7 @@ export function ActiveFilterChips({
             key={`${chip.key}-${chip.value ?? chip.label}`}
             variant="secondary"
             className="gap-1.5 py-1 pr-1 pl-3 text-xs"
-            data-testid={`search-active-filter-${chip.key}${chip.value ? `-${chip.value}` : ''}`}
+            data-testid={chip.key === 'tag' ? 'search-tag-chip' : `search-active-filter-${chip.key}${chip.value ? `-${chip.value}` : ''}`}
           >
             <span>{chip.label}</span>
             <button

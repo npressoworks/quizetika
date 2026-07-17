@@ -469,6 +469,10 @@ export function ProfileClient() {
                   onTagChipsChange={setQuizSearchTagChips}
                   keyword={quizSearchQuery}
                   onKeywordChange={setQuizSearchQuery}
+                  onSearchStateChange={(tagChips, keyword) => {
+                    setQuizSearchTagChips(tagChips);
+                    setQuizSearchQuery(keyword);
+                  }}
                   tags={tags}
                   tagsLoading={tagsLoading}
                   tagsError={tagsError}

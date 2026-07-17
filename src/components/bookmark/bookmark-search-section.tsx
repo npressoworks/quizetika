@@ -128,6 +128,7 @@ export function BookmarkSearchSection({
             onTagChipsChange={(tagChips) => patchFilters({ tagChips })}
             keyword={filters.keyword}
             onKeywordChange={(keyword) => patchFilters({ searchQuery: keyword })}
+            onSearchStateChange={(tagChips, keyword) => patchFilters({ tagChips, searchQuery: keyword })}
             tags={tags}
             tagsLoading={tagsLoading}
             tagsError={tagsError}

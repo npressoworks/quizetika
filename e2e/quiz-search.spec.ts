@@ -34,10 +34,12 @@ test.describe('検索画面（/search）探索 E2E', () => {
     await page.waitForTimeout(500);
 
     await searchInput.fill('存在しないテスト用クイズXYZ');
+    await searchInput.press('Enter');
     await page.waitForTimeout(500);
     await expect(page.locator('text=該当するクイズが見つかりませんでした。')).toBeVisible({ timeout: 5000 });
 
     await searchInput.fill('');
+    await searchInput.press('Enter');
     await page.waitForTimeout(500);
 
     const filterToggleBtn = page.getByRole('button', { name: 'フィルター' });
@@ -162,6 +164,7 @@ test.describe('検索画面（/search）探索 E2E', () => {
 
     const searchInput = page.locator('input[placeholder="タイトル、説明文、作成者、タグでクイズを検索..."]');
     await searchInput.fill('存在しないscoped検索XYZ');
+    await searchInput.press('Enter');
     await page.waitForTimeout(600);
     await expect(page.locator('text=該当するクイズがありませんでした。')).toBeVisible({ timeout: 8000 });
   });

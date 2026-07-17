@@ -153,6 +153,7 @@ export function ExploreSearchSection({
             onTagChipsChange={(tagChips) => onFiltersChange({ tagChips })}
             keyword={filters.searchQuery}
             onKeywordChange={(searchQuery) => onFiltersChange({ searchQuery })}
+            onSearchStateChange={(tagChips, searchQuery) => onFiltersChange({ tagChips, searchQuery })}
             tags={tags}
             tagsLoading={tagsLoading}
             tagsError={tagsError}
