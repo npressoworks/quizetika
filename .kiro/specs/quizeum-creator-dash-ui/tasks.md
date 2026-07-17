@@ -623,4 +623,54 @@
 - **Upstream 前提**: `quizetika-core` タスク 29.3（`canAccessProVisibility()` の `hasCreatorEntitlements` ベース切り替え）が完了していること。関数・クラス識別子（`canAccessProVisibility`, `ProRequiredForVisibilityError`）は維持されるため、本スペック側は文言更新のみで済む。
 - **実装順序**: 15.1 → 15.2 → 15.3。
 
+---
+
+### 16. Phase 42: プレイヤーワードクラウド（2026-07-17）
+
+- [ ] 16.1 タイトルキーワード抽出ライブラリの作成
+  - `src/lib/word-cloud.ts` を新規作成し、`WordCloudItem` 型と、クイズタイトルから表示対象キーワードを抽出する純関数を実装する（`Intl.Segmenter('ja')` による分かち書き、`isWordLike` セグメントのみ採用、2文字未満・数字/記号のみ・ひらがなのみ2文字以下・ストップワード（「クイズ」「問題」「検定」等）の除外、同一タイトル内の重複除去、`Intl.Segmenter` 未定義環境での空白・記号区切りフォールバック）。
+  - `tests/lib/word-cloud.test.ts` を新規作成し、ストップワード除外・短語/記号除外・重複除去・フォールバック動作を検証する。
+  - **完了状態**: 代表的なクイズタイトル（例:「日本史一問一答クイズ 初級編」）から汎用語を除いた意味のあるキーワードのみが返り、単体テストがグリーンであること。
+  - _Requirements: 20.6, 20.7, 20.8_
+  - _Boundary: word-cloud-lib_
+
+- [ ] 16.2 プレイヤー統計集計へのワードクラウドデータ追加
+  - `src/lib/player-stats.ts` の `PlayerStats` に `tagCloud` / `keywordCloud`（各 count 降順・同数はテキスト昇順・上位最大30件）を追加し、`quizMap` の値型に `title` を加える。
+  - タグ・キーワードとも 1 attempt につき同一語1回のカウントとし（`Set` ベース）、キーワード抽出結果は quizId 単位でキャッシュする。正答率は語ごとの `Σscore / ΣtotalQuestions` で算出する。
+  - `tests/lib/player-stats.test.ts` の既存ケースに `title` を補い、`tagCloud` / `keywordCloud` の件数上限・順序・1カウント集計・accuracy・空履歴時 `[]` を検証するケースを追加する。
+  - **完了状態**: `computePlayerStats` が直近100件の attempts と quizMap からタグ/キーワード両クラウドの重み・正答率データを返し、単体テストがグリーンであること。
+  - _Requirements: 20.4, 20.5, 20.6, 20.8, 20.10_
+  - _Depends: 16.1_
+  - _Boundary: player-stats_
+
+- [ ] 16.3 (P) ワードクラウド描画コンポーネントの実装
+  - `src/components/charts/word-cloud.tsx` を新規作成する（`'use client'`、`WordCloudItem[]` を受け取り flex-wrap 中央寄せで `<span>` を描画）。
+  - フォントサイズは `min + (max - min) * sqrt(count / maxCount)`（0.75rem〜2.25rem）で算出し、プレイ回数3回以上の語は正答率バケット（80%以上 / 60–79% / 40–59% / 40%未満）で色分け、3回未満は muted（データ不足）とする。light/dark 両テーマで可読なクラスを使用する。
+  - 語の並びは文字列ハッシュによる決定的シャッフルとし（`Math.random` 不使用）、各語の `title` 属性に「{count}回プレイ・正答率{accuracy}%」（3回未満は「データ不足」）を付与する。
+  - **完了状態**: 同一データに対し再レンダーしても並びが不変で、最大 count の語が最大サイズ・低正答率の語が警告色で表示されること。
+  - _Requirements: 20.9, 20.10, 20.11, 20.13, 20.14_
+  - _Depends: 16.1_
+  - _Boundary: WordCloudChart_
+
+- [ ] 16.4 ダッシュボードセクションへの統合
+  - `src/app/creator/dashboard/dashboard-sections.tsx` に `PlayerWordCloudSection` を追加する（`data-testid="player-word-cloud"`、shadcn `Tabs` による「タグ」（デフォルト）/「キーワード」切り替え、色凡例、対象語0件時の「データがありません」表示）。
+  - `src/app/creator/dashboard/player-dashboard-client.tsx` の `quizMap` 構築に `title` を追加し、`PlayerChartsSection` と `PlayerGenreTagAnalysisSection` の間に `PlayerWordCloudSection` を挿入する。
+  - **完了状態**: `/creator/dashboard` のプレイヤータブでワードクラウドが表示され、タブ操作でページ遷移なしにタグ↔キーワードが差し替わること。
+  - _Requirements: 20.1, 20.2, 20.3, 20.12, 20.15_
+  - _Depends: 16.2, 16.3_
+  - _Boundary: PlayerDashboardSections, PlayerDashboardClient_
+
+- [ ] 16.5 Phase 42 結合テスト・E2E と統合検証
+  - `WordCloud` / `PlayerWordCloudSection` のコンポーネントテスト（サイズ・色クラス・空状態・タブ切り替え）を追加し、`e2e/creator-dashboard.spec.ts` にプレイヤータブでの `player-word-cloud` 表示と切り替え操作の検証を追加する。
+  - 本スペック全体のテストスイートとビルドを実行し、既存機能への回帰がないことを確認する。
+  - **完了状態**: `npm test` および `npm run build` がエラーなく通過し、E2E で `player-word-cloud` セクションの表示・切り替えが検証されること。
+  - _Requirements: 20.1, 20.2, 20.3, 20.15_
+  - _Depends: 16.4_
+  - _Boundary: Testing_
+
+## Implementation Notes (Phase 42)
+
+- **実装順序**: 16.1 →（16.2 ∥ 16.3）→ 16.4 → 16.5。16.2 と 16.3 は `WordCloudItem` 型（16.1）確定後、別ファイル・別境界のため並行可能。
+- **依存追加なし**: ワードクラウド専用ライブラリ・形態素解析ライブラリは導入しない（design.md Phase 42 Boundary Commitments）。
+
 

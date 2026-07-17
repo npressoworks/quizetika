@@ -387,3 +387,31 @@
 - 入力: `quizetika-core` design.md Phase 41 節
 - 出力: `design.md` Phase 41 節、本節
 
+## Design Synthesis: Phase 42 プレイヤーワードクラウド（2026-07-17）
+
+### Summary
+- **Discovery Type**: Light（Extension — 既存プレイヤーダッシュボードのデータフロー延長）
+- **調査済み事項**: `computePlayerStats`（`src/lib/player-stats.ts`）は既にタグ別の count/correct/total を `tagStatsMap` で全量集計しており、表示側が上位5件に切っているのみ。ワードクラウドの重み・色データは既存集計の露出拡張で賄える。チャート系は Recharts のみ導入済みで、ワードクラウド専用ライブラリ（d3-cloud, react-wordcloud 等）は未導入。
+
+### Investigations
+- **描画ライブラリの要否**: package.json に該当ライブラリなし。d3-cloud はレイアウト計算がクライアント専用で SSR 回避策と依存追加が必要。表示要件（大きさ・色・切り替え・凡例）は flex-wrap + フォントサイズ重み付けで満たせるため、Build（自作 CSS）を採用（ユーザー承認済み）。
+- **日本語タイトルの分かち書き**: kuromoji 等の形態素解析は辞書アセットが重い。`Intl.Segmenter('ja', { granularity: 'word' })` はブラウザ主要環境・Node 16+（full-icu）で利用可能で依存追加ゼロ。Jest（Node 実行）でもそのまま動作する。未対応環境向けに空白・記号 split のフォールバックを用意。
+- **配色**: 既存チャートは `var(--chart-1..5)` を使用するが、正答率は順序尺度のためカテゴリカルパレットは不適。Tailwind の emerald/amber/red 系クラス（dark バリアント併記）+ muted によるバケット表現を採用。
+
+### Design Decisions
+#### Decision: クライアント側集計の継続（サーバー集計は導入しない）
+- **Context**: ワードクラウド用の頻度・正答率集計をどこで行うか。
+- **Selected Approach**: 既存 `computePlayerStats` の拡張（`tagCloud`/`keywordCloud` フィールド追加、`quizMap` に `title` 追加）。
+- **Rationale**: Phase 27 の Boundary Commitments（「attempts のサーバー側自動集計は Out of Boundary」「直近100件クライアント集計」）と整合。入力データは既に取得済みで追加フェッチ不要。
+- **Trade-offs**: 集計対象が直近100件に限定されるが、これは要件 20.4 が明示的に許容（要件 13.7 と同一データ源）。
+
+#### Decision: 決定的シャッフルによる配置
+- **Context**: クラウドらしい見た目（大きい語の分散）と要件 20.14（再表示で並びが不変）の両立。
+- **Selected Approach**: 語の文字列ハッシュをソートキーにした決定的並び替え。`Math.random` 不使用。
+- **Rationale**: hydration mismatch を起こさず、スナップショットテストも安定する。
+
+### Document Status（Phase 42）
+- 分析: 事前プランニングでの Explore subagent 調査 + main context での既存実装 Read
+- 外部 Web 調査: 不要（標準 API のみ）
+- 出力: `design.md` Phase 42 節、本節
+

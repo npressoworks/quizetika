@@ -1302,3 +1302,110 @@ export async function getOpenReportCountsByCreator(
 
 **Document Status（Phase 41 設計）**: 本節に反映。関数・クラス識別子は `quizetika-core` design.md Phase 41 節の決定により維持。
 
+---
+
+## Phase 42: プレイヤーワードクラウド（2026-07-17）
+
+### 1. Overview
+
+プレイヤーダッシュボード（Phase 27）に、プレイ傾向を一望できるワードクラウドセクションを追加する。既存の `computePlayerStats`（`src/lib/player-stats.ts`）が保持するタグ別集計（`tagStatsMap`: count/correct/total）を上位30語まで露出する `tagCloud` と、クイズタイトルから抽出したキーワードを同様に集計する `keywordCloud` を新設し、依存ライブラリを追加せず CSS（flex-wrap + フォントサイズ重み付け）で描画する。語の大きさ = プレイ回数、語の色 = 正答率区分。
+
+### 2. Boundary Commitments（Phase 42）
+
+| Owns | Out of Boundary |
+|---|---|
+| `computePlayerStats` の `tagCloud`/`keywordCloud` 集計拡張 | プレイ履歴（attempts）取得・クイズ読み込み処理本体（`listUserPlayHistory` / `getQuiz` は既存のまま利用） |
+| タイトルキーワード抽出ロジック（`src/lib/word-cloud.ts`） | 形態素解析ライブラリの導入（`Intl.Segmenter` 標準 API のみ使用） |
+| ワードクラウド描画コンポーネントとダッシュボードセクション | d3-cloud 等ワードクラウド専用ライブラリの導入 |
+| タグ／キーワード切り替えタブ・色凡例・空状態表示 | サーバー側（RPC/API route）での新規集計。ジャンル語の混入（対象はタグとタイトルキーワードのみ） |
+
+- **Allowed Dependencies**: `PlayHistoryEntry` / `Quiz`（`src/types`）、`listUserPlayHistory`（`src/services/attempt.ts`）、`getQuiz`（`src/services/quiz.ts`）、shadcn `Card`/`Tabs`、ブラウザ/Node 標準の `Intl.Segmenter`。
+- **Revalidation Triggers**: 集計元が直近100件から全件へ拡大される場合（サーバー側集計への移行を再検討）。`Intl.Segmenter` 非対応環境の利用実績が確認された場合（フォールバック品質の再評価）。
+
+### 3. Design Decisions（Phase 42）
+
+1. **描画は自作 CSS クラウド**: `flex flex-wrap items-baseline justify-center` のコンテナに `<span>` を並べ、フォントサイズを `min + (max - min) * sqrt(count / maxCount)`（0.75rem〜2.25rem）で算出する。sqrt スケールにより高頻度語の支配を抑える。d3-cloud 等は SSR 回避・依存追加・レイアウト計算コストに見合わないため不採用（要件 20.9）。
+2. **決定的シャッフル**: 語の文字列ハッシュ（FNV-1a 等の単純ハッシュ）をソートキーに用い、大きい語が散らばりつつ再レンダー・再訪問で並びが変わらない配置とする（要件 20.14）。`Math.random` は使用しない。
+3. **キーワード抽出は `Intl.Segmenter`**: `new Intl.Segmenter('ja', { granularity: 'word' })` で分かち書きし、`isWordLike` セグメントのみ採用。フィルタ: 2文字未満、数字・記号のみ、ひらがなのみ2文字以下、ストップワード（「クイズ」「問題」「検定」「入門」「まとめ」「講座」「一問一答」「テスト」「練習」「初級」「中級」「上級」等）を除外（要件 20.7）。`Intl.Segmenter` 未定義環境では空白・記号区切りへフォールバックする。
+4. **正答率の色区分**: プレイ回数3回以上の語のみ算出（要件 13.6 と同一閾値）。80%以上 = emerald 系、60–79% = primary 系、40–59% = amber 系、40%未満 = red 系、3回未満 = `text-muted-foreground`（データ不足）。light/dark 両テーマで可読なクラスペアを使用し、凡例をセクション下部に表示する（要件 20.10〜20.12）。
+5. **重複カウント防止**: 1 attempt につき同一語は1回のみ加算する。タグは `Quiz.tags` が既にユニークであることに依存せず `Set` 化し、キーワードはタイトル単位の抽出結果を `Set` で保持して累積する（要件 20.8）。抽出結果は quizId → keywords でキャッシュし、attempt ループでの再分かち書きを避ける。
+
+### 4. Components and Interfaces（Phase 42）
+
+```typescript
+// src/lib/word-cloud.ts
+export interface WordCloudItem {
+  text: string;      // 表示する語（タグ名またはキーワード）
+  count: number;     // プレイ回数（重み）
+  accuracy: number;  // 正答率 0-100（count < 3 のときは参考値）
+}
+
+/** クイズタイトルから表示対象キーワードを抽出する（重複除去済み） */
+export function extractTitleKeywords(title: string): string[];
+```
+
+```typescript
+// src/lib/player-stats.ts（拡張）
+export interface PlayerStats {
+  // ...既存フィールド...
+  tagCloud: WordCloudItem[];     // タグ別プレイ回数上位30件（降順、同数はタグ名昇順）
+  keywordCloud: WordCloudItem[]; // タイトルキーワード別プレイ回数上位30件（同上）
+}
+
+// quizMap の値型を { genre: string; tags: string[]; title: string } に拡張
+```
+
+```tsx
+// src/components/charts/word-cloud.tsx（'use client'）
+interface WordCloudProps {
+  items: WordCloudItem[]; // 空配列時は呼び出し側で空状態を表示
+}
+// 各 <span> に title 属性で「{count}回プレイ・正答率{accuracy}%」（count < 3 は「データ不足」）を付与
+
+// src/app/creator/dashboard/dashboard-sections.tsx
+// PlayerWordCloudSection({ stats }: { stats: PlayerStats })
+// Card + Tabs（「タグ」デフォルト /「キーワード」）+ WordCloud + 色凡例 + 空状態
+```
+
+### 5. File Structure Plan（Phase 42）
+
+| ファイル | 操作 | 責務 |
+|---|---|---|
+| `src/lib/word-cloud.ts` | **New** | `WordCloudItem` 型定義と `extractTitleKeywords`（`Intl.Segmenter` 分かち書き + ストップワード/短語/記号フィルタ + フォールバック）。純関数のみ |
+| `src/lib/player-stats.ts` | **Modify** | `PlayerStats` に `tagCloud`/`keywordCloud` を追加。`quizMap` 値型に `title` を追加し、既存 `tagStatsMap` の上位30件露出とキーワード集計（quizId 単位キャッシュ、1 attempt 1 カウント）を実装 |
+| `src/components/charts/word-cloud.tsx` | **New** | 自作 CSS ワードクラウド描画（sqrt サイズスケール、正答率色区分、決定的シャッフル、title ツールチップ）。既存 charts コンポーネントの規約（`'use client'`、テーマ CSS 変数）に従う |
+| `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | `PlayerWordCloudSection` を追加（`data-testid="player-word-cloud"`、タグ/キーワード Tabs、色凡例、「データがありません」空状態） |
+| `src/app/creator/dashboard/player-dashboard-client.tsx` | **Modify** | `quizMap` 構築時に `title` を追加し、`PlayerChartsSection` と `PlayerGenreTagAnalysisSection` の間に `PlayerWordCloudSection` を挿入 |
+
+### 6. Requirements Traceability（Phase 42）
+
+| 要件 | 実現コンポーネント |
+|---|---|
+| 20.1 | `PlayerWordCloudSection`（`data-testid="player-word-cloud"`） |
+| 20.2, 20.3 | `PlayerWordCloudSection` 内 shadcn `Tabs`（defaultValue="tags"、クライアント側状態のみで切り替え） |
+| 20.4 | `player-dashboard-client.tsx`（既存の直近100件 attempts + quizMap をそのまま入力に使用） |
+| 20.5 | `computePlayerStats` の `tagCloud`（上位30件） |
+| 20.6 | `computePlayerStats` の `keywordCloud` + `extractTitleKeywords` |
+| 20.7 | `extractTitleKeywords` のフィルタ（ストップワード・記号・数字・短語除外） |
+| 20.8 | attempt ループでの `Set` ベース 1 カウント集計 |
+| 20.9 | `word-cloud.tsx` の sqrt フォントサイズスケール |
+| 20.10, 20.11 | `word-cloud.tsx` の正答率バケット色分け（3回未満は muted） |
+| 20.12 | `PlayerWordCloudSection` の色凡例 |
+| 20.13 | 各語 `<span>` の `title` 属性ツールチップ |
+| 20.14 | 文字列ハッシュによる決定的シャッフル |
+| 20.15 | `PlayerWordCloudSection` の空状態表示（既存「データがありません」パターン踏襲） |
+
+### 7. Testing Strategy（Phase 42）
+
+| 種別 | 検証 |
+|---|---|
+| **Unit** | `tests/lib/word-cloud.test.ts`（新規）: `extractTitleKeywords` — ストップワード（「クイズ」等）除外、記号・数字のみ除外、2文字未満除外、同一タイトル内重複の除去、`Intl.Segmenter` 未定義時のフォールバック動作。 |
+| **Unit** | `tests/lib/player-stats.test.ts`（拡張）: `tagCloud`/`keywordCloud` — count 降順・同数時タグ名昇順、上位30件上限、1 attempt 1 カウント、accuracy 算出値、空 attempts 時に `[]`。既存ケースの `quizMap` に `title` を追加。 |
+| **Component** | `word-cloud.tsx` / `PlayerWordCloudSection`: 最大 count の語が最大フォントサイズになること、count 3回未満の語が muted クラスになること、空配列で「データがありません」が表示されること、タブ切り替えでタグ↔キーワードが差し替わること。 |
+| **E2E** | `e2e/creator-dashboard.spec.ts`（拡張）: プレイヤータブに `player-word-cloud` セクションが表示され、タブ操作でキーワード表示に切り替わること。 |
+
+**Effort**: **S–M**（1–2日）
+**Risk**: **Low**（純クライアント集計・依存追加なし・既存データフローの延長）
+
+**Document Status（Phase 42 設計）**: 本節に反映。
+
