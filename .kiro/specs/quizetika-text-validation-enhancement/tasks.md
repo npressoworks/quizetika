@@ -68,7 +68,7 @@
   - _Requirements: 3.4, 4.1_
   - _Boundary: TestSuite_
   - _Depends: 2.3, 3.2_
-- [ ] 4.2 Playwright による E2E テストの検証
+- [x] 4.2 Playwright による E2E テストの検証
   - Playwright テストを起動し、作問画面での記述式問題の作成、およびプレイ画面での記述式回答プロセスが意図通りに動作することを検証する
   - [Done] 関連する記述式クイズのテストがパスし、全体的なリグレッションがないこと
   - _Requirements: 3.4, 4.1, 4.2_
