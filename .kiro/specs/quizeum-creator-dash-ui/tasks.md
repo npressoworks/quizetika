@@ -652,7 +652,7 @@
   - _Depends: 16.1_
   - _Boundary: WordCloudChart_
 
-- [ ] 16.4 ダッシュボードセクションへの統合
+- [x] 16.4 ダッシュボードセクションへの統合
   - `src/app/creator/dashboard/dashboard-sections.tsx` に `PlayerWordCloudSection` を追加する（`data-testid="player-word-cloud"`、shadcn `Tabs` による「タグ」（デフォルト）/「キーワード」切り替え、色凡例、対象語0件時の「データがありません」表示）。
   - `src/app/creator/dashboard/player-dashboard-client.tsx` の `quizMap` 構築に `title` を追加し、`PlayerChartsSection` と `PlayerGenreTagAnalysisSection` の間に `PlayerWordCloudSection` を挿入する。
   - **完了状態**: `/creator/dashboard` のプレイヤータブでワードクラウドが表示され、タブ操作でページ遷移なしにタグ↔キーワードが差し替わること。
@@ -660,10 +660,10 @@
   - _Depends: 16.2, 16.3_
   - _Boundary: PlayerDashboardSections, PlayerDashboardClient_
 
-- [ ] 16.5 Phase 42 結合テスト・E2E と統合検証
+- [x] 16.5 Phase 42 結合テスト・E2E と統合検証
   - `WordCloud` / `PlayerWordCloudSection` のコンポーネントテスト（サイズ・色クラス・空状態・タブ切り替え）を追加し、`e2e/creator-dashboard.spec.ts` にプレイヤータブでの `player-word-cloud` 表示と切り替え操作の検証を追加する。
   - 本スペック全体のテストスイートとビルドを実行し、既存機能への回帰がないことを確認する。
-  - **完了状態**: `npm test` および `npm run build` がエラーなく通過し、E2E で `player-word-cloud` セクションの表示・切り替えが検証されること。
+  - **完了状態**: `npm test` および `npm run build` がエラーなく通過し、E2E で `player-word-cloud`セクションの表示・切り替えが検証されること。
   - _Requirements: 20.1, 20.2, 20.3, 20.15_
   - _Depends: 16.4_
   - _Boundary: Testing_

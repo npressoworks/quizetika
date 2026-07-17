@@ -3,9 +3,11 @@
  */
 import '@testing-library/jest-dom';
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { WordCloud } from '@/components/charts/word-cloud';
+import { PlayerWordCloudSection } from '@/app/creator/dashboard/dashboard-sections';
 import type { WordCloudItem } from '@/lib/word-cloud';
+import type { PlayerStats } from '@/lib/player-stats';
 
 const items: WordCloudItem[] = [
   { text: '歴史', count: 9, accuracy: 85 },
@@ -15,6 +17,35 @@ const items: WordCloudItem[] = [
   { text: '物理', count: 2, accuracy: 100 },
   { text: '英語', count: 1, accuracy: 0 },
 ];
+
+const mockStats: PlayerStats = {
+  totalPlays: 10,
+  totalCorrect: 8,
+  totalQuestions: 10,
+  averageAccuracy: 80,
+  totalTime: 120,
+  averageTime: 12,
+  uniqueQuizzesCount: 3,
+  dailyPlayCounts: [],
+  modeDistribution: [],
+  frequentGenres: [],
+  frequentTags: [],
+  accurateGenres: [],
+  accurateTags: [],
+  tagCloud: [
+    { text: '日本史', count: 5, accuracy: 80 },
+    { text: '世界史', count: 3, accuracy: 60 },
+  ],
+  keywordCloud: [
+    { text: '方程式', count: 4, accuracy: 70 },
+  ],
+};
+
+const mockEmptyStats: PlayerStats = {
+  ...mockStats,
+  tagCloud: [],
+  keywordCloud: [],
+};
 
 const getSpans = (container: HTMLElement) =>
   Array.from(container.querySelectorAll('span'));
@@ -88,5 +119,50 @@ describe('WordCloud', () => {
   it('items が空配列のときは何も描画しない', () => {
     const { container } = render(<WordCloud items={[]} />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('PlayerWordCloudSection', () => {
+  it('ダッシュボードセクションとしてタイトルとタブが表示される', () => {
+    render(<PlayerWordCloudSection stats={mockStats} />);
+    expect(screen.getByText('プレイ傾向ワードクラウド')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'タグ' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'キーワード' })).toBeInTheDocument();
+  });
+
+  it('初期表示でタグクラウドの単語が表示され、キーワードは非表示（またはタブの切り替えで表示）であること', () => {
+    render(<PlayerWordCloudSection stats={mockStats} />);
+    
+    // デフォルトで「タグ」が選択されているため、「日本史」は表示される
+    expect(screen.getByText('日本史')).toBeInTheDocument();
+    
+    // 「キーワード」の「方程式」は TabsContent によって非表示 (hidden属性など)
+    const equation = screen.queryByText('方程式');
+    if (equation) {
+      expect(equation.closest('[role="tabpanel"]')).toHaveAttribute('hidden');
+    }
+
+    // 「キーワード」タブをクリック
+    fireEvent.click(screen.getByRole('tab', { name: 'キーワード' }));
+
+    // 「方程式」が表示され、「日本史」が非表示になること
+    expect(screen.getByText('方程式')).toBeInTheDocument();
+    const nihonshi = screen.queryByText('日本史');
+    if (nihonshi) {
+      expect(nihonshi.closest('[role="tabpanel"]')).toHaveAttribute('hidden');
+    }
+  });
+
+  it('データが空のときは「データがありません」が表示される', () => {
+    render(<PlayerWordCloudSection stats={mockEmptyStats} />);
+    
+    // 初期表示（タグタブ）で「データがありません」が表示される
+    expect(screen.getByText('データがありません')).toBeInTheDocument();
+
+    // キーワードタブに切り替える
+    fireEvent.click(screen.getByRole('tab', { name: 'キーワード' }));
+
+    // 切り替え後も「データがありません」が表示される
+    expect(screen.getByText('データがありません')).toBeInTheDocument();
   });
 });

@@ -13,6 +13,7 @@ import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
 import {
   PlayerStatsGridSection,
   PlayerChartsSection,
+  PlayerWordCloudSection,
   PlayerGenreTagAnalysisSection,
   PlayerRecentPlayHistorySection,
 } from './dashboard-sections';
@@ -47,7 +48,7 @@ export function PlayerDashboardClient() {
 
         // ユニークなクイズIDを抽出してクイズメタデータをバッチロード
         const quizIds = [...new Set(items.map((entry) => entry.quizId).filter(Boolean))];
-        const quizMap = new Map<string, { genre: string; tags: string[] }>();
+        const quizMap = new Map<string, { genre: string; tags: string[]; title: string }>();
 
         if (quizIds.length > 0) {
           const quizzes = await Promise.all(quizIds.map((id) => getQuiz(id)));
@@ -58,6 +59,7 @@ export function PlayerDashboardClient() {
               quizMap.set(quizIds[idx], {
                 genre: quiz.genre || '',
                 tags: quiz.tags || [],
+                title: quiz.title || '',
               });
             }
           });
@@ -105,6 +107,9 @@ export function PlayerDashboardClient() {
 
       {/* プレイトレンド & モード割合グラフ */}
       <PlayerChartsSection stats={stats} />
+
+      {/* プレイ傾向ワードクラウド (タグ / タイトルキーワード) */}
+      <PlayerWordCloudSection stats={stats} />
 
       {/* ジャンル・タグの頻度・正答率分析 */}
       <PlayerGenreTagAnalysisSection stats={stats} genreLabelById={genreLabelById} />
