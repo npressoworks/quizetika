@@ -23,7 +23,7 @@ jest.mock('@/lib/stripe/server', () => ({
 const mockDbInsert = jest.fn().mockResolvedValue({ error: null });
 
 jest.mock('@/lib/supabase/server', () => {
-  const chain = {
+  const chain: { insert: jest.Mock; then: jest.Mock } = {
     insert: jest.fn(() => chain),
     then: jest.fn((onFulfilled: any) => {
       return Promise.resolve(mockDbInsert()).then(onFulfilled);

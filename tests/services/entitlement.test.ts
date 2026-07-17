@@ -2,6 +2,13 @@ import {
   computeUserEntitlements,
   applySubscriptionFromStripe,
 } from '@/services/entitlement';
+import type { SubscriptionTier } from '@/types/subscription';
+
+/**
+ * Phase 41 以前の DB に残り得る旧tier値。resolveSubscriptionTier() が 'creator' へ
+ * マッピングする後方互換パスを検証するため、型システムをあえて迂回して使用する。
+ */
+const LEGACY_PRO_TIER = 'pro' as unknown as SubscriptionTier;
 
 const createChainMock = (resolveValue: any) => {
   const chain: any = {
@@ -38,7 +45,7 @@ describe('EntitlementService', () => {
 
   it('active pro ユーザーは hasUnlimitedAiQuestions が true', () => {
     const entitlements = computeUserEntitlements({
-      subscriptionTier: 'pro',
+      subscriptionTier: LEGACY_PRO_TIER,
       subscriptionStatus: 'active',
     });
     expect(entitlements.hasPaidEntitlements).toBe(true);
@@ -47,7 +54,7 @@ describe('EntitlementService', () => {
 
   it('解約済み pro は hasPaidEntitlements が false', () => {
     const entitlements = computeUserEntitlements({
-      subscriptionTier: 'pro',
+      subscriptionTier: LEGACY_PRO_TIER,
       subscriptionStatus: 'canceled',
     });
     expect(entitlements.hasPaidEntitlements).toBe(false);
@@ -89,7 +96,7 @@ describe('EntitlementService', () => {
 
   it('Postgres の ISO文字列形式の currentPeriodEnd を正しく Date へ変換する', () => {
     const entitlements = computeUserEntitlements({
-      subscriptionTier: 'pro',
+      subscriptionTier: LEGACY_PRO_TIER,
       subscriptionStatus: 'active',
       currentPeriodEnd: '2026-07-01T00:00:00.000Z',
     });
@@ -104,13 +111,13 @@ describe('EntitlementService', () => {
       stripeCustomerId: 'cus_1',
       stripeSubscriptionId: 'sub_1',
       subscriptionStatus: 'active',
-      subscriptionTier: 'pro',
+      subscriptionTier: 'creator',
       currentPeriodEnd: new Date('2026-07-01T00:00:00Z'),
     });
 
     expect(chain.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        subscription_tier: 'pro',
+        subscription_tier: 'creator',
         stripe_customer_id: 'cus_1',
         stripe_subscription_id: 'sub_1',
       })

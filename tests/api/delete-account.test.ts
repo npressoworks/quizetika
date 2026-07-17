@@ -13,7 +13,7 @@ jest.mock('../../src/lib/supabase/auth-verify', () => ({
 }));
 
 const mockAdminClient = {
-  from: (...args: unknown[]) => mockFrom(...args),
+  from: mockFrom,
   auth: {
     admin: {
       deleteUser: (...args: unknown[]) => mockDeleteUser(...args),

@@ -7,6 +7,13 @@ import {
   ProRequiredForVisibilityError,
   resolveQuizVisibility,
 } from '@/lib/quiz-access';
+import type { SubscriptionTier } from '@/types/subscription';
+
+/**
+ * Phase 41 以前の DB に残り得る旧tier値。resolveSubscriptionTier() が 'creator' へ
+ * マッピングする後方互換パスを検証するため、型システムをあえて迂回して使用する。
+ */
+const LEGACY_PRO_TIER = 'pro' as unknown as SubscriptionTier;
 
 const publishedPublic = {
   authorId: 'author-1',
@@ -55,7 +62,7 @@ describe('quiz-access', () => {
     it('Pro ありで followers 設定は許可', () => {
       expect(() =>
         assertCanSetQuizVisibilitySync(
-          { subscriptionTier: 'pro', subscriptionStatus: 'active' },
+          { subscriptionTier: LEGACY_PRO_TIER, subscriptionStatus: 'active' },
           'followers'
         )
       ).not.toThrow();

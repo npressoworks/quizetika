@@ -6,6 +6,7 @@ import { CircularProgress } from '@mui/material';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/auth-context';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
+import { isGovernanceFrozen } from '@/lib/governance-freeze';
 import { AutoGrowTextarea } from '@/components/ui/auto-grow-textarea';
 import { DifficultyVoteStars } from '@/components/quiz/difficulty-vote-stars';
 import { GenreEditorSelect } from '@/components/quiz/genre-editor-select';
@@ -79,6 +80,7 @@ export function QuizMetadataSection({
 }: QuizMetadataSectionProps) {
   const { user } = useAuth();
   const isAdmin = !!user && isAdminUser(user);
+  const showGenreLink = isGovernanceFrozen() ? isAdmin : !!user;
   const titleHasError = filterValidationErrors(validationErrors, { field: 'title' }).length > 0;
   const genreHasError = filterValidationErrors(validationErrors, { field: 'genre' }).length > 0;
 
@@ -297,7 +299,7 @@ export function QuizMetadataSection({
                   onRetry={onGenresRetry}
                   selectClassName={`${editorClasses.select} ${genreHasError ? editorClasses.inputError : ''}`}
                 />
-                {isAdmin && (
+                {showGenreLink && (
                   <a href="/community/genres" className={editorClasses.genreLink}>
                     新しいジャンルを申請する
                   </a>

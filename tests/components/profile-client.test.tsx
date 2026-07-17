@@ -21,6 +21,10 @@ jest.mock('@/context/auth-context', () => ({
   useAuth: () => ({ user: mockCurrentUser }),
 }));
 
+jest.mock('@/lib/governance-freeze', () => ({
+  isGovernanceFrozen: jest.fn().mockReturnValue(false),
+}));
+
 jest.mock('@/services/user', () => ({
   getUser: jest.fn().mockResolvedValue({
     id: 'user-1',
@@ -493,6 +497,51 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
 
       // タブは「作成したクイズ」「プレイ履歴」の2つのみで構成されること
       expect(screen.getAllByRole('tab')).toHaveLength(2);
+    });
+  });
+
+  describe('コミュニティガバナンス凍結時の表示制御', () => {
+    beforeEach(() => {
+      const { isGovernanceFrozen } = require('@/lib/governance-freeze');
+      isGovernanceFrozen.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      const { isGovernanceFrozen } = require('@/lib/governance-freeze');
+      isGovernanceFrozen.mockReturnValue(false);
+    });
+
+    it('凍結フラグONのとき、モデレーションティアバッジと信頼スコアが非表示になること', async () => {
+      const { getUser } = require('@/services/user');
+      (getUser as jest.Mock).mockResolvedValueOnce({
+        id: 'user-1',
+        displayName: 'テストユーザー',
+        reputationScore: 123,
+        moderationTier: 'moderator',
+        followersCount: 10,
+        followingCount: 5,
+        bio: 'プロフィール自己紹介',
+        badges: [
+          { id: 'badge-1', title: 'レジェンド', description: 'すごい人', iconName: 'star' }
+        ],
+        deleteStatus: 'active',
+        totalFailedQuestionsCount: 0,
+      });
+
+      render(<ProfileClient />);
+
+      await waitFor(() => {
+        expect(screen.getByText('テストユーザー')).toBeInTheDocument();
+      });
+
+      // 信頼スコア(123) や ティアバッジ(モデレーター) が表示されていないこと
+      expect(screen.queryByText('123')).not.toBeInTheDocument();
+      expect(screen.queryByText('信頼スコア')).not.toBeInTheDocument();
+      expect(screen.queryByText('モデレーター')).not.toBeInTheDocument();
+
+      // 獲得した称号バッジ(レジェンド) は表示されていること
+      expect(screen.getByText('獲得した称号バッジ')).toBeInTheDocument();
+      expect(screen.getByText('レジェンド')).toBeInTheDocument();
     });
   });
 });

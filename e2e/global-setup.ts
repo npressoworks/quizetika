@@ -28,6 +28,9 @@ const VIS_FOLLOWER_PASSWORD = 'e2e-vis-follower-password-999';
 const VIS_STRANGER_EMAIL = 'e2e-vis-stranger@example.com';
 const VIS_STRANGER_PASSWORD = 'e2e-vis-stranger-password-999';
 
+const MODERATOR_EMAIL = 'e2e-moderator@example.com';
+const MODERATOR_PASSWORD = 'e2e-moderator-password-999';
+
 function createAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -303,6 +306,42 @@ export default async function globalSetup() {
       '[VIS_TEST] Pro制限テスト用クイズ'
     );
 
+    // 7. モデレーター（非admin, tier=moderator）テストアカウントの作成
+    const moderatorUid = await getOrCreateAuthUser(supabase, MODERATOR_EMAIL, MODERATOR_PASSWORD);
+    await db.query(
+      `INSERT INTO users (id, email, display_name, avatar_url, bio, moderation_tier, role, updated_at)
+       VALUES ($1, $2, $3, $4, '', 'moderator', 'moderator', $5)
+       ON CONFLICT (id) DO UPDATE SET
+         moderation_tier = EXCLUDED.moderation_tier,
+         role = EXCLUDED.role,
+         updated_at = EXCLUDED.updated_at`,
+      [moderatorUid, MODERATOR_EMAIL, 'e2e-moderator', `https://api.dicebear.com/7.x/bottts/svg?seed=${moderatorUid}`, now]
+    );
+
+    // 8. 凍結テスト用の保留中（pending）マージ提案・ジャンル新設申請のクリーンアップとシード
+    await db.query(
+      `DELETE FROM merge_requests WHERE source_id = 'e2e-source-tag' OR target_id = 'e2e-target-tag'`
+    );
+    await db.query(
+      `DELETE FROM genre_requests WHERE genre_id = 'e2e-pending-genre'`
+    );
+
+    const mergeReqResult = await db.query<{ id: string }>(
+      `INSERT INTO merge_requests (target_type, source_id, target_id, requester_id, reason, status)
+       VALUES ('tag', 'e2e-source-tag', 'e2e-target-tag', $1, '表記揺れ修正', 'pending')
+       RETURNING id`,
+      [moderatorUid]
+    );
+    const pendingMergeRequestId = mergeReqResult.rows[0].id;
+
+    const genreReqResult = await db.query<{ id: string }>(
+      `INSERT INTO genre_requests (genre_id, display_name, description, icon_image_url, requester_id, status)
+       VALUES ('e2e-pending-genre', 'E2E保留ジャンル', 'E2Eテスト用の保留ジャンル申請', 'https://example.com/temp-icon.png', $1, 'pending')
+       RETURNING id`,
+      [moderatorUid]
+    );
+    const pendingGenreRequestId = genreReqResult.rows[0].id;
+
     const fixtureIds: E2eFixtureIds = {
       userId: e2eUid,
       quizIds,
@@ -313,6 +352,15 @@ export default async function globalSetup() {
         stranger: { email: VIS_STRANGER_EMAIL, password: VIS_STRANGER_PASSWORD, userId: visStrangerUid },
         authorQuizId: visAuthorQuizId,
         strangerQuizId: visStrangerQuizId,
+      },
+      moderator: {
+        email: MODERATOR_EMAIL,
+        password: MODERATOR_PASSWORD,
+        userId: moderatorUid,
+      },
+      governanceFreeze: {
+        pendingMergeRequestId,
+        pendingGenreRequestId,
       },
     };
     writeFileSync(FIXTURE_IDS_PATH, JSON.stringify(fixtureIds, null, 2));

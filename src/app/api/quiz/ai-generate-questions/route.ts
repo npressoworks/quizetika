@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI, SchemaType, type Schema } from '@google/generative-ai';
+import { GoogleGenAI, Type, type Schema } from '@google/genai';
 import {
   authorizeAiAuthoringRequest,
   type AuthoringAuthFailure,
@@ -20,19 +20,19 @@ import { DAILY_AUTHORING_DOC_QUESTIONS } from '@/services/ai-authoring-utils';
 
 export const maxDuration = 60;
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? '');
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
 
 const MIXED_TYPE_ENUM = MIXED_ALLOWED_QUESTION_TYPES as unknown as string[];
 
 function buildQuestionItemSchema(format: QuizFormat): Schema {
   // 選択肢スキーマ（複数選択式用）
   const choicesSchema: Schema = {
-    type: SchemaType.ARRAY,
+    type: Type.ARRAY,
     items: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        choiceText: { type: SchemaType.STRING },
-        isCorrect: { type: SchemaType.BOOLEAN },
+        choiceText: { type: Type.STRING },
+        isCorrect: { type: Type.BOOLEAN },
       },
       required: ['choiceText', 'isCorrect'],
     },
@@ -40,12 +40,12 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
 
   // 選択肢スキーマ（〇✕形式用）
   const trueFalseChoicesSchema: Schema = {
-    type: SchemaType.ARRAY,
+    type: Type.ARRAY,
     items: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        choiceText: { type: SchemaType.STRING, enum: ['〇', '✕'], format: 'enum' as const },
-        isCorrect: { type: SchemaType.BOOLEAN },
+        choiceText: { type: Type.STRING, enum: ['〇', '✕'], format: 'enum' as const },
+        isCorrect: { type: Type.BOOLEAN },
       },
       required: ['choiceText', 'isCorrect'],
     },
@@ -53,18 +53,18 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
 
   // 正解テキストスキーマ（記述式、早押し、連想用）
   const correctTextAnswerListSchema: Schema = {
-    type: SchemaType.ARRAY,
-    items: { type: SchemaType.STRING },
+    type: Type.ARRAY,
+    items: { type: Type.STRING },
   };
 
   // 並び替え要素スキーマ（並び替え用）
   const sortingItemsSchema: Schema = {
-    type: SchemaType.ARRAY,
+    type: Type.ARRAY,
     items: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        text: { type: SchemaType.STRING },
-        correctOrder: { type: SchemaType.INTEGER },
+        text: { type: Type.STRING },
+        correctOrder: { type: Type.INTEGER },
       },
       required: ['text', 'correctOrder'],
     },
@@ -72,74 +72,74 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
 
   // 連想ヒントスキーマ（連想用）
   const associationHintsSchema: Schema = {
-    type: SchemaType.ARRAY,
-    items: { type: SchemaType.STRING },
+    type: Type.ARRAY,
+    items: { type: Type.STRING },
   };
 
   // 各問題タイプの定義マップ
   const schemas = {
     'multiple-choice': {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['multiple-choice', 'true-false'], format: 'enum' as const },
-        questionText: { type: SchemaType.STRING },
-        explanation: { type: SchemaType.STRING },
-        hint: { type: SchemaType.STRING, nullable: true },
+        type: { type: Type.STRING, enum: ['multiple-choice', 'true-false'], format: 'enum' as const },
+        questionText: { type: Type.STRING },
+        explanation: { type: Type.STRING },
+        hint: { type: Type.STRING, nullable: true },
         choices: choicesSchema,
       },
       required: ['type', 'questionText', 'explanation', 'choices'],
     },
     'true-false': {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['true-false'], format: 'enum' as const },
-        questionText: { type: SchemaType.STRING },
-        explanation: { type: SchemaType.STRING },
-        hint: { type: SchemaType.STRING, nullable: true },
+        type: { type: Type.STRING, enum: ['true-false'], format: 'enum' as const },
+        questionText: { type: Type.STRING },
+        explanation: { type: Type.STRING },
+        hint: { type: Type.STRING, nullable: true },
         choices: trueFalseChoicesSchema,
       },
       required: ['type', 'questionText', 'explanation', 'choices'],
     },
     'text-input': {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['text-input'], format: 'enum' as const },
-        questionText: { type: SchemaType.STRING },
-        explanation: { type: SchemaType.STRING },
-        hint: { type: SchemaType.STRING, nullable: true },
+        type: { type: Type.STRING, enum: ['text-input'], format: 'enum' as const },
+        questionText: { type: Type.STRING },
+        explanation: { type: Type.STRING },
+        hint: { type: Type.STRING, nullable: true },
         correctTextAnswerList: correctTextAnswerListSchema,
       },
       required: ['type', 'questionText', 'explanation', 'correctTextAnswerList'],
     },
     'quick-press': {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['quick-press'], format: 'enum' as const },
-        questionText: { type: SchemaType.STRING },
-        explanation: { type: SchemaType.STRING },
-        hint: { type: SchemaType.STRING, nullable: true },
+        type: { type: Type.STRING, enum: ['quick-press'], format: 'enum' as const },
+        questionText: { type: Type.STRING },
+        explanation: { type: Type.STRING },
+        hint: { type: Type.STRING, nullable: true },
         correctTextAnswerList: correctTextAnswerListSchema,
       },
       required: ['type', 'questionText', 'explanation', 'correctTextAnswerList'],
     },
     'sorting': {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['sorting'], format: 'enum' as const },
-        questionText: { type: SchemaType.STRING },
-        explanation: { type: SchemaType.STRING },
-        hint: { type: SchemaType.STRING, nullable: true },
+        type: { type: Type.STRING, enum: ['sorting'], format: 'enum' as const },
+        questionText: { type: Type.STRING },
+        explanation: { type: Type.STRING },
+        hint: { type: Type.STRING, nullable: true },
         sortingItems: sortingItemsSchema,
       },
       required: ['type', 'questionText', 'explanation', 'sortingItems'],
     },
     'association': {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        type: { type: SchemaType.STRING, enum: ['association'], format: 'enum' as const },
-        questionText: { type: SchemaType.STRING },
-        explanation: { type: SchemaType.STRING },
-        hint: { type: SchemaType.STRING, nullable: true },
+        type: { type: Type.STRING, enum: ['association'], format: 'enum' as const },
+        questionText: { type: Type.STRING },
+        explanation: { type: Type.STRING },
+        hint: { type: Type.STRING, nullable: true },
         associationHints: associationHintsSchema,
         correctTextAnswerList: correctTextAnswerListSchema,
       },
@@ -153,11 +153,11 @@ function buildQuestionItemSchema(format: QuizFormat): Schema {
       ...schemas['multiple-choice'],
       properties: {
         ...schemas['multiple-choice'].properties,
-        type: { type: SchemaType.STRING, enum: ['multiple-choice'], format: 'enum' as const },
+        type: { type: Type.STRING, enum: ['multiple-choice'], format: 'enum' as const },
       },
     };
     return {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       anyOf: [
         mcSchemaForMixed,
         schemas['true-false'],
@@ -237,10 +237,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const model = genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
-    });
-
     let parsedJson: unknown;
     try {
       const userPrompt = buildAiQuizGenerationPrompt({
@@ -250,19 +246,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         description,
         genre,
       });
-      const result = await model.generateContent({
+      const result = await genAI.models.generateContent({
+        model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-        generationConfig: {
+        config: {
           responseMimeType: 'application/json',
           responseSchema: {
-            type: SchemaType.ARRAY,
+            type: Type.ARRAY,
             items: buildQuestionItemSchema(format),
-            minItems: AI_QUIZ_QUESTION_COUNT,
-            maxItems: AI_QUIZ_QUESTION_COUNT,
+            minItems: String(AI_QUIZ_QUESTION_COUNT),
+            maxItems: String(AI_QUIZ_QUESTION_COUNT),
           },
         },
       });
-      const text = result.response.text();
+      const text = result.text ?? '';
       parsedJson = JSON.parse(text);
     } catch (aiError) {
       console.error('[ai-generate-questions] Gemini API エラー:', aiError);

@@ -89,4 +89,25 @@
 ## Specs (dependency order)
 - [ ] quizeum-account-deletion-cleansing -- 退会ユーザーのクイズや問題を残したまま、個人情報の匿名化、リーダーボード削除、不要データ削除、および Auth 物理削除を同期的に行う。Dependencies: supabase-cleanup
 
+---
+
+## Phase 38: コミュニティガバナンスの一時凍結（2026-07-17 ディスカバリー）
+
+### Overview（本フェーズ）
+コミュニティ主導のガバナンス（タグ/ジャンルのマージ提案・加重投票、ジャンル新設申請・投票）を一時凍結する。凍結中はシステム管理者（`role === 'admin'`）のみがマージ・ジャンル登録を実行でき、`/community/merge` `/community/genres` は管理者専用ページとして存続（管理者は投票を待たず単独判断で即時実行、モデレーター以下は404）。プロフィールのモデレーションティアバッジとレピュテーションスコア表示も非表示にする（「獲得した称号バッジ」は表示継続）。
+
+### Approach Decision（本フェーズ）
+- **Chosen**: 設定フラグによる凍結 — アプリ側の単一設定でUI/導線/ガードを制御し、DBマイグレーションでRPC 4種（merge起案/投票、genre申請/投票）に管理者限定チェックを追加
+- **Why**: 「一時凍結」であり可逆性が最優先。UI非表示のみではRPC直叩きで迂回できるため、サーバーサイド（RPC）強制を必須とする
+- **Rejected alternatives**:
+  - コードからの撤去: 復活時にgit履歴からの復元が必要となり、一時凍結の趣旨（フラグを戻すだけで復帰）に反する
+  - ページ自体の全面閉鎖: 管理者のマージ・ジャンル登録手段が失われるため、管理者専用として存続させる案を採用
+
+### Boundary Strategy（本フェーズ）
+- **quizeum-governance-freeze（新規）**: 凍結フラグ、middleware/ページガードのadmin専用化、管理者即時実行UI、RPC限定化マイグレーション、ティアバッジ・レピュテーションスコア非表示、エディタ導線非表示の一切を所有
+- **Shared seams to watch**: quizeum-moderation-governance-ui / supabase-governance / quizeum-auth-profile-ui の原実装に対する一時的オーバーレイであり、凍結解除時に原仕様へ復帰できる形を保つ
+
+## Specs (dependency order)
+- [ ] quizeum-governance-freeze -- コミュニティガバナンス（マージ・ジャンル投票）の一時凍結。admin専用化・RPC限定・ティアバッジ非表示。Dependencies: supabase-governance, quizeum-moderation-governance-ui
+
 

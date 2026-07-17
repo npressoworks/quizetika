@@ -38,7 +38,7 @@ jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (...args: unknown[]) => mockResolveEntitlements(...args),
 }));
 
-const userRows: Record<string, { stripe_customer_id: string | null }> = {};
+const userRows: Record<string, { stripe_customer_id: string | null; stripe_subscription_id: string | null }> = {};
 
 jest.mock('@/lib/supabase/server', () => {
   const createChain = () => {

@@ -11,7 +11,7 @@ describe('CheckoutFeedbackBanner', () => {
   test('success: 祝福メッセージを表示', () => {
     render(<CheckoutFeedbackBanner variant="success" />);
     expect(screen.getByTestId('checkout-feedback-success')).toBeInTheDocument();
-    expect(screen.getByText(/Pro プランへの加入が完了しました/)).toBeInTheDocument();
+    expect(screen.getByText(/有料プランへの加入が完了しました/)).toBeInTheDocument();
   });
 
   test('canceled: 中立メッセージを表示', () => {

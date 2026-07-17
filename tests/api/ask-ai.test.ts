@@ -95,13 +95,13 @@ jest.mock('@/services/entitlement', () => ({
   resolveUserEntitlements: (...args: unknown[]) => mockResolveUserEntitlements(...args),
 }));
 
-jest.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: () => ({
-      startChat: () => ({
+jest.mock('@google/genai', () => ({
+  GoogleGenAI: jest.fn().mockImplementation(() => ({
+    chats: {
+      create: () => ({
         sendMessage: (...args: unknown[]) => mockSendMessage(...args),
       }),
-    }),
+    },
   })),
 }));
 
@@ -157,7 +157,7 @@ describe('POST /api/attempt/ask-ai', () => {
 
   it('新規質問時は Gemini を呼び出し、RPCで記録して残りターン数を返す', async () => {
     mockSendMessage.mockResolvedValue({
-      response: { text: () => 'はい\n男は遭難していました' },
+      text: 'はい\n男は遭難していました',
     });
 
     const res = await POST(

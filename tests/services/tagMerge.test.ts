@@ -61,6 +61,14 @@ describe('TagMergeService - createMergeRequest', () => {
       createMergeRequest(sourceId, targetId, 'tag', '重複提案', userId)
     ).rejects.toThrow('既に同じマージ提案が進行中です。');
   });
+
+  test('凍結時は起案が拒否されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'governance-frozen' } });
+
+    await expect(
+      createMergeRequest(sourceId, targetId, 'tag', '凍結テスト', userId)
+    ).rejects.toThrow('コミュニティガバナンスは現在凍結中です。');
+  });
 });
 
 describe('TagMergeService - voteMergeRequest', () => {
@@ -97,6 +105,14 @@ describe('TagMergeService - voteMergeRequest', () => {
       'この提案は既に審査が終了しています。'
     );
   });
+
+  test('凍結時は投票が拒否されること', async () => {
+    supabase.rpc.mockResolvedValue({ error: { message: 'governance-frozen' } });
+
+    await expect(voteMergeRequest(requestId, voterId, 'approve')).rejects.toThrow(
+      'コミュニティガバナンスは現在凍結中です。'
+    );
+  });
 });
 
 describe('TagMergeService - submitGenreRequest', () => {
@@ -116,6 +132,14 @@ describe('TagMergeService - submitGenreRequest', () => {
       p_description: '説明',
       p_icon_image_url: 'icon-url',
     });
+  });
+
+  test('凍結時は申請が拒否されること', async () => {
+    supabase.rpc.mockResolvedValue({ data: null, error: { message: 'governance-frozen' } });
+
+    await expect(
+      submitGenreRequest('retro', 'レトロゲーム', '説明', 'icon-url', 'user-uid')
+    ).rejects.toThrow('コミュニティガバナンスは現在凍結中です。');
   });
 });
 
@@ -143,6 +167,14 @@ describe('TagMergeService - voteGenreRequest', () => {
 
     await expect(voteGenreRequest(requestId, voterId, 'approve')).rejects.toThrow(
       '既にこの申請に投票済みです。'
+    );
+  });
+
+  test('凍結時は投票が拒否されること', async () => {
+    supabase.rpc.mockResolvedValue({ error: { message: 'governance-frozen' } });
+
+    await expect(voteGenreRequest(requestId, voterId, 'approve')).rejects.toThrow(
+      'コミュニティガバナンスは現在凍結中です。'
     );
   });
 });

@@ -3,6 +3,7 @@ import { getUserLeaderboard } from '@/services/user';
 import { LeaderboardClient } from './leaderboard-client';
 import { LeaderboardSkeleton } from '@/components/quiz/leaderboard-skeleton';
 import { leaderboardClasses as styles } from './leaderboard-classes';
+import { isGovernanceFrozen } from '@/lib/governance-freeze';
 
 export default async function LeaderboardPage() {
   return (
@@ -16,12 +17,13 @@ export default async function LeaderboardPage() {
 
 async function LeaderboardDataLoader() {
   try {
-    const users = await getUserLeaderboard('reputationScore', 10);
+    const sortBy = isGovernanceFrozen() ? 'totalPlayCount' : 'reputationScore';
+    const users = await getUserLeaderboard(sortBy, 10);
     const initialRankings = users.map((u) => ({
       id: u.id,
       displayName: u.displayName || 'ユーザー',
       avatarUrl: u.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg',
-      score: u.reputationScore,
+      score: sortBy === 'totalPlayCount' ? u.totalPlayCount : u.reputationScore,
     }));
 
     return <LeaderboardClient initialRankings={initialRankings} />;
@@ -34,3 +36,4 @@ async function LeaderboardDataLoader() {
     );
   }
 }
+

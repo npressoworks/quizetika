@@ -147,7 +147,7 @@ describe('mapHistoryToGeminiContents', () => {
     const result = mapHistoryToGeminiContents(history);
     expect(result).toHaveLength(4);
     expect(result[0].role).toBe('user');
-    expect(result[0].parts[0].text).toBe('海ですか？');
+    expect(result[0].parts![0].text).toBe('海ですか？');
   });
 
   test('直近最大20回分のみにスライスされる', () => {
@@ -158,7 +158,7 @@ describe('mapHistoryToGeminiContents', () => {
     }));
     const result = mapHistoryToGeminiContents(history);
     expect(result).toHaveLength(40);
-    expect(result[0].parts[0].text).toBe('質問5');
+    expect(result[0].parts![0].text).toBe('質問5');
   });
 });
 

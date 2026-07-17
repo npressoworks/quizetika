@@ -20,7 +20,7 @@
 ### UIコンポーネント (UI Components)
 **Location**: `/src/components/`  
 **Purpose**: アプリケーション全体で再利用されるUIコンポーネント。再利用可能なUI部品（`/src/components/ui/`）と機能ドメイン別（`quiz/`, `bookmark/`, `profile/`, `explore/`, `charts/`, `sorting/`, `pricing/`, `quiz-list/`, `markdown/`, `ads/` 等）に分かれます。  
-**Example**: `/src/components/ui/skeleton-card.tsx`, `/src/components/ui/infinite-scroll-loader.tsx`（共通無限スクロールローダー）、`/src/components/quiz/quiz-dual-leaderboard.tsx`、`/src/components/ads/adsense-inline-ad.tsx`（インライン広告枠）、`/src/components/explore/genre-nav.tsx`（ジャンルナビ）、`/src/components/charts/analytics-chart.tsx`（クリエイター統計）。
+**Example**: `/src/components/ui/skeleton-card.tsx`, `/src/components/ui/infinite-scroll-loader.tsx`（共通無限スクロールローダー）、`/src/components/quiz/quiz-dual-leaderboard.tsx`、`/src/components/ads/adsense-inline-ad.tsx`（インライン広告枠）、`/src/components/explore/genre-nav.tsx`（ジャンルナビ）、`/src/components/charts/analytics-chart.tsx`（クリエイター統計）、`/src/components/ui/image-cropper.tsx`（アバター/OGPクロップ共通コンポーネント、複数ドメインから `aspect`/`cropShape` 等をProps化して再利用）。
 
 ### サービス・ビジネスロジック (Services)
 **Location**: `/src/services/`  
@@ -49,7 +49,7 @@
 ### カスタムフック (Custom Hooks)
 **Location**: `/src/hooks/`  
 **Purpose**: データ取得・検索・プレイ状態など、コンポーネント横断の React ステートと副作用。  
-**Example**: `/src/hooks/useBookmarkFeed.ts`, `/src/hooks/useQuestionAttachSearch.ts`, `/src/hooks/useAds.ts`（広告制御）。
+**Example**: `/src/hooks/useBookmarkFeed.ts`, `/src/hooks/useQuestionAttachSearch.ts`, `/src/hooks/useAds.ts`（広告制御）、`/src/hooks/useAiChatAssistant.ts`（Vercel AI SDK `useChat` + `DefaultChatTransport` によるAI作問チャットのストリーミング状態管理）。
 
 ### スタイル定義 (Styles)
 **Location**: `/src/app/globals.css`（Tailwind + shadcn テーマ）、`/src/styles/variables.css`（移行期 legacy トークン）、`/src/components/ui/`（shadcn プリミティブ）、各コンポーネント隣の CSS Modules（未移行ドメイン）  
@@ -110,5 +110,6 @@ import { LocalComponent } from './LocalComponent';
 
 ---
 _updated_at: 2026-07-05 — supabase-cleanup 完了に伴い /src/lib/firebase/ 併存記述を除去し Supabase 単独構成に更新_
+_updated_at: 2026-07-17 — Sync: ImageCropper共通コンポーネントとAIチャットストリーミングフックの例を追記_
 
 _Document patterns, not file trees. New files following patterns shouldn't require updates_

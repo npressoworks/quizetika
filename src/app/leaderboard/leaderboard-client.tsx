@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { EmojiEventsOutlined, LocalFireDepartmentOutlined } from '@mui/icons-material';
 import { getUserLeaderboard } from '@/services/user';
 import { leaderboardClasses as styles } from './leaderboard-classes';
+import { isGovernanceFrozen } from '@/lib/governance-freeze';
 
 interface LeaderboardUser {
   id: string;
@@ -17,7 +18,9 @@ interface LeaderboardClientProps {
 }
 
 export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
-  const [activeTab, setActiveTab] = useState<'score' | 'plays' | 'creators'>('score');
+  const [activeTab, setActiveTab] = useState<'score' | 'plays' | 'creators'>(
+    isGovernanceFrozen() ? 'plays' : 'score'
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const [rankings, setRankings] = useState<LeaderboardUser[]>(initialRankings);
   const [isFirstRender, setIsFirstRender] = useState(true);
@@ -74,14 +77,16 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
 
       {/* タブバー */}
       <div className={styles.tabBar} data-testid="leaderboard-global-tabs">
-        <div
-          className={`${styles.tab} ${activeTab === 'score' ? styles.tabActive : ''}`}
-          onClick={() => setActiveTab('score')}
-          data-testid="leaderboard-tab-score"
-        >
-          <LocalFireDepartmentOutlined sx={{ fontSize: 16 }} style={{ display: 'inline', marginRight: '6px' }} />
-          総合信頼スコア
-        </div>
+        {!isGovernanceFrozen() && (
+          <div
+            className={`${styles.tab} ${activeTab === 'score' ? styles.tabActive : ''}`}
+            onClick={() => setActiveTab('score')}
+            data-testid="leaderboard-tab-score"
+          >
+            <LocalFireDepartmentOutlined sx={{ fontSize: 16 }} style={{ display: 'inline', marginRight: '6px' }} />
+            総合信頼スコア
+          </div>
+        )}
         <div
           className={`${styles.tab} ${activeTab === 'plays' ? styles.tabActive : ''}`}
           onClick={() => setActiveTab('plays')}
@@ -117,7 +122,7 @@ export function LeaderboardClient({ initialRankings }: LeaderboardClientProps) {
                 <th className={styles.th}>順位</th>
                 <th className={styles.th}>プレイヤー</th>
                 <th className={styles.th} style={{ textAlign: 'right' }}>
-                  {activeTab === 'score' && '信頼スコア'}
+                  {!isGovernanceFrozen() && activeTab === 'score' && '信頼スコア'}
                   {activeTab === 'plays' && '累計プレイ数'}
                   {activeTab === 'creators' && '作成クイズ数'}
                 </th>
