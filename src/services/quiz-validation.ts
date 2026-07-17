@@ -175,7 +175,7 @@ export function collectQuestionTextValidationErrors(
 /**
  * 問題ごとに正解が設定されているか検証するヘルパー
  */
-function collectQuestionValidationErrors(question: Question, idx: number): QuizPublishValidationError[] {
+export function collectQuestionValidationErrors(question: Question, idx: number): QuizPublishValidationError[] {
   const errors: QuizPublishValidationError[] = [
     ...collectQuestionTextValidationErrors(question, idx),
   ];

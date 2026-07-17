@@ -26,6 +26,26 @@ function truncatePreview(text: string, max = 30): string {
   return singleLine.length > max ? singleLine.slice(0, max) + '…' : singleLine;
 }
 
+const getQuestionTextPlaceholder = (type: string): string => {
+  switch (type) {
+    case 'multiple-choice':
+      return '例: 日本で一番**高い**山は？';
+    case 'true-false':
+      return '例: 富士山は日本で一番**高い**山である。';
+    case 'text-input':
+    case 'quick-press':
+      return '例: 日本で一番**高い**山の名前は何でしょう？';
+    case 'sorting':
+      return '例: 次の出来事を、**起こったのが古い順**に並べ替えてください。';
+    case 'association':
+      return '例: 次のヒントから連想される**キャラクターの名前**を当ててください。';
+    case 'lateral-thinking':
+      return '例: 男はスープを一口飲んで**自殺**した。なぜ？';
+    default:
+      return '例: 日本で一番**高い**山は？';
+  }
+};
+
 export function QuestionCard({
   qIdx,
   question,
@@ -242,7 +262,7 @@ export function QuestionCard({
                 <label className={editorClasses.label}>問題文（必須）</label>
                 <AutoGrowTextarea
                   className={`${editorClasses.textarea} ${questionTextHasError ? editorClasses.inputError : ''}`}
-                  placeholder="例: 日本で一番**高い**山は？"
+                  placeholder={getQuestionTextPlaceholder(question.type)}
                   value={question.questionText}
                   onChange={(e) => handlers.onQuestionTextChange(qIdx, e.target.value)}
                   style={{ resize: 'vertical' }}
