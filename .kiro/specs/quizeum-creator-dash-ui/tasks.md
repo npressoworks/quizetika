@@ -634,7 +634,7 @@
   - _Requirements: 20.6, 20.7, 20.8_
   - _Boundary: word-cloud-lib_
 
-- [ ] 16.2 プレイヤー統計集計へのワードクラウドデータ追加
+- [x] 16.2 プレイヤー統計集計へのワードクラウドデータ追加
   - `src/lib/player-stats.ts` の `PlayerStats` に `tagCloud` / `keywordCloud`（各 count 降順・同数はテキスト昇順・上位最大30件）を追加し、`quizMap` の値型に `title` を加える。
   - タグ・キーワードとも 1 attempt につき同一語1回のカウントとし（`Set` ベース）、キーワード抽出結果は quizId 単位でキャッシュする。正答率は語ごとの `Σscore / ΣtotalQuestions` で算出する。
   - `tests/lib/player-stats.test.ts` の既存ケースに `title` を補い、`tagCloud` / `keywordCloud` の件数上限・順序・1カウント集計・accuracy・空履歴時 `[]` を検証するケースを追加する。
@@ -672,5 +672,6 @@
 
 - **実装順序**: 16.1 →（16.2 ∥ 16.3）→ 16.4 → 16.5。16.2 と 16.3 は `WordCloudItem` 型（16.1）確定後、別ファイル・別境界のため並行可能。
 - **依存追加なし**: ワードクラウド専用ライブラリ・形態素解析ライブラリは導入しない（design.md Phase 42 Boundary Commitments）。
+- **16.2 の既知の一時状態**: `quizMap` の `title` を必須型にしたため、16.4 完了まで `npx tsc --noEmit` が `player-dashboard-client.tsx` で TS2345 を1件報告する（16.4 の呼び出し元修正で解消）。
 
 

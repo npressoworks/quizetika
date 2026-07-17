@@ -1,4 +1,5 @@
 import { PlayHistoryEntry, Attempt } from '@/types';
+import { WordCloudItem, extractTitleKeywords } from '@/lib/word-cloud';
 
 export interface PlayerStats {
   totalPlays: number;          // 累計プレイ回数 (Attempt数)
@@ -14,7 +15,12 @@ export interface PlayerStats {
   frequentTags: { tagName: string; count: number }[];   // よくプレイするタグ (降順、最大5件)
   accurateGenres: { genreId: string; accuracy: number; count: number }[]; // 正答率の高いジャンル (回数3回以上、降順、最大5件)
   accurateTags: { tagName: string; accuracy: number; count: number }[];   // 正答率の高いタグ (回数3回以上、降順、最大5件)
+  tagCloud: WordCloudItem[];     // タグ別プレイ回数上位30件 (count 降順、同数はテキスト昇順)
+  keywordCloud: WordCloudItem[]; // タイトルキーワード別プレイ回数上位30件 (同上)
 }
+
+// ワードクラウドに表示する語の上限数
+const WORD_CLOUD_LIMIT = 30;
 
 // プレイモードの日本語ラベルマッピング
 const modeLabels: Record<Attempt['mode'], string> = {
@@ -30,7 +36,7 @@ const modeLabels: Record<Attempt['mode'], string> = {
 
 export function computePlayerStats(
   attempts: PlayHistoryEntry[],
-  quizMap: Map<string, { genre: string; tags: string[] }>,
+  quizMap: Map<string, { genre: string; tags: string[]; title: string }>,
   baseDate: Date = new Date()
 ): PlayerStats {
   if (!attempts || attempts.length === 0) {
@@ -48,6 +54,8 @@ export function computePlayerStats(
       frequentTags: [],
       accurateGenres: [],
       accurateTags: [],
+      tagCloud: [],
+      keywordCloud: [],
     };
   }
 
@@ -65,6 +73,13 @@ export function computePlayerStats(
 
   // プレイモード別の集計用
   const modeCounts = new Map<string, number>();
+
+  // ワードクラウド用の集計 (タグ / タイトルキーワード)
+  // 1 attempt につき同一語1回のカウント。accuracy は tagStatsMap と同じく attempt 単位で score/totalQuestions を加算
+  const tagCloudMap = new Map<string, { count: number; correct: number; total: number }>();
+  const keywordCloudMap = new Map<string, { count: number; correct: number; total: number }>();
+  // quizId -> 抽出済みキーワード。attempt ループでの再分かち書きを避けるキャッシュ
+  const keywordCache = new Map<string, string[]>();
 
   attempts.forEach((att) => {
     totalCorrect += att.score || 0;
@@ -99,6 +114,26 @@ export function computePlayerStats(
           stats.correct += att.score || 0;
           stats.total += att.totalQuestions || 0;
           tagStatsMap.set(tag, stats);
+        });
+      }
+
+      // ワードクラウド用タグ集計 (1 attempt につき同一タグ1回のみ加算するため Set 化)
+      if (quizInfo.tags && Array.isArray(quizInfo.tags)) {
+        const uniqueTags = new Set(quizInfo.tags.filter((tag) => !!tag));
+        uniqueTags.forEach((tag) => {
+          addWordCloudCount(tagCloudMap, tag, att);
+        });
+      }
+
+      // ワードクラウド用キーワード集計 (extractTitleKeywords はユニークな配列を返す)
+      if (quizInfo.title && att.quizId) {
+        let keywords = keywordCache.get(att.quizId);
+        if (!keywords) {
+          keywords = extractTitleKeywords(quizInfo.title);
+          keywordCache.set(att.quizId, keywords);
+        }
+        keywords.forEach((keyword) => {
+          addWordCloudCount(keywordCloudMap, keyword, att);
         });
       }
     }
@@ -139,12 +174,16 @@ export function computePlayerStats(
     .sort((a, b) => b.accuracy - a.accuracy || b.count - a.count || a.tagName.localeCompare(b.tagName))
     .slice(0, 5);
 
-  // 4. モード分布の整形
+  // 4. ワードクラウドデータの整形 (count 降順・同数はテキスト昇順・上位最大30件)
+  const tagCloud = buildWordCloudItems(tagCloudMap);
+  const keywordCloud = buildWordCloudItems(keywordCloudMap);
+
+  // 5. モード分布の整形
   const modeDistribution = Array.from(modeCounts.entries())
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count);
 
-  // 5. 日別プレイ回数の集計 (直近7日間)
+  // 6. 日別プレイ回数の集計 (直近7日間)
   const dailyPlayCounts = calculateDailyPlayCounts(attempts, baseDate);
 
   return {
@@ -161,7 +200,36 @@ export function computePlayerStats(
     frequentTags,
     accurateGenres,
     accurateTags,
+    tagCloud,
+    keywordCloud,
   };
+}
+
+// ワードクラウド集計マップに attempt 1回分の語カウントを加算するヘルパー
+function addWordCloudCount(
+  map: Map<string, { count: number; correct: number; total: number }>,
+  word: string,
+  att: PlayHistoryEntry
+): void {
+  const stats = map.get(word) || { count: 0, correct: 0, total: 0 };
+  stats.count += 1;
+  stats.correct += att.score || 0;
+  stats.total += att.totalQuestions || 0;
+  map.set(word, stats);
+}
+
+// 集計マップから WordCloudItem 配列を生成するヘルパー (count 降順・同数はテキスト昇順・上位最大30件)
+function buildWordCloudItems(
+  map: Map<string, { count: number; correct: number; total: number }>
+): WordCloudItem[] {
+  return Array.from(map.entries())
+    .map(([text, s]) => ({
+      text,
+      count: s.count,
+      accuracy: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text))
+    .slice(0, WORD_CLOUD_LIMIT);
 }
 
 // 7日間の空配列を生成するヘルパー
