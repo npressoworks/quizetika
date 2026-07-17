@@ -34,6 +34,15 @@ export interface E2eFixtureIds {
   quizIds: string[];
   questionIds: string[];
   visibilityTest: VisibilityTestFixtures;
+  moderator: {
+    email: string;
+    password: string;
+    userId: string;
+  };
+  governanceFreeze: {
+    pendingMergeRequestId: string;
+    pendingGenreRequestId: string;
+  };
 }
 
 export function readE2eFixtureIds(): E2eFixtureIds {

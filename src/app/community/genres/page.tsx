@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter, notFound } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/auth-context';
 import { submitGenreRequest, voteGenreRequest } from '@/services/tagMerge';
@@ -13,6 +13,8 @@ import {
   validateGenreIconFile,
   GENRE_ICON_ACCEPT,
 } from '@/lib/genre-icon-upload';
+import { adminResolveGenreRequest } from '@/services/governanceAdmin';
+import { isGovernanceFrozen } from '@/lib/governance-freeze';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { Badge } from '@/components/ui/badge';
@@ -113,15 +115,21 @@ export default function CommunityGenresPage() {
     admin: 4,
   };
 
-  const isModerator = !!user && (TIER_RANK[user.moderationTier] ?? 0) >= TIER_RANK.moderator;
-  const isSeniorModerator = user?.moderationTier === 'senior_moderator';
   const isAdmin = !!user && isAdminUser(user);
+  const isModerator = isGovernanceFrozen()
+    ? isAdmin
+    : !!user && (TIER_RANK[user.moderationTier] ?? 0) >= TIER_RANK.moderator;
+  const isSeniorModerator = user?.moderationTier === 'senior_moderator';
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login?redirect=/community/genres');
+      return;
     }
-  }, [user, loading, router]);
+    if (!loading && user && isGovernanceFrozen() && !isAdmin) {
+      router.push('/not-found');
+    }
+  }, [user, loading, isAdmin, router]);
 
   const fetchPendingRequests = useCallback(async () => {
     const { data, error } = await supabase
@@ -137,6 +145,7 @@ export default function CommunityGenresPage() {
 
   useEffect(() => {
     if (!user) return;
+    if (isGovernanceFrozen() && !isAdmin) return;
 
     void fetchPendingRequests();
     const intervalId = setInterval(fetchPendingRequests, GENRE_REQUESTS_POLL_INTERVAL_MS);
@@ -144,10 +153,11 @@ export default function CommunityGenresPage() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [user, fetchPendingRequests]);
+  }, [user, isAdmin, fetchPendingRequests]);
 
   useEffect(() => {
     if (activeTab !== 'history' || !user) return;
+    if (isGovernanceFrozen() && !isAdmin) return;
 
     let cancelled = false;
     const fetchHistory = async () => {
@@ -170,7 +180,7 @@ export default function CommunityGenresPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, user]);
+  }, [activeTab, user, isAdmin]);
 
   const handleIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -291,35 +301,59 @@ export default function CommunityGenresPage() {
     setErrorMessage(null);
 
     try {
-      let iconUrl = '';
-
-      if (tempIconUrl) {
-        // 一時保存アイコン画像を正式パスに移行
+      if (isGovernanceFrozen()) {
         const token = await authUser!.getIdToken();
-        const migrateRes = await fetch('/api/genres/migrate-icon', {
+        const res = await fetch('/api/admin/genres', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            tempUrl: tempIconUrl,
-            genreId: formGenreId,
-            userId: authUser!.uid,
+            id: formGenreId,
+            displayName: formDisplayName,
+            description: formDescription,
+            iconImageUrl: tempIconUrl,
           }),
         });
 
-        const migrateData = await migrateRes.json().catch(() => ({}));
-        if (!migrateRes.ok) {
-          throw new Error(migrateData.message || 'アイコン画像の保存処理に失敗しました。');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.message || data.error || 'ジャンルの直接登録に失敗しました。');
         }
-        iconUrl = migrateData.iconImageUrl;
+        setSuccessMessage(`🎉 ジャンル「${formDisplayName}」を即時登録しました。`);
+      } else {
+        let iconUrl = '';
+
+        if (tempIconUrl) {
+          // 一時保存アイコン画像を正式パスに移行
+          const token = await authUser!.getIdToken();
+          const migrateRes = await fetch('/api/genres/migrate-icon', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              tempUrl: tempIconUrl,
+              genreId: formGenreId,
+              userId: authUser!.uid,
+            }),
+          });
+
+          const migrateData = await migrateRes.json().catch(() => ({}));
+          if (!migrateRes.ok) {
+            throw new Error(migrateData.message || 'アイコン画像の保存処理に失敗しました。');
+          }
+          iconUrl = migrateData.iconImageUrl;
+        }
+
+        await submitGenreRequest(formGenreId, formDisplayName, formDescription, iconUrl, user.id);
+        setSuccessMessage(`「${formDisplayName}」のジャンル申請を送信しました。`);
       }
 
-      await submitGenreRequest(formGenreId, formDisplayName, formDescription, iconUrl, user.id);
       await fetchPendingRequests();
 
-      setSuccessMessage(`「${formDisplayName}」のジャンル申請を送信しました。`);
       setFormGenreId('');
       setFormDisplayName('');
       setFormDescription('');
@@ -328,9 +362,9 @@ export default function CommunityGenresPage() {
       setTempIconUrl(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err: unknown) {
-      console.error('申請送信エラー:', err);
+      console.error('申請/登録エラー:', err);
       setErrorMessage(
-        err instanceof Error ? err.message : '申請の送信に失敗しました。',
+        err instanceof Error ? err.message : '処理に失敗しました。',
       );
     } finally {
       setSubmitLoading(false);
@@ -346,27 +380,37 @@ export default function CommunityGenresPage() {
     setAutoApprovalAlert(null);
 
     try {
-      await voteGenreRequest(genreRequest.id, user.id, vote);
-
-      const weight = user.moderationTier === 'senior_moderator' ? 2 : 1;
-      const isApprove = vote === 'approve';
-      const nextWeightedFor = genreRequest.weightedVotesFor + (isApprove ? weight : 0);
-      const nextWeightedAgainst = genreRequest.weightedVotesAgainst + (isApprove ? 0 : weight);
-      const totalWeighted = nextWeightedFor + nextWeightedAgainst;
-      const approveRate = totalWeighted > 0 ? nextWeightedFor / totalWeighted : 0;
-
-      if (nextWeightedFor >= 5 && approveRate >= 0.8) {
-        setAutoApprovalAlert(
-          `🎉 ジャンル「${genreRequest.displayName}」が可決され、ジャンルが追加されました！`,
+      if (isGovernanceFrozen()) {
+        await adminResolveGenreRequest(genreRequest.id, vote);
+        setSuccessMessage(
+          vote === 'approve'
+            ? `✅ ジャンル申請「${genreRequest.displayName}」を承認し、即時登録しました。`
+            : '❌ ジャンル申請を却下しました。'
         );
       } else {
-        setSuccessMessage(
-          vote === 'approve' ? '👍 賛成票を投じました。' : '👎 反対票を投じました。',
-        );
+        await voteGenreRequest(genreRequest.id, user.id, vote);
+
+        const weight = user.moderationTier === 'senior_moderator' ? 2 : 1;
+        const isApprove = vote === 'approve';
+        const nextWeightedFor = genreRequest.weightedVotesFor + (isApprove ? weight : 0);
+        const nextWeightedAgainst = genreRequest.weightedVotesAgainst + (isApprove ? 0 : weight);
+        const totalWeighted = nextWeightedFor + nextWeightedAgainst;
+        const approveRate = totalWeighted > 0 ? nextWeightedFor / totalWeighted : 0;
+
+        if (nextWeightedFor >= 5 && approveRate >= 0.8) {
+          setAutoApprovalAlert(
+            `🎉 ジャンル「${genreRequest.displayName}」が可決され、ジャンルが追加されました！`,
+          );
+        } else {
+          setSuccessMessage(
+            vote === 'approve' ? '👍 賛成票を投じました。' : '👎 反対票を投じました。',
+          );
+        }
       }
+      await fetchPendingRequests();
     } catch (err: unknown) {
-      console.error('投票エラー:', err);
-      setErrorMessage(err instanceof Error ? err.message : '投票に失敗しました。');
+      console.error('処理エラー:', err);
+      setErrorMessage(err instanceof Error ? err.message : '操作に失敗しました。');
     } finally {
       setVoteLoading(null);
     }
@@ -400,15 +444,29 @@ export default function CommunityGenresPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
       <header className="space-y-2">
-        <Badge variant="secondary">🎭 コミュニティ</Badge>
-        <h1 className="text-2xl font-bold">ジャンル新設申請</h1>
+        <Badge variant="secondary">
+          {isGovernanceFrozen() ? '🛡️ 管理者専用' : '🎭 コミュニティ'}
+        </Badge>
+        <h1 className="text-2xl font-bold">
+          {isGovernanceFrozen() ? '新規ジャンル即時登録・承認' : 'ジャンル新設申請'}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          新しいジャンルを申請し、モデレータの投票で承認されればカタログに追加されます。
+          {isGovernanceFrozen()
+            ? 'コミュニティガバナンス凍結中につき、管理者権限による新規ジャンルの即時登録および保留案件の処理が可能です。'
+            : '新しいジャンルを申請し、モデレータの投票で承認されればカタログに追加されます。'}
         </p>
-        {isSeniorModerator && (
+        {!isGovernanceFrozen() && isSeniorModerator && (
           <Badge variant="outline">⚡ シニアモデレータ — 投票の重み: x2</Badge>
         )}
       </header>
+
+      {isGovernanceFrozen() && (
+        <Alert className="border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <AlertDescription>
+            ⚠️ コミュニティガバナンスは一時凍結中です。操作はシステム管理者の単独判断で即時実行されます。
+          </AlertDescription>
+        </Alert>
+      )}
 
       {autoApprovalAlert && (
         <Alert>
@@ -429,11 +487,11 @@ export default function CommunityGenresPage() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
         <TabsList>
           <TabsTrigger id="tab-request" value="request">
-            📝 申請フォーム
+            {isGovernanceFrozen() ? '📝 直接登録フォーム' : '📝 申請フォーム'}
           </TabsTrigger>
           {isModerator && (
             <TabsTrigger id="tab-vote" value="vote">
-              🗳️ 投票
+              {isGovernanceFrozen() ? '📋 保留中の申請一覧' : '🗳️ 投票'}
               {pendingRequests.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
                   {pendingRequests.length}
@@ -449,10 +507,13 @@ export default function CommunityGenresPage() {
         <TabsContent value="request" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>新ジャンルを申請する</CardTitle>
+              <CardTitle>
+                {isGovernanceFrozen() ? '新規ジャンルを即時登録する' : '新ジャンルを申請する'}
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
-                認証済みのユーザーなら誰でもジャンル追加を申請できます。
-                モデレータの投票で可決されれば自動的に追加されます。
+                {isGovernanceFrozen()
+                  ? '必要事項を入力し、新ジャンルを即時データベースへ登録します。'
+                  : '認証済みのユーザーなら誰でもジャンル追加を申請できます。モデレータの投票で可決されれば自動的に追加されます。'}
               </p>
             </CardHeader>
             <CardContent>
@@ -558,8 +619,10 @@ export default function CommunityGenresPage() {
                 >
                   {submitLoading ? (
                     <>
-                      <CircularProgress size={16} /> アップロード中...
+                      <CircularProgress size={16} className="mr-2" /> 処理中...
                     </>
+                  ) : isGovernanceFrozen() ? (
+                    '⚡ ジャンルを即時登録する'
                   ) : (
                     '🚀 ジャンルを申請する'
                   )}
@@ -606,39 +669,43 @@ export default function CommunityGenresPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span>賛成率</span>
-                            <span className="font-medium">{approvalRate}%</span>
+                        {!isGovernanceFrozen() && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>賛成率</span>
+                              <span className="font-medium">{approvalRate}%</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                              <div
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${approvalRate}%` }}
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                              <span>👍 {req.weightedVotesFor}</span>
+                              <span>👎 {req.weightedVotesAgainst}</span>
+                              <span>
+                                合計: {req.weightedVotesFor + req.weightedVotesAgainst} / 可決条件:
+                                重み5以上 & 80%以上
+                              </span>
+                            </div>
                           </div>
-                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full bg-primary transition-all"
-                              style={{ width: `${approvalRate}%` }}
-                            />
-                          </div>
-                          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                            <span>👍 {req.weightedVotesFor}</span>
-                            <span>👎 {req.weightedVotesAgainst}</span>
-                            <span>
-                              合計: {req.weightedVotesFor + req.weightedVotesAgainst} / 可決条件:
-                              重み5以上 & 80%以上
-                            </span>
-                          </div>
-                        </div>
+                        )}
 
                         <div className="flex flex-wrap items-center gap-2">
-                          {isSeniorModerator && (
+                          {!isGovernanceFrozen() && isSeniorModerator && (
                             <Badge variant="outline">⚡ 投票の重み: x2</Badge>
                           )}
                           <Button
                             id={`genre-vote-approve-${req.id}`}
-                            variant="outline"
+                            variant={isGovernanceFrozen() ? 'default' : 'outline'}
                             onClick={() => handleVote(req, 'approve')}
                             disabled={voteLoading !== null}
                           >
                             {voteLoading === req.id + 'approve' ? (
                               <CircularProgress size={16} />
+                            ) : isGovernanceFrozen() ? (
+                              '承認'
                             ) : (
                               '👍 賛成'
                             )}
@@ -651,6 +718,8 @@ export default function CommunityGenresPage() {
                           >
                             {voteLoading === req.id + 'reject' ? (
                               <CircularProgress size={16} />
+                            ) : isGovernanceFrozen() ? (
+                              '却下'
                             ) : (
                               '👎 反対'
                             )}

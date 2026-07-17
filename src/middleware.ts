@@ -19,6 +19,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
+import { isGovernanceFrozen } from '@/lib/governance-freeze';
 
 /** moderationTier の優先順位マップ */
 const TIER_RANK: Record<string, number> = {
@@ -97,23 +98,39 @@ export async function middleware(request: NextRequest) {
   }
 
   // -------------------------------------------------------------------
-  // /community/merge: moderator 以上のみ
+  // /community/merge: 凍結時は admin のみ、非凍結時は moderator 以上のみ
   // -------------------------------------------------------------------
   if (pathname.startsWith('/community/merge')) {
-    if (!uid || !hasSufficientTier(moderationTier, 'moderator')) {
-      const notFound = new URL('/not-found', request.url);
-      return createRedirectResponse(notFound, 307);
+    if (isGovernanceFrozen()) {
+      const isAdmin = request.cookies.get('quizetika_role')?.value === 'admin';
+      if (!uid || !isAdmin) {
+        const notFound = new URL('/not-found', request.url);
+        return createRedirectResponse(notFound, 307);
+      }
+    } else {
+      if (!uid || !hasSufficientTier(moderationTier, 'moderator')) {
+        const notFound = new URL('/not-found', request.url);
+        return createRedirectResponse(notFound, 307);
+      }
     }
   }
 
   // -------------------------------------------------------------------
-  // /community/genres: 認証済みユーザーのみ
+  // /community/genres: 凍結時は admin のみ、非凍結時は 認証済みユーザーのみ
   // -------------------------------------------------------------------
   if (pathname.startsWith('/community/genres')) {
-    if (!uid) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return createRedirectResponse(loginUrl, 307);
+    if (isGovernanceFrozen()) {
+      const isAdmin = request.cookies.get('quizetika_role')?.value === 'admin';
+      if (!uid || !isAdmin) {
+        const notFound = new URL('/not-found', request.url);
+        return createRedirectResponse(notFound, 307);
+      }
+    } else {
+      if (!uid) {
+        const loginUrl = new URL('/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return createRedirectResponse(loginUrl, 307);
+      }
     }
   }
 

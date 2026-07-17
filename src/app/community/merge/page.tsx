@@ -8,6 +8,9 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/context/auth-context';
 import { createMergeRequest, voteMergeRequest } from '@/services/tagMerge';
+import { adminExecuteMerge, adminResolveMergeRequest } from '@/services/governanceAdmin';
+import { isGovernanceFrozen } from '@/lib/governance-freeze';
+import { isAdminUser } from '@/lib/middleware-auth-cookies';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -94,8 +97,10 @@ export default function CommunityMergePage() {
     senior_moderator: 3,
   };
 
-  const isAuthorized =
-    !!user && (TIER_RANK[user.moderationTier] ?? 0) >= TIER_RANK.moderator;
+  const isAdmin = !!user && isAdminUser(user);
+  const isAuthorized = isGovernanceFrozen()
+    ? isAdmin
+    : !!user && (TIER_RANK[user.moderationTier] ?? 0) >= TIER_RANK.moderator;
 
   const isSeniorModerator = user?.moderationTier === 'senior_moderator';
 
@@ -109,30 +114,37 @@ export default function CommunityMergePage() {
     }
   }, [user, loading, isAuthorized, router]);
 
+  const fetchMergeRequests = async () => {
+    const { data, error } = await supabase
+      .from('merge_requests')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('マージリクエスト取得エラー:', error);
+      setErrorMessage('マージリクエストの読み込みに失敗しました。');
+    } else {
+      setMergeRequests((data ?? []).map(mapMergeRequestRow));
+    }
+    setFetchLoading(false);
+  };
+
   useEffect(() => {
     if (!isAuthorized) return;
 
     let cancelled = false;
-    const fetchMergeRequests = async () => {
-      const { data, error } = await supabase
-        .from('merge_requests')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
+    const loadData = async () => {
       if (cancelled) return;
-
-      if (error) {
-        console.error('マージリクエスト取得エラー:', error);
-        setErrorMessage('マージリクエストの読み込みに失敗しました。');
-      } else {
-        setMergeRequests((data ?? []).map(mapMergeRequestRow));
-      }
-      setFetchLoading(false);
+      await fetchMergeRequests();
     };
 
-    void fetchMergeRequests();
-    const intervalId = setInterval(fetchMergeRequests, MERGE_REQUESTS_POLL_INTERVAL_MS);
+    void loadData();
+    const intervalId = setInterval(() => {
+      if (!cancelled) {
+        void fetchMergeRequests();
+      }
+    }, MERGE_REQUESTS_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
@@ -148,24 +160,25 @@ export default function CommunityMergePage() {
     setSuccessMessage(null);
     setErrorMessage(null);
 
+    const source = formSourceId.trim();
+    const target = formTargetId.trim();
+
     try {
-      await createMergeRequest(
-        formSourceId.trim(),
-        formTargetId.trim(),
-        formType,
-        formReasoning,
-        user.id,
-      );
-      setSuccessMessage(
-        `「${formSourceId}」→「${formTargetId}」のマージ提案を起案しました。`,
-      );
+      if (isGovernanceFrozen()) {
+        await adminExecuteMerge(source, target, formType, formReasoning);
+        setSuccessMessage(`「${source}」→「${target}」のマージを即時実行しました。`);
+      } else {
+        await createMergeRequest(source, target, formType, formReasoning, user.id);
+        setSuccessMessage(`「${source}」→「${target}」のマージ提案を起案しました。`);
+      }
       setFormSourceId('');
       setFormTargetId('');
       setFormReasoning('');
       setActiveTab('votes');
-    } catch (err) {
-      console.error('起案失敗:', err);
-      setErrorMessage('マージ提案の送信に失敗しました。');
+      await fetchMergeRequests();
+    } catch (err: any) {
+      console.error('起案/実行失敗:', err);
+      setErrorMessage(err.message || 'マージの処理に失敗しました。');
     } finally {
       setSubmitLoading(false);
     }
@@ -179,13 +192,23 @@ export default function CommunityMergePage() {
     setErrorMessage(null);
 
     try {
-      await voteMergeRequest(mergeRequestId, user.id, vote);
-      setSuccessMessage(
-        vote === 'approve' ? '👍 賛成票を投じました。' : '👎 反対票を投じました。',
-      );
-    } catch (err) {
-      console.error('投票失敗:', err);
-      setErrorMessage('投票に失敗しました。');
+      if (isGovernanceFrozen()) {
+        await adminResolveMergeRequest(mergeRequestId, vote);
+        setSuccessMessage(
+          vote === 'approve'
+            ? '✅ マージ提案を承認し、即時実行しました。'
+            : '❌ マージ提案を却下しました。'
+        );
+      } else {
+        await voteMergeRequest(mergeRequestId, user.id, vote);
+        setSuccessMessage(
+          vote === 'approve' ? '👍 賛成票を投じました。' : '👎 反対票を投じました。',
+        );
+      }
+      await fetchMergeRequests();
+    } catch (err: any) {
+      console.error('投票/処理失敗:', err);
+      setErrorMessage(err.message || '操作に失敗しました。');
     } finally {
       setVoteLoading(null);
     }
@@ -218,15 +241,29 @@ export default function CommunityMergePage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
       <header className="space-y-2">
-        <Badge variant="secondary">🔀 モデレータ専用</Badge>
-        <h1 className="text-2xl font-bold">タグ / ジャンル マージリクエスト</h1>
+        <Badge variant="secondary">
+          {isGovernanceFrozen() ? '🛡️ 管理者専用' : '🔀 モデレータ専用'}
+        </Badge>
+        <h1 className="text-2xl font-bold">
+          {isGovernanceFrozen() ? 'タグ / ジャンル 即時マージ管理' : 'タグ / ジャンル マージリクエスト'}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          表記揺れのタグやジャンルを統合するマージ提案を起案・投票できます。
+          {isGovernanceFrozen()
+            ? 'コミュニティガバナンス凍結中につき、管理者権限による即時マージの実行および保留案件の処理が可能です。'
+            : '表記揺れのタグやジャンルを統合するマージ提案を起案・投票できます。'}
         </p>
-        {isSeniorModerator && (
+        {!isGovernanceFrozen() && isSeniorModerator && (
           <Badge variant="outline">⚡ シニアモデレータ — 投票の重み: x2</Badge>
         )}
       </header>
+
+      {isGovernanceFrozen() && (
+        <Alert className="border-amber-500 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <AlertDescription>
+            ⚠️ コミュニティガバナンスは一時凍結中です。操作はシステム管理者の単独判断で即時実行されます。
+          </AlertDescription>
+        </Alert>
+      )}
 
       {successMessage && (
         <Alert>
@@ -242,7 +279,7 @@ export default function CommunityMergePage() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
         <TabsList>
           <TabsTrigger id="tab-votes" value="votes">
-            📋 投票一覧
+            {isGovernanceFrozen() ? '📋 保留中の提案一覧' : '📋 投票一覧'}
             {mergeRequests.length > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {mergeRequests.length}
@@ -250,7 +287,7 @@ export default function CommunityMergePage() {
             )}
           </TabsTrigger>
           <TabsTrigger id="tab-propose" value="propose">
-            ✏️ 提案起案
+            {isGovernanceFrozen() ? '⚡ 即時マージ実行' : '✏️ 提案起案'}
           </TabsTrigger>
         </TabsList>
 
@@ -295,38 +332,49 @@ export default function CommunityMergePage() {
                         <span className="font-medium">{req.targetId}</span>
                       </div>
 
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>賛成率</span>
-                          <span className="font-medium">{approvalRate}%</span>
+                      {req.reason && (
+                        <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground">
+                          <p className="font-semibold text-foreground/80 mb-1">提案理由:</p>
+                          <p className="whitespace-pre-wrap">{req.reason}</p>
                         </div>
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full bg-primary transition-all"
-                            style={{ width: `${approvalRate}%` }}
-                          />
+                      )}
+
+                      {!isGovernanceFrozen() && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>賛成率</span>
+                            <span className="font-medium">{approvalRate}%</span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full bg-primary transition-all"
+                              style={{ width: `${approvalRate}%` }}
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            <span>👍 {req.weightedVotesFor}</span>
+                            <span>👎 {req.weightedVotesAgainst}</span>
+                            <span>
+                              合計重み: {req.weightedVotesFor + req.weightedVotesAgainst}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                          <span>👍 {req.weightedVotesFor}</span>
-                          <span>👎 {req.weightedVotesAgainst}</span>
-                          <span>
-                            合計重み: {req.weightedVotesFor + req.weightedVotesAgainst}
-                          </span>
-                        </div>
-                      </div>
+                      )}
 
                       <div className="flex flex-wrap items-center gap-2">
-                        {isSeniorModerator && (
+                        {!isGovernanceFrozen() && isSeniorModerator && (
                           <Badge variant="outline">⚡ 投票の重み: x2</Badge>
                         )}
                         <Button
                           id={`vote-approve-${req.id}`}
-                          variant="outline"
+                          variant={isGovernanceFrozen() ? 'default' : 'outline'}
                           onClick={() => handleVote(req.id, 'approve')}
                           disabled={voteLoading !== null}
                         >
                           {voteLoading === req.id + 'approve' ? (
                             <CircularProgress size={16} />
+                          ) : isGovernanceFrozen() ? (
+                            '承認'
                           ) : (
                             '👍 賛成'
                           )}
@@ -339,6 +387,8 @@ export default function CommunityMergePage() {
                         >
                           {voteLoading === req.id + 'reject' ? (
                             <CircularProgress size={16} />
+                          ) : isGovernanceFrozen() ? (
+                            '却下'
                           ) : (
                             '👎 反対'
                           )}
@@ -355,9 +405,13 @@ export default function CommunityMergePage() {
         <TabsContent value="propose" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>マージ提案を起案する</CardTitle>
+              <CardTitle>
+                {isGovernanceFrozen() ? 'マージを即時実行する' : 'マージ提案を起案する'}
+              </CardTitle>
               <p className="text-sm text-muted-foreground">
-                統合を提案するソースと統合先ターゲットを入力し、理由を記載してください。
+                {isGovernanceFrozen()
+                  ? '統合を実行するソースと統合先ターゲットを入力し、理由を記載してください。マージは即時に反映されます。'
+                  : '統合を提案するソースと統合先ターゲットを入力し、理由を記載してください。'}
               </p>
             </CardHeader>
             <CardContent>
@@ -391,9 +445,9 @@ export default function CommunityMergePage() {
                 <div className="space-y-2">
                   <Label htmlFor="sourceId">ソース（統合される側）</Label>
                   <Input
-                    id="sourceId"
+                     id="sourceId"
                     type="text"
-                    placeholder="例: javascipt（表記揺れ）"
+                    placeholder={formType === 'tag' ? '例: javascipt（表記揺れ）' : '例: retro-game（表記揺れ）'}
                     value={formSourceId}
                     onChange={(e) => setFormSourceId(e.target.value)}
                     required
@@ -405,7 +459,7 @@ export default function CommunityMergePage() {
                   <Input
                     id="targetId"
                     type="text"
-                    placeholder="例: javascript（正規）"
+                    placeholder={formType === 'tag' ? '例: javascript（正規）' : '例: games（正規）'}
                     value={formTargetId}
                     onChange={(e) => setFormTargetId(e.target.value)}
                     required
@@ -413,10 +467,12 @@ export default function CommunityMergePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="reasoning">統合の理由</Label>
+                  <Label htmlFor="reasoning">
+                    {isGovernanceFrozen() ? 'マージ実行の理由・メモ' : '統合の理由'}
+                  </Label>
                   <Textarea
                     id="reasoning"
-                    placeholder="なぜこのマージが必要か、根拠を説明してください。"
+                    placeholder={isGovernanceFrozen() ? 'システム管理目的など、実行の理由を記載してください。' : 'なぜこのマージが必要か、根拠を説明してください。'}
                     value={formReasoning}
                     onChange={(e) => setFormReasoning(e.target.value)}
                     rows={4}
@@ -426,8 +482,10 @@ export default function CommunityMergePage() {
                 <Button type="submit" id="submit-propose-btn" disabled={submitLoading}>
                   {submitLoading ? (
                     <>
-                      <CircularProgress size={16} /> 送信中...
+                      <CircularProgress size={16} className="mr-2" /> 処理中...
                     </>
+                  ) : isGovernanceFrozen() ? (
+                    '⚡ 即時マージを実行する'
                   ) : (
                     '🚀 マージ提案を起案する'
                   )}

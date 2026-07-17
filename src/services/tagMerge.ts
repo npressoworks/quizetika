@@ -56,6 +56,9 @@ export async function createMergeRequest(
   });
 
   if (error) {
+    if (error.message === 'governance-frozen') {
+      throw new Error('コミュニティガバナンスは現在凍結中です。');
+    }
     if (error.message === 'same-id') {
       throw new Error('同一のタグ/ジャンルをマージすることはできません。');
     }
@@ -87,6 +90,9 @@ export async function voteMergeRequest(
   });
 
   if (error) {
+    if (error.message === 'governance-frozen') {
+      throw new Error('コミュニティガバナンスは現在凍結中です。');
+    }
     if (error.message === 'request-not-found') {
       throw new Error('マージ提案が見つかりません。');
     }
@@ -120,6 +126,9 @@ export async function submitGenreRequest(
   });
 
   if (error) {
+    if (error.message === 'governance-frozen') {
+      throw new Error('コミュニティガバナンスは現在凍結中です。');
+    }
     throw new Error(`ジャンル新設申請の起案に失敗しました: ${error.message}`);
   }
 
@@ -142,6 +151,9 @@ export async function voteGenreRequest(
   });
 
   if (error) {
+    if (error.message === 'governance-frozen') {
+      throw new Error('コミュニティガバナンスは現在凍結中です。');
+    }
     if (error.message === 'request-not-found') {
       throw new Error('ジャンル申請が見つかりません。');
     }

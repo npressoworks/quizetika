@@ -25,6 +25,10 @@ jest.mock('@/lib/middleware-auth-cookies', () => ({
   isAdminUser: jest.fn().mockReturnValue(false),
 }));
 
+jest.mock('@/lib/governance-freeze', () => ({
+  isGovernanceFrozen: jest.fn().mockReturnValue(false),
+}));
+
 const selectChain = {
   eq: jest.fn(),
 };

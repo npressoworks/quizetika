@@ -37,6 +37,7 @@ import {
 import { User, Quiz, Badge } from '@/types';
 import { resolveModerationTierDisplay, type ModerationTierDisplayKey } from '@/lib/moderation-tier-display';
 import { ProfilePlayHistoryPanel } from '@/components/profile/profile-play-history-panel';
+import { isGovernanceFrozen } from '@/lib/governance-freeze';
 import { ProfileDetailSkeleton } from '@/components/profile/profile-skeleton';
 import { ReportUserDialog } from '@/components/profile/report-user-dialog';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -273,10 +274,12 @@ export function ProfileClient() {
             <div className="flex min-w-0 flex-1 flex-col gap-4">
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl font-bold">{profileUser.displayName}</h1>
-                <UiBadge variant="outline" className={cn('gap-1', tierBadgeClass)}>
-                  <SecurityOutlined sx={{ fontSize: 14 }} />
-                  {tierDisplay.label}
-                </UiBadge>
+                {!isGovernanceFrozen() && (
+                  <UiBadge variant="outline" className={cn('gap-1', tierBadgeClass)}>
+                    <SecurityOutlined sx={{ fontSize: 14 }} />
+                    {tierDisplay.label}
+                  </UiBadge>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-4 text-sm">
@@ -288,10 +291,12 @@ export function ProfileClient() {
                   <strong>{profileUser.followersCount}</strong>{' '}
                   <span className="text-muted-foreground">フォロワー</span>
                 </Link>
-                <div>
-                  <strong>{profileUser.reputationScore}</strong>{' '}
-                  <span className="text-muted-foreground">信頼スコア</span>
-                </div>
+                {!isGovernanceFrozen() && (
+                  <div>
+                    <strong>{profileUser.reputationScore}</strong>{' '}
+                    <span className="text-muted-foreground">信頼スコア</span>
+                  </div>
+                )}
               </div>
 
               <p className="text-muted-foreground">

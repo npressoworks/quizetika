@@ -272,6 +272,145 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ==========================================
--- Task 2.2: 管理者専用RPC 3種（後続タスクで本セクションに追記する）
+-- Task 2.2: 管理者専用RPC 3種
 -- handle_admin_execute_merge / handle_admin_resolve_merge_request / handle_admin_resolve_genre_request
+-- 全て is_admin() ガード付き（非管理者は 'forbidden'）。凍結状態と独立して動作し、
+-- 凍結解除後も管理者ツールとして残置する（design.md Key Decision 4）。
+-- is_admin() ガードにより認可は関数内で強制されるため、共有実行関数と異なり
+-- クライアントロールからの EXECUTE 剥奪（REVOKE）は行わない（design.md Implementation Notes）。
 -- ==========================================
+
+-- 管理者による新規マージの即時実行（Req 3.1, 3.2, 3.3）
+-- same-id / circular 検証は handle_create_merge_request の検証ロジックを踏襲し、
+-- merge_requests へ監査行（requester_id = 管理者UID, status = 'approved'）を残した上で
+-- execute_merge を即時実行する。投票を経ないため各投票カウントは 0 のまま。
+CREATE OR REPLACE FUNCTION handle_admin_execute_merge(
+  p_target_type TEXT,
+  p_source_id TEXT,
+  p_target_id TEXT,
+  p_reason TEXT
+) RETURNS UUID AS $$
+DECLARE
+  v_request_id UUID;
+  v_current TEXT;
+  v_visited TEXT[] := ARRAY[p_target_id];
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  IF p_source_id = p_target_id THEN
+    RAISE EXCEPTION 'same-id';
+  END IF;
+
+  IF p_target_type = 'tag' THEN
+    SELECT canonical_id INTO v_current FROM metadata_tags WHERE id = p_target_id;
+  ELSE
+    SELECT canonical_id INTO v_current FROM metadata_genres WHERE id = p_target_id;
+  END IF;
+
+  WHILE v_current IS NOT NULL LOOP
+    IF v_current = p_source_id THEN
+      RAISE EXCEPTION 'circular-merge';
+    END IF;
+    IF v_current = ANY(v_visited) THEN
+      EXIT;
+    END IF;
+    v_visited := array_append(v_visited, v_current);
+
+    IF p_target_type = 'tag' THEN
+      SELECT canonical_id INTO v_current FROM metadata_tags WHERE id = v_current;
+    ELSE
+      SELECT canonical_id INTO v_current FROM metadata_genres WHERE id = v_current;
+    END IF;
+  END LOOP;
+
+  -- 監査行: 管理者の即時マージも merge_requests へ記録する（design.md Security Considerations）
+  INSERT INTO merge_requests (target_type, source_id, target_id, requester_id, reason, status)
+  VALUES (p_target_type, p_source_id, p_target_id, auth.uid(), COALESCE(p_reason, ''), 'approved')
+  RETURNING id INTO v_request_id;
+
+  PERFORM execute_merge(p_target_type, p_source_id, p_target_id);
+
+  RETURN v_request_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 管理者による保留中マージ提案の単独処理（Req 3.4）
+-- approve: execute_merge + status='approved' / reject: status='rejected'
+CREATE OR REPLACE FUNCTION handle_admin_resolve_merge_request(
+  p_request_id UUID,
+  p_decision TEXT
+) RETURNS VOID AS $$
+DECLARE
+  v_status TEXT;
+  v_source_id TEXT;
+  v_target_id TEXT;
+  v_target_type TEXT;
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  IF p_decision IS NULL OR p_decision NOT IN ('approve', 'reject') THEN
+    RAISE EXCEPTION 'invalid-argument';
+  END IF;
+
+  SELECT status, source_id, target_id, target_type
+  INTO v_status, v_source_id, v_target_id, v_target_type
+  FROM merge_requests WHERE id = p_request_id FOR UPDATE;
+
+  IF v_status IS NULL THEN
+    RAISE EXCEPTION 'request-not-found';
+  END IF;
+  IF v_status <> 'pending' THEN
+    RAISE EXCEPTION 'already-resolved';
+  END IF;
+
+  IF p_decision = 'approve' THEN
+    UPDATE merge_requests SET status = 'approved', updated_at = now() WHERE id = p_request_id;
+    PERFORM execute_merge(v_target_type, v_source_id, v_target_id);
+  ELSE
+    UPDATE merge_requests SET status = 'rejected', updated_at = now() WHERE id = p_request_id;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 管理者による保留中ジャンル新設申請の単独処理（Req 4.2, 4.3）
+-- approve: register_genre + status='approved'（ジャンルID重複は register_genre 内の
+-- INSERT が SQLSTATE 23505 で失敗しそのまま伝播） / reject: status='rejected'
+CREATE OR REPLACE FUNCTION handle_admin_resolve_genre_request(
+  p_request_id UUID,
+  p_decision TEXT
+) RETURNS VOID AS $$
+DECLARE
+  v_status TEXT;
+  v_genre_id TEXT;
+  v_display_name TEXT;
+  v_description TEXT;
+  v_icon_image_url TEXT;
+BEGIN
+  IF NOT is_admin() THEN
+    RAISE EXCEPTION 'forbidden';
+  END IF;
+  IF p_decision IS NULL OR p_decision NOT IN ('approve', 'reject') THEN
+    RAISE EXCEPTION 'invalid-argument';
+  END IF;
+
+  SELECT status, genre_id, display_name, description, icon_image_url
+  INTO v_status, v_genre_id, v_display_name, v_description, v_icon_image_url
+  FROM genre_requests WHERE id = p_request_id FOR UPDATE;
+
+  IF v_status IS NULL THEN
+    RAISE EXCEPTION 'request-not-found';
+  END IF;
+  IF v_status <> 'pending' THEN
+    RAISE EXCEPTION 'already-resolved';
+  END IF;
+
+  IF p_decision = 'approve' THEN
+    UPDATE genre_requests SET status = 'approved', updated_at = now() WHERE id = p_request_id;
+    PERFORM register_genre(v_genre_id, v_display_name, v_description, v_icon_image_url);
+  ELSE
+    UPDATE genre_requests SET status = 'rejected', updated_at = now() WHERE id = p_request_id;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
