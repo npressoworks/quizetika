@@ -175,7 +175,7 @@
   - _Boundary: DomainFixWorkflow (e2e/infinite-scroll.spec.ts, 無限スクロール/広告インライン挿入ロジック)_
 
 - [x] 5.3 (P) ソーシャル機能（ブックマーク・通知・リアクション）を調査・修正する
-  - `e2e/social-features.spec.ts` の4件（`:115` F-403-2直接ブックマーク即時反映、`:166` F-404通知機能、`:187` F-405作家リアクション、`:308` フォロー→プレイ→リアクションの複合フロー）を調査し分類する
+  - `e2e/social-features.spec.ts` の4件（`:115` F-403-2直接ブックマーク即時反映、`:166` F-404通知機能、`:187` F-405クリエイターリアクション、`:308` フォロー→プレイ→リアクションの複合フロー）を調査し分類する
   - 対応するプロダクトコードまたはテストコードのみを修正する
   - `product-bug` のものはリグレッションテストを追加し、`npm run test` で悪影響がないことを確認する
   - 観測可能な完了条件: `npx playwright test e2e/social-features.spec.ts` が0 failedで完了し、Ledgerの該当4レコードが `status: fixed` になる

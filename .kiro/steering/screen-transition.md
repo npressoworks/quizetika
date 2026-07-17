@@ -23,7 +23,7 @@ graph TD
     QuizCreate["クイズ作成・編集画面 (/quiz/create, /quiz/[id]/edit)"]
     TestPlay["テストプレイ画面 (/quiz/test-play/play)"]
     TestResult["テストプレイ結果画面 (/quiz/test-play/result)"]
-    CreatorDash["作家ダッシュボード (/creator/dashboard)"]
+    CreatorDash["クリエイターダッシュボード (/creator/dashboard)"]
     
     AdminDash["管理者モデレーション画面 (/admin/moderation)"]
     AdminAnnouncements["管理者お知らせ管理画面 (/admin/announcements)"]
@@ -123,7 +123,7 @@ graph TD
 * **クイズ結果画面 (`/quiz/[id]/result`)**:
   * 正解率、経過時間、問題別の解説・正誤状況一覧を表示。
   * 良問評価（👍良問 / 👎悪問、悪問は理由付き）、体感難易度の投票フォーム。
-  * 間違い・別解指摘フィードバック送信、作家へのリアクション、SNS共有リンク。
+  * 間違い・別解指摘フィードバック送信、クリエイターへのリアクション、SNS共有リンク。
 * **弱点克服プレイ画面 (`/quiz/review`)**:
   * 過去に間違えた問題（`totalFailedQuestionsCount > 0`）を対象とする復習プレイ画面。開始前にジャンルで絞り込みが可能。正解した問題はリストから除外されます。
 
@@ -134,7 +134,7 @@ graph TD
   * 「下書き保存」「公開する」に加え、未保存の状態でもすぐに確認できる「テストプレイ」機能（`sessionStorage` 経由）を提供。
 * **テストプレイ画面 (`/quiz/test-play/play`) / 結果画面 (`/quiz/test-play/result`)**:
   * 作成中の未完成データで体験プレイするデバッグ用画面（統計・リーダーボード非対象）。完了後に「編集画面に戻る」ことができます。
-* **作家ダッシュボード (`/creator/dashboard`)**:
+* **クリエイターダッシュボード (`/creator/dashboard`)**:
   * 投稿したクイズの一覧、アクセス・評価サマリーのグラフ分析。
   * 各問題の選択肢・正解率別解答割合のビジュアル化。
   * プレイヤーから送信された「間違い指摘フィードバック」の確認とクイズ編集への連携。

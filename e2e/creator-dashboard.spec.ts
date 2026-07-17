@@ -186,7 +186,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   });
 
   test('クリエイターダッシュボード: 指摘解決フロー', async ({ page }) => {
-    // 1. ダッシュボードへアクセスし、作家タブへ切り替え
+    // 1. ダッシュボードへアクセスし、クリエイタータブへ切り替え
     await page.goto('/creator/dashboard');
     await page.getByTestId('dashboard-tab-creator').click();
 

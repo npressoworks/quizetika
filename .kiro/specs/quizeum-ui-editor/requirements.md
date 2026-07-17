@@ -147,7 +147,7 @@ Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 UI 刷
 - **対象外（Out of scope）**:
   - リストエディタ UI の shadcn 移行（**Phase 26 でスコープ外**）
   - リスト探索・ブックマークリスト・リストプレイ UI（`quizetika-play-flow-ui`）
-  - 作家ダッシュボード CTA 除去（`quizetika-creator-dash-ui`）
+  - クリエイターダッシュボード CTA 除去（`quizetika-creator-dash-ui`）
   - Firestore `quiz-list` サービス削除（`quizetika-core`）
 - **隣接システムへの期待（Phase 26）**:
   - `quizetika-play-flow-ui` 28.1 により `/list/*` ルートと `components/quiz-list` が削除済みであること
@@ -164,7 +164,7 @@ Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 UI 刷
 4. When Phase 26 が完了したとき, the Editor UI shall リストエディタ専用 Jest テスト（`list-type-selector.test.tsx`, `question-list-attach-panel.test.tsx` 等）が除去されていること。
 5. When Phase 26 が完了したとき, the Editor UI shall `e2e/quiz-list.spec.ts` および E2E 内のリスト作成・編集・`list-editor-skeleton` シナリオが除去されていること。
 6. The Editor UI shall `/quiz/create`・`/quiz/[id]/edit` のクイズエディタ shadcn + Tailwind 移行成果（Phase 24）を維持し、下書き保存・公開・テストプレイ・8 形式・参照問題 UI が回帰なく動作すること。
-7. The Editor UI shall `quiz-list-skeleton.tsx`（作家ダッシュボード用クイズ一覧スケルトン）をリスト機能と混同せず維持すること。
+7. The Editor UI shall `quiz-list-skeleton.tsx`（クリエイターダッシュボード用クイズ一覧スケルトン）をリスト機能と混同せず維持すること。
 
 ## Phase 31: 複合形式における許容問題形式の拡張 (2026-07)
 

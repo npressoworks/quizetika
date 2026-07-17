@@ -184,7 +184,7 @@
 
 **ルート存続とレガシー**
 4. The [Auth Profile UI] shall [本フェーズでは `/profile/[uid]/likes` ルートファイルの削除または404化を必須としない（直接 URL アクセスは follow-up で整理可）]。
-5. The [Auth Profile UI] shall [リアクション送信 UI、作家リアクション、Firestore `reactions` データの削除を本要件の範囲に含めない]。
+5. The [Auth Profile UI] shall [リアクション送信 UI、クリエイターリアクション、Firestore `reactions` データの削除を本要件の範囲に含めない]。
 
 **テスト・隣接**
 6. The [Auth Profile UI] shall [本人プロフィール画面に `data-testid="profile-reaction-history-link"` 等のリアクション履歴導線用 testid を付与しないこと]。

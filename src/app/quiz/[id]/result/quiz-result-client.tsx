@@ -650,7 +650,7 @@ export function QuizResultClient({
         <div className={styles.offlineAlert}>
           <SecurityOutlined sx={{ fontSize: 24 }} style={{ color: '#ff007f' }} />
           <div className={styles.offlineText}>
-            現在オフラインのため、良問評価や間違い指摘、作家リアクションは送信できません。
+            現在オフラインのため、良問評価や間違い指摘、クリエイターリアクションは送信できません。
           </div>
         </div>
       )}

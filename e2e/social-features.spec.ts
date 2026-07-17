@@ -182,7 +182,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     }
   });
 
-  test('F-405: 作家リアクション（いいね・感謝）機能が正常に動作すること', async ({ page }) => {
+  test('F-405: クリエイターリアクション（いいね・感謝）機能が正常に動作すること', async ({ page }) => {
     await ensureQuizAndNavigate(page);
 
     // クイズ詳細ページであることを確認
@@ -227,7 +227,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     // 結果画面へ遷移することを確認
     await expect(page).toHaveURL(/\/quiz\/[\w-]+\/result/);
 
-    // 3. 作家リアクション（いいね）ボタンをクリック
+    // 3. クリエイターリアクション（いいね）ボタンをクリック
     const likeBtn = page.locator('button').filter({ hasText: /いいね|感謝|👍/ }).first();
     // 自分が作成したクイズの場合はボタンが disabled になるため、有効（Enabled）な場合のみクリックします
     if (await likeBtn.isVisible() && await likeBtn.isEnabled()) {

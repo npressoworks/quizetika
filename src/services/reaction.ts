@@ -44,7 +44,7 @@ async function attachQuizTitles(rows: ReactionRow[]): Promise<Reaction[]> {
 }
 
 /**
- * 作家へのいいねリアクションをアトミックにトグル（追加/解除）する
+ * クリエイターへのいいねリアクションをアトミックにトグル（追加/解除）する
  * receiverId はクライアントから受け取らず、RPC側でクイズの作成者から導出する
  */
 export async function toggleReaction(senderId: string, quizId: string): Promise<boolean> {

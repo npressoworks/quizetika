@@ -49,7 +49,7 @@
 | 11 | auth-profile | 207 | 好きなジャンルの設定と表示の検証（Phase 28） |
 | 12 | creator-dashboard | 5 | F-901: クリエイターダッシュボードが正常に表示されること |
 | 13 | creator-dashboard | 241 | 複合テスト: ダッシュボード → クイズ作成 → 統計確認 の完全フロー |
-| 14 | creator-streaming-skeleton | 5 | 作家ダッシュボードで各スケルトンが消えコンテンツが表示されること |
+| 14 | creator-streaming-skeleton | 5 | クリエイターダッシュボードで各スケルトンが消えコンテンツが表示されること |
 | 15 | creator-streaming-skeleton | 19 | クイズ作成画面で quiz-editor-skeleton が消えエディタが表示されること |
 | 16 | genre-icons | 5 | コミュニティジャンル申請での手動アップロード & 申請 & 投票可決フロー |
 | 17 | home-sidebar | 59 | お問い合わせリンクをクリックして別タブでフォームが開くこと |
@@ -81,7 +81,7 @@
 | 43 | seo-sharing | 230 | 複合テスト: クイズ作成 → OGPメタデータ検証 → SNS共有確認 の完全フロー |
 | 44 | social-features | 115 | F-403-2: トップページ一覧からの直接ブックマークで星アイコンが即時反映されること |
 | 45 | social-features | 166 | F-404: 通知機能が正常に動作すること |
-| 46 | social-features | 187 | F-405: 作家リアクション（いいね・感謝）機能が正常に動作すること |
+| 46 | social-features | 187 | F-405: クリエイターリアクション（いいね・感謝）機能が正常に動作すること |
 | 47 | social-features | 308 | 複合テスト: フォロー → プレイ → リアクション の完全フロー |
 | 48 | streaming-skeleton | 68 | 弱点克服画面で review-skeleton が消えジャンル選択が表示されること |
 | 49 | streaming-skeleton | 77 | ブックマーク画面で bookmarks-skeleton が消え3タブが表示されること |

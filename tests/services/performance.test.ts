@@ -14,7 +14,7 @@ import { Quiz } from '../../src/types';
 const mockQuiz: Quiz = {
   id: 'performance-test-quiz',
   authorId: 'creator-99',
-  authorName: 'テスト作家',
+  authorName: 'テストクリエイター',
   authorAvatar: 'https://quizetika.com/avatars/creator-99.png',
   title: '世界史の真実クイズ',
   description: '歴史ミステリーの真相に迫る高度なクイズです。',

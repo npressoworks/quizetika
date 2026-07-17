@@ -136,7 +136,7 @@ describe('ReactionService', () => {
   });
 
   describe('getReceivedReactions', () => {
-    test('作家として自作クイズに獲得したリアクション履歴を降順で取得し、クイズタイトルを付与すること', async () => {
+    test('クリエイターとして自作クイズに獲得したリアクション履歴を降順で取得し、クイズタイトルを付与すること', async () => {
       const receiverId = 'author-1';
       mockSupabase.from.mockImplementation((table: string) => {
         if (table === 'reactions') {

@@ -1,7 +1,7 @@
 # Technical Design Document: quizetika-creator-dash-ui
 
 ## Overview
-本ドキュメントは、クイズ投稿SNS「quizetika」におけるクリエイター（作家）向けUIの技術設計仕様を定義します。クイズの作成・下書き・編集機能、ドラッグ＆ドロップによるリストの作成・並べ替え、作家ダッシュボードにおけるアナリティクス可視化、間違い指摘フィードバックの管理、および自作クイズデータの一括パッケージエクスポートを構築します。
+本ドキュメントは、クイズ投稿SNS「quizetika」におけるクリエイター（クリエイター）向けUIの技術設計仕様を定義します。クイズの作成・下書き・編集機能、ドラッグ＆ドロップによるリストの作成・並べ替え、クリエイターダッシュボードにおけるアナリティクス可視化、間違い指摘フィードバックの管理、および自作クイズデータの一括パッケージエクスポートを構築します。
 
 本システムは、Next.jsのApp RouterおよびReact、TypeScriptのフロントエンド構成に加え、CSS Modulesによる親しみやすく機能的なデザインシステムを実装し、Firestoreサービス（`QuizService`, `QuizListService`, `ReviewService`等）およびフロントエンド側Zodスキーマと接続します。
 
@@ -11,16 +11,16 @@
 
 **Phase 12（2026-06）**: 作問エディタの説明文・問題文・真相・解説文テキストエリアの自動伸長、過去自作クイズ検索の問題文・正解テキスト照合拡張、参照リンク成功フィードバック、問題文ヒット時のアコーディオン自動展開、リンク済み問題のリンク解除、テストプレイ後の編集画面ドラフト復元（問題重複防止）を追加する。問題照合の純関数と `searchAuthorQuizzes` パイプライン拡張は lib/service 層が担当し、UI は表示・フィードバックのみ。
 
-**Phase 27（2026-06-28）**: 作家ダッシュボードをプレイヤー統計情報も確認できる統合ダッシュボードへと拡張し、タブ（「プレイヤー」「作家」）で表示を切り替え可能にする。プレイヤーダッシュボードには、基本プレイ統計、直近7日間のプレイ回数推移、プレイモード割合、よくプレイするジャンル／タグ、および正答率の高いジャンル／タグを表示する。
+**Phase 27（2026-06-28）**: クリエイターダッシュボードをプレイヤー統計情報も確認できる統合ダッシュボードへと拡張し、タブ（「プレイヤー」「クリエイター」）で表示を切り替え可能にする。プレイヤーダッシュボードには、基本プレイ統計、直近7日間のプレイ回数推移、プレイモード割合、よくプレイするジャンル／タグ、および正答率の高いジャンル／タグを表示する。
 
-**Phase 28（2026-06-28）**: 作家ダッシュボードの間違い指摘キューにおいて、各指摘を解決（解消）済みとするアクションを追加し、Firestoreの指摘ステータス更新（`resolveReport` 呼び出し）とダッシュボード表示の即時反映を連携する。また、`resolveReport` で追加される通知データ構造のスキーマバグを修正する。
+**Phase 28（2026-06-28）**: クリエイターダッシュボードの間違い指摘キューにおいて、各指摘を解決（解消）済みとするアクションを追加し、Firestoreの指摘ステータス更新（`resolveReport` 呼び出し）とダッシュボード表示の即時反映を連携する。また、`resolveReport` で追加される通知データ構造のスキーマバグを修正する。
 
 
 ### Goals
 - 問題の動的追加・削除、クイズタイプトグルを備えた直感的なクイズエディタの構築。
 - タグ入力時におけるリアルタイム「自動名寄せ」正規化と類似 canonical タグのインラインサジェスト警告UI。
 - Zodバリデーションを用いた、公開申請時における厳格なエラーインラインフィードバック。
-- 作家ダッシュボードにおける累計数値アナリティクスおよび個別問題解答割合グラフ（円グラフ等）のビジュアル化。
+- クリエイターダッシュボードにおける累計数値アナリティクスおよび個別問題解答割合グラフ（円グラフ等）のビジュアル化。
 - クローズド間違い指摘のキュー管理と該当問題の修正動線統合。
 - クイズ一括エクスポートおよびリストパッケージエクスポートのクライアント側データダウンロード処理。
 - クイズリスト作成における、スムーズなクイズ検索アタッチおよびドラッグ＆ドロップ順序並べ替えUI。
@@ -496,7 +496,7 @@ sequenceDiagram
 | `QuizEditor`                       | UI / Page      | クイズの新規作成・編集、タグ警告、Zod検証、テストプレイ復帰   | 1.1–1.6, 5.1–5.7, 7.16, 8.1–8.5, 9.1–9.7 | `QuizService`, `GenreEditorSelect`, `AutoGrowTextarea`, `test-play.ts` | FormState      |
 | `AutoGrowTextarea`                 | UI / Component | 内容に応じた textarea 高さ同期                                | 8.1–8.5                                  | —                                                                      | Controlled     |
 | `GenreEditorSelect`                | UI / Component | マスタ駆動ジャンル `<select>`                                 | 5.1–5.6                                  | `useActiveGenres`                                                      | Controlled     |
-| `CreatorDashboard`                 | UI / Page      | 作家アナリティクス、指摘解決、クイズエクスポート              | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6             | `ReviewService`, `QuizService`, `FeedbackSection`                      | State          |
+| `CreatorDashboard`                 | UI / Page      | クリエイターアナリティクス、指摘解決、クイズエクスポート              | 2.1, 2.2, 2.3, 2.4, 2.5, 2.6             | `ReviewService`, `QuizService`, `FeedbackSection`                      | State          |
 | `QuizListDetail`                   | UI / Page      | クイズリストの閲覧、プレイ開始トラッキング                    | 3.1, 3.2, 3.3                            | `QuizListService`, `useAuth`                                           | State          |
 | `QuizListEditor`                   | UI / Page      | リストの新規作成・編集、listType 分岐、アタッチ、エクスポート | 4.1–4.3, 6.1–6.3, 6.10                   | `QuizListService`                                                      | State          |
 | `ListTypeSelector`                 | UI / Component | 新規リストの `quiz` / `question` 選択                         | 6.1, 6.2                                 | —                                                                      | Controlled     |
@@ -799,11 +799,11 @@ export function consumeTestPlayDraftForEditor(
 ## Phase 12 クリエイター管理画面の非同期表示最適化設計（2026-06-07）
 
 ### 概要
-作家ダッシュボード（`/creator/dashboard`）、クイズ作成・編集画面（`/quiz/create`, `/quiz/[id]/edit`）、およびリスト詳細・編集画面（`/list/...`）を Next.js App Router の Server Component として構築し、静的ページレイアウト（ヘッダー、タイトル枠、アクションボタン、サイドバー等）をサーバー側から即時描画・配信します。動的・非同期データが必要な領域については React Suspense と Skeleton を配置して順次ロード・描画を行います。
+クリエイターダッシュボード（`/creator/dashboard`）、クイズ作成・編集画面（`/quiz/create`, `/quiz/[id]/edit`）、およびリスト詳細・編集画面（`/list/...`）を Next.js App Router の Server Component として構築し、静的ページレイアウト（ヘッダー、タイトル枠、アクションボタン、サイドバー等）をサーバー側から即時描画・配信します。動的・非同期データが必要な領域については React Suspense と Skeleton を配置して順次ロード・描画を行います。
 
 ### 1. ページ構造と Suspense 境界の定義
 
-#### A. 作家ダッシュボード画面（`/creator/dashboard`）
+#### A. クリエイターダッシュボード画面（`/creator/dashboard`）
 * **静的フレーム (RSC)**: クリエイターヘッダー、サイドバー、「新規クイズ作成」「一括エクスポート」等のアクションメニュー。
 * **動的 / 非同期ロード領域 (Suspense)**:
   * **累計統計データ**: `<Suspense fallback={<StatsSkeleton data-testid="stats-skeleton" />}>`
@@ -828,13 +828,13 @@ export function consumeTestPlayDraftForEditor(
     * アタッチ候補クイズ一覧や Drag & Drop リスト行。
 
 ### 2. ミドルウェアによるサーバーサイド認証保護
-作家ダッシュボード（`/creator/dashboard`）やクイズ編集（`/quiz/[id]/edit`）は作成者本人の認証および認可が必要なため、Middleware (`src/middleware.ts`) を用いて Firebase セッションCookie を評価し、無効な場合は即座に `/login` にサーバーサイドリダイレクト（`307`）させます。マウント後のクライアントサイドリダイレクトによる白紙表示を防ぎます。
+クリエイターダッシュボード（`/creator/dashboard`）やクイズ編集（`/quiz/[id]/edit`）は作成者本人の認証および認可が必要なため、Middleware (`src/middleware.ts`) を用いて Firebase セッションCookie を評価し、無効な場合は即座に `/login` にサーバーサイドリダイレクト（`307`）させます。マウント後のクライアントサイドリダイレクトによる白紙表示を防ぎます。
 
 ### 3. Requirements Traceability
 
 | 要件 ID | 要件サマリー                             | 該当コンポーネント                                                | インターフェース / 責務                                       | フロー / 挙動                                             |
 | :------ | :--------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ | :-------------------------------------------------------- |
-| 10.1    | 作家ダッシュボードの静的先行表示         | `src/app/creator/dashboard/page.tsx`                              | Server Component としてヘッダー等の枠組みを即時レンダリング。 | ユーザーアクセス時に即時描画・配信                        |
+| 10.1    | クリエイターダッシュボードの静的先行表示         | `src/app/creator/dashboard/page.tsx`                              | Server Component としてヘッダー等の枠組みを即時レンダリング。 | ユーザーアクセス時に即時描画・配信                        |
 | 10.2    | 累計統計データのスケルトン表示           | `src/components/charts/stats-skeleton.tsx`                        | 統計データのロード中、カード用のスケルトンを表示する。        | `data-testid="stats-skeleton"` を付与                     |
 | 10.3    | 累計統計データのコンテンツ置換           | `src/app/creator/dashboard/page.tsx`                              | データロード完了後、統計カードを実データに差し替える。        | `<Suspense>` による非同期制御                             |
 | 10.4    | 作成クイズ一覧のスケルトン表示           | `src/components/quiz/quiz-list-skeleton.tsx`                      | 自作クイズ一覧の取得中、リスト用のスケルトンを表示する。      | `data-testid="quiz-list-skeleton"` を付与                 |
@@ -928,7 +928,7 @@ export function consumeTestPlayDraftForEditor(
 
 ### 1. Overview
 
-クイズリスト・問題リストの作成・編集・詳細画面と関連コンポーネントを削除する。作家ダッシュボードの「リスト作成」CTA を除去し、クイズエディタ・ダッシュボード（クイズ管理）のみを維持する。要件 3・4・6 および要件 10 のリスト Suspense 節は廃止する。
+クイズリスト・問題リストの作成・編集・詳細画面と関連コンポーネントを削除する。クリエイターダッシュボードの「リスト作成」CTA を除去し、クイズエディタ・ダッシュボード（クイズ管理）のみを維持する。要件 3・4・6 および要件 10 のリスト Suspense 節は廃止する。
 
 ### 2. Boundary Commitments（Phase 26）
 
@@ -978,11 +978,11 @@ export function consumeTestPlayDraftForEditor(
 
 ---
 
-## Phase 27: 作家＆プレイヤー統合ダッシュボード
+## Phase 27: クリエイター＆プレイヤー統合ダッシュボード
 
 ### 1. Overview
 
-作家ダッシュボード（`/creator/dashboard`）を、プレイヤーとしての統計情報も閲覧できる「統合ダッシュボード」へと拡張します。画面上部に「プレイヤー」と「作家」の切り替えタブを追加し、デフォルトで「プレイヤー」のダッシュボードを表示します。
+クリエイターダッシュボード（`/creator/dashboard`）を、プレイヤーとしての統計情報も閲覧できる「統合ダッシュボード」へと拡張します。画面上部に「プレイヤー」と「クリエイター」の切り替えタブを追加し、デフォルトで「プレイヤー」のダッシュボードを表示します。
 
 ### 2. Boundary Commitments（Phase 27）
 
@@ -999,7 +999,7 @@ export function consumeTestPlayDraftForEditor(
 <Tabs defaultValue="player" className="w-full">
   <TabsList className="mb-6 grid w-full grid-cols-2 max-w-[400px]">
     <TabsTrigger value="player">プレイヤー</TabsTrigger>
-    <TabsTrigger value="writer">作家</TabsTrigger>
+    <TabsTrigger value="writer">クリエイター</TabsTrigger>
   </TabsList>
   <TabsContent value="player">
     <PlayerDashboardClient />
@@ -1031,8 +1031,8 @@ export function consumeTestPlayDraftForEditor(
 |---|---|---|
 | `src/lib/player-stats.ts` | **New** | 完了した attempts と紐づく quizzes から、基本統計、日別推移、モード割合、ジャンル・タグの頻度・正答率を集計する純関数 |
 | `src/app/creator/dashboard/player-dashboard-client.tsx` | **New** | プレイヤー統計データの非同期フェッチ（直近100件 attempts & 紐づく quizzes）、集計実行、およびプレイヤーダッシュボード UI のレンダリング |
-| `src/app/creator/dashboard/page.tsx` | **Modify** | 画面のタイトルを「ダッシュボード」に更新（「作家ダッシュボード」から変更） |
-| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `Tabs` コンポーネントを導入し、プレイヤーと作家のダッシュボードの表示を切り替え（`PlayerDashboardClient` / `CreatorDashboardClient`） |
+| `src/app/creator/dashboard/page.tsx` | **Modify** | 画面のタイトルを「ダッシュボード」に更新（「クリエイターダッシュボード」から変更） |
+| `src/app/creator/dashboard/dashboard-client.tsx` | **Modify** | `Tabs` コンポーネントを導入し、プレイヤーとクリエイターのダッシュボードの表示を切り替え（`PlayerDashboardClient` / `CreatorDashboardClient`） |
 | `src/app/creator/dashboard/dashboard-sections.tsx` | **Modify** | プレイヤーダッシュボード用の統計グリッド、ジャンル/タグ分析表示用のUIコンポーネントを定義 |
 
 ### 5. Testing Strategy（Phase 27）
@@ -1040,7 +1040,7 @@ export function consumeTestPlayDraftForEditor(
 | 種別 | 検証 |
 |---|---|
 | **Component** | `src/lib/player-stats.ts` の単体テスト：ダミーの attempts/quizzes から期待通りの集計値、よくプレイするジャンル、正答率、グラフデータが出力されることを検証。 |
-| **E2E** | ダッシュボードページでデフォルトで「プレイヤー」が表示されること、タブクリックで「作家」ダッシュボードに切り替わること。 |
+| **E2E** | ダッシュボードページでデフォルトで「プレイヤー」が表示されること、タブクリックで「クリエイター」ダッシュボードに切り替わること。 |
 | **E2E** | プレイヤーダッシュボードに、基本統計、グラフ、ジャンル・タグ分析が期待通り表示されること（モックデータを利用）。 |
 
 **Effort**: **M**（2日）
@@ -1052,7 +1052,7 @@ export function consumeTestPlayDraftForEditor(
 ## Phase 28: 間違い指摘キューの解消（解決）機能（2026-06-28）
 
 ### 1. Overview
-作家ダッシュボードの間違い指摘キュー（`FeedbackSection`）において、指摘を解決（解消）済みとするアクションボタン（「解決済みにする」）を提供します。非同期でのFirestore更新処理（`resolveReport`）を呼び出し、処理中の二重送信防止および完了後のクライアント側状態（リスト表示）の即時更新を行います。また、既存の `resolveReport` 内で発生している通知コレクションへのスキーマ不整合バグを修正します。
+クリエイターダッシュボードの間違い指摘キュー（`FeedbackSection`）において、指摘を解決（解消）済みとするアクションボタン（「解決済みにする」）を提供します。非同期でのFirestore更新処理（`resolveReport`）を呼び出し、処理中の二重送信防止および完了後のクライアント側状態（リスト表示）の即時更新を行います。また、既存の `resolveReport` 内で発生している通知コレクションへのスキーマ不整合バグを修正します。
 
 ### 2. Boundary Commitments（Phase 28）
 
@@ -1096,7 +1096,7 @@ export function consumeTestPlayDraftForEditor(
 
 ### 1. Overview
 
-作家ダッシュボード（`/creator/dashboard`）はアナリティクス（累計統計・グラフ・プレイヤー統計）に専念させ、作成者が自分のクイズを一覧・検索・並び替え・管理するための専用画面 `/creator/quizzes` を新設します。既に `quizetika-core`／`updateQuiz` に実装済みの `visibility`（`public`/`followers`/`private`）と Pro プラン制限ロジック（`assertCanSetQuizVisibilitySync`）を初めて UI に露出し、クイズ単位の未解決指摘件数バッジから既存の編集画面（要件14の指摘サイドバー）へ導線を張ります。
+クリエイターダッシュボード（`/creator/dashboard`）はアナリティクス（累計統計・グラフ・プレイヤー統計）に専念させ、作成者が自分のクイズを一覧・検索・並び替え・管理するための専用画面 `/creator/quizzes` を新設します。既に `quizetika-core`／`updateQuiz` に実装済みの `visibility`（`public`/`followers`/`private`）と Pro プラン制限ロジック（`assertCanSetQuizVisibilitySync`）を初めて UI に露出し、クイズ単位の未解決指摘件数バッジから既存の編集画面（要件14の指摘サイドバー）へ導線を張ります。
 
 ### 2. Boundary Commitments（Phase 40）
 
@@ -1104,9 +1104,9 @@ export function consumeTestPlayDraftForEditor(
 |---|---|
 | `/creator/quizzes` ページ本体（一覧・検索・絞り込み・並び替え・空/エラー状態） | 指摘の解決・却下操作 UI 本体（要件14の編集画面サイドバー・モーダルが担当） |
 | 統合ステータス（公開/限定公開/非公開/下書き）の導出・表示・切替 UI | `visibility` 判定・Pro 制限ロジックの正本（`quizetika-core` / `src/lib/quiz-access.ts` が担当。本スペックは呼び出しとエラー表示のみ） |
-| クイズ検索・絞り込み（キーワード/統合ステータス/ジャンル/タグ）・並び替えの lib 拡張 | アナリティクスグラフ・個別問題解答割合・プレイヤー統計（作家ダッシュボードが引き続き担当） |
+| クイズ検索・絞り込み（キーワード/統合ステータス/ジャンル/タグ）・並び替えの lib 拡張 | アナリティクスグラフ・個別問題解答割合・プレイヤー統計（クリエイターダッシュボードが引き続き担当） |
 | クイズ単位の未解決指摘件数集計・バッジ表示・編集画面への導線 | クイズの削除機能（本フェーズでは提供しない） |
-| 作家ダッシュボードの簡易クイズ一覧セクション撤去と本画面への導線への置換 | `updateQuiz` 自体の実装・バリデーション（`quizetika-core` が担当。本スペックは呼び出し元） |
+| クリエイターダッシュボードの簡易クイズ一覧セクション撤去と本画面への導線への置換 | `updateQuiz` 自体の実装・バリデーション（`quizetika-core` が担当。本スペックは呼び出し元） |
 
 ### 3. Architecture
 

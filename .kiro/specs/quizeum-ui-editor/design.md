@@ -448,7 +448,7 @@ Phase 24 ではクイズエディタとリストエディタの両方を shadcn 
 | -------------------------------------- | -------------------------------------- |
 | リストエディタコンポーネント削除の確認 | Core `quiz-list` サービス削除          |
 | エディタ E2E からリストシナリオ除去    | ブックマーク・探索 UI（play-flow）     |
-| クイズエディタ Phase 24 成果の維持     | 作家ダッシュボード CTA（creator-dash） |
+| クイズエディタ Phase 24 成果の維持     | クリエイターダッシュボード CTA（creator-dash） |
 
 **This Spec Owns（Phase 26 改定後）**
 - `src/components/quiz/quiz-editor.tsx` および `editor/*` サブコンポーネント
@@ -479,7 +479,7 @@ Phase 24 ではクイズエディタとリストエディタの両方を shadcn 
 
 **維持**
 - `src/app/quiz/create`, `src/app/quiz/[id]/edit`, `quiz-editor-loader.tsx`
-- `src/components/quiz/quiz-list-skeleton.tsx` — 作家ダッシュボード用（クイズ一覧 Suspense）。リスト機能とは無関係
+- `src/components/quiz/quiz-list-skeleton.tsx` — クリエイターダッシュボード用（クイズ一覧 Suspense）。リスト機能とは無関係
 
 ### 4. Architecture（Phase 26 改定）
 

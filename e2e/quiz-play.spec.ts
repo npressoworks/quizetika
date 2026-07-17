@@ -135,7 +135,7 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     await expect(difficultyVoteBtn).toHaveText('🔥');
     await expect(difficultyVoteBtn).not.toHaveClass(/grayscale/);
 
-    // 10. 作家感謝リアクションの送信
+    // 10. クリエイター感謝リアクションの送信
     const reactionBtn = page.locator('button').filter({ hasText: 'お礼リアクションを送る' }).first();
     if (await reactionBtn.isVisible()) {
       if (authorIsMe) {
