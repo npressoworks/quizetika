@@ -45,15 +45,15 @@
   - _Depends: 2.2_
 
 ### 3. Core - Play: クイズ回答画面の改修と解答判定の統合
-- [ ] 3. Core - Play: クイズ回答画面の改修と解答判定の統合
-- [ ] 3.1 `getTextInputFieldProps` の更新と解答画面への適用
+- [x] 3. Core - Play: クイズ回答画面の改修と解答判定 of 統合
+- [x] 3.1 `getTextInputFieldProps` の更新と解答画面への適用
   - `text-answer-utils.ts` の `getTextInputFieldProps` を更新し、数字モードなら `inputMode="decimal"`、文字数指定ありなら `maxLength` やプレースホルダーでの案内文を動的に生成する
   - 実際のプレイ画面 (`quiz-play-client.tsx`)、テストプレイ画面 (`test-play-client.tsx`)、復習画面 (`review-client.tsx`) の `<input>` 要素に、生成された props を正しく渡す
   - [Done] 実際のクイズプレイ画面において、数字モードでテンキー用のキーボードが開き、文字数指定時にその文字数までしか入力できず、プレースホルダーが「〇文字で入力...」になること
   - _Requirements: 4.1, 4.2, 4.3_
   - _Boundary: TextAnswerUtils, PlayFlowUI_
   - _Depends: 1.2_
-- [ ] 3.2 回答判定 (isTextInputAnswerCorrect) の解答画面への適用
+- [x] 3.2 回答判定 (isTextInputAnswerCorrect) の解答画面への適用
   - 実際のプレイ時および復習時の解答判定フック (`usePlayState.ts`) や判定ロジックが、Foundationで実装した `isTextInputAnswerCorrect` を用いるように連動を確認する
   - [Done] プレイ画面で全角英数字・半角カナ・空白混じりの正解を入力した際、自動正規化により「正解」と判定されること
   - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
@@ -61,8 +61,8 @@
   - _Depends: 1.2, 3.1_
 
 ### 4. Validation: 結合・E2E検証
-- [ ] 4. Validation: 結合・E2E検証
-- [ ] 4.1 全体ビルドおよび既存テストの回帰検証
+- [x] 4. Validation: 結合・E2E検証
+- [x] 4.1 全体ビルドおよび既存テストの回帰検証
   - ローカルで `npm run build` および `npm run test` を実行し、全モジュールのコンパイルが成功し、既存のテスト（Jestの全テスト）にデグレードがないことを確認する
   - [Done] ビルドおよびテストがオールクリアされること
   - _Requirements: 3.4, 4.1_

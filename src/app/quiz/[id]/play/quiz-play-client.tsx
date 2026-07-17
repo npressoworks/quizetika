@@ -1,6 +1,6 @@
 'use client';
 
-import { getTextInputFieldProps } from '@/services/text-answer-utils';
+import { getTextInputFieldProps, normalizeTextAnswer } from '@/services/text-answer-utils';
 import React, { useCallback, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -1208,7 +1208,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                   onSubmit={(e) => {
                     e.preventDefault();
                     const input = (e.currentTarget.elements.namedItem('textAnswer') as HTMLInputElement).value;
-                    submitAnswer(input);
+                    submitAnswer(normalizeTextAnswer(input));
                     e.currentTarget.reset();
                   }}
                   className={styles.inputForm}
