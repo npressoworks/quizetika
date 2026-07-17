@@ -24,20 +24,20 @@
   - _Boundary: TestSuite_
 
 ### 2. Core - Editor: 作問エディタおよび保存前バリデーションの改修
-- [ ] 2. Core - Editor: 作問エディタおよび保存前バリデーションの改修
-- [ ] 2.1 (P) 作問エディタUI (TextInputEditor) の文字種・文字数入力欄の改修
+- [x] 2. Core - Editor: 作問エディタおよび保存前バリデーションの改修
+- [x] 2.1 (P) 作問エディタUI (TextInputEditor) の文字種・文字数入力欄の改修
   - `text-input-editor.tsx` の「入力タイプ」選択欄を新しい文字種（フリー、漢字、カタカナ、アルファベット、数字）のセレクト/トグルに変更する
   - 要求文字数の入力欄を、選択中の文字種に関わらず常時表示するように改修する
   - [Done] 作問エディタを開いた際、新しい文字種の選択肢が表示され、どの文字種を選択しても文字数入力欄が表示されること
   - _Requirements: 3.1, 3.2_
   - _Boundary: TextInputEditor_
-- [ ] 2.2 (P) クイズエディタ状態管理および自動変換適用
+- [x] 2.2 (P) クイズエディタ状態管理および自動変換適用
   - `quiz-editor.tsx` の `handleTextInputModeChange` および `handleTextInputCharCountChange` を新仕様（空欄時に undefined をセットする等）に追従させる
   - 作問時、正解候補の入力・保存のタイミングで `normalizeTextAnswer` を適用し、自動変換を適用する
   - [Done] 作問エディタで全角英数字・半角カナの正解候補を入力した際、自動で正規化（半角英数・全角カナ）されて保存されること
   - _Requirements: 1.4, 3.3_
   - _Boundary: QuizEditor_
-- [ ] 2.3 クイズ保存前バリデーション (quiz-validation) の更新
+- [x] 2.3 クイズ保存前バリデーション (quiz-validation) の更新
   - `src/services/quiz-validation.ts` を更新し、設定された文字種ルールに正解候補が違反していないか、および文字数指定がある場合に一致しているかのチェックを追加する
   - [Done] カタカナモードでひらがなを入力した場合や、文字数指定があるのに異なる長さの正解を入力した場合に、保存ボタン押下時に適切なエラーメッセージが表示され保存が抑止されること
   - _Requirements: 3.4_

@@ -19,6 +19,7 @@ import {
   MIN_TEXT_INPUT_CHAR_COUNT,
   isValidNumericAnswerText,
   resolveTextInputMode,
+  normalizeTextAnswer,
 } from './text-answer-utils';
 import {
   MAX_MULTIPLE_CHOICE_COUNT,
@@ -268,10 +269,11 @@ export function collectQuestionValidationErrors(question: Question, idx: number)
       }
 
       const mode = resolveTextInputMode(question);
-      if (mode === 'char-count') {
-        const count = question.textInputCharCount;
+      const count = question.textInputCharCount;
+
+      // 1. 要求文字数制限のバリデーション（指定がある場合のみ）
+      if (count !== undefined && count !== null) {
         if (
-          count == null ||
           !Number.isInteger(count) ||
           count < MIN_TEXT_INPUT_CHAR_COUNT ||
           count > MAX_TEXT_INPUT_CHAR_COUNT
@@ -284,21 +286,54 @@ export function collectQuestionValidationErrors(question: Question, idx: number)
           });
         } else {
           list.forEach((ans, aIdx) => {
-            if (ans.length !== count) {
+            const cleanAns = normalizeTextAnswer(ans);
+            if (cleanAns.length !== count) {
               errors.push({
                 field: 'questions',
                 questionIndex: idx,
                 questionField: 'correctTextAnswer',
                 answerIndex: aIdx,
-                message: `要求文字数（${count}文字）と一致していません（現在${ans.length}文字）`,
+                message: `要求文字数（${count}文字）と一致していません（現在${cleanAns.length}文字）`,
               });
             }
           });
         }
       }
 
-      if (mode === 'numeric') {
-        list.forEach((ans, aIdx) => {
+      // 2. 文字種別バリデーション
+      list.forEach((ans, aIdx) => {
+        const cleanAns = normalizeTextAnswer(ans);
+        if (mode === 'kanji') {
+          if (!cleanAns || !/^[一-龠々〇〆ヶ\u3400-\u4dbf]+$/.test(cleanAns)) {
+            errors.push({
+              field: 'questions',
+              questionIndex: idx,
+              questionField: 'correctTextAnswer',
+              answerIndex: aIdx,
+              message: '正解候補は漢字のみで入力してください',
+            });
+          }
+        } else if (mode === 'katakana') {
+          if (!cleanAns || !/^[ァ-ヶー]+$/.test(cleanAns)) {
+            errors.push({
+              field: 'questions',
+              questionIndex: idx,
+              questionField: 'correctTextAnswer',
+              answerIndex: aIdx,
+              message: '正解候補はカタカナのみで入力してください',
+            });
+          }
+        } else if (mode === 'alphabet') {
+          if (!cleanAns || !/^[a-zA-Z]+$/.test(cleanAns)) {
+            errors.push({
+              field: 'questions',
+              questionIndex: idx,
+              questionField: 'correctTextAnswer',
+              answerIndex: aIdx,
+              message: '正解候補はアルファベットのみで入力してください',
+            });
+          }
+        } else if (mode === 'numeric') {
           if (!isValidNumericAnswerText(ans)) {
             errors.push({
               field: 'questions',
@@ -308,8 +343,8 @@ export function collectQuestionValidationErrors(question: Question, idx: number)
               message: '整数・小数の数値を入力してください',
             });
           }
-        });
-      }
+        }
+      });
       break;
     }
 

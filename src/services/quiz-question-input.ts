@@ -1,7 +1,7 @@
 import { Question } from '@/types';
 import { isDefaultChoiceSet } from '@/services/quiz-choice-utils';
 
-const DEFAULT_TEXT_ANSWER = '';
+const DEFAULT_TEXT_ANSWER = '正解テキスト';
 const DEFAULT_ASSOCIATION_HINT = '';
 const DEFAULT_SORTING_ITEM_COUNT = 2;
 

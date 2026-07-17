@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AddOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
-import { getTextInputFieldProps } from '@/services/text-answer-utils';
+import { getTextInputFieldProps, normalizeTextAnswer } from '@/services/text-answer-utils';
 import { filterValidationErrors } from '@/services/quiz-validation';
 import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-validation';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
@@ -15,13 +15,15 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
 
   return (
     <div className={editorClasses.textAnswersContainer}>
-      <label className={editorClasses.label}>入力タイプ</label>
+      <label className={editorClasses.label}>入力文字種</label>
       <div className={`${editorClasses.toggleGroup} mb-3`}>
         {(
           [
-            { id: 'text' as const, label: '通常' },
-            { id: 'numeric' as const, label: '数値' },
-            { id: 'char-count' as const, label: '文字数指定' },
+            { id: 'free' as const, label: 'フリー' },
+            { id: 'kanji' as const, label: '漢字' },
+            { id: 'katakana' as const, label: 'カタカナ' },
+            { id: 'alphabet' as const, label: 'アルファベット' },
+            { id: 'numeric' as const, label: '数字' },
           ] as const
         ).map(({ id, label }) => (
           <button
@@ -35,34 +37,32 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
         ))}
       </div>
 
-      {textInputMode === 'char-count' && (
-        <div className="mb-3">
-          <label className={editorClasses.label}>要求文字数（1〜100文字）</label>
-          <input
-            type="number"
-            className={`${editorClasses.input} ${
-              filterValidationErrors(validationErrors, {
-                field: 'questions',
-                questionIndex: qIdx,
-                questionField: 'textInputCharCount',
-              }).length > 0
-                ? editorClasses.inputError
-                : ''
-            }`}
-            min={1}
-            max={100}
-            value={question.textInputCharCount ?? ''}
-            onChange={(e) => handlers.onTextInputCharCountChange(qIdx, e.target.value)}
-            placeholder="例: 4"
-          />
-          <FieldValidationMessages
-            errors={validationErrors}
-            field="questions"
-            questionIndex={qIdx}
-            questionField="textInputCharCount"
-          />
-        </div>
-      )}
+      <div className="mb-3">
+        <label className={editorClasses.label}>要求文字数（1〜100文字・空欄で無制限）</label>
+        <input
+          type="number"
+          className={`${editorClasses.input} ${
+            filterValidationErrors(validationErrors, {
+              field: 'questions',
+              questionIndex: qIdx,
+              questionField: 'textInputCharCount',
+            }).length > 0
+              ? editorClasses.inputError
+              : ''
+          }`}
+          min={1}
+          max={100}
+          value={question.textInputCharCount ?? ''}
+          onChange={(e) => handlers.onTextInputCharCountChange(qIdx, e.target.value)}
+          placeholder="例: 4 (空欄で制限なし)"
+        />
+        <FieldValidationMessages
+          errors={validationErrors}
+          field="questions"
+          questionIndex={qIdx}
+          questionField="textInputCharCount"
+        />
+      </div>
 
       <label className={editorClasses.label}>
         {textInputMode === 'numeric'
@@ -70,12 +70,7 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
           : '正解テキスト候補（大文字・小文字表記揺れなど複数設定可能）'}
       </label>
       {question.correctTextAnswerList.map((ans, aIdx) => {
-        const answerFieldProps =
-          textInputMode === 'numeric'
-            ? getTextInputFieldProps(question, { placeholder: '例: 3776' })
-            : textInputMode === 'char-count'
-              ? getTextInputFieldProps(question)
-              : { type: 'text' as const, placeholder: '例: 富士山' };
+        const answerFieldProps = getTextInputFieldProps(question);
         const answerHasError =
           filterValidationErrors(validationErrors, {
             field: 'questions',
@@ -96,6 +91,7 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
                 minLength={answerFieldProps.minLength}
                 value={ans}
                 onChange={(e) => handlers.onTextAnswerChange(qIdx, aIdx, e.target.value)}
+                onBlur={(e) => handlers.onTextAnswerChange(qIdx, aIdx, normalizeTextAnswer(e.target.value))}
               />
               <button
                 type="button"
