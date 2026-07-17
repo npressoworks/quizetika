@@ -9,7 +9,7 @@
   - _Requirements: 1.1, 1.2, 6.5_
 
 - [ ] 2. DB: 凍結ゲートと管理者専用RPCのマイグレーション
-- [ ] 2.1 共有実行関数の抽出と既存RPC 4種の凍結ゲート
+- [x] 2.1 共有実行関数の抽出と既存RPC 4種の凍結ゲート
   - 新規マイグレーション（`20260724000000_governance_freeze.sql`）に、投票可決分岐のマージ実行/ジャンル登録ロジックを移設した共有関数 `execute_merge` / `register_genre` を定義
   - 既存RPC 4種（マージ起案/投票、ジャンル申請/投票）を先頭で無条件に `governance-frozen` 例外を送出する形で再定義（投票集計・可決処理が発生しない）
   - マイグレーションはDDL（CREATE OR REPLACE FUNCTION）のみで構成し、既存データへのDMLを含まない
@@ -122,3 +122,6 @@
   - レピュテーション蓄積ロジック（reputation.ts）に変更がないこと、既存reputation系テストが無修正でパスすることを確認
   - 完了条件: `npm run build` と `npm run test`（全スイート）が成功する
   - _Requirements: 1.2, 1.5_
+
+## Implementation Notes
+- 2.1: `20260708000000_grant_public_schema_privileges.sql` のデフォルト権限（ROUTINES に GRANT ALL）により、認可チェックを持たない SECURITY DEFINER 関数は REVOKE（PUBLIC/anon/authenticated）を明示しないと PostgREST 経由で誰でも直接実行可能になる。新設関数には `record_leaderboard_entry`（20260703000200 L138）の REVOKE パターンを踏襲すること（2.2 の管理者 RPC は is_admin() ガードを持つため対象外だが、共有関数を増やす場合は必須）
