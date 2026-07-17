@@ -78,7 +78,7 @@ function LoginPageContent() {
     setSubmitting(true);
     const { error } = await signInWithMicrosoft(redirectPath);
     if (error) {
-      console.error('Azure AD auth error:', error);
+      console.error('Entra ID auth error:', error);
       setErrorMsg(error.message);
       setSubmitting(false);
     }
@@ -120,7 +120,7 @@ function LoginPageContent() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">quizetikaへようこそ！</CardTitle>
           <CardDescription>
-            Google、X、または Azure AD（Microsoft）アカウントでログイン・新規登録し、クイズに挑戦しましょう。
+            Google、X、または Microsoftアカウントでログイン・新規登録し、クイズに挑戦しましょう。
           </CardDescription>
         </CardHeader>
 
@@ -178,7 +178,7 @@ function LoginPageContent() {
                 <path fill="#00A4EF" d="M1 13h10v10H1z" />
                 <path fill="#FFB900" d="M13 13h10v10H13z" />
               </svg>
-              <span>{submitting ? 'サインイン中...' : 'Azure ADでログイン'}</span>
+              <span>{submitting ? 'サインイン中...' : 'Microsoftアカウントでログイン'}</span>
             </Button>
           </div>
 

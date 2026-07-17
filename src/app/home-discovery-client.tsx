@@ -102,7 +102,7 @@ export function HomeDiscoveryClient({
         </DiscoverySection>
 
         <DiscoverySection
-          title="おすすめジャンル"
+          title="ジャンル"
           seeMoreHref={`/search?${buildSearchUrlQuery({ openFilters: true })}`}
           seeMoreTestId="discovery-see-more-genres"
           sectionTestId="home-discovery-genres"

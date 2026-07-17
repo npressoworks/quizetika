@@ -74,6 +74,7 @@ jest.mock('@/services/quiz', () => ({
   getQuizzesByAuthor: jest.fn(() => Promise.resolve(mockAuthorQuizzes)),
   getQuiz: jest.fn().mockResolvedValue({
     id: 'q1',
+    title: 'クイズ1',
     genre: 'genre-1',
     tags: ['js', 'ts'],
   }),
@@ -95,6 +96,7 @@ describe('CreatorDashboardClient - 統合ダッシュボードのテスト', () 
     });
 
     expect(screen.getByTestId('player-charts')).toBeInTheDocument();
+    expect(screen.getByTestId('player-word-cloud')).toBeInTheDocument();
     expect(screen.getByTestId('player-genre-tag-analysis')).toBeInTheDocument();
     expect(screen.getByText('クイズ1')).toBeInTheDocument();
   });

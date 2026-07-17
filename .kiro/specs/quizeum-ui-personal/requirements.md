@@ -65,7 +65,7 @@ Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 24 では
 **Objective:** As a 未ログインユーザー, I want ログイン画面から既存と同様にソーシャルログインおよび安全なリダイレクトができること, so that 保護された個人機能へアクセスできる。
 
 #### Acceptance Criteria
-1. When 未ログインユーザーが `/login` にアクセスしたとき, the Login Page shall Google・X・Azure AD ログインボタンを表示する。
+1. When 未ログインユーザーが `/login` にアクセスしたとき, the Login Page shall Google・X・Entra ID ログインボタンを表示する。
 2. When ユーザーがログインに成功したとき, the Login Page shall `redirect` クエリが安全なパスの場合はその先へ、なければホーム（`/`）へ遷移する。
 3. When 既にログイン済みユーザーが `/login` にアクセスしたとき, the Login Page shall リダイレクト先（またはホーム）へ自動遷移する。
 4. If ログイン処理が失敗したとき, the Login Page shall ユーザー向け日本語エラーメッセージを表示する。

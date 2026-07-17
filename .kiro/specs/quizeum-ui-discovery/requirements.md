@@ -46,10 +46,10 @@ Quizetika は Next.js 16 + React 19 のクイズ SNS である。Phase 22 でホ
 ## Requirements
 
 ### Requirement 1: ホームディスカバリー画面
-**Objective:** As a ユーザー, I want トップページでおすすめクイズ・おすすめジャンル・新着クイズの 3 セクションを閲覧できること, so that ログイン前でも興味のあるコンテンツを素早く発見できる。
+**Objective:** As a ユーザー, I want トップページでおすすめクイズ・ジャンル・新着クイズの 3 セクションを閲覧できること, so that ログイン前でも興味のあるコンテンツを素早く発見できる。
 
 #### Acceptance Criteria
-1. When ユーザーが `/` にアクセスしたとき, the Discovery UI shall おすすめクイズ・おすすめジャンル・新着クイズの 3 セクションを表示する。
+1. When ユーザーが `/` にアクセスしたとき, the Discovery UI shall おすすめクイズ・ジャンル・新着クイズの 3 セクションを表示する。
 2. The Discovery UI shall ホーム画面に検索 UI（検索入力・ソートタブ）を表示しない。
 3. When 各セクションの「もっと見る」を操作したとき, the Discovery UI shall 対応する検索画面 URL（トレンドタブ / 新着タブ / フィルタ展開付き）へ遷移する。
 4. When ジャンルカードを操作したとき, the Discovery UI shall ジャンルフィルタ付きの検索画面へ遷移する。

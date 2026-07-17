@@ -1135,7 +1135,7 @@
 
 - [x] 27.3 ディスカバリーホーム画面の実装
   - トップ（`/`）に統合検索・タブ・無限スクロールグリッドを表示しない
-  - おすすめクイズ（トレンド Top 10）・おすすめジャンル・新着 Top 10 の3セクションを順に表示する
+  - おすすめクイズ（トレンド Top 10）・ジャンル・新着 Top 10 の3セクションを順に表示する
   - 各セクションに「もっと見る」深いリンク（トレンド→`/search?tab=trending`、新着→`/search?tab=latest`、ジャンル→`/search?openFilters=1`）を配置する
   - `data-testid="home-discovery-trending"` / `home-discovery-genres` / `home-discovery-latest` および各 `discovery-see-more-*` を付与する
   - データ読み込み中はセクション単位のスケルトンを表示する

@@ -2744,7 +2744,7 @@ export interface SearchUrlState {
 | -------------------------- | --------------------------------------------- | ------------ |
 | おすすめクイズ（トレンド） | `getTrendingQuizzes(DISCOVERY_CAROUSEL_SIZE)` | 10           |
 | 新着クイズ                 | `getLatestQuizzes(DISCOVERY_CAROUSEL_SIZE)`   | 10           |
-| おすすめジャンル           | `listActiveGenres()`                          | 全アクティブ |
+| ジャンル           | `listActiveGenres()`                          | 全アクティブ |
 
 - いずれも公開中クイズのみ（既存実装をそのまま利用）
 - 検索画面 `tab=trending` / `tab=latest` の先頭ページは同一ソート規則（要件 22.12–22.13）

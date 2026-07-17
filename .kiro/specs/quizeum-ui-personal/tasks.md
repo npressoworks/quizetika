@@ -32,7 +32,7 @@
 ## 3. Core: ログイン画面
 - [x] 3.1 (P) Login ページを shadcn Card + Alert + Button で再実装する
   - `login.module.css` の import を削除し、`glass-card` / `btn btn-*` を shadcn コンポーネントに置換する
-  - Google/X/Azure AD ボタン、`#e2e-test-login-btn`、リダイレクト契約、日本語エラーメッセージを維持する
+  - Google/X/Entra ID ボタン、`#e2e-test-login-btn`、リダイレクト契約、日本語エラーメッセージを維持する
   - `/login` が shadcn 標準スタイルで表示され、旧 neon/glass が不使用であることを確認する
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 1.1_
   - _Boundary: LoginPage_
