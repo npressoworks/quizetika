@@ -6,7 +6,7 @@ test.describe('クイズカバー画像アップロード E2Eテスト', () => {
     await page.goto('/quiz/create');
 
     // 2. 基本情報を入力
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill('E2Eテスト用のクイズタイトル');
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill('E2Eテスト用のクイズタイトル');
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('これは画像アップロードテストの説明文です。');
 
     // ジャンルを選択

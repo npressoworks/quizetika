@@ -10,8 +10,8 @@ describe('quiz-choice-utils', () => {
   it('creates default choices with 4 items by default', () => {
     const choices = createDefaultChoices();
     expect(choices).toHaveLength(DEFAULT_MULTIPLE_CHOICE_COUNT);
-    expect(choices[0]).toMatchObject({ choiceText: '選択肢 1', isCorrect: true });
-    expect(choices[3]).toMatchObject({ choiceText: '選択肢 4', isCorrect: false });
+    expect(choices[0]).toMatchObject({ choiceText: '', isCorrect: true });
+    expect(choices[3]).toMatchObject({ choiceText: '', isCorrect: false });
   });
 
   it('creates the requested number of default choices within bounds', () => {

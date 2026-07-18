@@ -1,6 +1,6 @@
 'use client';
 
-import { getTextInputFieldProps } from '@/services/text-answer-utils';
+import { getTextInputFieldProps, normalizeTextAnswer } from '@/services/text-answer-utils';
 import React, { useCallback, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -1039,7 +1039,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
     if (!type) return '';
     switch (type) {
       case 'multiple-choice': return '選択式';
-      case 'true-false': return '〇✕式';
+      case 'true-false': return '〇✕問題';
       case 'text-input': return '記述式';
       case 'quick-press': return '早押し';
       case 'sorting': return '並び替え';
@@ -1208,7 +1208,7 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
                   onSubmit={(e) => {
                     e.preventDefault();
                     const input = (e.currentTarget.elements.namedItem('textAnswer') as HTMLInputElement).value;
-                    submitAnswer(input);
+                    submitAnswer(normalizeTextAnswer(input));
                     e.currentTarget.reset();
                   }}
                   className={styles.inputForm}

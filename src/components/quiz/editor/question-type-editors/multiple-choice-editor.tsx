@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { AddOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
+import { filterValidationErrors } from '@/services/quiz-validation';
 import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-validation';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 import {
@@ -13,6 +14,13 @@ import type { QuestionTypeEditorProps } from '@/components/quiz/editor/question-
 export function MultipleChoiceEditor({ qIdx, question, validationErrors, handlers }: QuestionTypeEditorProps) {
   if (!question.choices) return null;
 
+  const hasAnswersError =
+    filterValidationErrors(validationErrors, {
+      field: 'questions',
+      questionIndex: qIdx,
+      questionField: 'answers',
+    }).length > 0;
+
   return (
     <div className={editorClasses.choicesList}>
       <label className={editorClasses.label}>
@@ -23,13 +31,22 @@ export function MultipleChoiceEditor({ qIdx, question, validationErrors, handler
         <div key={choice.id || cIdx} className={editorClasses.choiceRow}>
           <input
             type="checkbox"
-            className={editorClasses.choiceCheckbox}
+            className={`${editorClasses.choiceCheckbox} ${hasAnswersError ? editorClasses.inputError : ''}`}
             checked={choice.isCorrect}
             onChange={() => handlers.onChoiceCorrectToggle(qIdx, cIdx)}
           />
           <input
             type="text"
             className={editorClasses.input}
+            placeholder={
+              cIdx === 0
+                ? '例: 富士山 (正解の例)'
+                : cIdx === 1
+                  ? '例: 北岳'
+                  : cIdx === 2
+                    ? '例: 奥穂高岳'
+                    : '例: 選択肢を入力'
+            }
             value={choice.choiceText}
             onChange={(e) => handlers.onChoiceTextChange(qIdx, cIdx, e.target.value)}
           />
@@ -45,11 +62,18 @@ export function MultipleChoiceEditor({ qIdx, question, validationErrors, handler
       ))}
       <button
         type="button"
-        className={editorClasses.addTextAnswerBtn}
+        className={`mt-1.5 inline-flex items-center gap-1.5 text-sm font-medium transition-colors ${
+          question.choices.length >= MAX_MULTIPLE_CHOICE_COUNT
+            ? 'text-muted-foreground opacity-50 cursor-not-allowed'
+            : 'text-primary hover:text-primary/80 cursor-pointer'
+        }`}
         onClick={() => handlers.onAddChoice(qIdx)}
         disabled={question.choices.length >= MAX_MULTIPLE_CHOICE_COUNT}
       >
-        <AddOutlined sx={{ fontSize: 14 }} /> 選択肢を追加する
+        <AddOutlined sx={{ fontSize: 14 }} />{' '}
+        {question.choices.length >= MAX_MULTIPLE_CHOICE_COUNT
+          ? `選択肢は${MAX_MULTIPLE_CHOICE_COUNT}個が上限です`
+          : '選択肢を追加する'}
       </button>
       <FieldValidationMessages
         errors={validationErrors}

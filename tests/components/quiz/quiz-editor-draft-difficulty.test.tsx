@@ -78,7 +78,7 @@ describe('QuizEditor 下書き保存時の難易度デフォルト値', () => {
     );
 
     fireEvent.change(
-      screen.getByPlaceholderText('例: React Hooksの基礎知識クイズ'),
+      screen.getByPlaceholderText('例: 世界の国旗と首都クイズ'),
       { target: { value: '[TEST] 難易度未選択クイズ' } }
     );
 

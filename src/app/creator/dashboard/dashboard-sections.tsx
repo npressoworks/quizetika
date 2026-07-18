@@ -8,6 +8,9 @@ import { Quiz, FeedbackReport, PlayHistoryEntry } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WordCloud } from '@/components/charts/word-cloud';
+import type { WordCloudItem } from '@/lib/word-cloud';
 import { cn } from '@/lib/utils';
 import {
   PlayArrowOutlined as PlayIcon,
@@ -24,6 +27,7 @@ import {
   CategoryOutlined as CategoryIcon,
   LocalOfferOutlined as TagIcon,
   CheckOutlined as CheckIcon,
+  CloudOutlined as CloudIcon,
 } from '@mui/icons-material';
 import type { PlayerStats } from '@/lib/player-stats';
 
@@ -460,6 +464,64 @@ export function PlayerGenreTagAnalysisSection({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// 3.5 PlayerWordCloudSection
+
+// 色凡例。word-cloud.tsx の colorClass と同一のクラスを使用すること（要件 20.10〜20.12）
+const wordCloudLegendItems = [
+  { label: '正答率 80%以上', className: 'text-emerald-600 dark:text-emerald-400' },
+  { label: '60〜79%', className: 'text-primary' },
+  { label: '40〜59%', className: 'text-amber-600 dark:text-amber-400' },
+  { label: '40%未満', className: 'text-red-600 dark:text-red-400' },
+  { label: 'データ不足 (プレイ3回未満)', className: 'text-muted-foreground' },
+] as const;
+
+function WordCloudTabContent({ items }: { items: WordCloudItem[] }) {
+  if (items.length === 0) {
+    return (
+      <div className="flex h-[120px] items-center justify-center text-sm text-muted-foreground">
+        データがありません
+      </div>
+    );
+  }
+  return <WordCloud items={items} />;
+}
+
+export function PlayerWordCloudSection({ stats }: { stats: PlayerStats }) {
+  return (
+    <Card data-testid="player-word-cloud">
+      <CardHeader className="flex flex-row items-center gap-2 pb-2">
+        <CloudIcon className="size-5 text-primary" />
+        <CardTitle className="text-base">プレイ傾向ワードクラウド</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Tabs defaultValue="tags">
+          <TabsList>
+            <TabsTrigger value="tags">タグ</TabsTrigger>
+            <TabsTrigger value="keywords">キーワード</TabsTrigger>
+          </TabsList>
+          <TabsContent value="tags">
+            <WordCloudTabContent items={stats.tagCloud} />
+          </TabsContent>
+          <TabsContent value="keywords">
+            <WordCloudTabContent items={stats.keywordCloud} />
+          </TabsContent>
+        </Tabs>
+        {/* 色凡例 (要件 20.12) */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          {wordCloudLegendItems.map((item) => (
+            <span key={item.label} className="flex items-center gap-1">
+              <span aria-hidden="true" className={cn('font-bold', item.className)}>
+                ●
+              </span>
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

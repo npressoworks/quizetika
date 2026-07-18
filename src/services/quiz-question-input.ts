@@ -2,7 +2,7 @@ import { Question } from '@/types';
 import { isDefaultChoiceSet } from '@/services/quiz-choice-utils';
 
 const DEFAULT_TEXT_ANSWER = '正解テキスト';
-const DEFAULT_ASSOCIATION_HINT = 'ヒント 1';
+const DEFAULT_ASSOCIATION_HINT = '';
 const DEFAULT_SORTING_ITEM_COUNT = 2;
 
 function hasMultipleChoiceUserInput(q: Question): boolean {
@@ -20,7 +20,7 @@ function hasTextAnswerUserInput(q: Question): boolean {
 function hasSortingUserInput(q: Question): boolean {
   const items = q.sortingItems ?? [];
   if (items.length !== DEFAULT_SORTING_ITEM_COUNT) return true;
-  if (items.some((item, idx) => item.text !== `要素 ${idx + 1}`)) return true;
+  if (items.some((item) => item.text !== '')) return true;
   return items.some((item, idx) => item.correctOrder !== idx);
 }
 

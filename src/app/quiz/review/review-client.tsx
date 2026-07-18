@@ -11,7 +11,7 @@ import { TrueFalseAnswerPanel } from '@/components/quiz/true-false-answer-panel'
 import { MarkdownContent } from '@/components/markdown/markdown-content';
 import { decodeStoredQuestionText } from '@/lib/question-text';
 import { isChoiceAnswerCorrect } from '@/services/choice-answer-utils';
-import { getTextInputFieldProps, isTextInputAnswerCorrect } from '@/services/text-answer-utils';
+import { getTextInputFieldProps, isTextInputAnswerCorrect, normalizeTextAnswer } from '@/services/text-answer-utils';
 import { Question, GenreMetadata } from '@/types';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { reviewClasses as styles } from './review-classes';
@@ -288,7 +288,7 @@ export function ReviewClient({ initialGenres }: ReviewClientProps) {
                 onSubmit={(e) => {
                   e.preventDefault();
                   const input = (e.currentTarget.elements.namedItem('textAnswer') as HTMLInputElement).value;
-                  handleAnswerSubmit(input);
+                  handleAnswerSubmit(normalizeTextAnswer(input));
                   e.currentTarget.reset();
                 }}
                 style={{ display: 'flex', gap: '12px' }}

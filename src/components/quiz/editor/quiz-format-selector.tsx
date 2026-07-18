@@ -10,7 +10,7 @@ import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
 const FORMAT_OPTIONS: { id: QuizFormat; label: string; icon: string }[] = [
   { id: 'mixed', label: '複合', icon: '🌀' },
   { id: 'multiple-choice', label: '選択式', icon: '☑️' },
-  { id: 'true-false', label: '〇✕式', icon: '⭕' },
+  { id: 'true-false', label: '〇✕問題', icon: '⭕' },
   { id: 'text-input', label: '記述式', icon: '✍️' },
   { id: 'quick-press', label: '早押し', icon: '⚡' },
   { id: 'sorting', label: '並び替え', icon: '↕️' },

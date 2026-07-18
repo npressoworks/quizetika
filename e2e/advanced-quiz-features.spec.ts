@@ -20,11 +20,11 @@ async function ensureSharedNormalQuiz(page: any, dialogMessages: string[]) {
   await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
   const uniqueTitle = `[TEST] E2E共通クイズ_${Date.now().toString().slice(-4)}`;
-  await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(uniqueTitle);
+  await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(uniqueTitle);
   await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2Eテスト共通の自動生成クイズです。');
 
   // 第1問目の問題入力
-  const qTextarea = page.locator('textarea[placeholder*="Reactにおいて"]').first();
+  const qTextarea = page.locator('textarea[placeholder*="日本で一番"]').first();
   await qTextarea.fill('Reactのフックでステート管理を行うのは？');
 
   // 選択肢の入力

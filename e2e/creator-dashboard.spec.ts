@@ -186,7 +186,7 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
   });
 
   test('クリエイターダッシュボード: 指摘解決フロー', async ({ page }) => {
-    // 1. ダッシュボードへアクセスし、作家タブへ切り替え
+    // 1. ダッシュボードへアクセスし、クリエイタータブへ切り替え
     await page.goto('/creator/dashboard');
     await page.getByTestId('dashboard-tab-creator').click();
 
@@ -293,4 +293,38 @@ test.describe('クリエイターダッシュボード E2Eテスト', () => {
       }
     }
   });
+
+  test('F-905: プレイヤーダッシュボードにワードクラウドが表示され、切り替えができること', async ({ page }) => {
+    // 1. ダッシュボードへアクセス (デフォルトでプレイヤータブが表示される)
+    await page.goto('/creator/dashboard');
+    await page.waitForLoadState('domcontentloaded');
+
+    // 2. ワードクラウドセクションが表示されるのを待つ (データロード後)
+    const wordCloudSection = page.getByTestId('player-word-cloud');
+    await expect(wordCloudSection).toBeVisible({ timeout: 15000 });
+
+    // 3. 初期状態で「タグ」と「キーワード」のタブが存在することを確認
+    const tagTab = wordCloudSection.getByRole('tab', { name: 'タグ' });
+    const keywordTab = wordCloudSection.getByRole('tab', { name: 'キーワード' });
+    
+    await expect(tagTab).toBeVisible();
+    await expect(keywordTab).toBeVisible();
+
+    // デフォルトで「タグ」がアクティブであることを確認
+    await expect(tagTab).toHaveAttribute('aria-selected', 'true');
+    await expect(keywordTab).toHaveAttribute('aria-selected', 'false');
+
+    // 4. キーワードタブをクリックして切り替えが行えること
+    await keywordTab.click();
+    
+    // タブが切り替わることを確認
+    await expect(keywordTab).toHaveAttribute('aria-selected', 'true');
+    await expect(tagTab).toHaveAttribute('aria-selected', 'false');
+
+    // 再度タグをクリックして戻せること
+    await tagTab.click();
+    await expect(tagTab).toHaveAttribute('aria-selected', 'true');
+    await expect(keywordTab).toHaveAttribute('aria-selected', 'false');
+  });
 });
+

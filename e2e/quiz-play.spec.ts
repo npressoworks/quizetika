@@ -29,7 +29,7 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
     const uniqueTitle = `[TEST] E2Eプレイ_${Date.now().toString().slice(-4)}`;
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(uniqueTitle);
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(uniqueTitle);
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2Eテストプレイ検証用の自動生成クイズです。');
     
     // ジャンルの選択
@@ -135,7 +135,7 @@ test.describe('クイズプレイ・結果評価フロー E2Eテスト', () => {
     await expect(difficultyVoteBtn).toHaveText('🔥');
     await expect(difficultyVoteBtn).not.toHaveClass(/grayscale/);
 
-    // 10. 作家感謝リアクションの送信
+    // 10. クリエイター感謝リアクションの送信
     const reactionBtn = page.locator('button').filter({ hasText: 'お礼リアクションを送る' }).first();
     if (await reactionBtn.isVisible()) {
       if (authorIsMe) {

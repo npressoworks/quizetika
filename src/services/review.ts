@@ -105,7 +105,7 @@ export async function submitFeedbackReport(
   }
 }
 
-/** 作家ダッシュボード用: 未解決（open）の指摘一覧を取得 */
+/** クリエイターダッシュボード用: 未解決（open）の指摘一覧を取得 */
 export async function getReportsForCreator(creatorId: string): Promise<FeedbackReport[]> {
   const { data, error } = await supabase
     .from('feedback_reports')
@@ -118,7 +118,7 @@ export async function getReportsForCreator(creatorId: string): Promise<FeedbackR
 }
 
 /**
- * 作家ダッシュボード用: 作成者に紐づく未解決（open）の指摘を、クイズIDごとに件数集計して返す。
+ * クリエイターダッシュボード用: 作成者に紐づく未解決（open）の指摘を、クイズIDごとに件数集計して返す。
  * `getReportsForCreator` と同一のクエリ条件（creator_id + status: 'open'）を用いるため、
  * 集計対象がずれない。指摘が1件もないクイズはキーに含まれない。
  */

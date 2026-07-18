@@ -170,8 +170,10 @@ describe('ProfileClient - Created Quizzes Search & Hybrid Infinite Scroll', () =
 
     const searchInput = screen.getByPlaceholderText(/タイトル、説明文、作成者、タグでクイズを検索/);
 
-    // 「history」というキーワードで検索
+    // 「history」というキーワードで入力
     fireEvent.change(searchInput, { target: { value: 'history' } });
+    // Enterキーを押して検索を実行（自動リアルタイム検索は仕様変更により廃止されたため）
+    fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter', charCode: 13 });
 
     // 一括フェッチ getQuizzesByAuthor が呼ばれることを確認
     await waitFor(() => {

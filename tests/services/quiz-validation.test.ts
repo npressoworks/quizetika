@@ -347,16 +347,17 @@ describe('validateQuizForPublish', () => {
       expect(errors.some((e) => e.field === 'questions')).toBe(true);
     });
 
-    test('text-input問題で文字数指定モードかつ文字数未設定の場合エラーを返す', () => {
+    test('text-input問題で要求文字数が範囲外（0以下）の場合エラーを返す', () => {
       const question = makeQuestion({
         type: 'text-input',
         choices: undefined,
         correctTextAnswerList: ['abcd'],
-        textInputMode: 'char-count',
+        textInputMode: 'free',
+        textInputCharCount: 0,
       });
       const quiz = makeQuiz({ questions: [question] });
       const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
-      expect(errors.some((e) => e.field === 'questions')).toBe(true);
+      expect(errors.some((e) => e.field === 'questions' && e.questionField === 'textInputCharCount')).toBe(true);
     });
 
     test('text-input問題で文字数指定モードかつ正解候補の文字数が一致しない場合エラーを返す', () => {
@@ -424,6 +425,42 @@ describe('validateQuizForPublish', () => {
       const quiz = makeQuiz({ questions: [question] });
       const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
       expect(errors.some((e) => e.field === 'questions')).toBe(false);
+    });
+
+    test('text-input問題で漢字モードかつ正解に漢字以外が含まれる場合エラーを返す', () => {
+      const question = makeQuestion({
+        type: 'text-input',
+        choices: undefined,
+        correctTextAnswerList: ['富士山A'],
+        textInputMode: 'kanji',
+      });
+      const quiz = makeQuiz({ questions: [question] });
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
+      expect(errors.some((e) => e.field === 'questions' && e.questionField === 'correctTextAnswer')).toBe(true);
+    });
+
+    test('text-input問題でカタカナモードかつ正解にカタカナ以外が含まれる場合エラーを返す', () => {
+      const question = makeQuestion({
+        type: 'text-input',
+        choices: undefined,
+        correctTextAnswerList: ['ひらがな'],
+        textInputMode: 'katakana',
+      });
+      const quiz = makeQuiz({ questions: [question] });
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
+      expect(errors.some((e) => e.field === 'questions' && e.questionField === 'correctTextAnswer')).toBe(true);
+    });
+
+    test('text-input問題でアルファベットモードかつ正解にアルファベット以外が含まれる場合エラーを返す', () => {
+      const question = makeQuestion({
+        type: 'text-input',
+        choices: undefined,
+        correctTextAnswerList: ['Apple1'],
+        textInputMode: 'alphabet',
+      });
+      const quiz = makeQuiz({ questions: [question] });
+      const errors = validateQuizForPublish(quiz, TEST_NG_WORDS);
+      expect(errors.some((e) => e.field === 'questions' && e.questionField === 'correctTextAnswer')).toBe(true);
     });
 
     test('quick-press問題でcorrectTextAnswerListが空の場合エラーを返す', () => {

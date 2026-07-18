@@ -167,7 +167,7 @@ export function QuizMetadataSection({
           <input
             type="text"
             className={`${editorClasses.input} ${titleHasError ? editorClasses.inputError : ''}`}
-            placeholder="例: React Hooksの基礎知識クイズ"
+            placeholder="例: 世界の国旗と首都クイズ"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
             maxLength={100}

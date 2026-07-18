@@ -71,7 +71,7 @@ export async function checkModeratorEligibility(uid: string): Promise<boolean> {
 /**
  * 特定の評価者（senderId）からクリエイター（authorId）への累計スコア加算上限（最大 +5 pt）を確認・取得する。
  *
- * @param authorId クリエイター（作家）のUID
+ * @param authorId クリエイター（クリエイター）のUID
  * @param senderId 評価者のUID
  * @returns 累計加算ポイント totalDelta
  */

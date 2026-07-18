@@ -8,7 +8,7 @@
 - メインコンテンツは `LayoutWrapper` 内で `max-w-[1200px]` の幅に制限されています。
 
 ### トップページ（ホーム画面）の構造
-- [page.tsx](file:///d:/quizetika/src/app/page.tsx) がサーバーコンポーネントとして動作し、非同期データ（おすすめクイズ、新着クイズ、おすすめジャンル）をフェッチして [home-discovery-client.tsx](file:///d:/quizetika/src/app/home-discovery-client.tsx) に流し込みます。
+- [page.tsx](file:///d:/quizetika/src/app/page.tsx) がサーバーコンポーネントとして動作し、非同期データ（おすすめクイズ、新着クイズ、ジャンル）をフェッチして [home-discovery-client.tsx](file:///d:/quizetika/src/app/home-discovery-client.tsx) に流し込みます。
 - `HomeDiscoveryClient` は現在、全幅（`flex flex-col gap-10`）のカルーセル表示となっており、右カラムは存在しません。
 
 ### 利用可能な依存パッケージ・UIコンポーネント

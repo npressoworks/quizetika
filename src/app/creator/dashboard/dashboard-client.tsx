@@ -27,7 +27,7 @@ export function CreatorDashboardClient() {
           プレイヤー
         </UnderlineTabsTrigger>
         <UnderlineTabsTrigger value="creator" data-testid="dashboard-tab-creator" className="flex-1 justify-center">
-          作家
+          クリエイター
         </UnderlineTabsTrigger>
       </UnderlineTabsList>
       <TabsContent value="player" className="space-y-10 focus-visible:outline-none">

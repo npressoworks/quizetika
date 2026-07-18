@@ -4,7 +4,7 @@ import { getSafeRedirectPath } from '@/lib/safe-redirect-path';
 
 /**
  * GET /api/auth/callback
- * OAuth (Google/X/Azure AD) サインイン後の PKCE コード交換エンドポイント。
+ * OAuth (Google/X/Entra ID) サインイン後の PKCE コード交換エンドポイント。
  * signInWithGoogle 等の redirectTo で指定される。
  */
 export async function GET(request: Request) {

@@ -34,7 +34,7 @@ async function publishMinimalQuiz(page: Page, title: string) {
     page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()
   ).toBeVisible({ timeout: 15000 });
 
-  await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(title);
+  await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(title);
   await page
     .locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]')
     .fill('Phase 8 E2E 自動生成クイズ');
@@ -89,7 +89,7 @@ test.describe('Phase 8 E2E スモーク', () => {
     await publishMinimalQuiz(page, sourceTitle);
 
     await page.goto('/quiz/create');
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(
       `[TEST] E2E参照先_${Date.now().toString().slice(-4)}`
     );
     await page

@@ -75,7 +75,7 @@ jest.mock('@/hooks/useActiveTags', () => ({
 /** 公開に必要な最低限の項目（タイトル・ジャンル・問題文）を入力するヘルパー */
 async function fillMinimalValidQuiz(questionText: string) {
   fireEvent.change(
-    screen.getByPlaceholderText('例: React Hooksの基礎知識クイズ'),
+    screen.getByPlaceholderText('例: 世界の国旗と首都クイズ'),
     { target: { value: 'テストクイズタイトル' } }
   );
 

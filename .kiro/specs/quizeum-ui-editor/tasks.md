@@ -198,7 +198,7 @@
 - [x] 11.3 Phase 26 統合検証
   - `/quiz/create`・`/quiz/[id]/edit` のクイズエディタ（8 形式・参照問題・Markdown・sorting DnD・下書き/公開/テストプレイ）が Phase 24 移行成果どおり動作することを確認する
   - `npm run build`・クイズエディタ関連 Jest・`e2e/quiz-creation.spec.ts`・改修後 `phase8`・`creator-streaming-skeleton` がグリーンであることを確認する
-  - `quiz-list-skeleton.tsx`（作家ダッシュボード用）が維持され、リスト機能と混同されないことを確認する
+  - `quiz-list-skeleton.tsx`（クリエイターダッシュボード用）が維持され、リスト機能と混同されないことを確認する
   - **完了状態**: 本スペックはクイズエディタのみを対象とし、リストエディタ痕跡がなく回帰テストがグリーンであること
   - _Requirements: 26.6, 26.7, 8.2, 8.4, 8.5_
   - _Depends: 11.2_
@@ -266,7 +266,7 @@
   - _Boundary: QuizEditorContent_
 
 - [x] 13.3 複合形式の説明テキスト更新
-  - `src/lib/quiz-format-labels.ts` の `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕式・記述式・並び替え・連想を自由に組み合わせ可能」へ更新する
+  - `src/lib/quiz-format-labels.ts` の `getFormatDescription` の `'mixed'` キーに対応する説明文を、「選択式・〇✕問題・記述式・並び替え・連想を自由に組み合わせ可能」へ更新する
   - **完了状態**: エディタ画面などで複合形式の説明が更新され、連想問題が組み合わせ可能であることが表示されること
   - _Requirements: 31.3_
   - _Boundary: QuizFormatLabels_

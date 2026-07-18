@@ -59,11 +59,11 @@ jest.mock('@/hooks/useActiveGenres', () => ({
   }),
 }));
 
-// quiz および review サービスのモック (作家ダッシュボード用)
+// quiz および review サービスのモック (クリエイターダッシュボード用)
 const mockAuthorQuizzes = [
   {
     id: 'quiz-1',
-    title: '作家クイズ1',
+    title: 'クリエイタークイズ1',
     status: 'published',
     playCount: 10,
     reviewScore: 0.8,
@@ -74,6 +74,7 @@ jest.mock('@/services/quiz', () => ({
   getQuizzesByAuthor: jest.fn(() => Promise.resolve(mockAuthorQuizzes)),
   getQuiz: jest.fn().mockResolvedValue({
     id: 'q1',
+    title: 'クイズ1',
     genre: 'genre-1',
     tags: ['js', 'ts'],
   }),
@@ -95,25 +96,26 @@ describe('CreatorDashboardClient - 統合ダッシュボードのテスト', () 
     });
 
     expect(screen.getByTestId('player-charts')).toBeInTheDocument();
+    expect(screen.getByTestId('player-word-cloud')).toBeInTheDocument();
     expect(screen.getByTestId('player-genre-tag-analysis')).toBeInTheDocument();
     expect(screen.getByText('クイズ1')).toBeInTheDocument();
   });
 
-  it('作家タブをクリックした際、作家ダッシュボード表示に切り替わること', async () => {
+  it('クリエイタータブをクリックした際、クリエイターダッシュボード表示に切り替わること', async () => {
     render(<CreatorDashboardClient />);
 
-    // 「作家」タブのクリック
+    // 「クリエイター」タブのクリック
     const creatorTab = screen.getByTestId('dashboard-tab-creator');
     fireEvent.click(creatorTab);
 
-    // 作家ダッシュボードの統計セクションが表示されるのを待つ（getQuizzesByAuthor のデータから算出）
+    // クリエイターダッシュボードの統計セクションが表示されるのを待つ（getQuizzesByAuthor のデータから算出）
     await waitFor(() => {
       expect(screen.getByTestId('stats-section')).toBeInTheDocument();
     });
     expect(screen.getByText('1 個')).toBeInTheDocument();
   });
 
-  it('作家ダッシュボードには簡易クイズ一覧の代わりに管理画面への導線カードが表示され、クリックで /creator/quizzes へ遷移すること', async () => {
+  it('クリエイターダッシュボードには簡易クイズ一覧の代わりに管理画面への導線カードが表示され、クリックで /creator/quizzes へ遷移すること', async () => {
     render(<CreatorDashboardClient />);
 
     fireEvent.click(screen.getByTestId('dashboard-tab-creator'));

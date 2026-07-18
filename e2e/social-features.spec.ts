@@ -24,7 +24,7 @@ async function ensureQuizAndNavigate(page: any) {
     } catch (e) {}
     
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill('[SOCIAL TEST] 自動公開クイズ');
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill('[SOCIAL TEST] 自動公開クイズ');
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動シード');
     
     // 選択肢
@@ -182,7 +182,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     }
   });
 
-  test('F-405: 作家リアクション（いいね・感謝）機能が正常に動作すること', async ({ page }) => {
+  test('F-405: クリエイターリアクション（いいね・感謝）機能が正常に動作すること', async ({ page }) => {
     await ensureQuizAndNavigate(page);
 
     // クイズ詳細ページであることを確認
@@ -227,7 +227,7 @@ test.describe('ソーシャル機能 E2Eテスト', () => {
     // 結果画面へ遷移することを確認
     await expect(page).toHaveURL(/\/quiz\/[\w-]+\/result/);
 
-    // 3. 作家リアクション（いいね）ボタンをクリック
+    // 3. クリエイターリアクション（いいね）ボタンをクリック
     const likeBtn = page.locator('button').filter({ hasText: /いいね|感謝|👍/ }).first();
     // 自分が作成したクイズの場合はボタンが disabled になるため、有効（Enabled）な場合のみクリックします
     if (await likeBtn.isVisible() && await likeBtn.isEnabled()) {

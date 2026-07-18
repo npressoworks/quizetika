@@ -64,7 +64,7 @@
 **目的:** ゲストユーザーとして、ソーシャルアカウントで安全にログインしたい。それにより quizetika の機能を利用できる。
 
 #### 受け入れ基準
-1. 認証画面は Google・X（Twitter）・Microsoft（Azure AD）のサインインボタンを表示し、Firebase Auth のポップアップで認証を開始すること。
+1. 認証画面は Google・X（Twitter）・Microsoft（Entra ID）のサインインボタンを表示し、Firebase Auth のポップアップで認証を開始すること。
 2. 認証に成功したとき、認証画面は `redirect` クエリがあればその遷移先へ、なければホーム（`/`）へ遷移すること。
 3. 既にログイン済みのユーザーが認証画面（`/login`）に直接アクセスした場合、ホーム（`/`）へ自動リダイレクトすること。
 4. ポップアップブロック・キャンセル・プロバイダ未有効化等の Firebase エラーは、日本語の説明メッセージとして画面に表示すること。
@@ -184,7 +184,7 @@
 
 **ルート存続とレガシー**
 4. The [Auth Profile UI] shall [本フェーズでは `/profile/[uid]/likes` ルートファイルの削除または404化を必須としない（直接 URL アクセスは follow-up で整理可）]。
-5. The [Auth Profile UI] shall [リアクション送信 UI、作家リアクション、Firestore `reactions` データの削除を本要件の範囲に含めない]。
+5. The [Auth Profile UI] shall [リアクション送信 UI、クリエイターリアクション、Firestore `reactions` データの削除を本要件の範囲に含めない]。
 
 **テスト・隣接**
 6. The [Auth Profile UI] shall [本人プロフィール画面に `data-testid="profile-reaction-history-link"` 等のリアクション履歴導線用 testid を付与しないこと]。

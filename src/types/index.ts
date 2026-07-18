@@ -76,7 +76,7 @@ export interface SortingItem {
 }
 
 /** 記述式問題の入力タイプ */
-export type TextInputMode = 'text' | 'numeric' | 'char-count';
+export type TextInputMode = 'free' | 'kanji' | 'katakana' | 'alphabet' | 'numeric';
 
 /** エディタ送信用: 参照リンク問題か新規/所有問題か（Supabase 永続化フィールドは必須ではない） */
 export type QuestionLinkKind = 'owned' | 'reference';

@@ -285,7 +285,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
       const quizTitle = `[TEST] E2E自動シード_${Date.now().toString().slice(-4)}`;
-      await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+      await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(quizTitle);
       await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動生成データです。');
 
       const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();
@@ -517,7 +517,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
     await textInputTypeBtn.click();
 
     // 4. 正解パターンを入力
-    const correctAnswerInput = page.locator('input[placeholder="例: useState"]').first();
+    const correctAnswerInput = page.locator('input[placeholder="例: 富士山"]').first();
     if (await correctAnswerInput.isVisible()) {
       await correctAnswerInput.fill('React,React.js,react');
     }
@@ -613,7 +613,7 @@ test.describe('リーダーボード・競技機能 E2Eテスト', () => {
       await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
 
       const quizTitle = `[TEST] E2E自動シード_${Date.now().toString().slice(-4)}`;
-      await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+      await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(quizTitle);
       await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動生成データです。');
 
       const qTextarea = page.locator('[data-testid^="auto-grow-question-text"]').first();

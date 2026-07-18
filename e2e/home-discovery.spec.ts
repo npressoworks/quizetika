@@ -41,7 +41,7 @@ test.describe('ディスカバリーホーム E2E', () => {
     await expect(page.getByTestId('search-page')).toBeVisible();
   });
 
-  test('おすすめジャンルのもっと見るでフィルタ展開付き検索画面へ遷移すること', async ({ page }) => {
+  test('ジャンルのもっと見るでフィルタ展開付き検索画面へ遷移すること', async ({ page }) => {
     await page.goto('/');
     await page.waitForLoadState('domcontentloaded');
 

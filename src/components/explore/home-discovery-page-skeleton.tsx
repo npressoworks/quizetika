@@ -13,7 +13,7 @@ export function HomeDiscoveryPageSkeleton() {
       </section>
       <section className="mb-10" data-testid="home-discovery-genres">
         <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="text-xl font-semibold">おすすめジャンル</h2>
+          <h2 className="text-xl font-semibold">ジャンル</h2>
         </div>
         <GenreCarouselSkeleton />
       </section>

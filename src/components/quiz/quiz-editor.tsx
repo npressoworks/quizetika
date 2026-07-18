@@ -8,6 +8,7 @@ import { listActiveNgWords } from '@/services/ng-words';
 import {
   validateQuizForPublish,
   collectQuestionTextValidationErrors,
+  collectQuestionValidationErrors,
   normalizeTag,
   QuizPublishValidationError,
 } from '@/services/quiz-validation';
@@ -359,15 +360,15 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     } else if (newQuestion.type === 'true-false') {
       newQuestion.choices = createTrueFalseChoices('maru');
     } else if (newQuestion.type === 'text-input' || newQuestion.type === 'quick-press') {
-      newQuestion.correctTextAnswerList = ['正解テキスト'];
+      newQuestion.correctTextAnswerList = [''];
     } else if (newQuestion.type === 'sorting') {
       newQuestion.sortingItems = [
-        { id: '1', text: '要素 1', correctOrder: 0 },
-        { id: '2', text: '要素 2', correctOrder: 1 },
+        { id: '1', text: '', correctOrder: 0 },
+        { id: '2', text: '', correctOrder: 1 },
       ];
     } else if (newQuestion.type === 'association') {
-      newQuestion.associationHints = ['ヒント 1'];
-      newQuestion.correctTextAnswerList = ['正解テキスト'];
+      newQuestion.associationHints = [''];
+      newQuestion.correctTextAnswerList = [''];
     } else if (newQuestion.type === 'lateral-thinking') {
       newQuestion.aiContextDetails = '';
       newQuestion.truthKeywords = [];
@@ -431,7 +432,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         updated.aiContextDetails = undefined;
         updated.truthKeywords = undefined;
       } else if (targetType === 'text-input' || targetType === 'quick-press') {
-        updated.correctTextAnswerList = q.correctTextAnswerList || ['正解テキスト'];
+        updated.correctTextAnswerList = q.correctTextAnswerList || [''];
         updated.choices = undefined;
         updated.sortingItems = undefined;
         updated.associationHints = undefined;
@@ -439,8 +440,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         updated.truthKeywords = undefined;
       } else if (targetType === 'sorting') {
         updated.sortingItems = q.sortingItems || [
-          { id: '1', text: '要素 1', correctOrder: 0 },
-          { id: '2', text: '要素 2', correctOrder: 1 },
+          { id: '1', text: '', correctOrder: 0 },
+          { id: '2', text: '', correctOrder: 1 },
         ];
         updated.choices = undefined;
         updated.correctTextAnswerList = undefined;
@@ -448,8 +449,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
         updated.aiContextDetails = undefined;
         updated.truthKeywords = undefined;
       } else if (targetType === 'association') {
-        updated.associationHints = q.associationHints || ['ヒント 1'];
-        updated.correctTextAnswerList = q.correctTextAnswerList || ['正解テキスト'];
+        updated.associationHints = q.associationHints || [''];
+        updated.correctTextAnswerList = q.correctTextAnswerList || [''];
         updated.choices = undefined;
         updated.sortingItems = undefined;
         updated.aiContextDetails = undefined;
@@ -560,12 +561,13 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
 
   // 問題タイプの切り替え (選択式 / 記述式 / 早押し / 並び替え / 連想 / ウミガメのスープ)
   const handleToggleQuestionType = (idx: number, type: 'multiple-choice' | 'true-false' | 'text-input' | 'quick-press' | 'sorting' | 'association' | 'lateral-thinking') => {
-    if (questions[idx].type === type) return;
+    const prevType = questions[idx].type;
+    if (prevType === type) return;
 
     const nextQuestions = [...questions];
     nextQuestions[idx].type = type;
 
-    if (type === 'multiple-choice' && !nextQuestions[idx].choices) {
+    if (type === 'multiple-choice' && (!nextQuestions[idx].choices || prevType === 'true-false')) {
       nextQuestions[idx].choices = createDefaultChoices();
       nextQuestions[idx].correctTextAnswerList = undefined;
       nextQuestions[idx].textInputMode = undefined;
@@ -586,7 +588,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       nextQuestions[idx].aiContextDetails = undefined;
       nextQuestions[idx].truthKeywords = undefined;
     } else if ((type === 'text-input' || type === 'quick-press') && !nextQuestions[idx].correctTextAnswerList) {
-      nextQuestions[idx].correctTextAnswerList = ['正解テキスト'];
+      nextQuestions[idx].correctTextAnswerList = [''];
       nextQuestions[idx].choices = undefined;
       nextQuestions[idx].sortingItems = undefined;
       nextQuestions[idx].associationHints = undefined;
@@ -608,8 +610,8 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       }
     } else if (type === 'sorting' && !nextQuestions[idx].sortingItems) {
       nextQuestions[idx].sortingItems = [
-        { id: '1', text: '要素 1', correctOrder: 0 },
-        { id: '2', text: '要素 2', correctOrder: 1 },
+        { id: '1', text: '', correctOrder: 0 },
+        { id: '2', text: '', correctOrder: 1 },
       ];
       nextQuestions[idx].choices = undefined;
       nextQuestions[idx].correctTextAnswerList = undefined;
@@ -620,10 +622,10 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       nextQuestions[idx].truthKeywords = undefined;
     } else if (type === 'association') {
       if (!nextQuestions[idx].associationHints) {
-        nextQuestions[idx].associationHints = ['ヒント 1'];
+        nextQuestions[idx].associationHints = [''];
       }
       if (!nextQuestions[idx].correctTextAnswerList) {
-        nextQuestions[idx].correctTextAnswerList = ['正解テキスト'];
+        nextQuestions[idx].correctTextAnswerList = [''];
       }
       nextQuestions[idx].choices = undefined;
       nextQuestions[idx].sortingItems = undefined;
@@ -687,12 +689,6 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
 
     const toggled = choices[cIdx];
     const nextCorrect = !toggled.isCorrect;
-    const correctCount = choices.filter((c) => c.isCorrect).length;
-
-    if (!nextCorrect && correctCount <= 1) {
-      return;
-    }
-
     choices[cIdx] = { ...toggled, isCorrect: nextCorrect };
     nextQuestions[qIdx].choices = [...choices];
     setQuestions(nextQuestions);
@@ -713,7 +709,7 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
       ...choices,
       {
         id: newId,
-        choiceText: `選択肢 ${choices.length + 1}`,
+        choiceText: '',
         isCorrect: false,
         selectedCount: 0,
       },
@@ -997,6 +993,35 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     }
     if (!hasPlayableQuestions(questions)) {
       alert('テストプレイするには、問題文が入力された問題を1問以上追加してください。');
+      return;
+    }
+
+    // テストプレイ時の問題バリデーション（公開用ロジックの流用）を実行
+    const errors: QuizPublishValidationError[] = [];
+    questions.forEach((q, idx) => {
+      if (isReferenceLinkQuestion(q)) return;
+      errors.push(...collectQuestionValidationErrors(q, idx));
+    });
+
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setErrorText('テストプレイの開始前に、問題の入力エラーを修正してください。');
+
+      // エラーがある問題カードを自動的に展開
+      const errorQuestionIds = errors
+        .filter((e) => e.questionIndex != null)
+        .map((e) => questions[e.questionIndex!]?.id)
+        .filter(Boolean) as string[];
+
+      if (errorQuestionIds.length > 0) {
+        setCollapsedIds((prev) => {
+          const next = new Set(prev);
+          errorQuestionIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+
+      scrollToFirstValidationError(errors);
       return;
     }
 

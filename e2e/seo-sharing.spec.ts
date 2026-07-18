@@ -24,7 +24,7 @@ async function ensureQuizAndNavigate(page: any) {
     } catch (e) {}
     
     await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
-    await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill('[SEO TEST] 自動公開クイズ');
+    await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill('[SEO TEST] 自動公開クイズ');
     await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動シード');
     
     // 選択肢
@@ -78,7 +78,7 @@ async function createSingleChoiceQuizAndNavigate(page: any) {
 
   await expect(page.locator('h1').filter({ hasText: /クイズを新規作成|クイズを編集/ }).first()).toBeVisible({ timeout: 15000 });
   const quizTitle = `[SEO TEST] 単一選択式クイズ ${Date.now()}`;
-  await page.locator('input[placeholder="例: React Hooksの基礎知識クイズ"]').fill(quizTitle);
+  await page.locator('input[placeholder="例: 世界の国旗と首都クイズ"]').fill(quizTitle);
   await page.locator('textarea[placeholder="クイズの概要や対象読者などを入力してください。"]').fill('E2E自動シード（単一選択式・1問）');
 
   // ジャンルの選択（公開時に必須）
