@@ -15,53 +15,59 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
 
   return (
     <div className={editorClasses.textAnswersContainer}>
-      <label className={editorClasses.label}>入力文字種</label>
-      <div className={`${editorClasses.toggleGroup} mb-3`}>
-        {(
-          [
-            { id: 'free' as const, label: 'フリー' },
-            { id: 'kanji' as const, label: '漢字' },
-            { id: 'katakana' as const, label: 'カタカナ' },
-            { id: 'alphabet' as const, label: 'アルファベット' },
-            { id: 'numeric' as const, label: '数字' },
-          ] as const
-        ).map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            className={`${editorClasses.toggleBtn} ${textInputMode === id ? editorClasses.toggleBtnActive : ''}`}
-            onClick={() => handlers.onTextInputModeChange(qIdx, id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3 items-start">
+        <div>
+          <label className={editorClasses.label}>入力文字種</label>
+          <div className={`${editorClasses.toggleGroup} mt-1 mb-0`}>
+            {(
+              [
+                { id: 'free' as const, label: 'フリー' },
+                { id: 'kanji' as const, label: '漢字' },
+                { id: 'katakana' as const, label: 'カタカナ' },
+                { id: 'alphabet' as const, label: 'アルファベット' },
+                { id: 'numeric' as const, label: '数字' },
+              ] as const
+            ).map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                className={`${editorClasses.toggleBtn} ${textInputMode === id ? editorClasses.toggleBtnActive : ''}`}
+                onClick={() => handlers.onTextInputModeChange(qIdx, id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      <div className="mb-3">
-        <label className={editorClasses.label}>要求文字数（1〜100文字・空欄で無制限）</label>
-        <input
-          type="number"
-          className={`${editorClasses.input} ${
-            filterValidationErrors(validationErrors, {
-              field: 'questions',
-              questionIndex: qIdx,
-              questionField: 'textInputCharCount',
-            }).length > 0
-              ? editorClasses.inputError
-              : ''
-          }`}
-          min={1}
-          max={100}
-          value={question.textInputCharCount ?? ''}
-          onChange={(e) => handlers.onTextInputCharCountChange(qIdx, e.target.value)}
-          placeholder="例: 4 (空欄で制限なし)"
-        />
-        <FieldValidationMessages
-          errors={validationErrors}
-          field="questions"
-          questionIndex={qIdx}
-          questionField="textInputCharCount"
-        />
+        <div>
+          <label className={editorClasses.label}>要求文字数（1〜100文字・空欄で無制限）</label>
+          <div className="mt-1">
+            <input
+              type="number"
+              className={`${editorClasses.input} ${
+                filterValidationErrors(validationErrors, {
+                  field: 'questions',
+                  questionIndex: qIdx,
+                  questionField: 'textInputCharCount',
+                }).length > 0
+                  ? editorClasses.inputError
+                  : ''
+              }`}
+              min={1}
+              max={100}
+              value={question.textInputCharCount ?? ''}
+              onChange={(e) => handlers.onTextInputCharCountChange(qIdx, e.target.value)}
+              placeholder="例: 4 (空欄で制限なし)"
+            />
+            <FieldValidationMessages
+              errors={validationErrors}
+              field="questions"
+              questionIndex={qIdx}
+              questionField="textInputCharCount"
+            />
+          </div>
+        </div>
       </div>
 
       <label className={editorClasses.label}>
