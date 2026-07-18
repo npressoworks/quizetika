@@ -42,7 +42,7 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
 
         <div>
           <label className={editorClasses.label}>要求文字数（1〜100文字・空欄で無制限）</label>
-          <div className="mt-1">
+          <div className="mt-1 flex gap-2 items-stretch">
             <input
               type="number"
               className={`${editorClasses.input} ${
@@ -60,13 +60,22 @@ export function TextInputEditor({ qIdx, question, validationErrors, handlers }: 
               onChange={(e) => handlers.onTextInputCharCountChange(qIdx, e.target.value)}
               placeholder="例: 4 (空欄で制限なし)"
             />
-            <FieldValidationMessages
-              errors={validationErrors}
-              field="questions"
-              questionIndex={qIdx}
-              questionField="textInputCharCount"
-            />
+            <button
+              type="button"
+              className="cursor-pointer rounded-md border border-input bg-background px-4 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              onClick={() => handlers.onTextInputCharCountChange(qIdx, '')}
+              disabled={question.textInputCharCount === undefined || question.textInputCharCount === null}
+              title="文字数制限をクリア"
+            >
+              クリア
+            </button>
           </div>
+          <FieldValidationMessages
+            errors={validationErrors}
+            field="questions"
+            questionIndex={qIdx}
+            questionField="textInputCharCount"
+          />
         </div>
       </div>
 
