@@ -91,7 +91,7 @@
   },
   {
     "id": "news-trend",
-    "displayName": "最新ニュース・トレンド",
+    "displayName": "ニュース・トレンド",
     "description": "最近のニュース、話題のイベント、流行、時事問題、話題の人物などに関するクイズ",
     "iconImageUrl": null,
     "canonicalId": null,
@@ -138,6 +138,15 @@
     "id": "society-politics-economy",
     "displayName": "社会・政治・経済",
     "description": "政治、経済、ビジネス、法律、社会制度、国際情勢などに関するクイズ",
+    "iconImageUrl": null,
+    "canonicalId": null,
+    "mergedGenreIds": [],
+    "isActive": true
+  },
+  {
+    "id": "trivia-common-knowledge",
+    "displayName": "雑学・常識・ひらめき",
+    "description": "雑学、一般常識などに関するクイズ",
     "iconImageUrl": null,
     "canonicalId": null,
     "mergedGenreIds": [],
