@@ -597,7 +597,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 水平思考クイズ: AI対話ターンのアトミックな記録（日次カウンタのレース是正 + 上限のアトミックな強制）
 -- p_per_quiz_limit / p_global_limit に NULL を渡すと無制限（Pro等の hasUnlimitedAiQuestions 相当）として扱う
--- 2026-07-18（quizeum-core Phase 43 / migration 20260718000000）で NULL 許容に拡張:
+-- 2026-07-18（quizeum-core Phase 43 / migration 20260725000000）で NULL 許容に拡張:
 --   p_attempt_id / p_history_entry が NULL → attempts への履歴追記・ai_turn_count 加算をスキップ（verify-truth の共通ターン消費用）
 --   p_quiz_id が NULL → per-quiz カウントをスキップし global のみ加算（テストプレイ判定 test-verify-truth 用）
 CREATE OR REPLACE FUNCTION handle_record_ai_turn(
