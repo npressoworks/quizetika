@@ -1326,3 +1326,57 @@ Option A（既存機能の拡張）が最も一貫性があり、無駄のない
 ## References（Phase 42）
 - 既存実装: `src/services/stripe-webhook.ts`, `src/services/entitlement.ts`, `src/services/entitlement-shared.ts`, `src/lib/pricing-entitlement.ts`, `scripts/sync-subscriptions.ts`, `src/app/api/webhooks/stripe/route.ts`
 - ユーザーヒアリング: 本番ホスティングは Vercel（2026-07-16 確認）
+
+---
+
+# Research & Design Decisions: quizetika-core — Phase 44 ダッシュボード集計と試行ライフサイクル（2026-07-18）
+
+## Summary
+- **Feature**: `quizetika-core` Phase 44（要件 37〜41）
+- **Discovery Scope**: Extension（light）。事前調査は `quizetika-creator-dash-ui/research.md` の「Gap Analysis: Phase 44」で完了済み。本節は設計判断の記録に絞る。
+- **主要な発見（ギャップ分析より再掲）**:
+  - `attempts` の RLS は本人行のみ（`attempts_all`）。クリエイター集計は SECURITY DEFINER 必須。
+  - ウミガメ以外の試行は完了時のみ INSERT（`handle_save_attempt`）。完走率にはライフサイクル記録の新設が必要（ユーザー判断で導入決定）。
+  - `question_answer_details` JSONB に `questionType` が解答時点で記録済み — 設問形式別集計は過去データにも適用可能。
+  - `handle_save_attempt` は SECURITY DEFINER で表示名導出・二重検証・リーダーボード振り分けを内包。UPDATE パス追加時もこれらを維持する必要がある。
+
+## Design Decisions（Phase 44）
+
+### Decision: 集計 RPC は JSONB 返却の粗粒度 API（1タブ=1呼び出し）
+- **Alternatives**: (1) 指標ごとの細粒度 RPC 群、(2) タブ単位の一括 JSONB 返却。
+- **Selected**: 案2。KPI・推移・内訳を単一 RPC で返す。
+- **Rationale**: ダッシュボードはフィルタ変更ごとに全セクションを同時更新する（UI 要件 21.4）ため、細粒度化は往復増とレース管理の複雑化を招くだけ。5秒以内応答（37.13/40.11）にも有利。
+- **Trade-offs**: RPC の戻り値スキーマが大きくなる。`src/types/dashboard.ts` の型契約と `dashboard.ts` のマッピングテストで固定する。
+
+### Decision: 世代識別は `started_at IS NOT NULL`
+- **Context**: 完走率・離脱分析を導入以降のデータに限定する必要（40.10 / 41.4）。
+- **Selected**: 専用フラグやカットオフ日時設定を持たず、ライフサイクル世代の行にのみ存在する `started_at` の有無で判別する。
+- **Rationale**: 追加状態を持たない最小構造。オフライン同期行は保存時に `started_at = completed_at` を設定して両側に数える（39.6）。
+
+### Decision: `handle_save_attempt` のシグネチャ拡張（`p_attempt_id UUID DEFAULT NULL`）
+- **Rationale**: DEFAULT NULL 追加は既存呼び出し（オフライン同期 `syncPendingAttempts` 含む）に対して完全後方互換。UPDATE パスでも既存の二重検証・リーダーボード振り分け・`play_count` 加算をそのまま通す（分岐は INSERT/UPDATE の書き込み部のみ）。
+- **注意**: リーダーボード初回判定（`v_prior_completed_count`）は `completed_at IS NOT NULL` 条件のため、未完了のライフサイクル行が混在しても影響しない（既存条件のまま）。
+
+### Decision: クイズ単体分析の累計部は既存キャッシュカウンタを再利用
+- **Context**: 要件 41.1（設問別累計正答率・選択肢分布）は `questions.correct_count`/`incorrect_count`・`choices[].selectedCount` が既に保持している。
+- **Selected**: RPC には含めず、UI が既存クイズ読み取りで取得（Build vs Adopt: Adopt）。RPC はライフサイクル依存のスコア分布・離脱分布・完走率のみ提供。
+
+### Decision: タグフィルタ・タグ集計の正本は `quizzes.tags TEXT[]`
+- **Context**: `quiz_tags` 正規化テーブルと `quizzes.tags` 配列が併存する。
+- **Rationale**: 既存クライアント集計（`computePlayerStats`）・探索系が `quizzes.tags` を表示正本としており、ダッシュボードも同じ見え方に揃える。`quiz_tags` へ正本を切り替える場合は Revalidation Trigger（design.md 記載）。
+
+### Decision: ワードクラウドのキーワード抽出はクライアント残置
+- **Rationale**: `Intl.Segmenter` による日本語分かち書きは Phase 42 でクライアント実装済み。RPC はタイトル単位の集計（title/plays/correct/total）を返し、語への展開・除外語処理は既存ロジックを再利用する。DB 側での形態素処理は行わない。
+
+## Risks & Mitigations（Phase 44）
+- **進行 UPDATE の書き込み増（1問=1回）** — 単一行 UPDATE で軽量だが、書き込み失敗はプレイに影響させない（fire-and-forget、39.9）。規模拡大時はバッチ化を再検討。
+- **JSONB 展開集計の性能** — 形式別集計は attempts 絞り込み後の `jsonb_array_elements` 展開。数万件規模を超えて 5 秒を突破した場合はマテリアライズドビュー化（design.md Open Questions）。
+- **プレイ画面側の組み込み漏れ** — `startAttemptSession`/`updateAttemptProgress` の呼び出しはプレイ画面側スペックの実装に依存。未組み込みでも保存はフォールバック INSERT で成立する（完走率のサンプルが増えないだけで壊れない）縮退設計とした。
+
+**Document Status（Phase 44 設計）**: `design.md` Phase 44 節に反映済（2026-07-18）。
+
+### `/kiro-validate-design` レビュー結果の反映（2026-07-18）
+- **指摘1（1問単位モードのライフサイクル汚染）**: `my-quiz`（1問単位契約）に開始時記録を適用すると完走率が上方汚染されるため、ライフサイクル対象を複数問一括モード（normal/exam/flashcard/review）に限定。要件 39.1 の字句も修正。
+- **指摘2（形式フィルタ・ストリークのセマンティクス）**: 形式フィルタ時の試行単位指標／解答単位指標の母集団定義を design に追記し解釈を確定。
+- **指摘3（DEFINER ハードニング）**: `SET search_path = public`・`auth.uid()` NULL 拒否・`anon` からの EXECUTE 剥奪を DEFINER 共通規約として Data Model 節に追記。
+- 判定: **GO（修正適用済み）**。

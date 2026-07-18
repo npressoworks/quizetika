@@ -415,3 +415,132 @@
 - 外部 Web 調査: 不要（標準 API のみ）
 - 出力: `design.md` Phase 42 節、本節
 
+---
+
+## Gap Analysis: Phase 44 リッチダッシュボード刷新（2026-07-18・`/kiro-validate-gap`）
+
+対象: roadmap.md Phase 44（フィルタリング・ドリルダウン対応のダッシュボード刷新）。requirements.md への Phase 44 要件追記前の事前ギャップ分析。
+
+### 1. Current State Investigation（現状資産）
+
+**UI 層（本スペック所有）**:
+
+- `src/app/creator/dashboard/dashboard-client.tsx` — タブ構成（プレイヤー/クリエイター）。クリエイター側は `getQuizzesByAuthor` + `getReportsForCreator` をクライアントで取得。**注意: 指摘0件時にモック指摘を注入するコードが本番経路に残存**（`mock_fb_1`、69〜84行目）— Phase 44 刷新時に撤去すべき技術的負債。
+- `src/app/creator/dashboard/player-dashboard-client.tsx` — `listUserPlayHistory({ limit: 100 })` + ユニーククイズごとの `getQuiz` N+1 取得 → `computePlayerStats` でクライアント集計。
+- `src/app/creator/dashboard/dashboard-sections.tsx` — セクション群（KPI グリッド、チャート、ワードクラウド、ジャンル/タグ分析、履歴、指摘キュー）。
+- チャート基盤: `recharts` + `src/components/ui/chart.tsx`（shadcn ラッパー）+ `src/components/charts/`（`analytics-chart`, `selection-pie`, `word-cloud`, スケルトン2種）。フィルタ UI 用の shadcn `Select`/`Tabs`/`Badge` は導入済み。
+- E2E: `e2e/creator-dashboard.spec.ts`、Jest: `tests/components/dashboard-client.test.tsx` が既存 `data-testid` を assert。
+
+**集計ロジック層（quizeum-core 側資産）**:
+
+- `src/lib/player-stats.ts` — `PlayerStats`（KPI、直近7日推移、モード割合、ジャンル/タグ上位5、ワードクラウド）。全量が「直近100件」母集団。
+- `src/lib/dashboard-stats.ts` — `DashboardStats`（クイズのキャッシュ済みカウンタ合算のみ。期間次元なし）。
+- `src/services/attempt.ts` — `listUserPlayHistory`（カーソルページング、`completed_at IS NOT NULL` フィルタ）、RPC 呼び出しパターン（`handle_save_attempt` 等）確立済み。
+
+**データモデル（Supabase）**:
+
+- `attempts`: `user_id`, `quiz_id`, `mode`, `score`, `total_questions`, `elapsed_seconds`, `failed_question_ids`, `question_answers`/`question_answer_details`(JSONB), `completed_at`(nullable), `gave_up_lateral`。**完了時のみ INSERT**（例外: ウミガメのスープのみ開始時に未完了行を作成）。
+- インデックス: `idx_attempts_user_history (user_id, completed_at DESC)`, `idx_attempts_quiz_id (quiz_id)`。
+- `quizzes`: `canonical_genre_id`, `tags TEXT[]`, `format`, `play_count`, `bookmarks_count`, `review_score` 等のキャッシュカウンタ。
+- `questions`: `type`（設問単位の形式）, `correct_count`/`incorrect_count`（累計）, `choices` JSONB 内 `selectedCount`（累計）。
+- 期間集計に使える生イベント: `attempts.completed_at`, `bookmarks.created_at`, `quiz_reviews.created_at`, `follows.created_at`。
+- RPC パターン: マイグレーション内 `handle_*` 関数 + `supabase.rpc()` + `npm run gen:types` による型生成が確立済み。
+
+### 2. Requirement-to-Asset Map（ギャップ表）
+
+| Phase 44 の表示情報 | 既存資産 | ギャップ判定 |
+| --- | --- | --- |
+| 期間フィルタ付きプレイヤー集計（全期間対応） | クライアント集計（直近100件限定） | **Missing** — サーバーサイド集計 RPC が必要 |
+| ジャンル・タグ・形式・モード別の回数/正答率 | ジャンル/タグ上位5のみ（100件母集団） | **Missing** — RPC で `attempts JOIN quizzes` 集計 |
+| 問題形式別分析 | `quizzes.format`（クイズ単位）と `questions.type`（設問単位）が併存 | **Unknown** — どちらの粒度で集計するか要件で確定。設問単位は `question_answer_details` JSONB の unnest が必要 |
+| ストリーク（連続プレイ日数） | `idx_attempts_user_history` あり | **Missing（実装のみ）** — データは揃っており RPC で算出可能 |
+| プレイヤードリルダウン（集計→履歴→設問別正誤） | `question_answer_details` JSONB が attempt ごとに保存済み、RLS で本人参照可 | **Missing（UI/取得関数のみ）** — データ基盤は存在 |
+| クリエイター期間トレンド（プレイ/ブックマーク/評価） | `attempts`/`bookmarks`/`quiz_reviews` に created_at 系列あり | **Missing + Constraint** — 下記 RLS 制約により RPC 必須 |
+| ユニークプレイヤー数・完走率 | attempts に user_id あり / **未完了レコードなし** | ユニーク数: **Missing（RPC）**。完走率・離脱ポイント: **Missing（データ自体が不在）** — 下記参照 |
+| 設問別解答分布の期間フィルタ | `questions.correct_count`・`choices.selectedCount` は累計のみ | **Constraint** — 累計表示は既存資産で可。期間フィルタ対応は `question_answer_details` の集計が必要でコスト大 |
+| フォロワー数・推移 | `follows`（現在のフォロー関係のみ、解除で行削除） | 現在数: あり。**推移: Missing（履歴データ不在）** — スナップショット/イベント記録がなく過去時点を復元不可 |
+| ワードクラウドのフィルタ連動 | `computePlayerStats` 内で全量集計済み | 集計母集団をフィルタ結果に差し替えれば追随可 |
+
+### 3. 重要な技術的制約（Blocker 級）
+
+1. **attempts の RLS は本人行のみ**（`attempts_all: auth.uid() = user_id`、init.sql 415行目）。クリエイターが自作クイズの他プレイヤーのプレイデータを読む経路がクライアントには存在しない。クリエイター側の期間トレンド・ユニークプレイヤー数・設問別期間分析は **SECURITY DEFINER の RPC（author 本人検証付き）またはサーバーサイド（service role）API Route が必須**。個人情報保護の観点から、RPC は集計値のみを返し、個別プレイヤーの生行を露出しない設計とすること。
+2. **完走率・離脱ポイントはデータ不在**。ウミガメ以外の attempt は完了時にのみ INSERT され（`handle_save_attempt`）、開始・中断イベントの記録がない。対応肢: (a) Phase 44 スコープから除外、(b) 全モードに「開始時 INSERT + 完了時 UPDATE」を導入（`handle_save_attempt` 契約の変更＝プレイフロー全体への波及、影響大）、(c) PostHog イベントによる運営向け近似分析で代替しユーザー向けダッシュボードには載せない。**要件フェーズでの判断事項**。
+3. **ジャンル集計は「現在のクイズ属性」で行われる**。attempts にジャンル/形式の非正規化がなく JOIN 解決のため、プレイ後にクイズのジャンルが変わると過去プレイも新ジャンルで集計される。roadmap 記載どおり許容可否を要件で確定。
+4. **集計パフォーマンス**: クリエイター側集計は `attempts.quiz_id IN (自作クイズ)` の走査になる。`idx_attempts_quiz_id` はあるが `completed_at` との複合ではないため、データ増加時は複合インデックス `(quiz_id, completed_at)` の追加を設計で検討。
+
+### 4. Implementation Approach Options
+
+#### Option A: クライアント集計の拡大（取得件数増 + クライアントフィルタ）
+
+- 現行 `listUserPlayHistory` の limit を拡大し、フィルタもクライアントで実施。
+- ✅ 変更最小、既存 Phase 27/42 パターン維持
+- ❌ プレイヤー側ですら履歴増で破綻（N+1 も悪化）。**クリエイター側は RLS 制約により原理的に実現不可能**。
+- 判定: **却下**（Phase 44 の中核要求を満たせない）
+
+#### Option B: サーバーサイド集計 RPC への全面移行
+
+- フィルタパラメータ（期間・ジャンル・タグ・形式・モード）を受ける集計 RPC 群を新設（プレイヤー用: SECURITY INVOKER で RLS 内動作可 / クリエイター用: SECURITY DEFINER + author 検証）。`src/services/` に対応サービス関数、`src/lib/` の `PlayerStats`/`DashboardStats` を後継契約に置換。
+- ✅ 全期間・任意フィルタ・両タブを単一パターンで解決。型生成（gen:types）・RPC 実装パターン確立済み
+- ❌ マイグレーション + RPC 設計 + テスト（チェーンモックでなく rpc モック）で変更量大。Phase 27 の「サーバー側集計は Out of Boundary」コミットメントの明示的な上書きが必要
+- 判定: **推奨**
+
+#### Option C: ハイブリッド（累計 KPI はキャッシュカウンタ維持 + フィルタ分析のみ RPC）
+
+- 既存の累計 KPI（総プレイ・ブックマーク・評価）と設問別累計分布はキャッシュカウンタ表示を維持し、期間・フィルタ連動セクションのみ新 RPC で提供。
+- ✅ 変更範囲を段階化でき、初期リリースが早い。累計値はカウンタの方が安価
+- ❌ 「累計は即時・フィルタ集計は attempts 由来」で数値のズレ（過去の削除クイズ・匿名化等）が生じ、同一画面内の整合性説明が必要
+- 判定: 次点（Option B のフェーズ分割戦略として設計時に再評価）
+
+### 5. Effort & Risk
+
+- **Effort: XL（2週間超）** — DB マイグレーション（RPC 群 + インデックス）、サービス層新設、両タブ UI 刷新（フィルタバー・ドリルダウン画面）、Jest/E2E 更新（既存 `data-testid` assert が広範囲）を含むため。Option C のフェーズ分割で L×2 に分割可能。
+- **Risk: Medium** — 技術要素はすべて確立済みパターン（RPC・recharts・shadcn）だが、SECURITY DEFINER RPC の認可設計（author 検証・集計値のみ露出）と集計クエリのパフォーマンスに設計上の注意を要する。
+
+### 6. Recommendations for Design Phase
+
+- **推奨アプローチ**: Option B（設計時に Option C のフェーズ分割を検討）。
+- **要件フェーズで確定すべき判断**（design 前提）:
+  1. 完走率・離脱ポイントの扱い（除外 / 開始時レコード導入 / PostHog 代替）
+  2. 問題形式別集計の粒度（クイズ単位 `format` か設問単位 `type` か）
+  3. 「現在のクイズ属性で集計」トレードオフの許容
+  4. フォロワー「推移」の要否（履歴データ不在のため現在数のみを推奨）
+  5. 設問別解答分布の期間フィルタ要否（累計のみなら既存資産で低コスト）
+- **Research Needed（設計フェーズへ持ち越し）**:
+  - `question_answer_details` JSONB unnest 集計の実行計画とインデックス戦略（設問別期間分析を要件に含める場合）
+  - クリエイター向け SECURITY DEFINER RPC の認可パターン（既存 `handle_*` 関数には author 検証付き集計の前例がないため新設計）
+  - `quizzes.tags TEXT[]` と正規化テーブル `quiz_tags` のどちらをタグフィルタの正とするか（core-data 正規化との整合確認）
+- **付随して解消すべき負債**: `dashboard-client.tsx` のモック指摘注入（本番経路）の撤去。
+
+### Document Status（Phase 44 Gap Analysis）
+
+- 分析: main context での Grep/Read によるコードベース・マイグレーション調査
+- 外部 Web 調査: 不要（既存スタック内で完結）
+- 入力: roadmap.md Phase 44 節（2026-07-18 ディスカバリー）
+- 次工程: `/kiro-spec-requirements quizeum-creator-dash-ui`（および quizeum-core 側の要件追記）
+
+## Design Synthesis: Phase 44 リッチダッシュボード UI（2026-07-18）
+
+### Summary
+- **Discovery Type**: Extension（本節冒頭の Gap Analysis で調査済み。追加調査なし）
+- **前提**: 集計契約は `quizetika-core` Phase 44（design.md 同日節）で確定。ユーザー判断: 完走率=ライフサイクル記録導入 / 形式別=設問単位 / 設問別分布=累計のみ / フォロワー=非表示。
+
+### Design Decisions
+1. **新規ルートなしのビュー状態切替** — ドリルダウン・クイズ単体分析は `/creator/dashboard` 内の状態遷移で実現。タブ・フィルタ状態を保持したまま往復でき（要件 23.5/25.6）、E2E のルーティング前提も変わらない。URL 共有可能化は非要件のため見送り（過去 Phase 22 の URL 規則導入とは要件が異なる）。
+2. **フィルタは非永続のコンポーネント状態** — `useDashboardFilters` フックをタブごとに保持。`localStorage`/URL 永続化は要件外であり Simplification 原則で見送り。
+3. **stale レスポンス破棄** — フィルタ連打時の混在表示（要件 21.5）をリクエスト連番ガードで防止。既存 `cancelled` フラグパターンの延長。
+4. **モック指摘注入の撤去** — `dashboard-client.tsx` の `mock_fb_1`（指摘0件時のダミー生成）は Phase 44 要件 24.8 で正式に撤去し空状態カードへ置換。既存 Jest がモック前提の場合はテスト側も更新。
+5. **チャートは既存再利用 + `TrendChart` 1本のみ新設** — 複数系列トレンドは既存 `AnalyticsChart`（単一系列棒）で表現できないため recharts LineChart ラッパーを追加。他は既存（Build 最小化）。
+6. **クイズ単体分析の累計データは `getQuiz` 再利用** — 設問別累計正答率・選択肢分布は `questions.correct_count`/`choices[].selectedCount` キャッシュカウンタから表示（core 設計と対応）。
+
+### Risks & Mitigations
+- 既存 E2E・Jest の testid/モック前提が広範囲に変わる — 既存 testid を維持しつつ新規 testid を追加する方針を要件 22.8 で固定し、E2E 更新をタスクに必須項目として含める。
+- core 契約未確定のまま UI 実装が先行するリスク — 実装順を core → UI に固定（design.md Document Status に明記）。
+
+**Document Status（Phase 44 設計）**: `design.md` Phase 44 節に反映（2026-07-18）。
+
+### `/kiro-validate-design` レビュー結果の反映（2026-07-18）
+- **指摘1（`player-stats.ts` の共有所有）**: core と UI 両方の File Plan に同一ファイルが登場していたため、改変の所有を core に一本化（core design.md に単独所有を明記、UI 側 File Plan から削除。UI は新契約の import 追随のみ）。
+- **指摘2（E2E データ前提）**: モック指摘注入撤去後の E2E はローカル Supabase への実データ投入（試行・ブックマーク・評価）を前提とし、指摘 0 件は空状態を assert する方針を Testing Strategy に追記。
+- **指摘3（ドリルダウン中のフィルタ変更）**: ドリルダウン・クイズ単体分析表示中もフィルタバー有効、変更時は当該ビューを新条件で再取得（明細表示中は一覧へ戻す）と Design Decisions に追記。
+- 判定: **GO（修正適用済み）**。
+

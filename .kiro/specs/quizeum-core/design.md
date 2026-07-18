@@ -4742,4 +4742,165 @@ NULL 許容に拡張（シグネチャ不変・既存呼び出しに影響なし
 
 **Document Status（Phase 43 設計）**: 本節に反映。実装・全ユニットテスト（275 suites）通過済み（2026-07-18）。
 
+## Phase 44: リッチダッシュボード向け集計データ提供と試行ライフサイクル記録（2026-07-18）
+
+### Overview
+統合ダッシュボード刷新（`quizetika-creator-dash-ui` Phase 44）を支えるコア層の拡張。要件 37〜41 に対応する。(1) プレイヤー／クリエイター統計のフィルタ付きサーバーサイド集計 RPC 群、(2) ドリルダウン取得、(3) 完走率・離脱分析を成立させる試行ライフサイクル記録（開始時 INSERT・進行反映・完了時 UPDATE）を導入する。
+
+### Boundary Commitments（Phase 44）
+- **本スペックが所有**: 集計 RPC・マイグレーション・インデックス、`src/services/dashboard.ts` のサービス契約、`src/types/dashboard.ts` の型契約、`src/services/attempt.ts` の試行ライフサイクル関数（開始・進行・完了統合）。
+- **Out of Boundary**: ダッシュボード UI・フィルタ状態管理（`quizetika-creator-dash-ui` 要件 21〜25）。プレイ画面からのライフサイクル関数呼び出しの組み込み（プレイ画面側スペック）。BigQuery 側の集計。フォロワー数表示（表示しない決定）。
+- **Allowed Dependencies**: UI 層は `dashboard.ts` / `attempt.ts` の公開関数のみに依存する。RPC を UI から直接呼ばない。
+- **Revalidation Triggers**: `attempts` スキーマの再変更、タグの正本を `quizzes.tags TEXT[]` から `quiz_tags` 正規化テーブルへ切り替えた場合、プレイモードの追加。
+
+### Design Decisions
+
+| 論点 | 決定 |
+|---|---|
+| 集計方式 | サーバーサイド集計 RPC（JSONB 返却）。1タブ=1 RPC 呼び出しで KPI・推移・内訳を一括返却し、往復を最小化（要件 37.13 / 40.11 の 5 秒以内応答） |
+| プレイヤー集計の認可 | `get_player_dashboard_stats` 等は SECURITY INVOKER。`auth.uid()` を内部で使用し引数でユーザー ID を受けない（なりすまし防止、要件 37.12 / 38.4）。RLS（`attempts_all`）が本人行のみに制限 |
+| クリエイター集計の認可 | `get_creator_dashboard_stats` / `get_creator_quiz_analysis` は SECURITY DEFINER。関数内で `auth.uid()` と `quizzes.author_id` の一致を検証し、集計値のみ返却（個別プレイヤーの ID・表示名を一切含めない。要件 40.8 / 40.9 / 41.5） |
+| ライフサイクル記録 | `attempts` に `started_at TIMESTAMPTZ`（NULL=旧世代行）と `answered_count INTEGER` を追加。開始時 `handle_start_attempt` で INSERT（`completed_at` NULL）、進行時 `handle_update_attempt_progress` で `answered_count` 更新、完了時は既存 `handle_save_attempt` に `p_attempt_id UUID DEFAULT NULL` を追加し該当行を UPDATE。`p_attempt_id` NULL または該当行なしの場合は従来どおり INSERT（後方互換・オフライン同期、要件 39.6） |
+| ライフサイクル対象モード | 開始時記録の対象は**複数問を一括でプレイする永続化対象モード**（`normal` / `exam` / `flashcard` / `review`）のみ。`my-quiz` は 1問単位契約（Phase 23）のため従来の完了時 INSERT を維持（開始時記録すると常に即完走となり完走率を上方汚染するため対象外）。`test-play` は非永続で対象外。lateral は既存の開始時レコードを流用。完走率・離脱分析の母集団も同スコープに限定（要件 39.1 / 40.4） |
+| 完走率の世代識別 | `started_at IS NOT NULL` の行のみを完走率・離脱分析の母集団とする（導入前の完了時のみ記録行を自然に除外、要件 40.10 / 41.4）。オフライン同期行は保存時に `started_at = completed_at` を設定し分母分子双方に数える |
+| 進行反映の安全性 | `updateAttemptProgress` はクライアント側で fire-and-forget（失敗を握りつぶしてプレイ継続、要件 39.9）。1問確定ごとに1 UPDATE |
+| ウミガメ統合 | `handle_start_lateral_attempt` に `started_at = now()` 設定を追加。`gave_up_lateral` / 未完了行は離脱側、完了行は完走側として同一規則で集計（要件 39.7） |
+| 形式別集計 | `question_answer_details` JSONB を `jsonb_array_elements` で展開し、解答時点に記録された `questionType` 単位で解答数・正答率を集計（要件 37.7 / 40.7）。明細のない旧試行は形式別集計の対象外 |
+| 形式フィルタ時の母集団定義 | `questionType` フィルタ指定時: **試行単位指標**（プレイ回数・推移系列・ストリーク・ユニーククイズ数）＝該当形式の解答明細を1問以上含む完了試行、**解答単位指標**（正答率・平均/合計解答時間・解答数）＝該当形式の解答明細のみを母集団とする（要件 37.3 / 37.4 / 37.5 の解釈確定）。ストリークは常に「フィルタ適用後の母集団」の完了日ベースで算出 |
+| ジャンル・タグ解決 | `attempts JOIN quizzes` で現在の属性（`canonical_genre_id` / `tags TEXT[]`）により集計（要件 37.10）。タグの正本は既存クライアント集計（`computePlayerStats`）と同じ `quizzes.tags` を踏襲 |
+| 期間・粒度 | JST（Asia/Tokyo）で日付バケット。7日・30日=日別、90日=週別（`date_trunc('week')`）、全期間=月別（要件 37.5 / 40.5）。ストリークも JST 日単位で RPC 内算出 |
+| ワードクラウド | RPC がタグ別集計（語・回数・正答率）とクイズタイトル別集計を返し、タイトル→キーワード抽出（`Intl.Segmenter`）は既存の `src/lib/word-cloud` 系クライアントロジックを再利用（要件 37.9） |
+| クイズ単体分析の分担 | 設問別の累計正答率・選択肢分布は既存キャッシュカウンタ（`questions.correct_count` / `choices[].selectedCount`）を既存クイズ読み取りで取得（追加集計なし、要件 41.1）。RPC はスコア分布・離脱分布・完走率のみ返す（要件 41.2〜41.4） |
+| インデックス | `idx_attempts_quiz_completed (quiz_id, completed_at)` を追加（クリエイター側期間集計）。プレイヤー側は既存 `idx_attempts_user_history` を利用 |
+
+### System Flow（試行ライフサイクル）
+
+```mermaid
+sequenceDiagram
+    participant Play as PlayClient
+    participant Svc as attempt service
+    participant DB as Postgres RPC
+    Play->>Svc: startAttemptSession
+    Svc->>DB: handle_start_attempt INSERT started_at
+    DB-->>Svc: attemptId
+    loop 各設問の解答確定
+        Play->>Svc: updateAttemptProgress fire and forget
+        Svc->>DB: handle_update_attempt_progress
+    end
+    Play->>Svc: saveAttempt attemptId付き
+    Svc->>DB: handle_save_attempt UPDATE completed_at
+    Note over DB: attemptId無しまたは行無しはINSERTへフォールバック
+```
+
+### Data Model 変更（migration `20260726000000_dashboard_aggregation.sql`）
+- `ALTER TABLE attempts ADD COLUMN started_at TIMESTAMPTZ, ADD COLUMN answered_count INTEGER DEFAULT 0;`
+- `CREATE INDEX idx_attempts_quiz_completed ON attempts(quiz_id, completed_at);`
+- RPC 新設: `handle_start_attempt`, `handle_update_attempt_progress`, `get_player_dashboard_stats`, `get_player_drilldown_history`, `get_creator_dashboard_stats`, `get_creator_quiz_analysis`
+- RPC 変更: `handle_save_attempt`（`p_attempt_id UUID DEFAULT NULL` 追加・UPDATE パス）、`handle_start_lateral_attempt`（`started_at` 設定）
+- 既存 `attempts_all` RLS（本人行のみ）は変更しない。INVOKER 系 RPC はこの RLS 内で動作する
+- **DEFINER 関数の共通ハードニング規約**（`get_creator_dashboard_stats` / `get_creator_quiz_analysis` に適用）:
+  - `SET search_path = public` を関数定義に付与（search_path ハイジャック防止）
+  - 関数冒頭で `auth.uid() IS NULL` を例外で拒否（未認証呼び出し遮断）
+  - `REVOKE EXECUTE ... FROM anon` を明示し、`authenticated` ロールのみに EXECUTE を付与
+  - 戻り値は集計値のみ（個別プレイヤーの識別子・表示名を含む行データを返さない）
+
+### Service Interfaces（`src/services/dashboard.ts` 新規 / `src/services/attempt.ts` 拡張）
+
+```typescript
+// src/types/dashboard.ts（新規）
+export type DashboardPeriod = '7d' | '30d' | '90d' | 'all';
+export interface PlayerDashboardFilter {
+  period: DashboardPeriod;
+  genreId?: string; tag?: string;
+  questionType?: QuestionAnswerDetail['questionType'];
+  mode?: Attempt['mode'];
+}
+export interface TrendPoint { label: string; plays: number; accuracy: number | null; }
+export interface BreakdownItem { key: string; plays: number; accuracy: number | null; }
+export interface PlayerDashboardStats {
+  kpi: { totalPlays: number; averageAccuracy: number; averageTimeSeconds: number;
+         totalTimeSeconds: number; uniqueQuizCount: number; streakDays: number };
+  trend: TrendPoint[];                       // 粒度は period に依存（日/週/月）
+  genreBreakdown: BreakdownItem[]; tagBreakdown: BreakdownItem[];
+  modeBreakdown: BreakdownItem[]; formatBreakdown: BreakdownItem[];
+  strengths: BreakdownItem[]; weaknesses: BreakdownItem[];   // 母数3件以上
+  tagCloud: { text: string; plays: number; correct: number; total: number }[];
+  titleStats: { title: string; plays: number; correct: number; total: number }[];
+}
+export interface CreatorDashboardFilter {
+  period: DashboardPeriod; genreId?: string; format?: string;
+  visibility?: 'public' | 'followers' | 'private';
+}
+export interface CreatorDashboardStats {
+  kpi: { plays: number; uniquePlayers: number; bookmarksGained: number;
+         reviewsGained: number; averageRating: number | null;
+         completionRate: number | null; lifecycleSampleSize: number };
+  trend: { label: string; plays: number; bookmarks: number; reviews: number }[];
+  quizRanking: { quizId: string; title: string; plays: number;
+                 averageAccuracy: number | null; bookmarks: number; reviews: number }[];
+  formatBreakdown: BreakdownItem[];
+}
+export interface QuizAnalysis {
+  scoreDistribution: { bucket: string; count: number }[];   // 期間フィルタ適用
+  dropoffDistribution: { questionIndex: number; count: number }[];
+  completionRate: number | null; lifecycleSampleSize: number;
+}
+
+// src/services/dashboard.ts（新規）
+getPlayerDashboardStats(filter: PlayerDashboardFilter): Promise<PlayerDashboardStats>
+getPlayerDrilldownHistory(filter: PlayerDashboardFilter, cursor?: string, limit?: number): Promise<PlayHistoryPage>
+getAttemptDetail(attemptId: string): Promise<{ summary: PlayHistoryEntry; details: QuestionAnswerDetail[] | null }>  // RLS により本人行のみ・明細なし旧試行は details: null（要件 38.3）
+getCreatorDashboardStats(filter: CreatorDashboardFilter): Promise<CreatorDashboardStats>
+getCreatorQuizAnalysis(quizId: string, period: DashboardPeriod): Promise<QuizAnalysis>
+
+// src/services/attempt.ts（拡張）
+startAttemptSession(userId: string, quizId: string, mode: Attempt['mode'], totalQuestions: number): Promise<string | null>  // 失敗時 null（プレイ継続、要件 39.9）
+updateAttemptProgress(attemptId: string, answeredCount: number): Promise<void>  // fire-and-forget
+saveAttempt(attemptData: SaveAttemptInput & { attemptId?: string }): Promise<string>  // attemptId 指定時は UPDATE 統合
+```
+
+エラー封筒: 既存サービス層と同一（`throw new Error('...失敗しました: ...')`）。集計 RPC の失敗は UI 側が要件 21.8 で再試行導線を表示する。
+
+### File Structure Plan（Phase 44）
+
+| ファイル | 変更 |
+|---|---|
+| `supabase/migrations/20260726000000_dashboard_aggregation.sql` | **新規**。カラム・インデックス追加、集計 RPC 群、`handle_save_attempt` / `handle_start_lateral_attempt` 拡張 |
+| `src/types/dashboard.ts` | **新規**。フィルタ・集計結果の型契約 |
+| `src/services/dashboard.ts` | **新規**。集計 RPC 呼び出しと snake→camel マッピング |
+| `src/services/attempt.ts` | 変更。`startAttemptSession` / `updateAttemptProgress` 追加、`saveAttempt` の `attemptId` 対応 |
+| `src/lib/player-stats.ts` | 変更。集計本体を廃し、ワードクラウド語抽出（`titleStats` → キーワード展開）等 UI 補助関数のみ残置。**本ファイルの改変は core が単独所有**（UI スペックは新契約の import 追随のみで本ファイルを変更しない） |
+| `src/lib/supabase/database.types.ts` | 再生成（`npm run gen:types`） |
+| `tests/services/dashboard.test.ts` | **新規**。rpc モックによる契約・マッピング・エラー検証 |
+| `tests/services/attempt.test.ts` | 変更。ライフサイクル関数・`attemptId` UPDATE パス・フォールバック検証 |
+
+### Requirements Traceability（Phase 44）
+
+| 要件 | 対応 |
+|---|---|
+| 37.1〜37.11, 37.13 | `get_player_dashboard_stats` + `getPlayerDashboardStats`（全期間母集団・AND フィルタ・KPI・粒度別推移・内訳・得意苦手閾値・現属性集計・未完了/非永続除外・インデックス） |
+| 37.12 / 38.4 | SECURITY INVOKER + `auth.uid()` 内部解決 + RLS |
+| 38.1〜38.3 | `get_player_drilldown_history` / `getAttemptDetail`（ページング・明細・旧試行 `details: null`） |
+| 39.1〜39.6, 39.10 | `handle_start_attempt` / `handle_update_attempt_progress` / `handle_save_attempt` UPDATE 統合とフォールバック |
+| 39.7 | `handle_start_lateral_attempt` の `started_at` 設定と共通集計規則 |
+| 39.8 | 既存取得系の `completed_at IS NOT NULL` 条件維持 |
+| 39.9 | `startAttemptSession` null 返却・`updateAttemptProgress` fire-and-forget |
+| 40.1〜40.7, 40.10〜40.11 | `get_creator_dashboard_stats`（作成者検証・期間軸・KPI・トレンド・ランキング・形式別・世代識別・インデックス） |
+| 40.8〜40.9 | SECURITY DEFINER + 集計値のみ返却 + author 検証 |
+| 41.1 | 既存クイズ読み取り（キャッシュカウンタ）を UI が利用（本フェーズでの追加実装なし） |
+| 41.2〜41.5 | `get_creator_quiz_analysis`（スコア分布・離脱分布・完走率・author 検証） |
+| 41.6 | 設問別分布への期間フィルタ非対応（設計上も提供しない） |
+
+### Testing Strategy（Phase 44）
+- `dashboard.ts`: 各関数の rpc 引数マッピング（フィルタ→パラメータ）、JSONB→型変換、rpc エラー時の例外文言。
+- `attempt.ts`: `startAttemptSession` 失敗時 null（例外にしない）、`updateAttemptProgress` の失敗握りつぶし、`saveAttempt` の `attemptId` 有無による UPDATE/INSERT パス分岐（既存二重検証の維持）。
+- migration: ローカル Supabase で `supabase db reset` 後、開始→進行→完了のライフサイクル、完走率の世代識別（`started_at` NULL 行の除外）、DEFINER 関数の他人 ID 拒否を SQL レベルで確認。
+- 回帰: 既存 `handle_save_attempt` 呼び出し（attemptId なし）・リーダーボード振り分け・オフライン同期（`syncPendingAttempts`）が無変更で通ること。
+
+### Open Questions / Risks
+- 進行 UPDATE の書き込み量増（1問=1回）。問題数の多いクイズで顕著だが、単一行 UPDATE のためローカル検証で十分と判断。閾値超過時はバッチ化を再検討（Revalidation Trigger）。
+- `question_answer_details` の JSONB 展開集計は試行数に比例。`idx_attempts_user_history` / `idx_attempts_quiz_completed` で絞り込んだ後の展開であり、要件の数万件規模では許容と見込む。実測で 5 秒を超える場合はマテリアライズドビューを設計に追加する。
+
+**Document Status（Phase 44 設計）**: 本節に反映（2026-07-18）。実装は未着手。
+
 

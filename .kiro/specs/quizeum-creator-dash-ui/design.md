@@ -1409,3 +1409,78 @@ interface WordCloudProps {
 
 **Document Status（Phase 42 設計）**: 本節に反映。
 
+## Phase 44: リッチダッシュボード刷新 — フィルタ・ドリルダウン UI（2026-07-18）
+
+### 1. Overview
+統合ダッシュボード（`/creator/dashboard`）をフィルタ付き・ドリルダウン可能なリッチダッシュボードへ刷新する。要件 21〜25 に対応。集計は `quizetika-core` Phase 44 の `src/services/dashboard.ts`（`getPlayerDashboardStats` / `getPlayerDrilldownHistory` / `getAttemptDetail` / `getCreatorDashboardStats` / `getCreatorQuizAnalysis`）に全面依存し、本スペックはフィルタ状態管理・表示・遷移のみを所有する。
+
+### 2. Boundary Commitments（Phase 44）
+- **所有**: `/creator/dashboard` 配下の UI（フィルタバー、両タブのセクション群、ドリルダウン、クイズ単体分析ビュー、スケルトン・空状態・エラー状態）、`e2e/creator-dashboard.spec.ts` の更新。
+- **Out of Boundary**: 集計ロジック・RPC・型契約（`quizetika-core`）。プレイ画面からの試行ライフサイクル記録呼び出し（プレイ画面側スペック）。`/creator/quizzes` の変更。フォロワー数表示。
+- **Allowed Dependencies**: `@/services/dashboard`・`@/types/dashboard`・既存 `@/services/review`（指摘キュー）・`@/services/quiz`（クイズ単体分析の設問別累計）・`@/hooks/useActiveGenres`・`src/components/charts/*`・shadcn プリミティブ。RPC 直呼びは禁止。
+- **Revalidation Triggers**: core 側集計契約（`PlayerDashboardStats` 等）の形状変更、期間区分の変更、`/creator/dashboard` の IA 変更。
+
+### 3. Design Decisions
+
+| 論点 | 決定 |
+|---|---|
+| 画面遷移モデル | 新規ルートを設けず `/creator/dashboard` 内のビュー状態切替（概要 ⇄ ドリルダウン ⇄ クイズ単体分析）。タブ・フィルタ状態を保持したまま戻れる（要件 23.5 / 25.6）。URL 共有可能化は非要件のため見送り |
+| ドリルダウン中のフィルタ変更 | ドリルダウン一覧・クイズ単体分析の表示中もフィルタバーは表示・有効。フィルタ変更時は当該ビューを新条件で再取得する（一覧＝同条件で再取得、試行明細の表示中＝明細を閉じて一覧へ戻す）。要件 21.4 の「各セクション更新」をドリルダウンビューにも一貫適用 |
+| フィルタ状態管理 | タブごとに独立した `useDashboardFilters` フック（コンポーネント状態のみ、永続化なし）。初期値: 期間 `30d`・他 undefined（=すべて）（要件 21.3 / 21.7） |
+| データ取得 | フィルタ変更で該当タブの一括集計関数を再呼び出し（core 側が1タブ=1 RPC）。取得中は該当セクションをスケルトン化し、旧結果と混在表示しない（stale レスポンス破棄: リクエスト連番ガード）（要件 21.4 / 21.5） |
+| エラー処理 | 集計取得失敗時は各タブにエラーカード + 「再試行」ボタン（同一フィルタで再呼び出し）（要件 21.8） |
+| プレイヤー集計移行 | `listUserPlayHistory(100)` + `getQuiz` N+1 + `computePlayerStats` の呼び出しを廃止し `getPlayerDashboardStats(filter)` に置換（要件 22.1）。ワードクラウドは戻り値の `tagCloud`/`titleStats` から既存 `extractTitleKeywords` 系で語を構成（要件 22.7） |
+| 苦手分析の導線 | 弱点ジャンル・タグの行に探索リンク（既存のジャンル別一覧 / 検索 URL 規則を再利用）を表示。プレイ開始後は担当外（要件 22.6） |
+| クリエイター刷新 | `computeDashboardStats`（キャッシュカウンタ合算）の KPI 表示を `getCreatorDashboardStats` の期間 KPI へ置換。指摘キューは既存実装維持、**モック指摘注入（`mock_fb_1`）は削除**し空状態カードに置換（要件 24.7 / 24.8） |
+| ランキング | shadcn `Table` + ヘッダクリックで並び替え（クライアント側ソート、データは取得済み集計）。行クリックで `getCreatorQuizAnalysis` を呼びクイズ単体分析ビューへ（要件 24.3 / 24.4） |
+| クイズ単体分析 | スコア分布・離脱分布・完走率は `QuizAnalysis`（期間連動）、設問別累計正答率・選択肢分布は `getQuiz` の既存キャッシュカウンタから表示し「累計値（期間フィルタ対象外）」ラベルを付す（要件 25.2 / 25.3） |
+| チャート | 既存 `AnalyticsChart`（棒）・`SelectionPie`（円）を再利用し、複数系列トレンド用に `TrendChart`（recharts LineChart + `chart.tsx` ラッパー）を新設 |
+| データ蓄積中注記 | `lifecycleSampleSize === 0`（または null 完走率）のとき「データ蓄積中」バッジ表示（要件 24.6 / 25.5） |
+
+### 4. File Structure Plan（Phase 44）
+
+| ファイル | 変更 |
+|---|---|
+| `src/app/creator/dashboard/use-dashboard-filters.ts` | **新規**。タブ別フィルタ状態フック（初期値・リセット・変更ハンドラ） |
+| `src/app/creator/dashboard/dashboard-filter-bar.tsx` | **新規**。フィルタバー（`data-testid="dashboard-filter-bar"`）。軸構成を props で受けタブ差分を吸収 |
+| `src/app/creator/dashboard/player-dashboard-client.tsx` | 変更。`getPlayerDashboardStats` への移行、フィルタ連動、ドリルダウンビュー状態、旧 N+1 取得の削除 |
+| `src/app/creator/dashboard/player-drilldown.tsx` | **新規**。フィルタ付き履歴一覧（`data-testid="player-drilldown"`、もっと見るページング）+ 試行明細（設問別正誤・解答・時間・ヒント、明細なし注記） |
+| `src/app/creator/dashboard/dashboard-sections.tsx` | 変更。KPI カード拡張（合計時間・ストリーク）、`PlayerFormatAnalysisSection`（`data-testid="player-format-analysis"`）、苦手分析、空状態。既存 testid 維持 |
+| `src/app/creator/dashboard/dashboard-client.tsx` | 変更。クリエイター側を `getCreatorDashboardStats` へ移行、モック指摘注入の削除、クイズ単体分析ビュー状態 |
+| `src/app/creator/dashboard/creator-dashboard-sections.tsx` | **新規**。クリエイター KPI・トレンド・ランキング（`data-testid="creator-quiz-ranking"`）・形式別セクション（`dashboard-sections.tsx` の肥大化回避のため分離） |
+| `src/app/creator/dashboard/creator-quiz-analysis.tsx` | **新規**。クイズ単体分析ビュー（`data-testid="creator-quiz-analysis"`、設問別累計・スコア分布・離脱分布・戻る導線・エラー/空状態） |
+| `src/components/charts/trend-chart.tsx` | **新規**。複数系列の期間トレンドチャート（recharts LineChart ラッパー） |
+| `src/lib/word-cloud.ts` | 変更。`titleStats` 集計からのキーワードクラウド構成関数を追加（既存 `extractTitleKeywords` 再利用） |
+| `tests/components/dashboard-client.test.tsx` ほか | 変更。サービスモックを `dashboard.ts` ベースへ差し替え、フィルタ・空状態・モック撤去の検証 |
+| `e2e/creator-dashboard.spec.ts` | 変更。フィルタバー・形式別セクション・ドリルダウン・ランキング・クイズ単体分析の E2E 追加、既存 assert 維持 |
+
+### 5. Requirements Traceability（Phase 44）
+
+| 要件 | 実現コンポーネント |
+|---|---|
+| 21.1〜21.3 | `DashboardFilterBar` + `useDashboardFilters`（軸構成・初期値） |
+| 21.4〜21.5 | 各クライアントのフィルタ連動再取得 + セクションスケルトン + リクエスト連番ガード |
+| 21.6 | `DashboardFilterBar` の適用中条件表示・一括リセット |
+| 21.7 | タブ別 `useDashboardFilters` インスタンス |
+| 21.8 | エラーカード + 再試行ボタン（両タブ共通） |
+| 22.1〜22.5, 22.9 | `player-dashboard-client.tsx` + `dashboard-sections.tsx`（KPI 拡張・粒度別トレンド・形式別内訳・苦手分析・空状態） |
+| 22.6 | 苦手分析行の探索導線リンク |
+| 22.7 | ワードクラウドの `tagCloud`/`titleStats` 連動 |
+| 22.8 | 既存 testid の維持（変更なしを E2E で固定） |
+| 23.1〜23.5 | `player-drilldown.tsx`（項目選択→履歴一覧→明細、注記、戻る導線） |
+| 24.1〜24.5, 24.9 | `dashboard-client.tsx` + `creator-dashboard-sections.tsx`（KPI・トレンド・ランキング・形式別・空状態） |
+| 24.6 | 完走率のデータ蓄積中バッジ |
+| 24.7〜24.8 | 指摘キュー維持 + モック注入削除・空状態 |
+| 25.1〜25.6 | `creator-quiz-analysis.tsx`（累計ラベル・スコア分布・離脱分布・注記・戻る導線） |
+| 25.7 | 分析取得失敗時のエラー/空状態（他人クイズ等） |
+
+### 6. Testing Strategy（Phase 44）
+- **Unit**: `useDashboardFilters`（初期値・リセット・タブ独立性）。`word-cloud` の `titleStats` → キーワードクラウド変換。
+- **Component**: フィルタ変更で `getPlayerDashboardStats` が新しいフィルタ引数で再呼び出しされること。取得中スケルトン→結果差し替え。エラー時の再試行ボタンで再呼び出し。指摘0件で空状態（モックが表示されないこと）。`lifecycleSampleSize: 0` で蓄積中バッジ。ドリルダウンの明細なし注記（`details: null`）。
+- **E2E**（`e2e/creator-dashboard.spec.ts`）: フィルタバー表示と期間変更でのセクション更新、`player-format-analysis` 表示、内訳項目→`player-drilldown` 表示→戻る、`creator-quiz-ranking` の並び替えと行選択→`creator-quiz-analysis` 表示→戻る。既存 testid（`player-stats` 等）の回帰維持。
+- **E2E データ前提（シーディング方針）**: フィルタ・ドリルダウン・ランキングの検証は、テストセットアップでローカル Supabase に実データ（テストユーザーのプレイ試行＝解答明細付き、ブックマーク、評価）を投入して行う（既存 E2E のプレイ操作による生成 or シード用セットアップの拡張）。モック指摘注入は撤去済みのため、指摘 0 件シナリオは空状態カードを assert する（モック表示を前提とした既存 assert は削除・置換）。データ投入が困難なセクションは空状態表示の検証まで縮退可とし、その場合は Component テストで実データ形状を担保する。
+
+**Effort**: **L**（コア契約が確定済みの前提で UI 5〜8日規模） / **Risk**: **Medium**（既存 E2E・testid への影響範囲が広い）
+
+**Document Status（Phase 44 設計）**: 本節に反映（2026-07-18）。実装は core Phase 44 完了後に着手。
+
