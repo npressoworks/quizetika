@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { streamText, tool, stepCountIs, convertToModelMessages } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
@@ -136,7 +136,7 @@ ${JSON.stringify(quizState.questions || [], null, 2)}
 
     // streamText を呼び出し
     const result = streamText({
-      model: googleProvider(process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash'),
+      model: googleProvider(process.env.GEMINI_MODEL_ID ?? 'gemini-3.1-flash-lite'),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       stopWhen: stepCountIs(5),

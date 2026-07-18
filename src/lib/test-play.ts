@@ -52,7 +52,8 @@ export function canJudgeQuestion(q: Question): boolean {
     case 'sorting':
       return (q.sortingItems?.length ?? 0) >= 2;
     case 'lateral-thinking':
-      return (q.truthKeywords?.some((k) => k.trim().length > 0) ?? false);
+      // AI判定（本番と同一ロジック）には裏設定が必須
+      return (q.aiContextDetails?.trim().length ?? 0) > 0;
     default:
       return false;
   }
@@ -177,20 +178,4 @@ export function consumeTestPlayDraftForEditor(
   const draft = payload.quizDraft;
   clearTestPlaySession();
   return draft;
-}
-
-/** 水平思考：truthKeywords のローカル部分一致判定 */
-export function checkTruthKeywordsLocally(truthText: string, keywords: string[]): boolean {
-  if (!keywords.length) return false;
-  const normalized = truthText
-    .toLowerCase()
-    .replace(/[\s\u3000]/g, '')
-    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-  return keywords.every((kw) => {
-    const nkw = kw
-      .toLowerCase()
-      .replace(/[\s\u3000]/g, '')
-      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
-    return normalized.includes(nkw);
-  });
 }

@@ -19,6 +19,9 @@ import {
   parseAiResponse,
   mapHistoryToGeminiContents,
   buildAiSystemInstruction,
+  ASK_AI_RESPONSE_SCHEMA,
+  getTodayJstString,
+  readDailyCount,
   FREE_TIER_PER_QUIZ_LIMIT,
   FREE_TIER_GLOBAL_DAILY_LIMIT,
   type AiTurnLimitType,
@@ -32,24 +35,6 @@ import { resolveUserEntitlements } from '@/services/entitlement';
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ?? '' });
 
 type QuestionRow = Database['public']['Tables']['questions']['Row'];
-
-function getTodayString(): string {
-  const d = new Date();
-  const jstOffset = 9 * 60 * 60 * 1000;
-  const jstDate = new Date(d.getTime() + jstOffset);
-  const yyyy = jstDate.getUTCFullYear();
-  const mm = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(jstDate.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function readDailyCount(
-  data: { count?: number; count_date?: string } | null | undefined,
-  todayStr: string
-): number {
-  if (!data || data.count_date !== todayStr) return 0;
-  return data.count ?? 0;
-}
 
 function limitExceededMessage(limitType: AiTurnLimitType): string {
   if (limitType === 'per-quiz') {
@@ -143,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const history: AiQuestion[] = (attempt.ai_questions_history as unknown as AiQuestion[]) ?? [];
-    const todayStr = getTodayString();
+    const todayStr = getTodayJstString();
 
     const [{ data: perQuizRow }, { data: globalRow }] = await Promise.all([
       supabase
@@ -202,16 +187,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const mappedHistory = mapHistoryToGeminiContents(history);
     const chat = genAI.chats.create({
-      model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
+      model: process.env.GEMINI_MODEL_ID ?? 'gemini-3.1-flash-lite',
       history: mappedHistory,
       config: {
         systemInstruction: buildAiSystemInstruction(aiContextDetails),
-        maxOutputTokens: 200,
+        temperature: 0,
+        thinkingConfig: { thinkingBudget: 0 },
+        maxOutputTokens: 3000,
+        responseMimeType: 'application/json',
+        responseSchema: ASK_AI_RESPONSE_SCHEMA,
       },
     });
 
     let answerType: AiQuestion['answerType'] = 'unknown';
-    let aiComment = '判断できませんでした。';
+    let aiComment = '';
 
     try {
       const result = await chat.sendMessage({ message: questionText });

@@ -4,6 +4,19 @@ import { NextRequest } from 'next/server';
 const mockVerify = jest.fn();
 const mockGenerateContent = jest.fn();
 const mockRpc = jest.fn();
+const mockResolveUserEntitlements = jest.fn();
+
+function todayJstString(): string {
+  const d = new Date();
+  const jstOffset = 9 * 60 * 60 * 1000;
+  const jstDate = new Date(d.getTime() + jstOffset);
+  const yyyy = jstDate.getUTCFullYear();
+  const mm = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(jstDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+const TODAY = todayJstString();
 
 const attemptData = {
   id: 'att-1',
@@ -44,6 +57,8 @@ const lateralQuestionRow = {
 };
 
 let attemptResolveValue: { data: unknown; error: unknown } = { data: attemptData, error: null };
+let perQuizResolveValue: { data: unknown; error: unknown } = { data: null, error: null };
+let globalResolveValue: { data: unknown; error: unknown } = { data: null, error: null };
 let quizQuestionsResolveValue: { data: unknown; error: unknown } = {
   data: [{ question: lateralQuestionRow }],
   error: null,
@@ -64,6 +79,8 @@ jest.mock('@/lib/supabase/server', () => ({
   createAdminClient: () => ({
     from: jest.fn((table: string) => {
       if (table === 'attempts') return createChain(attemptResolveValue);
+      if (table === 'ai_turn_counts_per_quiz') return createChain(perQuizResolveValue);
+      if (table === 'ai_turn_counts_global') return createChain(globalResolveValue);
       if (table === 'quiz_questions') return createChain(quizQuestionsResolveValue);
       return createChain({ data: null, error: null });
     }),
@@ -76,12 +93,17 @@ jest.mock('@/lib/supabase/auth-verify', () => ({
   verifySupabaseAccessToken: (...args: unknown[]) => mockVerify(...args),
 }));
 
+jest.mock('@/services/entitlement', () => ({
+  resolveUserEntitlements: (...args: unknown[]) => mockResolveUserEntitlements(...args),
+}));
+
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
     models: {
       generateContent: (...args: unknown[]) => mockGenerateContent(...args),
     },
   })),
+  Type: { OBJECT: 'OBJECT', STRING: 'STRING' },
 }));
 
 function buildRequest(body: Record<string, unknown>): NextRequest {
@@ -96,14 +118,17 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockVerify.mockResolvedValue('uid-1');
+    mockResolveUserEntitlements.mockResolvedValue({ hasUnlimitedAiQuestions: false });
     attemptResolveValue = { data: attemptData, error: null };
+    perQuizResolveValue = { data: null, error: null };
+    globalResolveValue = { data: null, error: null };
     quizQuestionsResolveValue = { data: [{ question: lateralQuestionRow }], error: null };
     mockRpc.mockResolvedValue({ data: null, error: null });
   });
 
   it('常に Gemini を呼び出し、プロンプトにエッセンスキーワードを含める', async () => {
     mockGenerateContent.mockResolvedValue({
-      text: 'VERDICT: INCORRECT\nREASON: MISSING_ESSENCE',
+      text: '{"verdict":"INCORRECT","reason":"MISSING_ESSENCE"}',
     });
 
     const summary = '男は遭難しウミガメのスープを飲んだ';
@@ -128,7 +153,7 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
 
   it('キーワードが要約に全て含まれていても AI 判定結果に従う（バイパスなし）', async () => {
     mockGenerateContent.mockResolvedValue({
-      text: 'VERDICT: INCORRECT\nREASON: UNRELATED',
+      text: '{"verdict":"INCORRECT","reason":"UNRELATED"}',
     });
 
     const summary = '男は遭難し、ウミガメのスープを飲んだ';
@@ -142,9 +167,63 @@ describe('POST /api/attempt/verify-truth (Phase 15)', () => {
     expect(mockRpc).toHaveBeenCalled();
   });
 
+  it('真相判定1回をAI質問と共通のターンとして記録する（handle_record_ai_turn）', async () => {
+    mockGenerateContent.mockResolvedValue({
+      text: '{"verdict":"CORRECT"}',
+    });
+
+    await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', truthSummary: '真相の要約' })
+    );
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'handle_record_ai_turn',
+      expect.objectContaining({
+        p_attempt_id: null,
+        p_user_id: 'uid-1',
+        p_quiz_id: 'quiz-1',
+        p_history_entry: null,
+        p_per_quiz_limit: 30,
+        p_global_limit: 150,
+      })
+    );
+  });
+
+  it('日次上限に達している場合は Gemini を呼ばず 429 を返す', async () => {
+    perQuizResolveValue = { data: { count: 30, count_date: TODAY }, error: null };
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', truthSummary: '真相の要約' })
+    );
+
+    expect(res.status).toBe(429);
+    const body = await res.json();
+    expect(body.error).toBe('limit-exceeded');
+    expect(body.limitType).toBe('per-quiz');
+    expect(mockGenerateContent).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('Pro ユーザーは上限超過状態でも判定できる', async () => {
+    mockResolveUserEntitlements.mockResolvedValue({ hasUnlimitedAiQuestions: true });
+    perQuizResolveValue = { data: { count: 999, count_date: TODAY }, error: null };
+    globalResolveValue = { data: { count: 999, count_date: TODAY }, error: null };
+    mockGenerateContent.mockResolvedValue({ text: '{"verdict":"CORRECT"}' });
+
+    const res = await POST(
+      buildRequest({ attemptId: 'att-1', userId: 'uid-1', truthSummary: '真相の要約' })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'handle_record_ai_turn',
+      expect.objectContaining({ p_per_quiz_limit: null, p_global_limit: null })
+    );
+  });
+
   it('AI が CORRECT のとき合格レスポンスを返し、RPCへ経過秒数と総問題数を渡す', async () => {
     mockGenerateContent.mockResolvedValue({
-      text: 'VERDICT: CORRECT\nお見事！',
+      text: '{"verdict":"CORRECT"}',
     });
 
     const res = await POST(

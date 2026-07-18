@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI, Type, type Schema } from '@google/genai';
 import {
   authorizeAiAuthoringRequest,
@@ -247,7 +247,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         genre,
       });
       const result = await genAI.models.generateContent({
-        model: process.env.GEMINI_MODEL_ID ?? 'gemini-1.5-flash-latest',
+        model: process.env.GEMINI_MODEL_ID ?? 'gemini-3.1-flash-lite',
         contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
         config: {
           responseMimeType: 'application/json',

@@ -604,6 +604,14 @@ function QuizPlayClient({ quizId, initialQuiz }: QuizPlayClientProps) {
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        // 制限超過（AI質問と共通の二層日次制限）やAIエラーはメッセージをそのまま表示する
+        setTruthAdvice(
+          data.message ||
+            '判定サーバーでエラーが発生しました。時間を置いてから再試行してください。'
+        );
+        return;
+      }
       if (data.isCorrect) {
         setTruthPassed(true);
         // クリアアニメーション後、結果画面へ遷移

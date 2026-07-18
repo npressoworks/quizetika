@@ -25,10 +25,10 @@ import {
   prepareQuizForTestPlay,
   saveTestPlayResult,
   canJudgeQuestion,
-  checkTruthKeywordsLocally,
   TestPlayResult,
   buildTestPlayReturnUrl,
 } from '@/lib/test-play';
+import { getSupabaseAccessToken } from '@/lib/supabase/auth';
 import { PlaySkeleton } from '@/components/quiz/play-skeleton';
 import { useAds } from '@/hooks/useAds';
 import { VideoAdModal } from '@/components/ads/video-ad-modal';
@@ -202,6 +202,7 @@ function TestPlayClient() {
 
   const [lateralTruth, setLateralTruth] = useState('');
   const [lateralFeedback, setLateralFeedback] = useState<string | null>(null);
+  const [lateralChecking, setLateralChecking] = useState(false);
 
   useEffect(() => {
     setIsReadingStarted(false);
@@ -209,8 +210,50 @@ function TestPlayClient() {
     setCurrentQuickPressTime(0);
     setLateralTruth('');
     setLateralFeedback(null);
+    setLateralChecking(false);
     quickPressStartTimeRef.current = null;
   }, [currentIdx]);
+
+  /** 水平思考: 本番と同一のAI判定（test-verify-truth API）で真相要約を照合する */
+  const handleLateralTruthSubmit = useCallback(
+    async (question: Question, truthText: string) => {
+      if (!truthText.trim() || lateralChecking) return;
+      setLateralChecking(true);
+      setLateralFeedback(null);
+      try {
+        const token = await getSupabaseAccessToken();
+        const res = await fetch('/api/quiz/test-verify-truth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            aiContextDetails: question.aiContextDetails ?? '',
+            truthKeywords: question.truthKeywords ?? [],
+            truthSummary: truthText,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setLateralFeedback(data.message || 'AI判定に失敗しました。もう一度お試しください。');
+          return;
+        }
+        if (data.isCorrect) {
+          setLateralFeedback('AI判定 — 正解と判定しました。');
+          setTimeout(() => handleAnswerSubmit(truthText), 800);
+        } else {
+          setLateralFeedback(`AI判定 — 不正解。${data.advice ?? ''}`);
+        }
+      } catch (e) {
+        console.error('[test-verify-truth] 送信エラー:', e);
+        setLateralFeedback('通信エラーが発生しました。もう一度お試しください。');
+      } finally {
+        setLateralChecking(false);
+      }
+    },
+    [lateralChecking, handleAnswerSubmit]
+  );
 
   useEffect(() => {
     if (!quiz || currentIdx >= (quiz.questions ?? []).length) return;
@@ -553,38 +596,31 @@ function TestPlayClient() {
                     fontSize: '0.9rem',
                   }}
                 >
-                  テストプレイでは AI 判定は利用できません。公開後にご確認ください。
                   {judgeable
-                    ? ' 真相キーワードによるローカル判定のみ可能です。'
-                    : ' 真相キーワードが未設定のため、正誤判定はできません。'}
+                    ? '本番と同じAIによる真相判定を利用できます（AI質問チャットは公開後のみ）。'
+                    : '真相（裏設定）が未設定のため、AI判定はできません。'}
                 </div>
                 {judgeable && (
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const passed = checkTruthKeywordsLocally(
-                        lateralTruth,
-                        currentQuestion.truthKeywords ?? []
-                      );
-                      setLateralFeedback(
-                        passed
-                          ? 'キーワード一致 — 正解と判定しました。'
-                          : 'キーワードが一致しませんでした。'
-                      );
-                      if (passed) {
-                        setTimeout(() => handleAnswerSubmit(lateralTruth), 800);
-                      }
+                      handleLateralTruthSubmit(currentQuestion, lateralTruth);
                     }}
                   >
                     <textarea
                       className={styles.textInput}
                       style={{ width: '100%', minHeight: '100px', marginBottom: '12px' }}
-                      placeholder="真相の要約を入力（キーワード部分一致で判定）..."
+                      placeholder="真相の要約を入力（本番と同じAI判定）..."
                       value={lateralTruth}
                       onChange={(e) => setLateralTruth(e.target.value)}
+                      disabled={lateralChecking}
                     />
-                    <button type="submit" className="btn btn-accent" disabled={!lateralTruth.trim()}>
-                      真相を判定する
+                    <button
+                      type="submit"
+                      className="btn btn-accent"
+                      disabled={!lateralTruth.trim() || lateralChecking}
+                    >
+                      {lateralChecking ? 'AIが判定中...' : '真相を判定する'}
                     </button>
                   </form>
                 )}

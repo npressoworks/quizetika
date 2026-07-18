@@ -5,7 +5,7 @@ import { Question, QuestionAnswerDetail } from '@/types';
 import { LocalAttemptSession, PlayProgressData } from '@/services/attempt-session';
 import { isChoiceAnswerCorrect } from '@/services/choice-answer-utils';
 import { isTextInputAnswerCorrect } from '@/services/text-answer-utils';
-import { canJudgeQuestion, checkTruthKeywordsLocally } from '@/lib/test-play';
+import { canJudgeQuestion } from '@/lib/test-play';
 import {
   createElapsedSegmentState,
   startElapsedSegment,
@@ -100,10 +100,9 @@ function judgeAnswer(
       });
     }
   } else if (currentQuestion.type === 'lateral-thinking') {
-    isCorrect = checkTruthKeywordsLocally(
-      answerTextOrChoiceId,
-      currentQuestion.truthKeywords ?? []
-    );
+    // テストプレイの水平思考はAI判定（test-verify-truth API）で合格した場合のみ
+    // 非空の真相要約が submit される。スキップ時は空文字で不正解扱い。
+    isCorrect = answerTextOrChoiceId.trim().length > 0;
   }
 
   return { isCorrect, judgeable };

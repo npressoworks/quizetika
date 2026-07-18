@@ -103,6 +103,7 @@ jest.mock('@google/genai', () => ({
       }),
     },
   })),
+  Type: { OBJECT: 'OBJECT', STRING: 'STRING' },
 }));
 
 function buildRequest(body: Record<string, unknown>): NextRequest {
@@ -157,7 +158,7 @@ describe('POST /api/attempt/ask-ai', () => {
 
   it('新規質問時は Gemini を呼び出し、RPCで記録して残りターン数を返す', async () => {
     mockSendMessage.mockResolvedValue({
-      text: 'はい\n男は遭難していました',
+      text: '{"answerType":"yes"}',
     });
 
     const res = await POST(

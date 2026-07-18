@@ -6,8 +6,7 @@ import {
   findCachedAnswer,
   checkAiTurnLimits,
   normalizeQuestionText,
-  buildAiPrompt,
-  AiAnswerType,
+  parseAiResponse,
   mapHistoryToGeminiContents,
   buildAiSystemInstruction,
   FREE_TIER_PER_QUIZ_LIMIT,
@@ -67,6 +66,16 @@ describe('findCachedAnswer', () => {
   test('一致する質問がない場合はnullを返す', () => {
     expect(findCachedAnswer('存在しない質問ですか？', history)).toBeNull();
   });
+
+  test('unknown 回答もキャッシュヒットし、再送でターンを消費しない', () => {
+    const unknownHistory: AiQuestion[] = [
+      makeAiQuestion({ questionText: '天気は関係ありますか？', answerType: 'unknown' }),
+    ];
+    const result = findCachedAnswer('天気は関係ありますか？', unknownHistory);
+    expect(result).not.toBeNull();
+    expect(result?.answerType).toBe('unknown');
+    expect(result?.isFromCache).toBe(true);
+  });
 });
 
 describe('checkAiTurnLimits', () => {
@@ -114,23 +123,27 @@ describe('checkAiTurnLimits', () => {
   });
 });
 
-describe('buildAiPrompt', () => {
-  const soupContext = '被害者は、ある特定の音を聞いてスープを飲むのをやめ、命を落とした。';
-  const question = '被害者は自殺しましたか？';
-
-  test('プロンプトに裏設定（aiContextDetails）が含まれる', () => {
-    const prompt = buildAiPrompt(soupContext, question);
-    expect(prompt).toContain(soupContext);
+describe('parseAiResponse', () => {
+  test('structured output の JSON から判定タイプを取り出す', () => {
+    expect(parseAiResponse('{"answerType":"yes"}').answerType).toBe('yes');
+    expect(parseAiResponse('{"answerType":"no"}').answerType).toBe('no');
+    expect(parseAiResponse('{"answerType":"irrelevant"}').answerType).toBe('irrelevant');
+    expect(parseAiResponse('{"answerType":"unknown"}').answerType).toBe('unknown');
   });
 
-  test('プロンプトに質問文が含まれる', () => {
-    const prompt = buildAiPrompt(soupContext, question);
-    expect(prompt).toContain(question);
+  test('コードフェンス付き JSON もパースできる', () => {
+    const result = parseAiResponse('```json\n{"answerType":"yes"}\n```');
+    expect(result.answerType).toBe('yes');
   });
 
-  test('プロンプトに有効な回答形式の指示が含まれる', () => {
-    const prompt = buildAiPrompt(soupContext, question);
-    expect(prompt).toMatch(/はい|いいえ|関係ありません|判断できません/);
+  test('判定語のみを扱うため aiComment は常に空', () => {
+    expect(parseAiResponse('{"answerType":"yes"}').aiComment).toBe('');
+  });
+
+  test('JSON として解釈できない場合は unknown に倒す', () => {
+    expect(parseAiResponse('はい、そうです。').answerType).toBe('unknown');
+    expect(parseAiResponse('').answerType).toBe('unknown');
+    expect(parseAiResponse('{"answerType":"maybe"}').answerType).toBe('unknown');
   });
 });
 
@@ -148,6 +161,9 @@ describe('mapHistoryToGeminiContents', () => {
     expect(result).toHaveLength(4);
     expect(result[0].role).toBe('user');
     expect(result[0].parts![0].text).toBe('海ですか？');
+    // model ターンは structured output と同じ JSON 形式
+    expect(result[1].role).toBe('model');
+    expect(result[1].parts![0].text).toBe('{"answerType":"yes"}');
   });
 
   test('直近最大20回分のみにスライスされる', () => {
