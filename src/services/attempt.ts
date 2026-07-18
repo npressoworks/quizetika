@@ -66,7 +66,8 @@ export function mapRowToAttempt(row: Database['public']['Tables']['attempts']['R
  * `handle_save_attempt` RPC がアトミックに行う。
  */
 export async function saveAttempt(
-  attemptData: Omit<Attempt, 'id' | 'completedAt'>
+  attemptData: Omit<Attempt, 'id' | 'completedAt'>,
+  attemptId?: string
 ): Promise<string> {
   assertPlayModeAllowedForSave(attemptData.mode);
 
@@ -142,7 +143,8 @@ export async function saveAttempt(
   }
   // ───────────────────────────────────────────────────────────────
 
-  const { data: attemptId, error } = await supabase.rpc('handle_save_attempt', {
+  const { data: savedAttemptId, error } = await supabase.rpc('handle_save_attempt', {
+    p_attempt_id: attemptId || null,
     p_user_id: attemptData.userId,
     p_quiz_id: attemptData.quizId,
     p_mode: attemptData.mode,
@@ -154,11 +156,11 @@ export async function saveAttempt(
     p_question_answer_details: (attemptData.questionAnswerDetails ?? []) as unknown as Json,
   });
 
-  if (error || !attemptId) {
+  if (error || !savedAttemptId) {
     throw new Error(`プレイ結果の保存に失敗しました: ${error?.message ?? '不明なエラー'}`);
   }
 
-  return attemptId;
+  return savedAttemptId;
 }
 
 /**
@@ -182,6 +184,48 @@ export async function createLateralAttemptSession(
   }
 
   return attemptId;
+}
+
+/**
+ * プレイセッション開始時に未完了 attempt を作成する（試行ライフサイクル開始）
+ * normal, exam, flashcard, review モードで利用可能
+ */
+export async function startAttemptSession(
+  userId: string,
+  quizId: string,
+  mode: Attempt['mode'],
+  totalQuestions: number
+): Promise<string> {
+  const { data: attemptId, error } = await supabase.rpc('handle_start_attempt', {
+    p_user_id: userId,
+    p_quiz_id: quizId,
+    p_mode: mode,
+    p_total_questions: totalQuestions,
+    p_ai_turn_limit: null,
+  });
+
+  if (error || !attemptId) {
+    throw new Error(`プレイセッションの開始に失敗しました: ${error?.message ?? '不明なエラー'}`);
+  }
+
+  return attemptId;
+}
+
+/**
+ * プレイセッションの進行状況（回答済みの問題数）を更新する
+ */
+export async function updateAttemptProgress(
+  attemptId: string,
+  answeredCount: number
+): Promise<void> {
+  const { error } = await supabase.rpc('handle_update_attempt_progress', {
+    p_attempt_id: attemptId,
+    p_answered_count: answeredCount,
+  });
+
+  if (error) {
+    throw new Error(`プレイ進行状況の更新に失敗しました: ${error.message}`);
+  }
 }
 
 /* ==========================================================================

@@ -224,6 +224,7 @@ export type Database = {
           ai_truth_attempts: Json | null
           ai_turn_count: number | null
           ai_turn_limit: number | null
+          answered_count: number | null
           completed_at: string | null
           difficulty_vote: number | null
           elapsed_seconds: number
@@ -237,6 +238,7 @@ export type Database = {
           quiz_id: string
           score: number
           session_id: string | null
+          started_at: string | null
           total_questions: number
           user_id: string
         }
@@ -245,6 +247,7 @@ export type Database = {
           ai_truth_attempts?: Json | null
           ai_turn_count?: number | null
           ai_turn_limit?: number | null
+          answered_count?: number | null
           completed_at?: string | null
           difficulty_vote?: number | null
           elapsed_seconds: number
@@ -258,6 +261,7 @@ export type Database = {
           quiz_id: string
           score: number
           session_id?: string | null
+          started_at?: string | null
           total_questions: number
           user_id: string
         }
@@ -266,6 +270,7 @@ export type Database = {
           ai_truth_attempts?: Json | null
           ai_turn_count?: number | null
           ai_turn_limit?: number | null
+          answered_count?: number | null
           completed_at?: string | null
           difficulty_vote?: number | null
           elapsed_seconds?: number
@@ -279,6 +284,7 @@ export type Database = {
           quiz_id?: string
           score?: number
           session_id?: string | null
+          started_at?: string | null
           total_questions?: number
           user_id?: string
         }
@@ -351,6 +357,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "billing_duplicate_subscription_incidents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_reconciliation_corrections: {
+        Row: {
+          corrected_status: string | null
+          corrected_tier: string
+          detected_at: string
+          id: string
+          previous_status: string | null
+          previous_tier: string
+          user_id: string
+        }
+        Insert: {
+          corrected_status?: string | null
+          corrected_tier: string
+          detected_at?: string
+          id?: string
+          previous_status?: string | null
+          previous_tier: string
+          user_id: string
+        }
+        Update: {
+          corrected_status?: string | null
+          corrected_tier?: string
+          detected_at?: string
+          id?: string
+          previous_status?: string | null
+          previous_tier?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_reconciliation_corrections_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -1720,6 +1764,14 @@ export type Database = {
         Args: { p_genre_id: string; p_reassign_to_id?: string }
         Returns: number
       }
+      execute_merge: {
+        Args: {
+          p_source_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: undefined
+      }
       get_banned_users: {
         Args: {
           p_banned_from: string
@@ -1735,6 +1787,41 @@ export type Database = {
           display_name: string
           uid: string
         }[]
+      }
+      get_creator_dashboard_stats: {
+        Args: {
+          p_format?: string
+          p_genre_id?: string
+          p_period: string
+          p_visibility?: string
+        }
+        Returns: Json
+      }
+      get_creator_quiz_analysis: {
+        Args: { p_period: string; p_quiz_id: string }
+        Returns: Json
+      }
+      get_player_dashboard_stats: {
+        Args: {
+          p_genre_id?: string
+          p_mode?: string
+          p_period: string
+          p_question_type?: string
+          p_tag?: string
+        }
+        Returns: Json
+      }
+      get_player_drilldown_history: {
+        Args: {
+          p_cursor?: string
+          p_genre_id?: string
+          p_limit?: number
+          p_mode?: string
+          p_period: string
+          p_question_type?: string
+          p_tag?: string
+        }
+        Returns: Json
       }
       get_reported_users_ranking: {
         Args: { p_limit: number; p_offset: number }
@@ -1763,6 +1850,23 @@ export type Database = {
       }
       handle_adjust_failed_questions_count: {
         Args: { p_delta: number; p_user_id: string }
+        Returns: undefined
+      }
+      handle_admin_execute_merge: {
+        Args: {
+          p_reason: string
+          p_source_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: string
+      }
+      handle_admin_resolve_genre_request: {
+        Args: { p_decision: string; p_request_id: string }
+        Returns: undefined
+      }
+      handle_admin_resolve_merge_request: {
+        Args: { p_decision: string; p_request_id: string }
         Returns: undefined
       }
       handle_ban_user: {
@@ -1891,6 +1995,7 @@ export type Database = {
       }
       handle_save_attempt: {
         Args: {
+          p_attempt_id?: string
           p_elapsed_seconds: number
           p_failed_question_ids: string[]
           p_mode: string
@@ -1919,6 +2024,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      handle_start_attempt: {
+        Args: {
+          p_mode: string
+          p_quiz_id: string
+          p_total_questions: number
+          p_user_id: string
+        }
+        Returns: string
       }
       handle_start_lateral_attempt: {
         Args: {
@@ -1959,6 +2073,10 @@ export type Database = {
       handle_unfollow_user: {
         Args: { p_follower_id: string; p_following_id: string }
         Returns: boolean
+      }
+      handle_update_attempt_progress: {
+        Args: { p_answered_count: number; p_attempt_id: string }
+        Returns: undefined
       }
       handle_update_feedback_report: {
         Args: {
@@ -2010,6 +2128,15 @@ export type Database = {
           p_quiz_id: string
           p_score: number
           p_user_id: string
+        }
+        Returns: undefined
+      }
+      register_genre: {
+        Args: {
+          p_description: string
+          p_display_name: string
+          p_genre_id: string
+          p_icon_image_url: string
         }
         Returns: undefined
       }

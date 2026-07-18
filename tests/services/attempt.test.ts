@@ -41,6 +41,8 @@ import {
   updateFailedQuestions,
   updateFailedQuestionsCount,
   syncPendingAttempts,
+  startAttemptSession,
+  updateAttemptProgress,
 } from '../../src/services/attempt';
 import { getPendingSyncAttempts, clearPendingSyncAttempt } from '../../src/services/attempt-session';
 import { getQuiz } from '../../src/services/quiz';
@@ -86,6 +88,7 @@ describe('AttemptService - saveAttempt', () => {
     expect(attemptId).toBe('new-attempt-id');
 
     expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_save_attempt', {
+      p_attempt_id: null,
       p_user_id: userId,
       p_quiz_id: quizId,
       p_mode: 'normal',
@@ -155,6 +158,27 @@ describe('AttemptService - saveAttempt', () => {
         aiTurnLimit: null,
       })
     ).rejects.toThrow('問題数が一致しません');
+  });
+
+  test('attemptId が指定された場合に RPC 引数 p_attempt_id に渡されること', async () => {
+    const attemptData = {
+      userId,
+      quizId,
+      mode: 'normal' as const,
+      score: 5,
+      totalQuestions: 5,
+      elapsedSeconds: 30,
+      failedQuestionIds: [],
+      aiTurnCount: 0,
+      aiTurnLimit: null,
+    };
+
+    await saveAttempt(attemptData, 'specified-attempt-uuid');
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      'handle_save_attempt',
+      expect.objectContaining({ p_attempt_id: 'specified-attempt-uuid' })
+    );
   });
 
   test('questionAnswerDetails の件数が不整合な場合にエラーを投げること', async () => {
@@ -477,5 +501,51 @@ describe('AttemptService - syncPendingAttempts', () => {
 
     expect(successCount).toBe(0);
     expect(clearPendingSyncAttempt).not.toHaveBeenCalled();
+  });
+});
+
+describe('AttemptService - startAttemptSession and updateAttemptProgress', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test('startAttemptSession が handle_start_attempt RPC を正しく呼び出すこと', async () => {
+    mockSupabase.rpc.mockResolvedValue({ data: 'new-session-uuid', error: null });
+
+    const attemptId = await startAttemptSession('user-1', 'quiz-1', 'normal', 10);
+    expect(attemptId).toBe('new-session-uuid');
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_start_attempt', {
+      p_user_id: 'user-1',
+      p_quiz_id: 'quiz-1',
+      p_mode: 'normal',
+      p_total_questions: 10,
+      p_ai_turn_limit: null,
+    });
+  });
+
+  test('startAttemptSession がエラーの場合に例外をスローすること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ data: null, error: { message: '開始エラー' } });
+
+    await expect(
+      startAttemptSession('user-1', 'quiz-1', 'normal', 10)
+    ).rejects.toThrow('開始エラー');
+  });
+
+  test('updateAttemptProgress が handle_update_attempt_progress RPC を正しく呼び出すこと', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: null });
+
+    await updateAttemptProgress('session-uuid', 5);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('handle_update_attempt_progress', {
+      p_attempt_id: 'session-uuid',
+      p_answered_count: 5,
+    });
+  });
+
+  test('updateAttemptProgress がエラーの場合に例外をスローすること', async () => {
+    mockSupabase.rpc.mockResolvedValue({ error: { message: '進行更新エラー' } });
+
+    await expect(
+      updateAttemptProgress('session-uuid', 5)
+    ).rejects.toThrow('進行更新エラー');
   });
 });
