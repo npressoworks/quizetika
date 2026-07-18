@@ -7,7 +7,7 @@ import { getReportsForCreator, resolveReport } from '@/services/review';
 import { getCreatorDashboardStats } from '@/services/dashboard';
 import { Quiz, FeedbackReport } from '@/types';
 import { CreatorDashboardStats } from '@/types/dashboard';
-import { FeedbackSection } from './dashboard-sections';
+import { FeedbackSection, ManageQuizzesLinkCard } from './dashboard-sections';
 import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
 import { FeedbackSkeleton } from '@/components/quiz/feedback-skeleton';
@@ -131,7 +131,7 @@ function CreatorDashboardClientInner() {
     return null;
   }
 
-  if (stats.quizzes.length === 0) {
+  if (stats.quizRanking.length === 0) {
     return (
       <div className="space-y-6">
         <DashboardFilterBar
@@ -168,19 +168,20 @@ function CreatorDashboardClientInner() {
           <CreatorChartsSection stats={stats} />
           <CreatorFormatPerformanceSection stats={stats} />
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <CreatorQuizRankingSection
-              stats={stats}
-              onQuizSelect={(quizId) => {
-                setSelectedQuizId(quizId);
-                setViewState('analysis');
-              }}
-            />
+            <ManageQuizzesLinkCard />
             <FeedbackSection
               feedbacks={feedbacks}
               quizzes={[]}
               onResolve={handleResolveFeedback}
             />
           </div>
+          <CreatorQuizRankingSection
+            stats={stats}
+            onQuizSelect={(quizId) => {
+              setSelectedQuizId(quizId);
+              setViewState('analysis');
+            }}
+          />
         </div>
       ) : (
         <CreatorQuizAnalysis

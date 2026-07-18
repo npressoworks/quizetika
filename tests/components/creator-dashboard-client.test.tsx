@@ -58,31 +58,31 @@ jest.mock('recharts', () => {
 describe('CreatorDashboardClient', () => {
   const mockStats = {
     kpi: {
-      totalPlays: 10,
-      uniquePlayerCount: 5,
-      bookmarkCount: 3,
-      reviewCount: 2,
+      plays: 10,
+      uniquePlayers: 5,
+      bookmarksGained: 3,
+      reviewsGained: 2,
       averageRating: 4.5,
       completionRate: 80,
       lifecycleSampleSize: 10,
     },
     trend: [{ label: '7/18', plays: 2, bookmarks: 1, reviews: 1 }],
-    quizzes: [
+    quizRanking: [
       {
         quizId: 'quiz-1',
         title: 'JavaScriptクイズ',
         plays: 8,
-        accuracy: 75,
+        averageAccuracy: 75,
         bookmarks: 2,
-        rating: 4.5,
+        reviews: 2,
       },
       {
         quizId: 'quiz-2',
         title: 'Reactクイズ',
         plays: 2,
-        accuracy: 90,
+        averageAccuracy: 90,
         bookmarks: 1,
-        rating: 5.0,
+        reviews: 1,
       },
     ],
     formatBreakdown: [{ key: 'multiple-choice', plays: 10, accuracy: 80 }],
@@ -103,7 +103,7 @@ describe('CreatorDashboardClient', () => {
     expect(screen.getByTestId('creator-skeleton')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByTestId('creator-stats')).toBeInTheDocument();
+      expect(screen.getByTestId('stats-section')).toBeInTheDocument();
     });
 
     expect(screen.getByText('累計プレイ数')).toBeInTheDocument();

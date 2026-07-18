@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { CreatorDashboardStats } from '@/types/dashboard';
 import { TrendChart } from '@/components/charts/trend-chart';
 import { cn } from '@/lib/utils';
@@ -27,14 +26,14 @@ export function CreatorStatsGridSection({ stats }: { stats: CreatorDashboardStat
   const isDataAccumulating = stats.kpi.lifecycleSampleSize === 0 || stats.kpi.completionRate === null;
 
   const items = [
-    { icon: PlayIcon, label: '累計プレイ数', value: `${stats.kpi.totalPlays} 回`, variant: 'primary' as const },
-    { icon: StarIcon, label: 'ユニークプレイヤー', value: `${stats.kpi.uniquePlayerCount} 人`, variant: 'info' as const },
-    { icon: BookmarkIcon, label: 'ブックマーク数', value: `${stats.kpi.bookmarkCount} 個`, variant: 'accent' as const },
+    { icon: PlayIcon, label: '累計プレイ数', value: `${stats.kpi.plays} 回`, variant: 'primary' as const },
+    { icon: StarIcon, label: 'ユニークプレイヤー', value: `${stats.kpi.uniquePlayers} 人`, variant: 'info' as const },
+    { icon: BookmarkIcon, label: 'ブックマーク数', value: `${stats.kpi.bookmarksGained} 個`, variant: 'accent' as const },
     {
-      icon: StarIcon,
+      icon: ReviewIcon,
       label: '平均評価',
       value: stats.kpi.averageRating !== null ? `${stats.kpi.averageRating.toFixed(1)} 点` : '---',
-      subtext: `(レビュー数: ${stats.kpi.reviewCount} 件)`,
+      subtext: `(獲得レビュー: ${stats.kpi.reviewsGained} 件)`,
       variant: 'warning' as const
     },
     {
@@ -57,7 +56,7 @@ export function CreatorStatsGridSection({ stats }: { stats: CreatorDashboardStat
   return (
     <div
       className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5"
-      data-testid="creator-stats"
+      data-testid="stats-section"
     >
       {items.map((item) => (
         <Card key={item.label} className="transition-colors hover:border-primary/50">
@@ -109,7 +108,7 @@ export function CreatorChartsSection({ stats }: { stats: CreatorDashboardStats }
   );
 }
 
-type SortKey = 'title' | 'plays' | 'accuracy' | 'bookmarks' | 'rating';
+type SortKey = 'title' | 'plays' | 'averageAccuracy' | 'bookmarks' | 'reviews';
 
 export function CreatorQuizRankingSection({
   stats,
@@ -128,14 +127,14 @@ export function CreatorQuizRankingSection({
   };
 
   const sortedQuizzes = useMemo(() => {
-    const list = [...stats.quizzes];
+    const list = [...stats.quizRanking];
     list.sort((a, b) => {
       let valA: any = a[sortKey];
       let valB: any = b[sortKey];
 
-      if (sortKey === 'rating') {
-        valA = a.rating ?? -1;
-        valB = b.rating ?? -1;
+      if (sortKey === 'averageAccuracy') {
+        valA = a.averageAccuracy ?? -1;
+        valB = b.averageAccuracy ?? -1;
       }
 
       if (typeof valA === 'string') {
@@ -145,24 +144,7 @@ export function CreatorQuizRankingSection({
       return sortOrder === 'asc' ? valA - valB : valB - valA;
     });
     return list;
-  }, [stats.quizzes, sortKey, sortOrder]);
-
-  const SortHeader = ({ k, label }: { k: SortKey; label: string }) => {
-    const isActive = sortKey === k;
-    return (
-      <TableHead
-        onClick={() => handleSort(k)}
-        className="cursor-pointer hover:bg-muted/50 select-none"
-      >
-        <div className="flex items-center gap-1">
-          {label}
-          {isActive && (
-            sortOrder === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />
-          )}
-        </div>
-      </TableHead>
-    );
-  };
+  }, [stats.quizRanking, sortKey, sortOrder]);
 
   return (
     <Card data-testid="creator-quiz-ranking">
@@ -189,10 +171,10 @@ export function CreatorQuizRankingSection({
                       {sortKey === 'plays' && (sortOrder === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
                     </div>
                   </th>
-                  <th onClick={() => handleSort('accuracy')} className="pb-3 pt-2 font-medium cursor-pointer hover:bg-muted/50 select-none">
+                  <th onClick={() => handleSort('averageAccuracy')} className="pb-3 pt-2 font-medium cursor-pointer hover:bg-muted/50 select-none">
                     <div className="flex items-center gap-1">
                       平均正答率
-                      {sortKey === 'accuracy' && (sortOrder === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
+                      {sortKey === 'averageAccuracy' && (sortOrder === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
                     </div>
                   </th>
                   <th onClick={() => handleSort('bookmarks')} className="pb-3 pt-2 font-medium cursor-pointer hover:bg-muted/50 select-none">
@@ -201,10 +183,10 @@ export function CreatorQuizRankingSection({
                       {sortKey === 'bookmarks' && (sortOrder === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
                     </div>
                   </th>
-                  <th onClick={() => handleSort('rating')} className="pb-3 pt-2 font-medium cursor-pointer hover:bg-muted/50 select-none">
+                  <th onClick={() => handleSort('reviews')} className="pb-3 pt-2 font-medium cursor-pointer hover:bg-muted/50 select-none">
                     <div className="flex items-center gap-1">
-                      評価
-                      {sortKey === 'rating' && (sortOrder === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
+                      レビュー数
+                      {sortKey === 'reviews' && (sortOrder === 'asc' ? <ArrowUpIcon className="size-3" /> : <ArrowDownIcon className="size-3" />)}
                     </div>
                   </th>
                 </tr>
@@ -220,11 +202,9 @@ export function CreatorQuizRankingSection({
                       {q.title}
                     </td>
                     <td className="py-4 pr-3">{q.plays} 回</td>
-                    <td className="py-4 pr-3">{q.accuracy}%</td>
+                    <td className="py-4 pr-3">{q.averageAccuracy !== null ? `${q.averageAccuracy}%` : '---'}</td>
                     <td className="py-4 pr-3">{q.bookmarks} 個</td>
-                    <td className="py-4 text-amber-500 font-bold">
-                      {q.rating !== null ? q.rating.toFixed(1) : '---'}
-                    </td>
+                    <td className="py-4 pr-3">{q.reviews} 件</td>
                   </tr>
                 ))}
               </tbody>

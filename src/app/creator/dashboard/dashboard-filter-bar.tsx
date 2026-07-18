@@ -41,28 +41,30 @@ export function DashboardFilterBar({
     return () => clearTimeout(timer);
   }, [localTag, onChange, filters]);
 
-  const handlePeriodChange = (val: string) => {
-    onChange({ ...filters, period: val as any });
+  const handlePeriodChange = (val: any) => {
+    if (val) {
+      onChange({ ...filters, period: val });
+    }
   };
 
-  const handleGenreChange = (val: string) => {
-    onChange({ ...filters, genreId: val === 'all' ? undefined : val });
+  const handleGenreChange = (val: any) => {
+    onChange({ ...filters, genreId: val === 'all' || !val ? undefined : val });
   };
 
-  const handleQuestionTypeChange = (val: string) => {
-    onChange({ ...filters, questionType: val === 'all' ? undefined : val });
+  const handleQuestionTypeChange = (val: any) => {
+    onChange({ ...filters, questionType: val === 'all' || !val ? undefined : val });
   };
 
-  const handleModeChange = (val: string) => {
-    onChange({ ...filters, mode: val === 'all' ? undefined : val });
+  const handleModeChange = (val: any) => {
+    onChange({ ...filters, mode: val === 'all' || !val ? undefined : val });
   };
 
-  const handleFormatChange = (val: string) => {
-    onChange({ ...filters, format: val === 'all' ? undefined : val });
+  const handleFormatChange = (val: any) => {
+    onChange({ ...filters, format: val === 'all' || !val ? undefined : val });
   };
 
-  const handleVisibilityChange = (val: string) => {
-    onChange({ ...filters, visibility: val === 'all' ? undefined : (val as any) });
+  const handleVisibilityChange = (val: any) => {
+    onChange({ ...filters, visibility: val === 'all' || !val ? undefined : val });
   };
 
   const hasActiveFilters =

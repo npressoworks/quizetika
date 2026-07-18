@@ -50,6 +50,7 @@ export function useDashboardFilters(initialPeriod: DashboardPeriod = '30d') {
 
   return {
     filters,
+    setFilters,
     setPeriod,
     setGenreId,
     setTag,
