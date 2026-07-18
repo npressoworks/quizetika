@@ -2,7 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { getPlayerDrilldownHistory, getAttemptDetail } from '@/services/dashboard';
-import { PlayerDashboardFilter, PlayHistoryEntry, QuestionAnswerDetail } from '@/types/dashboard';
+import { getQuiz } from '@/services/quiz';
+import { PlayerDashboardFilter } from '@/types/dashboard';
+import { PlayHistoryEntry, QuestionAnswerDetail, Quiz } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +21,7 @@ interface PlayerDrilldownProps {
 
 export function PlayerDrilldown({ filters, onBack, genreLabelById }: PlayerDrilldownProps) {
   const [history, setHistory] = useState<PlayHistoryEntry[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +31,7 @@ export function PlayerDrilldown({ filters, onBack, genreLabelById }: PlayerDrill
   const [detailList, setDetailList] = useState<QuestionAnswerDetail[] | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -70,16 +73,21 @@ export function PlayerDrilldown({ filters, onBack, genreLabelById }: PlayerDrill
   };
 
   const handleSelectAttempt = async (attempt: PlayHistoryEntry) => {
-    setSelectedAttemptId(attempt.id);
+    setSelectedAttemptId(attempt.attemptId);
     setDetailSummary(attempt);
     setDetailList(null);
+    setQuiz(null);
     setLoadingDetail(true);
     setDetailError(null);
 
     try {
-      const detail = await getAttemptDetail(attempt.id);
+      const [detail, quizData] = await Promise.all([
+        getAttemptDetail(attempt.attemptId),
+        getQuiz(attempt.quizId),
+      ]);
       setDetailSummary(detail.summary);
       setDetailList(detail.details);
+      setQuiz(quizData);
     } catch (err: any) {
       setDetailError(err.message || '詳細データの取得に失敗しました');
     } finally {
@@ -139,37 +147,56 @@ export function PlayerDrilldown({ filters, onBack, genreLabelById }: PlayerDrill
               </div>
             ) : (
               <div className="space-y-6" data-testid="detail-question-list">
-                {detailList.map((q, idx) => (
-                  <div key={idx} className="p-4 rounded-lg border bg-muted/10 space-y-3">
-                    <div className="flex items-start justify-between gap-4 border-b pb-2">
-                      <div className="space-y-1">
-                        <span className="text-xs font-semibold text-muted-foreground">第 {idx + 1} 問</span>
-                        <p className="font-medium text-sm">{q.questionText}</p>
+                {detailList.map((q, idx) => {
+                  const question = quiz?.questions.find((x) => x.id === q.questionId);
+                  const questionText = question?.questionText || '設問情報が見つかりません';
+
+                  let correctAnswer = '---';
+                  if (question) {
+                    if (question.type === 'multiple-choice' || question.type === 'true-false') {
+                      correctAnswer = question.choices?.find((c) => c.isCorrect)?.choiceText || '---';
+                    } else if (question.correctTextAnswerList) {
+                      correctAnswer = question.correctTextAnswerList.join(', ');
+                    }
+                  }
+
+                  let userAnswerText = q.userAnswer || '未解答';
+                  if (question && q.selectedChoiceId) {
+                    userAnswerText = question.choices?.find((c) => c.id === q.selectedChoiceId)?.choiceText || q.userAnswer || '未解答';
+                  }
+
+                  return (
+                    <div key={idx} className="p-4 rounded-lg border bg-muted/10 space-y-3">
+                      <div className="flex items-start justify-between gap-4 border-b pb-2">
+                        <div className="space-y-1">
+                          <span className="text-xs font-semibold text-muted-foreground">第 {idx + 1} 問</span>
+                          <p className="font-medium text-sm">{questionText}</p>
+                        </div>
+                        <Badge variant={q.isCorrect ? 'default' : 'destructive'} className="shrink-0">
+                          {q.isCorrect ? '正解' : '不正解'}
+                        </Badge>
                       </div>
-                      <Badge variant={q.isCorrect ? 'default' : 'destructive'} className="shrink-0">
-                        {q.isCorrect ? '正解' : '不正解'}
-                      </Badge>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                        <div>
+                          <span className="text-muted-foreground block mb-0.5">あなたの解答:</span>
+                          <span className="font-semibold">{userAnswerText}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block mb-0.5">正解:</span>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{correctAnswer}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-2">
+                          <TimeIcon className="size-3 text-muted-foreground" />
+                          <span>解答時間: {q.elapsedSeconds || 0} 秒</span>
+                        </div>
+                        <div className="mt-2">
+                          <span>ヒント使用: </span>
+                          <span className="font-semibold">{q.hintsUsedCount > 0 ? 'あり' : 'なし'}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
-                      <div>
-                        <span className="text-muted-foreground block mb-0.5">あなたの解答:</span>
-                        <span className="font-semibold">{q.userAnswer || '未解答'}</span>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground block mb-0.5">正解:</span>
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">{q.correctAnswer}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-2">
-                        <TimeIcon className="size-3 text-muted-foreground" />
-                        <span>解答時間: {q.elapsedSeconds || 0} 秒</span>
-                      </div>
-                      <div className="mt-2">
-                        <span>ヒント使用: </span>
-                        <span className="font-semibold">{q.usedHint ? 'あり' : 'なし'}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -199,7 +226,7 @@ export function PlayerDrilldown({ filters, onBack, genreLabelById }: PlayerDrill
                     </thead>
                     <tbody className="divide-y">
                       {history.map((h) => (
-                        <tr key={h.id} className="hover:bg-muted/50 transition-colors">
+                        <tr key={h.attemptId} className="hover:bg-muted/50 transition-colors">
                           <td className="py-4 pr-3 font-medium truncate max-w-[200px]" title={h.quizTitle}>
                             {h.quizTitle}
                           </td>
@@ -218,7 +245,7 @@ export function PlayerDrilldown({ filters, onBack, genreLabelById }: PlayerDrill
                             {new Date(h.completedAt).toLocaleString('ja-JP')}
                           </td>
                           <td className="py-4 text-right">
-                            <Button variant="ghost" size="sm" onClick={() => handleSelectAttempt(h)} data-testid={`view-detail-btn-${h.id}`}>
+                            <Button variant="ghost" size="sm" onClick={() => handleSelectAttempt(h)} data-testid={`view-detail-btn-${h.attemptId}`}>
                               詳細
                             </Button>
                           </td>

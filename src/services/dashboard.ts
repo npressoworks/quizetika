@@ -20,10 +20,10 @@ export async function getPlayerDashboardStats(
 ): Promise<PlayerDashboardStats> {
   const { data, error } = await supabase.rpc('get_player_dashboard_stats', {
     p_period: filter.period,
-    p_genre_id: filter.genreId || null,
-    p_tag: filter.tag || null,
-    p_question_type: filter.questionType || null,
-    p_mode: filter.mode || null,
+    p_genre_id: filter.genreId || undefined,
+    p_tag: filter.tag || undefined,
+    p_question_type: filter.questionType || undefined,
+    p_mode: filter.mode || undefined,
   });
 
   if (error) {
@@ -31,7 +31,7 @@ export async function getPlayerDashboardStats(
     throw new Error(`統計情報の取得に失敗しました: ${error.message}`);
   }
 
-  return data as PlayerDashboardStats;
+  return data as unknown as PlayerDashboardStats;
 }
 
 /**
@@ -44,11 +44,11 @@ export async function getPlayerDrilldownHistory(
 ): Promise<PlayHistoryPage> {
   const { data, error } = await supabase.rpc('get_player_drilldown_history', {
     p_period: filter.period,
-    p_genre_id: filter.genreId || null,
-    p_tag: filter.tag || null,
-    p_question_type: filter.questionType || null,
-    p_mode: filter.mode || null,
-    p_cursor: cursor || null,
+    p_genre_id: filter.genreId || undefined,
+    p_tag: filter.tag || undefined,
+    p_question_type: filter.questionType || undefined,
+    p_mode: filter.mode || undefined,
+    p_cursor: cursor || undefined,
     p_limit: limit || 20,
   });
 
@@ -57,7 +57,7 @@ export async function getPlayerDrilldownHistory(
     throw new Error(`履歴の取得に失敗しました: ${error.message}`);
   }
 
-  return data as PlayHistoryPage;
+  return data as unknown as PlayHistoryPage;
 }
 
 /**
@@ -83,20 +83,20 @@ export async function getAttemptDetail(
   }
 
   const summary: PlayHistoryEntry = {
-    id: data.id,
+    attemptId: data.id,
     quizId: data.quiz_id,
     quizTitle: (data.quizzes as any)?.title || '不明なクイズ',
     score: data.score,
     totalQuestions: data.total_questions,
     mode: data.mode as any,
-    completedAt: data.completed_at || '',
+    completedAt: new Date(data.completed_at || 0),
     elapsedSeconds: Number(data.elapsed_seconds || 0),
   };
 
   const detailsRaw = data.question_answer_details;
   let details: QuestionAnswerDetail[] | null = null;
   if (Array.isArray(detailsRaw) && detailsRaw.length > 0) {
-    details = detailsRaw as QuestionAnswerDetail[];
+    details = detailsRaw as unknown as QuestionAnswerDetail[];
   }
 
   return { summary, details };
@@ -110,9 +110,9 @@ export async function getCreatorDashboardStats(
 ): Promise<CreatorDashboardStats> {
   const { data, error } = await supabase.rpc('get_creator_dashboard_stats', {
     p_period: filter.period,
-    p_genre_id: filter.genreId || null,
-    p_format: filter.format || null,
-    p_visibility: filter.visibility || null,
+    p_genre_id: filter.genreId || undefined,
+    p_format: filter.format || undefined,
+    p_visibility: filter.visibility || undefined,
   });
 
   if (error) {
@@ -120,7 +120,7 @@ export async function getCreatorDashboardStats(
     throw new Error(`クリエイター統計情報の取得に失敗しました: ${error.message}`);
   }
 
-  return data as CreatorDashboardStats;
+  return data as unknown as CreatorDashboardStats;
 }
 
 /**
@@ -140,5 +140,5 @@ export async function getCreatorQuizAnalysis(
     throw new Error(`クイズ分析データの取得に失敗しました: ${error.message}`);
   }
 
-  return data as QuizAnalysis;
+  return data as unknown as QuizAnalysis;
 }

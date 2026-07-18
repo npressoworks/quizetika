@@ -144,7 +144,7 @@ export async function saveAttempt(
   // ───────────────────────────────────────────────────────────────
 
   const { data: savedAttemptId, error } = await supabase.rpc('handle_save_attempt', {
-    p_attempt_id: attemptId || null,
+    p_attempt_id: attemptId || undefined,
     p_user_id: attemptData.userId,
     p_quiz_id: attemptData.quizId,
     p_mode: attemptData.mode,

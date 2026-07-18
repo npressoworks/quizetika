@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { getPlayerDashboardStats, getPlayerDrilldownHistory } from '@/services/dashboard';
-import { PlayerDashboardStats, PlayHistoryPage } from '@/types/dashboard';
+import { PlayerDashboardStats } from '@/types/dashboard';
+import { PlayHistoryPage } from '@/types';
 import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
 import { Button } from '@/components/ui/button';
@@ -169,7 +170,7 @@ export function PlayerDashboardClient() {
         </div>
       ) : (
         <PlayerDrilldown
-          filters={filters}
+          filters={filters as any}
           onBack={() => setViewState('summary')}
           genreLabelById={genreLabelById}
         />

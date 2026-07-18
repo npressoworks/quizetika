@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnalyticsChart } from '@/components/charts/analytics-chart';
 import { SelectionPie } from '@/components/charts/selection-pie';
-import { Quiz, FeedbackReport } from '@/types';
-import { PlayerDashboardStats, PlayHistoryEntry } from '@/types/dashboard';
+import { Quiz, FeedbackReport, PlayHistoryEntry } from '@/types';
+import { PlayerDashboardStats } from '@/types/dashboard';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -637,7 +637,7 @@ export function PlayerRecentPlayHistorySection({
               </thead>
               <tbody className="divide-y">
                 {history.map((h) => (
-                  <tr key={h.id} className="hover:bg-muted/50 transition-colors">
+                  <tr key={h.attemptId} className="hover:bg-muted/50 transition-colors">
                     <td className="py-4 pr-3 font-medium truncate max-w-[200px]" title={h.quizTitle}>
                       {h.quizTitle}
                     </td>
