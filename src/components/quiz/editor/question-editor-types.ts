@@ -1,5 +1,5 @@
 import type { QuizPublishValidationError } from '@/services/quiz-validation';
-import type { Question, FeedbackReport } from '@/types';
+import type { Question, FeedbackReport, TextInputMode } from '@/types';
 import type { QuizFormat } from '@/lib/quiz-format';
 
 export type QuestionType =
@@ -25,7 +25,7 @@ export interface QuestionEditorHandlers {
   onTextAnswerChange: (qIdx: number, aIdx: number, text: string) => void;
   onAddTextAnswer: (qIdx: number) => void;
   onRemoveTextAnswer: (qIdx: number, aIdx: number) => void;
-  onTextInputModeChange: (qIdx: number, mode: 'text' | 'numeric' | 'char-count') => void;
+  onTextInputModeChange: (qIdx: number, mode: TextInputMode) => void;
   onTextInputCharCountChange: (qIdx: number, value: string) => void;
   onSortingItemTextChange: (qIdx: number, itemIdx: number, text: string) => void;
   onAddSortingItem: (qIdx: number) => void;

@@ -23,7 +23,7 @@ import {
   MAX_MULTIPLE_CHOICE_COUNT,
   MIN_MULTIPLE_CHOICE_COUNT,
 } from '@/services/quiz-choice-utils';
-import { Quiz, Question } from '@/types';
+import { Quiz, Question, TextInputMode } from '@/types';
 import { editorClasses as styles } from '@/components/quiz/editor/quiz-editor-classes';
 import { AddOutlined, WarningAmberOutlined, ArrowBackOutlined, AutoAwesomeOutlined, UnfoldMoreOutlined } from '@mui/icons-material';
 import { reindexCorrectOrder } from '@/components/sorting/sortable-sorting-list';
@@ -768,19 +768,12 @@ export const QuizEditorContent: React.FC<QuizEditorProps> = ({
     }
   };
 
-  const handleTextInputModeChange = (qIdx: number, mode: 'text' | 'numeric' | 'char-count') => {
+  const handleTextInputModeChange = (qIdx: number, mode: TextInputMode) => {
     const nextQuestions = [...questions];
-    if (mode === 'text') {
+    if (mode === 'free') {
       nextQuestions[qIdx].textInputMode = undefined;
-      nextQuestions[qIdx].textInputCharCount = undefined;
     } else {
       nextQuestions[qIdx].textInputMode = mode;
-      if (mode === 'char-count' && nextQuestions[qIdx].textInputCharCount == null) {
-        nextQuestions[qIdx].textInputCharCount = 4;
-      }
-      if (mode !== 'char-count') {
-        nextQuestions[qIdx].textInputCharCount = undefined;
-      }
       if (mode === 'numeric') {
         const list = nextQuestions[qIdx].correctTextAnswerList ?? [];
         if (list.length === 1 && list[0] === '正解テキスト') {

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AddOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
-import { getTextInputFieldProps, normalizeTextAnswer } from '@/services/text-answer-utils';
+import { getTextInputFieldProps, normalizeTextAnswer, resolveTextInputMode } from '@/services/text-answer-utils';
 import { filterValidationErrors } from '@/services/quiz-validation';
 import { FieldValidationMessages } from '@/components/quiz/editor/quiz-editor-validation';
 import { editorClasses } from '@/components/quiz/editor/quiz-editor-classes';
@@ -11,7 +11,7 @@ import type { QuestionTypeEditorProps } from '@/components/quiz/editor/question-
 export function TextInputEditor({ qIdx, question, validationErrors, handlers }: QuestionTypeEditorProps) {
   if (!question.correctTextAnswerList) return null;
 
-  const textInputMode = question.textInputMode ?? 'text';
+  const textInputMode = resolveTextInputMode(question);
 
   return (
     <div className={editorClasses.textAnswersContainer}>

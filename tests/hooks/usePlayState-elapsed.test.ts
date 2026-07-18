@@ -36,7 +36,7 @@ const baseQuestion: Question = {
   choices: undefined,
   sortingItems: undefined,
   limitTime: null,
-  textInputMode: 'text',
+  textInputMode: undefined,
   textInputCharCount: undefined,
   truthKeywords: undefined,
   aiContextDetails: undefined,

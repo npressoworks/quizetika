@@ -365,7 +365,7 @@ describe('validateQuizForPublish', () => {
         type: 'text-input',
         choices: undefined,
         correctTextAnswerList: ['abc', 'abcd'],
-        textInputMode: 'char-count',
+        textInputMode: 'free',
         textInputCharCount: 4,
       });
       const quiz = makeQuiz({ questions: [question] });
@@ -383,7 +383,7 @@ describe('validateQuizForPublish', () => {
         type: 'text-input',
         choices: undefined,
         correctTextAnswerList: ['abcd', 'ＡＢＣＤ'],
-        textInputMode: 'char-count',
+        textInputMode: 'free',
         textInputCharCount: 4,
       });
       const quiz = makeQuiz({ questions: [question] });
