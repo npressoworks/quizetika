@@ -4,13 +4,16 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnalyticsChart } from '@/components/charts/analytics-chart';
 import { SelectionPie } from '@/components/charts/selection-pie';
-import { Quiz, FeedbackReport, PlayHistoryEntry } from '@/types';
+import { Quiz, FeedbackReport } from '@/types';
+import { PlayerDashboardStats, PlayHistoryEntry } from '@/types/dashboard';
+import { useActiveGenres } from '@/hooks/useActiveGenres';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WordCloud } from '@/components/charts/word-cloud';
-import type { WordCloudItem } from '@/lib/word-cloud';
+import { TrendChart } from '@/components/charts/trend-chart';
+import { buildKeywordCloudFromTitleStats, type WordCloudItem } from '@/lib/word-cloud';
 import { cn } from '@/lib/utils';
 import {
   PlayArrowOutlined as PlayIcon,
@@ -29,7 +32,6 @@ import {
   CheckOutlined as CheckIcon,
   CloudOutlined as CloudIcon,
 } from '@mui/icons-material';
-import type { PlayerStats } from '@/lib/player-stats';
 
 const playsTrendData = [
   { label: '5/23', value: 12 },
@@ -286,12 +288,14 @@ const modeLabels: Record<string, string> = {
 };
 
 // 1. PlayerStatsGridSection
-export function PlayerStatsGridSection({ stats }: { stats: PlayerStats }) {
+export function PlayerStatsGridSection({ stats }: { stats: PlayerDashboardStats }) {
   const items = [
-    { icon: PlayIcon, label: '累計プレイ数', value: `${stats.totalPlays} 回`, variant: 'primary' as const },
-    { icon: StarIcon, label: '平均正解率', value: `${stats.averageAccuracy}%`, variant: 'warning' as const },
-    { icon: TimeIcon, label: '平均解答時間', value: `${stats.averageTime} 秒`, variant: 'info' as const },
-    { icon: FileTextIcon, label: 'プレイ済クイズ数', value: `${stats.uniqueQuizzesCount} 個`, variant: 'accent' as const },
+    { icon: PlayIcon, label: '累計プレイ数', value: `${stats.kpi.totalPlays} 回`, variant: 'primary' as const },
+    { icon: StarIcon, label: '平均正解率', value: `${stats.kpi.averageAccuracy}%`, variant: 'warning' as const },
+    { icon: TimeIcon, label: '平均解答時間', value: `${stats.kpi.averageTimeSeconds} 秒`, variant: 'info' as const },
+    { icon: FileTextIcon, label: '合計プレイ時間', value: `${Math.round(stats.kpi.totalTimeSeconds / 60)} 分`, variant: 'info' as const },
+    { icon: FileTextIcon, label: 'プレイ済クイズ数', value: `${stats.kpi.uniqueQuizCount} 個`, variant: 'accent' as const },
+    { icon: TrendingUpIcon, label: '継続プレイ日数', value: `${stats.kpi.streakDays} 日`, variant: 'primary' as const },
   ];
 
   return (
@@ -322,11 +326,16 @@ export function PlayerStatsGridSection({ stats }: { stats: PlayerStats }) {
 }
 
 // 2. PlayerChartsSection
-export function PlayerChartsSection({ stats }: { stats: PlayerStats }) {
-  const modePieData = stats.modeDistribution.map((item) => ({
-    label: item.label,
-    count: item.count,
+export function PlayerChartsSection({ stats }: { stats: PlayerDashboardStats }) {
+  const modePieData = stats.modeBreakdown.map((item) => ({
+    label: modeLabels[item.key] || item.key,
+    count: item.plays,
   }));
+
+  const trendSeries = [
+    { dataKey: 'plays', label: 'プレイ回数', color: 'var(--chart-1)', unit: '回' },
+    { dataKey: 'accuracy', label: '平均正答率', color: 'var(--chart-2)', yAxisId: 'right' as const, unit: '%' },
+  ];
 
   return (
     <div
@@ -336,10 +345,10 @@ export function PlayerChartsSection({ stats }: { stats: PlayerStats }) {
       <Card>
         <CardHeader className="flex flex-row items-center gap-2 pb-2">
           <TrendingUpIcon className="size-5 text-primary" />
-          <CardTitle className="text-base">プレイトレンド (直近7日間)</CardTitle>
+          <CardTitle className="text-base">プレイトレンド</CardTitle>
         </CardHeader>
         <CardContent>
-          <AnalyticsChart data={stats.dailyPlayCounts} title="日別プレイ数" color="primary" />
+          <TrendChart data={stats.trend} series={trendSeries} />
         </CardContent>
       </Card>
       <Card>
@@ -361,14 +370,58 @@ export function PlayerChartsSection({ stats }: { stats: PlayerStats }) {
   );
 }
 
+// 2.5 PlayerFormatAnalysisSection
+export function PlayerFormatAnalysisSection({ stats }: { stats: PlayerDashboardStats }) {
+  const formatLabels: Record<string, string> = {
+    'multiple-choice': '選択式',
+    'write-in': '短答式',
+    'true-false': '〇✕問題',
+  };
+
+  return (
+    <Card data-testid="player-format-analysis">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileTextIcon className="size-5" /> 設問形式別パフォーマンス
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {stats.formatBreakdown.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-6 text-center">データがありません。</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {stats.formatBreakdown.map((f) => {
+              const label = formatLabels[f.key] || f.key;
+              return (
+                <div key={f.key} className="p-4 rounded-lg border bg-muted/20 flex flex-col justify-between gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-sm">{label}</span>
+                    <span className="text-xs text-muted-foreground">{f.plays}回</span>
+                  </div>
+                  <div className="flex items-baseline gap-1 mt-1">
+                    <span className="text-2xl font-bold text-primary">{f.accuracy}%</span>
+                    <span className="text-xs text-muted-foreground">正答率</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // 3. PlayerGenreTagAnalysisSection
 export function PlayerGenreTagAnalysisSection({
   stats,
   genreLabelById,
 }: {
-  stats: PlayerStats;
+  stats: PlayerDashboardStats;
   genreLabelById: Map<string, string>;
 }) {
+  const { genres = [] } = useActiveGenres();
+
   return (
     <div
       className="grid grid-cols-1 gap-6 lg:grid-cols-2"
@@ -384,13 +437,13 @@ export function PlayerGenreTagAnalysisSection({
             <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-primary">
               <CategoryIcon className="size-4" /> よくプレイするジャンル
             </h4>
-            {stats.frequentGenres.length === 0 ? (
+            {stats.genreBreakdown.length === 0 ? (
               <p className="text-sm text-muted-foreground">データがありません</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {stats.frequentGenres.map((g) => (
-                  <Badge key={g.genreId} variant="secondary" className="px-3 py-1 text-xs">
-                    {genreLabelById.get(g.genreId) || g.genreId} ({g.count}回)
+                {stats.genreBreakdown.slice(0, 5).map((g) => (
+                  <Badge key={g.key} variant="secondary" className="px-3 py-1 text-xs">
+                    {genreLabelById.get(g.key) || g.key} ({g.plays}回)
                   </Badge>
                 ))}
               </div>
@@ -400,13 +453,13 @@ export function PlayerGenreTagAnalysisSection({
             <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-chart-2">
               <TagIcon className="size-4" /> よくプレイするタグ
             </h4>
-            {stats.frequentTags.length === 0 ? (
+            {stats.tagBreakdown.length === 0 ? (
               <p className="text-sm text-muted-foreground">データがありません</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {stats.frequentTags.map((t) => (
-                  <Badge key={t.tagName} variant="outline" className="px-3 py-1 text-xs">
-                    #{t.tagName} ({t.count}回)
+                {stats.tagBreakdown.slice(0, 5).map((t) => (
+                  <Badge key={t.key} variant="outline" className="px-3 py-1 text-xs">
+                    #{t.key} ({t.plays}回)
                   </Badge>
                 ))}
               </div>
@@ -415,51 +468,71 @@ export function PlayerGenreTagAnalysisSection({
         </CardContent>
       </Card>
 
-      {/* 得意（正答率）分析 */}
+      {/* 得意・苦手（正答率）分析 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">得意なジャンル & タグ (プレイ3回以上)</CardTitle>
+          <CardTitle className="text-base">得意・苦手分析 (プレイ3回以上)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div>
-            <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-amber-500">
-              <StarIcon className="size-4" /> 得意なジャンル
-            </h4>
-            {stats.accurateGenres.length === 0 ? (
-              <p className="text-sm text-muted-foreground">条件に合うジャンルがありません</p>
-            ) : (
-              <div className="space-y-2">
-                {stats.accurateGenres.map((g) => (
-                  <div key={g.genreId} className="flex items-center justify-between text-sm border-b pb-1 last:border-0 last:pb-0">
-                    <span className="font-medium">{genreLabelById.get(g.genreId) || g.genreId}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">({g.count}回プレイ)</span>
-                      <span className="font-bold text-primary">{g.accuracy}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div>
-            <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-indigo-500">
-              <TagIcon className="size-4" /> 得意なタグ
-            </h4>
-            {stats.accurateTags.length === 0 ? (
-              <p className="text-sm text-muted-foreground">条件に合うタグがありません</p>
-            ) : (
-              <div className="space-y-2">
-                {stats.accurateTags.map((t) => (
-                  <div key={t.tagName} className="flex items-center justify-between text-sm border-b pb-1 last:border-0 last:pb-0">
-                    <span className="font-medium">#{t.tagName}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">({t.count}回プレイ)</span>
-                      <span className="font-bold text-chart-2">{t.accuracy}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <StarIcon className="size-4" /> 得意ジャンル/タグ
+              </h4>
+              {stats.strengths.length === 0 ? (
+                <p className="text-sm text-muted-foreground">データがありません</p>
+              ) : (
+                <div className="space-y-2">
+                  {stats.strengths.map((item) => {
+                    const isTag = !genreLabelById.has(item.key) && !genres.some((g) => g.id === item.key);
+                    const label = isTag ? `#${item.key}` : (genreLabelById.get(item.key) || item.key);
+                    return (
+                      <div key={item.key} className="flex items-center justify-between text-sm border-b pb-1 last:border-0 last:pb-0">
+                        <span className="font-medium truncate max-w-[120px]" title={label}>{label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">({item.plays}回)</span>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400">{item.accuracy}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h4 className="mb-3 text-sm font-semibold flex items-center gap-2 text-red-600 dark:text-red-400">
+                <AlertCircleIcon className="size-4" /> 苦手ジャンル/タグ
+              </h4>
+              {stats.weaknesses.length === 0 ? (
+                <p className="text-sm text-muted-foreground">データがありません</p>
+              ) : (
+                <div className="space-y-2">
+                  {stats.weaknesses.map((item) => {
+                    const isTag = !genreLabelById.has(item.key) && !genres.some((g) => g.id === item.key);
+                    const label = isTag ? `#${item.key}` : (genreLabelById.get(item.key) || item.key);
+                    const exploreUrl = isTag
+                      ? `/tags/${encodeURIComponent(item.key)}`
+                      : `/genres/${encodeURIComponent(item.key)}`;
+                    return (
+                      <div key={item.key} className="flex items-center justify-between text-sm border-b pb-1 last:border-0 last:pb-0">
+                        <a
+                          href={exploreUrl}
+                          className="font-medium text-red-600 dark:text-red-400 hover:underline truncate max-w-[100px]"
+                          title={`${label}を探索する`}
+                        >
+                          {label}
+                        </a>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">({item.plays}回)</span>
+                          <span className="font-bold text-red-600 dark:text-red-400">{item.accuracy}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -489,7 +562,15 @@ function WordCloudTabContent({ items }: { items: WordCloudItem[] }) {
   return <WordCloud items={items} />;
 }
 
-export function PlayerWordCloudSection({ stats }: { stats: PlayerStats }) {
+export function PlayerWordCloudSection({ stats }: { stats: PlayerDashboardStats }) {
+  const tagsData = stats.tagCloud.map((t) => ({
+    text: t.text,
+    count: t.plays,
+    accuracy: t.total > 0 ? Math.round((t.correct / t.total) * 100) : 0,
+  }));
+
+  const keywordsData = buildKeywordCloudFromTitleStats(stats.titleStats);
+
   return (
     <Card data-testid="player-word-cloud">
       <CardHeader className="flex flex-row items-center gap-2 pb-2">
@@ -503,13 +584,12 @@ export function PlayerWordCloudSection({ stats }: { stats: PlayerStats }) {
             <TabsTrigger value="keywords">キーワード</TabsTrigger>
           </TabsList>
           <TabsContent value="tags">
-            <WordCloudTabContent items={stats.tagCloud} />
+            <WordCloudTabContent items={tagsData} />
           </TabsContent>
           <TabsContent value="keywords">
-            <WordCloudTabContent items={stats.keywordCloud} />
+            <WordCloudTabContent items={keywordsData} />
           </TabsContent>
         </Tabs>
-        {/* 色凡例 (要件 20.12) */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {wordCloudLegendItems.map((item) => (
             <span key={item.label} className="flex items-center gap-1">
@@ -557,7 +637,7 @@ export function PlayerRecentPlayHistorySection({
               </thead>
               <tbody className="divide-y">
                 {history.map((h) => (
-                  <tr key={h.attemptId} className="hover:bg-muted/50 transition-colors">
+                  <tr key={h.id} className="hover:bg-muted/50 transition-colors">
                     <td className="py-4 pr-3 font-medium truncate max-w-[200px]" title={h.quizTitle}>
                       {h.quizTitle}
                     </td>

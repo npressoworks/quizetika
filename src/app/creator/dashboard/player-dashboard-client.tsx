@@ -1,31 +1,68 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { listUserPlayHistory } from '@/services/attempt';
-import { getQuiz } from '@/services/quiz';
-import { computePlayerStats, type PlayerStats } from '@/lib/player-stats';
 import { useActiveGenres } from '@/hooks/useActiveGenres';
-import { PlayHistoryEntry } from '@/types';
+import { getPlayerDashboardStats, getPlayerDrilldownHistory } from '@/services/dashboard';
+import { PlayerDashboardStats, PlayHistoryPage } from '@/types/dashboard';
 import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
+import { Button } from '@/components/ui/button';
+import { useDashboardFilters } from './use-dashboard-filters';
+import { DashboardFilterBar } from './dashboard-filter-bar';
 import {
   PlayerStatsGridSection,
   PlayerChartsSection,
   PlayerWordCloudSection,
   PlayerGenreTagAnalysisSection,
   PlayerRecentPlayHistorySection,
+  PlayerFormatAnalysisSection,
 } from './dashboard-sections';
+import { PlayerDrilldown } from './player-drilldown';
 
 export function PlayerDashboardClient() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const { genres, loading: genresLoading, genreLabelById } = useActiveGenres();
+  const { genreLabelById, loading: genresLoading } = useActiveGenres();
 
-  const [history, setHistory] = useState<PlayHistoryEntry[] | null>(null);
-  const [stats, setStats] = useState<PlayerStats | null>(null);
+  const { filters, setFilters, reset } = useDashboardFilters('30d');
+
+  const [stats, setStats] = useState<PlayerDashboardStats | null>(null);
+  const [historyPage, setHistoryPage] = useState<PlayHistoryPage | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [viewState, setViewState] = useState<'summary' | 'drilldown'>('summary');
+
+  const requestIdRef = useRef(0);
+
+  const loadData = useCallback(async (currentFilters: any) => {
+    if (!user) return;
+    
+    const reqId = ++requestIdRef.current;
+    setLoadingData(true);
+    setError(null);
+
+    try {
+      const [statsData, historyData] = await Promise.all([
+        getPlayerDashboardStats(currentFilters),
+        getPlayerDrilldownHistory(currentFilters, undefined, 5),
+      ]);
+
+      if (reqId !== requestIdRef.current) return;
+
+      setStats(statsData);
+      setHistoryPage(historyData);
+    } catch (err: any) {
+      if (reqId !== requestIdRef.current) return;
+      console.error('[PlayerDashboardClient] データ取得失敗:', err);
+      setError(err.message || 'データの取得に失敗しました');
+    } finally {
+      if (reqId === requestIdRef.current) {
+        setLoadingData(false);
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -34,88 +71,109 @@ export function PlayerDashboardClient() {
       return;
     }
 
-    let cancelled = false;
+    loadData(filters);
+  }, [user, authLoading, filters, loadData, router]);
 
-    const load = async () => {
-      try {
-        setLoadingData(true);
-        // 直近最大 100 件の完了済みプレイ履歴を取得
-        const page = await listUserPlayHistory({ uid: user.id, limit: 100 });
-        if (cancelled) return;
+  const handleFiltersChange = (newFilters: any) => {
+    setFilters(newFilters);
+    setViewState('summary');
+  };
 
-        const items = page.items || [];
-        setHistory(items);
+  const handleResetFilters = () => {
+    reset();
+    setViewState('summary');
+  };
 
-        // ユニークなクイズIDを抽出してクイズメタデータをバッチロード
-        const quizIds = [...new Set(items.map((entry) => entry.quizId).filter(Boolean))];
-        const quizMap = new Map<string, { genre: string; tags: string[]; title: string }>();
+  const handleRetry = () => {
+    loadData(filters);
+  };
 
-        if (quizIds.length > 0) {
-          const quizzes = await Promise.all(quizIds.map((id) => getQuiz(id)));
-          if (cancelled) return;
+  const isSkeleton = authLoading || genresLoading || (loadingData && !stats);
 
-          quizzes.forEach((quiz, idx) => {
-            if (quiz) {
-              quizMap.set(quizIds[idx], {
-                genre: quiz.genre || '',
-                tags: quiz.tags || [],
-                title: quiz.title || '',
-              });
-            }
-          });
-        }
-
-        // 統計情報の集計
-        const computed = computePlayerStats(items, quizMap);
-        if (!cancelled) {
-          setStats(computed);
-        }
-      } catch (err) {
-        console.error('[PlayerDashboardClient] データ取得失敗:', err);
-        if (!cancelled) {
-          setHistory([]);
-          setStats(computePlayerStats([], new Map()));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingData(false);
-        }
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, authLoading, router]);
-
-  const isLoading = authLoading || genresLoading || loadingData || !stats || !history;
-
-  if (isLoading) {
+  if (isSkeleton) {
     return (
-      <div className="space-y-10" data-testid="player-skeleton">
+      <div className="space-y-6" data-testid="player-skeleton">
         <StatsSkeleton />
         <ChartsSkeleton />
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div data-testid="player-error" className="p-6 rounded-xl border border-destructive bg-destructive/10 text-center">
+        <p className="text-destructive font-medium mb-4">{error}</p>
+        <Button onClick={handleRetry}>再試行</Button>
+      </div>
+    );
+  }
+
+  if (!stats || !historyPage) {
+    return null;
+  }
+
+  if (stats.kpi.totalPlays === 0) {
+    return (
+      <div className="space-y-6">
+        <DashboardFilterBar
+          filters={filters}
+          onChange={handleFiltersChange}
+          onReset={handleResetFilters}
+          type="player"
+        />
+        <div data-testid="player-empty" className="p-12 rounded-xl border border-dashed text-center">
+          <p className="text-muted-foreground">対象期間のプレイデータがありません。</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-10">
-      {/* 基本統計グリッド */}
-      <PlayerStatsGridSection stats={stats} />
+    <div className="space-y-6">
+      <DashboardFilterBar
+        filters={filters}
+        onChange={handleFiltersChange}
+        onReset={handleResetFilters}
+        type="player"
+      />
 
-      {/* プレイトレンド & モード割合グラフ */}
-      <PlayerChartsSection stats={stats} />
+      {loadingData && (
+        <div className="text-xs text-muted-foreground animate-pulse mb-2">
+          最新データを読み込み中...
+        </div>
+      )}
 
-      {/* プレイ傾向ワードクラウド (タグ / タイトルキーワード) */}
-      <PlayerWordCloudSection stats={stats} />
-
-      {/* ジャンル・タグの頻度・正答率分析 */}
-      <PlayerGenreTagAnalysisSection stats={stats} genreLabelById={genreLabelById} />
-
-      {/* 最近のプレイ履歴 (直近5件) */}
-      <PlayerRecentPlayHistorySection history={history.slice(0, 5)} genreLabelById={genreLabelById} />
+      {viewState === 'summary' ? (
+        <div className="space-y-10">
+          <PlayerStatsGridSection stats={stats} />
+          <PlayerChartsSection stats={stats} />
+          <PlayerFormatAnalysisSection stats={stats} />
+          <PlayerWordCloudSection stats={stats} />
+          <PlayerGenreTagAnalysisSection stats={stats} genreLabelById={genreLabelById} />
+          <div className="flex flex-col gap-4">
+            <PlayerRecentPlayHistorySection
+              history={historyPage.items}
+              genreLabelById={genreLabelById}
+            />
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewState('drilldown')}
+                data-testid="show-drilldown-btn"
+              >
+                詳細なプレイ履歴を表示
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <PlayerDrilldown
+          filters={filters}
+          onBack={() => setViewState('summary')}
+          genreLabelById={genreLabelById}
+        />
+      )}
     </div>
   );
 }

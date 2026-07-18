@@ -1,4 +1,5 @@
-import { extractTitleKeywords, WordCloudItem } from '@/lib/word-cloud';
+/** @jest-environment jsdom */
+import { extractTitleKeywords, WordCloudItem, buildKeywordCloudFromTitleStats } from '@/lib/word-cloud';
 
 describe('extractTitleKeywords - クイズタイトルからのキーワード抽出', () => {
   describe('ストップワード除外', () => {
@@ -87,3 +88,27 @@ describe('WordCloudItem 型', () => {
     expect(item.accuracy).toBe(80);
   });
 });
+
+describe('buildKeywordCloudFromTitleStats', () => {
+  it('titleStats からキーワードを展開し、プレイ回数・正答率を集計して上位30件を返すこと', () => {
+    const titleStats = [
+      { title: 'JavaScript入門クイズ', plays: 10, correct: 8, total: 10 }, // accuracy = 80
+      { title: 'React入門検定', plays: 5, correct: 2, total: 5 }, // accuracy = 40
+      { title: 'JavaScriptとReact', plays: 2, correct: 2, total: 2 }, // accuracy = 100
+    ];
+
+    const result = buildKeywordCloudFromTitleStats(titleStats);
+
+    // JavaScript: plays = 10+2 = 12, correct = 8+2 = 10, total = 10+2 = 12, accuracy = 83
+    // React: plays = 5+2 = 7, correct = 2+2 = 4, total = 5+2 = 7, accuracy = 57
+    expect(result).toHaveLength(2);
+    expect(result[0].text).toBe('JavaScript');
+    expect(result[0].count).toBe(12);
+    expect(result[0].accuracy).toBe(83);
+
+    expect(result[1].text).toBe('React');
+    expect(result[1].count).toBe(7);
+    expect(result[1].accuracy).toBe(57);
+  });
+});
+

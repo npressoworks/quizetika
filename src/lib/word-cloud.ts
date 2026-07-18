@@ -105,3 +105,36 @@ function isDisplayableKeyword(word: string): boolean {
 
   return true;
 }
+
+/**
+ * クイズタイトル別統計 (titleStats) からキーワードを抽出し、プレイ回数と正答率を集計して
+ * ワードクラウド用の WordCloudItem 配列を生成する。
+ * 1 attempt につき同一語は1回カウント。
+ */
+export function buildKeywordCloudFromTitleStats(
+  titleStats: { title: string; plays: number; correct: number; total: number }[]
+): WordCloudItem[] {
+  const keywordStatsMap = new Map<string, { count: number; correct: number; total: number }>();
+
+  titleStats.forEach((stat) => {
+    if (!stat.title) return;
+    const keywords = extractTitleKeywords(stat.title);
+    keywords.forEach((keyword) => {
+      const current = keywordStatsMap.get(keyword) || { count: 0, correct: 0, total: 0 };
+      current.count += stat.plays;
+      current.correct += stat.correct;
+      current.total += stat.total;
+      keywordStatsMap.set(keyword, current);
+    });
+  });
+
+  return Array.from(keywordStatsMap.entries())
+    .map(([text, s]) => ({
+      text,
+      count: s.count,
+      accuracy: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.text.localeCompare(b.text))
+    .slice(0, 30);
+}
+
