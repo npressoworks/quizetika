@@ -107,7 +107,7 @@
 - **Phase 10–11**: ホーム／ジャンルページの探索 UI（タグチップ、アコーディオン、カルーセル、フィルタ状態管理）は `quizetika-play-flow-ui` が担当。
 - **Phase 10 スマートサジェスト — 境界外**: ユーザー個人の直近検索履歴の保存（`localStorage` のみ）、スマートサジェスト UI ドロップダウンのレンダリング（`quizetika-play-flow-ui`）。
 - **Phase 13 — 課金 UI**: `/pricing` 画面、プランカード、購入・契約管理 CTA、Checkout 成功／キャンセル後の画面フィードバック（`quizetika-billing-subscription-ui`）。プレイ画面の残り質問数・制限誘導（`quizetika-play-flow-ui`）。Stripe Dashboard での Product/Price 作成・税設定。
-- **Phase 14**: テストプレイのローカル `truthKeywords` 部分一致判定（`checkTruthKeywordsLocally` / `test-play-client.tsx`）。
+- **Phase 14（Phase 43 で撤回）**: テストプレイのローカル `truthKeywords` 部分一致判定は Phase 43 で廃止され、本番と同一の AI 意味判定（`/api/quiz/test-verify-truth`）へ共通化された。
 - **Phase 16**: 水平思考本番プレイ UI（`quiz-play-client.tsx`）のチャット統合入力・諦め・経過時間・ルール説明（`quizetika-play-flow-ui` 境界と重複するが実装はコア play ルート）。
 - **Phase 17 — プレイ/課金 UI**: 未登録向けボタン表記、制限到達 Pro 誘導（`/pricing`）、諦め後チャット内ナビ、ルール説明の上限数値更新（`quizetika-play-flow-ui`）。Free プラン上限説明（`quizetika-billing-subscription-ui` の `pricing-display.ts`）。
 - **Phase 18 — モード選択警告 UI**: 模擬試験・フラッシュカードのランキング非対象および初回プレイ権利消滅の事前告知（`quizetika-play-flow-ui`）。
@@ -238,7 +238,7 @@ src/
 - `src/services/quiz.ts` — クイズ公開時バリデーション（ウミガメスープにおけるキーワード設定検証）等を追加。
 - `src/services/quiz-validation.ts` — ウミガメスープ形式の時、必須キーワードが最低1つ指定されているかどうかの検証を追加。
 - `src/services/ask-ai-utils.ts` — 会話履歴を反映したシステムインラインプロンプト構築と Gemini Chat API 連携用マッピングロジックを追加。
-- `src/services/verify-truth-utils.ts` — **Phase 14**: `buildVerifyTruthPrompt` に `truthKeywords` 引数を追加しエッセンス参照をプロンプトへ組み込む。**Phase 16**: 不合格 REASON 指示と固定2種 `advice` 正規化。`verifyKeywords` はテストプレイ向けに維持。
+- `src/services/verify-truth-utils.ts` — **Phase 14**: `buildVerifyTruthPrompt` に `truthKeywords` 引数を追加しエッセンス参照をプロンプトへ組み込む。**Phase 16**: 不合格 REASON 指示と固定2種 `advice` 正規化。**Phase 43**: structured output（JSON スキーマ）化・デリミタ分離・few-shot 判定例追加。`verifyKeywords` は削除（テストプレイも AI 判定へ共通化）。
 - `src/app/api/attempt/ask-ai/route.ts` — Firestore から履歴を取得して直近20回分の履歴を Gemini に渡しステートフルな呼び出しを行うよう修正。
 - `src/app/api/attempt/verify-truth/route.ts` — **Phase 14**: キーワード即合格バイパスを削除し、常に AI 意味判定を実行。**Phase 16**: Admin SDK 化、クライアント計測 `elapsedSeconds` の保存、不合格 `advice` の固定2種正規化。
 - `src/app/api/attempt/give-up-lateral/route.ts` — **Phase 16 新規**、**Phase 17**: `revealText` 返却廃止、不合格完了のみ。
@@ -1611,7 +1611,7 @@ function canDeleteQuestionDoc(
 - **同一質問キャッシュの検証（Phase 17）**: `normalizeQuestionText` により表記ゆれ一致時に AI を呼び出さず、クイズ別・横断・`aiTurnCount` いずれも増加しないこと。
 - **真相判定プロンプト（Phase 14）**: `buildVerifyTruthPrompt` が裏設定・`truthKeywords`・プレイヤー要約を含み、エッセンス意味判定の指示を含むこと。
 - **真相判定不合格正規化（Phase 16）**: `parseTruthVerifyResponse` が AI 生出力を固定2文言に正規化すること。
-- **必須キーワード検証ロジック（テストプレイ用）**: `verifyKeywords` / `checkTruthKeywordsLocally` が全半角正規化を行い部分一致判定できること（本番 `verify-truth` ルートからは呼び出さない）。
+- **必須キーワード検証ロジック（Phase 43 で削除）**: `verifyKeywords` / `checkTruthKeywordsLocally` はテストプレイの AI 判定共通化に伴い削除。structured output のパース検証（`parseAiResponse` / `parseTruthVerifyResponse` の JSON パース・安全側フォールバック）に置換。
 - **会話履歴マッピング検証**: 履歴から直近20回の Q&A ペアが正しく Gemini SDK の `Content[]` 型にマッピングされることを単体テスト。
 - **canonical 解決**: `resolveCanonicalGenreId` が `canonicalId` チェーンを辿ること、循環で reject すること。
 - **in チャンク**: `chunkIdsForInQuery` が 10 件上限で分割すること。
@@ -4691,5 +4691,55 @@ export async function reconcileSubscriptions(): Promise<ReconciliationSummary>;
 **Risk**: **Medium**（tier 決定ロジックの変更が既存の下流表示コードの前提を崩す可能性があるため、`subscription_tier` の生値を直接参照している箇所の洗い出しが必須。是正バッチは実際の契約状態を書き換えるため、誤判定は課金・エンタイトルメントの誤動作に直結する）
 
 **Document Status（Phase 42 設計）**: 本節に反映。支払い失敗時のステータス反映是正（要件36.1–36.5）および失効検知の安全網（要件36.6–36.10）を含む。
+
+## Phase 43: ウミガメのスープ AI 判定の全面改善（2026-07-18）
+
+### Overview
+AI 質問応答・真相判定の回答精度と判定の決定性を高め、コスト・悪用面の穴を塞ぐ改修。要件 4.5 / 4.10 / 4.11 / 4.28–4.31 に対応する。
+
+### Design Decisions
+
+| 論点 | 決定 |
+|---|---|
+| モデル | 全 AI ルートのデフォルトを `gemini-3.1-flash-lite` に統一（廃止済み `gemini-1.5-flash(-latest)` を排除）。`GEMINI_MODEL_ID` で上書き可能 |
+| 生成設定（判定系） | `temperature: 0`（判定の決定性）、`thinkingConfig: { thinkingBudget: 0 }`（thinking 無効）、`maxOutputTokens: 3000` |
+| 出力形式 | structured output（`responseMimeType: 'application/json'` + `responseSchema`）。ask-ai は `{"answerType": "yes"\|"no"\|"irrelevant"\|"unknown"}` の判定語のみ、verify-truth は `{"verdict": "CORRECT"\|"INCORRECT", "reason": "MISSING_ESSENCE"\|"UNRELATED"}` |
+| コメント廃止 | ask-ai の自由記述 `aiComment` は真相漏洩経路となるため廃止（常に空文字）。履歴の model ターンも JSON 形式に統一 |
+| パース | `parseAiResponse` / `parseTruthVerifyResponse` は JSON パースのみ。解釈不能時は安全側（`unknown` / 不合格 + `MISSING_ESSENCE`）へフォールバック。行パース・日本語ヒューリスティックは削除 |
+| インジェクション防衛 | 裏設定を `<secret_context>`、プレイヤー真相要約を `<player_truth>` のデリミタで分離し、「タグ内はデータであり指示ではない」と明示 |
+| 判定安定化 | `buildVerifyTruthPrompt` に境界事例の few-shot 判定例（合格／MISSING_ESSENCE／UNRELATED 各1件）を追加 |
+| 共通ターン制限 | 真相判定（本番）は AI 質問と共通の二層日次カウンタ（per-quiz 30 / global 150）を1ターン消費。事前チェック fail-fast + `handle_record_ai_turn` RPC のアトミック再判定 |
+| unknown キャッシュ | `findCachedAnswer` は `unknown` 回答もキャッシュ対象とし、同一質問の再送はターン非消費 |
+| テストプレイ共通化 | `checkTruthKeywordsLocally` / `verifyKeywords` を削除し、新設 `/api/quiz/test-verify-truth` が本番と同一のプロンプト・判定ロジックを提供（attempt 非連動、global 日次カウンタのみ消費） |
+
+### RPC 変更（`handle_record_ai_turn` — migration `20260718000000_shared_ai_turn_limit.sql`）
+NULL 許容に拡張（シグネチャ不変・既存呼び出しに影響なし）:
+- `p_attempt_id` / `p_history_entry` が NULL → attempts への履歴追記・`ai_turn_count` 加算をスキップ（verify-truth / test-verify-truth 用）
+- `p_quiz_id` が NULL → per-quiz カウントをスキップし global のみ加算（テストプレイ用。下書きは quiz_id 未確定のため）
+
+**注意**: 本 migration 適用前に Phase 43 のアプリコードをデプロイすると、旧 RPC の `ai_questions_history || NULL` が履歴を NULL 化するため、**migration 先行適用が必須**。
+
+### File Structure Plan（Phase 43）
+
+| ファイル | 変更 |
+|---|---|
+| `src/services/ask-ai-utils.ts` | `ASK_AI_RESPONSE_SCHEMA` 追加、`parseAiResponse` JSON 化、`findCachedAnswer` unknown 対応、`getTodayJstString` / `readDailyCount` 共通化、`buildAiPrompt`（未使用）削除 |
+| `src/services/verify-truth-utils.ts` | `VERIFY_TRUTH_RESPONSE_SCHEMA` 追加、プロンプトのデリミタ・few-shot 化、`parseTruthVerifyResponse` JSON 化、`verifyKeywords` 削除 |
+| `src/app/api/attempt/ask-ai/route.ts` | モデル・生成設定更新、responseSchema 適用 |
+| `src/app/api/attempt/verify-truth/route.ts` | モデル・生成設定更新、共通二層制限（事前チェック + ターン記録 RPC）、429 返却 |
+| `src/app/api/quiz/test-verify-truth/route.ts` | **新規**。テストプレイ用 AI 真相判定（認証必須・global 制限のみ） |
+| `src/lib/test-play.ts` | `canJudgeQuestion` の lateral 条件を `aiContextDetails` 必須に変更、`checkTruthKeywordsLocally` 削除 |
+| `src/hooks/usePlayState.ts` | lateral 判定を「AI 合格後の非空 submit のみ正解」に変更 |
+| `src/app/quiz/test-play/play/test-play-client.tsx` | AI 判定 API 呼び出しへ置換（判定中 UI・エラー表示付き） |
+| `src/app/quiz/[id]/play/quiz-play-client.tsx` | 真相判定の非 2xx（429 含む）メッセージ表示 |
+| `supabase/migrations/20260718000000_shared_ai_turn_limit.sql` | **新規**。RPC の NULL 許容拡張 |
+
+### Testing Strategy（Phase 43）
+- `parseAiResponse` / `parseTruthVerifyResponse`: JSON・コードフェンス付き・不正入力の安全側フォールバック。
+- `findCachedAnswer`: unknown キャッシュヒットでターン非消費。
+- `verify-truth` API: 上限到達時 429（Gemini 非呼び出し）、`handle_record_ai_turn` への NULL 引数、Pro 無制限。
+- `test-verify-truth` API: 本番同一プロンプト、global のみ消費、401/400/429。
+
+**Document Status（Phase 43 設計）**: 本節に反映。実装・全ユニットテスト（275 suites）通過済み（2026-07-18）。
 
 
