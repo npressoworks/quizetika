@@ -1,23 +1,28 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { getQuizzesByAuthor } from '@/services/quiz';
 import { getReportsForCreator, resolveReport } from '@/services/review';
+import { getCreatorDashboardStats } from '@/services/dashboard';
 import { Quiz, FeedbackReport } from '@/types';
-import { computeDashboardStats, type DashboardStats } from '@/lib/dashboard-stats';
-import {
-  StatsGridSection,
-  ChartsSection,
-  ManageQuizzesLinkCard,
-  FeedbackSection,
-} from './dashboard-sections';
+import { CreatorDashboardStats } from '@/types/dashboard';
+import { FeedbackSection } from './dashboard-sections';
 import { StatsSkeleton } from '@/components/charts/stats-skeleton';
 import { ChartsSkeleton } from '@/components/charts/charts-skeleton';
 import { FeedbackSkeleton } from '@/components/quiz/feedback-skeleton';
 import { Tabs, UnderlineTabsList, UnderlineTabsTrigger, TabsContent } from '@/components/ui/underline-tabs';
 import { PlayerDashboardClient } from './player-dashboard-client';
+import { useDashboardFilters } from './use-dashboard-filters';
+import { DashboardFilterBar } from './dashboard-filter-bar';
+import { Button } from '@/components/ui/button';
+import {
+  CreatorStatsGridSection,
+  CreatorChartsSection,
+  CreatorQuizRankingSection,
+  CreatorFormatPerformanceSection,
+} from './creator-dashboard-sections';
+import { CreatorQuizAnalysis } from './creator-quiz-analysis';
 
 export function CreatorDashboardClient() {
   return (
@@ -44,10 +49,44 @@ function CreatorDashboardClientInner() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  const [quizzes, setQuizzes] = useState<Quiz[] | null>(null);
+  const { filters, setFilters, reset } = useDashboardFilters('30d');
+
+  const [stats, setStats] = useState<CreatorDashboardStats | null>(null);
   const [feedbacks, setFeedbacks] = useState<FeedbackReport[] | null>(null);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [chartsReady, setChartsReady] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [viewState, setViewState] = useState<'summary' | 'analysis'>('summary');
+  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
+
+  const requestIdRef = useRef(0);
+
+  const loadData = useCallback(async (currentFilters: any) => {
+    if (!user) return;
+    const reqId = ++requestIdRef.current;
+    setLoadingData(true);
+    setError(null);
+
+    try {
+      const [statsData, fbData] = await Promise.all([
+        getCreatorDashboardStats(currentFilters),
+        getReportsForCreator(user.id),
+      ]);
+
+      if (reqId !== requestIdRef.current) return;
+
+      setStats(statsData);
+      setFeedbacks(fbData);
+    } catch (err: any) {
+      if (reqId !== requestIdRef.current) return;
+      console.error('[CreatorDashboardClientInner] データ取得失敗:', err);
+      setError(err.message || 'データの取得に失敗しました');
+    } finally {
+      if (reqId === requestIdRef.current) {
+        setLoadingData(false);
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -56,85 +95,100 @@ function CreatorDashboardClientInner() {
       return;
     }
 
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const userQuizzes = await getQuizzesByAuthor(user.id, true);
-        if (cancelled) return;
-
-        setQuizzes(userQuizzes);
-        setStats(computeDashboardStats(userQuizzes));
-
-        let fbList = await getReportsForCreator(user.id);
-        if (fbList.length === 0 && userQuizzes.length > 0) {
-          fbList.push({
-            id: 'mock_fb_1',
-            quizId: userQuizzes[0].id,
-            quizTitle: userQuizzes[0].title,
-            questionId: userQuizzes[0].questions[0]?.id || 'q1',
-            questionText: userQuizzes[0].questions[0]?.questionText || '第一問の問題文',
-            reporterId: 'user_player',
-            creatorId: user.id,
-            category: 'typo',
-            content: '問題文の「コンポーネント」が「コンポーネト」と誤字になっています。',
-            status: 'open',
-            createdAt: new Date(),
-          });
-        }
-        if (!cancelled) {
-          setFeedbacks(fbList);
-        }
-      } catch (err) {
-        console.error('[CreatorDashboardClientInner] データ取得失敗:', err);
-        if (!cancelled) {
-          setQuizzes([]);
-          setStats(computeDashboardStats([]));
-          setFeedbacks([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setChartsReady(true);
-        }
-      }
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, authLoading, router]);
+    loadData(filters);
+  }, [user, authLoading, filters, loadData, router]);
 
   const handleResolveFeedback = async (reportId: string) => {
     await resolveReport(reportId);
     setFeedbacks((prev) => (prev ? prev.filter((fb) => fb.id !== reportId) : null));
   };
 
-  const dataLoading = authLoading || quizzes === null || stats === null;
+  const handleRetry = () => {
+    loadData(filters);
+  };
+
+  const isSkeleton = authLoading || (loadingData && !stats);
+
+  if (isSkeleton) {
+    return (
+      <div className="space-y-6" data-testid="creator-skeleton">
+        <StatsSkeleton />
+        <ChartsSkeleton />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div data-testid="creator-error" className="p-6 rounded-xl border border-destructive bg-destructive/10 text-center">
+        <p className="text-destructive font-medium mb-4">{error}</p>
+        <Button onClick={handleRetry}>再試行</Button>
+      </div>
+    );
+  }
+
+  if (!stats || feedbacks === null) {
+    return null;
+  }
+
+  if (stats.quizzes.length === 0) {
+    return (
+      <div className="space-y-6">
+        <DashboardFilterBar
+          filters={filters}
+          onChange={setFilters}
+          onReset={reset}
+          type="creator"
+        />
+        <div data-testid="creator-empty" className="p-12 rounded-xl border border-dashed text-center">
+          <p className="text-muted-foreground">作成したクイズがありません。</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      {dataLoading ? (
-        <StatsSkeleton data-testid="stats-skeleton" />
-      ) : (
-        <StatsGridSection stats={stats!} />
+    <div className="space-y-6">
+      <DashboardFilterBar
+        filters={filters}
+        onChange={setFilters}
+        onReset={reset}
+        type="creator"
+      />
+
+      {loadingData && (
+        <div className="text-xs text-muted-foreground animate-pulse mb-2">
+          最新データを読み込み中...
+        </div>
       )}
 
-      {!chartsReady ? (
-        <ChartsSkeleton data-testid="charts-skeleton" />
+      {viewState === 'summary' ? (
+        <div className="space-y-10">
+          <CreatorStatsGridSection stats={stats} />
+          <CreatorChartsSection stats={stats} />
+          <CreatorFormatPerformanceSection stats={stats} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <CreatorQuizRankingSection
+              stats={stats}
+              onQuizSelect={(quizId) => {
+                setSelectedQuizId(quizId);
+                setViewState('analysis');
+              }}
+            />
+            <FeedbackSection
+              feedbacks={feedbacks}
+              quizzes={[]}
+              onResolve={handleResolveFeedback}
+            />
+          </div>
+        </div>
       ) : (
-        <ChartsSection />
+        <CreatorQuizAnalysis
+          quizId={selectedQuizId!}
+          period={filters.period}
+          onBack={() => setViewState('summary')}
+        />
       )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ManageQuizzesLinkCard />
-
-        {feedbacks === null ? (
-          <FeedbackSkeleton data-testid="feedback-list-skeleton" />
-        ) : (
-          <FeedbackSection feedbacks={feedbacks} quizzes={quizzes ?? []} onResolve={handleResolveFeedback} />
-        )}
-      </div>
-    </>
+    </div>
   );
 }
